@@ -5,7 +5,8 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Add", "$GetMAC", "$GetName", "$Backup", "$Restore", "$Help", "$Cancel"],
+    "#": ["$GetMAC", "$GetName", "$Pad", "$Add", "$Pad", "$Backup", "$Restore", "$Pad",
+        "$Evaluate", "$Pad", "$Help", "$Cancel"],
     
     "$Add": {
         "$ID": "button-add",
@@ -37,6 +38,12 @@
         "#": "$Button"
     },
 
+    "$Evaluate": {
+        "$ID": "button-evaluate",
+        "$Label": "Evaluate RBR",
+        "#": "$Button"
+    },
+
     "$Help": {
         "$ID": "button-help",
         "$Label": "Help",
@@ -47,6 +54,11 @@
         "$ID": "button-cancel",
         "$Label": "Cancel",
         "#": "$Button"
+    },
+
+    "$Pad": {
+        "#element": "div",
+        "height": "1em"
     },
 
     "$Button": {

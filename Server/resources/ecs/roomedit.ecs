@@ -21,6 +21,7 @@
     button EditRelaysButton
     button EditTimesButton
     button HelpButton
+    button SaveButton
     button CancelButton
     button DialogButton1
     button DialogButton2
@@ -49,6 +50,8 @@
     variable Relays
     variable Events
     variable Event
+    variable ThisEvent
+    variable ThatEvent
     variable NewEvents
     variable HourValue
     variable MinuteValue
@@ -72,6 +75,7 @@ Editor:
     attach EditSensorButton to `button-sensor`
     attach EditRelaysButton to `button-relays`
     attach EditTimesButton to `button-times`
+    attach SaveButton to `button-save`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
     
@@ -86,15 +90,13 @@ Editor:
  
     on click EditTimesButton go to TimesButtonCB
     
-    on click CancelButton
-    begin
-        put `OK` into Result
-        exit
-    end
+    on click SaveButton go to ExitWithChanges
+    
+    on click CancelButton go to ExitWithoutChanges
     
     on click HelpButton
     begin
-        put `OK` into Result
+        put `Help home RoomEdit` into Result
         exit
     end
     
@@ -119,16 +121,17 @@ NameButtonCB:
     
     on click DialogButton1
     begin
-        clear DialogPanel
         set property `name` of RoomSpec to the content of DialogInput
-        set element ClickIndex of Rooms to RoomSpec
-        go to ExitWithChanges
+    	set the content of RoomName to property `name` of RoomSpec
+        clear DialogPanel
+!        set element ClickIndex of Rooms to RoomSpec
+!        go to ExitWithChanges
     end
     
     on click DialogButton2
     begin
         clear DialogPanel
-        go to ExitWithoutChanges
+!        go to ExitWithoutChanges
     end
 	stop
 
@@ -151,16 +154,16 @@ SensorButtonCB:
     
     on click DialogButton1
     begin
-        clear DialogPanel
         set property `sensor` of RoomSpec to the content of DialogInput
-        set element ClickIndex of Rooms to RoomSpec
-        go to ExitWithChanges
+        clear DialogPanel
+!        set element ClickIndex of Rooms to RoomSpec
+!        go to ExitWithChanges
     end
     
     on click DialogButton2
     begin
     	clear DialogPanel
-      	go to ExitWithoutChanges
+!      	go to ExitWithoutChanges
         end
 	stop
 
@@ -192,7 +195,6 @@ RelaysButtonCB:
     
     on click DialogButton1
     begin
-        clear DialogPanel
         put `[]` into Relays
         split the content of DialogInput on newline giving Item
         put 0 into R
@@ -203,14 +205,15 @@ RelaysButtonCB:
             add 1 to R
         end
         set property `relays` of RoomSpec to Relays
-        set element ClickIndex of Rooms to RoomSpec
-        go to ExitWithChanges
+        clear DialogPanel
+!        set element ClickIndex of Rooms to RoomSpec
+!        go to ExitWithChanges
     end
     
     on click DialogButton2
     begin
     	clear DialogPanel
-    	go to ExitWithoutChanges
+!    	go to ExitWithoutChanges
         end
 	stop
 
@@ -262,17 +265,26 @@ RedoEvents:
 
         on click PeriodUp
         begin
-         	put the index of PeriodUp into E
-            if E is 0 stop
-           	print `Up`
+         	put the index of PeriodUp into EventIndex
+            put element EventIndex of Events into ThisEvent
+            take 1 from EventIndex
+            put element EventIndex of Events into ThatEvent
+            set element EventIndex of Events to ThisEvent
+            add 1 to EventIndex
+            set element EventIndex of Events to ThatEvent
+            goto RedoEvents
         end
         
         on click PeriodDown
         begin
-          	put the index of PeriodDown into E
-            add 1 to E giving E2
-            if E2 is not less than Count stop
-          	print `Down`
+         	put the index of PeriodDown into EventIndex
+            put element EventIndex of Events into ThisEvent
+            add 1 to EventIndex
+            put element EventIndex of Events into ThatEvent
+            set element EventIndex of Events to ThisEvent
+            take 1 from EventIndex
+            set element EventIndex of Events to ThatEvent
+            goto RedoEvents
         end
         
         on click PeriodEdit
@@ -296,7 +308,6 @@ RedoEvents:
             attach PeriodHelpButton to `period-help`
             put property `until` of Event into Time
             put property `temp` of Event into Temp
-            print Temp
             put the value of left 2 of Time into HourValue
             put the value of right 2 of Time into MinuteValue
             if the position of `.` in Temp is -1 multiply the value of Temp by 10 giving TempValue
@@ -360,16 +371,15 @@ RedoEvents:
                 put Value cat `.` cat TempValue modulo 10 into Value
                 set property `temp` of Event to Value
                 set element EventIndex of Events to Event
-                set property `events` of RoomSpec to Events
-                set element ClickIndex of Rooms to RoomSpec
+    			set property `events` of RoomSpec to Events
              	clear DialogPanel
-            	go to ExitWithChanges
+!            	go to ExitWithChanges
             end
             
             on click PeriodCancelButton
             begin
             	clear DialogPanel
-                go to ExitWithoutChanges
+!                go to ExitWithoutChanges
             end
             
             on click PeriodHelpButton
@@ -382,12 +392,17 @@ RedoEvents:
         ShowValues:
         	put `0` cat HourValue into Value
             set the content of HourField to right 2 of Value
+            put right 2 of Value into Time
         	put `0` cat MinuteValue into Value
             set the content of MinuteField to right 2 of Value
+            put Time cat `:` cat right 2 of Value into Time
             divide TempValue by 10 giving Value
             put Value cat `.` cat TempValue modulo 10 into Value
             put Value cat `&deg;C` into Value
             set the content of TempField to Value
+            index Event to EventIndex
+            index Period to EventIndex
+            set the content of Period to `Until ` cat Time cat `: Target = ` cat Value
             stop
         end
         
@@ -428,10 +443,12 @@ RedoEvents:
         end
         add 1 to E
     end
+    
     attach TimesAddButton to `edit-add-button`
     attach TimesSaveButton to `edit-save-button`
     attach TimesCancelButton to `edit-cancel-button`
     attach TimesHelpButton to `edit-help-button`
+    
     on click TimesAddButton
     begin
         put `{}` into Event
@@ -440,19 +457,21 @@ RedoEvents:
         append Event to Events
         go to RedoEvents
     end
+    
     on click TimesSaveButton
     begin
     	set property `events` of RoomSpec to Events
         set element ClickIndex of Rooms to RoomSpec
         clear MainPanel
-        put `Changed` into Result
         go to ExitWithChanges
     end
+    
     on click TimesCancelButton
     begin
        	clear MainPanel
        	go to ExitWithoutChanges
     end
+    
     on click TimesHelpButton
     begin
         clear MainPanel
@@ -466,5 +485,6 @@ ExitWithoutChanges:
     exit
 
 ExitWithChanges:
+    set element ClickIndex of Rooms to RoomSpec
     put `Changed` into Result
     exit

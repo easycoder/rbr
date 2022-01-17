@@ -12,6 +12,10 @@ In among the wealth of information that returns are the MAC addresses of all of 
 
 The MAC address is like a kind of password. Do not reveal it to anyone unless you want to allow them to manage your system. There is no way to change the MAC address other than by replacing the hardware of the network interface, which may well be part of the main computer board.
 
+If you want to evaluate this webapp without setting up any real hardware, see ~tid:Evaluate:this help page~.
+
 To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right of the screen.
+
+~tid:MainMenu:Return to the main menu help page~
 
 ~tid:content:Go to the main Help page~

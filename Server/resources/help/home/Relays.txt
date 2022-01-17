@@ -1,0 +1,7 @@
+## Edit the Relay IP addresses
+
+A Shelly relay module provides power to an electric radiator valve. So you can identify which relay is in which room you must enter its IP address using this editing dialog. In some cases a room may have more than one radiator to be controlled by separate relays; you can add as many as you need.
+
+~img:relays.jpg:center 50%~
+
+Go to the ~tid:RoomEdit:Room Editor Help page~.

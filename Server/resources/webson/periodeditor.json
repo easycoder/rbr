@@ -15,8 +15,8 @@
         "display": "flex",
         "font-family": "Helvetica, Arial, SansSerif",
         "font-weight": "bold",
-        "#": ["$HourUp", "$HourDown", "$Hour", "$Colon", "$Minute", "$MinuteUp", "$MinuteDown",
-            "$Pad", "$TempUp", "$Temp", "$TempDown"],
+        "#": ["$HourDown", "$HourUp", "$Hour", "$Colon", "$Minute", "$MinuteDown", "$MinuteUp",
+            "$Pad", "$TempDown", "$Temp", "$TempUp"],
 
         "$HourUp": {
             "#element": "img",
@@ -39,23 +39,17 @@
         "$Hour": {
             "#element": "div",
             "@id": "hour-text",
-            "padding": "0.25em",
-            "line-height": "2em",
             "#content": "00"
         },
 
         "$Colon": {
             "#element": "div",
-            "padding": "0.25em 0",
-            "line-height": "2em",
             "#content": ":"
         },
 
         "$Minute": {
             "#element": "div",
             "@id": "minute-text",
-            "padding": "0.25em",
-            "line-height": "2em",
             "#content": "00"
         },
 
@@ -94,9 +88,7 @@
         "$Temp": {
             "#element": "div",
             "@id": "temp-text",
-            "#content": "0.0&deg;C",
-            "line-height": "2em",
-            "padding": "0.25em"
+            "#content": "0.0&deg;C"
         },
 
         "$TempDown": {

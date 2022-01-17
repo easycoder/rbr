@@ -59,7 +59,7 @@ Editor:
         set element ClickIndex of Rooms to ThisRoom
         add 1 to ClickIndex
         set element ClickIndex of Rooms to ThatRoom
-        goto ExitWithChanges
+        go to ExitWithChanges
     end
     
     on click RoomDownButton
@@ -70,7 +70,7 @@ Editor:
         set element ClickIndex of Rooms to ThisRoom
         take 1 from ClickIndex
         set element ClickIndex of Rooms to ThatRoom
-        goto ExitWithChanges
+        go to ExitWithChanges
     end
     
     on click RoomEditButton

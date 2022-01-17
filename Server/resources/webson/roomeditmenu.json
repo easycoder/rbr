@@ -4,7 +4,7 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Title", "$Name", "$Sensor", "$Relays", "$Times", "$Pad", "$Help", "$Cancel"],
+    "#": ["$Title", "$Name", "$Sensor", "$Relays", "$Times", "$Pad", "$Save", "$Cancel", "$Pad", "$Help"],
 
     "$Title": {
         "#element": "div",
@@ -40,15 +40,21 @@
         "#": "$Button"
     },
 
-    "$Help": {
-        "$ID": "button-help",
-        "$Label": "Help",
+    "$Save": {
+        "$ID": "button-save",
+        "$Label": "Save changes",
         "#": "$Button"
     },
 
     "$Cancel": {
         "$ID": "button-cancel",
         "$Label": "Cancel",
+        "#": "$Button"
+    },
+
+    "$Help": {
+        "$ID": "button-help",
+        "$Label": "Help",
         "#": "$Button"
     },
 

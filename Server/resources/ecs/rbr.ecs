@@ -34,6 +34,7 @@
     button CancelButton
     button BackupButton
     button RestoreButton
+    button EvaluateButton
     button HelpButton
     button DialogButton1
     button DialogButton2
@@ -589,7 +590,6 @@ GetMAC:
     begin
     	put the content of Input into MAC
         clear Input
-        print `MAC = ` cat MAC
         if MAC is not empty
         begin
         	put MAC into storage as `MAC`
@@ -631,7 +631,6 @@ GetSystemName:
     on click OKButton
     begin
     	put the content of Input into SystemName
-        print `Name = ` cat SystemName
         if SystemName is not empty
         begin
         	put SystemName into storage as `SystemName`
@@ -672,6 +671,7 @@ ShowMenu:
     attach GetNameButton to `button-getname`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
+    attach EvaluateButton to `button-evaluate`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
 
@@ -703,10 +703,17 @@ ShowMenu:
     
     on click RestoreButton go to Restore
     
+    on click EvaluateButton
+    begin
+        put `home` into SID
+        put `Evaluate` into TID
+      	go to RunHelp
+    end
+    
     on click HelpButton
     begin
         put `home` into SID
-        put `content` into TID
+        put `MainMenu` into TID
       	go to RunHelp
     end
     

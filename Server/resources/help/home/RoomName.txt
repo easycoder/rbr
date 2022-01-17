@@ -1,0 +1,7 @@
+## Edit the Room Name
+
+This screen is where you can set or change the name of a room.
+
+~img:roomname.jpg:50% center~
+
+Go to the ~tid:RoomEdit:Room Editor Help page~.
