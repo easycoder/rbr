@@ -1,0 +1,6 @@
+## Setting the system name
+
+The System Name is anything you'd like to call your system, such as "Joe's holiday home". It has no effect on how the system behaves; it's main use is to identfy which system is which when more than one is managed on a single phone.
+
+To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right of the screen.
+

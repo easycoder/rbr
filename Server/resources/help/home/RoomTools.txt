@@ -1,0 +1,29 @@
+## The Room Tools menu
+
+This menu provides the following features:
+
+### Move this room up
+
+Moves the selected room up in the room list. If it's already the top row the menu item is not shown.
+
+### Move this room down
+
+Moves the selected room down in the room list. If it's already the bottom row the menu item is not shown.
+
+### Edit this room
+
+Calls up the room editor, allowing you to change various properties of the room.
+
+### Delete this room
+
+Removes the room from the list after prompting you to confirm.
+
+### Help
+
+What you're reading now
+
+## Cancel
+
+Closes the menu without making any changes.
+
+~tid:content:Go to the main Help page~

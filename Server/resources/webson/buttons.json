@@ -1,0 +1,59 @@
+{
+    "#element": "div",
+    "width": "100%",
+    "text-align": "center",
+    "#": ["$Add", "$GetMAC", "$GetName", "$Backup", "$Restore", "$Help", "$Cancel"],
+    
+    "$Add": {
+        "$ID": "button-add",
+        "$Label": "Add a room",
+        "#": "$Button"
+    },
+
+    "$GetMAC": {
+        "$ID": "button-getmac",
+        "$Label": "Set MAC Address",
+        "#": "$Button"
+    },
+
+    "$GetName": {
+        "$ID": "button-getname",
+        "$Label": "Set System Name",
+        "#": "$Button"
+    },
+
+    "$Backup": {
+        "$ID": "button-backup",
+        "$Label": "Backup the system",
+        "#": "$Button"
+    },
+
+    "$Restore": {
+        "$ID": "button-restore",
+        "$Label": "Restore the system",
+        "#": "$Button"
+    },
+
+    "$Help": {
+        "$ID": "button-help",
+        "$Label": "Help",
+        "#": "$Button"
+    },
+
+    "$Cancel": {
+        "$ID": "button-cancel",
+        "$Label": "Cancel",
+        "#": "$Button"
+    },
+
+    "$Button": {
+        "#element": "button",
+        "@id": "$ID",
+        "display": "block",
+        "width": "60%",
+        "font-size": "1.5em",
+        "margin": "0.5em auto 0 auto",
+        "border-radius": "0.25em",
+        "#content": "$Label"
+    }
+}

@@ -1,0 +1,204 @@
+!	RBR
+
+	file File
+	variable Path
+	variable Server
+	variable RepeatCount
+	variable Map
+	variable NewMap
+	variable Rooms
+	variable Room
+	variable RoomNumber
+	variable Mode
+	variable Sensors
+	variable Sensor
+	variable Relays
+	variable Relay
+	variable Temperature
+	variable SensorData
+	variable RoomCount
+	variable Events
+	variable Event
+	variable Until
+	variable Target
+	variable SensorValues
+	variable Now
+	variable Boundary
+	variable Turn
+	variable MAC
+	variable Password
+	variable E
+	variable L
+	variable R
+	variable M1
+	variable M2
+
+	script RBR
+!	debug step
+
+!	put `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py` into Path
+    put `.` into Path
+    put `https://rbr.easycoder.software/rest.php` into Server
+
+    put 0 into RepeatCount
+
+Start:
+    open File Path cat `/mac` for reading
+    read MAC from File
+    close File
+
+    if file Path cat `/map` exists
+    begin
+        open File Path cat `/map` for reading
+        read Map from File
+        close File
+    end
+    else
+    begin
+        get Map from Server cat `/map/` cat MAC cat `?v=` cat now
+        open File Path cat `/map` for writing
+        write Map to File
+        close File
+    end
+
+ProcessMap:
+    put json `{}` into Sensors
+    if Map is empty
+    begin
+        print `Error: no map found`
+        exit
+    end
+
+!    print Map
+    put json Map into Map
+    put property `rooms` of Map into Rooms
+	put json `{}` into SensorData
+	put the count of Rooms into RoomCount
+    put 0 into RoomNumber
+    while RoomNumber is less than RoomCount
+    begin
+        put element RoomNumber of Rooms into Room
+        gosub to ProcessRoom
+        add 1 to RoomNumber
+    end
+
+!   Cancel the message
+    post to Server cat `/confirm/` cat MAC
+
+!   Report to the website. If there's a password file we've already registered
+    if file Path cat `/password` exists
+    begin
+		put stringify SensorData into Sensors
+!		print `Sensors: ` cat Sensors
+        get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
+!        print `NewMap: ` cat NewMap
+        put json NewMap into NewMap
+        put stringify Map into M1
+        put stringify NewMap into M2
+        if M2 is not M1
+        begin
+            open File Path cat `/map` for writing
+            write M2 to File
+            close File
+            print `Map updated`
+            put M2 into Map
+            go to ProcessMap
+        end
+    end
+    else
+    begin
+        get Password from Server cat `/register/` cat MAC cat `?v=` cat now
+        open File Path cat `/password` for writing
+        write Password to File
+        close File
+        print Password
+    end
+!   exit
+
+    add 1 to RepeatCount
+    if RepeatCount is less than 6
+    begin
+        wait 10 seconds
+        go to Start
+    end
+	exit
+
+ProcessRoom:
+	put property `sensor` of Room into  Sensor
+	if Sensor is empty return
+	if file Path cat `/sensors/` cat Sensor cat `/value.txt` exists go to PR2
+	return
+
+PR2:
+	open File Path cat `/sensors/` cat Sensor cat `/value.txt` for reading
+	read SensorValues from File
+	close File
+	put json SensorValues into SensorValues
+	put float property `temperature` of SensorValues into Temperature
+	put property `relays` of Room into Relays
+	put property `events` of Room into Events
+	take 1 from the length of Events giving L
+
+    ! Deal with mode requests
+    put property `mode` of Room into Mode
+    if Mode is `off` go to TurnOff
+
+    if Mode is `on`
+    begin
+        put float property `target` of Room into Target
+        if Temperature is less than Target go to TurnOn
+        go to TurnOff
+    end
+
+	! Timed mode. Check each of the events
+	put 0 into E
+	while E is less than the length of Events
+	begin
+		put element E of Events into Event
+		put property `until` of Event into Until
+		put float property `temp` of Event into Target
+		put the timestamp into Now
+		put the timestamp of Until format `%H:%M` into Boundary
+		! Check if this is the right time segment
+		if Now is less than Boundary
+		begin
+            if Temperature is less than Target go to TurnOn
+            go to TurnOff
+		end
+		else
+		begin
+            if E is L
+            begin
+                put element 0 of Events into Event
+                put float property `temp` of Event into Target
+                if Temperature is less than Target go to TurnOn
+                go to TurnOff
+            end
+		end
+		add 1 to E
+	end
+	return
+
+TurnOff:
+	put `off` into Turn
+	go to SetRelays
+
+TurnOn:
+	put `on` into Turn
+
+SetRelays:
+    print Sensor cat ` ` cat Turn
+	put 0 into R
+	while R is less than the count of Relays
+	begin
+		put element R of Relays into Relay
+		if Relay is not empty
+		begin
+            print `http://` cat Relay cat `/relay/0?turn=` cat Turn
+            post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
+        end
+		add 1 to R
+	end
+	set property `relay` of SensorValues to Turn
+	set property Sensor of SensorData to SensorValues
+	return
