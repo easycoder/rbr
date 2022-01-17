@@ -1,2 +1,22 @@
-# rbr
-Room By Room Control
+# Room By Room Control
+
+This project uses commercially-available WiFi-connected modules - a temperature sensor and a relay module - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis.
+
+The repository software is in 3 parts:
+
+  1. A system controller running on a Raspberry Pi (or similar) computer. This is all coded in Python.
+  1. A REST server on public shared hosting. This is coded in PHP.
+  1. A user interface, built as a browser-based mobile webapp. This is coded in JavaScript.
+
+Third-party tools are kept to a minimum. The project mainly relies on other products in the EasyCoder repository; notably:
+
+  - A high level scripting language coded in Python for the system controller
+  - A similar high-level scripting language coded in JavaScript for the user interface
+  - A JavaScript engine for rendering DOM structures expressed as JSON
+  - An extended MarkDown processor for documentation, based on the third-party _Showdown_ markdown library
+
+The aim is for the system not to require any framework, nor any build tools beyond a text editor. This is in the interest of accessibility to programmers of all levels of experience, and to ensure maintainability.
+
+This ReadMe does not attempt to fully describe the system. Instead, a comprehensive set of documentation is being added to the webapp. The best way to get an introduction to RBR is to visit its web page, currently at
+
+[https://rbr.easycoder.software](https://rbr.easycoder.software)
