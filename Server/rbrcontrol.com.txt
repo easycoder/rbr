@@ -4,13 +4,13 @@
 sqlhost=mysql.easycoder.software
 
 # The name of the database user
-sqluser=graham
+sqluser=
 
 # The database password
-sqlpassword=eyorekitcar
+sqlpassword=
 
 # The database to use
 sqldatabase=rbr_control
 
 # The admin password
-password=$2y$10$bcmXQ/X4pIpepRidEtVdvuMmMUi5Q3H2e3HsWYwWyGD8FrZtHFCL.
+password=
