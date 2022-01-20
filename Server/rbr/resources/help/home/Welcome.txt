@@ -1,0 +1,7 @@
+## Welcome to RBR
+
+**RBR** is **Room By Room control**, a smart heating system that gives you individual control over the temperature of every room in your house, throughout the day. The aim is to reduce cost by only heating rooms that are in use. Control is from inside or outside the house, using this webapp. **RBR** can be installed as a DIY project or by a professional and all the software is Open Source; that is, freely available for modification or improvement.
+
+Because there is a significant cost in equipping radiators with electric control valves, relays and sensors, we offer the means to evaluate the **RBR** system without having to make any purchases. This documentation, though currently rather sparse, is growing rapidly, so take some time to get generally familiar with it. If you get lost in the help files, refresh your browser and you'll be sent back here again.
+
+To close this Help screen tap the Hamburger menu - the 3 bars at the top right of the screen. Tap the hamburger again to show a menu of actions available for a new installation. The place to start is with the button labelled "Set MAC address" or you can read more about it by tapping the "Evaluate RBR" button.

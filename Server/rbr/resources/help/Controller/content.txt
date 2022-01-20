@@ -1,4 +1,4 @@
-## System Controller
+## The System Controller
 
 This can be any computer able to run Python. In practice, the demands made upon it are not great so there are some very low-cost options, the most well-known of which is the Raspberry Pi. This has been in production for several years and the latest models are quite powerful, but the controller software will run on even the earliest models. For example a Model 1B can be bought from RS Components for around £20, with a case costing another £5 or so. Add to this a low-cost USB power supply and a cable.
 

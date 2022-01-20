@@ -5,7 +5,7 @@
     // in your site database.
 
     date_default_timezone_set('Europe/London');
-//     logger(substr($_SERVER['PATH_INFO'], 1));
+//      logger(substr($_SERVER['PATH_INFO'], 1));
     $request = explode("/", substr($_SERVER['PATH_INFO'], 1));
     $action = array_shift($request);
     $method = $_SERVER['REQUEST_METHOD'];
@@ -27,7 +27,7 @@
         }
         fclose($file);
     } else {
-//         logger('Properties file not found');
+         logger('Properties file not found');
         exit;
     }
 
@@ -256,7 +256,7 @@
 
             case 'map':
                 // Get the system map, given its MAC.
-                // Endpoint: https://rbr.easycoder.software/rest.php/map/<mac>
+                // Endpoint: {site root}/rest.php/map/<mac>
                 $mac = $request[0];
 //                 logger("SELECT map FROM systems WHERE mac='$mac'");
                 $result = $conn->query("SELECT map FROM systems WHERE mac='$mac'");
@@ -272,20 +272,24 @@
 
             case 'register':
                 // Register a new MAC.
-                // Endpoint: https://rbr.easycoder.software/rest.php/register/<mac>
+                // Endpoint: {site root}/rest.php/register/<mac>
                 $mac = $request[0];
-                $result = $conn->query("SELECT * FROM systems WHERE mac='$mac'");
-                if (!$row = mysqli_fetch_object($result)) {
+                $result = $conn->query("SELECT password FROM systems WHERE mac='$mac'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $password = $row->password;
+                } else {
                     $password = rand(100000, 999999);
-                    $conn->query("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
+                    $map = '{"rooms":[{"name":"","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}';
+                    $map = base64_encode($map);
+                    $conn->query("INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
 //                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
-                    print $password;
                 }
+                print $password;
                 break;
 
             case 'update':
                 // Update sensor values and get the current map.
-                // Endpoint: https://rbr.easycoder.software/rest.php/update/<mac>/<sensors>
+                // Endpoint: {site root}/rest.php/update/<mac>/<sensors>
                 $mac = $request[0];
                 $sensors = $request[1];
                 $result = $conn->query("SELECT * FROM systems WHERE mac='$mac'");
@@ -298,24 +302,13 @@
                     print base64_decode($row->map); print "\n";
                 }
                 mysqli_free_result($result);
-
-//                 $mac = $request[0];
-//                 $result = $conn->query("SELECT sensors FROM systems WHERE mac='$mac'");
-//                 if ($row = mysqli_fetch_object($result)) {
-//                     $sensors = $row->sensors;
-//                     $sensors = base64_decode($sensors);
-//                     print $sensors;
-//                 } else {
-//                     print '';
-//                 }
-//                 mysqli_free_result($result);
                 break;
 
                 // Endpoints called by the user.
 
             case 'name':
                 // Get the system name, given its MAC.
-                // Endpoint: https://rbr.easycoder.software/rest.php/name/<mac>
+                // Endpoint: {site root}/rest.php/name/<mac>
                 $mac = $request[0];
                 $result = $conn->query("SELECT name FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
@@ -328,7 +321,7 @@
 
             case 'sensors':
                 // Get the systems sensor values, given its MAC.
-                // Endpoint: https://rbr.easycoder.software/rest.php/sensors/<mac>
+                // Endpoint: {site root}/rest.php/sensors/<mac>
                 $mac = $request[0];
                 $result = $conn->query("SELECT sensors FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
@@ -354,70 +347,115 @@
         $ts = time();
         switch ($action) {
 
+            case 'register':
+                // Register an email address.
+                // Endpoint: https://rbr.easycoder.software/rest.php/register/<address>
+                $address = trim($request[0]);
+                $result = $conn->query("SELECT password FROM systems WHERE mac='$address'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $password = $row->password;
+                } else {
+                    $password = rand(100000, 999999);
+                    $conn->query("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$address','$password')");
+//                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$address','$password')");
+                }
+                print $password;
+                $from = "noreply@rbr.easycoder.software";
+                $subject = "Room By Room email access code";
+                $message = $password;
+                $headers = "From: registry@rbr.easycoder.software\r\n";
+                mail($address, $subject, $message, $headers);
+                break;
+
             case 'name':
                 // Set the system name
-                // Endpoint: https://rbr.easycoder.software/rest.php/name/{mac}/{name}
-                $mac = $request[0];
-                $name = $request[1];
-                $result = $conn->query("SELECT id FROM systems WHERE mac='$mac'");
+                // Endpoint: https://rbr.easycoder.software/rest.php/name/{mac}/{password}/{name}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $name = trim($request[2]);
+                $result = $conn->query("SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $conn->query("UPDATE systems SET name='$name' WHERE id='$id'");
 //                     logger("UPDATE systems SET name='$name' WHERE id=$id");
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC and password do not match any record.\"}";
                 }
                 break;
 
             case 'map':
                 // Set the system map
-                // Endpoint: https://rbr.easycoder.software/rest.php/map/
-                $mac = $request[0];
-                $name = $request[1];
-                $result = $conn->query("SELECT id FROM systems WHERE mac='$mac'");
+                // Endpoint: https://rbr.easycoder.software/rest.php/map/{mac}/{password}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = $conn->query("SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = file_get_contents("php://input");
-                    print "$map\n";
+//                    print "$map\n";
                     $map = base64_encode($map);
-                    print "$map\n";
+//                    print "$map\n";
                     $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
 //                     logger("UPDATE systems SET map='$map' WHERE id=$id");
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC and password do not match any record.\"}";
                 }
                 break;
 
-            case 'mode':
-                // Set the mode of a room: on/off/auto
-                // Endpoint: https://rbr.easycoder.software/rest.php/mode/{mac}/{name}/{mode}
-                $mac = $request[0];
-                $name = $request[1];
-                $mode = $request[2];
-                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac'");
+            case 'backup':
+                // Set the system backup map
+                // Endpoint: https://rbr.easycoder.software/rest.php/backup/{mac}/{password}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = $conn->query("SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
-                    $map = $row->map;
-                    $map = base64_decode($map);
-                    $map = json_decode($map);
-                    $rooms = $map->rooms;
-                    for ($r = 0; $r < count($rooms); $r++) {
-                        $room = $rooms[$r];
-                        if ($room->name == $name) {
-                            $room->mode = $mode;
-                            $map->message = 'confirm';
-                            $map = json_encode($map);
-                            print "$map\n";
-                            $map = base64_encode($map);
-                            $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
-//                             logger("UPDATE systems SET map='$map' WHERE id=$id");
-                            break;
-                        }
-                    }
+                    $map = file_get_contents("php://input");
+//                    print "$map\n";
+                    $map = base64_encode($map);
+//                    print "$map\n";
+                    $conn->query("UPDATE systems SET backup='$map' WHERE id='$id'");
+//                     logger("UPDATE systems SET backup='$map' WHERE id=$id");
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC and password do not match any record.\"}";
                 }
+                break;
+
+            case 'restore':
+                // Restore the system backup, given its MAC
+                // Endpoint: https://rbr.easycoder.software/rest.php/restore/<mac>/{password}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+//                 logger("SELECT * FROM systems WHERE mac='$mac'");
+                $result = $conn->query("SELECT id,backup FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $id = $row->id;
+                    if ($row->backup) {
+                        $map = $row->backup;
+                        $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
+//                        logger("UPDATE systems SET map='$map' WHERE id=$id");
+                        $map = base64_encode($map);
+                        print "$map\n";
+                    }
+                    else {
+                        print '';
+                    }
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC and password do not match any record.\"}";
+                }
+                mysqli_free_result($result);
                 break;
 
             case 'confirm':
                 // Confirm receipt of a message
-                // Endpoint: https://rbr.easycoder.software/rest.php/confirm/{mac}
-                $mac = $request[0];
-                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac'");
+                // Endpoint: https://rbr.easycoder.software/rest.php/confirm/{mac}/{password}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = $row->map;
@@ -428,6 +466,9 @@
                     $map = base64_encode($map);
                     $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
 //                     logger("UPDATE systems SET map='$map' WHERE id=$id");
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
                 }
                 break;
 

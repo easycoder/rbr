@@ -29,6 +29,7 @@
     img ModeIcon
     button AddRoomButton
     button GetMACButton
+    button GetPasswordButton
     button GetNameButton
     button OKButton
     button CancelButton
@@ -42,13 +43,14 @@
     module Editor
     variable Mobile
     variable Server
-    variable Revisit
+    variable Welcomed
     variable Webson
     variable HelpScript
     variable EditorScript
     variable RoomEditScript
     variable RoomToolsScript
     variable MAC
+    variable Password
     variable SystemName
     variable Map
     variable Map2
@@ -96,6 +98,7 @@
     variable MainScreenWebson
     variable MainMenuWebson
     variable GetMacWebson
+    variable GetPasswordWebson
     variable GetNameWebson
     variable RoomWebson
     variable RoomEditorWebson
@@ -108,7 +111,7 @@
     variable DialogWebson
     
 !    debug step
-!	 go to Skip
+!	go to Skip
     
 	every 5 seconds
     begin
@@ -135,7 +138,7 @@ Skip:
     if mobile
         if portrait set Mobile
     
-    put `https://rbr.easycoder.software/rest.php` into Server
+    put `https://rbrcontrol.com/rest.php` into Server
 
 	create Body
     if Mobile
@@ -165,6 +168,7 @@ Skip:
     rest get MainScreenWebson from `/resources/webson/rbr.json?v=` cat now
     rest get MainMenuWebson from `/resources/webson/mainmenu.json?v=` cat now
 	rest get GetMacWebson from `/resources/webson/getmac.json?v=` cat now
+	rest get GetPasswordWebson from `/resources/webson/getpassword.json?v=` cat now
 	rest get GetNameWebson from `/resources/webson/getname.json?v=` cat now
     rest get RoomWebson from `/resources/webson/room.json?v=` cat now
     rest get RoomEditorWebson from `/resources/webson/roomeditor.json?v=` cat now
@@ -203,20 +207,30 @@ Skip:
         else if not Blocked go to ShowMenu
     end
     
-    get Revisit from storage as `revisit`
-    if Revisit is empty
+    get Welcomed from storage as `welcomed`
+    if Welcomed is empty
     begin
+    	put `y` into storage as `welcomed`
         put `home` into SID
-        put `content` into TID
+        put `Welcome` into TID
       	go to RunHelp
     end
 
     put `yes` into storage as `revisit`
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Main start point
+Start:
 !	Make sure we have a MAC address; if not, go ask for one
     clear Flag
     get MAC from storage as `MAC`
+    print MAC
     if MAC is empty go to GetMAC
+
+!	Make sure we have the password; if not, ask for it
+    get Password from storage as `password`
+    print Password
+    if Password is empty go to GetPassword
 
 !	Get the system name
 	get SystemName from storage as `SystemName`
@@ -225,11 +239,8 @@ Skip:
 		rest get SystemName from Server cat `/name/` cat MAC cat `?v=` cat now
         if SystemName is empty go to GetSystemName
     end
-    print MAC
+!    print MAC
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Main start point
-Start:
 	if not Redraw go to GetMap
 
     clear MainPanel
@@ -242,13 +253,7 @@ GetMap:
 	set Blocked
     rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
     or put empty into Map
-    if Map is empty stop
-!    begin
-!    	alert `No system map could be found.` cat newline
-!        	cat `Please contact your system administrator.`
-!        stop
-!    end
-!    print Map
+    if Map is empty go to EndOfMain
     if Map is not Map2 set Redraw
     put Map into Map2
 
@@ -285,7 +290,7 @@ GetMap:
     set the elements of RelayState to RoomCount
     set the elements of ModeHolder to RoomCount
     set the elements of ModeIcon to RoomCount
-    
+
     put 0 into RoomIndex
     while RoomIndex is less than RoomCount
     begin
@@ -411,7 +416,7 @@ GetMap:
             end
         end
 
-HandleClicks:
+	HandleClicks:
 		! Handle a click on the row hamburger
         on click RoomToolsButton
         begin
@@ -459,7 +464,8 @@ HandleClicks:
         
         add 1 to RoomIndex
     end
-    
+
+EndOfMain:
     clear Refresh
     clear Redraw
     clear Blocked
@@ -533,7 +539,7 @@ SelectMode:
     set element ClickIndex of Rooms to RoomSpec
     set property `rooms` of Map to Rooms
     set property `message` of Map to `confirm`
-    rest post Map to Server cat `/map/` cat MAC
+    gosub to PostMap
     fork to FlashModeIndicator
 	! Wait for a response from the server
    	put 0 into Count
@@ -570,6 +576,7 @@ FlashModeIndicator:
     stop
 
 RunHelp:
+	set Blocked
     set style `display` of OuterPanel to `none`
     set style `display` of HelpPanel to `block`
     run HelpScript with HelpPanel and SID and TID as Storyteller
@@ -590,19 +597,19 @@ GetMAC:
     begin
     	put the content of Input into MAC
         clear Input
+        print `MAC = ` cat MAC
         if MAC is not empty
         begin
         	put MAC into storage as `MAC`
             clear MainPanel
             clear Blocked
-            set Redraw
+            stop
         end
     end
     on click CancelButton
     begin
     	clear MainPanel
         clear Blocked
-        set Redraw
         stop
     end
     on click HelpButton
@@ -615,6 +622,44 @@ GetMAC:
         go to RunHelp
     end
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Ask the user for the password
+GetPassword:
+	set Blocked
+    clear MainPanel
+    render GetPasswordWebson in MainPanel
+    attach Input to `getpassword-input`
+    attach OKButton to `getpassword-ok`
+    attach CancelButton to `getpassword-cancel`
+    attach HelpButton to `getpassword-help`
+    on click OKButton
+    begin
+    	put the content of Input into Password
+        if Password is not empty
+        begin
+        	put Password into storage as `password`
+            clear MainPanel
+            clear Blocked
+            stop
+        end
+    end
+    on click CancelButton
+    begin
+    	clear MainPanel
+        clear Blocked
+        stop
+    end
+    on click HelpButton
+    begin
+        clear MainPanel
+    	set style `display` of OuterPanel to `none`
+      	set style `display` of HelpPanel to `block`
+    	put `home` into SID
+        put `Password` into TID
+        go to RunHelp
+    end
+	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Ask the user for the system name
@@ -631,13 +676,13 @@ GetSystemName:
     on click OKButton
     begin
     	put the content of Input into SystemName
+        print `Name = ` cat SystemName
         if SystemName is not empty
         begin
         	put SystemName into storage as `SystemName`
-            rest post to Server cat `/name/` cat MAC cat `/` cat SystemName
+            rest post to Server cat `/name/` cat MAC cat `/` cat Password cat `/` cat SystemName
             clear MainPanel
             clear Blocked
-        	set Redraw
             stop
         end
     end
@@ -645,7 +690,6 @@ GetSystemName:
     begin
     	clear MainPanel
         clear Blocked
-        set Redraw
         stop
     end
     on click HelpButton
@@ -668,6 +712,7 @@ ShowMenu:
     render MainMenuWebson in MainPanel
     attach AddRoomButton to `button-add`
     attach GetMACButton to `button-getmac`
+    attach GetPasswordButton to `button-getpassword`
     attach GetNameButton to `button-getname`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
@@ -680,7 +725,7 @@ ShowMenu:
     	rest get RoomSpec from `/resources/json/newroomspec.json?v=` cat now
         append RoomSpec to Rooms
         set property `rooms` of Map to Rooms
-	    rest post Map to Server cat `/map/` cat MAC
+	    gosub to PostMap
     	clear MainPanel
         clear Blocked
         set Redraw
@@ -691,6 +736,12 @@ ShowMenu:
     begin
     	set Flag
         go to GetMAC
+    end
+    
+    on click GetPasswordButton
+    begin
+    	set Flag
+        go to GetPassword
     end
     
     on click GetNameButton
@@ -713,7 +764,7 @@ ShowMenu:
     on click HelpButton
     begin
         put `home` into SID
-        put `MainMenu` into TID
+        put `content` into TID
       	go to RunHelp
     end
     
@@ -750,7 +801,7 @@ RoomTools:
     if Result is `Changed`
     begin
         set property `rooms` of Map to Rooms
-    	rest post Map to Server cat `/map/` cat MAC
+    	gosub to PostMap
     end
 	clear Blocked
     set Redraw
@@ -772,11 +823,33 @@ RoomEditor:
     begin
         set element ClickIndex of Rooms to RoomSpec
         set property `rooms` of Map to Rooms
-    	rest post Map to Server cat `/map/` cat MAC
+    	gosub to PostMap
     end
     clear MainPanel
     clear Blocked
     set Redraw
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	The room editor (old version)
+OldRoomEditor:
+	set Blocked
+    wait 20 ticks ! to allow things to complete before running the editor!
+	clear MainPanel
+    render RoomEditorWebson in MainPanel
+    put property `rooms` of Map into Rooms
+    index RoomSpec to ClickIndex
+    put element ClickIndex of Rooms into RoomSpec
+    put empty into Result
+    run EditorScript with MainPanel and RoomSpec and Result as Editor
+    if Result is `OK`
+    begin
+        set element ClickIndex of Rooms to RoomSpec
+        set property `rooms` of Map to Rooms
+    	gosub to PostMap
+	end
+    set Redraw
+    clear Blocked
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -797,7 +870,7 @@ Backup:
     on click DialogButton1
     begin
     	clear DialogPanel
-    	rest post Map to Server cat `/backup/` cat MAC
+    	rest post Map to Server cat `/backup/` cat MAC cat `/` cat Password
         set Redraw
         clear Blocked
     end
@@ -827,7 +900,7 @@ Restore:
     on click DialogButton1
     begin
     	clear DialogPanel
-        rest post to Server cat `/restore/` cat MAC
+        rest post to Server cat `/restore/` cat MAC cat `/` cat Password
         set Redraw
         clear Blocked
     end
@@ -838,3 +911,9 @@ Restore:
         clear Blocked
     end
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Post the map to the server
+PostMap:
+   rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
+   return

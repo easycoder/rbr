@@ -36,16 +36,23 @@
 	script RBR
 !	debug step
 
+    put `https://rbrcontrol.com/rest.php` into Server
 !	put `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py` into Path
     put `.` into Path
-    put `https://rbr.easycoder.software/rest.php` into Server
 
     put 0 into RepeatCount
+    put empty into Password
 
 Start:
     open File Path cat `/mac` for reading
     read MAC from File
     close File
+
+    get Password from Server cat `/register/` cat MAC cat `?v=` cat now
+    open File Path cat `/password` for writing
+    write Password to File
+    close File
+    print Password
 
     if file Path cat `/map` exists
     begin
@@ -82,12 +89,15 @@ ProcessMap:
         add 1 to RoomNumber
     end
 
-!   Cancel the message
-    post to Server cat `/confirm/` cat MAC
+!   Confirm the message
+    if Password is not empty post to Server cat `/confirm/` cat MAC cat `/` cat Password
 
 !   Report to the website. If there's a password file we've already registered
     if file Path cat `/password` exists
     begin
+        open File Path cat `/password` for reading
+        read Password from File
+        close File
 		put stringify SensorData into Sensors
 !		print `Sensors: ` cat Sensors
         get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now

@@ -19,4 +19,4 @@ The aim is for the system not to require any framework, nor any build tools beyo
 
 This ReadMe does not attempt to fully describe the system. Instead, a comprehensive set of documentation is being added to the webapp. The best way to get an introduction to RBR is to visit its web page, currently at
 
-[https://rbr.easycoder.software](https://rbr.easycoder.software)
+[https://rbrcontrol.com](https://rbrcontrol.com)

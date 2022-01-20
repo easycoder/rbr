@@ -4,7 +4,7 @@ The cost of heating is rising fast and there's little sign this will stop any ti
 
 **Room By Room** takes a new approach by giving you complete control over each individual radiator from your smartphone or computer, whether you are in the house or not.
 
-**Room By Room** is a DIY project, but don't worry; it requires very little in the way of mechanical or electrical skill. In these pages are full instructions on how to put together a system. The cost is around £50 per radiator, plus you'll need a system controller (a Raspberry Pi computer), which should cost less than £80 with a case and power supply. These costs will be offset by the savings in energy through better utilization, and there's the additional benefit of having control on your smartphone, wherever you are.
+**Room By Room** is a DIY project, but don't worry; it requires very little in the way of mechanical or electrical skill. In these pages are full instructions on how to put together a system. The cost is around £50 per radiator, plus you'll need a system controller; typically a Raspberry Pi computer, which can be bought for as little as £20. These costs will be offset by the savings in energy through better utilization, and there's the additional benefit of having control on your smartphone, wherever you are.
 
 To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right of the screen.
 

@@ -17,4 +17,6 @@ To control a radiator we need it to be already fitted with a TRV (Thermostatic V
 
 The actuator is connected to the relay, which is plugged into a mains power socket. Every 10 minutes the thermometer sends its current temperature to the system controller, which runs through a set of rules to decide whether to turn on the relay(s) and sends the appropriate command(s). The system status is sent to a web server, which is monitored by any computer or smartphone running this webapp.
 
+~stid:Controller/content:The system controller~
+
 ~tid:content:Return to the Help start page~
