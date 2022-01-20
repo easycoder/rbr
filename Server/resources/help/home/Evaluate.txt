@@ -1,0 +1,13 @@
+## Evaluate the RBR system
+
+If you are unsure whether this system is for you, try evaluating it, as follows. **Please note; the functionality described here is currently under development.**
+
+In normal use, RBR (Room By Room) requires the MAC address of your system controller to be provided. The RBR website acts as a bridge between your mobile phone and the controller, allowing messages to flow back and forth, and the MAC address is key that identifies your system. If you don't have a system controller then you don't have a MAC address, so here's an alternative that lets you evaluate the system without committing yourself to hardware purchases.
+
+Instead of giving a MAC address, type your email address in the MAC box. Our website will send you an email containing a 6-digit numeric 'password'. The MAC screen will show a box for you to type or paste this code into, then it will act as though a valid (unique) MAC had been given.
+
+Once you've done this you can add rooms just as if you were working with a real physical system.
+
+~tid:MAC:Return to the MAC help page~
+
+~tid:content:Go to the main Help page~

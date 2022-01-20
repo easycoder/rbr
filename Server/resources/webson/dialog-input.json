@@ -1,0 +1,66 @@
+{
+    "#doc": "An input dialog with a single text field",
+    "#element": "div",
+    "background": "white",
+    "border": "1px solid gray",
+    "margin-top": "0.5em",
+    "padding": "0 0.5em 0.5e 0.5em",
+    "box-shadow": "0.5em 0.5em 0.5em #444",
+    "text-align": "center",
+    "#": ["$Title", "$Text", "$Input", "$Buttons"],
+
+    "$Title": {
+        "#element": "div",
+        "@id": "dialog-title",
+        "font-weight": "bold"
+    },
+
+    "$Text": {
+        "#element": "div",
+        "@id": "dialog-text",
+        "margin": "1em",
+        "#content": "Text"
+    },
+
+    "$Input": {
+        "#element": "input",
+        "@id": "dialog-input",
+        "width": "12em",
+        "margin": "0 auto"
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "row",
+        "margin": "1em 0",
+        "#": ["$LRPadding", "$Button1", "$CenterPadding", "$Button2", "$LRPadding"],
+
+        "$Button1": {
+            "$ID": "dialog-button1",
+            "#": "$Button"
+        },
+
+        "$Button2": {
+            "$ID": "dialog-button2",
+            "#": "$Button"
+        },
+
+        "$Button": {
+            "#element": "button",
+            "@id": "$ID",
+            "width": "5em",
+            "height": "1.5em"
+        },
+
+        "$LRPadding": {
+            "#element": "div",
+            "flex": 1
+        },
+
+        "$CenterPadding": {
+            "#element": "div",
+            "width": "1em"
+        }
+    }
+}

@@ -1,0 +1,77 @@
+{
+    "#doc": "The menu for the room editor",
+    "#element": "div",
+    "text-align": "center",
+    "padding": "1em 0",
+    "background": "#ffc",
+    "#": ["$Title", "$Name", "$Sensor", "$Relays", "$Times", "$Pad", "$Save", "$Cancel", "$Pad", "$Help"],
+
+    "$Title": {
+        "#element": "div",
+        "@id": "title-room-name",
+        "font-size": "1.3em",
+        "padding": "0.5em",
+        "border": "1px solid gray",
+        "margin": "0.5em 0",
+        "background": "white"
+    },
+
+    "$Name": {
+        "$ID": "button-name",
+        "$Label": "Edit the room name",
+        "#": "$Button"
+    },
+
+    "$Sensor": {
+        "$ID": "button-sensor",
+        "$Label": "Edit sensor IP address",
+        "#": "$Button"
+    },
+
+    "$Relays": {
+        "$ID": "button-relays",
+        "$Label": "Edit relay IP addresses",
+        "#": "$Button"
+    },
+
+    "$Times": {
+        "$ID": "button-times",
+        "$Label": "Edit timing schedule",
+        "#": "$Button"
+    },
+
+    "$Save": {
+        "$ID": "button-save",
+        "$Label": "Save changes",
+        "#": "$Button"
+    },
+
+    "$Cancel": {
+        "$ID": "button-cancel",
+        "$Label": "Cancel",
+        "#": "$Button"
+    },
+
+    "$Help": {
+        "$ID": "button-help",
+        "$Label": "Help",
+        "#": "$Button"
+    },
+
+    "$Button": {
+        "#element": "button",
+        "@id": "$ID",
+        "display": "block",
+        "width": "60%",
+        "margin": "0 auto",
+        "font-size": "1.3em",
+        "margin": "0 auto 0.5em auto",
+        "border-radius": "0.25em",
+        "#content": "$Label"
+    },
+
+    "$Pad": {
+        "#element": "div",
+        "height": "1em"
+    }
+}

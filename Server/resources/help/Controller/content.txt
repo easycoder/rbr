@@ -1,0 +1,29 @@
+## The System Controller
+
+This can be any computer able to run Python. In practice, the demands made upon it are not great so there are some very low-cost options, the most well-known of which is the Raspberry Pi. This has been in production for several years and the latest models are quite powerful, but the controller software will run on even the earliest models. For example a Model 1B can be bought from RS Components for around £20, with a case costing another £5 or so. Add to this a low-cost USB power supply and a cable.
+
+The cheapest Pi machines do not have WiFi but the best place to locate the device is next to your internet router, so an Ethernet cable connection is more practical.
+
+To set up the controller, download the Raspbian headless distribution from [https://www.raspberrypi.org/downloads/raspbian/](https://www.raspberrypi.org/downloads/raspbian/) to your computer and install it on a suitable SD card (16GB or more). For this you will need software such as Etcher to write the image to the card. Having done this, remove then reinsert the card in your computer and you should see 2 partitions on the card, called `boot` and `rootfs`. One of these is the root partition. Add a file called `ssh` (with no extension) at the top level.
+
+The second, much larger, partition, called `rootfs`, is where all your files will be. Copy the distribution files - the contents of the `dist` folder in the repository - into the `home/pi` folder on the card. Now eject the card, put it into the Pi and boot up.
+
+Next you need to find the controller on your local network. To do this you'll need to point your browser to the admin panel for your router. This is frequently located at `http://192.168.1.1` but yours may be different. Log in, look for the name `raspberrypi` and note the IP address that's been assigned to it.
+
+Now go to the command line on your computer (Windows users can run PuTTY to do this) and login in:
+
+ssh pi@192.168.x.y
+
+where x and y are replaced by the numbers you found in the router admin screen. You'll be propted for a password; the default is `raspberry`. After a few seconds you'll see the standard greeting, plus a request to set yourself a new password.
+
+Once all this is done, type `ls`. You should see all the distribution files you copied earlier.
+
+To ensure the system is fully up to date, run the following commands. On the earlier Pi models the second of these will take a very long time to run:
+
+```
+sudo apt update
+sudo apt full-upgrade
+```
+
+The final step is to set up a 'cron' job that will run every 10 seconds. Type this command:
+

@@ -1,0 +1,490 @@
+!	Room Editor
+
+	script RoomEditor
+    
+    import div MainPanel
+    	and variable Rooms
+        and variable ClickIndex
+        and variable Result
+
+	div RoomName
+    div DialogPanel
+    div DialogTitle
+    div DialogText
+    div EditTimes
+    div Period
+    div HourField
+    div MinuteField
+    div TempField
+    button EditNameButton
+    button EditSensorButton
+    button EditRelaysButton
+    button EditTimesButton
+    button HelpButton
+    button SaveButton
+    button CancelButton
+    button DialogButton1
+    button DialogButton2
+    button TimesAddButton
+    button TimesSaveButton
+    button TimesCancelButton
+    button TimesHelpButton
+    button PeriodEdit
+    button PeriodUp
+    button PeriodDown
+    button PeriodDelete
+    button PeriodSaveButton
+    button PeriodCancelButton
+    button PeriodHelpButton
+    input DialogInput
+    img HourUpButton
+    img HourDownButton
+    img MinuteUpButton
+    img MinuteDownButton
+    img TempUpButton
+    img TempDownButton
+    variable RoomSpec
+    variable Webson
+    variable EventWebson
+    variable EventIndex
+    variable Relays
+    variable Events
+    variable Event
+    variable ThisEvent
+    variable ThatEvent
+    variable NewEvents
+    variable HourValue
+    variable MinuteValue
+    variable TempValue
+    variable Item
+    variable Time
+    variable Temp
+    variable Count
+    variable Value
+    variable E
+    variable E2
+    variable R
+
+!    debug step
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The room editor
+Editor:
+    attach RoomName to `title-room-name`
+    attach EditNameButton to `button-name`
+    attach EditSensorButton to `button-sensor`
+    attach EditRelaysButton to `button-relays`
+    attach EditTimesButton to `button-times`
+    attach SaveButton to `button-save`
+    attach CancelButton to `button-cancel`
+    attach HelpButton to `button-help`
+    
+    put element ClickIndex of Rooms into RoomSpec
+    set the content of RoomName to property `name` of RoomSpec
+    
+    on click EditNameButton go to NameButtonCB
+    
+    on click EditSensorButton go to SensorButtonCB
+    
+    on click EditRelaysButton go to RelaysButtonCB
+ 
+    on click EditTimesButton go to TimesButtonCB
+    
+    on click SaveButton go to ExitWithChanges
+    
+    on click CancelButton go to ExitWithoutChanges
+    
+    on click HelpButton
+    begin
+        put `Help home RoomEdit` into Result
+        exit
+    end
+    
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the name
+NameButtonCB:
+    attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Rename '` cat the content of RoomName cat `'`
+    set the content of DialogText to `Type the new name for this room`
+    set the content of DialogButton1 to `OK`
+    set the content of DialogButton2 to `Cancel`
+    set the content of DialogInput to the content of RoomName
+    
+    on click DialogButton1
+    begin
+        set property `name` of RoomSpec to the content of DialogInput
+    	set the content of RoomName to property `name` of RoomSpec
+        clear DialogPanel
+!        set element ClickIndex of Rooms to RoomSpec
+!        go to ExitWithChanges
+    end
+    
+    on click DialogButton2
+    begin
+        clear DialogPanel
+!        go to ExitWithoutChanges
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the sensor
+SensorButtonCB:
+    attach DialogPanel to `dialog-panel`
+  	rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Sensor IP for '` cat property `name` of RoomSpec cat `'`
+    set the content of DialogText to `Type the IP address of the temperature sensor`
+    set the content of DialogButton1 to `Save`
+    set the content of DialogButton2 to `Cancel`
+    set the content of DialogInput to property `sensor` of RoomSpec
+    
+    on click DialogButton1
+    begin
+        set property `sensor` of RoomSpec to the content of DialogInput
+        clear DialogPanel
+!        set element ClickIndex of Rooms to RoomSpec
+!        go to ExitWithChanges
+    end
+    
+    on click DialogButton2
+    begin
+    	clear DialogPanel
+!      	go to ExitWithoutChanges
+        end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the relays
+RelaysButtonCB:
+	attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-textarea.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Relay IPs for '` cat property `name` of RoomSpec cat `'`
+    set the content of DialogText to `Type the IP addresses of the relays, 1 per line`
+    set the content of DialogButton1 to `Save`
+    set the content of DialogButton2 to `Cancel`
+    put property `relays` of RoomSpec into Relays
+    put empty into Item
+    put 0 into R
+    while R is less than the json count of Relays
+    begin
+        if Item is not empty put Item cat newline into Item
+        put Item cat element R of Relays into Item
+        add 1 to R
+    end
+    set the content of DialogInput to Item
+    
+    on click DialogButton1
+    begin
+        put `[]` into Relays
+        split the content of DialogInput on newline giving Item
+        put 0 into R
+        while R is less than the elements of Item
+        begin
+            index Item to R
+            append Item to Relays
+            add 1 to R
+        end
+        set property `relays` of RoomSpec to Relays
+        clear DialogPanel
+!        set element ClickIndex of Rooms to RoomSpec
+!        go to ExitWithChanges
+    end
+    
+    on click DialogButton2
+    begin
+    	clear DialogPanel
+!    	go to ExitWithoutChanges
+        end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the times
+TimesButtonCB:
+	clear MainPanel
+    rest get EventWebson from `/resources/webson/event.json?v=` cat now
+    rest get Webson from `/resources/webson/timeseditor.json?v=` cat now
+    render Webson in MainPanel
+    attach RoomName to `title-room-name`
+    attach EditTimes to `edit-times`
+    set the content of RoomName to property `name` of RoomSpec
+    clear EditTimes
+    put property `events` of RoomSpec into Events
+RedoEvents:
+    put the json count of Events into Count
+    set the elements of Event to Count
+    set the elements of Period to Count
+    set the elements of PeriodEdit to Count
+    set the elements of PeriodUp to Count
+    set the elements of PeriodDown to Count
+    set the elements of PeriodDelete to Count
+    clear EditTimes
+    put 0 into E
+    while E is less than Count
+    begin
+    	index Event to E
+    	index Period to E
+       	index PeriodEdit to E
+       	index PeriodUp to E
+       	index PeriodDown to E
+       	index PeriodDelete to E
+       	put EventWebson into Webson
+        replace `/INDEX/` with E in Webson
+        render Webson in EditTimes
+        put element E of Events into Event
+        attach Period to `period-` cat E
+        attach PeriodEdit to `period-edit-` cat E
+        attach PeriodUp to `period-up-` cat E
+        attach PeriodDown to `period-down-` cat E
+        attach PeriodDelete to `period-delete-` cat E
+        put property `until` of Event into Time
+        put property `temp` of Event into Temp
+        set the content of Period to `Until ` cat Time cat `: Target = ` cat Temp cat `&deg;C`
+        if E is 0 set style `visibility` of PeriodUp to `hidden`
+       	add 1 to E giving E2
+        if E2 is not less than Count set style `visibility` of PeriodDown to `hidden`
+
+        on click PeriodUp
+        begin
+         	put the index of PeriodUp into EventIndex
+            put element EventIndex of Events into ThisEvent
+            take 1 from EventIndex
+            put element EventIndex of Events into ThatEvent
+            set element EventIndex of Events to ThisEvent
+            add 1 to EventIndex
+            set element EventIndex of Events to ThatEvent
+            goto RedoEvents
+        end
+        
+        on click PeriodDown
+        begin
+         	put the index of PeriodDown into EventIndex
+            put element EventIndex of Events into ThisEvent
+            add 1 to EventIndex
+            put element EventIndex of Events into ThatEvent
+            set element EventIndex of Events to ThisEvent
+            take 1 from EventIndex
+            set element EventIndex of Events to ThatEvent
+            goto RedoEvents
+        end
+        
+        on click PeriodEdit
+        begin
+         	put the index of PeriodEdit into EventIndex
+            index Event to EventIndex
+            attach DialogPanel to `full-width-panel`
+            rest get Webson from `/resources/webson/periodeditor.json?v=` cat now
+            render Webson in DialogPanel
+            attach HourUpButton to `hour-up`
+            attach HourDownButton to `hour-down`
+            attach MinuteUpButton to `minute-up`
+            attach MinuteDownButton to `minute-down`
+            attach TempUpButton to `temp-up`
+            attach TempDownButton to `temp-down`
+            attach HourField to `hour-text`
+            attach MinuteField to `minute-text`
+            attach TempField to `temp-text`
+            attach PeriodSaveButton to `period-save`
+            attach PeriodCancelButton to `period-cancel`
+            attach PeriodHelpButton to `period-help`
+            put property `until` of Event into Time
+            put property `temp` of Event into Temp
+            put the value of left 2 of Time into HourValue
+            put the value of right 2 of Time into MinuteValue
+            if the position of `.` in Temp is -1 multiply the value of Temp by 10 giving TempValue
+            else
+            begin
+                split Temp on `.` giving Temp
+                index Temp to 0
+                multiply the value of Temp by 10 giving TempValue
+                index Temp to 1
+                add the value of Temp to TempValue
+            end
+            
+            on click HourUpButton
+            begin
+            	if HourValue is 23 put -1 into HourValue
+                add 1 to HourValue
+                go to ShowValues
+            end
+            
+            on click HourDownButton
+            begin
+            	if HourValue is 0 put 24 into HourValue
+                take 1 from HourValue
+                go to ShowValues
+            end
+            
+            on click MinuteUpButton
+            begin
+            	if MinuteValue is 59 put -1 into MinuteValue
+                add 1 to MinuteValue
+                go to ShowValues
+            end
+            
+            on click MinuteDownButton
+            begin
+            	if MinuteValue is 0 put 60 into MinuteValue
+                take 1 from MinuteValue
+                go to ShowValues
+            end
+            
+            on click TempUpButton
+            begin
+            	add 5 to TempValue
+                go to ShowValues
+            end
+            
+            on click TempDownButton
+            begin
+            	if TempValue is 0 stop
+            	take 5 from TempValue
+                go to ShowValues
+            end
+            
+            on click PeriodSaveButton
+            begin
+            	put the content of HourField into Value
+                put Value cat `:` into Value
+                put Value cat the content of MinuteField into Value
+            	set property `until` of Event to Value
+                divide TempValue by 10 giving Value
+                put Value cat `.` cat TempValue modulo 10 into Value
+                set property `temp` of Event to Value
+                set element EventIndex of Events to Event
+    			set property `events` of RoomSpec to Events
+             	clear DialogPanel
+!            	go to ExitWithChanges
+            end
+            
+            on click PeriodCancelButton
+            begin
+            	clear DialogPanel
+!                go to ExitWithoutChanges
+            end
+            
+            on click PeriodHelpButton
+            begin
+            	clear DialogPanel
+            	put `Help home Periods` into Result
+                exit
+            end
+            
+        ShowValues:
+        	put `0` cat HourValue into Value
+            set the content of HourField to right 2 of Value
+            put right 2 of Value into Time
+        	put `0` cat MinuteValue into Value
+            set the content of MinuteField to right 2 of Value
+            put Time cat `:` cat right 2 of Value into Time
+            divide TempValue by 10 giving Value
+            put Value cat `.` cat TempValue modulo 10 into Value
+            put Value cat `&deg;C` into Value
+            set the content of TempField to Value
+            index Event to EventIndex
+            index Period to EventIndex
+            set the content of Period to `Until ` cat Time cat `: Target = ` cat Value
+            stop
+        end
+        
+        on click PeriodDelete
+        begin
+         	put the index of PeriodDelete into EventIndex
+            attach DialogPanel to `dialog-panel`
+            rest get Webson from `/resources/webson/dialog-confirm.json?v=` cat now
+            render Webson in DialogPanel
+            attach DialogTitle to `dialog-title`
+            attach DialogText to `dialog-text`
+            attach DialogButton1 to `dialog-button1`
+            attach DialogButton2 to `dialog-button2`
+            set the content of DialogTitle to `Confirm deletion`
+            set the content of DialogText to `Are you sure you want to remove this row?`
+            set the content of DialogButton1 to `Yes`
+            set the content of DialogButton2 to `No`
+            on click DialogButton1
+            begin
+                clear DialogPanel
+                put `[]` into NewEvents
+                put 0 into E
+                while E is less than EventIndex
+                begin
+                    append element E of Events to NewEvents
+                    add 1 to E
+                end
+                add 1 to E
+                while E is less than the json count of Events
+                begin
+                    append element E of Events to NewEvents
+                    add 1 to E
+                end
+                put NewEvents into Events
+                go to RedoEvents
+            end
+            on click DialogButton2 clear DialogPanel
+        end
+        add 1 to E
+    end
+    
+    attach TimesAddButton to `edit-add-button`
+    attach TimesSaveButton to `edit-save-button`
+    attach TimesCancelButton to `edit-cancel-button`
+    attach TimesHelpButton to `edit-help-button`
+    
+    on click TimesAddButton
+    begin
+        put `{}` into Event
+        set property `until` of Event to `00:00`
+        set property `temp` of Event to `20`
+        append Event to Events
+        go to RedoEvents
+    end
+    
+    on click TimesSaveButton
+    begin
+    	set property `events` of RoomSpec to Events
+        set element ClickIndex of Rooms to RoomSpec
+        clear MainPanel
+        go to ExitWithChanges
+    end
+    
+    on click TimesCancelButton
+    begin
+       	clear MainPanel
+       	go to ExitWithoutChanges
+    end
+    
+    on click TimesHelpButton
+    begin
+        clear MainPanel
+        put `Help home RoomEdit` into Result
+        exit
+    end
+	stop
+
+ExitWithoutChanges:
+    put `OK` into Result
+    exit
+
+ExitWithChanges:
+    set element ClickIndex of Rooms to RoomSpec
+    put `Changed` into Result
+    exit

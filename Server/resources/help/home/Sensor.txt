@@ -1,0 +1,7 @@
+## Edit the Sensor IP
+
+The Sensor is a Shelly H&T module that reports the current temperature every 10 minutes by sending messages to the system controller. So you can identify which sensor is in which room you must enter its IP address using this editing dialog.
+
+~img:sensor.jpg:center 50%~
+
+Go to the ~tid:RoomEdit:Room Editor Help page~.

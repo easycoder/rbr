@@ -1,0 +1,17 @@
+{
+    "#element": "div",
+    "margin": "0.5em 0 0.5em 0",
+    "#": ["$EventData"],
+
+    "$EventData": {
+        "#element": "div",
+        "width": "12em",
+        "@id": "event-data",
+        "display": "inline-block",
+        "width": "3em",
+        "font-size": "80%",
+        "font-weight": "bold",
+        "margin-left": "0.5em",
+        "#content": "Until ??:?? Temp = ??&deg;C"
+    }
+}

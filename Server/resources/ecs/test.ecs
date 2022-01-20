@@ -1,0 +1,9 @@
+!	Test
+
+	script Test
+    
+    variable Result
+    
+    rest get Result from `http://192.168.33.1`
+    print Result
+	stop
