@@ -1,7 +1,0 @@
-## Add a room
-
-When you click this button a new room will be added to your system. You can the edit its properties according to your needs and wishes.
-
-~tid:MainMenu:Return to the main menu help page~
-
-~tid:content:Return to the initial help page~

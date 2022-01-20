@@ -1,9 +1,0 @@
-## Backup
-
-This allows you to back up your system configuration to the web server. The configuration will remain there in case you need to restore it.
-
-~tid:Restore:Go to the Restore help page~
-
-~tid:MainMenu:Return to the main menu help page~
-
-~tid:content:Return to the initial help page~
