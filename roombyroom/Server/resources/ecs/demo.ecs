@@ -1,0 +1,96 @@
+!	Demo actions
+
+	script Demo
+    
+    import variable Map and variable Sensors and variable Demo
+    
+    variable Map2
+    variable Rooms
+    variable RoomCount
+    variable RoomSpec
+    variable SensorSpec
+    variable SensorIP
+    variable Temp
+    variable Dot
+    variable Integer
+    variable Value
+    variable R
+    variable T
+
+!	debug step
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Run the demo actions
+
+	print Map
+    put empty into Sensors
+
+    on message
+    begin
+        while true
+        begin
+        	if Map is not Map2
+            begin
+            	put Map into Map2
+                gosub to Init
+            end
+            wait 10
+            put 0 into R
+            while R is less than RoomCount
+            begin
+            	if random 5 is 0
+                begin
+                    put element R of Rooms into RoomSpec
+                    put `` cat property `sensor` of RoomSpec into SensorIP
+                    if SensorIP is not empty
+                    begin
+                        put property SensorIP of Sensors into SensorSpec
+                        put `` cat property `temperature` of SensorSpec into Temp
+                        put the position of `.` in Temp into Dot
+                        if Dot is -1 multiply the value of Temp by 10 giving Value
+                        else
+                        begin
+                            put left Dot of Temp into Integer
+                            multiply the value of Integer by 10 giving Value
+                            add 1 to Dot
+                            add the value of from Dot of Temp to Value
+                        end
+                        if property `relay` of SensorSpec is `on` add 1 to Value
+                        else take 1 from Value
+                        divide Value by 10 giving Temp
+                        put Temp cat `.` cat Value modulo 10 into Temp
+                        set property `temperature` of SensorSpec to Temp
+                        print `SensorSpec: ` cat SensorSpec
+                        set property SensorIP of Sensors to SensorSpec
+                    end
+                end
+            	add 1 to R
+            end
+        end
+    end
+
+    set ready
+	stop
+
+Init:
+    put property `rooms` of Map into Rooms
+    put the json count of Rooms into RoomCount
+    put 0 into R
+    while R is less than RoomCount
+    begin
+    	put element R of Rooms into RoomSpec
+        put `` cat property `sensor` of RoomSpec into SensorIP
+        if SensorIP is not empty
+        begin
+            put empty into SensorSpec
+            put random 7 into T
+            add 15 to T
+            set property `temperature` of SensorSpec to T
+            if random 1 set property `relay` of SensorSpec to `on`
+            else set property `relay` of SensorSpec to `off`
+            set property SensorIP of Sensors to SensorSpec
+        end
+        add 1 to R
+    end
+    print `Sensors Init: ` cat Sensors
+	return

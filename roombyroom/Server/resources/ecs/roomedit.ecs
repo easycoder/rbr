@@ -307,7 +307,7 @@ RedoEvents:
             attach PeriodCancelButton to `period-cancel`
             attach PeriodHelpButton to `period-help`
             put property `until` of Event into Time
-            put property `temp` of Event into Temp
+            put `` cat property `temp` of Event into Temp
             put the value of left 2 of Time into HourValue
             put the value of right 2 of Time into MinuteValue
             if the position of `.` in Temp is -1 multiply the value of Temp by 10 giving TempValue

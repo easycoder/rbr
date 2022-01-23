@@ -106,13 +106,13 @@
         "display": "flex",
         "flex-direction": "row",
         "margin-top": "1em",
-        "#": ["$Save", "$Pad", "$Cancel", "$Pad", "$Help"],
+        "#": ["$OK", "$Pad", "$Cancel", "$Pad", "$Help"],
 
-        "$Save": {
+        "$OK": {
             "#element": "button",
             "@id": "period-save",
             "width": "30%",
-            "#content": "Save"
+            "#content": "OK"
         },
 
         "$Cancel": {

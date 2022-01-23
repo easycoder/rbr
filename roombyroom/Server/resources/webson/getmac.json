@@ -10,11 +10,10 @@
     "$Panel": {
         "#element": "div",
         "width": "70%",
-        "height": "6em",
         "margin": "1em auto 0",
         "background": "#ffc",
         "border": "1px solid gray",
-        "#": ["$Title", "$Input", "$Buttons"],
+        "#": ["$Title", "$Input", "$Buttons", "$Link"],
 
         "$Title": {
             "#element": "div",
@@ -62,6 +61,16 @@
                 "margin": "0 0.5em",
                 "#content": "Help"
             }
+        },
+
+        "$Link": {
+            "#element": "a",
+            "@id": "getmac-welcome",
+            "@href": "#",
+            "display": "block",
+            "font-size": "70%",
+            "padding": "1em 0 0.5em 0",
+            "#content": "Go to the Welcome page"
         }
     }
 }

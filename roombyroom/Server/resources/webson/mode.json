@@ -6,7 +6,7 @@
     "visibility": "hidden",
     "box-shadow": "0.5em 0.5em 0.5em #444",
     "text-align": "center",
-    "#": ["$Title", "$RoomName", "$On", "$Off", "$Timed"],
+    "#": ["$Title", "$RoomName", "$On", "$Off", "$Timed", "$Cancel"],
 
     "$Title": {
         "#element": "div",
@@ -120,6 +120,13 @@
         "$ID": "mode-timed",
         "$Label1": "Timed",
         "$Label2": "Use the schedule provided",
+        "#": "$Button"
+    },
+
+    "$Cancel": {
+        "$ID": "mode-cancel",
+        "$Label1": "Cancel",
+        "$Label2": "Close this popup",
         "#": "$Button"
     },
 

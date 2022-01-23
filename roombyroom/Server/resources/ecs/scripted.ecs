@@ -37,7 +37,7 @@
   variable Item
 
 !  debug step
-  
+
   rest path `rest.php`
   set encoding to `base64`
 
@@ -101,7 +101,7 @@
 
   create CloseButton in FileListing
   set the text of CloseButton to `Close`
-  
+
   codemirror attach to ContentEditor
   codemirror set content of ContentEditor to Content
   set FileIsOpen

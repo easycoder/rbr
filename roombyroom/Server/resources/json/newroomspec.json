@@ -1,1 +1,1 @@
-{"name": "Unnamed", "sensor": "", "relays": [], "mode": "off", "events": [{"until": "07:00", "temp": 15}]}
+{"name": "Unnamed", "sensor": "", "relays": [], "mode": "off", "target": 20, "events": [{"until": "07:00", "temp": 15}], "relay": "off"}
