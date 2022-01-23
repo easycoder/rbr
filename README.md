@@ -1,5 +1,7 @@
 # Room By Room Control
 
+An Open Source project to build a smart central heating system with control over the Internet.
+
 This project uses commercially-available WiFi-connected modules - a temperature sensor and a relay module - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis.
 
 The repository software is in 3 parts:
