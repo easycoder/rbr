@@ -2,7 +2,6 @@
     "#doc": "The script for a single room",
     "#element": "div",
     "@id": "room-/ROOM/",
-    "height": "3em",
     "padding": "0.2em",
     "border": "1px solid gray",
     "margin": "0.5em",
@@ -22,12 +21,10 @@
         "#element": "div",
         "@id": "room-name-/ROOM/",
         "text-align": "left",
-        "line-height": "3em",
-        "vertical-align": "middle",
+        "line-height": "2em",
         "margin-left": "0.5em",
         "flex": 1,
-        "height": "3em",
-        "font-size": "90%",
+        "height": "2em",
         "font-weight": "bold",
         "cursor": "default",
         "overflow": "wrap"
@@ -53,7 +50,7 @@
 
     "$Pad": {
         "#element": "div",
-        "width": "0.5em"
+        "width": "1em"
     },
 
     "$Tools": {
@@ -61,27 +58,7 @@
         "@id": "room-tools-/ROOM/",
         "width": "2em",
         "height": "2em",
-        "padding": "0.5em 0 0 0",
+        "vertical-align": "middle",
         "@src": "resources/icon/edit.png"
-    },
-
-    "$Tools0": {
-        "#element": "div",
-        "@id": "room-tools-/ROOM/",
-        "width": "calc(3em - 2px)",
-        "height": "calc(3em - 2px)",
-        "border": "1px solid black",
-        "background": "#eee",
-        "margin-left": "0.5em",
-        "#": "$Icon",
-
-        "$Icon": {
-            "#element": "img",
-            "width": "50%",
-            "height": "50%",
-            "margin": "0.7em auto 0 auto",
-            "pointer-events": "none",
-            "@src": "resources/icon/edit.png"
-        }
     }
 }

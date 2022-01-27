@@ -13,7 +13,16 @@
     variable Temp
     variable Dot
     variable Integer
-    variable Value
+    variable TempX10
+    variable TargetX10
+    variable Mode
+    variable Events
+    variable Event
+    variable Now
+    variable Until
+    variable Target
+    variable E
+    variable L
     variable R
     variable T
 
@@ -22,7 +31,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Run the demo actions
 
-	print Map
     put empty into Sensors
 
     on message
@@ -47,20 +55,113 @@
                         put property SensorIP of Sensors into SensorSpec
                         put `` cat property `temperature` of SensorSpec into Temp
                         put the position of `.` in Temp into Dot
-                        if Dot is -1 multiply the value of Temp by 10 giving Value
+                        if Dot is -1 multiply the value of Temp by 10 giving TempX10
                         else
                         begin
                             put left Dot of Temp into Integer
-                            multiply the value of Integer by 10 giving Value
+                            multiply the value of Integer by 10 giving TempX10
                             add 1 to Dot
-                            add the value of from Dot of Temp to Value
+                            add the value of from Dot of Temp to TempX10
                         end
-                        if property `relay` of SensorSpec is `on` add 1 to Value
-                        else take 1 from Value
-                        divide Value by 10 giving Temp
-                        put Temp cat `.` cat Value modulo 10 into Temp
+                        if property `relay` of SensorSpec is `on`
+                        begin
+                        	if TempX10 is less than 240 add 1 to TempX10
+                        end
+                        else
+                        begin
+                        	if TempX10 is greater than 120 take 1 from TempX10
+                        end
+                        divide TempX10 by 10 giving Temp
+                        put Temp cat `.` cat TempX10 modulo 10 into Temp
                         set property `temperature` of SensorSpec to Temp
-                        print `SensorSpec: ` cat SensorSpec
+                        
+                        ! Actions that depend on the mode
+                        put property `mode` of RoomSpec into Mode
+                        if Mode is `off`
+                        begin
+                        end
+                        else if Mode is `on`
+                        begin
+                            put `` cat property `target` of RoomSpec into Temp
+                            put the position of `.` in Temp into Dot
+                            if Dot is -1 multiply the value of Temp by 10 giving TargetX10
+                            else
+                            begin
+                                put left Dot of Temp into Integer
+                                multiply the value of Integer by 10 giving TargetX10
+                                add 1 to Dot
+                                add the value of from Dot of Temp to TargetX10
+                            end
+                            if TempX10 is not less than TargetX10
+                                set property `relay` of SensorSpec to `off`
+                            else
+                                set property `relay` of SensorSpec to `on`
+                        end
+                        else if Mode is `timed`
+                        begin
+                        	put property `events` of RoomSpec into Events
+                            put the json count of Events into L
+                            take 1 from L
+                            put 0 into E
+                            while E is not greater than L
+                            begin
+                                put element E of Events into Event
+                                ! Get the current hour/minute
+                                divide now by 60 giving Now ! minutes
+                                put Now modulo 24*60 into Now
+                                ! Get the event time
+                                put property `until` of Event into Until
+                                put the position of `:` in Until into Dot
+                                put the value of left Dot of Until into T
+                                multiply T by 60
+                                add 1 to Dot
+                                add the value of from Dot of Until to T
+                                ! Get the target temp
+                                put `` cat property `temp` of Event into Target
+                                put the position of `.` in Target into Dot
+                                if Dot is -1 multiply the value of Target by 10 giving Temp
+                                else
+                                begin
+                                    put left Dot of Target into Integer
+                                    multiply the value of Integer by 10 giving Temp
+                                    add 1 to Dot
+                                    add the value of from Dot of Target to Temp
+                                end
+                                ! Check if this is the right time segment
+                                if Now is less than T
+                                begin
+                                    if TempX10 is less than Temp
+                                    	set property `relay` of SensorSpec to `on`
+                                    else
+                                    	set property `relay` of SensorSpec to `off`
+                                    go to Break
+                                end
+                                else
+                                begin
+                                    if E is L
+                                    begin
+                                        put element 0 of Events into Event
+                                        put `` cat property `temp` of Event into Target
+                                        put the position of `.` in Target into Dot
+                                        if Dot is -1 multiply the value of Target by 10 giving Temp
+                                        else
+                                        begin
+                                            put left Dot of Target into Integer
+                                            multiply the value of Integer by 10 giving Temp
+                                            add 1 to Dot
+                                            add the value of from Dot of Target to Temp
+                                        end
+                                        if TempX10 is less than Temp
+                                            set property `relay` of SensorSpec to `on`
+                                        else
+                                            set property `relay` of SensorSpec to `off`
+                                        end
+                                end
+                                add 1 to E
+                            end
+                        end
+                        
+                    Break:
                         set property SensorIP of Sensors to SensorSpec
                     end
                 end
@@ -92,5 +193,4 @@ Init:
         end
         add 1 to R
     end
-    print `Sensors Init: ` cat Sensors
 	return

@@ -7,6 +7,7 @@
     "text-align": "center",
     "display": "flex",
     "flex-direction": "column",
+    "font-size": "<#parent_width/25>",
     "#": ["$Titles", "$OuterPanel", "$HelpPanel"],
     
     "$Titles": {
@@ -62,8 +63,9 @@
 
         "$Title": {
             "#element": "div",
-            "font-size": "<#parent_width/12>",
-            "#content": "Room By Room"
+            "#content": "Room By Room",
+            "font-size": "2em",
+            "font-weight": "bold"
         },
 
         "$Subtitle": {

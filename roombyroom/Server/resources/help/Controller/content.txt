@@ -45,7 +45,7 @@ Next we need to get a couple of extras for Python. Give this command:
 
 ```
 pip install bottle requests
-``
+```
 
 These are for the `Bottle` webserver and for `REST` calls, respectively.
 
@@ -58,11 +58,12 @@ crontab -e
 the select the Nano editor from the list given (this happens only the first time of use), and use it to add the following lines to the bottom of the cron file:
 
 ```
-SHELL=/bin/bash
-PATH=/home/pi/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bincd /home/pi
-
 * * * * * /home/pi/run
 @reboot sleep 10 && /home/pi/init
 ```
 
 For explanation, there's a task that runs every minute and calls `run`, plus a second task that only runs on system boot and calls `init`. Both of these are shell scripts provided in the distribution package.
+
+_**This page is not yet complete**_
+
+~sid:home:Go to the Help home page~

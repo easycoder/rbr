@@ -13,6 +13,10 @@ Amazon also supply alternative models at about half the cost of the Danfoss. The
 ~clear~
 The actuator is powered from the relay, which is plugged into a mains power socket. Every 10 minutes the thermometer sends its current temperature to the system controller, which runs through a set of rules to decide whether to turn on heating and sends commands to the actuator relay(s). The system status is sent to a web server which talks to the webapp you are using now and enables you to control all aspects of the system.
 
+Here's a photo of a kit built for a single radiator, using a standard UK pattress box. The relay is the small blue item inside the box, which also has a neon indicator to show when power is applied to to the actuator (lower right of photo). It plugs into a standard wall outlet and communicates by wifi with the system controller.
+~clear~
+~img:radcontrol.jpg:center 50%~
+
 ~stid:Controller/content:The system controller~
 
 ~tid:content:Return to the Help start page~

@@ -74,6 +74,8 @@
     variable Temperature
     variable Target
     variable TargetFlag
+    variable Dot
+    variable Integer
     variable Events
     variable Event
     variable Blocked
@@ -290,7 +292,9 @@ GetMap:
     attach SystemNamePanel to `system-name`
     set the content of SystemNamePanel to SystemName
 
-	if not Demo rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
+	! Get the current sensor values
+	if Demo put DemoSensors into Sensors
+    else rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
 
 	put property `rooms` of Map into Rooms
     put the json count of Rooms into R
@@ -366,7 +370,7 @@ GetMap:
         set the content of RoomNamePanel to RoomName
 
         ! Show the current temperature and relay state
-        put property `sensor` of RoomSpec into SensorIP
+        put `` cat property `sensor` of RoomSpec into SensorIP
         if SensorIP is not empty
         begin
             put property SensorIP of Sensors into SensorSpec
@@ -526,13 +530,16 @@ OnUp:
 	set UD
 
 UpDown:
-	if Target is empty put `0.0` into Target
-    split Target on `.` giving T
-    index T to 1
-    put T into X
-    index T to 0
-    multiply the value of T by 10 giving T
-    add X to T
+	if Target is empty put `0.0` into Target else put `` cat Target into Target
+    put the position of `.` in Target into Dot
+    if Dot is -1 multiply the value of Target by 10 giving T
+    else
+    begin
+         put left Dot of Target into Integer
+         multiply the value of Integer by 10 giving T
+         add 1 to Dot
+         add the value of from Dot of Target to T
+    end
     if UD add 5 to T else if Target is not `0.0` take 5 from T
     if T is less than 10 put `0` cat T into T
     else put `` cat T into T

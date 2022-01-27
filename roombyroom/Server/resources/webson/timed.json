@@ -4,13 +4,11 @@
     "@id" : "room-/ROOM/-mode-icon",
     "display": "flex",
     "flex-direction": "row",
-    "width": "11em",
-    "height": "100%",
+    "width": "10em",
     "#": ["$Button", "$Padding", "$Text"],
 
     "$Button": {
         "#element": "div",
-        "height": "100%",
         "margin-right": "0.5em",
         "pointer-events": "none",
         "#": "$Icon",
@@ -18,8 +16,8 @@
         "$Icon": {
             "#element": "img",
             "@src": "resources/icon/clock.png?v=2",
-            "height": "80%",
-            "margin-top": "10%"
+            "height": "2em",
+            "padding": "0.5em"
         }
     },
 
@@ -50,14 +48,14 @@
             "$Content1": {
                 "#element": "div",
                 "#content": "Timed",
-                "font-size": "1.4em",
+                "font-size": "1.2em",
                 "font-weight": "bold"
             },
 
             "$Content2": {
                 "#element": "div",
                 "@id" : "room-/ROOM/-timed-info",
-                "font-size": "0.9em",
+                "font-size": "0.7em",
                 "font-weight": "bold"
             }
         }
