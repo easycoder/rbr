@@ -17,6 +17,7 @@
     div ButtonM
     div ButtonO
     div ButtonC
+    div ButtonH
     div UpButton
     div DownButton
     div OnTarget
@@ -75,6 +76,7 @@
     variable Target
     variable TargetFlag
     variable Dot
+    variable Args
     variable Integer
     variable Events
     variable Event
@@ -138,15 +140,16 @@ Main:
 	clear Blocked
     set Redraw
 
-	rest path `rest.php`
-
     set the title to `RBR`
 
     clear Mobile
     if mobile
         if portrait set Mobile
 
-    put `https://rbrcontrol.com/rest.php` into Server
+    ! Get the URL of the REST server
+  	json parse url the location as Args
+    put property `url` of Args into Server
+    put Server cat `rest.php` into Server
 
 	create Body
     if Mobile
@@ -249,19 +252,6 @@ Start:
     get Password from storage as `password`
     if Password is empty go to GetPassword
 
-!	Get the system name
-	get SystemName from storage as `SystemName`
-    if SystemName is empty
-    begin
-		if not Demo
-        begin
-        	rest get SystemName from Server cat `/name/` cat MAC cat `?v=` cat now
-        	or go to Start
-        end
-        if SystemName is empty go to GetSystemName
-    end
-!    print MAC
-
 	if not Redraw go to GetMap
     clear MainPanel
     put 0 into RoomCount
@@ -286,6 +276,20 @@ GetMap:
     end
     if Map is not Map2 set Redraw
     put Map into Map2
+
+    put property `name` of Map into SystemName
+    if SystemName is empty
+    begin
+        get SystemName from storage as `SystemName`
+        if SystemName is empty go to GetSystemName
+        else
+        begin
+            set property `name` of Map to SystemName
+            fork to PostMap
+            set Redraw
+        end
+    end
+
     if Demo put Map into storage as `map`
 
 	! Show the system
@@ -490,6 +494,7 @@ GetMap:
             attach ButtonM to `mode-on`
             attach ButtonO to `mode-off`
             attach ButtonC to `mode-cancel`
+            attach ButtonH to `mode-help`
             attach DownButton to `on-down`
             attach UpButton to `on-up`
             attach OnTarget to `on-target`
@@ -503,6 +508,7 @@ GetMap:
             on click ButtonM go to SelectOn
             on click ButtonO go to SelectOff
             on click ButtonC go to SelectCancel
+            on click ButtonH go to SelectHelp
             on click DownButton go to OnDown
             on click UpButton go to OnUp
 	    end
@@ -575,6 +581,15 @@ SelectOff:
 SelectCancel:
     put CurrentMode into Mode
     clear TargetFlag
+    go to SelectMode
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Select help
+SelectHelp:
+    set style `visibility` of ModePanel to `hidden`
+    put `home` into SID
+    put `Mode` into TID
+    go to RunHelp
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select the mode
@@ -760,14 +775,12 @@ GetSystemName:
         if SystemName is not empty
         begin
         	put SystemName into storage as `SystemName`
-            if not Demo
-            begin
-            	rest post to Server cat `/name/` cat MAC cat `/` cat Password cat `/` cat SystemName
-            	or continue
-            end
             clear MainPanel
+            set Redraw
             clear Blocked
-            stop
+            set the content of SystemNamePanel to SystemName
+            set property `name` of Map to SystemName
+            go to PostMap
         end
     end
     on click CancelButton

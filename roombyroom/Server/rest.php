@@ -135,83 +135,6 @@
                     exit;
             }
             break;
-        case 'POST':
-            switch ($action) {
-                case '_mkdir':
-                    // Create a directory
-                    // Endpoint: {site root}/easycoder/rest.php/_mkdir
-                    header("Content-Type: application/text");
-                    $path = stripslashes(file_get_contents("php://input"));
-//                     logger("Create directory $path");
-                    mkdir($path);
-                    exit;
-                case '_upload':
-                    // Upload a file (an image) to the current directory
-                    // Endpoint: {site root}/easycoder/rest.php/_upload
-                    $path = $_POST['path'];
-                    $pathsegs = explode("/", $path);
-                    $path = str_replace('~', '/', $pathsegs[1]);
-                    $fileName = $_FILES['source']['name'];
-                    $tempName = $_FILES['source']['tmp_name'];
-                    $fileType = $_FILES['source']['type'];
-                    $fileSize = $_FILES['source']['size'];
-                    $fileError = $_FILES['source']['error'];
-                    if (!move_uploaded_file($tempName, "$path/$fileName")) {
-                        unlink($tempName);
-                        http_response_code(400);
-//                         logger("Failed to upload $fileName to $path.\ntempName: $tempName\nfileType: $fileType\nfileSize:$fileSize\nfileError: $fileError");
-                    } else {
-                        logger("File $fileName uploaded successfully to $path/$fileName");
-                        $size = getimagesize("$path/$fileName");
-                        logger("$path/$fileName: width:".$size[0].", height:".$size[1]);
-                        if ($size[0] > 1024) {
-                            logger("mogrify -resize 1024x1024 $path/$fileName");
-                            systems("mogrify -resize 1024x1024 $path/$fileName");
-                        }
-                    }
-                    exit;
-                case '_save':
-                    // Save data to a file in the resources folder
-                    // Endpoint: {site root}/easycoder/rest.php/_save/{path}
-                    $path = getcwd() . '/resources/' . str_replace('~', '/', $request[0]);
-                    $p = strrpos($path, '/');
-                    $dir = substr($path, 0, $p);
-                    mkdir($dir, 0777, true);
-                    header("Content-Type: application/text");
-                    $content = base64_decode(stripslashes(file_get_contents("php://input")));
-                    $p = strrpos($path, '.');
-                    $root = substr($path, 0, $p);
-                    $ext = substr($path, $p);
-                    file_put_contents($path, $content);
-                    exit;
-                case '_delete':
-                    // Delete a file in the resources folder
-                    // Endpoint: {site root}/easycoder/rest.php/_delete/{path}
-                    $path = getcwd() . '/resources/' . str_replace('~', '/', $request[0]);
-                    if (is_dir($path)) {
-                        rmdir($path);
-                    } else {
-                        unlink($path);
-                    }
-                    exit;
-                case '_email':
-                    // Send an email
-                    // Endpoint: {site root}/easycoder/rest.php/_email
-                    header("Content-Type: application/text");
-                    $value = stripslashes(file_get_contents("php://input"));
-                    $json = json_decode($value);
-                    $from = $json->from;
-                    $to = $json->to;
-                    $subject = $json->subject;
-                    $message = $json->message;
-                    $headers = "MIME-Version: 1.0\r\n";
-                    $headers .= "Content-Type: text/html; charset=ISO-8859-1\r\n";
-                    $headers .= "From: $from\r\n";
-                    mail($to, $subject, $message, "$headers\r\n");
-                    print "$headers\r\n$message";
-                    exit;
-            }
-            break;
     }
 
     // The remaining commands require use of the database.
@@ -349,24 +272,29 @@
 
             case 'register':
                 // Register an email address.
-                // Endpoint: https://rbr.easycoder.software/rest.php/register/<address>
-                $address = trim($request[0]);
-                $result = $conn->query("SELECT password FROM systems WHERE mac='$address'");
+                // Endpoint: {site root}/rest.php/register/<address>
+                $to = trim($request[0]);
+                logger("SELECT password FROM systems WHERE mac='$to'");
+                $result = $conn->query("SELECT password FROM systems WHERE mac='$to'");
                 if ($row = mysqli_fetch_object($result)) {
                     $password = $row->password;
                 } else {
                     $password = rand(100000, 999999);
-                    $conn->query("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$address','$password')");
-//                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$address','$password')");
+//                    $conn->query("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$to','$password')");
+                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$to','$password')");
                 }
-                print $password;
-                $from = "noreply@rbr.easycoder.software";
-                $subject = "Room By Room email access code";
-                $message = $password;
-                $headers = "From: registry@rbr.easycoder.software\r\n";
-                mail($address, $subject, $message, $headers);
+                $from = "admin@rbrcontrol.com";
+                $subject = "Room By Room email password";
+                $message = "The RBR password for this email address is $password.";
+                $headers = "From: $from";
+                if (mail($to, $subject, $message, $headers)) {
+                    logger("Password $password sent to $to");
+                    print "Password $password sent to $to";
+                } else {
+                    logger("Message failed");
+                    print "Message failed";
+                }
                 break;
-
             case 'name':
                 // Set the system name
                 // Endpoint: https://rbr.easycoder.software/rest.php/name/{mac}/{password}/{name}

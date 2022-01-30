@@ -6,7 +6,7 @@
     "visibility": "hidden",
     "box-shadow": "0.5em 0.5em 0.5em #444",
     "text-align": "center",
-    "#": ["$Title", "$RoomName", "$On", "$Off", "$Timed", "$Cancel"],
+    "#": ["$Title", "$RoomName", "$On", "$Timed", "$Off", "$Pad", "$Buttons"],
 
     "$Title": {
         "#element": "div",
@@ -109,13 +109,6 @@
         }
     },
 
-    "$Off": {
-        "$ID": "mode-off",
-        "$Label1": "Off",
-        "$Label2": "Permanently off",
-        "#": "$Button"
-    },
-
     "$Timed": {
         "$ID": "mode-timed",
         "$Label1": "Timed",
@@ -123,10 +116,10 @@
         "#": "$Button"
     },
 
-    "$Cancel": {
-        "$ID": "mode-cancel",
-        "$Label1": "Cancel",
-        "$Label2": "Close this popup",
+    "$Off": {
+        "$ID": "mode-off",
+        "$Label1": "Off",
+        "$Label2": "Permanently off",
         "#": "$Button"
     },
 
@@ -155,6 +148,45 @@
             "#content": "$Label2",
             "font-size": "70%",
             "pointer-events": "none"
+        }
+    },
+
+    "$Pad": {
+        "#element": "div",
+        "height": "1em"
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "margin-bottom": "0.5em",
+        "#": ["$Cancel", "$Pad", "$Help"],
+
+        "$Cancel": {
+            "$ID": "mode-cancel",
+            "$Label": "Cancel",
+            "#": "$Button"
+        },
+
+        "$Help": {
+            "$ID": "mode-help",
+            "$Label": "Help",
+            "#": "$Button"
+        },
+
+        "$Pad": {
+            "#element": "div",
+            "display": "inline-block",
+            "width": "1em"
+        },
+
+        "$Button": {
+            "#element": "button",
+            "@id": "$ID",
+            "display": "inline-block",
+            "width": "30%",
+            "height": "2.3em",
+            "font-weight": "bold",
+            "#content": "$Label"
         }
     }
 }
