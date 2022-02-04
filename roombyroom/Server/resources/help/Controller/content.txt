@@ -4,9 +4,9 @@ This can be any computer able to run Python. In practice, the demands made upon 
 
 The cheapest Pi machines do not have WiFi but the best place to locate the device is next to your internet router, so an Ethernet cable connection is more practical.
 
-To set up the controller, download the [Raspbian headless distribution](https://www.raspberrypi.org/downloads/raspbian/) to your computer and install it on a suitable SD card (16GB or more). For this you will need software such as Etcher to write the image to the card. Having done this, remove then reinsert the card in your computer and you should see 2 partitions on the card, called `boot` and `rootfs`. The first of these is a small boot partition. Add an empty file called `ssh` (with no extension) at the top level.
+To set up the controller, download the [Raspbian headless distribution](https://www.raspberrypi.org/downloads/raspbian/) to your computer and install it on a suitable SD card (8GB or more). For this you will need software such as Etcher to write the downloaded file to the card. Having done this, remove then reinsert the card in your computer and you should see 2 partitions on the card, called `boot` and `rootfs`. The first of these is a small boot partition. Add an empty file called `ssh` (with no extension) at the top level.
 
-The second, much larger, partition, called `rootfs`, is where all your files will be. Copy the distribution files - the contents of the `roombyroom/Controller` folder in the repository - into the `home/pi` folder on the card. Now eject the card, put it into the Pi and boot up.
+The second, much larger, partition, called `rootfs`, is where all your files will be. Copy the distribution files - the contents of the `roombyroom/Controller` folder in the [repository](https://github.com/easycoder/rbr) - into the `home/pi` folder on the card. Now eject the card, put it into the Pi and boot up.
 
 With the Pi running you need to find it on your local network. To do this, point your browser to the admin panel for your router. This is frequently located at `http://192.168.1.1` but yours may be different. Log in, look for the name `raspberrypi` and note the IP address that's been assigned to it. You'll probably want to assign a fixed IP address to the Pi but the procedure varies from one router to another so you'll have to consult the relevant manual.
 
@@ -20,14 +20,14 @@ where `192.168.x.y` is the IP address you found in the router admin screen. You'
 
 Once all this is done, type `ls`. You should see all the distribution files you copied earlier.
 
-To ensure the system is fully up to date, run the following commands. On the earlier Pi models the second of these will take a very long time to run:
+To ensure the system is fully up to date, run the following commands. On the earlier Pi models the second of these will take a long time to run:
 
 ```
 sudo apt update
 sudo apt full-upgrade
 ```
 
-With some Pi models the second of these commands may fail because a partition needs to be expanded. If this happens, give this command:
+In some cases the second of these commands may fail because a partition needs to be expanded. If this happens, give this command:
 
 ```
 sudo raspi-config --expand-rootfs
@@ -41,13 +41,17 @@ sudo apt install raspi-config
 
 then expand the root filesystem and do the full upgrade.
 
-Next we need to get a couple of extras for Python. Give this command:
+Next we need to get an extra for Python; the `Bottle` webserver. First we get the Python package installer:
+
+```
+sudo apt install pip
+```
+
+Then give this command:
 
 ```
 pip install bottle requests
 ```
-
-These are for the `Bottle` webserver and for `REST` calls, respectively.
 
 The final step is to set up a 'cron' job that will run every 10 seconds. Type this command:
 
@@ -55,7 +59,7 @@ The final step is to set up a 'cron' job that will run every 10 seconds. Type th
 crontab -e
 ```
 
-the select the Nano editor from the list given (this happens only the first time of use), and use it to add the following lines to the bottom of the cron file:
+Select the Nano editor from the list given (this happens only the first time of use), and use it to add the following lines to the bottom of the `cron` file:
 
 ```
 * * * * * /home/pi/run

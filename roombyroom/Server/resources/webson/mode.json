@@ -3,6 +3,7 @@
     "background": "white",
     "border": "1px solid gray",
     "margin-top": "0.5em",
+    "padding": "0 0.5em",
     "visibility": "hidden",
     "box-shadow": "0.5em 0.5em 0.5em #444",
     "text-align": "center",
@@ -22,40 +23,57 @@
     },
 
     "$On": {
-        "$ID": "mode-on",
-        "$Label1": "On",
-        "$Label2": "Set your desired temperature",
-        "#": "$OnButton",
+        "#element": "div",
+        "@id": "mode-on",
+        "margin": "0.5em 0",
+        "padding": "0 0.5em",
+        "background": "#eee",
+        "border": "1px solid gray",
+        "border-radius": "0.5em",
+        "display": "flex",
+        "flex-direction": "row",
+        "#": ["$IconDiv", "$Text"],
 
-        "$OnButton": {
+        "$IconDiv": {
             "#element": "div",
-            "@id": "$ID",
-            "margin": "0.5em",
-            "padding": "0 1em",
-            "background": "#eee",
-            "border": "1px solid gray",
-            "border-radius": "0.5em",
+            "height": "6em",
+            "display": "flex",
+            "align-items": "center",
+            "pointer-events": "none",
+            "#": "$Icon",
+
+            "$Icon": {
+                "#element": "img",
+                "@src": "resources/icon/temperature.png",
+                "width": "2em",
+                "height": "auto",
+                "pointer-events": "none"
+            }
+        },
+
+        "$Text": {
+            "#element": "div",
+            "margin-left": "1em",
+            "flex": 1,
+            "pointer-events": "none",
             "#": ["$Line1", "$Line2", "$UpDown"],
 
             "$Line1": {
                 "#element": "div",
-                "#content": "$Label1",
-                "font-weight": "bold",
-                "pointer-events": "none"
+                "#content": "On",
+                "font-weight": "bold"
             },
 
             "$Line2": {
                 "#element": "div",
-                "#content": "$Label2",
-                "font-size": "70%",
-                "pointer-events": "none"
+                "#content": "Set your desired temperature",
+                "font-size": "70%"
             },
 
             "$UpDown": {
                 "#element": "div",
                 "display": "flex",
                 "margin": "0.5em auto",
-                "pointer-events": "none",
                 "#": ["$Down", "$Target", "$Up"],
 
                 "$Down": {
@@ -110,44 +128,85 @@
     },
 
     "$Timed": {
-        "$ID": "mode-timed",
-        "$Label1": "Timed",
-        "$Label2": "Use the schedule provided",
-        "#": "$Button"
-    },
-
-    "$Off": {
-        "$ID": "mode-off",
-        "$Label1": "Off",
-        "$Label2": "Permanently off",
-        "#": "$Button"
-    },
-
-    "$Button": {
         "#element": "div",
-        "@id": "$ID",
-        "width": "80%",
-        "height": "2.3em",
-        "font-size": "100%",
-        "margin": "0.5em auto",
-        "padding": "0 1em",
+        "@id": "mode-timed",
+        "display": "flex",
+        "flex-direction": "row",
+        "height": "2.4em",
+        "margin": "0.5em 0",
+        "padding": "0.2em 0.5em 0 0.5em",
         "background": "#eee",
         "border": "1px solid gray",
         "border-radius": "0.5em",
-        "#": ["$Line1", "$Line2"],
+        "#": ["$Icon", "$Text"],
 
-        "$Line1": {
-            "#element": "div",
-            "#content": "$Label1",
-            "font-weight": "bold",
+        "$Icon": {
+            "#element": "img",
+            "@src": "resources/icon/clock.png",
+            "width": "2em",
+            "height": "2em",
             "pointer-events": "none"
         },
 
-        "$Line2": {
+        "$Text": {
             "#element": "div",
-            "#content": "$Label2",
-            "font-size": "70%",
+            "flex": "1",
+            "pointer-events": "none",
+            "#": ["$Line1", "$Line2"],
+
+            "$Line1": {
+                "#element": "div",
+                "#content": "Timed",
+                "font-weight": "bold"
+            },
+
+            "$Line2": {
+                "#element": "div",
+                "#content": "Use the schedule provided",
+                "font-size": "70%"
+            }
+        }
+    },
+
+    "$Off": {
+        "#element": "div",
+        "@id": "mode-off",
+        "display": "flex",
+        "flex-direction": "row",
+        "height": "2.4em",
+        "margin": "0.5em 0",
+        "padding": "0.2em 0.5em 0 0.5em",
+        "background": "#eee",
+        "border": "1px solid gray",
+        "border-radius": "0.5em",
+        "pointer-events": "auto",
+        "#": ["$Icon", "$Text"],
+
+        "$Icon": {
+            "#element": "img",
+            "@src": "resources/icon/off.png",
+            "width": "2em",
+            "height": "2em",
             "pointer-events": "none"
+        },
+
+        "$Text": {
+            "#element": "div",
+            "flex": "1",
+            "pointer-events": "none",
+            "#": ["$Line1", "$Line2"],
+
+            "$Line1": {
+                "#element": "div",
+                "#content": "Off",
+                "font-weight": "bold"
+            },
+
+            "$Line2": {
+                "#element": "div",
+                "#content": "Permanently off",
+                "font-size": "70%"
+            }
         }
     },
 

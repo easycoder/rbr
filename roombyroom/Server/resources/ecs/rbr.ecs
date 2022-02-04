@@ -91,6 +91,7 @@
     variable Result
     variable RoomName
     variable Finish
+    variable ErrorCount
     variable FH
     variable FM
     variable UD
@@ -137,6 +138,7 @@
     stop
 
 Main:
+    put 0 into ErrorCount
 	clear Blocked
     set Redraw
 
@@ -690,6 +692,7 @@ GetMAC:
             	put empty into SystemName
                	put empty into storage as `SystemName`
             end
+            put empty into storage as `password`
             clear MainPanel
             clear Blocked
             stop
@@ -1002,6 +1005,14 @@ PostMap:
     else
 	begin
    		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
-   		or continue
+   		or go to MonitorErrors
+   		put 0 into ErrorCount
 	end
 	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Monitor errors
+MonitorErrors:
+    add 1 to ErrorCount
+    if ErrorCount is greater than 9 alert `A series of errors have occurred`
+    continue

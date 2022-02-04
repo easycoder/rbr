@@ -1,2 +1,20 @@
 ## The Mode dialog
 
+~img:mode.jpg:center 50%~
+
+This dialog lets you select the operating mode for a room. It can be one of:
+
+  1. On - using a target temperature
+  1. Timed - using a timing schedule
+  1. Off - permanently off
+
+## "On" mode
+This mode provides up and down buttons to let you choose the target temperature you want for the room. Tapping the buttons raises or lowers the target by half a degree at a time. When you reach your desired termperature tap the gray area behind the up and down buttons.
+
+## "Timed" mode
+This mode runs according to a schedule of times and temperatures of any complexity, that you specify in this webapp.
+
+## "Off" mode
+In this mode the heating will always be off in the room.
+
+~tid:content:Go to the main Help page~
