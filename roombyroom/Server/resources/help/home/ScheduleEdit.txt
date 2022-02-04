@@ -1,0 +1,12 @@
+## The Schedule Editor
+
+~img:scheduleedit.jpg:50% center~
+The Schedule Editor shows all the timing periods defined for the selected room. The green arrows let you move rows up own down in the list. The pencil and pad icon opens an editing panel for a single timed event:
+~img:scheduleedit2.jpg:50% center~
+Tap the arrows to adjust the hour, minute or temperature, then OK to set your changes back to the main editor.
+
+The red crosses let you delete a timing event.
+
+At the bottom, the green plus sign adds a new timing event at the bottom of the list and the Save button saves the current state showing. Tap Cancel to exit without making any changes and Help to see this page.
+
+~tid:content:Go to the main Help page~

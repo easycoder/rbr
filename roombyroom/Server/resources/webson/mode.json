@@ -132,27 +132,36 @@
         "@id": "mode-timed",
         "display": "flex",
         "flex-direction": "row",
-        "height": "2.4em",
         "margin": "0.5em 0",
-        "padding": "0.2em 0.5em 0 0.5em",
+        "padding": "0 0.5em",
         "background": "#eee",
         "border": "1px solid gray",
         "border-radius": "0.5em",
-        "#": ["$Icon", "$Text"],
+        "#": ["$IconDiv", "$Text"],
 
-        "$Icon": {
-            "#element": "img",
-            "@src": "resources/icon/clock.png",
-            "width": "2em",
-            "height": "2em",
-            "pointer-events": "none"
+        "$IconDiv": {
+            "#element": "div",
+            "height": "5em",
+            "display": "flex",
+            "align-items": "center",
+            "pointer-events": "none",
+            "#": "$Icon",
+
+            "$Icon": {
+                "#element": "img",
+                "@src": "resources/icon/clock.png",
+                "width": "2em",
+                "height": "auto",
+                "pointer-events": "none"
+            }
         },
 
         "$Text": {
             "#element": "div",
+            "margin-left": "1em",
             "flex": "1",
             "pointer-events": "none",
-            "#": ["$Line1", "$Line2"],
+            "#": ["$Line1", "$Line2", "$Schedule"],
 
             "$Line1": {
                 "#element": "div",
@@ -162,8 +171,49 @@
 
             "$Line2": {
                 "#element": "div",
-                "#content": "Use the schedule provided",
+                "#content": "Use the scheduled times",
                 "font-size": "70%"
+            },
+
+            "$Schedule": {
+                "#element": "div",
+                "display": "flex",
+                "margin": "0.5em auto",
+                "#": ["$Times", "$Pad", "$Advance", "$Pad", "$Advanced"],
+
+                "$Times": {
+                    "#element": "div",
+                    "@id": "scheduled-times",
+                    "#content": "Schedule",
+                    "flex": 1,
+                    "border": "1px solid gray",
+                    "border-radius": "0.5em",
+                    "background": "lightgray",
+                    "padding": "0.5em",
+                    "pointer-events": "auto"
+                },
+
+                "$Advance": {
+                    "#element": "img",
+                    "@id": "advance",
+                    "@src": "resources/icon/doubleright.png",
+                    "width": "2em",
+                    "height": "2em"
+                },
+
+                "$Pad": {
+                    "#element": "div",
+                    "width": "1em"
+                },
+
+                "$Advanced": {
+                    "#element": "img",
+                    "@id": "advanced",
+                    "@src": "resources/icon/star.png",
+                    "width": "1em",
+                    "height": "1em",
+                    "margin-top": "0.5em"
+                }
             }
         }
     },
