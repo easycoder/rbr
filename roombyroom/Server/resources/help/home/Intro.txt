@@ -9,3 +9,5 @@ The cost of heating is rising fast and there's little sign this will stop any ti
 To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right of the screen.
 
 ~tid:Overview:System overview~
+
+~tid:GettingStarted:Getting started~

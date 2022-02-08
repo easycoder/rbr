@@ -68,6 +68,22 @@ Select the Nano editor from the list given (this happens only the first time of 
 
 For explanation, there's a task that runs every minute and calls `run`, plus a second task that only runs on system boot and calls `init`. Both of these are shell scripts provided in the distribution package.
 
-_**This page is not yet complete**_
+Finally, restart your Pi:
+```
+sudo reboot
+```
+After a while you'll be able to log in again. Give it another 10 seconds or so then run `ps x` and check there's at least one Python task running:
+```
+python rbr.py
+```
+There may also be a second one:
+```
+python easycoder.py rbr.ecs
+```
+which is the control program that runs once a minute. This runs its control actions 6 times with a 10 second pause between each one, so you'll be likely to see it in the listing 5 times out of 6.
+
+That's all done for the local server. The next job is to set up your room kits.
+
+~sid:RoomKit:Setting up a Room Kit~
 
 ~sid:home:Go to the Help home page~

@@ -179,40 +179,54 @@
                 "#element": "div",
                 "display": "flex",
                 "margin": "0.5em auto",
-                "#": ["$Times", "$Pad", "$Advance", "$Pad", "$Advanced"],
+                "#": ["$OK", "$Filler", "$Edit", "$Pad", "$Advance", "$Pad", "$Advanced"],
 
-                "$Times": {
+                "$OK": {
                     "#element": "div",
-                    "@id": "scheduled-times",
-                    "#content": "Schedule",
-                    "flex": 1,
+                    "@id": "timed-ok",
+                    "#content": "OK",
                     "border": "1px solid gray",
                     "border-radius": "0.5em",
                     "background": "lightgray",
-                    "padding": "0.5em",
+                    "padding": "0.5em"
+                },
+
+                "$Filler": {
+                    "#element": "div",
+                    "flex": 1
+                },
+
+                "$Edit": {
+                    "#element": "img",
+                    "@id": "timed-edit",
+                    "@src": "resources/icon/edit.png",
+                    "width": "2em",
+                    "height": "2em",
                     "pointer-events": "auto"
                 },
 
                 "$Advance": {
                     "#element": "img",
-                    "@id": "advance",
+                    "@id": "timed-advance",
                     "@src": "resources/icon/doubleright.png",
                     "width": "2em",
-                    "height": "2em"
+                    "height": "2em",
+                    "pointer-events": "auto"
+                },
+
+                "$Advanced": {
+                    "#element": "img",
+                    "@id": "timed-advanced",
+                    "@src": "resources/icon/star.png",
+                    "width": "1em",
+                    "height": "1em",
+                    "margin-top": "0.5em",
+                    "pointer-events": "auto"
                 },
 
                 "$Pad": {
                     "#element": "div",
                     "width": "1em"
-                },
-
-                "$Advanced": {
-                    "#element": "img",
-                    "@id": "advanced",
-                    "@src": "resources/icon/star.png",
-                    "width": "1em",
-                    "height": "1em",
-                    "margin-top": "0.5em"
                 }
             }
         }

@@ -6,7 +6,7 @@ The MAC address has the following form:
 
 xx:xx:xx:xx:xx:xx
 
-and can be found on any Linux computer by typing 'ip address'.
+and can be found on any Linux computer by typing `ip address`.
 
 In among the wealth of information that returns are the MAC addresses of all of the network interfaces on your computer. If you are using a wired connection, the one you want is in the block that deals with the Ethernet port. This is often labelled "eth0". If you are using WiFi it will be in the block that describes the wireless interface, which might be labelled "wlan0".
 

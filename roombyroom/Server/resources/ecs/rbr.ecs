@@ -20,6 +20,7 @@
     div ButtonH
     div UpButton
     div DownButton
+    div EditButton
     div OnTarget
     div TargetTemp
     div DialogPanel
@@ -42,7 +43,6 @@
     button HelpButton
     button DialogButton1
     button DialogButton2
-    button TimesButton
     module Storyteller
     module Editor
     module DemoModule
@@ -498,7 +498,7 @@ GetMap:
             attach DownButton to `on-down`
             attach UpButton to `on-up`
             attach OnTarget to `on-target`
-            attach TimesButton to `scheduled-times`
+            attach EditButton to `timed-edit`
 
             put property `target` of RoomSpec into Target
 			set the content of OnTarget to Target cat `&deg;C`
@@ -512,7 +512,7 @@ GetMap:
             on click ButtonH go to SelectHelp
             on click DownButton go to OnDown
             on click UpButton go to OnUp
-            on click TimesButton go to ShowTimes
+            on click EditButton go to EditTimes
 	    end
 
         add 1 to RoomIndex
@@ -561,12 +561,9 @@ UpDown:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Show the schedules times
-ShowTimes:
+!	Edit the schedule times
+EditTimes:
     set style `visibility` of ModePanel to `hidden`
-!    clear MainPanel
-!    rest get Webson from `/resources/webson/roomeditmenu.json?v=` cat now
-!    render Webson in MainPanel
     put empty into Result
     rest get Script from `/resources/ecs/scheduleedit.ecs?v=` cat now
     run Script with MainPanel and Rooms and ClickIndex and Result

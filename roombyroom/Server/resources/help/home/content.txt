@@ -20,4 +20,6 @@ All enquiries should initially be made by email to info@rbrcontrol.com. For any 
 
 ~tid:Intro:General introduction~
 
+~tid:GettingStarted:Getting started~
+
 ~tid:MainMenu:Main menu~

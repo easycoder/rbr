@@ -1,0 +1,14 @@
+## Getting started
+
+The steps to get your own RBR system set up are as follows:
+
+  1. Get the necessary parts. These are:
+    - A Raspberry Pi computer or equivalent, to act as the system controller
+    - One or more Room Kits
+    - A computer to use while setting up
+    - A smartphone to handle the user interface
+  1. Set up the ~sid:Controller:system controller~
+  1. Set up each ~sid:RoomKit:Room Kit~
+  1. ~tid:Configure:Configure~ the system on your smartphone
+
+~tid:content:Go to the main Help page~

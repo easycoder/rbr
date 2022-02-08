@@ -1,0 +1,26 @@
+## Setting up a Room Kit
+
+~img:roomkit.jpg:50% center~
+This is a room kit. It comprises a radiator valve actuator, on the right of the photo, powered from a box containing a wifi-controlled relay. It can turn on and off a radiator or any other plumbed item with a 30mm screw fitting. The relay can switch up to 16 amps so the actuator can be replaced by direct resistance heating (e.g an electric fire) up to that rating. In the upper left of the photo is a wifi thermometer module.
+
+You can equip as many rooms as you like with room kits. If you wish you leave some rooms controlled by conventional thermostatic actuators this is no problem. This allows you to evaluate RBR on a room by room basis without the need to splash out on a complete system right at the start.
+
+To set up the room kit, power it up then go to the wifi access screen on your computer. In the list of nearby hotspots you will see one with a name starting with `shelly`. Choose this one. No password is needed as this is just a temporary step. Then put the address `http://192.168.33.1` into your browser and the following screen should appear:
+~img:shelly01.jpg:50% center~
+Click the `Internet and Security` button and this screen will appear:
+~img:shelly02.jpg:50% center~
+On this screen you will connect the relay to your local network. Make sure the Connect tickbox is ticked, then type the name of your wifi router into the box, exactly as it appears in the list of hotspots. Type the password into the next box then select `Set static IP address`. Choose an address on your local network that you know is not in use; preferably pick one that your DHCP server is unlikely to allocate. The details of this depend on your router model. Also give the Gateway address; this is the network IP address of the router itself.
+
+Now click `Save`. You should see a confirmation screen like this:
+~img:shelly03.jpg:50% center~
+Now reconnect your computer to your house wifi and put the address you chose for the relay into your browser. The original screen should reappear:
+~img:shelly04.jpg:50% center~
+but with the time showing in the top right corner, proof that it's connected to the Internet.
+
+The last step is highly recommended. Shelly device firmware updates from time to time and it's quite likely that the models you bought have out-of-date firmware. So go to the `Settings` menu and select the `Firmware Update` option. If it offers a newer version, click the button to update.
+~img:shelly05.jpg:50% center~
+Your relay is now ready for use. You can test it by clicking the icon in the upper right of the screen to turn it on and off. If all is well the light on its box will go on and off. Depending on the model of actuator you may also see this opening and closing, though these actions commonly take a couple of minutes to complete and the result is not always visible. The best test is to replace an existing thermostatic actuator with this one and send commnds to open and close.
+
+~stid:home/Relays:The Relay Editor screen~
+
+~sid:home:Go to the main Help page~

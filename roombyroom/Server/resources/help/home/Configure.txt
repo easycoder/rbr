@@ -1,0 +1,7 @@
+## Configuring the system
+
+
+
+~tid:MainMenu:Main menu~
+
+~tid:content:Go to the main Help page~
