@@ -1302,7 +1302,10 @@ class Core(Handler):
 			content['name'] = '(anon)'
 		value = {}
 		value['type'] = 'text'
-		value['content'] = content[name]
+		if content.get(name):
+			value['content'] = content[name]
+		else:
+			value['content'] = ''
 		return value
 
 	def v_random(self, v):

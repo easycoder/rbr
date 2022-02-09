@@ -43,7 +43,6 @@
     put 0 into RepeatCount
     put empty into Password
 
-Start:
     open File Path cat `/mac` for reading
     read MAC from File
     close File
@@ -54,6 +53,7 @@ Start:
     close File
     print Password
 
+Start:
     if file Path cat `/map` exists
     begin
         open File Path cat `/map` for reading
@@ -136,11 +136,11 @@ ProcessMap:
 ProcessRoom:
 	put property `sensor` of Room into  Sensor
 	if Sensor is empty return
-	if file Path cat `/sensors/` cat Sensor cat `/value.txt` exists go to PR2
+	if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
 	return
 
 PR2:
-	open File Path cat `/sensors/` cat Sensor cat `/value.txt` for reading
+	open File Path cat `/sensors/` cat Sensor cat `.txt` for reading
 	read SensorValues from File
 	close File
 	put json SensorValues into SensorValues
@@ -158,6 +158,13 @@ PR2:
         put float property `target` of Room into Target
         if Temperature is less than Target go to TurnOn
         go to TurnOff
+    end
+
+    ! Check if an advance is requested
+    if property `advance` of Room is not empty
+    begin
+        print `Advance`
+
     end
 
 	! Timed mode. Check each of the events
