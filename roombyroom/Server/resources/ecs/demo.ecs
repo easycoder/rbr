@@ -43,6 +43,8 @@
                 gosub to Init
             end
             wait 10
+            put property `rooms` of Map into Rooms
+            put the json count of Rooms into RoomCount
             put 0 into R
             while R is less than RoomCount
             begin
@@ -174,6 +176,8 @@
 	stop
 
 Init:
+print `Init`
+print Map
     put property `rooms` of Map into Rooms
     put the json count of Rooms into RoomCount
     put 0 into R
@@ -190,6 +194,7 @@ Init:
             if random 1 set property `relay` of SensorSpec to `on`
             else set property `relay` of SensorSpec to `off`
             set property SensorIP of Sensors to SensorSpec
+            print Sensors
         end
         add 1 to R
     end

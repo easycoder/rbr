@@ -221,7 +221,8 @@
                     "width": "1em",
                     "height": "1em",
                     "margin-top": "0.5em",
-                    "pointer-events": "auto"
+                    "pointer-events": "auto",
+                    "visibility": "hidden"
                 },
 
                 "$Pad": {

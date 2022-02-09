@@ -20,7 +20,6 @@
     div ButtonH
     div UpButton
     div DownButton
-    div EditButton
     div OnTarget
     div TargetTemp
     div DialogPanel
@@ -30,6 +29,9 @@
     input Input
     img Hamburger
     img ModeIcon
+    img TimedEditIcon
+    img AdvanceIcon
+    img AdvancingIcon
     a Welcome
     button AddRoomButton
     button GetMACButton
@@ -265,12 +267,14 @@ GetMap:
     else
     begin
     	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-    	or put empty into Map
+          or put empty into Map
     end
-    if Map is empty
+    if Map is empty put `{"rooms":[]}` into Map
+    put property `rooms` of Map into Rooms
+    if the json count of Rooms is 0
     begin
         rest get RoomSpec from `/resources/json/newroomspec.json?v=` cat now
-        put empty into Rooms
+        if MAC is `DEMO` set property `sensor` of RoomSpec to `0`
         append RoomSpec to Rooms
         set property `rooms` of Map to Rooms
     end
@@ -389,79 +393,76 @@ GetMap:
         put property `mode` of RoomSpec into Mode
 
         ! Show the mode indicator
-!        if Refresh
-!        begin
-            if Mode is `timed`
-              begin
-                if Refresh
+        if Mode is `timed`
+            begin
+            if Refresh
+            begin
+                clear ModeHolder
+                put TimedWebson into Webson
+                replace `/ROOM/` with RoomIndex in Webson
+                render Webson in ModeHolder
+            end
+            attach TimedInfo to `room-` cat RoomIndex cat `-timed-info`
+            put property `events` of RoomSpec into Events
+            divide now by 60 giving N
+            put N modulo 24*60 into N
+            divide N by 60 giving H
+            put N modulo 60 into M
+            put 0 into E
+            while E is less than the json count of Events
+            begin
+                put element E of Events into Event
+                put property `until` of Event into Finish
+                split Finish on `:` giving Finish
+                index Finish to 0
+                put the value of Finish into FH
+                if FH is 0 put 24 into FH
+                if H is less than FH
                 begin
-                  	clear ModeHolder
-	                put TimedWebson into Webson
-	            	replace `/ROOM/` with RoomIndex in Webson
-	            	render Webson in ModeHolder
+                    set the content of TimedInfo to property `temp` of Event
+                        cat `&deg;C->` cat property `until` of Event
+                    go to HandleClicks
                 end
-                attach TimedInfo to `room-` cat RoomIndex cat `-timed-info`
-                put property `events` of RoomSpec into Events
-                divide now by 60 giving N
-                put N modulo 24*60 into N
-                divide N by 60 giving H
-                put N modulo 60 into M
-                put 0 into E
-                while E is less than the json count of Events
+                else if H is FH
                 begin
-                	put element E of Events into Event
-                    put property `until` of Event into Finish
-                    split Finish on `:` giving Finish
-                    index Finish to 0
-                    put the value of Finish into FH
-                    if FH is 0 put 24 into FH
-                    if H is less than FH
+                    index Finish to 1
+                    put the value of Finish into FM
+                    if M is less than FM
                     begin
                         set the content of TimedInfo to property `temp` of Event
                             cat `&deg;C->` cat property `until` of Event
                         go to HandleClicks
                     end
-                    else if H is FH
-                    begin
-                    	index Finish to 1
-                    	put the value of Finish into FM
-                        if M is less than FM
-                        begin
-                            set the content of TimedInfo to property `temp` of Event
-                                cat `&deg;C->` cat property `until` of Event
-                            go to HandleClicks
-                        end
-                    end
-                	add 1 to E
                 end
-                put element 0 of Events into Event
-                put property `until` of Event into Finish
-                put property `temp` of Event into Temperature
-                set the content of TimedInfo to Temperature cat `&deg;C->` cat Finish
+                add 1 to E
             end
-            else if Mode is `on`
+            put element 0 of Events into Event
+            put property `until` of Event into Finish
+            put property `temp` of Event into Temperature
+            set the content of TimedInfo to Temperature cat `&deg;C->` cat Finish
+        end
+        else if Mode is `on`
+        begin
+            if Refresh
             begin
-                if Refresh
-                begin
-					clear ModeHolder
-	                put OnWebson into Webson
-	            	replace `/ROOM/` with RoomIndex in Webson
-	            	render Webson in ModeHolder
-                end
-                attach TargetTemp to `room-` cat RoomIndex cat `-target`
-                set the content of TargetTemp to property `target` of RoomSpec cat `&deg;C`
+                clear ModeHolder
+                put OnWebson into Webson
+                replace `/ROOM/` with RoomIndex in Webson
+                render Webson in ModeHolder
             end
-            else if Mode is `off`
+            attach TargetTemp to `room-` cat RoomIndex cat `-target`
+            set the content of TargetTemp to property `target` of RoomSpec cat `&deg;C`
+        end
+        else if Mode is `off`
+        begin
+            if Refresh
             begin
-            	if Refresh
-                begin
-					clear ModeHolder
-    	            put OffWebson into Webson
-        	    	replace `/ROOM/` with RoomIndex in Webson
-            		render Webson in ModeHolder
-                end
+                clear ModeHolder
+                put OffWebson into Webson
+                replace `/ROOM/` with RoomIndex in Webson
+                render Webson in ModeHolder
             end
-!        end
+        end
 
 	HandleClicks:
 		! Handle a click on the row hamburger
@@ -498,13 +499,20 @@ GetMap:
             attach DownButton to `on-down`
             attach UpButton to `on-up`
             attach OnTarget to `on-target`
-            attach EditButton to `timed-edit`
+            attach TimedEditIcon to `timed-edit`
+            attach AdvanceIcon to `timed-advance`
+            attach AdvancingIcon to `timed-advanced`
 
             put property `target` of RoomSpec into Target
 			set the content of OnTarget to Target cat `&deg;C`
             clear TargetFlag
 
 			set style `visibility` of ModePanel to `visible`
+            if property `advance` of RoomSpec is `A`
+				set style `visibility` of AdvancingIcon to `visible`
+		    else
+		        set style `visibility` of AdvancingIcon to `hidden`
+
             on click ButtonT go to SelectTimed
             on click ButtonM go to SelectOn
             on click ButtonO go to SelectOff
@@ -512,7 +520,8 @@ GetMap:
             on click ButtonH go to SelectHelp
             on click DownButton go to OnDown
             on click UpButton go to OnUp
-            on click EditButton go to EditTimes
+            on click TimedEditIcon go to ShowTimes
+            on click AdvanceIcon go to Advance
 	    end
 
         add 1 to RoomIndex
@@ -561,13 +570,29 @@ UpDown:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Edit the schedule times
-EditTimes:
+!	Show the schedules times
+ShowTimes:
     set style `visibility` of ModePanel to `hidden`
     put empty into Result
     rest get Script from `/resources/ecs/scheduleedit.ecs?v=` cat now
     run Script with MainPanel and Rooms and ClickIndex and Result
     go to ProcessResult
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Advance to the next timed event
+Advance:
+    set style `visibility` of ModePanel to `hidden`
+    if property `advance` of RoomSpec is `A`
+    	set property `advance` of RoomSpec to ``
+    else
+    	set property `advance` of RoomSpec to `A`
+    set element ClickIndex of Rooms to RoomSpec
+    set property `rooms` of Map to Rooms
+    fork to PostMap
+    clear MainPanel
+    clear Blocked
+    set Redraw
+    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select timed mode
@@ -701,7 +726,6 @@ GetMAC:
             	put empty into SystemName
                	put empty into storage as `SystemName`
             end
-            put empty into storage as `password`
             clear MainPanel
             clear Blocked
             stop
@@ -790,7 +814,7 @@ GetSystemName:
             clear MainPanel
             set Redraw
             clear Blocked
-            set the content of SystemNamePanel to SystemName
+!            set the content of SystemNamePanel to SystemName
             set property `name` of Map to SystemName
             go to PostMap
         end
@@ -832,6 +856,7 @@ ShowMenu:
     on click AddRoomButton
     begin
         rest get RoomSpec from `/resources/json/newroomspec.json?v=` cat now
+        if MAC is `DEMO` set property `sensor` of RoomSpec to the json count of Rooms
         append RoomSpec to Rooms
         set property `rooms` of Map to Rooms
         fork to PostMap

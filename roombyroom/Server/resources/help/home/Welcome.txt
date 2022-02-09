@@ -6,7 +6,7 @@ The system is based on off-the-shelf items; radiator actuators, relays and tempe
 
 Because there is a significant cost in equipping radiators with electric control valves, relays and sensors, we offer the means to evaluate the **RBR** system without having to make any purchases (see ~tid:Evaluate:this page~). This documentation is growing rapidly, so take some time to get generally familiar with it.
 
-To close this Help screen tap the Hamburger menu - the 3 bars at the top right of the screen. You will be asked to supply the MAC address of your system controller. Click the Help button for more information, then close the help and it will repeat the request for the MAC address.
+To close this Help screen tap the Hamburger menu - the 3 bars at the top right of the screen. Then tap it again to bring up the main menu. Tab the first item `Set MAC address`. You will be asked to supply the MAC address of your system controller. Click the Help button for more information.
 
 Once you have enered the MAC address you will then be asked for the system password. This dialog also has a Help button for information about where the password can be found.
 
