@@ -4,4 +4,4 @@ When you click this button a new room will be added to your system. You can the 
 
 ~tid:MainMenu:Return to the main menu help page~
 
-~tid:content:Return to the initial help page~
+~sid:Index:Index of pages~

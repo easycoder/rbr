@@ -8,4 +8,4 @@ Instead of giving a real MAC address, type `DEMO` in the MAC box. Once you've do
 
 ~tid:MAC:Return to the MAC help page~
 
-~tid:content:Go to the main Help page~
+~sid:Index:Index of pages~

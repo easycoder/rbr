@@ -17,4 +17,4 @@ This mode runs according to a schedule of times and temperatures of any complexi
 ## "Off" mode
 In this mode the heating will always be off in the room.
 
-~tid:content:Go to the main Help page~
+~sid:Index:Index of pages~

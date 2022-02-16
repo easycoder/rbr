@@ -6,4 +6,4 @@ This allows you to back up your system configuration to the web server. The conf
 
 ~tid:MainMenu:Return to the main menu help page~
 
-~tid:content:Return to the initial help page~
+~sid:Index:Index of pages~

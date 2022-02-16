@@ -8,6 +8,4 @@
   - Suitable for DIY installation
   - All software is Open Source
 
-~sid:home/content:General introduction
-
-~sid:home/
+~sid:Index:Index of pages~

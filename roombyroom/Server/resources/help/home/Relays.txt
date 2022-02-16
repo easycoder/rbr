@@ -5,3 +5,5 @@ A Shelly relay module provides power to an electric radiator valve. So you can i
 ~img:relays.jpg:center 50%~
 
 Go to the ~tid:RoomEdit:Room Editor Help page~.
+
+~sid:Index:Index of pages~

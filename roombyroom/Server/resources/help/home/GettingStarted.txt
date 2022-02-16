@@ -11,4 +11,4 @@ The steps to get your own RBR system set up are as follows:
   1. Set up each ~sid:RoomKit:Room Kit~
   1. ~tid:Configure:Configure~ the system on your smartphone
 
-~tid:content:Go to the main Help page~
+~sid:Index:Index of pages~

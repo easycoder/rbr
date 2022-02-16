@@ -17,4 +17,4 @@ This is the main system menu. Here you can set up a new system, add rooms, backu
 
 ~tid:Evaluate:Evaluate RBR~
 
-~tid:content:Return to the initial help page~
+~sid:Index:Index of pages~

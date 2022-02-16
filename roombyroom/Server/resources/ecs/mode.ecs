@@ -1,0 +1,267 @@
+!	Mode selection
+
+	script Mode
+    
+    import div MainPanel
+    	and div ModePanel
+    	and img ModeIcon
+        and variable Mode
+        and variable Map
+    	and variable ClickIndex
+        and variable Demo
+        and variable Result
+    
+    div ButtonT
+    div ButtonM
+    div ButtonO
+    div ButtonC
+    div ButtonH
+    div UpButton
+    div DownButton
+    div OnTarget
+	img TimedEditIcon
+    img AdvanceIcon
+    variable Rooms
+    variable RoomSpec
+    variable Target
+    variable TargetFlag
+    variable RoomName
+    variable CurrentMode
+    variable ScheduleEditScript
+    variable ModeWebson
+    variable Integer
+    variable ErrorCount
+    variable FlashIndex
+    variable Password
+    variable Server
+    variable Count
+    variable Waiting
+    variable Flashing
+    variable MAC
+    variable Dot
+    variable UD
+    variable L
+    variable T
+    variable X
+    
+!    debug step
+
+	put empty into ScheduleEditScript
+    get Server from storage as `server`
+    get MAC from storage as `MAC`
+    get Password from storage as `password`
+    put 0 into ErrorCount
+
+    index Mode to the index of ModeIcon
+   	put Mode into CurrentMode
+    wait 20 ticks
+
+	clear ModePanel
+    put property `rooms` of Map into Rooms
+    put element ClickIndex of Rooms into RoomSpec
+    put property `name` of RoomSpec into RoomName
+    rest get ModeWebson from `/resources/webson/mode.json?v=` cat now
+    replace `/ROOM/` with RoomName in ModeWebson
+	render ModeWebson in ModePanel
+    attach ButtonT to `mode-timed`
+    attach ButtonM to `mode-on`
+    attach ButtonO to `mode-off`
+    attach ButtonC to `mode-cancel`
+    attach ButtonH to `mode-help`
+    attach DownButton to `on-down`
+    attach UpButton to `on-up`
+    attach OnTarget to `on-target`
+    attach TimedEditIcon to `timed-edit`
+    attach AdvanceIcon to `timed-advance`
+
+    put property `target` of RoomSpec into Target
+	set the content of OnTarget to Target cat `&deg;C`
+    clear TargetFlag
+
+	set style `visibility` of ModePanel to `visible`
+    if property `advance` of RoomSpec is `A`
+		set attribute `src` of AdvanceIcon to `/resources/icon/doublerightgreen.png`
+    else
+        set attribute `src` of AdvanceIcon to `/resources/icon/doubleright.png`
+
+    on click ButtonT go to SelectTimed
+    on click ButtonM go to SelectOn
+    on click ButtonO go to SelectOff
+    on click ButtonC go to SelectCancel
+    on click ButtonH go to SelectHelp
+    on click DownButton go to OnDown
+    on click UpButton go to OnUp
+    on click TimedEditIcon go to ShowTimes
+    on click AdvanceIcon go to Advance
+
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	'On' Up and Down buttons
+OnDown:
+	clear UD
+    go to UpDown
+
+OnUp:
+	set UD
+
+UpDown:
+	if Target is empty put `0.0` into Target else put `` cat Target into Target
+    put the position of `.` in Target into Dot
+    if Dot is -1 multiply the value of Target by 10 giving T
+    else
+    begin
+         put left Dot of Target into Integer
+         multiply the value of Integer by 10 giving T
+         add 1 to Dot
+         add the value of from Dot of Target to T
+    end
+    if UD add 5 to T else if Target is not `0.0` take 5 from T
+    if T is less than 10 put `0` cat T into T
+    else put `` cat T into T
+    put the length of T into L
+    take 1 from L
+    put left L of T into X
+    put X cat `.` into X
+    put X cat from L of T into Target
+    set the content of OnTarget to Target cat `&deg;C`
+    set TargetFlag
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Show the schedules times
+ShowTimes:
+    set style `visibility` of ModePanel to `hidden`
+    put empty into Result
+    if ScheduleEditScript is empty
+    	rest get ScheduleEditScript from `/resources/ecs/scheduleedit.ecs?v=` cat now
+    run ScheduleEditScript with MainPanel and RoomSpec and Result
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Advance to the next timed event
+Advance:
+!    set style `visibility` of ModePanel to `hidden`
+    if property `advance` of RoomSpec is `A`
+    begin
+    	set property `advance` of RoomSpec to ``
+    	set attribute `src` of AdvanceIcon to `/resources/icon/doubleright.png`
+    end
+    else
+    begin
+    	set property `advance` of RoomSpec to `A`
+    	set attribute `src` of AdvanceIcon to `/resources/icon/doublerightgreen.png`
+    end
+    set element ClickIndex of Rooms to RoomSpec
+    set property `rooms` of Map to Rooms
+    fork to PostMap
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Select timed mode
+SelectTimed:
+   	put `timed` into Mode
+    go to SelectMode
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Select 'on' mode
+SelectOn:
+    put `on` into Mode
+    go to SelectMode
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Select off mode
+SelectOff:
+    put `off` into Mode
+    go to SelectMode
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Select cancel
+SelectCancel:
+    put CurrentMode into Mode
+    clear TargetFlag
+    go to SelectMode
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Select help
+SelectHelp:
+    set style `visibility` of ModePanel to `hidden`
+    put `Help home Mode` into Result
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Select the mode and exit
+SelectMode:
+    set style `visibility` of ModePanel to `hidden`
+	if Mode is CurrentMode
+    begin
+    	if not TargetFlag exit
+    end
+	set property `target` of RoomSpec to Target
+	set property `mode` of RoomSpec to Mode
+    set element ClickIndex of Rooms to RoomSpec
+    set property `rooms` of Map to Rooms
+    set property `message` of Map to `confirm`
+    fork to PostMap
+    fork to FlashModeIndicator
+	! Wait for a response from the server
+   	if Demo wait 5 seconds
+    else
+    begin
+    	put 10 into Count
+        while Count is greater than 0
+        begin
+            wait 5 seconds
+            rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
+            if property `message` of Map is `OK` go to SM2
+            take 1 from Count
+        end
+    	alert `Website is not responding"
+		put `Refresh` into Result
+        exit
+    end
+SM2:
+	clear Waiting
+    put 0 into Count
+    while Count is less than 10
+    begin
+    	if not Flashing go to SM3
+        wait 10 ticks
+    	add 1 to Count
+    end
+SM3:
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Flash the mode indicator button while waiting
+FlashModeIndicator:
+    set Waiting
+    set Flashing
+    put the index of ModeIcon into FlashIndex
+	while Waiting
+    begin
+        index ModeIcon to FlashIndex
+	    set style `opacity` of ModeIcon to `0.25`
+    	wait 50 ticks
+        index ModeIcon to FlashIndex
+	    set style `opacity` of ModeIcon to `1.0`
+        wait 50 ticks
+    end
+    clear Flashing
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Post the map to the server
+PostMap:
+	if Demo put Map into storage as `map`
+    else
+	begin
+   		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
+   		or begin
+            add 1 to ErrorCount
+            if ErrorCount is greater than 9 alert `A series of errors have occurred`
+            continue
+        end
+   		put 0 into ErrorCount
+	end
+	stop

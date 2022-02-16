@@ -20,14 +20,14 @@ def index():
             ts = time.time()
             temp = round(float(temp), 1)
 #            print(f'hum={hum}, temp={temp}, source={source}, ts={ts}')
-            dir = f'/home/pi/sensors/{source}'
+            dir = f'/home/pi/sensors'
             if not os.path.exists(f'{dir}'):
                 os.makedirs(f'{dir}')
-            file = open(f'{dir}/value.txt', 'w')
+            file = open(f'{dir}/{source}.txt', 'w')
             message = '{"temperature": "' + str(temp) + '", "timestamp": "' + str(ts) + '"}'
             file.write(message)
             file.close()
-#            print(f'Written {message} to {dir}/value.txt')
+#            print(f'Written {message} to {source}.txt')
         return
     except:
         print('Error')

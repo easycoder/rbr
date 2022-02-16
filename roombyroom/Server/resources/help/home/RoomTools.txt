@@ -30,6 +30,6 @@ What you're reading now
 
 Closes the menu without making any changes.
 
-~tid:content:Go to the main Help page~
+~sid:Index:Index of pages~
 
 ~img:roomtools.jpg:50% center~

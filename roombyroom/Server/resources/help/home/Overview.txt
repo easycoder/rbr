@@ -18,4 +18,6 @@ The actuator is powered from a remotely-controlled relay, which is plugged into 
 
 ~stid:Controller/content:The system controller~
 
-~tid:content:Return to the Help start page~
+~tid:Technical:Technical pages~
+
+~sid:Index:Index of pages~

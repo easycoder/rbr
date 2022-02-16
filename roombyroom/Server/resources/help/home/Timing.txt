@@ -5,3 +5,5 @@ The RBR can operate in either manual or timed mode. For the latter there is an e
 ~img:periods.jpg:center 50%~
 
 Go to the ~tid:RoomEdit:Room Editor Help page~.
+
+~sid:Index:Index of pages~

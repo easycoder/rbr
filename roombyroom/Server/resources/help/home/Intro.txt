@@ -10,4 +10,4 @@ To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right 
 
 ~tid:Overview:System overview~
 
-~tid:GettingStarted:Getting started~
+~sid:Index:Index of pages~

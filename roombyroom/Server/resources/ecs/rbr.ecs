@@ -13,14 +13,6 @@
     div TimedInfo
     div ModePanel
     div ModeHolder
-    div ButtonT
-    div ButtonM
-    div ButtonO
-    div ButtonC
-    div ButtonH
-    div UpButton
-    div DownButton
-    div OnTarget
     div TargetTemp
     div DialogPanel
     div DialogTitle
@@ -29,9 +21,6 @@
     input Input
     img Hamburger
     img ModeIcon
-    img TimedEditIcon
-    img AdvanceIcon
-    img AdvancingIcon
     a Welcome
     button AddRoomButton
     button GetMACButton
@@ -55,6 +44,8 @@
     variable Webson
     variable HelpScript
     variable DemoScript
+    variable ModeScript
+    variable Script
     variable MAC
     variable Password
     variable SystemName
@@ -65,7 +56,6 @@
     variable RoomCount
     variable RoomIndex
     variable ClickIndex
-    variable FlashIndex
     variable Redraw
     variable Refresh
     variable Sensors
@@ -74,37 +64,25 @@
     variable DemoSensors
     variable RelayState
     variable Temperature
-    variable Target
-    variable TargetFlag
-    variable Dot
     variable Args
-    variable Integer
     variable Events
     variable Event
     variable Blocked
     variable Mode
-    variable CurrentMode
     variable Flag
     variable Error
     variable SID
     variable TID
-    variable Count
     variable Result
-    variable RoomName
     variable Finish
     variable ErrorCount
-    variable Script
     variable FH
     variable FM
-    variable UD
     variable E
     variable H
-    variable L
     variable M
     variable N
     variable R
-    variable T
-    variable X
 
     ! Webson specs
     variable MainScreenWebson
@@ -115,7 +93,6 @@
     variable RoomWebson
     variable RoomEditMenuWebson
     variable RoomToolsMenuWebson
-    variable ModeWebson
     variable TimedWebson
     variable OnWebson
     variable OffWebson
@@ -127,6 +104,7 @@
     wait 5 seconds
     every 5 seconds
     begin
+    	fork to ShowAlive
     	if not Blocked go to Start
     	wait 1
     	if not Blocked go to Start
@@ -137,12 +115,20 @@
     	wait 1
     	if not Blocked go to Start
     end
+    
     stop
+
+ShowAlive:
+    set style `visibility` of Alive to `visible`
+    wait 100 ticks
+    set style `visibility` of Alive to `hidden`
+	stop
 
 Main:
     put 0 into ErrorCount
 	clear Blocked
     set Redraw
+    put empty into ModeScript
 
     set the title to `RBR`
 
@@ -154,6 +140,7 @@ Main:
   	json parse url the location as Args
     put property `url` of Args into Server
     put Server cat `rest.php` into Server
+    put Server into storage as `server`
 
 	create Body
     if Mobile
@@ -177,21 +164,20 @@ Main:
 !	First get EasyCoder scripts and the various layout scripts
     rest get HelpScript from `/resources/ecs/storyteller.ecs?v=` cat now
 
-    rest get MainScreenWebson from `/resources/webson/rbr.json?v=` cat now
-    rest get MainMenuWebson from `/resources/webson/mainmenu.json?v=` cat now
-	rest get GetMacWebson from `/resources/webson/getmac.json?v=` cat now
-	rest get GetPasswordWebson from `/resources/webson/getpassword.json?v=` cat now
-	rest get GetNameWebson from `/resources/webson/getname.json?v=` cat now
-    rest get RoomWebson from `/resources/webson/room.json?v=` cat now
-    rest get RoomEditMenuWebson from `/resources/webson/roomeditmenu.json?v=` cat now
-    rest get RoomToolsMenuWebson from `/resources/webson/roomtoolsmenu.json?v=` cat now
-    rest get ModeWebson from `/resources/webson/mode.json?v=` cat now
-    rest get TimedWebson from `/resources/webson/timed.json?v=` cat now
-    rest get OnWebson from `/resources/webson/on.json?v=` cat now
-    rest get OffWebson from `/resources/webson/off.json?v=` cat now
-    rest get DialogWebson from `/resources/webson/dialog-confirm.json?v=` cat now
+    put empty into MainMenuWebson
+	put empty into GetMacWebson
+	put empty into GetPasswordWebson
+	put empty into GetNameWebson
+    put empty into RoomWebson
+    put empty into RoomEditMenuWebson
+    put empty into RoomToolsMenuWebson
+    put empty into TimedWebson
+    put empty into OnWebson
+    put empty into OffWebson
+    put empty into DialogWebson
 
-!	Render each of the layouts (except RoomWebson because that's done later)
+!	Render the main screen layout
+    rest get MainScreenWebson from `/resources/webson/rbr.json?v=` cat now
 	render MainScreenWebson in Body
     attach MainPanel to `mainpanel`
     attach OuterPanel to `outerpanel`
@@ -262,7 +248,7 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the map
 GetMap:
-	set Blocked
+!	set Blocked
     if Demo get Map from storage as `map`
     else
     begin
@@ -323,10 +309,8 @@ GetMap:
     set the elements of ModeIcon to RoomCount
     set the elements of RoomSpec to RoomCount
     set the elements of RoomNamePanel to RoomCount
-    set the elements of RoomNamePanel to RoomCount
     set the elements of RoomTempPanel to RoomCount
     set the elements of RoomToolsButton to RoomCount
-    set the elements of RoomName to RoomCount
     set the elements of SensorSpec to RoomCount
     set the elements of RelayState to RoomCount
     set the elements of ModeHolder to RoomCount
@@ -344,11 +328,12 @@ GetMap:
         index RoomNamePanel to RoomIndex
         index RoomTempPanel to RoomIndex
         index RoomToolsButton to RoomIndex
-        index RoomName to RoomIndex
 
         if Redraw
         begin
             ! Render the Webson spec for a room
+            if RoomWebson is empty
+    			rest get RoomWebson from `/resources/webson/room.json?v=` cat now
         	put RoomWebson into Webson
         	replace `/ROOM/` with RoomIndex in Webson
         	render Webson in MainPanel
@@ -374,8 +359,7 @@ GetMap:
 
 		! Set the room name
 		put element RoomIndex of Rooms into RoomSpec
-        put property `name` of RoomSpec into RoomName
-        set the content of RoomNamePanel to RoomName
+        set the content of RoomNamePanel to property `name` of RoomSpec
 
         ! Show the current temperature and relay state
         put `` cat property `sensor` of RoomSpec into SensorIP
@@ -395,9 +379,10 @@ GetMap:
         ! Show the mode indicator
         if Mode is `timed`
             begin
-            if Refresh
             begin
                 clear ModeHolder
+    			if TimedWebson is empty
+    				rest get TimedWebson from `/resources/webson/timed.json?v=` cat now
                 put TimedWebson into Webson
                 replace `/ROOM/` with RoomIndex in Webson
                 render Webson in ModeHolder
@@ -443,9 +428,10 @@ GetMap:
         end
         else if Mode is `on`
         begin
-            if Refresh
             begin
                 clear ModeHolder
+                if OnWebson is empty
+                    rest get OnWebson from `/resources/webson/on.json?v=` cat now
                 put OnWebson into Webson
                 replace `/ROOM/` with RoomIndex in Webson
                 render Webson in ModeHolder
@@ -455,9 +441,10 @@ GetMap:
         end
         else if Mode is `off`
         begin
-            if Refresh
             begin
                 clear ModeHolder
+                if OffWebson is empty
+                    rest get OffWebson from `/resources/webson/off.json?v=` cat now
                 put OffWebson into Webson
                 replace `/ROOM/` with RoomIndex in Webson
                 render Webson in ModeHolder
@@ -473,213 +460,50 @@ GetMap:
             go to RoomTools
         end
 
-	    ! Handle a click on a mode button
+	    ! Handle a tap on a mode button
         attach ModeIcon to `room-` cat RoomIndex cat `-mode-icon`
 	    on click ModeIcon
 	    begin
         	if Blocked stop
     		set Blocked
             put the index of ModeIcon into ClickIndex
-        	index RoomSpec to ClickIndex
-            index RoomName to the index of ModeIcon
-            index RelayState to the index of ModeIcon
-            index Mode to the index of ModeIcon
-        	put Mode into CurrentMode
-            wait 20 ticks
-
-			clear ModePanel
-            put ModeWebson into Webson
-            replace `/ROOM/` with RoomName in Webson
-			render Webson in ModePanel
-            attach ButtonT to `mode-timed`
-            attach ButtonM to `mode-on`
-            attach ButtonO to `mode-off`
-            attach ButtonC to `mode-cancel`
-            attach ButtonH to `mode-help`
-            attach DownButton to `on-down`
-            attach UpButton to `on-up`
-            attach OnTarget to `on-target`
-            attach TimedEditIcon to `timed-edit`
-            attach AdvanceIcon to `timed-advance`
-            attach AdvancingIcon to `timed-advanced`
-
-            put property `target` of RoomSpec into Target
-			set the content of OnTarget to Target cat `&deg;C`
-            clear TargetFlag
-
-			set style `visibility` of ModePanel to `visible`
-            if property `advance` of RoomSpec is `A`
-				set style `visibility` of AdvancingIcon to `visible`
-		    else
-		        set style `visibility` of AdvancingIcon to `hidden`
-
-            on click ButtonT go to SelectTimed
-            on click ButtonM go to SelectOn
-            on click ButtonO go to SelectOff
-            on click ButtonC go to SelectCancel
-            on click ButtonH go to SelectHelp
-            on click DownButton go to OnDown
-            on click UpButton go to OnUp
-            on click TimedEditIcon go to ShowTimes
-            on click AdvanceIcon go to Advance
-	    end
-
+            if ModeScript is empty
+            	rest get ModeScript from `/resources/ecs/mode.ecs?v=` cat now
+            run ModeScript with MainPanel
+            	and ModePanel
+            	and ModeIcon
+                and Mode
+                and Map
+                and ClickIndex
+                and Demo
+                and Result
+            if left 4 of Result is `Help`
+            begin
+                split Result on ` ` giving Result
+                index Result to 1
+                put Result into SID
+                index Result to 2
+                put Result into TID
+                go to RunHelp
+            end
+            else if Result is `Changed`
+            begin
+    			set element ClickIndex of Rooms to RoomSpec
+                set property `rooms` of Map to Rooms
+                fork to PostMap
+                set Redraw
+            end
+            else if Result is `Redraw` set Redraw
+            else if Result is `Refresh` set Refresh
+            clear Blocked
+            stop
+		end
         add 1 to RoomIndex
     end
 
     clear Refresh
     clear Redraw
-    clear Blocked
-
-    set style `visibility` of Alive to `visible`
-    wait 50 ticks
-    set style `visibility` of Alive to `hidden`
-	wait 450 ticks
 	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	'On' Up and Down buttons
-OnDown:
-	clear UD
-    go to UpDown
-
-OnUp:
-	set UD
-
-UpDown:
-	if Target is empty put `0.0` into Target else put `` cat Target into Target
-    put the position of `.` in Target into Dot
-    if Dot is -1 multiply the value of Target by 10 giving T
-    else
-    begin
-         put left Dot of Target into Integer
-         multiply the value of Integer by 10 giving T
-         add 1 to Dot
-         add the value of from Dot of Target to T
-    end
-    if UD add 5 to T else if Target is not `0.0` take 5 from T
-    if T is less than 10 put `0` cat T into T
-    else put `` cat T into T
-    put the length of T into L
-    take 1 from L
-    put left L of T into X
-    put X cat `.` into X
-    put X cat from L of T into Target
-    set the content of OnTarget to Target cat `&deg;C`
-    set TargetFlag
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Show the schedules times
-ShowTimes:
-    set style `visibility` of ModePanel to `hidden`
-    put empty into Result
-    rest get Script from `/resources/ecs/scheduleedit.ecs?v=` cat now
-    run Script with MainPanel and Rooms and ClickIndex and Result
-    go to ProcessResult
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Advance to the next timed event
-Advance:
-    set style `visibility` of ModePanel to `hidden`
-    if property `advance` of RoomSpec is `A`
-    	set property `advance` of RoomSpec to ``
-    else
-    	set property `advance` of RoomSpec to `A`
-    set element ClickIndex of Rooms to RoomSpec
-    set property `rooms` of Map to Rooms
-    fork to PostMap
-    clear MainPanel
-    clear Blocked
-    set Redraw
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Select timed mode
-SelectTimed:
-   	put `timed` into Mode
-    go to SelectMode
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Select 'on' mode
-SelectOn:
-    put `on` into Mode
-    go to SelectMode
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Select off mode
-SelectOff:
-    put `off` into Mode
-    go to SelectMode
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Select cancel
-SelectCancel:
-    put CurrentMode into Mode
-    clear TargetFlag
-    go to SelectMode
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Select help
-SelectHelp:
-    set style `visibility` of ModePanel to `hidden`
-    put `home` into SID
-    put `Mode` into TID
-    go to RunHelp
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Select the mode
-SelectMode:
-    set style `visibility` of ModePanel to `hidden`
-	if Mode is CurrentMode
-    begin
-    	if not TargetFlag
-        begin
-            clear Refresh
-        	clear Blocked
-            stop
-        end
-    end
-	set property `target` of RoomSpec to Target
-	set property `mode` of RoomSpec to Mode
-    set element ClickIndex of Rooms to RoomSpec
-    set property `rooms` of Map to Rooms
-    set property `message` of Map to `confirm`
-    fork to PostMap
-    fork to FlashModeIndicator
-	! Wait for a response from the server
-   	if Demo wait 5 seconds
-    else
-    begin
-    	put 10 into Count
-        while Count is greater than 0
-        begin
-            wait 5 seconds
-            rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-            if property `message` of Map is `OK` go to SM2
-            take 1 from Count
-        end
-    	alert `Website is not responding"
-    end
-SM2:
-    set Refresh
-    clear Blocked
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Flash the mode indicator button while waiting
-FlashModeIndicator:
-    put the index of ModeIcon into FlashIndex
-	while Blocked
-    begin
-        index ModeIcon to FlashIndex
-	    set style `opacity` of ModeIcon to `0.25`
-    	wait 50 ticks
-        index ModeIcon to FlashIndex
-	    set style `opacity` of ModeIcon to `1.0`
-        wait 50 ticks
-    end
-    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Show a help page
@@ -703,6 +527,8 @@ Reset:
 GetMAC:
 	set Blocked
     clear MainPanel
+    if GetMacWebson is empty
+        rest get GetMacWebson from `/resources/webson/getmac.json?v=` cat now
     render GetMacWebson in MainPanel
     attach Input to `getmac-input`
     attach OKButton to `getmac-ok`
@@ -759,6 +585,8 @@ GetMAC:
 GetPassword:
 	set Blocked
     clear MainPanel
+    if GetPasswordWebson is empty
+        rest get GetPasswordWebson from `/resources/webson/getpassword.json?v=` cat now
     render GetPasswordWebson in MainPanel
     attach Input to `getpassword-input`
     attach OKButton to `getpassword-ok`
@@ -798,6 +626,8 @@ GetPassword:
 GetSystemName:
 	set Blocked
     clear MainPanel
+    if GetNameWebson is empty
+        rest get GetNameWebson from `/resources/webson/getname.json?v=` cat now
     render GetNameWebson in MainPanel
     attach Input to `getname-input`
     attach OKButton to `getname-ok`
@@ -814,7 +644,6 @@ GetSystemName:
             clear MainPanel
             set Redraw
             clear Blocked
-!            set the content of SystemNamePanel to SystemName
             set property `name` of Map to SystemName
             go to PostMap
         end
@@ -842,6 +671,8 @@ ShowMenu:
 	set Blocked
     wait 20 ticks
 	clear MainPanel
+    if MainMenuWebson is empty
+    	rest get MainMenuWebson from `/resources/webson/mainmenu.json?v=` cat now
     render MainMenuWebson in MainPanel
     attach AddRoomButton to `button-add`
     attach GetMACButton to `button-getmac`
@@ -918,31 +749,13 @@ RoomTools:
 	set Blocked
     wait 20 ticks ! to allow things to complete before running the editor!
 	clear MainPanel
+    if RoomToolsMenuWebson is empty
+    	rest get RoomToolsMenuWebson from `/resources/webson/roomtoolsmenu.json?v=` cat now
     render RoomToolsMenuWebson in MainPanel
     put property `rooms` of Map into Rooms
     put empty into Result
     rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
     run Script with MainPanel and Rooms and ClickIndex and Result as Editor
-
-ProcessResult:
-    clear MainPanel
-    if char 0 of Result is `H`
-    begin
-    	split Result on ` ` giving Result
-        index Result to 1
-        put Result into SID
-        index Result to 2
-        put Result into TID
-      	go to RunHelp
-    end
-    if Result is `Changed`
-    begin
-        set property `rooms` of Map to Rooms
-    	fork to PostMap
-    end
-	clear Blocked
-    set Redraw
-    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	The room editor
@@ -950,6 +763,8 @@ RoomEditor:
 	set Blocked
     wait 20 ticks ! to allow things to complete before continuing
 	clear MainPanel
+    if RoomEditMenuWebson is empty
+    	rest get RoomEditMenuWebson from `/resources/webson/roomeditmenu.json?v=` cat now
     render RoomEditMenuWebson in MainPanel
     put property `rooms` of Map into Rooms
     index RoomSpec to ClickIndex
@@ -974,6 +789,8 @@ RoomEditor:
 Backup:
 	set Blocked
     attach DialogPanel to `dialog-panel`
+    if DialogWebson is empty
+    	rest get DialogWebson from `/resources/webson/dialog-confirm.json?v=` cat now
     render DialogWebson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
@@ -1008,6 +825,8 @@ Backup:
 Restore:
 	set Blocked
     attach DialogPanel to `dialog-panel`
+    if DialogWebson is empty
+    	rest get DialogWebson from `/resources/webson/dialog-confirm.json?v=` cat now
     render DialogWebson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
@@ -1043,15 +862,13 @@ PostMap:
 	if Demo put Map into storage as `map`
     else
 	begin
+    	set property `message` of Map to `confirm`
    		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
-   		or go to MonitorErrors
+   		or begin
+            add 1 to ErrorCount
+            if ErrorCount is greater than 9 alert `A series of errors have occurred`
+            continue
+        end
    		put 0 into ErrorCount
 	end
 	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Monitor errors
-MonitorErrors:
-    add 1 to ErrorCount
-    if ErrorCount is greater than 9 alert `A series of errors have occurred`
-    continue

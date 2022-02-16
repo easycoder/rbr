@@ -9,4 +9,4 @@ At the bottom, the green plus sign adds a new timing event and the Save button s
 
 Every time you make a change to the time the system will resequence the timing periods if necessary to keep them in ascending order.
 
-~tid:content:Go to the main Help page~
+~sid:Index:Index of pages~

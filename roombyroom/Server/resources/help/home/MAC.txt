@@ -20,4 +20,4 @@ To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right 
 
 ~tid:Welcome:Go to the Welcome page~
 
-~tid:content:Go to the Help index page~
+~sid:Index:Index of pages~

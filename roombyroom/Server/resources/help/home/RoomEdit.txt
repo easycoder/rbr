@@ -9,6 +9,6 @@ The Room Editor is where you configure each of your rooms. It starts with a menu
 
 ~tid:RoomTools:Go to the Room Tools Help page~
 
-~tid:content:Go to the main Help page~
+~sid:Index:Index of pages~
 
 ~img:roomedit.jpg:50% center~

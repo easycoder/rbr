@@ -26,89 +26,66 @@
         "#element": "div",
         "@id": "mode-on",
         "margin": "0.5em 0",
-        "padding": "0 0.5em",
         "background": "#eee",
         "border": "1px solid gray",
         "border-radius": "0.5em",
         "display": "flex",
         "flex-direction": "row",
-        "#": ["$IconDiv", "$Text"],
+        "#": ["$Left", "$Right"],
 
-        "$IconDiv": {
+        "$Left": {
             "#element": "div",
-            "height": "6em",
-            "display": "flex",
-            "align-items": "center",
+            "flex": 1,
+            "height": "auto",
+            "margin": "0.5em",
+            "border": "1px solid gray",
+            "border-radius": "0.5em",
+            "background": "lightgray",
             "pointer-events": "none",
-            "#": "$Icon",
+            "text-align": "center",
+            "#": "$Inner",
 
-            "$Icon": {
-                "#element": "img",
-                "@src": "resources/icon/temperature.png",
-                "width": "2em",
-                "height": "auto",
-                "pointer-events": "none"
+            "$Inner": {
+                "#element": "div",
+                "height": "100%",
+                "display": "flex",
+                "flex-direction": "column",
+                "#": ["$Title", "$Icon"],
+
+                "$Title": {
+                    "#element": "div",
+                    "#content": "On",
+                    "flex": 1,
+                    "font-weight": "bold",
+                    "padding": "0.5em"
+                },
+
+                "$Icon": {
+                    "#element": "img",
+                    "@src": "resources/icon/temperature.png",
+                    "width": "2em",
+                    "height": "auto",
+                    "margin": "0 auto",
+                    "padding": "0.5em"
+                }
             }
         },
 
-        "$Text": {
+        "$Right": {
             "#element": "div",
-            "margin-left": "1em",
+            "margin": "0.5em",
             "flex": 1,
-            "pointer-events": "none",
-            "#": ["$Line1", "$Line2", "$UpDown"],
-
-            "$Line1": {
-                "#element": "div",
-                "#content": "On",
-                "font-weight": "bold"
-            },
-
-            "$Line2": {
-                "#element": "div",
-                "#content": "Set your desired temperature",
-                "font-size": "70%"
-            },
+            "#": "$UpDown",
 
             "$UpDown": {
                 "#element": "div",
                 "display": "flex",
-                "margin": "0.5em auto",
-                "#": ["$Down", "$Target", "$Up"],
-
-                "$Down": {
-                    "#element": "div",
-                    "@id" : "on-down",
-                    "float": "left",
-                    "border": "1px solid gray",
-                    "border-radius": "0.5em",
-                    "background": "lightgray",
-                    "padding": "0.5em",
-                    "pointer-events": "auto",
-                    "#": "$DownImg",
-
-                    "$DownImg": {
-                        "#element": "img",
-                        "@src": "resources/icon/blueminus.png",
-                        "height": "1.5em",
-                        "pointer-events": "none"
-                    }
-                },
-
-                "$Target": {
-                    "#element": "div",
-                    "@id": "on-target",
-                    "flex": 1,
-                    "font-weight": "bold",
-                    "padding": "0.7em 0.5em",
-                    "pointer-events": "none",
-                    "#content": "15.5&deg;C"
-                },
+                "flex-direction": "column",
+                "#": ["$Up", "$Target", "$Down"],
 
                 "$Up": {
                     "#element": "div",
                     "@id" : "on-up",
-                    "float": "right",
                     "border": "1px solid gray",
                     "border-radius": "0.5em",
                     "background": "lightgray",
@@ -122,6 +99,34 @@
                         "height": "1.5em",
                         "pointer-events": "none"
                     }
+                },
+
+                "$Target": {
+                    "#element": "div",
+                    "@id": "on-target",
+                    "flex": 1,
+                    "font-weight": "bold",
+                    "padding": "0.2em 0",
+                    "pointer-events": "none",
+                    "#content": "15.5&deg;C"
+                },
+
+                "$Down": {
+                    "#element": "div",
+                    "@id" : "on-down",
+                    "border": "1px solid gray",
+                    "border-radius": "0.5em",
+                    "background": "lightgray",
+                    "padding": "0.5em",
+                    "pointer-events": "auto",
+                    "#": "$DownImg",
+
+                    "$DownImg": {
+                        "#element": "img",
+                        "@src": "resources/icon/blueminus.png",
+                        "height": "1.5em",
+                        "pointer-events": "none"
+                    }
                 }
             }
         }
@@ -130,104 +135,105 @@
     "$Timed": {
         "#element": "div",
         "@id": "mode-timed",
-        "display": "flex",
-        "flex-direction": "row",
         "margin": "0.5em 0",
-        "padding": "0 0.5em",
         "background": "#eee",
         "border": "1px solid gray",
         "border-radius": "0.5em",
-        "#": ["$IconDiv", "$Text"],
+        "display": "flex",
+        "flex-direction": "row",
+        "#": ["$Left", "$Right"],
 
-        "$IconDiv": {
+        "$Left": {
             "#element": "div",
-            "height": "5em",
-            "display": "flex",
-            "align-items": "center",
+            "flex": 1,
+            "height": "auto",
+            "margin": "0.5em",
+            "border": "1px solid gray",
+            "border-radius": "0.5em",
+            "background": "lightgray",
             "pointer-events": "none",
-            "#": "$Icon",
+            "text-align": "center",
+            "#": "$Inner",
 
-            "$Icon": {
-                "#element": "img",
-                "@src": "resources/icon/clock.png",
-                "width": "2em",
-                "height": "auto",
-                "pointer-events": "none"
-            }
-        },
-
-        "$Text": {
-            "#element": "div",
-            "margin-left": "1em",
-            "flex": "1",
-            "pointer-events": "none",
-            "#": ["$Line1", "$Line2", "$Schedule"],
-
-            "$Line1": {
+            "$Inner": {
                 "#element": "div",
-                "#content": "Timed",
-                "font-weight": "bold"
-            },
-
-            "$Line2": {
-                "#element": "div",
-                "#content": "Use the scheduled times",
-                "font-size": "70%"
-            },
-
-            "$Schedule": {
-                "#element": "div",
+                "height": "100%",
                 "display": "flex",
-                "margin": "0.5em auto",
-                "#": ["$OK", "$Filler", "$Edit", "$Pad", "$Advance", "$Pad", "$Advanced"],
+                "flex-direction": "column",
+                "#": ["$Title", "$Icon"],
 
-                "$OK": {
+                "$Title": {
                     "#element": "div",
-                    "@id": "timed-ok",
-                    "#content": "OK",
-                    "border": "1px solid gray",
-                    "border-radius": "0.5em",
-                    "background": "lightgray",
+                    "#content": "Timed",
+                    "flex": 1,
+                    "font-weight": "bold",
                     "padding": "0.5em"
                 },
 
-                "$Filler": {
-                    "#element": "div",
-                    "flex": 1
-                },
+                "$Icon": {
+                    "#element": "img",
+                    "@src": "resources/icon/clock.png",
+                    "width": "2em",
+                    "height": "auto",
+                    "margin": "0 auto",
+                    "padding": "0.5em"
+                }
+            }
+        },
+
+        "$Right": {
+            "#element": "div",
+            "margin": "0.5em",
+            "flex": 1,
+            "#": "$UpDown",
+
+            "$UpDown": {
+                "#element": "div",
+                "display": "flex",
+                "flex-direction": "column",
+                "#": ["$Edit", "$Pad", "$Advance"],
 
                 "$Edit": {
-                    "#element": "img",
-                    "@id": "timed-edit",
-                    "@src": "resources/icon/edit.png",
-                    "width": "2em",
-                    "height": "2em",
-                    "pointer-events": "auto"
-                },
-
-                "$Advance": {
-                    "#element": "img",
-                    "@id": "timed-advance",
-                    "@src": "resources/icon/doubleright.png",
-                    "width": "2em",
-                    "height": "2em",
-                    "pointer-events": "auto"
-                },
-
-                "$Advanced": {
-                    "#element": "img",
-                    "@id": "timed-advanced",
-                    "@src": "resources/icon/star.png",
-                    "width": "1em",
-                    "height": "1em",
-                    "margin-top": "0.5em",
+                    "#element": "div",
+                    "@id" : "timed-edit",
+                    "border": "1px solid gray",
+                    "border-radius": "0.5em",
+                    "background": "lightgray",
+                    "padding": "0.5em",
                     "pointer-events": "auto",
-                    "visibility": "hidden"
+                    "#": "$EditImg",
+
+                    "$EditImg": {
+                        "#element": "img",
+                        "@src": "resources/icon/edit.png",
+                        "height": "1.5em",
+                        "pointer-events": "none"
+                    }
                 },
 
                 "$Pad": {
                     "#element": "div",
-                    "width": "1em"
+                    "flex": 1,
+                    "pointer-events": "none",
+                    "#content": "&nbsp;"
+                },
+
+                "$Advance": {
+                    "#element": "div",
+                    "@id" : "timed-advance",
+                    "border": "1px solid gray",
+                    "border-radius": "0.5em",
+                    "background": "lightgray",
+                    "padding": "0.5em",
+                    "pointer-events": "auto",
+                    "#": "$AdvanceImg",
+
+                    "$AdvanceImg": {
+                        "#element": "img",
+                        "@src": "resources/icon/doubleright.png",
+                        "height": "1.5em",
+                        "pointer-events": "none"
+                    }
                 }
             }
         }
@@ -277,7 +283,7 @@
 
     "$Pad": {
         "#element": "div",
-        "height": "1em"
+        "height": "0.5em"
     },
 
     "$Buttons": {

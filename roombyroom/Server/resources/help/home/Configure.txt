@@ -4,4 +4,4 @@
 
 ~tid:MainMenu:Main menu~
 
-~tid:content:Go to the main Help page~
+~sid:Index:Index of pages~

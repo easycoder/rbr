@@ -3,8 +3,7 @@
 	script ScheduleEditor
     
     import div MainPanel
-    	and variable Rooms
-        and variable ClickIndex
+    	and variable RoomSpec
         and variable Result
 
 	div RoomName
@@ -30,7 +29,6 @@
     img MinuteDownButton
     img TempUpButton
     img TempDownButton
-    variable RoomSpec
     variable Webson
     variable EventWebson
     variable EventInfoWebson
@@ -62,8 +60,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! The schedule editor
 	put -1 into LastEvent
-
-    put element ClickIndex of Rooms into RoomSpec
 
 	clear MainPanel
     rest get Webson from `/resources/webson/timeseditor.json?v=` cat now
@@ -384,10 +380,9 @@ ShowValues:
     return
         
 ExitWithoutChanges:
-    put `OK` into Result
+    put `Redraw` into Result
     exit
 
 ExitWithChanges:
-    set element ClickIndex of Rooms to RoomSpec
     put `Changed` into Result
     exit

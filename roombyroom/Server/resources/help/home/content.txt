@@ -22,4 +22,4 @@ All enquiries should initially be made by email to info@rbrcontrol.com. For any 
 
 ~tid:GettingStarted:Getting started~
 
-~tid:MainMenu:Main menu~
+~sid:Index:Index of pages~

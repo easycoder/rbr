@@ -1,0 +1,38 @@
+## Index
+
+This is a list of all the pages in the Help system.The pages link to each other in a fairly arbitrary manner, but you can always return here and start again somewhere different.
+
+  - Using the RBR system
+    - ~stid:home/content:Introduction~
+    - ~stid:home/Intro:The cost of heating~
+    - ~stid:home/Evaluate:Evaluating the RBR system~
+    - ~stid:home/Overview:Overview of the RBR system~
+    - ~stid:home/GettingStarted:Getting started~
+    - ~stid:home/MainMenu:The main system menu~
+    - ~stid:home/AddRoom:Adding a room~
+    - ~stid:home/MAC:Setting the MAC address~
+    - ~stid:home/Password:Setting the system password~
+    - ~stid:home/Name:Setting the system name~
+    - ~stid:home/RoomEdit:The room editor~
+    - ~stid:home/RoomName:Setting a room name~
+    - ~stid:home/Sensor:Setting the sensor IP address~
+    - ~stid:home/Relays:Setting relay IP addresses~
+    - ~stid:home/RoomTools:Tools for editing room details~
+    - ~stid:home/Timing:Editing the timing schedule~
+    - ~stid:home/ScheduleEdit:The timing schedule editor~
+    - ~stid:home/Mode:The mode dialog~
+    - ~stid:home/Backup:Backing up the map~
+    - ~stid:home/Restore:Restoring the backed-up map~
+    - ~stid:home/Technical:Technical pages~
+    - ~stid:home/Welcome:The initial welcome page~
+
+  - The system controller
+    - ~stid:Controller/content:About the system controller~
+
+  - Room kits
+    - ~stid:RoomKit/content:About room kits~
+
+  - The user interface
+    - ~stid:UI/content:About the user interface software~
+    - ~stid:UI/EasyCoder:About EasyCoder~
+    - ~stid:UI/EasyCoderAndRBR:The RBR EasyCoder scripts~

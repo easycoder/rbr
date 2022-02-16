@@ -6,4 +6,4 @@ This allows you to restore your system configuration to what it was when you las
 
 ~tid:MainMenu:Return to the main menu help page~
 
-~tid:content:Return to the initial help page~
+~sid:Index:Index of pages~

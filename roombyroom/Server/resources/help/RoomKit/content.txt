@@ -23,4 +23,4 @@ Your relay is now ready for use. You can test it by clicking the icon in the upp
 
 ~stid:home/Relays:The Relay Editor screen~
 
-~sid:home:Go to the main Help page~
+~sid:Index:Index of pages~

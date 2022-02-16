@@ -10,4 +10,4 @@ To close this Help screen tap the Hamburger menu - the 3 bars at the top right o
 
 Once you have enered the MAC address you will then be asked for the system password. This dialog also has a Help button for information about where the password can be found.
 
-~tid:content:Go to the main Help page~
+~sid:Index:Index of pages~
