@@ -184,7 +184,7 @@ RelaysButtonCB:
 !	Edit the times
 TimesButtonCB:
     rest get ScheduleEditScript from `/resources/ecs/scheduleedit.ecs?v=` cat now
-    run ScheduleEditScript with MainPanel and Rooms and ClickIndex and Result
+    run ScheduleEditScript with MainPanel and RoomSpec and Result
 	exit
 
 ExitWithoutChanges:
