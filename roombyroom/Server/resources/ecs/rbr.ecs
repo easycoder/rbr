@@ -35,7 +35,6 @@
     button DialogButton1
     button DialogButton2
     module Storyteller
-    module Editor
     module DemoModule
     variable Mobile
     variable Server
@@ -104,7 +103,6 @@
     wait 5 seconds
     every 5 seconds
     begin
-    	fork to ShowAlive
     	if not Blocked go to Start
     	wait 1
     	if not Blocked go to Start
@@ -115,14 +113,7 @@
     	wait 1
     	if not Blocked go to Start
     end
-    
     stop
-
-ShowAlive:
-    set style `visibility` of Alive to `visible`
-    wait 100 ticks
-    set style `visibility` of Alive to `hidden`
-	stop
 
 Main:
     put 0 into ErrorCount
@@ -248,7 +239,7 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the map
 GetMap:
-!	set Blocked
+	set Blocked
     if Demo get Map from storage as `map`
     else
     begin
@@ -460,7 +451,7 @@ GetMap:
             go to RoomTools
         end
 
-	    ! Handle a tap on a mode button
+	    ! Handle a click on a mode button
         attach ModeIcon to `room-` cat RoomIndex cat `-mode-icon`
 	    on click ModeIcon
 	    begin
@@ -477,33 +468,44 @@ GetMap:
                 and ClickIndex
                 and Demo
                 and Result
-            if left 4 of Result is `Help`
-            begin
-                split Result on ` ` giving Result
-                index Result to 1
-                put Result into SID
-                index Result to 2
-                put Result into TID
-                go to RunHelp
-            end
-            else if Result is `Changed`
-            begin
-    			set element ClickIndex of Rooms to RoomSpec
-                set property `rooms` of Map to Rooms
-                fork to PostMap
-                set Redraw
-            end
-            else if Result is `Redraw` set Redraw
-            else if Result is `Refresh` set Refresh
-            clear Blocked
-            stop
+            go to ProcessResult
 		end
         add 1 to RoomIndex
     end
 
     clear Refresh
     clear Redraw
+    clear Blocked
+
+    set style `visibility` of Alive to `visible`
+    wait 50 ticks
+    set style `visibility` of Alive to `hidden`
+	wait 450 ticks
 	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Process the result of running another module
+ProcessResult:
+    if left 4 of Result is `Help`
+    begin
+        split Result on ` ` giving Result
+        index Result to 1
+        put Result into SID
+        index Result to 2
+        put Result into TID
+        go to RunHelp
+    end
+    if Result is `Changed`
+    begin
+!        set property `rooms` of Map to Rooms
+        fork to PostMap
+        set Redraw
+        clear Blocked
+        stop
+    end
+    if Result is `Redraw` set Redraw
+    clear Blocked
+    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Show a help page
@@ -644,6 +646,7 @@ GetSystemName:
             clear MainPanel
             set Redraw
             clear Blocked
+!            set the content of SystemNamePanel to SystemName
             set property `name` of Map to SystemName
             go to PostMap
         end
@@ -755,7 +758,8 @@ RoomTools:
     put property `rooms` of Map into Rooms
     put empty into Result
     rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
-    run Script with MainPanel and Rooms and ClickIndex and Result as Editor
+    run Script with MainPanel and Rooms and ClickIndex and Result
+    go to ProcessResult
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	The room editor
@@ -862,7 +866,6 @@ PostMap:
 	if Demo put Map into storage as `map`
     else
 	begin
-    	set property `message` of Map to `confirm`
    		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
    		or begin
             add 1 to ErrorCount

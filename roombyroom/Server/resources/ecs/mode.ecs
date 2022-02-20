@@ -19,8 +19,9 @@
     div UpButton
     div DownButton
     div OnTarget
+    div AdvanceButton
+    div AdvanceText
 	img TimedEditIcon
-    img AdvanceIcon
     variable Rooms
     variable RoomSpec
     variable Target
@@ -37,6 +38,8 @@
     variable Count
     variable Waiting
     variable Flashing
+    variable OldAdvance
+    variable NewAdvance
     variable MAC
     variable Dot
     variable UD
@@ -60,6 +63,8 @@
     put property `rooms` of Map into Rooms
     put element ClickIndex of Rooms into RoomSpec
     put property `name` of RoomSpec into RoomName
+    put property `advance` of RoomSpec into OldAdvance
+    put OldAdvance into NewAdvance
     rest get ModeWebson from `/resources/webson/mode.json?v=` cat now
     replace `/ROOM/` with RoomName in ModeWebson
 	render ModeWebson in ModePanel
@@ -72,7 +77,8 @@
     attach UpButton to `on-up`
     attach OnTarget to `on-target`
     attach TimedEditIcon to `timed-edit`
-    attach AdvanceIcon to `timed-advance`
+    attach AdvanceButton to `timed-advance`
+    attach AdvanceText to `timed-advance-text`
 
     put property `target` of RoomSpec into Target
 	set the content of OnTarget to Target cat `&deg;C`
@@ -80,10 +86,15 @@
 
 	set style `visibility` of ModePanel to `visible`
     if property `advance` of RoomSpec is `A`
-		set attribute `src` of AdvanceIcon to `/resources/icon/doublerightgreen.png`
+    begin
+    	set the content of AdvanceText to `Advancing`
+        set style `color` of AdvanceText to `#f44`
+    end
     else
-        set attribute `src` of AdvanceIcon to `/resources/icon/doubleright.png`
-
+    begin
+    	set the content of AdvanceText to `Advance`
+        set style `color` of AdvanceText to `black`
+    end
     on click ButtonT go to SelectTimed
     on click ButtonM go to SelectOn
     on click ButtonO go to SelectOff
@@ -92,7 +103,7 @@
     on click DownButton go to OnDown
     on click UpButton go to OnUp
     on click TimedEditIcon go to ShowTimes
-    on click AdvanceIcon go to Advance
+    on click AdvanceButton go to Advance
 
 	stop
 
@@ -135,26 +146,24 @@ ShowTimes:
     put empty into Result
     if ScheduleEditScript is empty
     	rest get ScheduleEditScript from `/resources/ecs/scheduleedit.ecs?v=` cat now
-    run ScheduleEditScript with MainPanel and RoomSpec and Result
+    run ScheduleEditScript with MainPanel and Map and ClickIndex and Result
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Advance to the next timed event
 Advance:
-!    set style `visibility` of ModePanel to `hidden`
-    if property `advance` of RoomSpec is `A`
+	if NewAdvance is `A`
     begin
-    	set property `advance` of RoomSpec to ``
-    	set attribute `src` of AdvanceIcon to `/resources/icon/doubleright.png`
+    	put empty into NewAdvance
+    	set the content of AdvanceText to `Advance`
+        set style `color` of AdvanceText to `black`
     end
     else
     begin
-    	set property `advance` of RoomSpec to `A`
-    	set attribute `src` of AdvanceIcon to `/resources/icon/doublerightgreen.png`
+    	put `A` into NewAdvance
+    	set the content of AdvanceText to `Advancing`
+        set style `color` of AdvanceText to `#f44`
     end
-    set element ClickIndex of Rooms to RoomSpec
-    set property `rooms` of Map to Rooms
-    fork to PostMap
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -179,6 +188,7 @@ SelectOff:
 !	Select cancel
 SelectCancel:
     put CurrentMode into Mode
+    put OldAdvance into NewAdvance
     clear TargetFlag
     go to SelectMode
 
@@ -193,11 +203,25 @@ SelectHelp:
 !	Select the mode and exit
 SelectMode:
     set style `visibility` of ModePanel to `hidden`
-	if Mode is CurrentMode
+    if Mode is `timed`
     begin
-    	if not TargetFlag exit
+        if NewAdvance is not OldAdvance
+        begin
+            set property `advance` of RoomSpec to NewAdvance
+            go to ModeChange
+        end
     end
-	set property `target` of RoomSpec to Target
+    else if Mode is `on`
+    begin
+    	if TargetFlag
+        begin
+			set property `target` of RoomSpec to Target
+            go to ModeChange
+        end
+    end
+	if Mode is CurrentMode exit
+
+ModeChange:
 	set property `mode` of RoomSpec to Mode
     set element ClickIndex of Rooms to RoomSpec
     set property `rooms` of Map to Rooms

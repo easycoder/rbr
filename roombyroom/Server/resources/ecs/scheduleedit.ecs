@@ -3,7 +3,8 @@
 	script ScheduleEditor
     
     import div MainPanel
-    	and variable RoomSpec
+    	and variable Map
+        and variable ClickIndex
         and variable Result
 
 	div RoomName
@@ -30,6 +31,8 @@
     img TempUpButton
     img TempDownButton
     variable Webson
+    variable Rooms
+    variable RoomSpec
     variable EventWebson
     variable EventInfoWebson
     variable EventEditorWebson
@@ -60,6 +63,8 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! The schedule editor
 	put -1 into LastEvent
+    put property `rooms` of Map into Rooms
+    put element ClickIndex of Rooms into RoomSpec
 
 	clear MainPanel
     rest get Webson from `/resources/webson/timeseditor.json?v=` cat now
@@ -103,7 +108,11 @@ RedoEvents:
 		        set element LastEvent of Events to Event
             end
         end
+        gosub to BuildArrays
+        gosub to SortEvents
         set property `events` of RoomSpec to Events
+        set element ClickIndex of Rooms to RoomSpec
+        set property `rooms` of Map to Rooms
         clear MainPanel
         go to ExitWithChanges
     end

@@ -225,13 +225,14 @@
                     "border-radius": "0.5em",
                     "background": "lightgray",
                     "padding": "0.5em",
-                    "pointer-events": "auto",
-                    "#": "$AdvanceImg",
+                    "font-weight": "bold",
+                    "#": "$Text",
 
-                    "$AdvanceImg": {
-                        "#element": "img",
-                        "@src": "resources/icon/doubleright.png",
-                        "height": "1.5em",
+                    "$Text": {
+                        "#element": "div",
+                        "@id" : "timed-advance-text",
+                        "#content": "Advance",
+                        "cursor": "default",
                         "pointer-events": "none"
                     }
                 }

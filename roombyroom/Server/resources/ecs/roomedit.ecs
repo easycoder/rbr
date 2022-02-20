@@ -39,8 +39,8 @@ Editor:
     attach EditRelaysButton to `button-relays`
     attach EditTimesButton to `button-times`
     attach SaveButton to `button-save`
-    attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
+    attach CancelButton to `button-cancel`
     
     put element ClickIndex of Rooms into RoomSpec
     set the content of RoomName to property `name` of RoomSpec
@@ -188,7 +188,7 @@ TimesButtonCB:
 	exit
 
 ExitWithoutChanges:
-    put `OK` into Result
+    put `Redraw` into Result
     exit
 
 ExitWithChanges:
