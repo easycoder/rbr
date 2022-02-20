@@ -27,6 +27,8 @@
 	variable Turn
 	variable MAC
 	variable Password
+	variable Advance
+	variable Response
 	variable E
 	variable L
 	variable R
@@ -36,8 +38,9 @@
 	script RBR
 !	debug step
 
-    put `https://rbrcontrol.com/rest.php` into Server
+!   put `https://rbr.easycoder.software/rest.php` into Server
 !	put `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py` into Path
+    put `https://rbrcontrol.com/rest.php` into Server
     put `.` into Path
 
     put 0 into RepeatCount
@@ -52,6 +55,16 @@
     write Password to File
     close File
     print Password
+
+    if file Path cat `/advance` exists
+    begin
+        open File Path cat `/advance` for reading
+        read Advance from File
+        close File
+        put json Advance into Advance
+        print Advance
+    end
+    else put json `{}` into Advance
 
 Start:
     if file Path cat `/map` exists
@@ -160,14 +173,20 @@ PR2:
         go to TurnOff
     end
 
-    ! Check if an advance is requested
-    if property `advance` of Room is not empty
-    begin
-        print `Advance`
-
-    end
-
-	! Timed mode. Check each of the events
+	! Timed mode
+	! Check if the Advance flag is set
+	if property `advance` of Room is `A`
+	begin
+        set property Sensor of Advance to `A`
+        open File Path cat `/advance` for writing
+        write stringify Advance to File
+        close File
+        print property `name` of Room
+        print property `advance` of Room
+        if Password is not empty post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat RoomNumber
+            giving Response
+	end
+	! Check each of the events
 	put 0 into E
 	while E is less than the length of Events
 	begin

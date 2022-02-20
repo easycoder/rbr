@@ -87,12 +87,10 @@
 	set style `visibility` of ModePanel to `visible`
     if property `advance` of RoomSpec is `A`
     begin
-    	set the content of AdvanceText to `Advancing`
         set style `color` of AdvanceText to `#f44`
     end
     else
     begin
-    	set the content of AdvanceText to `Advance`
         set style `color` of AdvanceText to `black`
     end
     on click ButtonT go to SelectTimed
@@ -155,13 +153,11 @@ Advance:
 	if NewAdvance is `A`
     begin
     	put empty into NewAdvance
-    	set the content of AdvanceText to `Advance`
         set style `color` of AdvanceText to `black`
     end
     else
     begin
     	put `A` into NewAdvance
-    	set the content of AdvanceText to `Advancing`
         set style `color` of AdvanceText to `#f44`
     end
     stop
