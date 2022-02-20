@@ -17,7 +17,7 @@ Third-party tools are kept to a minimum. The project mainly relies on other prod
   - A JavaScript engine for rendering DOM structures expressed as JSON
   - An extended MarkDown processor for documentation, based on the third-party _Showdown_ markdown library
 
-The aim is for the system not to require any software framework, nor any build tools beyond a text editor. This improves maintainability and offers ease of access to programmers of all levels of experience.
+The system requires no software framework, nor any build tools beyond a text editor. This improves maintainability and offers ease of access to programmers of all levels of experience.
 
 This ReadMe does not attempt to fully describe the system. Instead, all documentation in online and accessed from the webapp. The best way to get an introduction to RBR is to visit the webapp at
 
