@@ -89,7 +89,7 @@
 
     get Mode from storage as `mode`
     
-    rest get Title from Stories cat `title.txt?v=` cat now or begin end
+    rest get Title from Stories cat `title.txt?v=` cat now or continue
     set the title to Title
 
     gosub to SetStyles
@@ -414,7 +414,7 @@ ProcessImage:
     put empty into Class
     if N is not -1 
     begin
-        put Source cat `/images/` cat left N of Data into Source
+        put Source cat `/images/` cat left N of Data cat `?v=` cat now into Source
         add 1 to N
         if Data is not empty
         begin

@@ -160,6 +160,7 @@ Advance:
     	put `A` into NewAdvance
         set style `color` of AdvanceText to `#f44`
     end
+    go to SelectMode
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

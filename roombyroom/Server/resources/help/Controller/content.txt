@@ -20,6 +20,11 @@ where `192.168.x.y` is the IP address you found in the router admin screen. You'
 
 Once all this is done, type `ls`. You should see all the distribution files you copied earlier.
 
+In some cases the system fails to get its IP address from the router, without which the RBR system will not work. So give this command:
+```
+sudo dhclient -v
+```
+
 To ensure the system is fully up to date, run the following commands. On the earlier Pi models the second of these will take a long time to run:
 
 ```
@@ -50,7 +55,7 @@ sudo apt install pip
 Then give this command:
 
 ```
-pip install bottle requests
+pip install bottle
 ```
 
 The final step is to set up a 'cron' job that will run every 10 seconds. Type this command:

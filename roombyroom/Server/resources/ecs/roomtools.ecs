@@ -81,7 +81,7 @@ Editor:
         put empty into Result
     	rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
         run Script with MainPanel and Rooms and ClickIndex and Result
-        exit
+        if Result is `Changed` go to ExitWithChanges else go to ExitWithoutChanges
     end
     
     on click RoomDeleteButton

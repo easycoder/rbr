@@ -7,7 +7,7 @@
     "text-align": "center",
     "display": "flex",
     "flex-direction": "column",
-    "font-size": "<#parent_width/25>",
+    "font-size": "<#parent_width/27>",
     "#": ["$Titles", "$OuterPanel", "$HelpPanel"],
     
     "$Titles": {

@@ -87,14 +87,13 @@ NameButtonCB:
         set property `name` of RoomSpec to the content of DialogInput
     	set the content of RoomName to property `name` of RoomSpec
         clear DialogPanel
-!        set element ClickIndex of Rooms to RoomSpec
-!        go to ExitWithChanges
+        go to ExitWithChanges
     end
     
     on click DialogButton2
     begin
         clear DialogPanel
-!        go to ExitWithoutChanges
+        go to ExitWithoutChanges
     end
 	stop
 

@@ -137,7 +137,6 @@ Main:
     if Mobile
     begin
     	set style `width` of Body to `100%`
-        set style `font-size` of Body to `16px`
     end
     else
     begin
@@ -146,9 +145,7 @@ Main:
         divide N by 16
     	set style `width` of Body to N
         set style `margin` of Body to `0 auto`
-        set style `font-size` of Body to `1.5em`
         set style `border` of Body to `1px solid lightgray`
-        set style `font-size` of Body to `20px`
     end
 !    put empty into storage as `MAC`
 
@@ -190,7 +187,6 @@ Main:
             clear MainPanel
             clear Blocked
             set Redraw
-            stop
         end
         else if not Blocked go to ShowMenu
     end
@@ -497,7 +493,7 @@ ProcessResult:
     end
     if Result is `Changed`
     begin
-!        set property `rooms` of Map to Rooms
+        set property `rooms` of Map to Rooms
         fork to PostMap
         set Redraw
         clear Blocked
@@ -556,6 +552,7 @@ GetMAC:
             end
             clear MainPanel
             clear Blocked
+            set Redraw
             stop
         end
     end
@@ -563,6 +560,7 @@ GetMAC:
     begin
     	clear MainPanel
         clear Blocked
+        set Redraw
     end
     on click HelpButton
     begin
@@ -646,7 +644,6 @@ GetSystemName:
             clear MainPanel
             set Redraw
             clear Blocked
-!            set the content of SystemNamePanel to SystemName
             set property `name` of Map to SystemName
             go to PostMap
         end
