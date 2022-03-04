@@ -3,7 +3,7 @@
 	script RoomTools
     
     import div MainPanel
-    	and variable Rooms
+    	and variable Map
         and variable ClickIndex
         and variable Result
 
@@ -19,6 +19,7 @@
     button CancelButton
     button DialogButton1
     button DialogButton2
+    variable Rooms
     variable RoomSpec
     variable ThisRoom
     variable ThatRoom
@@ -33,6 +34,9 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! The room tools menu
 Editor:
+print `Room Tools`
+print Map
+	put property `rooms` of Map into Rooms
     attach RoomName to `title-room-name`
     attach RoomUpButton to `button-up`
     attach RoomDownButton to `button-down`
@@ -59,6 +63,7 @@ Editor:
         set element ClickIndex of Rooms to ThisRoom
         add 1 to ClickIndex
         set element ClickIndex of Rooms to ThatRoom
+    	set property `rooms` of Map to Rooms
         go to ExitWithChanges
     end
     
@@ -70,6 +75,7 @@ Editor:
         set element ClickIndex of Rooms to ThisRoom
         take 1 from ClickIndex
         set element ClickIndex of Rooms to ThatRoom
+    	set property `rooms` of Map to Rooms
         go to ExitWithChanges
     end
     
@@ -80,7 +86,7 @@ Editor:
         render Webson in MainPanel
         put empty into Result
     	rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
-        run Script with MainPanel and Rooms and ClickIndex and Result
+        run Script with MainPanel and Map and ClickIndex and Result
         if Result is `Changed` go to ExitWithChanges else go to ExitWithoutChanges
     end
     
@@ -134,6 +140,7 @@ Editor:
     	if Changed
         begin
         	set element ClickIndex of Rooms to RoomSpec
+    		set property `rooms` of Map to Rooms
             go to ExitWithChanges
         end
         go to ExitWithoutChanges

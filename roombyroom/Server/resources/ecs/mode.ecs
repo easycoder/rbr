@@ -12,13 +12,22 @@
         and variable Result
     
     div ButtonT
+    div ButtonB
     div ButtonM
     div ButtonO
     div ButtonC
     div ButtonH
-    div UpButton
-    div DownButton
+    div OnUpButton
+    div OnDownButton
     div OnTarget
+    div Boost1Button
+    div Boost2Button
+    div Boost3Button
+    div Boost4Button
+    div Boost1Text
+    div Boost2Text
+    div Boost3Text
+    div Boost4Text
     div AdvanceButton
     div AdvanceText
 	img TimedEditIcon
@@ -42,7 +51,9 @@
     variable NewAdvance
     variable MAC
     variable Dot
-    variable UD
+    variable OnUD
+    variable Boost
+    variable BoostFlag
     variable L
     variable T
     variable X
@@ -69,13 +80,22 @@
     replace `/ROOM/` with RoomName in ModeWebson
 	render ModeWebson in ModePanel
     attach ButtonT to `mode-timed`
+    attach ButtonB to `mode-boost`
     attach ButtonM to `mode-on`
     attach ButtonO to `mode-off`
     attach ButtonC to `mode-cancel`
     attach ButtonH to `mode-help`
-    attach DownButton to `on-down`
-    attach UpButton to `on-up`
+    attach OnDownButton to `on-down`
+    attach OnUpButton to `on-up`
     attach OnTarget to `on-target`
+    attach Boost1Button to `boost-1`
+    attach Boost2Button to `boost-2`
+    attach Boost3Button to `boost-3`
+    attach Boost4Button to `boost-4`
+    attach Boost1Text to `boost-1-text`
+    attach Boost2Text to `boost-2-text`
+    attach Boost3Text to `boost-3-text`
+    attach Boost4Text to `boost-4-text`
     attach TimedEditIcon to `timed-edit`
     attach AdvanceButton to `timed-advance`
     attach AdvanceText to `timed-advance-text`
@@ -83,6 +103,10 @@
     put property `target` of RoomSpec into Target
 	set the content of OnTarget to Target cat `&deg;C`
     clear TargetFlag
+
+    clear BoostFlag
+    put 0 into Boost
+	set style `color` of Boost1Text to `#f44`
 
 	set style `visibility` of ModePanel to `visible`
     if property `advance` of RoomSpec is `A`
@@ -94,12 +118,17 @@
         set style `color` of AdvanceText to `black`
     end
     on click ButtonT go to SelectTimed
+    on click ButtonB go to SelectBoost
     on click ButtonM go to SelectOn
     on click ButtonO go to SelectOff
     on click ButtonC go to SelectCancel
     on click ButtonH go to SelectHelp
-    on click DownButton go to OnDown
-    on click UpButton go to OnUp
+    on click OnDownButton go to OnDown
+    on click OnUpButton go to OnUp
+    on click Boost1Button go to Boost1
+    on click Boost2Button go to Boost2
+    on click Boost3Button go to Boost3
+    on click Boost4Button go to Boost4
     on click TimedEditIcon go to ShowTimes
     on click AdvanceButton go to Advance
 
@@ -108,13 +137,13 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	'On' Up and Down buttons
 OnDown:
-	clear UD
-    go to UpDown
+	clear OnUD
+    go to OnUpDown
 
 OnUp:
-	set UD
+	set OnUD
 
-UpDown:
+OnUpDown:
 	if Target is empty put `0.0` into Target else put `` cat Target into Target
     put the position of `.` in Target into Dot
     if Dot is -1 multiply the value of Target by 10 giving T
@@ -125,7 +154,7 @@ UpDown:
          add 1 to Dot
          add the value of from Dot of Target to T
     end
-    if UD add 5 to T else if Target is not `0.0` take 5 from T
+    if OnUD add 5 to T else if Target is not `0.0` take 5 from T
     if T is less than 10 put `0` cat T into T
     else put `` cat T into T
     put the length of T into L
@@ -138,7 +167,40 @@ UpDown:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Show the schedules times
+!	'Boost' buttons
+Boost1:
+	gosub to ResetBoostButtons
+    set style `color` of Boost1Text to `#f44`
+    put 0 into Boost
+	stop
+
+Boost2:
+	gosub to ResetBoostButtons
+    set style `color` of Boost2Text to `#f44`
+    put 30 into Boost
+	stop
+
+Boost3:
+	gosub to ResetBoostButtons
+    set style `color` of Boost3Text to `#f44`
+    put 60 into Boost
+	stop
+
+Boost4:
+	gosub to ResetBoostButtons
+    set style `color` of Boost4Text to `#f44`
+    put 120 into Boost
+	stop
+
+ResetBoostButtons:
+	set style `color` of Boost1Text to `black`
+	set style `color` of Boost2Text to `black`
+	set style `color` of Boost3Text to `black`
+	set style `color` of Boost4Text to `black`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Show the schedule times
 ShowTimes:
     set style `visibility` of ModePanel to `hidden`
     put empty into Result
@@ -170,15 +232,36 @@ SelectTimed:
     go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Select 'boost' mode
+SelectBoost:
+	if CurrentMode is `boost`
+    begin
+        if Boost is 0 put property `prevmode` of RoomSpec into Mode
+        set BoostFlag
+        go to SelectMode
+    end
+   	if Boost is 0 go to SelectCancel
+   	else
+    begin
+    	if CurrentMode is not `boost` set property `prevmode` of RoomSpec to CurrentMode
+        put `boost` into Mode
+        set BoostFlag
+       	go to SelectMode
+    end
+    go to SelectMode
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select 'on' mode
 SelectOn:
     put `on` into Mode
+    set property `advance` of RoomSpec to ``
     go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select off mode
 SelectOff:
     put `off` into Mode
+    set property `advance` of RoomSpec to ``
     go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -187,6 +270,7 @@ SelectCancel:
     put CurrentMode into Mode
     put OldAdvance into NewAdvance
     clear TargetFlag
+    clear BoostFlag
     go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -205,6 +289,7 @@ SelectMode:
         if NewAdvance is not OldAdvance
         begin
             set property `advance` of RoomSpec to NewAdvance
+			set property `boost` of RoomSpec to 0
             go to ModeChange
         end
     end
@@ -213,6 +298,16 @@ SelectMode:
     	if TargetFlag
         begin
 			set property `target` of RoomSpec to Target
+			set property `boost` of RoomSpec to 0
+            go to ModeChange
+        end
+    end
+    else if Mode is `boost`
+    begin
+    	if BoostFlag
+        begin
+			set property `boost` of RoomSpec to `B` cat Boost
+    		set property `advance` of RoomSpec to ``
             go to ModeChange
         end
     end

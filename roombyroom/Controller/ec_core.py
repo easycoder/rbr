@@ -60,11 +60,16 @@ class Core(Handler):
             value = {}
             value['type'] = 'int'
         if value2:
-            value['content'] = self.getRuntimeValue(value2) + self.getRuntimeValue(value1)
+            v1 = int(self.getRuntimeValue(value1))
+            v2 = int(self.getRuntimeValue(value2))
+            value['content'] = v1+v2
         else:
-            if value['type'] != 'int' and value['content'] != None:
-                self.nonNumericValueError()
-            value['content'] = int(self.getRuntimeValue(value)) + int(self.getRuntimeValue(value1))
+#            if value['type'] != 'int' and value['content'] != None:
+#                self.nonNumericValueError()
+            v = self.getRuntimeValue(value)
+            v = int(v)
+            v1 = int(self.getRuntimeValue(value1))
+            value['content'] = v+v1
         self.putSymbolValue(target, value)
         return self.nextPC()
 
@@ -208,11 +213,15 @@ class Core(Handler):
             value = {}
             value['type'] = 'int'
         if value2:
-            value['content'] = int(self.getRuntimeValue(value1) / self.getRuntimeValue(value2))
+            v1 = int(self.getRuntimeValue(value1))
+            v2 = int(self.getRuntimeValue(value2))
+            value['content'] = v1/v2
         else:
             if value['type'] != 'int' and value['content'] != None:
                 self.nonNumericValueError(self.compiler, command['lino'])
-            value['content'] = int(self.getRuntimeValue(value) / self.getRuntimeValue(value1))
+            v = int(self.getRuntimeValue(value))
+            v1 = int(self.getRuntimeValue(value1))
+            value['content'] = v/v1
         self.putSymbolValue(target, value)
         return self.nextPC()
 
@@ -431,12 +440,16 @@ class Core(Handler):
             value = {}
             value['type'] = 'int'
         if value2:
-            value['content'] = int(self.getRuntimeValue(value1) * self.getRuntimeValue(value2))
+            v1 = int(self.getRuntimeValue(value1))
+            v2 = int(self.getRuntimeValue(value2))
+            value['content'] = v1*v2
         else:
             if value['type'] != 'int' and value['content'] != None:
                 self.nonNumericValueError()
                 return None
-            value['content'] = int(self.getRuntimeValue(value) * self.getRuntimeValue(value1))
+            v = int(self.getRuntimeValue(value))
+            v1 = int(self.getRuntimeValue(value1))
+            value['content'] = v*v1
         self.putSymbolValue(target, value)
         return self.nextPC()
 
@@ -765,12 +778,16 @@ class Core(Handler):
             value = {}
             value['type'] = 'int'
         if value2:
-            value['content'] = self.getRuntimeValue(value2) - self.getRuntimeValue(value1)
+            v1 = int(self.getRuntimeValue(value1))
+            v2 = int(self.getRuntimeValue(value2))
+            value['content'] = v2-v1
         else:
-            if value['type'] != 'int' and value['content'] != None:
-                self.nonNumericValueError()
-                return None
-            value['content'] = int(self.getRuntimeValue(value)) - int(self.getRuntimeValue(value1))
+#            if value['type'] != 'int' and value['content'] != None:
+#                self.nonNumericValueError()
+#                return None
+            v = int(self.getRuntimeValue(value))
+            v1 = int(self.getRuntimeValue(value1))
+            value['content'] = v-v1
         self.putSymbolValue(target, value)
         return self.nextPC()
 
@@ -944,7 +961,7 @@ class Core(Handler):
         if token in ['now', 'today', 'newline', 'break', 'empty']:
             return value
 
-        if token in ['date', 'encode', 'decode', 'stringify', 'json', 'lowercase', 'hash', 'float', 'int']:
+        if token in ['date', 'encode', 'decode', 'stringify', 'json', 'lowercase', 'hash', 'float', 'integer']:
             value['content'] = self.nextValue()
             return value
 
@@ -1227,13 +1244,6 @@ class Core(Handler):
         value['content'] = float(val)
         return value
 
-    def v_int(self, v):
-        val = self.getRuntimeValue(v['content'])
-        value = {}
-        value['type'] = 'int'
-        value['content'] = int(val)
-        return value
-
     def v_index(self, v):
         value = {}
         value['type'] = 'int'
@@ -1250,6 +1260,13 @@ class Core(Handler):
         value = {}
         value['type'] = 'int'
         value['content'] = index
+        return value
+
+    def v_integer(self, v):
+        val = self.getRuntimeValue(v['content'])
+        value = {}
+        value['type'] = 'int'
+        value['content'] = int(val)
         return value
 
     def v_left(self, v):
@@ -1290,7 +1307,7 @@ class Core(Handler):
     def v_now(self, v):
         value = {}
         value['type'] = 'int'
-        value['content'] = int(datetime.now().timestamp())*1000
+        value['content'] = int(datetime.now().timestamp())
         return value
 
     def v_position(self, v):

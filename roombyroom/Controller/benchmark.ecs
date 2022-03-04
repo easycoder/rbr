@@ -67,6 +67,11 @@
 	take Start from Finish giving N
 	print N cat ` milliseconds`
 
+	put 20 into Y
+	put 6 into X
+	multiply Y by X
+	print `20 * 6 = ` cat Y
+
 	put empty into X
 	set property `name` of X to `Fred`
 	print property `name` of X

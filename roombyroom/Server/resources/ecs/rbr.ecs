@@ -14,6 +14,7 @@
     div ModePanel
     div ModeHolder
     div TargetTemp
+    div BoostName
     div DialogPanel
     div DialogTitle
     div DialogText
@@ -75,6 +76,8 @@
     variable Result
     variable Finish
     variable ErrorCount
+    variable Boost
+    variable Now
     variable FH
     variable FM
     variable E
@@ -90,9 +93,9 @@
     variable GetPasswordWebson
     variable GetNameWebson
     variable RoomWebson
-    variable RoomEditMenuWebson
     variable RoomToolsMenuWebson
     variable TimedWebson
+    variable BoostWebson
     variable OnWebson
     variable OffWebson
     variable DialogWebson
@@ -157,7 +160,6 @@ Main:
 	put empty into GetPasswordWebson
 	put empty into GetNameWebson
     put empty into RoomWebson
-    put empty into RoomEditMenuWebson
     put empty into RoomToolsMenuWebson
     put empty into TimedWebson
     put empty into OnWebson
@@ -362,6 +364,7 @@ GetMap:
 
         ! Get the mode
         put property `mode` of RoomSpec into Mode
+        if Mode is empty put `off` into Mode
 
         ! Show the mode indicator
         if Mode is `timed`
@@ -412,6 +415,35 @@ GetMap:
             put property `until` of Event into Finish
             put property `temp` of Event into Temperature
             set the content of TimedInfo to Temperature cat `&deg;C->` cat Finish
+        end
+        else if Mode is `boost`
+        begin
+            begin
+                clear ModeHolder
+                if BoostWebson is empty
+                    rest get BoostWebson from `/resources/webson/boost.json?v=` cat now
+                put BoostWebson into Webson
+                replace `/ROOM/` with RoomIndex in Webson
+                render Webson in ModeHolder
+            end
+            attach BoostName to `room-` cat RoomIndex cat `-boost`
+            put now into Now
+            put property `boost` of RoomSpec into Boost
+            if char 0 of Boost is not `B`
+            begin
+	            take Now from Boost
+    	        divide Boost by 60
+        	    add 1 to Boost
+            	set the content of BoostName to Boost cat ` mins`
+            	if Boost is less than 1
+            	begin
+            		set property `mode` of RoomSpec to property `prevmode` of RoomSpec
+            	    set element ClickIndex of Rooms to RoomSpec
+            	    set property `rooms` of Map to Rooms
+		    		fork to PostMap
+            	    set Refresh
+                end
+            end
         end
         else if Mode is `on`
         begin
@@ -493,7 +525,7 @@ ProcessResult:
     end
     if Result is `Changed`
     begin
-        set property `rooms` of Map to Rooms
+!        set property `rooms` of Map to Rooms
         fork to PostMap
         set Redraw
         clear Blocked
@@ -752,38 +784,11 @@ RoomTools:
     if RoomToolsMenuWebson is empty
     	rest get RoomToolsMenuWebson from `/resources/webson/roomtoolsmenu.json?v=` cat now
     render RoomToolsMenuWebson in MainPanel
-    put property `rooms` of Map into Rooms
+!    put property `rooms` of Map into Rooms
     put empty into Result
     rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
-    run Script with MainPanel and Rooms and ClickIndex and Result
+    run Script with MainPanel and Map and ClickIndex and Result
     go to ProcessResult
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	The room editor
-RoomEditor:
-	set Blocked
-    wait 20 ticks ! to allow things to complete before continuing
-	clear MainPanel
-    if RoomEditMenuWebson is empty
-    	rest get RoomEditMenuWebson from `/resources/webson/roomeditmenu.json?v=` cat now
-    render RoomEditMenuWebson in MainPanel
-    put property `rooms` of Map into Rooms
-    index RoomSpec to ClickIndex
-    put element ClickIndex of Rooms into RoomSpec
-    put empty into Result
-    
-    rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
-    run Script with MainPanel and Rooms and ClickIndex and Result
-    if Result is `OK`
-    begin
-        set element ClickIndex of Rooms to RoomSpec
-        set property `rooms` of Map to Rooms
-    	fork to PostMap
-    end
-    clear MainPanel
-    clear Blocked
-    set Redraw
-    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Backup the system

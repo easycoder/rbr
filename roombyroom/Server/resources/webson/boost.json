@@ -1,10 +1,11 @@
 {
-    "#doc": "The icon and text for 'timed' mode",
+    "#doc": "The icon and text for 'boost' mode",
     "#element": "button",
     "@id" : "room-/ROOM/-mode-icon",
     "display": "flex",
     "flex-direction": "row",
     "width": "10em",
+    "pointer-events": "a",
     "#": ["$Button", "$Padding", "$Text"],
 
     "$Button": {
@@ -15,7 +16,7 @@
 
         "$Icon": {
             "#element": "img",
-            "@src": "resources/icon/clock.png?v=2",
+            "@src": "resources/icon/plus.png?v=2",
             "height": "2em",
             "padding": "0.5em"
         }
@@ -47,15 +48,15 @@
 
             "$Content1": {
                 "#element": "div",
-                "#content": "Timed",
+                "#content": "Boost",
                 "font-size": "1.4em",
                 "font-weight": "bold"
             },
 
             "$Content2": {
                 "#element": "div",
-                "@id" : "room-/ROOM/-timed-info",
-                "font-size": "0.7em",
+                "@id" : "room-/ROOM/-boost",
+                "font-size": "0.9em",
                 "font-weight": "bold"
             }
         }

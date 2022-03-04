@@ -5,11 +5,15 @@
 This dialog lets you select the operating mode for a room. It can be one of:
 
   1. On - using a target temperature
+  1. Boost - as for On but for a specified period
   1. Timed - using a timing schedule
   1. Off - permanently off
 
 ## "On" mode
-This mode provides up and down buttons to let you choose the target temperature you want for the room. Tapping the buttons raises or lowers the target by half a degree at a time. When you reach your desired termperature tap the gray area behind the up and down buttons.
+This mode provides up and down buttons to let you choose the target temperature you want for the room. Tapping the buttons raises or lowers the target by half a degree at a time. When you reach your desired termperature tap the text/icon button.
+
+## "Boost" mode
+This mode lets you override the system and turn on a radiator for a fixed period; 30 minutes, 1 hour or 2 hours, using the target temperature set for On mode. At the end of this time the system reverts to its previous mode. It only makes sense to use Boost to override Timed or Off modes.
 
 ## "Timed" mode
 This mode runs according to a schedule of times and temperatures of any complexity, that you specify in this webapp. On the right is an edit button:
@@ -26,7 +30,7 @@ Each of the rows describes a timing period. The rows are kept in time order by t
 
 Use the buttons to adjust the time and temperature, then either tap another row or the Save button.
 
-On the mode screen, under the edit icon, is a button labeled `Advance`. When you tap this, the system remains in timed mode but advances to the next timing period. If you open the dialog again the text will show in red to indicate the advance is active. Tap the button again to cancel the advance. The advance cancels itself automatically when the next timing period starts.
+On the mode screen, under the edit icon, is a button labeled `Advance`. When you tap this, the system remains in timed mode but advances to (brings forward) the state for the next timing period. If you open the dialog again the text will show in red to indicate the advance is active. Tap the button again to cancel the advance. The advance cancels itself automatically when the next timing period starts.
 
 ## "Off" mode
 In this mode the heating will always be off in the room.

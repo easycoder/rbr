@@ -28,7 +28,7 @@
 	variable MAC
 	variable Password
 	variable Advance
-	variable Response
+	variable Boost
 	variable E
 	variable L
 	variable R
@@ -38,40 +38,44 @@
 	script RBR
 !	debug step
 
-!   put `https://rbr.easycoder.software/rest.php` into Server
 !	put `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py` into Path
-    put `https://rbrcontrol.com/rest.php` into Server
+    put `https://rbr.easycoder.software/rest.php` into Server
+!    put `https://rbrcontrol.com/rest.php` into Server
     put `.` into Path
 
     put 0 into RepeatCount
     put empty into Password
 
+    ! Read the MAC address
     open File Path cat `/mac` for reading
     read MAC from File
     close File
 
+    ! Ask the server for our password
     get Password from Server cat `/register/` cat MAC cat `?v=` cat now
     open File Path cat `/password` for writing
     write Password to File
     close File
     print Password
 
+    ! Make sure there's an 'advance' file
     if file Path cat `/advance` exists
     begin
         open File Path cat `/advance` for reading
         read Advance from File
         close File
-        put json Advance into Advance
-        print Advance
     end
-    else put json `{}` into Advance
+    else put `{}` into Advance
+    put json Advance into Advance
 
 Start:
+    ! If there's a map, load it; otherwise request it from the server
     if file Path cat `/map` exists
     begin
         open File Path cat `/map` for reading
         read Map from File
         close File
+!        print Map
     end
     else
     begin
@@ -105,7 +109,8 @@ ProcessMap:
 !   Confirm the message
     if Password is not empty post to Server cat `/confirm/` cat MAC cat `/` cat Password
 
-!   Report to the website. If there's a password file we've already registered
+!   Send sensors and update the map from the website
+!   If there's no password file, register now
     if file Path cat `/password` exists
     begin
         open File Path cat `/password` for reading
@@ -138,6 +143,7 @@ ProcessMap:
     end
 !   exit
 
+    ! Do all the above 6 times
     add 1 to RepeatCount
     if RepeatCount is less than 6
     begin
@@ -146,7 +152,19 @@ ProcessMap:
     end
 	exit
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Process a single room
 ProcessRoom:
+    put property `sensor` of Room into Sensor
+    ! Make sure this room is in the 'advance' file
+    if property Sensor of Advance is empty
+    begin
+        set property Sensor of Advance to `-`
+        open File Path cat `/advance` for writing
+        write stringify Advance to File
+        close File
+    end
+
 	put property `sensor` of Room into  Sensor
 	if Sensor is empty return
 	if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
@@ -164,6 +182,29 @@ PR2:
 
     ! Deal with mode requests
     put property `mode` of Room into Mode
+
+    if Mode is `boost`
+    begin
+        put `` cat property `boost` of Room into Boost
+        if left 1 of Boost is `B`
+        begin
+            put from 1 of Boost into Target
+            multiply Target by 60
+            add now to Target
+            if Password is not empty post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
+                cat RoomNumber cat `/` cat Target
+        end
+        else
+        begin
+            ! Boost contains the remaining time, in seconds
+            if Boost is less than 0 put property `prevmode` of Room into Mode
+        end
+        ! Use the target setting for 'on' mode
+        put float property `target` of Room into Target
+        if Temperature is less than Target go to TurnOn
+        go to TurnOff
+    end
+
     if Mode is `off` go to TurnOff
 
     if Mode is `on`
@@ -173,47 +214,64 @@ PR2:
         go to TurnOff
     end
 
-	! Timed mode
-	! Check if the Advance flag is set
-	if property `advance` of Room is `A`
-	begin
-        set property Sensor of Advance to `A`
-        open File Path cat `/advance` for writing
-        write stringify Advance to File
-        close File
-        print property `name` of Room
-        print property `advance` of Room
-        if Password is not empty post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat RoomNumber
-            giving Response
-	end
-	! Check each of the events
+	! Timed mode. Check each of the events
 	put 0 into E
 	while E is less than the length of Events
 	begin
 		put element E of Events into Event
 		put property `until` of Event into Until
-		put float property `temp` of Event into Target
 		put the timestamp into Now
 		put the timestamp of Until format `%H:%M` into Boundary
 		! Check if this is the right time segment
 		if Now is less than Boundary
 		begin
-            if Temperature is less than Target go to TurnOn
-            go to TurnOff
+            ! We've found the current time segment
+            go to TurnOnOrOff
 		end
 		else
 		begin
             if E is L
             begin
-                put element 0 of Events into Event
-                put float property `temp` of Event into Target
-                if Temperature is less than Target go to TurnOn
-                go to TurnOff
+                ! We've gone past the last time segment so use the first
+                put 0 into E
+                go to TurnOnOrOff
             end
 		end
 		add 1 to E
 	end
 	return
+
+TurnOnOrOff:
+    ! If we are at the 'advance' period, cancel the advance
+    if property Sensor of Advance is E
+    begin
+        set property Sensor of Advance to `-`
+        open File Path cat `/advance` for writing
+        write stringify Advance to File
+        close File
+        set property `advance` of Room to empty
+        if Password is not empty post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat RoomNumber
+    end
+
+	! If advance is requested, use the next event
+    if property `advance` of Room is `A`
+    begin
+        add 1 to E
+        if E is greater than L put 0 into E
+        ! If the period has changed, write the file back
+        if property Sensor of Advance is not `` cat E
+        begin
+            set property Sensor of Advance to `` cat E
+            open File Path cat `/advance` for writing
+            write stringify Advance to File
+            close File
+            print Advance
+        end
+    end
+
+    put element E of Events into Event
+    put float property `temp` of Event into Target
+    if Temperature is less than Target go to TurnOn
 
 TurnOff:
 	put `off` into Turn
@@ -235,6 +293,20 @@ SetRelays:
         end
 		add 1 to R
 	end
+	if Mode is `boost`
+	begin
+!        put integer property `target` of SensorValues into Target
+!        put the timestamp into Now
+!        take Now from Target
+!        print `Target = ` cat Target
+!        if integer Target is less than 0
+!        begin
+!            print `Expired`
+!        end
+!        divide Target by 60
+!        add 1 to Target
+!        set property `boost` of SensorValues to Target
+    end
 	set property `relay` of SensorValues to Turn
 	set property Sensor of SensorData to SensorValues
 	return
