@@ -18,7 +18,7 @@ This mode lets you override the system and turn on a radiator for a fixed period
 ## "Timed" mode
 This mode runs according to a schedule of times and temperatures of any complexity, that you specify in this webapp. On the right is an edit button:
 
-~img:edit.png:5%~
+~img:edit.png:center 5%~
 
 that when clicked opens the Periods screen:
 
