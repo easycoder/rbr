@@ -304,6 +304,8 @@ GetMap:
     set the elements of RelayState to RoomCount
     set the elements of ModeHolder to RoomCount
     set the elements of ModeIcon to RoomCount
+    
+!    print Sensors
 
     put 0 into RoomIndex
     while RoomIndex is less than RoomCount

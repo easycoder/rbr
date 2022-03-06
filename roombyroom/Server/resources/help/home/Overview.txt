@@ -2,7 +2,7 @@
 
 The RBR system lets you control any radiator or group of radiators, linking them to a thermometer module in the room being controlled. You can choose to control part or all of a house. The system is based on the [Shelly&trade;](https://shelly.cloud/) range of smart devices, all of which connect to your local Wi-Fi network. A small computer - a Raspberry Pi - serves as the local system controller and the user interface is any computer or smartphone, inside the house or anywhere else via the Internet.
 
-The RBR system is based on electric radiator valve actuators. These replace the thermostatic actuators commonly used to control room temperature. It's just a matter of unscrewing the thermostatic actuator and screwing on the eletric one; no plumbing changes are needed. A typical actuator is the Danfoss 088H3220, available from Amazon:~clear~
+The RBR system is based on thermo-electric radiator valve actuators. These replace the thermostatic actuators commonly used to control room temperature. It's just a matter of unscrewing the thermostatic actuator and screwing on the electric one; no plumbing changes are needed. A typical actuator is the Danfoss 088H3220, available from Amazon:~clear~
 ~img:danfoss.jpg:center 40%~
 ~clear~
 Amazon also supply alternative models at about half the cost of the Danfoss. These appear to work well too.
