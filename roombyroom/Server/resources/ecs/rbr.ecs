@@ -7,6 +7,7 @@
     div SystemNamePanel
     div OuterPanel
     div HelpPanel
+    div StatisticsPanel
     div RoomNamePanel
     div RoomTempPanel
     div RoomToolsButton
@@ -31,6 +32,7 @@
     button CancelButton
     button BackupButton
     button RestoreButton
+    button StatisticsButton
     button EvaluateButton
     button HelpButton
     button DialogButton1
@@ -43,7 +45,6 @@
     variable Demo
     variable Webson
     variable HelpScript
-    variable DemoScript
     variable ModeScript
     variable Script
     variable MAC
@@ -133,7 +134,7 @@ Main:
     ! Get the URL of the REST server
   	json parse url the location as Args
     put property `url` of Args into Server
-    put Server cat `rest.php` into Server
+    put Server cat `resources/php/rest.php` into Server
     put Server into storage as `server`
 
 	create Body
@@ -172,6 +173,7 @@ Main:
     attach MainPanel to `mainpanel`
     attach OuterPanel to `outerpanel`
     attach HelpPanel to `helppanel`
+    attach StatisticsPanel to `statisticspanel`
     attach Alive to `alive`
     attach ModePanel to `mode-panel`
 
@@ -215,11 +217,11 @@ Start:
     	set Demo
         if DemoModule is not running
         begin
-	    	rest get DemoScript from `/resources/ecs/demo.ecs?v=` cat now
+	    	rest get Script from `/resources/ecs/demo.ecs?v=` cat now
             get Map from storage as `map`
             put empty into DemoSensors
             print `Run the Demo module`
-        	run DemoScript with Map and DemoSensors and Demo as DemoModule
+        	run Script with Map and DemoSensors and Demo as DemoModule
             send `run` to DemoModule
         end
     end
@@ -307,6 +309,7 @@ GetMap:
     
 !    print Sensors
 
+	! Draw a row for each room
     put 0 into RoomIndex
     while RoomIndex is less than RoomCount
     begin
@@ -381,7 +384,7 @@ GetMap:
             end
             attach TimedInfo to `room-` cat RoomIndex cat `-timed-info`
             put property `events` of RoomSpec into Events
-            divide now by 60 giving N
+            divide the time by 60 giving N
             put N modulo 24*60 into N
             divide N by 60 giving H
             put N modulo 60 into M
@@ -528,7 +531,6 @@ ProcessResult:
     end
     if Result is `Changed`
     begin
-!        set property `rooms` of Map to Rooms
         fork to PostMap
         set Redraw
         clear Blocked
@@ -537,15 +539,6 @@ ProcessResult:
     if Result is `Redraw` set Redraw
     clear Blocked
     stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Show a help page
-RunHelp:
-	set Blocked
-    set style `display` of OuterPanel to `none`
-    set style `display` of HelpPanel to `block`
-    run HelpScript with HelpPanel and SID and TID as Storyteller
-	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Reset the MAC address and password
@@ -715,6 +708,7 @@ ShowMenu:
     attach GetNameButton to `button-getname`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
+    attach StatisticsButton to `button-statistics`
     attach EvaluateButton to `button-evaluate`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
@@ -753,6 +747,8 @@ ShowMenu:
     on click BackupButton go to Backup
 
     on click RestoreButton go to Restore
+    
+    on click StatisticsButton go to Statistics
 
     on click EvaluateButton
     begin
@@ -879,4 +875,28 @@ PostMap:
         end
    		put 0 into ErrorCount
 	end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Show a help page
+RunHelp:
+	set Blocked
+    set style `display` of OuterPanel to `none`
+    set style `display` of HelpPanel to `block`
+    run HelpScript with HelpPanel and SID and TID as Storyteller
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Run the statistics module
+Statistics:
+	set Blocked
+    set style `display` of OuterPanel to `none`
+    set style `display` of StatisticsPanel to `block`
+    rest get Script from `/resources/ecs/statistics.ecs?v=` cat now
+    run Script with StatisticsPanel and Map
+    set style `display` of OuterPanel to `block`
+    set style `display` of StatisticsPanel to `none`
+    clear MainPanel
+    clear Blocked
+    set Redraw
 	stop

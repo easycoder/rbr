@@ -34,8 +34,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! The room tools menu
 Editor:
-print `Room Tools`
-print Map
 	put property `rooms` of Map into Rooms
     attach RoomName to `title-room-name`
     attach RoomUpButton to `button-up`
@@ -120,6 +118,7 @@ print Map
                 add 1 to N
             end
             put NewRooms into Rooms
+    		set property `rooms` of Map to Rooms
             go to ExitWithChanges
         end
         on click DialogButton2

@@ -54,6 +54,7 @@
     variable OnUD
     variable Boost
     variable BoostFlag
+    variable Flag
     variable L
     variable T
     variable X
@@ -304,12 +305,20 @@ SelectMode:
     end
     else if Mode is `boost`
     begin
+    	clear Flag
+    	if TargetFlag
+        begin
+			set property `target` of RoomSpec to Target
+			set property `boost` of RoomSpec to 0
+            set Flag
+        end
     	if BoostFlag
         begin
 			set property `boost` of RoomSpec to `B` cat Boost
     		set property `advance` of RoomSpec to ``
-            go to ModeChange
+            set Flag
         end
+        if Flag go to ModeChange
     end
 	if Mode is CurrentMode exit
 

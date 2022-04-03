@@ -1,0 +1,129 @@
+!	Statistics
+
+	script Statistics
+    
+    import div StatisticsPanel
+        and variable Map
+
+    div DataPanel
+    div TablePanel
+    div RowPanel
+    div NamePanel
+    div ValuePanel
+    button OKButton
+    variable Server
+    variable MAC
+	variable Webson
+    variable Data
+    variable Data2
+    variable Keys
+    variable Arg1
+    variable Arg2
+    variable Result
+    variable Rooms
+    variable Room
+    variable SensorID
+    variable Name
+    variable Total
+    variable RowSpec
+    variable Row
+    variable Days
+    variable Hours
+    variable Minutes
+    variable Value
+    variable K
+    variable R
+    
+    get Server from storage as `server`
+    get MAC from storage as `MAC`
+    
+    clear StatisticsPanel
+    rest get Webson from `/resources/webson/statistics.json?v=` cat now
+    render Webson in StatisticsPanel
+    attach DataPanel to `statistics-data`
+    attach OKButton to `statistics-ok`
+
+	on click OKButton exit
+    
+!    gosub to AllStats
+    gosub to 12Months
+    stop
+
+AllStats:
+    rest get Data from Server cat `/stats/` cat MAC
+    put the json keys of Data into Keys
+
+    rest get Webson from `/resources/webson/table1.json?v=` cat now
+    clear DataPanel
+    render Webson in DataPanel
+    attach TablePanel to `statistics-table1`
+    attach RowPanel to `statistics-row-/ROW/`
+    put the content of TablePanel into RowSpec
+    put RowSpec into Row
+    replace `/ROW/` with `0` in Row
+    clear TablePanel
+
+    put property `rooms` of Map into Rooms
+    put `{}` into Data2
+	put 0 into K
+    while K is less than the json count of Keys
+    begin
+    	put element K of Keys into SensorID
+        put 0 into R
+        while R is less than the json count of Rooms
+        begin
+        	put element R of Rooms into Room
+            if property `sensor` of Room is SensorID
+            begin
+            	put property `name` of Room into Name
+                set property Name of Data2 to property SensorID of Data
+                go to Break1
+            end
+        	add 1 to R
+        end
+    Break1:
+    	add 1 to K
+    end
+    put the json keys of Data2 into Keys
+    sort Keys with Sorter
+
+	put 0 into K
+    while K is less than the json count of Keys
+    begin
+    	put element K of Keys into Name
+        put property Name of Data2 into Total
+        put RowSpec into Row
+        replace `/ROW/` with K in Row
+        set the content of TablePanel to the content of TablePanel cat Row
+        attach NamePanel to `statistics-name-` cat K
+        attach ValuePanel to `statistics-value-` cat K
+        set the content of NamePanel to Name
+        divide Total by 24*60 giving Days
+        put Total modulo 24*60 into Minutes
+        divide Minutes by 60 giving Hours
+        put Minutes modulo 60 into Minutes
+        put empty into Value
+        if Days is not 0
+        	put Days cat ` days, ` cat Hours cat ` hours, ` into Value
+        else if Hours is not 0
+        	put Hours cat ` hours, ` into Value
+       	put Value cat Minutes cat ` minutes` into Value
+        set the content of ValuePanel to Value
+    	add 1 to K
+    end
+    return
+
+12Months:
+	put `["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]` into Months
+    rest get Data from Server cat `/stats/` cat MAC cat `/12-months`
+    print Data
+	return
+
+Sorter:
+  put arg `a` of Keys into Arg1
+  put arg `b` of Keys into Arg2
+  if Arg1 is greater than Arg2 put 1 into Result
+  else if Arg1 is less than Arg2 put -1 into Result
+  else put 0 into Result
+  set arg `v` of Keys to Result
+  stop

@@ -4,11 +4,15 @@
     // This small REST server gives you the ability to manage tables
     // in your site database.
 
+    require_once "statistics.php";
+
     date_default_timezone_set('Europe/London');
 //      logger(substr($_SERVER['PATH_INFO'], 1));
     $request = explode("/", substr($_SERVER['PATH_INFO'], 1));
     $action = array_shift($request);
     $method = $_SERVER['REQUEST_METHOD'];
+    chdir("../..");
+    $cwd = getcwd();
 
     $props = array();
     $filename = '../' . $_SERVER['HTTP_HOST'] . '.txt';
@@ -27,7 +31,8 @@
         }
         fclose($file);
     } else {
-         logger('Properties file not found');
+         logger("Properties file $filename not found");
+         print("Properties file $filename not found");
         exit;
     }
 
@@ -37,9 +42,9 @@
             switch ($action) {
                 case '_list':
                     // List the contents of a directory
-                    // Endpoint: {site root}/rest.php/_list/[{path}]
+                    // Endpoint: {site root}/resources/php/rest.php/_list/[{path}]
 //                  Start at the resources folder
-                    $path = getcwd() . '/resources/';
+                    $path = $cwd . '/resources/';
                     if (count($request)) {
                          $path .= str_replace('~', '/', $request[0]);
                     }
@@ -99,12 +104,83 @@
                     exit;
                 case '_exists':
                     // Test if a file exists
-                    // Endpoint: {site root}/easycoder/rest.php/_exists/{{path}
-                    $path = getcwd() . '/resources/' . str_replace('~', '/', $request[0]);
+                    // Endpoint: {site root}/easycoder/rest.php/_exists/{path}
+                    $path = $cwd . '/resources/' . str_replace('~', '/', $request[0]);
                     print file_exists($path) ? 'Y' : '';
+                    exit;
+                case '_test':
+                    // Endpoint: {site root}/easycoder/rest.php/_test/
+                    print_r($_SERVER[SERVER_NAME]);
                     exit;
             }
             break;
+        case 'POST':
+            if ($_SERVER[SERVER_NAME] == "rbr.easycoder.software") {
+                switch ($action) {
+                    case '_mkdir':
+                        // Create a directory
+                        // Endpoint: {site root}/easycoder/rest.php/_mkdir
+                        header("Content-Type: application/text");
+                        $path = stripslashes(file_get_contents("php://input"));
+    //                     logger("Create directory $path");
+                        mkdir($path);
+                        exit;
+                    case '_upload':
+                        // Upload a file (an image) to the current directory
+                        // Endpoint: {site root}/easycoder/rest.php/_upload
+                        $path = $_POST['path'];
+                        $pathsegs = explode("/", $path);
+                        $path = str_replace('~', '/', $pathsegs[1]);
+                        $fileName = $_FILES['source']['name'];
+                        $tempName = $_FILES['source']['tmp_name'];
+                        $fileType = $_FILES['source']['type'];
+                        $fileSize = $_FILES['source']['size'];
+                        $fileError = $_FILES['source']['error'];
+                        if (!move_uploaded_file($tempName, "$path/$fileName")) {
+                            unlink($tempName);
+                            http_response_code(400);
+    //                         logger("Failed to upload $fileName to $path.\ntempName: $tempName\nfileType: $fileType\nfileSize:$fileSize\nfileError: $fileError");
+                        } else {
+                            logger("File $fileName uploaded successfully to $path/$fileName");
+                            $size = getimagesize("$path/$fileName");
+                            logger("$path/$fileName: width:".$size[0].", height:".$size[1]);
+                            if ($size[0] > 1024) {
+                                logger("mogrify -resize 1024x1024 $path/$fileName");
+                                systems("mogrify -resize 1024x1024 $path/$fileName");
+                            }
+                        }
+                        exit;
+                    case '_save':
+                        // Save data to a file in the resources folder
+                        // Endpoint: {site root}/easycoder/rest.php/_save/{path}
+                        $path = $cwd . '/resources/' . str_replace('~', '/', $request[0]);
+                        $p = strrpos($path, '/');
+                        $dir = substr($path, 0, $p);
+                        mkdir($dir, 0777, true);
+                        header("Content-Type: application/text");
+                        $content = base64_decode(stripslashes(file_get_contents("php://input")));
+                        $p = strrpos($path, '.');
+                        $root = substr($path, 0, $p);
+                        $ext = substr($path, $p);
+                        file_put_contents($path, $content);
+                        exit;
+                    case '_delete':
+                        // Delete a file in the resources folder
+                        // Endpoint: {site root}/easycoder/rest.php/_delete/{path}
+                        $path = $cwd . '/resources/' . str_replace('~', '/', $request[0]);
+                        if (is_dir($path)) {
+                            rmdir($path);
+                        } else {
+                            unlink($path);
+                        }
+                        exit;
+                    default:
+                        http_response_code(404);
+                        print "I don't understand this request.";
+                        break;
+                }
+            break;
+        }
     }
 
     // The remaining commands require use of the database.
@@ -149,7 +225,7 @@
 
             case 'map':
                 // Get the system map, given its MAC.
-                // Endpoint: {site root}/rest.php/map/<mac>
+                // Endpoint: {site root}/resources/php/rest.php/map/<mac>
                 $mac = $request[0];
 //                 logger("SELECT map FROM systems WHERE mac='$mac'");
                 $result = $conn->query("SELECT map FROM systems WHERE mac='$mac'");
@@ -165,7 +241,7 @@
 
             case 'register':
                 // Register a new MAC and get the password.
-                // Endpoint: {site root}/rest.php/register/<mac>
+                // Endpoint: {site root}/resources/php/rest.php/register/<mac>
                 $mac = $request[0];
                 $result = $conn->query("SELECT password FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
@@ -180,35 +256,16 @@
                 print $password;
                 break;
 
-            case 'update-old':
-                // Update sensor values and return the current map.
-                // Endpoint: {site root}/rest.php/update/<mac>/<sensors>
-                $mac = $request[0];
-                $sensors = $request[1];
-                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac'");
-                if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
-                    $map = base64_decode($row->map);
-                    // Write the sensor values
-                    $sensors = $conn->real_escape_string(base64_encode($sensors));
-                    $conn->query("UPDATE systems SET sensors='$sensors' WHERE id='$id'");
-//                     logger("UPDATE systems SET sensors='$sensors' WHERE id=$id");
-//                     print("UPDATE systems SET sensors='$sensors' WHERE id=$id"); print "\n";
-                    // Return the current map
-                    print "$map\n";
-                }
-                mysqli_free_result($result);
-                break;
-
             case 'update':
                 // Update sensor values and get the current map.
                 // This also records statistics.
-                // Endpoint: {site root}/rest.php/update/<mac>/<sensors>
+                // Endpoint: {site root}/resources/php/rest.php/update/<mac>/<sensors>
                 $mac = $request[0];
                 $sensors = $request[1];
 
                 $ts = time();
-                $day = $ts % 24*60*60;
+                $daysec = 24*60*60;
+                $day = intval($ts / $daysec) * $daysec;
 
                 $data = json_decode($sensors);
                 foreach($data as $sensor=>$value) {
@@ -228,17 +285,18 @@
                     // Update the stats table
                     if ($previous == "off" && $relay =="on") {
                         // Mark the start of a timing period
-                        $res = $conn->query("SELECT id FROM stats where day=$day AND mac='$mac AND sensor='$sensor'");
+                        $res = $conn->query("SELECT id FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
                             $id = $r->id;
                             $conn->query("UPDATE stats SET start='$ts' WHERE id=$id");
                         } else {
+                            logger("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
                             $conn->query("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
                         }
                     }
                     else if ($previous == "on" && $relay =="off") {
                         // Add the period to the total duration for this day
-                        $res = $conn->query("SELECT id, start, duration FROM stats where day=$day AND mac='$mac AND sensor='$sensor'");
+                        $res = $conn->query("SELECT id, start, duration FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
                             $id = $r->id;
                             $duration = ($ts - $r->start + ($r->duration * 60)) / 60;
@@ -265,7 +323,7 @@
 
             case 'name':
                 // Get the system name, given its MAC.
-                // Endpoint: {site root}/rest.php/name/<mac>
+                // Endpoint: {site root}/resources/php/rest.php/name/<mac>
                 $mac = $request[0];
                 $result = $conn->query("SELECT name FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
@@ -278,7 +336,7 @@
 
             case 'sensors':
                 // Get the systems sensor values, given its MAC.
-                // Endpoint: {site root}/rest.php/sensors/<mac>
+                // Endpoint: {site root}/resources/php/rest.php/sensors/<mac>
                 $mac = $request[0];
                 $result = $conn->query("SELECT sensors FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
@@ -289,6 +347,10 @@
                     print '';
                 }
                 mysqli_free_result($result);
+                break;
+
+            case 'stats':
+                doStatistics($conn, $request);
                 break;
 
             default:
@@ -306,7 +368,7 @@
 
             case 'map':
                 // Set the system map
-                // Endpoint: https://rbr.easycoder.software/rest.php/map/{mac}/{password}
+                // Endpoint: {site root}/resources/php/rest.php/map/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $result = $conn->query("SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
@@ -320,13 +382,16 @@
 //                     logger("UPDATE systems SET map='$map' WHERE id=$id");
                 } else {
                     http_response_code(404);
+//                     logger("SELECT id FROM systems WHERE mac='$mac' AND password='$password'\n");
+//                     logger("{\"message\":\"MAC and password do not match any record.\"}");
+//                     print "SELECT id FROM systems WHERE mac='$mac' AND password='$password'\n";
                     print "{\"message\":\"MAC and password do not match any record.\"}";
                 }
                 break;
 
             case 'backup':
                 // Set the system backup map
-                // Endpoint: https://rbr.easycoder.software/rest.php/backup/{mac}/{password}
+                // Endpoint: {site root}/resources/php/rest.php/backup/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $result = $conn->query("SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
@@ -346,7 +411,7 @@
 
             case 'restore':
                 // Restore the system backup, given its MAC
-                // Endpoint: https://rbr.easycoder.software/rest.php/restore/<mac>/{password}
+                // Endpoint: {site root}/resources/php/rest.php/restore/<mac>/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
 //                 logger("SELECT * FROM systems WHERE mac='$mac'");
@@ -372,7 +437,7 @@
 
             case 'confirm':
                 // Confirm receipt of a message (sent by controller)
-                // Endpoint: https://rbr.easycoder.software/rest.php/confirm/{mac}/{password}
+                // Endpoint: {site root}/resources/php/rest.php/confirm/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
@@ -394,7 +459,7 @@
 
             case 'advance':
                 // Acknowledge an 'advance' request (sent by controller)
-                // Endpoint: https://rbr.easycoder.software/rest.php/advance/{mac}/{password}/{roomindex}
+                // Endpoint: {site root}/resources/php/rest.php/advance/{mac}/{password}/{roomindex}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));
@@ -417,7 +482,7 @@
 
             case 'boost':
                 // Handle a 'boost' request (sent by controller)
-                // Endpoint: https://rbr.easycoder.software/rest.php/advance/{mac}/{password}/{roomindex}/{target}
+                // Endpoint: {site root}/resources/php/rest.php/advance/{mac}/{password}/{roomindex}/{target}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));
@@ -441,7 +506,7 @@
 
             case 'test':
                 // A test endpoint that returns a value
-                // Endpoint: https://rbr.easycoder.software/rest.php/test/{mac}/{password}/{roomindex}
+                // Endpoint: {site root}/resources/php/rest.php/test/{mac}/{password}/{roomindex}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));

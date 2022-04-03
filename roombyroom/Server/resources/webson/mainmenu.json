@@ -6,7 +6,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "#": ["$GetMAC", "$GetPassword", "$GetName", "$Pad", "$Add", "$Pad", "$Backup", "$Restore", "$Pad",
-        "$Evaluate", "$Pad", "$Help", "$Cancel"],
+        "$Statistics", "$Pad", "$Evaluate", "$Pad", "$Help", "$Cancel"],
     
     "$Add": {
         "$ID": "button-add",
@@ -41,6 +41,12 @@
     "$Restore": {
         "$ID": "button-restore",
         "$Label": "Restore the system",
+        "#": "$Button"
+    },
+
+    "$Statistics": {
+        "$ID": "button-statistics",
+        "$Label": "Statistics",
         "#": "$Button"
     },
 
