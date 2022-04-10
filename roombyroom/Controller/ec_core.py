@@ -1,8 +1,9 @@
 import json, math, hashlib, threading, os, requests, time
-from datetime import datetime
+from datetime import datetime, timezone
 from random import randrange
 from ec_classes import FatalError, RuntimeError
 from ec_handler import Handler
+from ec_timestamp import getTimestamp
 
 class Core(Handler):
 
@@ -1307,7 +1308,7 @@ class Core(Handler):
     def v_now(self, v):
         value = {}
         value['type'] = 'int'
-        value['content'] = int(datetime.now().timestamp())
+        value['content'] = getTimestamp(time.time())
         return value
 
     def v_position(self, v):
@@ -1371,13 +1372,13 @@ class Core(Handler):
         value['type'] = 'int'
         fmt = v['format']
         if fmt == None:
-            value['content'] = int(time.time() * 1000)
+            value['content'] = int(time.time())
         else:
             fmt = self.getRuntimeValue(fmt)
             dt = self.getRuntimeValue(v['datime'])
             spec = datetime.strptime(dt, fmt)
             t = datetime.now().replace(hour=spec.hour, minute=spec.minute, second=spec.second, microsecond=0)
-            value['content'] = int(t.timestamp()*1000)
+            value['content'] = int(t.timestamp())
         return value
 
     def v_today(self, v):

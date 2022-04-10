@@ -9,6 +9,7 @@
 	variable Rooms
 	variable Room
 	variable RoomNumber
+	variable RoomName
 	variable Mode
 	variable Sensors
 	variable Sensor
@@ -39,7 +40,7 @@
 !	debug step
 
 !	put `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py` into Path
-    put `https://rbr.easycoder.software/rest.php` into Server
+    put `https://rbr.easycoder.software/resources/php/rest.php` into Server
 !    put `https://rbrcontrol.com/rest.php` into Server
     put `.` into Path
 
@@ -155,6 +156,7 @@ ProcessMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
 ProcessRoom:
+    put property `name` of Room into RoomName
     put property `sensor` of Room into Sensor
     ! Make sure this room is in the 'advance' file
     if property Sensor of Advance is empty
@@ -205,27 +207,35 @@ PR2:
         go to TurnOff
     end
 
-    if Mode is `off` go to TurnOff
+    if Mode is `off`
+    begin
+        put `off` into Mode
+        go to TurnOff
+    end
 
     if Mode is `on`
     begin
+        put `on` into Mode
         put float property `target` of Room into Target
         if Temperature is less than Target go to TurnOn
         go to TurnOff
     end
 
 	! Timed mode. Check each of the events
+    put `timed` into Mode
 	put 0 into E
 	while E is less than the length of Events
 	begin
 		put element E of Events into Event
 		put property `until` of Event into Until
-		put the timestamp into Now
 		put the timestamp of Until format `%H:%M` into Boundary
+		put now into Now
+!        print RoomName cat `: ` cat E cat ` ` cat Now cat ` ` cat Boundary cat ` ` cat Until
 		! Check if this is the right time segment
 		if Now is less than Boundary
 		begin
             ! We've found the current time segment
+!            print `Found the right segment`
             go to TurnOnOrOff
 		end
 		else
@@ -265,12 +275,13 @@ TurnOnOrOff:
             open File Path cat `/advance` for writing
             write stringify Advance to File
             close File
-            print Advance
+!            print Advance
         end
     end
 
     put element E of Events into Event
     put float property `temp` of Event into Target
+!    print Temperature cat ` ` cat Target
     if Temperature is less than Target go to TurnOn
 
 TurnOff:

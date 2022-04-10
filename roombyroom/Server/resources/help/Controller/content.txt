@@ -15,7 +15,6 @@ Now go to the command line on your computer (Windows users can run PuTTY to do t
 ```
 ssh pi@192.168.x.y
 ```
-
 where `192.168.x.y` is the IP address you found in the router admin screen. You'll be prompted for a password; the default is `raspberry`. After a few seconds you'll see the standard greeting, plus a request to set yourself a new password.
 
 Once all this is done, type `ls`. You should see all the distribution files you copied earlier.
@@ -37,33 +36,33 @@ In some cases the second of these commands may fail because a partition needs to
 ```
 sudo raspi-config --expand-rootfs
 ```
-
 then repeat the full-upgrade above. In some cases, raspi-config may not be intalled; if so, get it from
 
 ```
 sudo apt install raspi-config
 ```
-
 then expand the root filesystem and do the full upgrade.
 
 Next we need to get an extra for Python; the `Bottle` webserver. First we get the Python package installer:
-
 ```
 sudo apt install pip
 ```
-
-Then give this command:
-
+Then give this command. Note that pip takes a long time to start up on early Pi models.
 ```
 pip install bottle
 ```
+
+We also need the `pytz` library to cater for Daylight Saving Time:
+```
+pip install pytz
+```
+Note that the _EasyCoder_ script `ec_timestamp.py` is preset for British time and will need to be adjusted for other countries.
 
 The final step is to set up a 'cron' job that will run every 10 seconds. Type this command:
 
 ```
 crontab -e
 ```
-
 Select the Nano editor from the list given (this happens only the first time of use), and use it to add the following lines to the bottom of the `cron` file:
 
 ```
