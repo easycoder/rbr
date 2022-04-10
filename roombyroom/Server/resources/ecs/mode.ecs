@@ -230,6 +230,7 @@ Advance:
 !	Select timed mode
 SelectTimed:
    	put `timed` into Mode
+    clear BoostFlag
     go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -237,8 +238,12 @@ SelectTimed:
 SelectBoost:
 	if CurrentMode is `boost`
     begin
-        if Boost is 0 put property `prevmode` of RoomSpec into Mode
-        set BoostFlag
+        if Boost is 0
+        begin
+        	put property `prevmode` of RoomSpec into Mode
+        	clear BoostFlag
+        end
+        else set BoostFlag
         go to SelectMode
     end
    	if Boost is 0 go to SelectCancel
@@ -255,6 +260,7 @@ SelectBoost:
 !	Select 'on' mode
 SelectOn:
     put `on` into Mode
+    clear BoostFlag
     set property `advance` of RoomSpec to ``
     go to SelectMode
 
@@ -262,6 +268,7 @@ SelectOn:
 !	Select off mode
 SelectOff:
     put `off` into Mode
+    clear BoostFlag
     set property `advance` of RoomSpec to ``
     go to SelectMode
 
@@ -287,10 +294,10 @@ SelectMode:
     set style `visibility` of ModePanel to `hidden`
     if Mode is `timed`
     begin
+        set property `boost` of RoomSpec to 0
         if NewAdvance is not OldAdvance
         begin
-            set property `advance` of RoomSpec to NewAdvance
-			set property `boost` of RoomSpec to 0
+        	set property `advance` of RoomSpec to NewAdvance
             go to ModeChange
         end
     end

@@ -1376,7 +1376,7 @@ class Core(Handler):
             fmt = self.getRuntimeValue(fmt)
             dt = self.getRuntimeValue(v['datime'])
             spec = datetime.strptime(dt, fmt)
-            t = datetime.now().replace(hour=spec.hour, minute=spec.minute)
+            t = datetime.now().replace(hour=spec.hour, minute=spec.minute, second=spec.second, microsecond=0)
             value['content'] = int(t.timestamp()*1000)
         return value
 

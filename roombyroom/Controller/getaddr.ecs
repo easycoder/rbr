@@ -40,6 +40,7 @@ Loop2:
         put the position of ` ` in Line into P
         put left P of Line into MAC
         if IP is empty go to Loop2
+        print MAC
     end
     else if left P of Line is `inet`
     begin
@@ -50,6 +51,7 @@ Loop2:
         put the position of `/` in IP into P
         put left P of IP into IP
         if MAC is empty go to Loop2
+        print IP
     end
 
 Save:

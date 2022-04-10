@@ -115,7 +115,8 @@
             }
             break;
         case 'POST':
-            if ($_SERVER[SERVER_NAME] == "rbr.easycoder.software") {
+            // These endpoints are only available for the development server
+            if ($action[0] == '_' && $_SERVER[SERVER_NAME] == "rbr.easycoder.software") {
                 switch ($action) {
                     case '_mkdir':
                         // Create a directory
@@ -176,7 +177,7 @@
                         exit;
                     default:
                         http_response_code(404);
-                        print "I don't understand this request.";
+                        print "I don't understand this admin request.";
                         break;
                 }
             break;
