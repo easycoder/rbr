@@ -17,13 +17,15 @@
         "padding-bottom": "0.5em",
         "border": "2px solid #328080",
         "background-image": "linear-gradient(to bottom, rgba(255,150,150,1), rgba(150,200,255,1))",
-        "#": ["$Dummy", "$Tools", "$Title", "$Subtitle"],
+        "#": ["$HamburgerL", "$Tools", "$Title", "$Subtitle"],
 
-        "$Dummy": {
-            "#element": "div",
+        "$HamburgerL": {
+            "#element": "img",
+            "@id": "hamburger-left",
             "position": "absolute",
             "width": "2em",
             "display": "inline-block",
+            "@src": "resources/icon/hamburger.png",
             "top": "0.5em",
             "left": "1em"
         },
@@ -35,11 +37,11 @@
             "display": "inline-block",
             "top": "0.5em",
             "right": "1em",
-            "#": ["$Hamburger", "$Alive"],
+            "#": ["$HamburgerR", "$Alive"],
 
-            "$Hamburger": {
+            "$HamburgerR": {
                 "#element": "img",
-                "@id": "hamburger",
+                "@id": "hamburger-right",
                 "@src": "resources/icon/hamburger.png",
                 "width": "100%"
             },
@@ -144,15 +146,13 @@
         "#element": "div",
         "@id": "helppanel",
         "flex": 1,
-        "display": "none",
-        "margin-right": "0.5em"
+        "display": "none"
     },
 
     "$StatisticsPanel": {
         "#element": "div",
         "@id": "statisticspanel",
         "flex": 1,
-        "display": "none",
-        "margin-right": "0.5em"
+        "display": "none"
     }
 }

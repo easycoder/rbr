@@ -1,0 +1,7 @@
+{
+    "#doc": "The monthly statistics, day by day",
+    "#element": "div",
+    "background": "pink",
+    "width": "100%",
+    "height": "10em"
+}

@@ -483,7 +483,7 @@
 
             case 'boost':
                 // Handle a 'boost' request (sent by controller)
-                // Endpoint: {site root}/resources/php/rest.php/advance/{mac}/{password}/{roomindex}/{target}
+                // Endpoint: {site root}/resources/php/rest.php/boost/{mac}/{password}/{roomindex}/{target}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));

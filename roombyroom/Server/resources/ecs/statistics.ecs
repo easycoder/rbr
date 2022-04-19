@@ -17,6 +17,7 @@
     variable Data
     variable Data2
     variable Keys
+    variable Key
     variable Arg1
     variable Arg2
     variable Result
@@ -31,6 +32,10 @@
     variable Hours
     variable Minutes
     variable Value
+    variable DayData
+    variable Day
+    variable MaxValue
+    variable D
     variable K
     variable R
     
@@ -46,11 +51,12 @@
 	on click OKButton exit
     
 !    gosub to AllStats
-    gosub to 12Months
+!    gosub to YearStats
+	gosub to MonthStats
     stop
 
 AllStats:
-    rest get Data from Server cat `/stats/` cat MAC
+    rest get Data from Server cat `/stats/` cat MAC 
     put the json keys of Data into Keys
 
     rest get Webson from `/resources/webson/table1.json?v=` cat now
@@ -113,10 +119,46 @@ AllStats:
     end
     return
 
-12Months:
-	put `["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]` into Months
+YearStats:
     rest get Data from Server cat `/stats/` cat MAC cat `/12-months`
     print Data
+	return
+
+MonthStats:
+    rest get Webson from `/resources/webson/monthstats.json?v=` cat now
+    clear DataPanel
+    render Webson in DataPanel
+
+	rest get Data from Server cat `/stats/` cat MAC cat `/month`
+    	cat `/` cat the year cat `/` cat the month number
+    
+    ! Collect the data and find the maximum value
+    put 0 into MaxValue
+    put 0 into D
+    while D is less than the json count of Data
+    begin
+    	put element D of Data into DayData
+        put the json keys of DayData into Keys
+		put 0 into Total
+		put 0 into K
+        while K is less than the json count of Keys
+        begin
+        	put element K of Keys into Key
+			if Key is `day`
+            begin
+     		end
+            else
+            begin
+            	add property Key of DayData to Total
+            end
+        	add 1 to K
+        end
+        put property `day` of DayData into Day
+        print `Day ` cat Day cat `: ` cat Total
+        if Total is greater than MaxValue put Total into MaxValue
+    	add 1 to D
+    end
+    print `Max value: ` cat MaxValue
 	return
 
 Sorter:

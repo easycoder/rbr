@@ -21,7 +21,8 @@
     div DialogText
     div Alive
     input Input
-    img Hamburger
+    img HamburgerLeft
+    img HamburgerRight
     img ModeIcon
     a Welcome
     button AddRoomButton
@@ -65,6 +66,10 @@
     variable DemoSensors
     variable RelayState
     variable Temperature
+    variable StaticData
+    variable RoomData
+    variable RoomName
+    variable Timestamp
     variable Args
     variable Events
     variable Event
@@ -77,6 +82,7 @@
     variable Result
     variable Finish
     variable ErrorCount
+    variable Elapsed
     variable Boost
     variable Now
     variable FH
@@ -131,6 +137,13 @@ Main:
     if mobile
         if portrait set Mobile
 
+    get StaticData from storage as `StaticData`
+    if StaticData is empty
+    begin
+    	put `{}` into StaticData
+    end
+!    print StaticData
+
     ! Get the URL of the REST server
   	json parse url the location as Args
     put property `url` of Args into Server
@@ -179,9 +192,23 @@ Main:
 
     put empty into Map2
 
-!	Set up the hamburger menu
-    attach Hamburger to `hamburger`
-    on click Hamburger
+!	Set up the hamburger menus
+    attach HamburgerLeft to `hamburger-left`
+    attach HamburgerRight to `hamburger-right`
+    on click HamburgerLeft
+    begin
+    	if Storyteller is running
+        begin
+        	close Storyteller
+            set style `display` of OuterPanel to `block`
+            set style `display` of HelpPanel to `none`
+            clear MainPanel
+            clear Blocked
+            set Redraw
+        end
+        else if not Blocked go to ShowMenu
+    end
+    on click HamburgerRight
     begin
     	if Storyteller is running
         begin
@@ -322,6 +349,13 @@ GetMap:
         index RoomNamePanel to RoomIndex
         index RoomTempPanel to RoomIndex
         index RoomToolsButton to RoomIndex
+        
+        put property `room-` cat RoomIndex of StaticData into RoomData
+        if RoomData is empty
+        begin
+        	put `{}` into RoomData
+            set property `alive` of RoomData to `true`
+        end
 
         if Redraw
         begin
@@ -353,13 +387,31 @@ GetMap:
 
 		! Set the room name
 		put element RoomIndex of Rooms into RoomSpec
-        set the content of RoomNamePanel to property `name` of RoomSpec
+        put property `name` of RoomSpec into RoomName
+        set the content of RoomNamePanel to RoomName
 
         ! Show the current temperature and relay state
         put `` cat property `sensor` of RoomSpec into SensorIP
         if SensorIP is not empty
         begin
             put property SensorIP of Sensors into SensorSpec
+            put property `timestamp` of SensorSpec into Timestamp
+            put now into Now
+            if Timestamp is not empty
+            begin
+            	take Timestamp from Now giving Elapsed
+				if Elapsed is greater than 3600
+                begin
+                	if property `alive` of RoomData is `true`
+                    begin
+                    	alert `The sensor for ` cat RoomName cat ` is not reporting. `
+                        	cat `Check the battery and replace if necessary.`
+                    	set property `alive` of RoomData to `false`
+                    end
+                end
+                else set property `alive` of RoomData to `true`
+            end
+            set property `room-` cat RoomIndex of StaticData to RoomData
             put property `temperature` of SensorSpec into Temperature
             set the content of RoomTempPanel to Temperature cat `&deg;C`
             put property `relay` of SensorSpec into RelayState
@@ -506,6 +558,8 @@ GetMap:
 		end
         add 1 to RoomIndex
     end
+    
+    put StaticData into storage as `StaticData`
 
     clear Refresh
     clear Redraw

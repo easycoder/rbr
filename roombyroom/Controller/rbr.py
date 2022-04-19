@@ -17,7 +17,7 @@ def index():
         hum = request.query.hum
         temp = request.query.temp
         if hum and temp:
-            ts = time.time()
+            ts = round(time.time())
             temp = round(float(temp), 1)
 #            print(f'hum={hum}, temp={temp}, source={source}, ts={ts}')
             dir = f'/home/pi/sensors'

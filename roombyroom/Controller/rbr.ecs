@@ -1,4 +1,7 @@
-!	RBR
+!	RBR Controller script for Python/EasyCoder
+
+!   This script manages the local harware - sensors and relays - to act
+!   in accordance with the rules in the system map.
 
 	file File
 	variable Path
@@ -57,7 +60,7 @@
     open File Path cat `/password` for writing
     write Password to File
     close File
-    print Password
+    print `Password: ` cat Password
 
     ! Make sure there's an 'advance' file
     if file Path cat `/advance` exists
@@ -99,6 +102,8 @@ ProcessMap:
     put property `rooms` of Map into Rooms
 	put json `{}` into SensorData
 	put the count of Rooms into RoomCount
+	if RoomCount is 0 print `No rooms have been added`
+	else print `Processing ` cat RoomCount cat ` rooms`
     put 0 into RoomNumber
     while RoomNumber is less than RoomCount
     begin
@@ -192,7 +197,7 @@ PR2:
         begin
             put from 1 of Boost into Target
             multiply Target by 60
-            add now to Target
+            add the timestamp to Target
             if Password is not empty post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
                 cat RoomNumber cat `/` cat Target
         end
@@ -299,18 +304,21 @@ SetRelays:
 		put element R of Relays into Relay
 		if Relay is not empty
 		begin
-            print `http://` cat Relay cat `/relay/0?turn=` cat Turn
+!            print `http://` cat Relay cat `/relay/0?turn=` cat Turn
             post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
         end
 		add 1 to R
 	end
 	if Mode is `boost`
 	begin
-!        put integer property `target` of SensorValues into Target
-!        put the timestamp into Now
+!	debug step
+!	print SensorValues
+!        put float property `target` of Room into Target
+!        put float now into Now
+!        print Now cat ` ` cat Target
 !        take Now from Target
 !        print `Target = ` cat Target
-!        if integer Target is less than 0
+!        if float Target is less than 0
 !        begin
 !            print `Expired`
 !        end

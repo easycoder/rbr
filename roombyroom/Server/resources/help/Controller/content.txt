@@ -8,7 +8,9 @@ To set up the controller, download the [Raspbian headless distribution](https://
 
 The second, much larger, partition, called `rootfs`, is where all your files will be. Copy the distribution files - the contents of the `roombyroom/Controller` folder in the [repository](https://github.com/easycoder/rbr) - into the `home/pi` folder on the card. Now eject the card, put it into the Pi and boot up.
 
-With the Pi running you need to find it on your local network. To do this, point your browser to the admin panel for your router. This is frequently located at `http://192.168.1.1` but yours may be different. Log in, look for the name `raspberrypi` and note the IP address that's been assigned to it. You'll probably want to assign a fixed IP address to the Pi but the procedure varies from one router to another so you'll have to consult the relevant manual.
+With the Pi running you need to find it on your local network. To do this, point your browser to the admin panel for your router. This is frequently located at `http://192.168.1.1` but yours may be different. Log in, look for the name `raspberrypi` and note the IP address that's been assigned to it. You'll probably want to assign a static IP address to the Pi but the procedure varies from one router to another so you'll have to consult the relevant manual.
+
+Alternatively, you can set a static IP address on the Pi itself. I'll describe this shortly.
 
 Now go to the command line on your computer (Windows users can run PuTTY to do this) and login in:
 
@@ -19,10 +21,33 @@ where `192.168.x.y` is the IP address you found in the router admin screen. You'
 
 Once all this is done, type `ls`. You should see all the distribution files you copied earlier.
 
-In some cases the system fails to get its IP address from the router, without which the RBR system will not work. So give this command:
+If you're using your router to provide a static IP address, in some cases the system fails to get its IP address, without which the RBR system will not work. So give this command:
 ```
 sudo dhclient -v
 ```
+
+If you chose to set a static IP address using the Pi itself, give the command
+```
+sudo nano /etc/dhcpcd.conf
+```
+Nano is a simple text editor. In the file that opens, there is a section pertaining to static IP addresses. For each of the lines below, remove the # at the beginning of the line and edit it to give the IP address you want. In the example below the static address is 192.168.0.4, so change that to your chosen address. Be sure that the address chosen is not one within the range of those offered by the DHCP router. Make sure the third number in each address (0 in this case) matches the address range used by your router.
+```
+interface eth0
+static ip_address=192.168.0.4/24
+static routers=192.168.0.1
+static domain_name_servers=192.168.0.1
+```
+The last line above assumes the router will act as a gateway and forward DNS requests. This may not work for all routers, for example the Virgin Media hub. In such a case you will need to give the IP address of an actual DNS server. To test if DNS is working, type a command like
+```
+ping google.com
+```
+If this fails, DNS isn't working.
+
+Type Control-O to write out the file, then Control-X to exit Nano. Then type
+```
+sudo reboot
+```
+to reboot the Pi; give it time to initialize then log in using its new address.
 
 To ensure the system is fully up to date, run the following commands. On the earlier Pi models the second of these will take a long time to run:
 
@@ -43,7 +68,7 @@ sudo apt install raspi-config
 ```
 then expand the root filesystem and do the full upgrade.
 
-Next we need to get an extra for Python; the `Bottle` webserver. First we get the Python package installer:
+Next we need to get some extras for Python; the `Bottle` webserver. First we get the Python package installer:
 ```
 sudo apt install pip
 ```

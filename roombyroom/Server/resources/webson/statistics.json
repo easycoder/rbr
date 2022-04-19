@@ -1,11 +1,10 @@
 {
-    "#doc": "The statistics UI",
+    "#doc": "The main panel for the statistics UI",
     "#element": "div",
     "background": "white",
     "border": "1px solid gray",
     "margin-top": "0.5em",
-    "padding": "0 0.5em 0.5e 0.5em",
-    "box-shadow": "0.5em 0.5em 0.5em #444",
+    "padding": "0.5em",
     "text-align": "center",
     "#": ["$Data", "$OKButton"],
 
