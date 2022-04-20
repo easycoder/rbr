@@ -10,14 +10,14 @@
 
     "$Data": {
         "#element": "div",
-        "@id": "statistics-data"
+        "@id": "statistics-content"
     },
 
     "$OKButton": {
         "#element": "button",
         "@id": "statistics-ok",
         "#content": "OK",
-        "margin": "1em 0",
+        "margin-top": "2em",
         "width": "50%"
     }
 }

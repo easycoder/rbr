@@ -5,11 +5,15 @@
     import div StatisticsPanel
         and variable Map
 
-    div DataPanel
+    div ContentPanel
     div TablePanel
     div RowPanel
     div NamePanel
     div ValuePanel
+    div StatsPanel
+    div VerticalBar
+    div DateLabel
+    div MinutesLabel
     button OKButton
     variable Server
     variable MAC
@@ -33,11 +37,19 @@
     variable Minutes
     variable Value
     variable DayData
-    variable Day
     variable MaxValue
+    variable DaysInMonth
+    variable Interval
+    variable GraphWidth
+    variable GraphHeight
+    variable GraphLeft
+    variable BarWidth
     variable D
+    variable H
     variable K
+    variable N
     variable R
+    variable W
     
     get Server from storage as `server`
     get MAC from storage as `MAC`
@@ -45,7 +57,7 @@
     clear StatisticsPanel
     rest get Webson from `/resources/webson/statistics.json?v=` cat now
     render Webson in StatisticsPanel
-    attach DataPanel to `statistics-data`
+    attach ContentPanel to `statistics-content`
     attach OKButton to `statistics-ok`
 
 	on click OKButton exit
@@ -60,8 +72,8 @@ AllStats:
     put the json keys of Data into Keys
 
     rest get Webson from `/resources/webson/table1.json?v=` cat now
-    clear DataPanel
-    render Webson in DataPanel
+    clear ContentPanel
+    render Webson in ContentPanel
     attach TablePanel to `statistics-table1`
     attach RowPanel to `statistics-row-/ROW/`
     put the content of TablePanel into RowSpec
@@ -124,18 +136,22 @@ YearStats:
     print Data
 	return
 
+! Display statistics for the current month
 MonthStats:
     rest get Webson from `/resources/webson/monthstats.json?v=` cat now
-    clear DataPanel
-    render Webson in DataPanel
+    clear ContentPanel
+    render Webson in ContentPanel
+    put the month number into N
+!    take 1 from N
 
 	rest get Data from Server cat `/stats/` cat MAC cat `/month`
-    	cat `/` cat the year cat `/` cat the month number
+    	cat `/` cat the year cat `/` cat N
     
     ! Collect the data and find the maximum value
     put 0 into MaxValue
+    put the json count of Data into DaysInMonth
     put 0 into D
-    while D is less than the json count of Data
+    while D is less than DaysInMonth
     begin
     	put element D of Data into DayData
         put the json keys of DayData into Keys
@@ -153,19 +169,86 @@ MonthStats:
             end
         	add 1 to K
         end
-        put property `day` of DayData into Day
-        print `Day ` cat Day cat `: ` cat Total
         if Total is greater than MaxValue put Total into MaxValue
     	add 1 to D
     end
-    print `Max value: ` cat MaxValue
+!    print `Max value: ` cat MaxValue
+    multiply MaxValue by 980 giving Interval
+    divide Interval by 5000
+    
+!	Draw the Y axis labels
+	multiply Interval by 5 giving Value
+	put 6 into R
+    while R is greater than 0
+    begin
+    	take 1 from R
+    	attach MinutesLabel to `stats-minutes-` cat R
+        set the content of MinutesLabel to Value
+        take Interval from Value
+    end
+
+!	Draw the graph
+	attach StatsPanel to `stats-panel`
+    put the width of StatsPanel into GraphWidth
+    put the height of StatsPanel into GraphHeight
+    put the width of MinutesLabel into GraphLeft
+    take the width of MinutesLabel from GraphWidth
+    divide GraphWidth by DaysInMonth giving BarWidth
+    multiply BarWidth by 3 giving W
+    divide W by 4
+    put 0 into D
+    while D is less than DaysInMonth
+    begin
+    	put element D of Data into DayData
+        put the json keys of DayData into Keys
+		put 0 into Total
+		put 0 into K
+        while K is less than the json count of Keys
+        begin
+        	put element K of Keys into Key
+			if Key is `day`
+            begin
+     		end
+            else
+            begin
+            	add property Key of DayData to Total
+            end
+        	add 1 to K
+        end
+		create VerticalBar in StatsPanel
+        set style `position` of VerticalBar to `absolute`
+        set style `left` of VerticalBar to GraphLeft
+        set style `bottom` of VerticalBar to 0
+        set style `width` of VerticalBar to W cat `px`
+        put property D of DayData into H
+        multiply Total by GraphHeight giving H
+        divide H by MaxValue
+        set style `height` of VerticalBar to H cat `px`
+        set style `background` of VerticalBar to `green`
+        add BarWidth to GraphLeft
+        add 1 to D
+    end
+
+!	Draw the date labels
+	put the width of MinutesLabel into GraphLeft
+!    add BarWidth to GraphLeft
+	multiply BarWidth by 5
+	put 1 into N
+    while N is less than 32
+    begin
+    	attach DateLabel to `stats-date-` cat N
+        set style `left` of DateLabel to GraphLeft
+        add BarWidth to GraphLeft
+    	add 5 to N
+    end
 	return
 
+!	Sort an array of keys
 Sorter:
-  put arg `a` of Keys into Arg1
-  put arg `b` of Keys into Arg2
-  if Arg1 is greater than Arg2 put 1 into Result
-  else if Arg1 is less than Arg2 put -1 into Result
-  else put 0 into Result
-  set arg `v` of Keys to Result
-  stop
+    put arg `a` of Keys into Arg1
+    put arg `b` of Keys into Arg2
+    if Arg1 is greater than Arg2 put 1 into Result
+    else if Arg1 is less than Arg2 put -1 into Result
+    else put 0 into Result
+    set arg `v` of Keys to Result
+    stop
