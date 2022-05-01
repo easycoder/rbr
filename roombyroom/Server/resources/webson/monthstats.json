@@ -1,14 +1,75 @@
 {
     "#doc": "The monthly statistics, day by day",
     "#position": "relative",
-    "#": ["$MainPanel", "$ColumnLabels"],
+    "text-align": "center",
+    "#": ["$TopPanel", "$MainPanel", "$ColumnLabels"],
+
+    "$TopPanel": {
+        "#element": "div",
+        "width": "10em",
+        "margin": "0 auto 1em auto",
+        "display": "flex",
+        "flex-direction": "row",
+        "font-weight": 900,
+        "#": ["$LT", "$Month", "$GT"],
+
+        "$LT": {
+            "#element": "div",
+            "@id": "month-lt",
+            "#content": "<<",
+            "font-weight": "inherit",
+            "cursor": "default"
+        },
+
+        "$Month": {
+            "#element": "div",
+            "@id": "month-name",
+            "#content": "month",
+            "flex": 1,
+            "font-weight": "inherit"
+        },
+
+        "$GT": {
+            "#element": "div",
+            "@id": "month-gt",
+            "#content": ">>",
+            "font-weight": "inherit",
+            "cursor": "default"
+        }
+    },
 
     "$MainPanel": {
         "#element": "div",
         "@id": "stats-panel",
         "position": "relative",
         "width": "100%",
-        "#": ["$Row6", "$Row5", "$Row4", "$Row3", "$Row2", "$Row1"],
+        "#": ["$Header", "$Row7", "$Row6", "$Row5", "$Row4", "$Row3", "$Row2", "$Row1"],
+
+        "$Header": {
+            "#element": "div",
+            "position": "absolute",
+            "top": "-1em",
+            "left": 0,
+            "width": "3em",
+            "font-size": "50%",
+            "text-align": "right",
+            "padding-right": "0.5em",
+            "#content": "Mins"
+        },
+
+        "$Row7": {
+            "#element": "div",
+            "$Index": 6,
+            "width": "100%",
+            "position": "relative",
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$Label", "$Outline"],
+
+            "$Label": {
+                "#": "$LabelTemplate"
+            }
+        },
 
         "$Row6": {
             "#element": "div",

@@ -14,6 +14,9 @@
     div VerticalBar
     div DateLabel
     div MinutesLabel
+    div MonthLT
+    div MonthGT
+    div MonthName
     button OKButton
     variable Server
     variable MAC
@@ -44,6 +47,9 @@
     variable GraphHeight
     variable GraphLeft
     variable BarWidth
+    variable MonthNames
+    variable MonthNumber
+    variable Year
     variable D
     variable H
     variable K
@@ -138,14 +144,61 @@ YearStats:
 
 ! Display statistics for the current month
 MonthStats:
+	set MonthNames to array
+    append `Jan` to MonthNames
+    append `Feb` to MonthNames
+    append `Mar` to MonthNames
+    append `Apr` to MonthNames
+    append `May` to MonthNames
+    append `Jun` to MonthNames
+    append `Jul` to MonthNames
+    append `Aug` to MonthNames
+    append `Sep` to MonthNames
+    append `Oct` to MonthNames
+    append `Nov` to MonthNames
+    append `Dec` to MonthNames
+    put the month number into MonthNumber
+    put the year into Year
+
+!	Main entry point for the display algorithm
+Display:
     rest get Webson from `/resources/webson/monthstats.json?v=` cat now
     clear ContentPanel
     render Webson in ContentPanel
-    put the month number into N
-!    take 1 from N
+	attach StatsPanel to `stats-panel`
+    attach MonthLT to `month-lt`
+    attach MonthGT to `month-gt`
+    attach MonthName to `month-name`
+    if Year is less than the year go to D2
+    if MonthNumber is less than the month number go to D2
+    set style `visibility` of MonthGT to `hidden`
 
+D2:
+	on click MonthLT
+    begin
+        if MonthNumber is 0
+        begin
+        	put 12 into MonthNumber
+            take 1 from Year
+        end
+    	take 1 from MonthNumber
+        gosub to Display
+    end
+    
+    on click MonthGT
+    begin
+    	add 1 to MonthNumber
+        if MonthNumber is 12
+        begin
+        	put 0 into MonthNumber
+            add 1 to Year
+        end
+        gosub to Display
+    end
+
+    set the content of MonthName to element MonthNumber of MonthNames cat ` ` cat Year
 	rest get Data from Server cat `/stats/` cat MAC cat `/month`
-    	cat `/` cat the year cat `/` cat N
+    	cat `/` cat Year cat `/` cat MonthNumber
     
     ! Collect the data and find the maximum value
     put 0 into MaxValue
@@ -172,13 +225,11 @@ MonthStats:
         if Total is greater than MaxValue put Total into MaxValue
     	add 1 to D
     end
-!    print `Max value: ` cat MaxValue
-    multiply MaxValue by 980 giving Interval
-    divide Interval by 5000
+	divide MaxValue by 6 giving Interval
     
 !	Draw the Y axis labels
-	multiply Interval by 5 giving Value
-	put 6 into R
+	multiply Interval by 6 giving Value
+	put 7 into R
     while R is greater than 0
     begin
     	take 1 from R
@@ -187,15 +238,17 @@ MonthStats:
         take Interval from Value
     end
 
-!	Draw the graph
-	attach StatsPanel to `stats-panel`
+!	Draw the bars
     put the width of StatsPanel into GraphWidth
     put the height of StatsPanel into GraphHeight
+    multiply GraphHeight by 6
+    divide GraphHeight by 7
     put the width of MinutesLabel into GraphLeft
     take the width of MinutesLabel from GraphWidth
-    divide GraphWidth by DaysInMonth giving BarWidth
+    divide GraphWidth by 31 giving BarWidth
     multiply BarWidth by 3 giving W
     divide W by 4
+    set the elements of VerticalBar to DaysInMonth
     put 0 into D
     while D is less than DaysInMonth
     begin
@@ -215,23 +268,24 @@ MonthStats:
             end
         	add 1 to K
         end
+        index VerticalBar to D
 		create VerticalBar in StatsPanel
+        set attribute `data-total` of VerticalBar to Total
         set style `position` of VerticalBar to `absolute`
         set style `left` of VerticalBar to GraphLeft
         set style `bottom` of VerticalBar to 0
         set style `width` of VerticalBar to W cat `px`
-        put property D of DayData into H
         multiply Total by GraphHeight giving H
         divide H by MaxValue
         set style `height` of VerticalBar to H cat `px`
-        set style `background` of VerticalBar to `green`
+        set style `background` of VerticalBar to `#10e080`
         add BarWidth to GraphLeft
         add 1 to D
     end
+    on click VerticalBar alert attribute `data-total` of VerticalBar
 
 !	Draw the date labels
 	put the width of MinutesLabel into GraphLeft
-!    add BarWidth to GraphLeft
 	multiply BarWidth by 5
 	put 1 into N
     while N is less than 32
