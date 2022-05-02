@@ -17,6 +17,7 @@
     div MonthLT
     div MonthGT
     div MonthName
+    div FloatingLabel
     button OKButton
     variable Server
     variable MAC
@@ -56,6 +57,8 @@
     variable N
     variable R
     variable W
+    variable X
+    variable Y
     
     get Server from storage as `server`
     get MAC from storage as `MAC`
@@ -169,6 +172,7 @@ Display:
     attach MonthLT to `month-lt`
     attach MonthGT to `month-gt`
     attach MonthName to `month-name`
+    create FloatingLabel in ContentPanel
     if Year is less than the year go to D2
     if MonthNumber is less than the month number go to D2
     set style `visibility` of MonthGT to `hidden`
@@ -282,7 +286,21 @@ D2:
         add BarWidth to GraphLeft
         add 1 to D
     end
-    on click VerticalBar alert attribute `data-total` of VerticalBar
+    on click VerticalBar
+    begin
+    	remove element FloatingLabel
+    	put the height of VerticalBar into H
+        create FloatingLabel in VerticalBar
+        set style `position` of FloatingLabel to `absolute`
+        set style `display` of FloatingLabel to `inline-block`
+        set style `z-index` of FloatingLabel to 10
+        set style `left` of FloatingLabel to `-0.2em`
+        set style `bottom` of FloatingLabel to H cat `px`
+        set style `font-size` of FloatingLabel to `50%`
+        set style `font-weight` of FloatingLabel to `bold`
+        set style `color` of FloatingLabel to `peru`
+        set the content of FloatingLabel to attribute `data-total` of VerticalBar
+    end
 
 !	Draw the date labels
 	put the width of MinutesLabel into GraphLeft
