@@ -17,15 +17,15 @@
         "padding-bottom": "0.5em",
         "border": "2px solid #328080",
         "background-image": "linear-gradient(to bottom, rgba(255,150,150,1), rgba(150,200,255,1))",
-        "#": ["$HamburgerL", "$Tools", "$Title", "$Subtitle"],
+        "#": ["$Statistics", "$Tools", "$Title", "$Subtitle"],
 
-        "$HamburgerL": {
+        "$Statistics": {
             "#element": "img",
-            "@id": "hamburger-left",
+            "@id": "statistics-icon",
             "position": "absolute",
             "width": "2em",
             "display": "inline-block",
-            "@src": "resources/icon/hamburger.png",
+            "@src": "resources/icon/statistics.png",
             "top": "0.5em",
             "left": "1em"
         },
@@ -37,11 +37,11 @@
             "display": "inline-block",
             "top": "0.5em",
             "right": "1em",
-            "#": ["$HamburgerR", "$Alive"],
+            "#": ["$Hamburger", "$Alive"],
 
-            "$HamburgerR": {
+            "$Hamburger": {
                 "#element": "img",
-                "@id": "hamburger-right",
+                "@id": "hamburger-icon",
                 "@src": "resources/icon/hamburger.png",
                 "width": "100%"
             },
@@ -58,7 +58,7 @@
                     "border": "1px solid green",
                     "border-radius": "50%",
                     "background": "#6f6",
-                    "margin": "0.5em auto"
+                    "margin": "0.2em auto"
                 }
             }
         },

@@ -21,8 +21,8 @@
     div DialogText
     div Alive
     input Input
-    img HamburgerLeft
-    img HamburgerRight
+    img StatisticsIcon
+    img Hamburger
     img ModeIcon
     a Welcome
     button AddRoomButton
@@ -33,7 +33,6 @@
     button CancelButton
     button BackupButton
     button RestoreButton
-    button StatisticsButton
     button EvaluateButton
     button HelpButton
     button DialogButton1
@@ -138,10 +137,7 @@ Main:
         if portrait set Mobile
 
     get StaticData from storage as `StaticData`
-    if StaticData is empty
-    begin
-    	put `{}` into StaticData
-    end
+    if StaticData is empty put `{}` into StaticData
 !    print StaticData
 
     ! Get the URL of the REST server
@@ -192,10 +188,9 @@ Main:
 
     put empty into Map2
 
-!	Set up the hamburger menus
-    attach HamburgerLeft to `hamburger-left`
-    attach HamburgerRight to `hamburger-right`
-    on click HamburgerLeft
+!	Set up the statistics and hamburger icons
+    attach StatisticsIcon to `statistics-icon`
+    on click StatisticsIcon
     begin
     	if Storyteller is running
         begin
@@ -206,9 +201,10 @@ Main:
             clear Blocked
             set Redraw
         end
-        else if not Blocked go to ShowMenu
+        else if not Blocked go to Statistics
     end
-    on click HamburgerRight
+    attach Hamburger to `hamburger-icon`
+    on click Hamburger
     begin
     	if Storyteller is running
         begin
@@ -565,7 +561,7 @@ GetMap:
     clear Redraw
     clear Blocked
 
-    set style `visibility` of Alive to `true`
+    set style `visibility` of Alive to `visible`
     wait 50 ticks
     set style `visibility` of Alive to `hidden`
 	wait 450 ticks
@@ -762,7 +758,6 @@ ShowMenu:
     attach GetNameButton to `button-getname`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
-    attach StatisticsButton to `button-statistics`
     attach EvaluateButton to `button-evaluate`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
@@ -801,8 +796,6 @@ ShowMenu:
     on click BackupButton go to Backup
 
     on click RestoreButton go to Restore
-    
-    on click StatisticsButton go to Statistics
 
     on click EvaluateButton
     begin

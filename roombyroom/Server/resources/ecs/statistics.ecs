@@ -57,8 +57,6 @@
     variable N
     variable R
     variable W
-    variable X
-    variable Y
     
     get Server from storage as `server`
     get MAC from storage as `MAC`
