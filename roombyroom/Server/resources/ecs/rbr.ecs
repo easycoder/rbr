@@ -26,9 +26,11 @@
     img ModeIcon
     a Welcome
     button AddRoomButton
+    button GetSysParamsButton
     button GetMACButton
     button GetPasswordButton
     button GetNameButton
+    button GetRequestButton
     button OKButton
     button CancelButton
     button BackupButton
@@ -50,6 +52,7 @@
     variable MAC
     variable Password
     variable SystemName
+    variable RequestIP
     variable Map
     variable Map2
     variable Rooms
@@ -97,7 +100,9 @@
     variable MainMenuWebson
     variable GetMacWebson
     variable GetPasswordWebson
+    variable GetSysParamsWebson
     variable GetNameWebson
+    variable GetRequestWebson
     variable RoomWebson
     variable RoomToolsMenuWebson
     variable TimedWebson
@@ -168,7 +173,9 @@ Main:
     put empty into MainMenuWebson
 	put empty into GetMacWebson
 	put empty into GetPasswordWebson
+	put empty into GetSysParamsWebson
 	put empty into GetNameWebson
+	put empty into GetRequestWebson
     put empty into RoomWebson
     put empty into RoomToolsMenuWebson
     put empty into TimedWebson
@@ -564,7 +571,7 @@ GetMap:
     set style `visibility` of Alive to `visible`
     wait 50 ticks
     set style `visibility` of Alive to `hidden`
-	wait 450 ticks
+	wait 400 ticks
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -597,6 +604,62 @@ Reset:
     put empty into storage as `password`
     clear Blocked
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Get system parameters
+GetSystemParameters:
+	set Blocked
+    clear MainPanel
+    if GetSysParamsWebson is empty
+        rest get GetSysParamsWebson from `/resources/webson/getsysparams.json?v=` cat now
+    render GetSysParamsWebson in MainPanel
+
+    attach GetMACButton to `button-getmac`
+    attach GetPasswordButton to `button-getpassword`
+    attach GetNameButton to `button-getname`
+    attach GetRequestButton to `button-getrequest`
+    attach CancelButton to `button-cancel`
+    attach HelpButton to `button-help`
+
+    on click GetMACButton
+    begin
+    	set Flag
+        go to GetMAC
+    end
+
+    on click GetPasswordButton
+    begin
+    	set Flag
+        go to GetPassword
+    end
+
+    on click GetNameButton
+    begin
+    	set Flag
+        go to GetSystemName
+    end
+
+    on click GetRequestButton
+    begin
+    	set Flag
+        go to GetRequestRelay
+    end
+
+    on click HelpButton
+    begin
+        put `home` into SID
+        put `content` into TID
+      	go to RunHelp
+    end
+
+    on click CancelButton
+    begin
+    	clear MainPanel
+        clear Blocked
+        set Redraw
+        stop
+    end
+	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Ask the user for the MAC address
@@ -730,6 +793,7 @@ GetSystemName:
     begin
     	clear MainPanel
         clear Blocked
+        set Redraw
         stop
     end
     on click HelpButton
@@ -744,6 +808,49 @@ GetSystemName:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Ask the user for the system request relay
+GetRequestRelay:
+	set Blocked
+    clear MainPanel
+    if GetNameWebson is empty
+        rest get GetNameWebson from `/resources/webson/getrequest.json?v=` cat now
+    render GetNameWebson in MainPanel
+    attach Input to `getrequest-input`
+    attach OKButton to `getrequest-ok`
+    attach CancelButton to `getrequest-cancel`
+    attach HelpButton to `getrequest-help`
+    put property `request` of Map into RequestIP
+    if RequestIP is `undefined` put empty into RequestIP
+    if Flag set the content of Input to RequestIP
+    else set style `display` of CancelButton to `none`
+    on click OKButton
+    begin
+    	put the content of Input into RequestIP
+        clear MainPanel
+        set Redraw
+        clear Blocked
+        set property `request` of Map to RequestIP
+        go to PostMap
+    end
+    on click CancelButton
+    begin
+    	clear MainPanel
+        clear Blocked
+        set Redraw
+        stop
+    end
+    on click HelpButton
+    begin
+        clear MainPanel
+    	set style `display` of OuterPanel to `none`
+      	set style `display` of HelpPanel to `block`
+    	put `home` into SID
+        put `Request` into TID
+        go to RunHelp
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Deal with the main hamburger menu
 ShowMenu:
 	set Blocked
@@ -753,14 +860,14 @@ ShowMenu:
     	rest get MainMenuWebson from `/resources/webson/mainmenu.json?v=` cat now
     render MainMenuWebson in MainPanel
     attach AddRoomButton to `button-add`
-    attach GetMACButton to `button-getmac`
-    attach GetPasswordButton to `button-getpassword`
-    attach GetNameButton to `button-getname`
+    attach GetSysParamsButton to `button-getsysparams`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
     attach EvaluateButton to `button-evaluate`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
+    
+    on click GetSysParamsButton go to GetSystemParameters
 
     on click AddRoomButton
     begin
@@ -773,24 +880,6 @@ ShowMenu:
         clear Blocked
         set Redraw
     	stop
-    end
-
-    on click GetMACButton
-    begin
-    	set Flag
-        go to GetMAC
-    end
-
-    on click GetPasswordButton
-    begin
-    	set Flag
-        go to GetPassword
-    end
-
-    on click GetNameButton
-    begin
-    	set Flag
-        go to GetSystemName
     end
 
     on click BackupButton go to Backup

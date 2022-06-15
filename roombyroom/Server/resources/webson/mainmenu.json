@@ -5,7 +5,7 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$GetMAC", "$GetPassword", "$GetName", "$Pad", "$Add", "$Pad", "$Backup", "$Restore", "$Pad",
+    "#": ["$GetSysParams", "$Pad", "$Add", "$Pad", "$Backup", "$Restore", "$Pad",
         "$Evaluate", "$Pad", "$Help", "$Cancel"],
     
     "$Add": {
@@ -14,21 +14,9 @@
         "#": "$Button"
     },
 
-    "$GetMAC": {
-        "$ID": "button-getmac",
-        "$Label": "Set MAC Address",
-        "#": "$Button"
-    },
-
-    "$GetPassword": {
-        "$ID": "button-getpassword",
-        "$Label": "Set System Password",
-        "#": "$Button"
-    },
-
-    "$GetName": {
-        "$ID": "button-getname",
-        "$Label": "Set System Name",
+    "$GetSysParams": {
+        "$ID": "button-getsysparams",
+        "$Label": "Set System Parameters",
         "#": "$Button"
     },
 

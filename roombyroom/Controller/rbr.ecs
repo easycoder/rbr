@@ -33,6 +33,8 @@
 	variable Password
 	variable Advance
 	variable Boost
+	variable RequestCount
+	variable RequestIP
 	variable E
 	variable L
 	variable R
@@ -104,12 +106,19 @@ ProcessMap:
 	put the count of Rooms into RoomCount
 	if RoomCount is 0 print `No rooms have been added`
 	else print `Processing ` cat RoomCount cat ` rooms`
+	put 0 into RequestCount
     put 0 into RoomNumber
     while RoomNumber is less than RoomCount
     begin
         put element RoomNumber of Rooms into Room
         gosub to ProcessRoom
         add 1 to RoomNumber
+    end
+    if RequestCount is not 0
+    begin
+        put property `request` of Map into RequestIP
+        if RequestIP is 0 post to `http://` cat RequestIP cat `/relay/0?turn=off`
+        else post to `http://` cat RequestIP cat `/relay/0?turn=on`
     end
 
 !   Confirm the message
@@ -162,6 +171,7 @@ ProcessMap:
 !   Process a single room
 ProcessRoom:
     put property `name` of Room into RoomName
+    if RoomName is `Front Room` print RoomName
     put property `sensor` of Room into Sensor
     ! Make sure this room is in the 'advance' file
     if property Sensor of Advance is empty
@@ -234,13 +244,13 @@ PR2:
 		put element E of Events into Event
 		put property `until` of Event into Until
 		put the timestamp of Until format `%H:%M` into Boundary
-		put now into Now
-!        print RoomName cat `: ` cat E cat ` ` cat Now cat ` ` cat Boundary cat ` ` cat Until
+		put the timestamp into Now
+!        if RoomName is `Front room` print E cat ` ` cat Now cat ` ` cat Boundary cat ` ` cat Until
 		! Check if this is the right time segment
 		if Now is less than Boundary
 		begin
             ! We've found the current time segment
-!            print `Found the right segment`
+!            if RoomName is `Front room` print `Found the right segment`
             go to TurnOnOrOff
 		end
 		else
@@ -294,6 +304,7 @@ TurnOff:
 	go to SetRelays
 
 TurnOn:
+    add 1 to RequestCount
 	put `on` into Turn
 
 SetRelays:
