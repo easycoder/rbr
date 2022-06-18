@@ -1,50 +1,51 @@
-!	RBR Controller script for Python/EasyCoder
+
+!    RBR Controller script for Python/EasyCoder
 
 !   This script manages the local harware - sensors and relays - to act
 !   in accordance with the rules in the system map.
 
-	file File
-	variable Path
-	variable Server
-	variable RepeatCount
-	variable Map
-	variable NewMap
-	variable Rooms
-	variable Room
-	variable RoomNumber
-	variable RoomName
-	variable Mode
-	variable Sensors
-	variable Sensor
-	variable Relays
-	variable Relay
-	variable Temperature
-	variable SensorData
-	variable RoomCount
-	variable Events
-	variable Event
-	variable Until
-	variable Target
-	variable SensorValues
-	variable Now
-	variable Boundary
-	variable Turn
-	variable MAC
-	variable Password
-	variable Advance
-	variable Boost
-	variable RequestCount
-	variable RequestIP
-	variable E
-	variable L
-	variable R
-	variable M1
-	variable M2
+    file File
+    variable Path
+    variable Server
+    variable RepeatCount
+    variable Map
+    variable NewMap
+    variable Rooms
+    variable Room
+    variable RoomNumber
+    variable RoomName
+    variable Mode
+    variable Sensors
+    variable Sensor
+    variable Relays
+    variable Relay
+    variable Temperature
+    variable SensorData
+    variable RoomCount
+    variable Events
+    variable Event
+    variable Until
+    variable Target
+    variable SensorValues
+    variable Now
+    variable Boundary
+    variable Turn
+    variable MAC
+    variable Password
+    variable Advance
+    variable Boost
+    variable RequestCount
+    variable RequestIP
+    variable E
+    variable L
+    variable R
+    variable M1
+    variable M2
 
-	script RBR
-!	debug step
+    script RBR
+!    debug step
 
-!	put `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py` into Path
+!    put `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py` into Path
     put `https://rbr.easycoder.software/resources/php/rest.php` into Server
 !    put `https://rbrcontrol.com/rest.php` into Server
     put `.` into Path
@@ -102,11 +103,11 @@ ProcessMap:
 !    print Map
     put json Map into Map
     put property `rooms` of Map into Rooms
-	put json `{}` into SensorData
-	put the count of Rooms into RoomCount
-	if RoomCount is 0 print `No rooms have been added`
-	else print `Processing ` cat RoomCount cat ` rooms`
-	put 0 into RequestCount
+    put json `{}` into SensorData
+    put the count of Rooms into RoomCount
+    if RoomCount is 0 print `No rooms have been added`
+    else print `Processing ` cat RoomCount cat ` rooms`
+    put 0 into RequestCount
     put 0 into RoomNumber
     while RoomNumber is less than RoomCount
     begin
@@ -114,11 +115,13 @@ ProcessMap:
         gosub to ProcessRoom
         add 1 to RoomNumber
     end
-    if RequestCount is not 0
+    put property `request` of Map into RequestIP
+    if RequestIP is not empty
     begin
-        put property `request` of Map into RequestIP
-        if RequestIP is 0 post to `http://` cat RequestIP cat `/relay/0?turn=off`
-        else post to `http://` cat RequestIP cat `/relay/0?turn=on`
+        if RequestCount is 0 put `off` into Turn
+        else put `on` into Turn
+        post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
+        print `Request ` cat Turn
     end
 
 !   Confirm the message
@@ -131,8 +134,8 @@ ProcessMap:
         open File Path cat `/password` for reading
         read Password from File
         close File
-		put stringify SensorData into Sensors
-!		print `Sensors: ` cat Sensors
+        put stringify SensorData into Sensors
+!        print `Sensors: ` cat Sensors
         get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
 !        print `NewMap: ` cat NewMap
         put json NewMap into NewMap
@@ -165,7 +168,7 @@ ProcessMap:
         wait 10 seconds
         go to Start
     end
-	exit
+    exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
@@ -182,20 +185,20 @@ ProcessRoom:
         close File
     end
 
-	put property `sensor` of Room into  Sensor
-	if Sensor is empty return
-	if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
-	return
+    put property `sensor` of Room into  Sensor
+    if Sensor is empty return
+    if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
+    return
 
 PR2:
-	open File Path cat `/sensors/` cat Sensor cat `.txt` for reading
-	read SensorValues from File
-	close File
-	put json SensorValues into SensorValues
-	put float property `temperature` of SensorValues into Temperature
-	put property `relays` of Room into Relays
-	put property `events` of Room into Events
-	take 1 from the length of Events giving L
+    open File Path cat `/sensors/` cat Sensor cat `.txt` for reading
+    read SensorValues from File
+    close File
+    put json SensorValues into SensorValues
+    put float property `temperature` of SensorValues into Temperature
+    put property `relays` of Room into Relays
+    put property `events` of Room into Events
+    take 1 from the length of Events giving L
 
     ! Deal with mode requests
     put property `mode` of Room into Mode
@@ -236,35 +239,35 @@ PR2:
         go to TurnOff
     end
 
-	! Timed mode. Check each of the events
+    ! Timed mode. Check each of the events
     put `timed` into Mode
-	put 0 into E
-	while E is less than the length of Events
-	begin
-		put element E of Events into Event
-		put property `until` of Event into Until
-		put the timestamp of Until format `%H:%M` into Boundary
-		put the timestamp into Now
+    put 0 into E
+    while E is less than the length of Events
+    begin
+        put element E of Events into Event
+        put property `until` of Event into Until
+        put the timestamp of Until format `%H:%M` into Boundary
+        put the timestamp into Now
 !        if RoomName is `Front room` print E cat ` ` cat Now cat ` ` cat Boundary cat ` ` cat Until
-		! Check if this is the right time segment
-		if Now is less than Boundary
-		begin
+        ! Check if this is the right time segment
+        if Now is less than Boundary
+        begin
             ! We've found the current time segment
 !            if RoomName is `Front room` print `Found the right segment`
             go to TurnOnOrOff
-		end
-		else
-		begin
+        end
+        else
+        begin
             if E is L
             begin
                 ! We've gone past the last time segment so use the first
                 put 0 into E
                 go to TurnOnOrOff
             end
-		end
-		add 1 to E
-	end
-	return
+        end
+        add 1 to E
+    end
+    return
 
 TurnOnOrOff:
     ! If we are at the 'advance' period, cancel the advance
@@ -278,7 +281,7 @@ TurnOnOrOff:
         if Password is not empty post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat RoomNumber
     end
 
-	! If advance is requested, use the next event
+    ! If advance is requested, use the next event
     if property `advance` of Room is `A`
     begin
         add 1 to E
@@ -300,30 +303,30 @@ TurnOnOrOff:
     if Temperature is less than Target go to TurnOn
 
 TurnOff:
-	put `off` into Turn
-	go to SetRelays
+    put `off` into Turn
+    go to SetRelays
 
 TurnOn:
     add 1 to RequestCount
-	put `on` into Turn
+    put `on` into Turn
 
 SetRelays:
     print Sensor cat ` ` cat Turn
-	put 0 into R
-	while R is less than the count of Relays
-	begin
-		put element R of Relays into Relay
-		if Relay is not empty
-		begin
+    put 0 into R
+    while R is less than the count of Relays
+    begin
+        put element R of Relays into Relay
+        if Relay is not empty
+        begin
 !            print `http://` cat Relay cat `/relay/0?turn=` cat Turn
             post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
         end
-		add 1 to R
-	end
-	if Mode is `boost`
-	begin
-!	debug step
-!	print SensorValues
+        add 1 to R
+    end
+    if Mode is `boost`
+    begin
+!    debug step
+!    print SensorValues
 !        put float property `target` of Room into Target
 !        put float now into Now
 !        print Now cat ` ` cat Target
@@ -337,6 +340,7 @@ SetRelays:
 !        add 1 to Target
 !        set property `boost` of SensorValues to Target
     end
-	set property `relay` of SensorValues to Turn
-	set property Sensor of SensorData to SensorValues
-	return
+    set property `relay` of SensorValues to Turn
+    set property Sensor of SensorData to SensorValues
+    return
+
