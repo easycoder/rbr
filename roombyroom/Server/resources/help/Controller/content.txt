@@ -4,7 +4,7 @@ This can be any computer able to run Python. In practice, the demands made upon 
 
 The cheapest Pi machines do not have WiFi but the best place to locate the device is next to your internet router, so an Ethernet cable connection is more practical.
 
-To set up the controller, download the [Raspbian headless distribution](https://www.raspberrypi.org/downloads/raspbian/) to your computer and install it on a suitable SD card (8GB or more). For this you will need software such as Etcher to write the downloaded file to the card. Having done this, remove then reinsert the card in your computer and you should see 2 partitions on the card, called `boot` and `rootfs`. The first of these is a small boot partition. Add an empty file called `ssh` (with no extension) at the top level.
+To set up the controller, download the [Raspbian headless distribution](https://www.raspberrypi.org/downloads/raspbian/) to your computer and install it on a suitable SD card (8GB or more). For this you will need software such as Etcher to write the downloaded file to the card. Having done this, remove then reinsert the card in your computer, open your file manager and you should see 2 partitions on the card, called `boot` and `rootfs`. The first of these is a small boot partition. Add an empty file called `ssh` (with no extension) at the top level.
 
 The second, much larger, partition, called `rootfs`, is where all your files will be. Copy the distribution files - the contents of the `roombyroom/Controller` folder in the [repository](https://github.com/easycoder/rbr) - into the `home/pi` folder on the card. Now eject the card, put it into the Pi and boot up.
 

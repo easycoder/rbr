@@ -98,13 +98,13 @@
     ! Webson specs
     variable MainScreenWebson
     variable MainMenuWebson
-    variable GetMacWebson
-    variable GetPasswordWebson
-    variable GetSysParamsWebson
-    variable GetNameWebson
-    variable GetRequestWebson
     variable RoomWebson
     variable RoomToolsMenuWebson
+    variable GetSysParamsWebson
+    variable GetMacWebson
+    variable GetPasswordWebson
+    variable GetNameWebson
+    variable GetRequestWebson
     variable TimedWebson
     variable BoostWebson
     variable OnWebson
@@ -171,13 +171,13 @@ Main:
     rest get HelpScript from `/resources/ecs/storyteller.ecs?v=` cat now
 
     put empty into MainMenuWebson
-	put empty into GetMacWebson
-	put empty into GetPasswordWebson
-	put empty into GetSysParamsWebson
-	put empty into GetNameWebson
-	put empty into GetRequestWebson
     put empty into RoomWebson
     put empty into RoomToolsMenuWebson
+    put empty into GetSysParamsWebson
+    put empty into GetMacWebson
+    put empty into GetPasswordWebson
+    put empty into GetNameWebson
+    put empty into GetRequestWebson
     put empty into TimedWebson
     put empty into OnWebson
     put empty into OffWebson
@@ -741,14 +741,16 @@ GetPassword:
         	put Password into storage as `password`
             clear MainPanel
             clear Blocked
+        	set Redraw
             stop
         end
     end
     on click CancelButton
     begin
-    	put empty into storage as `MAC`
+!    	put empty into storage as `MAC`
     	clear MainPanel
         clear Blocked
+        set Redraw
         stop
     end
     on click HelpButton
@@ -812,9 +814,9 @@ GetSystemName:
 GetRequestRelay:
 	set Blocked
     clear MainPanel
-    if GetNameWebson is empty
-        rest get GetNameWebson from `/resources/webson/getrequest.json?v=` cat now
-    render GetNameWebson in MainPanel
+    if GetRequestWebson is empty
+        rest get GetRequestWebson from `/resources/webson/getrequest.json?v=` cat now
+    render GetRequestWebson in MainPanel
     attach Input to `getrequest-input`
     attach OKButton to `getrequest-ok`
     attach CancelButton to `getrequest-cancel`
@@ -1006,7 +1008,8 @@ PostMap:
    		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
    		or begin
             add 1 to ErrorCount
-            if ErrorCount is greater than 9 alert `A series of errors have occurred`
+            if ErrorCount is greater than 9 alert `A series of errors have occurred. `
+            	cat newline cat `A common cause is having the wrong password.`
             continue
         end
    		put 0 into ErrorCount

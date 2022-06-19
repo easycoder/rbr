@@ -3,7 +3,7 @@
 ~img:roomkit.jpg:50% center~
 This is a room kit. It comprises a radiator valve actuator, on the right of the photo, powered from a box containing a wifi-controlled relay. It can turn on and off a radiator or any other plumbed item with a 30mm screw fitting. The relay can switch up to 16 amps so the actuator can be replaced by direct resistance heating (e.g an electric fire) up to that rating. In the upper left of the photo is a wifi thermometer module.
 
-You can equip as many rooms as you like with room kits. If you wish you leave some rooms controlled by conventional thermostatic actuators this is no problem. This allows you to evaluate RBR on a room by room basis without the need to splash out on a complete system right at the start.
+You can equip as many rooms as you like with room kits. If you wish to leave some rooms controlled by conventional thermostatic actuators, this is no problem. It allows you to evaluate RBR on a room by room basis without the need to splash out on a complete system right at the start.
 
 To set up a relay, power it up then go to the wifi access screen on your computer. In the list of nearby hotspots you will see one with a name starting with `shelly`. Choose this one. No password is needed as this is just a temporary step. Then put the address `http://192.168.33.1` into your browser and the following screen should appear:
 ~img:shelly01.jpg:50% center~

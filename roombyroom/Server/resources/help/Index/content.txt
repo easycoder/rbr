@@ -33,7 +33,7 @@ This is a list of all the pages in the Help system.The pages link to each other 
   - Room kits
     - ~stid:RoomKit/content:About room kits~
 
-  - The user interface
-    - ~stid:UI/content:About the user interface software~
-    - ~stid:UI/EasyCoder:About EasyCoder~
-    - ~stid:UI/EasyCoderAndRBR:The RBR EasyCoder scripts~
+  - Technical stuff
+    - ~stid:Technical/content:About the software~
+    - ~stid:Technical/EasyCoder:About EasyCoder~
+    - ~stid:Technical/EasyCoderAndRBR:The RBR EasyCoder scripts~
