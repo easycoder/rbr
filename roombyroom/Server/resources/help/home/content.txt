@@ -16,7 +16,7 @@ Here's a screenshot of the user interface running on a smartphone. Tap the image
 ~img:uisample.jpg:center 30%~
 ~clear~
 
-All enquiries should initially be made by email to info@rbrcontrol.com. For any programmers who may be interested, all the software is in a GitHub repository at [https://github.com/easycoder/rbr](https://github.com/easycoder/rbr).
+All enquiries should initially be made by email to [info@rbrcontrol.com](mailto:info@rbrcontrol.com). For any programmers who may be interested, all the software is in a GitHub repository at [https://github.com/easycoder/rbr](https://github.com/easycoder/rbr).
 
 ~tid:Intro:General introduction~
 
