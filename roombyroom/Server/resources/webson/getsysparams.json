@@ -8,25 +8,25 @@
 
     "$GetMAC": {
         "$ID": "button-getmac",
-        "$Label": "Set MAC Address",
+        "$Label": "Set the MAC Address",
         "#": "$Button"
     },
 
     "$GetPassword": {
         "$ID": "button-getpassword",
-        "$Label": "Set System Password",
+        "$Label": "Set the system password",
         "#": "$Button"
     },
 
     "$GetName": {
         "$ID": "button-getname",
-        "$Label": "Specify the system name",
+        "$Label": "Set the system name",
         "#": "$Button"
     },
 
     "$GetRequest": {
         "$ID": "button-getrequest",
-        "$Label": "Specify the request relay",
+        "$Label": "Set the request relay",
         "#": "$Button"
     },
 

@@ -3,11 +3,7 @@
 ~img:mainmenu.jpg:50% center~
 This is the main system menu. Here you can set up a new system, add rooms, backup the configuration or restore it. You can also evaluate RBR without the need to buy any hardware or software.
 
-~tid:MAC:Set the MAC address~
-
-~tid:Password:Set the system password~
-
-~tid:Name:Set the system name~
+~tid:SysParamsMenu:Set system parameters~
 
 ~tid:AddRoom:Add a room~
 

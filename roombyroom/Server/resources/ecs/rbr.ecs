@@ -648,7 +648,7 @@ GetSystemParameters:
     on click HelpButton
     begin
         put `home` into SID
-        put `content` into TID
+        put `SysParamsMenu` into TID
       	go to RunHelp
     end
 
@@ -898,7 +898,7 @@ ShowMenu:
     on click HelpButton
     begin
         put `home` into SID
-        put `content` into TID
+        put `MainMenu` into TID
       	go to RunHelp
     end
 
