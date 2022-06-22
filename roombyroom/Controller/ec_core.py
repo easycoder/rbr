@@ -405,6 +405,28 @@ class Core(Handler):
         symbolRecord['index'] = self.getRuntimeValue(command['value'])
         return self.nextPC()
 
+    def k_input(self, command):
+        # get the variable
+        if self.nextIsSymbol():
+            command['target'] = self.getToken()
+            command['prompt'] = ': '
+            if self.peek() == 'with':
+                self.nextToken()
+                command['prompt'] = self.nextValue()
+            self.add(command)
+            return True
+        return False
+
+    def r_input(self, command):
+        symbolRecord = self.getVariable(command['target'])
+        prompt = command['prompt']['content']
+        value = {}
+        value['type'] = 'text'
+        value['numeric'] = False
+        value['content'] = prompt+input(prompt)
+        self.putSymbolValue(symbolRecord, value)
+        return self.nextPC()
+
     def k_multiply(self, command):
         # Get the (first) value
         command['value1'] = self.nextValue()
@@ -620,6 +642,33 @@ class Core(Handler):
             value['numeric'] = False
             value['content'] = content
             self.putSymbolValue(symbolRecord, value)
+        return self.nextPC()
+
+    def k_replace(self, command):
+        original = self.nextValue()
+        if self.nextIs('with'):
+            replacement = self.nextValue()
+            if self.nextIs('in'):
+                if self.nextIsSymbol():
+                    templateRecord = self.getSymbolRecord()
+                    command['original'] = original
+                    command['replacement'] = replacement
+                    command['target'] = templateRecord['name']
+                    self.add(command)
+                    return True
+        return False
+
+    def r_replace(self, command):
+        templateRecord = self.getVariable(command['target'])
+        content = self.getSymbolValue(templateRecord)['content']
+        original = self.getRuntimeValue(command['original'])
+        replacement = self.getRuntimeValue(command['replacement'])
+        content = content.replace(original, replacement)
+        value = {}
+        value['type'] = 'text'
+        value['numeric'] = False
+        value['content'] = content
+        self.putSymbolValue(templateRecord, value)
         return self.nextPC()
 
     def k_return(self, command):
