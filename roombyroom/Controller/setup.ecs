@@ -1,0 +1,50 @@
+!   getip.ecs
+
+!   This script gets the IP address from the user
+
+    script GetIP
+
+    file File
+    variable Network
+    variable Template
+    variable IP
+
+    print `Please choose Ethernet or Wifi by typing e or w:`
+    input Network
+    open File `init.template` for reading
+    read Template from File
+    close File
+    if Network is `: e` put `eth0` into Network else put `wlan0` into Network
+    replace `/NETWORK/` with Network in Template
+
+    open File  `init` for writing
+    write Template to File
+    close File
+
+    open File `dhcpcd.template` for reading
+    read Template from File
+    close File
+    replace `!NETWORK!` with Network in Template
+
+    print `Please complete the IP address of the system controller:`
+    input IP with `192.168.`
+    print IP
+
+    replace `192.168.!STATIC_IP!` with IP in Template
+
+    print `Please complete the IP address of the router:`
+    input IP with `192.168.`
+    print IP
+
+    replace `192.168.!STATIC_ROUTER!` with IP in Template
+
+    print `Please complete the IP address of the DNS server:`
+    input IP with `192.168.`
+    print IP
+
+    replace `192.168.!STATIC_DNS!` with IP in Template
+
+    open File  `/etc/dhcpcd.conf` for writing
+    write Template to File
+    close File
+    exit

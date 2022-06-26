@@ -20,7 +20,7 @@ def index():
             ts = round(time.time())
             temp = round(float(temp), 1)
 #            print(f'hum={hum}, temp={temp}, source={source}, ts={ts}')
-            dir = f'/home/pi/sensors'
+            dir = f'/home/rbr/sensors'
             if not os.path.exists(f'{dir}'):
                 os.makedirs(f'{dir}')
             file = open(f'{dir}/{source}.txt', 'w')
@@ -36,7 +36,7 @@ def index():
 # Initialization
 
 if __name__ == '__main__':
-    file = open('/home/pi/ip', 'r')
+    file = open('/home/rbr/ip', 'r')
     ip = file.read()
     file.close()
     p = ip.rfind('.')

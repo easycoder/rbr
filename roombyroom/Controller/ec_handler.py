@@ -43,11 +43,8 @@ class Handler:
 
 	# Get a compile handler (raises an Exception if none)
 	def keywordHandler(self, name):
-		print(f'k_{name}')
 		if hasattr(self, f'k_{name}'):
-			print('OK')
 			return getattr(self, f'k_{name}')
-		print('Does not exist')
 		return None
 
 	# Get a run handler

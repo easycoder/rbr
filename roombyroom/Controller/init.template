@@ -3,5 +3,5 @@
 cd /home/pi
 rm config map
 /usr/sbin/ip address >> config
-python easycoder.py getaddr-wlan0.ecs
+python easycoder.py getaddr-/NETWORK/.ecs
 python rbr.py &
