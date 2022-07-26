@@ -4,7 +4,8 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Title", "$Name", "$Sensor", "$Relays", "$Times", "$Pad", "$Save", "$Cancel", "$Pad", "$Help"],
+    "#": ["$Title", "$Name", "$Sensor", "$Relays",
+        "$Times", "$Pad", "$Save", "$Cancel", "$Pad", "$Help"],
 
     "$Title": {
         "#element": "div",

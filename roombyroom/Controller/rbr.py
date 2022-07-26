@@ -36,7 +36,7 @@ def index():
 # Initialization
 
 if __name__ == '__main__':
-    file = open('/home/rbr/ip', 'r')
+    file = open('/home/pi/ip', 'r')
     ip = file.read()
     file.close()
     p = ip.rfind('.')

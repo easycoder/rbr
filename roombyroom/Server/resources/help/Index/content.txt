@@ -28,10 +28,10 @@ This is a list of all the pages in the Help system.The pages link to each other 
     - ~stid:home/Welcome:The initial welcome page~
 
   - The system controller
-    - ~stid:Controller/content:About the system controller~
+    - ~stid:Controller/content:The system controller~
 
   - Room kits
-    - ~stid:RoomKit/content:About room kits~
+    - ~stid:RoomKit/content:Room kits~
 
   - Technical stuff
     - ~stid:Technical/content:About the software~

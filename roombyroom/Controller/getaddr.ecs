@@ -11,7 +11,6 @@
 
 !    debug step
 
-! 	put `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py` into Path
 	put `.` into Path
 
 	put empty into IP
@@ -26,7 +25,7 @@
         add 1 to P
         put from P of Line into Line
         put the position of ` ` in Line into P
-        if  left P of Line is `eth0:` go to Loop2
+        if  left P of Line is `wlan0:` go to Loop2
     end
 
 Loop2:

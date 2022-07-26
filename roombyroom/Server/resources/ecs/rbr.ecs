@@ -35,6 +35,7 @@
     button CancelButton
     button BackupButton
     button RestoreButton
+    button WelcomeButton
     button EvaluateButton
     button HelpButton
     button DialogButton1
@@ -415,11 +416,19 @@ GetMap:
                 else set property `alive` of RoomData to `true`
             end
             set property `room-` cat RoomIndex of StaticData to RoomData
-            put property `temperature` of SensorSpec into Temperature
-            set the content of RoomTempPanel to Temperature cat `&deg;C`
-            put property `relay` of SensorSpec into RelayState
-            if RelayState is `on` set style `background` of RoomTempPanel to `red`
-            else set style `background` of RoomTempPanel to `blue`
+            if property `alive` of RoomData is `true`
+            begin
+                put property `temperature` of SensorSpec into Temperature
+            	set the content of RoomTempPanel to Temperature cat `&deg;C`
+            	put property `relay` of SensorSpec into RelayState
+            	if RelayState is `on` set style `background` of RoomTempPanel to `red`
+            	else set style `background` of RoomTempPanel to `blue`
+            end
+            else
+            begin
+            	set the content of RoomTempPanel to empty
+                set style `background` of RoomTempPanel to `blue`
+            end
         end
 
         ! Get the mode
@@ -865,6 +874,7 @@ ShowMenu:
     attach GetSysParamsButton to `button-getsysparams`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
+    attach WelcomeButton to `button-welcome`
     attach EvaluateButton to `button-evaluate`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
@@ -887,6 +897,13 @@ ShowMenu:
     on click BackupButton go to Backup
 
     on click RestoreButton go to Restore
+
+    on click WelcomeButton
+    begin
+        put `home` into SID
+        put `Welcome` into TID
+      	go to RunHelp
+    end
 
     on click EvaluateButton
     begin
@@ -921,10 +938,9 @@ RoomTools:
     if RoomToolsMenuWebson is empty
     	rest get RoomToolsMenuWebson from `/resources/webson/roomtoolsmenu.json?v=` cat now
     render RoomToolsMenuWebson in MainPanel
-!    put property `rooms` of Map into Rooms
     put empty into Result
     rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
-    run Script with MainPanel and Map and ClickIndex and Result
+    run Script with MainPanel and Map and Sensors and ClickIndex and Result
     go to ProcessResult
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

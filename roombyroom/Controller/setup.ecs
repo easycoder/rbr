@@ -9,42 +9,50 @@
     variable Template
     variable IP
 
-    print `Please choose Ethernet or Wifi by typing e or w:`
-    input Network
-    open File `init.template` for reading
-    read Template from File
-    close File
-    if Network is `: e` put `eth0` into Network else put `wlan0` into Network
-    replace `/NETWORK/` with Network in Template
+!    print `Please choose Ethernet or Wifi by typing e or w:`
+!    input Network
+!    open File `init.template` for reading
+!    read Template from File
+!    close File
+!    if Network is `: e` put `eth0` into Network else put `wlan0` into Network
+!    replace `/NETWORK/` with Network in Template
+    put `wlan0` into Network
 
-    open File  `init` for writing
-    write Template to File
-    close File
+!    open File  `init` for writing
+!    write Template to File
+!    close File
 
     open File `dhcpcd.template` for reading
     read Template from File
     close File
     replace `!NETWORK!` with Network in Template
 
-    print `Please complete the IP address of the system controller:`
+    print ``
+    print `That's all the system configuration and updates done.`
+    print `Now I need to get the details of your wifi interface.`
+    print ``
+
+    print `Please complete the IP address you wish to use for your system controller:`
     input IP with `192.168.`
     print IP
 
     replace `192.168.!STATIC_IP!` with IP in Template
 
-    print `Please complete the IP address of the router:`
+    print `Please complete the IP address of your internet router:`
     input IP with `192.168.`
     print IP
 
     replace `192.168.!STATIC_ROUTER!` with IP in Template
 
-    print `Please complete the IP address of the DNS server:`
-    input IP with `192.168.`
-    print IP
+    print `Please give the full IP address of the DNS server.`
+    print `This may be the same as the router, but in some cases it is not.`
+    print `For Virgin Media Hubs, try 194.168.4.100`
+    input IP
 
     replace `192.168.!STATIC_DNS!` with IP in Template
 
     open File  `/etc/dhcpcd.conf` for writing
     write Template to File
     close File
+    print `That's all the setup completed - your controller will now reboot.`
     exit

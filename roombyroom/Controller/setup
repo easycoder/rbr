@@ -1,0 +1,10 @@
+#!/bin/sh
+
+sudo apt update
+sudo apt -y full-upgrade
+sudo apt install -y pip
+pip install pytz bottle
+sudo cp pi.cron /var/spool/cron/crontabs/pi
+sudo service cron start
+python easycoder.py setup.ecs
+sudo reboot

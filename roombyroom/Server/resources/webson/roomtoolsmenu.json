@@ -4,7 +4,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$Name", "$Up", "$Down", "$Pad", "$Edit", "$Delete", "$Pad", "$Help", "$Cancel"],
+    "#": ["$Name", "$Up", "$Down", "$Pad", "$Edit", "$Delete", "$Pad", "$Info", "$Pad", "$Help", "$Cancel"],
 
     "$Name": {
         "#element": "div",
@@ -37,6 +37,12 @@
     "$Delete": {
         "$ID": "button-delete",
         "$Label": "Delete this room",
+        "#": "$Button"
+    },
+
+    "$Info": {
+        "$ID": "button-info",
+        "$Label": "Show room info",
         "#": "$Button"
     },
 

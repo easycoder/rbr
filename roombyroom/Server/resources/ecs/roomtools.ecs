@@ -4,6 +4,7 @@
     
     import div MainPanel
     	and variable Map
+        and variable Sensors
         and variable ClickIndex
         and variable Result
 
@@ -15,6 +16,7 @@
     button RoomDownButton
     button RoomEditButton
     button RoomDeleteButton
+    button RoomInfoButton
     button HelpButton
     button CancelButton
     button DialogButton1
@@ -40,6 +42,7 @@ Editor:
     attach RoomDownButton to `button-down`
     attach RoomEditButton to `button-edit`
     attach RoomDeleteButton to `button-delete`
+    attach RoomInfoButton to `button-info`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
 
@@ -128,23 +131,40 @@ Editor:
         end
     end
     
+    on click RoomInfoButton
+    begin
+        attach DialogPanel to `dialog-panel`
+        rest get Webson from `/resources/webson/dialog-info.json?v=` cat now
+        render Webson in DialogPanel
+        attach DialogText to `dialog-text`
+        attach DialogButton1 to `dialog-okbutton`
+        set the content of DialogText to `Information about this room:<br><br>`
+            cat Sensors
+
+        on click DialogButton1
+        begin
+            clear DialogPanel
+            go to ExitWithoutChanges
+        end
+        stop
+    end
+
     on click HelpButton
     begin
-      	put `Help home RoomTools` into Result
-        exit
+    	put `Help home RoomTools` into Result
+    	exit
     end
-    
+
     on click CancelButton
     begin
     	if Changed
-        begin
-        	set element ClickIndex of Rooms to RoomSpec
+    	begin
+    		set element ClickIndex of Rooms to RoomSpec
     		set property `rooms` of Map to Rooms
-            go to ExitWithChanges
-        end
-        go to ExitWithoutChanges
+    		go to ExitWithChanges
+    	end
+    	go to ExitWithoutChanges
     end
-
     stop
 
 ExitWithoutChanges:

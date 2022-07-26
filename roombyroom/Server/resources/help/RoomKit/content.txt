@@ -5,6 +5,8 @@ This is a room kit. It comprises a radiator valve actuator, on the right of the 
 
 You can equip as many rooms as you like with room kits. If you wish to leave some rooms controlled by conventional thermostatic actuators, this is no problem. It allows you to evaluate RBR on a room by room basis without the need to splash out on a complete system right at the start.
 
+### Setting up a relay
+
 To set up a relay, power it up then go to the wifi access screen on your computer. In the list of nearby hotspots you will see one with a name starting with `shelly`. Choose this one. No password is needed as this is just a temporary step. Then put the address `http://192.168.33.1` into your browser and the following screen should appear:
 ~img:shelly01.jpg:50% center~
 Click the `Internet and Security` button and this screen will appear:
@@ -23,7 +25,15 @@ Your relay is now ready for use. You can test it by clicking the icon in the upp
 
 Once set up, the relay can always be accessed at its new address. If you want to use the relay in a different system, be sure to give it a "factory reset" first, or you may not be able to see it on the new system.
 
-A thermometer module is set up in much the same way, with a few extra settings that govern how the device will respond to changes of temperature and humidity, all of which are pretty well self-explanatory. One major difference, though, is that instead of the controller addressing the thermometer in the way it does for a relay, it's the thermometer that initiates an action by sending a message to the controller. So you need to specify in the settings the address and port number to which messages should be sent. To preserve battery life, the thermometer will only be visible on the local network if you push its reset button, allowing you a few minutes to connect to it and edit its settings before it goes offline again.
+### Setting up a thermometer
+
+A thermometer module is set up in much the same way, with a few extra settings that govern how the device will respond to changes of temperature and humidity, all of which are pretty well self-explanatory. One major difference, though, is that instead of the controller addressing the thermometer in the way it does for a relay, it's the thermometer that initiates an action by sending a message to the controller. So you need to specify in the settings where messages should be sent. The value to type in this field is
+```
+http://192.168.x.y:5555
+```
+where `x.y` are the last part of the IP address of your system controller.
+
+To preserve battery life, the thermometer will only be visible on the local network if you push its reset button, allowing you a few minutes to connect to it and edit its settings before it goes offline again.
 
 The default is for the thermometer to report changes of temperature, with a minimum difference of 1 degree, but to otherwise remain silent. Every 12 hours it will send a confirmatory message even if no temperature change has occurred. You can force it to send updates every 10 minutes by telling it there is a power supply attached, but if that's not really the case the battery life will be adversely affected.
 
