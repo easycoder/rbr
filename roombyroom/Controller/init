@@ -1,7 +1,0 @@
-#!/bin/sh
-
-cd /home/pi
-rm config map
-/usr/sbin/ip address >> config
-python easycoder.py getaddr.ecs
-python rbr.py &

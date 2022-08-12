@@ -1,2 +1,0 @@
-* * * * * /home/pi/run
-@reboot sleep 10 && /home/pi/init

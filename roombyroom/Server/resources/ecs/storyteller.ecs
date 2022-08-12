@@ -99,6 +99,7 @@
 
 !	View a record, given its Subject and Topic ids.
 ViewRecord:
+    print `Show ` cat SID cat `:` cat TID
 !	Get the content
     rest get Topic from Stories cat SID cat `/` cat TID cat `.txt?v=` cat now
     or begin

@@ -12,6 +12,7 @@ app = Bottle()
 # Called when temperature changes
 @app.get('/')
 def index():
+    print(query)
     try:
         source = request.get("REMOTE_ADDR")
         hum = request.query.hum
@@ -36,9 +37,13 @@ def index():
 # Initialization
 
 if __name__ == '__main__':
+#    app.run(host='192.168.0.98', port=5555, debug=False)
     file = open('/home/pi/ip', 'r')
-    ip = file.read()
+    ip = file.read().strip()
     file.close()
-    p = ip.rfind('.')
+    print(f'rbr.py: IP address = {ip}')
+    if ip != '':
+        app.run(host=f'{ip}', port=5555, debug=False)
+    else:
+        print('rbr.py: No IP address found')
 
-    app.run(host=f'{ip}', port=5555, debug=False)

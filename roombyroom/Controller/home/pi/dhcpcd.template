@@ -1,0 +1,14 @@
+hostname
+clientid
+persistent
+option rapid_commit
+option interface_mtu
+#option ntp_servers
+require dhcp_server_identifier
+slaac private
+
+# Static IP configuration:
+interface !LAN!
+static ip_address=192.168.!STATIC_IP!/24
+static routers=192.168.!STATIC_ROUTER!
+static domain_name_servers=8.8.8.8

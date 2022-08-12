@@ -57,6 +57,7 @@
     open File Path cat `/mac` for reading
     read MAC from File
     close File
+    print `MAC: ` cat MAC
 
     ! Ask the server for our password
     get Password from Server cat `/register/` cat MAC cat `?v=` cat now

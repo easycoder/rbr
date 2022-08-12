@@ -1,0 +1,4 @@
+!   wait.ecs
+
+    wait 10 seconds
+    exit

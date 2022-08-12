@@ -1,0 +1,36 @@
+!   setup.ecs
+
+!   This script sets up networking
+
+    script Setup
+
+    file File
+    variable Template
+    variable MyIP
+    variable RouterIP
+
+!   Customize dhcpcd.conf
+
+    print `-------------------------------------------------------`
+    print `I need to get the details of your ethernet interface.`
+    print ``
+
+    open File `dhcpcd.template` for reading
+    read Template from File
+    close File
+
+    replace `!LAN!` with `eth0` in Template
+
+    print `Please complete the IP address you wish to use for your system controller:`
+    input MyIP with `192.168.`
+    replace `192.168.!STATIC_IP!` with MyIP in Template
+
+    print `Please complete the IP address of your internet router:`
+    input RouterIP with `192.168.`
+    replace `192.168.!STATIC_ROUTER!` with RouterIP in Template
+
+    open File  `dhcpcd.conf` for writing
+    write Template to File
+    close File
+    print `That's all the setup completed - your controller will now reboot as ` cat MyIP cat `.`
+    exit

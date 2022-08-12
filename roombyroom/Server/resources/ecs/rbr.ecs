@@ -915,7 +915,7 @@ ShowMenu:
     on click HelpButton
     begin
         put `home` into SID
-        put `MainMenu` into TID
+        put `content` into TID
       	go to RunHelp
     end
 
