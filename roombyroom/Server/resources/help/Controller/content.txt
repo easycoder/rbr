@@ -69,11 +69,12 @@ Now type
 ```
 This will cause the system to update itself and may well take quite a long time (tens of minutes).
 
-Next, type
+The next step is to set up networking. There are 2 options, depending if you want to use Ethernet or Wifi. As noted above, the low-cost Pi Model B+ is best used with a direct Ethernet connection to the router. Type one of the following commands:
 ```
-./setup.sh
+./setup-eth0.sh
+./setup.wlan0.sh
 ```
-The system will ask you some questions regarding your WiFi settings. Once this is done the Pi will reboot automatically and you will have to log in again, this time using your chosen IP address.
+The system will ask you a couple of questions regarding your network settings. Once this is done the Pi will reboot automatically and you will have to log in again, this time using the IP address you gave for the first question.
 
 Although the questions are very simple, take care or you may put the system firmware into a state from which you will be unable to recover. The worst case would require you to reprogram the SD card and start again. If you are unsure what to type at any point, [email us](mailto:info@rbrsoftware.com) to ask for help. You can abandon the setup at any point; simply power down the controller.
 

@@ -426,7 +426,7 @@ GetMap:
             end
             else
             begin
-            	set the content of RoomTempPanel to empty
+            	set the content of RoomTempPanel to `--.-&deg;C`
                 set style `background` of RoomTempPanel to `blue`
             end
         end
