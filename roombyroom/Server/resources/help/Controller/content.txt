@@ -8,7 +8,7 @@ The system controller can be any computer able to run Python. In practice, the d
 
 The following instructions have been tested on a Model B+ and on a Pi 2 Model B. These are both older models; it can safely be assumed that later models will present no problems.
 
-## Pi Model B+ networking and "bullseye"
+## Pi Model B+ networking
 
 There is an issue with networking on the Model B+ when running the latest "bullseye" version of Raspbian. Basically, wifi fails to start automatically. This may be an issue with certain wifi interfaces, but if you want to use this model the safest thing to do is to connect to your router with an Ethernet cable. (This may be a better solution in any case.) Later Pi models are happy with wifi, and all the more recent ones come with wifi built in. The instructions that follow allow you to choose wifi or Ethernet according to your preferences.
 
@@ -92,3 +92,5 @@ That's the system controller done. You can log in to it at any time but in pract
 ~sid:RoomKit:Setting up a Room Kit~
 
 ~sid:home:Go to the Help home page~
+
+~sid:Index:Index of pages~

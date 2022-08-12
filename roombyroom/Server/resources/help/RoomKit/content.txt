@@ -11,7 +11,7 @@ To set up a relay, power it up then go to the wifi access screen on your compute
 ~img:shelly01.jpg:50% center~
 Click the `Internet and Security` button and this screen will appear:
 ~img:shelly02.jpg:50% center~
-On this screen you will connect the relay to your local network. Make sure the Connect tickbox is ticked, then type the name of your wifi router into the box, exactly as it appears in the list of hotspots. Type the password into the next box then select `Set static IP address`. Choose an address on your local network that you know is not in use; preferably pick one that your DHCP server is unlikely to allocate. The details of this depend on your router model. Also give the Gateway address; this is the network IP address of the router itself.
+On this screen you will connect the relay to your local network. Make sure the Connect tickbox is ticked, then type the name of your wifi router into the box, exactly as it appears in the list of hotspots. Type the password into the next box then select `Set static IP address`. Choose an address on your local network that you know is not in use; preferably pick one that your DHCP server will not allocate. The details of this depend on your router model. Also give the Gateway address; this is the network IP address of the router itself.
 
 Now click `Save`. You should see a confirmation screen like this:
 ~img:shelly03.jpg:50% center~
@@ -19,7 +19,7 @@ Now reconnect your computer to your house wifi and put the address you chose for
 ~img:shelly04.jpg:50% center~
 but with the time showing in the top right corner, proof that it's connected to the Internet.
 
-The last step is highly recommended. Shelly update their device firmware from time to time and it's quite likely that the models you bought have out-of-date firmware. So go to the `Settings` menu and select the `Firmware Update` option. If it offers a newer version, click the button to update.
+The next step is highly recommended. Shelly update their device firmware from time to time and it's quite likely that the models you bought have out-of-date firmware. So go to the `Settings` menu and select the `Firmware Update` option. If it offers a newer version, click the button to update.
 ~img:shelly05.jpg:50% center~
 Your relay is now ready for use. You can test it by clicking the icon in the upper right of the screen to turn it on and off. If all is well the light on its box will go on and off. Depending on the model of actuator you may also see this opening and closing, though these actions commonly take a couple of minutes to complete and the result is not always visible. The best test is to replace an existing thermostatic actuator with this one and send commnds to open and close.
 
@@ -39,6 +39,10 @@ The default is for the thermometer to report changes of temperature, with a mini
 
 If you completely lose contact with a temperature module, hold its reset button down for at least 5 seconds, until the internal red light starts flashing. This is in effect performing a factory reset.
 
+~stid:Controller/content:The system controller~
+
 ~stid:home/Relays:The Relay Editor screen~
+
+~sid:home:Go to the Help home page~
 
 ~sid:Index:Index of pages~
