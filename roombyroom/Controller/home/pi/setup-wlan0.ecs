@@ -9,6 +9,16 @@
     variable MyIP
     variable RouterIP
 
+!   Customize run.sh
+
+    open File `run.template` for reading
+    read Template from File
+    close File
+    replace `!LAN!` with `wlan0` in Template
+    open File  `run.sh` for writing
+    write Template to File
+    close File
+
 !   Customize dhcpcd.conf
 
     print `-------------------------------------------------------`
@@ -32,5 +42,10 @@
     open File  `dhcpcd.conf` for writing
     write Template to File
     close File
+
+    open File `ip` for writing
+    write MyIP to File
+    close File
+
     print `That's all the setup completed - your controller will now reboot as ` cat MyIP cat `.`
     exit

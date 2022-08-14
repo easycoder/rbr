@@ -1,5 +1,5 @@
 #!/bin/sh
 
 cd /home/pi
-cat /sys/class/net/wlan0/address >mac
+cat /sys/class/net/!LAN!/address >mac
 python easycoder.py rbr.ecs
