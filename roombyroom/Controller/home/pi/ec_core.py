@@ -881,7 +881,7 @@ class Core(Handler):
         multipliers['second'] = 1000
         multipliers['seconds'] = 1000
         multipliers['minute'] = 60000
-        multipliers['minutes7'] = 60000
+        multipliers['minutes'] = 60000
         command['multiplier'] = multipliers['second']
         token = self.peek()
         if token in multipliers:
