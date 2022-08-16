@@ -1,4 +1,3 @@
-
 !    RBR Controller script for Python/EasyCoder
 
 !   This script manages the local harware - sensors and relays - to act
@@ -31,11 +30,13 @@
     variable Boundary
     variable Turn
     variable MAC
+    variable RegData
     variable Password
     variable Advance
     variable Boost
     variable RequestCount
     variable RequestIP
+    variable Value
     variable E
     variable L
     variable R
@@ -58,12 +59,23 @@
     close File
     print `MAC: ` cat MAC
 
-    ! Ask the server for our password
-    get Password from Server cat `/register/` cat MAC cat `?v=` cat now
-    open File Path cat `/password` for writing
-    write Password to File
+    ! Read the saved password
+    open File Path cat `/password` for reading
+    read Password from File
     close File
-    print `Password: ` cat Password
+    print `Saved Password: ` cat Password
+
+    ! Ask the server for our password
+    get RegData from Server cat `/register/` cat MAC cat `?v=` cat now
+    put json RegData into RegData
+    put property `password` of RegData into Value
+    if Password is not Value
+    begin
+        open File Path cat `/password` for writing
+        write Value to File
+        close File
+        print `Password: ` cat Value
+    end
 
     ! Make sure there's an 'advance' file
     if file Path cat `/advance` exists

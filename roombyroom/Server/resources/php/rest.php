@@ -254,7 +254,7 @@
                     $conn->query("INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
 //                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
                 }
-                print $password;
+                print '{"password":"'.$password.'"}';
                 break;
 
             case 'update':
