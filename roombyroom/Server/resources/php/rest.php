@@ -254,7 +254,10 @@
                     $conn->query("INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
 //                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
                 }
-                print '{"password":"'.$password.'"}';
+                $file = fopen('resources/version', 'r');
+                $version = trim(fgets($file));
+                fclose($file);
+                print '{"password":"'.$password.'","version":"'.$version.'"}';
                 break;
 
             case 'update':
