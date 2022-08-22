@@ -61,9 +61,13 @@
     print `MAC: ` cat MAC
 
     ! Read the saved password
-    open File Path cat `/password` for reading
-    read Password from File
-    close File
+    if file Path cat `/password` exists
+    begin
+        open File Path cat `/password` for reading
+        read Password from File
+        close File
+    end
+    else put empty into Password
     print `Saved Password: ` cat Password
 
     ! Ask the server for our password
