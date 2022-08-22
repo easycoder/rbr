@@ -621,17 +621,20 @@ class Core(Handler):
         else:
             command['line'] = False
         if self.nextIsSymbol():
-                symbolRecord = self.getSymbolRecord()
-                if symbolRecord['valueHolder']:
-                    if self.peek() == 'from':
-                        self.nextToken()
-                        if self.nextIsSymbol():
-                            fileRecord = self.getSymbolRecord()
-                            if fileRecord['keyword'] == 'file':
-                                command['target'] = symbolRecord['name']
-                                command['file'] = fileRecord['name']
-                                self.add(command)
-                                return True
+            symbolRecord = self.getSymbolRecord()
+            if symbolRecord['valueHolder']:
+                if self.peek() == 'from':
+                    self.nextToken()
+                    if self.nextIsSymbol():
+                        fileRecord = self.getSymbolRecord()
+                        if fileRecord['keyword'] == 'file':
+                            command['target'] = symbolRecord['name']
+                            command['file'] = fileRecord['name']
+                            self.add(command)
+                            return True
+            FatalError(self.program.compiler, f'Symbol "{symbolRecord["name"]}" is not a value holder')
+            return False
+        FatalError(self.program.compiler, f'Symbol "{self.getToken()}" has not been declared')
         return False
 
     def r_read(self, command):
@@ -787,6 +790,21 @@ class Core(Handler):
 
     def r_stop(self, command):
         return 0
+
+    def k_system(self, command):
+        value = self.nextValue()
+        if value != None:
+            command['value'] = value
+            self.add(command)
+            return True
+        FatalError(self.program.compiler, 'I can\'t give this command')
+        return False
+
+    def r_system(self, command):
+        value = self.getRuntimeValue(command['value'])
+        if value != None:
+            os.system(value)
+            return self.nextPC()
 
     def k_take(self, command):
         # Get the (first) value

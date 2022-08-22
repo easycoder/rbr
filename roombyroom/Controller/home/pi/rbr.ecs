@@ -6,6 +6,7 @@
     file File
     variable Path
     variable Server
+!    variable Version
     variable RepeatCount
     variable Map
     variable NewMap
@@ -69,6 +70,8 @@
     get RegData from Server cat `/register/` cat MAC cat `?v=` cat now
     put json RegData into RegData
     put property `password` of RegData into Value
+
+    ! Check if passwords match
     if Password is not Value
     begin
         open File Path cat `/password` for writing
@@ -180,6 +183,17 @@ ProcessMap:
         wait 10 seconds
         go to Start
     end
+
+!   See if we have the latest system software
+!    open File Path cat `/version` for reading
+!    read Version from File
+!    close File
+!    put property `version` of RegData into Value
+!    if Value is not Version
+!    begin
+!        print `New version available for download`
+!    end
+
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

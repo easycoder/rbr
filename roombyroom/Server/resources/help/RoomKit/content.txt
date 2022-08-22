@@ -11,11 +11,11 @@ To set up a relay, power it up then go to the wifi access screen on your compute
 ~img:shelly01.jpg:50% center~
 Click the `Internet and Security` button and this screen will appear:
 ~img:shelly02.jpg:50% center~
-On this screen you will connect the relay to your local network. Make sure the Connect tickbox is ticked, then type the name of your wifi router into the box, exactly as it appears in the list of hotspots. Type the password into the next box then select `Set static IP address`. Choose an address on your local network that you know is not in use; preferably pick one that your DHCP server will not allocate. The details of this depend on your router model. Also give the Gateway address; this is the network IP address of the router itself.
+On this screen you will connect the relay to your local network. Make sure the Connect tickbox is ticked, then type the name of your wifi router into the box, exactly as it appears in the list of hotspots. Type the password into the next box then select `Set static IP address`. Choose an address on your local network that you know is not in use; preferably pick one that your DHCP server will not allocate. The details of this depend on your router model. Also give the Gateway address; this is often the network IP address of the router itself, but some routers require you to use a generic gateway such as `8.8.8.8`.
 
 Now click `Save`. You should see a confirmation screen like this:
 ~img:shelly03.jpg:50% center~
-Now reconnect your computer to your house wifi and put the address you chose for the relay into your browser. The original screen should reappear:
+Reconnect your computer to your house wifi and put the address you chose for the relay into your browser. The original screen should reappear:
 ~img:shelly04.jpg:50% center~
 but with the time showing in the top right corner, proof that it's connected to the Internet.
 
@@ -37,7 +37,7 @@ To preserve battery life, the thermometer will only be visible on the local netw
 
 The default is for the thermometer to report changes of temperature, with a minimum difference of 1 degree, but to otherwise remain silent. Every 12 hours it will send a confirmatory message even if no temperature change has occurred. You can force it to send updates every 10 minutes by telling it there is a power supply attached, but if that's not really the case the battery life will be adversely affected.
 
-If you completely lose contact with a temperature module, hold its reset button down for at least 5 seconds, until the internal red light starts flashing. This is in effect performing a factory reset.
+If you completely lose contact with a temperature module, hold its reset button down for at least 5 seconds, until the internal red light starts flashing. This in effect performs a factory reset.
 
 ~stid:Controller/content:The system controller~
 

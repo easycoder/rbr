@@ -4,4 +4,4 @@ This section of the Help will eventually cover all technical aspects of the RBR 
 
 ~sid:UI:The User Interface~
 
-~sid:Index:Index of pages~s
+~sid:Index:Index of pages~

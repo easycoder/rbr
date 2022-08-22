@@ -108,9 +108,13 @@ class Compiler:
 			print(f'Line {self.getLino() + 1}: {warning}')
 
 	def getSymbolRecord(self):
-		symbolRecord = self.code[self.symbols[self.getToken()]]
-		symbolRecord['used'] = True
-		return symbolRecord
+		token = self.getToken()
+		symbol = self.symbols[token]
+		if symbol != None:
+			symbolRecord = self.code[symbol]
+			symbolRecord['used'] = True
+			return symbolRecord
+		return None
 	
 	def compileLabel(self, command):
 		return self.compileSymbol(command, self.getToken(), False)
