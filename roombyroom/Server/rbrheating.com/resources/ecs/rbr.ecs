@@ -112,7 +112,7 @@
     variable OffWebson
     variable DialogWebson
 
-!    debug step
+    debug step
 
 	fork to Main
     wait 5 seconds

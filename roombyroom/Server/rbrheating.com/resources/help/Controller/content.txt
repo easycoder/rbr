@@ -73,8 +73,8 @@ Note to users outside the UK: The Python script `ec_timestamp.py` is set up for 
 
 The next step is to set up networking. There are 2 options, depending if you want to use Ethernet or Wifi. As noted above, the low-cost Pi Model B+ is best used with a direct Ethernet connection to the router. Type one of the following commands:
 ```
-./setup-eth0.sh
-./setup.wlan0.sh
+sh setup-eth0.sh
+sh setup.wlan0.sh
 ```
 The system will ask you a couple of questions regarding your network settings, in particular to choose the IP address you would like to use for your system controller. As stated above, pick an address that's outside the range handed out by the router's DHCP, but where the first 3 groups of digits are unchanged. Once this is done the Pi will reboot automatically and you will have to log in again, this time using your chosen IP address.
 

@@ -1,16 +1,16 @@
 # The properties file for RBR
 
 # The URL of the MySQL server
-sqlhost=mysql.easycoder.software
+sqlhost=mysql.rbrheating.com
 
 # The name of the database user
-sqluser=graham
+sqluser=rbrheating
 
 # The database password
-sqlpassword=eyorekitcar
+sqlpassword=eyore-kitcar
 
 # The database to use
-sqldatabase=rbr_control
+sqldatabase=rbrheating
 
 # The admin password
 password=$2y$10$bcmXQ/X4pIpepRidEtVdvuMmMUi5Q3H2e3HsWYwWyGD8FrZtHFCL.

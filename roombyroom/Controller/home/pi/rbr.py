@@ -12,7 +12,6 @@ app = Bottle()
 # Called when temperature changes
 @app.get('/')
 def index():
-    print(query)
     try:
         source = request.get("REMOTE_ADDR")
         hum = request.query.hum
@@ -21,7 +20,7 @@ def index():
             ts = round(time.time())
             temp = round(float(temp), 1)
 #            print(f'hum={hum}, temp={temp}, source={source}, ts={ts}')
-            dir = f'/home/rbr/sensors'
+            dir = f'/home/pi/sensors'
             if not os.path.exists(f'{dir}'):
                 os.makedirs(f'{dir}')
             file = open(f'{dir}/{source}.txt', 'w')
