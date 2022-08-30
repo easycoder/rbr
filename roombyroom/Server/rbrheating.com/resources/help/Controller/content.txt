@@ -57,7 +57,7 @@ where `xx.xx.xx.xx` is the IP address you found in your router admin screen. You
 
 Once all this is done, type
 ```
-wget https://rbrcontrol.com/setup
+wget https://rbrheating.com/setup
 ```
 This will download to the Pi a small script that sets up your system. To run the script, type
 ```
@@ -82,7 +82,7 @@ Although the questions are very simple, take care or you may put the system firm
 
 To test if your system controller is connected to the Internet, type
 ```
-ping rbrcontrol.com
+ping rbrheating.com
 ```
 This should give a stream of responses from the remote server (type Control-C to stop it). If it fails there's something wrong with the settings; most likely the DNS server address. If you are relatively experienced you can try editing the configuration files by hand, but if you find all this is too complex, let us know by sending us an email and we'll try to help.
 
