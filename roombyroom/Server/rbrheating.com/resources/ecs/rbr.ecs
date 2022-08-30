@@ -112,7 +112,7 @@
     variable OffWebson
     variable DialogWebson
 
-    debug step
+!    debug step
 
 	fork to Main
     wait 5 seconds
@@ -1021,14 +1021,18 @@ PostMap:
 	if Demo put Map into storage as `map`
     else
 	begin
+    print `Post map`
    		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
    		or begin
             add 1 to ErrorCount
-            if ErrorCount is greater than 9 alert `A series of errors have occurred. `
-            	cat newline cat `A common cause is having the wrong password.`
+            if ErrorCount is greater than 5
+            begin
+            	alert `A series of network errors have occurred.`
+            		cat newline cat `Some functionality may not be available.`
+                put 0 into ErrorCount
+            end
             continue
         end
-   		put 0 into ErrorCount
 	end
 	stop
 

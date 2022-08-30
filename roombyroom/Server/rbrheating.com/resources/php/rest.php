@@ -193,7 +193,7 @@
         http_response_code(404);
         die("Failed to connect to MySQL: " . mysqli_connect_error());
     }
-    mysqli_set_charset($conn,'utf8');
+    mysqli_set_charset($conn, 'utf8');
 
     if (!count($request)) {
         http_response_code(400);
@@ -229,8 +229,8 @@
                 // Get the system map, given its MAC.
                 // Endpoint: {site root}/resources/php/rest.php/map/<mac>
                 $mac = $request[0];
-//                 logger("SELECT map FROM systems WHERE mac='$mac'");
-                $result = $conn->query("SELECT map FROM systems WHERE mac='$mac'");
+                print " ";
+                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
                     print base64_decode($row->map);
                 } else {
@@ -244,15 +244,15 @@
             case 'register':
                 // Register a new MAC and get the password.
                 // Endpoint: {site root}/resources/php/rest.php/register/<mac>
-                $mac = $request[0];
-                $result = $conn->query("SELECT password FROM systems WHERE mac='$mac'");
+                $mac = trim($request[0]);
+                $result = query($conn, "SELECT password FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
                     $password = $row->password;
                 } else {
                     $password = rand(100000, 999999);
                     $map = '{"rooms":[{"name":"","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}';
                     $map = base64_encode($map);
-                    $conn->query("INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
+                    query($conn, "INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
 //                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
                 }
                 $file = fopen('resources/version', 'r');
@@ -277,45 +277,45 @@
                     $relay = $value->relay;
                     $previous = "off";
                     // Update the relay states table
-                    $res = $conn->query("SELECT id, relay from relays WHERE mac='$mac' AND sensor='$sensor'");
+                    $res = query($conn, "SELECT id, relay from relays WHERE mac='$mac' AND sensor='$sensor'");
                     if ($r = mysqli_fetch_object($res)) {
                         $id = $r->id;
                         $previous = $r->relay;
                         //print("UPDATE relays SET relay='$relay' WHERE id=$id\n");
-                        $conn->query("UPDATE relays SET relay='$relay' WHERE id=$id");
+                        query($conn, "UPDATE relays SET relay='$relay' WHERE id=$id");
                     } else {
-                        $conn->query("INSERT INTO relays (mac,sensor,relay) VALUES ('$mac','$sensor','$relay')");
+                        query($conn, "INSERT INTO relays (mac,sensor,relay) VALUES ('$mac','$sensor','$relay')");
                     }
                     mysqli_free_result($res);
                     // Update the stats table
                     if ($previous == "off" && $relay =="on") {
                         // Mark the start of a timing period
-                        $res = $conn->query("SELECT id FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
+                        $res = query($conn, "SELECT id FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
                             $id = $r->id;
-                            $conn->query("UPDATE stats SET start='$ts' WHERE id=$id");
+                            query($conn, "UPDATE stats SET start='$ts' WHERE id=$id");
                         } else {
                             logger("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
-                            $conn->query("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
+                            query($conn, "INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
                         }
                     }
                     else if ($previous == "on" && $relay =="off") {
                         // Add the period to the total duration for this day
-                        $res = $conn->query("SELECT id, start, duration FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
+                        $res = query($conn, "SELECT id, start, duration FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
                             $id = $r->id;
                             $duration = ($ts - $r->start + ($r->duration * 60)) / 60;
-                            $conn->query("UPDATE stats SET duration='$duration' WHERE id=$id");
+                            query($conn, "UPDATE stats SET duration='$duration' WHERE id=$id");
                         }
                     }
                 }
                 // Write the sensor values
                 $sensors = $conn->real_escape_string(base64_encode($sensors));
-                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac'");
+                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = base64_decode($row->map);
-                    $conn->query("UPDATE systems SET sensors='$sensors' WHERE id='$id'");
+                    query($conn, "UPDATE systems SET sensors='$sensors' WHERE id='$id'");
 //                     logger("UPDATE systems SET sensors='$sensors' WHERE id=$id");
 //                     print("UPDATE systems SET sensors='$sensors' WHERE id=$id"); print "\n";
                     // Return the current map
@@ -326,24 +326,12 @@
 
                 // Endpoints called by the user.
 
-            case 'name':
-                // Get the system name, given its MAC.
-                // Endpoint: {site root}/resources/php/rest.php/name/<mac>
-                $mac = $request[0];
-                $result = $conn->query("SELECT name FROM systems WHERE mac='$mac'");
-                if ($row = mysqli_fetch_object($result)) {
-                    print $row->name;
-                } else {
-                    print '';
-                }
-                mysqli_free_result($result);
-                break;
-
             case 'sensors':
                 // Get the systems sensor values, given its MAC.
                 // Endpoint: {site root}/resources/php/rest.php/sensors/<mac>
                 $mac = $request[0];
-                $result = $conn->query("SELECT sensors FROM systems WHERE mac='$mac'");
+//                print $mac;
+                $result = query($conn, "SELECT sensors FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
                     $sensors = $row->sensors;
                     $sensors = base64_decode($sensors);
@@ -376,14 +364,13 @@
                 // Endpoint: {site root}/resources/php/rest.php/map/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $result = $conn->query("SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = file_get_contents("php://input");
-//                    print "$map\n";
                     $map = base64_encode($map);
 //                    print "$map\n";
-                    $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
+                    query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
 //                     logger("UPDATE systems SET map='$map' WHERE id=$id");
                 } else {
                     http_response_code(404);
@@ -399,14 +386,14 @@
                 // Endpoint: {site root}/resources/php/rest.php/backup/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $result = $conn->query("SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = file_get_contents("php://input");
 //                    print "$map\n";
                     $map = base64_encode($map);
 //                    print "$map\n";
-                    $conn->query("UPDATE systems SET backup='$map' WHERE id='$id'");
+                    query($conn, "UPDATE systems SET backup='$map' WHERE id='$id'");
 //                     logger("UPDATE systems SET backup='$map' WHERE id=$id");
                 } else {
                     http_response_code(404);
@@ -420,12 +407,12 @@
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
 //                 logger("SELECT * FROM systems WHERE mac='$mac'");
-                $result = $conn->query("SELECT id,backup FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT id,backup FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     if ($row->backup) {
                         $map = $row->backup;
-                        $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
+                        query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
 //                        logger("UPDATE systems SET map='$map' WHERE id=$id");
                         $map = base64_encode($map);
                         print "$map\n";
@@ -445,7 +432,7 @@
                 // Endpoint: {site root}/resources/php/rest.php/confirm/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = $row->map;
@@ -454,7 +441,7 @@
                     $map->message = "OK";
                     $map = json_encode($map);
                     $map = base64_encode($map);
-                    $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
+                    query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
 //                     logger("UPDATE systems SET map='$map' WHERE id=$id");
                 } else {
                     http_response_code(404);
@@ -468,7 +455,7 @@
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));
-                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = $row->map;
@@ -477,7 +464,7 @@
                     $map->rooms[$roomindex]->advance = '';
                     $map = json_encode($map);
                     $map = base64_encode($map);
-                    $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
+                    query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
 //                     logger("UPDATE systems SET map='$map' WHERE id=$id");
                 } else {
                     http_response_code(404);
@@ -492,7 +479,7 @@
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));
                 $target = intval(trim($request[3]));
-                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = $row->map;
@@ -501,7 +488,7 @@
                     $map->rooms[$roomindex]->boost = $target;
                     $map = json_encode($map);
                     $map = base64_encode($map);
-                    $conn->query("UPDATE systems SET map='$map' WHERE id='$id'");
+                    query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
 //                     logger("UPDATE systems SET map='$map' WHERE id=$id");
                 } else {
                     http_response_code(404);
@@ -515,7 +502,7 @@
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));
-                $result = $conn->query("SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $id = $row->id;
                     $map = $row->map;
@@ -541,10 +528,11 @@
     // Do an SQL query
     function query($conn, $sql)
     {
+        logger("$sql\n");
         $result = mysqli_query($conn, $sql);
         if (!$result) {
             http_response_code(404);
-             logger("Error in $sql: ".mysqli_error($conn));
+            logger("Error in $sql: ".mysqli_error($conn));
             die('Error: '.mysqli_error($conn));
         }
         return $result;

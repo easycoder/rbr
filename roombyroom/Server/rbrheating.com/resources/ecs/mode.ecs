@@ -40,7 +40,6 @@
     variable ScheduleEditScript
     variable ModeWebson
     variable Integer
-    variable ErrorCount
     variable FlashIndex
     variable Password
     variable Server
@@ -65,7 +64,6 @@
     get Server from storage as `server`
     get MAC from storage as `MAC`
     get Password from storage as `password`
-    put 0 into ErrorCount
 
     index Mode to the index of ModeIcon
    	put Mode into CurrentMode
@@ -389,11 +387,10 @@ PostMap:
     else
 	begin
    		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
-   		or begin
-            add 1 to ErrorCount
-            if ErrorCount is greater than 9 alert `A series of errors have occurred`
-            continue
+        or begin
+        	alert `Unable to save changes.` cat newline
+            	cat `A common cause is having the wrong system password.`
+        	continue
         end
-   		put 0 into ErrorCount
 	end
 	stop

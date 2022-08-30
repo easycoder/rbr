@@ -36,7 +36,7 @@
   variable FileIsOpen
   variable Item
 
-  debug step
+!  debug step
 
   rest path `resources/php/rest.php`
   set encoding to `base64`
