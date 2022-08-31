@@ -1,6 +1,6 @@
 ## Getting started
 
-Please note: These pages are fairly complex and are written for DIY enthusiasts who are comfortable using computers in text mode (like DOS) without a graphical screen or mouse. We are developing a pre-built controller with a far simpler setup procedure and will be offering this for sale in the future. Please [contact us](mailto:info@rbrcontrol.com) if you would like to know more.
+Please note: These pages are fairly complex and are written for DIY enthusiasts who are comfortable using computers in text mode (like DOS) without a graphical screen or mouse. We are developing a pre-built controller with a far simpler setup procedure and will be offering this for sale in the future. Please [contact us](mailto:info@rbrheating.com) if you would like to know more.
 
 The steps to get your own RBR system set up are as follows:
 

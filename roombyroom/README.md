@@ -2,7 +2,7 @@
 
 The files in this project are in 2 groups; the Controller and the Server.
 
-Controller files are those that run on a local server in the premises. This is typically a Raspberry Pi running in headless mode. The software is written in a mixture of Python and EasyCoder, the latter being a high-level compiler/runtime itself written in Python. All the source files for this are present. The rationale for using this approach is discussed in the Help files of the user interface, at [https://rbrcontrol.com](https://rbrcontrol.com).
+Controller files are those that run on a local server in the premises. This is typically a Raspberry Pi running in headless mode. The software is written in a mixture of Python and EasyCoder, the latter being a high-level compiler/runtime itself written in Python. All the source files for this are present. The rationale for using this approach is discussed in the Help files of the user interface, at [https://rbrheating.com](https://rbrheating.com).
 
 Server files are located on an external web server; typically on public shared hosting, but system implementors are free to install them on a private server if they prefer. There is one PHP file; a small REST server which handles all the communication between the user and the controller. The rest of the files are as follows:
 

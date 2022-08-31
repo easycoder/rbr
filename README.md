@@ -21,6 +21,6 @@ The system requires no software framework, nor any build tools beyond a text edi
 
 This ReadMe does not attempt to fully describe the system. Instead, all documentation is online and accessed from the webapp. The best way to get an introduction to RBR is to visit the webapp at
 
-[https://rbrcontrol.com](https://rbrcontrol.com)
+[https://rbrheating.com](https://rbrheating.com)
 
 The webapp is designed to work on a smartphone but can also be viewed in any PC browser.

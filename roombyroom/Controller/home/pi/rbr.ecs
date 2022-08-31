@@ -47,8 +47,7 @@
     script RBR
 !    debug step
 
-!    put `https://rbr.easycoder.software/resources/php/rest.php` into Server
-    put `https://rbrcontrol.com/resources/php/rest.php` into Server
+    put `https://rbrheating.com/resources/php/rest.php` into Server
     put `.` into Path
 
     put 0 into RepeatCount
