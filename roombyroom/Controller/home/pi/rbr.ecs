@@ -57,6 +57,7 @@
     open File Path cat `/mac` for reading
     read MAC from File
     close File
+    put trim MAC into MAC
     print `MAC: ` cat MAC
 
     ! Read the saved password
@@ -106,7 +107,7 @@ Start:
     begin
         get Map from Server cat `/map/` cat MAC cat `?v=` cat now
         open File Path cat `/map` for writing
-        write Map to File
+        write trim Map to File
         close File
     end
 
