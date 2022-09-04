@@ -1,6 +1,6 @@
 !    RBR Controller script for Python/EasyCoder
 
-!   This script manages the local harware - sensors and relays - to act
+!   This script manages the local hardware - sensors and relays - to act
 !   in accordance with the rules in the system map.
 
     file File
