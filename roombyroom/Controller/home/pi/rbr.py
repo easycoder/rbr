@@ -36,12 +36,11 @@ def index():
 # Initialization
 
 if __name__ == '__main__':
-#    app.run(host='192.168.0.98', port=5555, debug=False)
     file = open('/home/pi/ip', 'r')
     ip = file.read().strip()
     file.close()
-    print(f'rbr.py: IP address = {ip}')
     if ip != '':
+        print(f'rbr.py: IP address = {ip}')
         app.run(host=f'{ip}', port=5555, debug=False)
     else:
         print('rbr.py: No IP address found')
