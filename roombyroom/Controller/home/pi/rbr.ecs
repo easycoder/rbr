@@ -6,7 +6,7 @@
     file File
     variable Path
     variable Server
-!    variable Version
+    variable Version
     variable RepeatCount
     variable Map
     variable NewMap
@@ -189,14 +189,18 @@ ProcessMap:
     end
 
 !   See if we have the latest system software
-!    open File Path cat `/version` for reading
-!    read Version from File
-!    close File
-!    put property `version` of RegData into Value
-!    if Value is not Version
-!    begin
-!        print `New version available for download`
-!    end
+    if file Path cat `/version` exists
+    begin
+        open File Path cat `/version` for reading
+        read Version from File
+        close File
+    end
+    else put 1 into Version
+    put property `version` of RegData into Value
+    if Value is not Version
+    begin
+        print `New version available for download`
+    end
 
     exit
 

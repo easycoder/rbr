@@ -2,4 +2,4 @@
 
 cd /home/pi
 rm -f map
-python rbr.py > log.txt &
+python3 rbr.py > log.txt &

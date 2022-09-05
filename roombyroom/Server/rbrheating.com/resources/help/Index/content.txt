@@ -29,6 +29,8 @@ This is a list of all the pages in the Help system.The pages link to each other 
 
   - The system controller
     - ~stid:Controller/content:The system controller~
+    - ~stid:Controller/RaspberryPi:Setting up a Raspberry Pi~
+    - ~stid:Controller/OrangePi:Setting up an Orange Pi~
 
   - Room kits
     - ~stid:RoomKit/content:Room kits~

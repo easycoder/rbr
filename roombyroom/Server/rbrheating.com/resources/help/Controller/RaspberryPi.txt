@@ -1,6 +1,6 @@
-## Setting up a Raspberry Pi System Controller
+## Raspberry Pi System Controller
 
-The system controller can be any computer able to run Python. In practice, the demands made upon it are not great so there are some very low-cost options, the most well-known of which is the Raspberry Pi. This has been in production for several years and the latest models are quite powerful, but the controller software will run on some of the early models. For example a Model B+ can be bought for around £25, with a case costing another £5 or so. Add to this an SD card of at least 8GB, a low-cost USB power supply and a cable.
+The Raspberry Pi  has been in production for several years and the latest models are quite powerful, but the controller software will run on some of the early models. For example a Model B+ can be bought for around £25, with a case costing another £5 or so. Add to this an SD card of at least 8GB, a low-cost USB power supply and a cable.
 
 The following instructions have been tested on a Model B+ and on a Pi 2 Model B. These are both older models; it can safely be assumed that later models will present no problems.
 
@@ -8,7 +8,7 @@ The following instructions have been tested on a Model B+ and on a Pi 2 Model B.
 
 There is an issue with networking on the Model B+ when running the latest "bullseye" version of Raspbian. Basically, wifi fails to start automatically. This may be an issue with certain wifi interfaces, but if you want to use this model the safest thing to do is to connect to your router with an Ethernet cable. (This may be a better and more reliable solution in any case.) Later Pi models are happy with wifi, and all the more recent ones come with wifi built in. The instructions that follow allow you to choose wifi or Ethernet according to your preferences.
 
-The Pi computer runs from an SD card (8GB or more) that contains the operating system and all the RBR files. The simplest way to set this up is to run the [Raspberry Pi Imager](https://www.raspberrypi.com/news/raspberry-pi-imager-imaging-utility/) on your computer. Here's what it looks like:
+The system controller runs from an SD card (8GB or more) that contains the operating system and all the RBR files. The simplest way to set this up is to run the [Raspberry Pi Imager](https://www.raspberrypi.com/news/raspberry-pi-imager-imaging-utility/) on your computer. Here's what it looks like:
 ~img:imager-1.png:center 70%~
 First choose the operating system:
 ~img:imager-2.png:center 70%~
@@ -69,12 +69,12 @@ Note to users outside the UK: The Python script `ec_timestamp.py` is set up for 
 
 The next step is to set up networking. There are 2 options, depending if you want to use Ethernet or Wifi. As noted above, the low-cost Pi Model B+ is best used with a direct Ethernet connection to the router. Type one of the following commands:
 ```
-sh setup-eth0.sh
-sh setup.wlan0.sh
+sh setup-eth0-rpi.sh
+sh setup.wlan0-rpi.sh
 ```
 The system will ask you a couple of questions regarding your network settings, in particular to choose the IP address you would like to use for your system controller. As stated above, pick an address that's outside the range handed out by the router's DHCP, but where the first 3 groups of digits are unchanged. Once this is done the Pi will reboot automatically and you will have to log in again, this time using your chosen IP address.
 
-Although the questions are very simple, take care or you may put the system firmware into a state from which you will be unable to recover. The worst case would require you to reprogram the SD card and start again. If you are unsure what to type at any point, [email us](mailto:info@rbrsoftware.com) to ask for help. You can abandon the setup at any point; simply power down the controller.
+Although the questions are very simple, take care or you may put the system firmware into a state from which you will be unable to recover. The worst case would require you to reprogram the SD card and start again. If you are unsure what to type at any point, [email us](mailto:info@rbrheating.com) to ask for help. You can abandon the setup at any point; simply power down the controller.
 
 To test if your system controller is connected to the Internet, type
 ```
@@ -83,6 +83,8 @@ ping rbrheating.com
 This should give a stream of responses from the remote server (type Control-C to stop it). If it fails there's something wrong with the settings; most likely the DNS server address. If you are relatively experienced you can try editing the configuration files by hand, but if you find all this is too complex, let us know by sending us an email and we'll try to help.
 
 That's the system controller done. You can log in to it at any time but in practice there's very little of interest there. The next job is to set up your room kits.
+
+~tid:content:The system controller~
 
 ~sid:RoomKit:Setting up a Room Kit~
 

@@ -2,4 +2,4 @@
 
 cd /home/pi
 cat /sys/class/net/eth0/address >mac
-python easycoder.py rbr.ecs
+python3 easycoder.py rbr.ecs

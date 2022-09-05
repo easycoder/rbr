@@ -1,11 +1,6 @@
 #!/bin/sh
 
 echo 'root:rbr' | chpasswd
-useradd pi
-usermod -a -G sudo pi
-mkdir /home/pi
-chown pi.pi /home/pi
 echo 'pi:rbr' | chpasswd
-deluser --remove-home orangepi
-echo "Please log in as 'pi' with password 'rbr'"
-reboot
+echo "Please 'logout' then ssh in as 'pi' with password 'rbr'"
+rm setup-opi

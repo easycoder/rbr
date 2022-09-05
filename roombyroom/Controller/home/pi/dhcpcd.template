@@ -10,5 +10,5 @@ slaac private
 # Static IP configuration:
 interface !LAN!
 static ip_address=!STATIC_IP!/24
-static routers=!STATIC_ROUTER!
+static routers=!GATEWAY!
 static domain_name_servers=8.8.8.8

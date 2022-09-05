@@ -1,36 +1,18 @@
-## Setting up an Orange Pi System Controller
+## Orange Pi System Controller
 
-The system controller can be any computer able to run Python. In practice, the demands made upon it are not great so there are some very low-cost options, the most well-known of which is the Raspberry Pi. This has been in production for several years and the latest models are quite powerful, but the controller software will run on some of the early models. For example a Model B+ can be bought for around £25, with a case costing another £5 or so. Add to this an SD card of at least 8GB, a low-cost USB power supply and a cable.
+The Orange Pi is a very small single-board computer inspired by the Raspberry Pi. The Orange Pi Zero 2 is equivalent to a Raspberry Pi Model 3B but is smaller and less expensive.
 
-The following instructions have been tested on a Model B+ and on a Pi 2 Model B. These are both older models; it can safely be assumed that later models will present no problems.
+The system controller runs from an SD card (8GB or more) that contains the operating system and all the RBR files. The simplest way to set this up is to run Balena Etcher to write the operating system image to your SD card. You will find many instructions online how to do this.
 
-## Pi Model B+ networking
+There are several alternative operating systems available for the Orange Pi. We have chosen Armbian as being solid and reliable. You can download an image from [here](https://www.armbian.com/orange-pi-zero-2/).
 
-There is an issue with networking on the Model B+ when running the latest "bullseye" version of Raspbian. Basically, wifi fails to start automatically. This may be an issue with certain wifi interfaces, but if you want to use this model the safest thing to do is to connect to your router with an Ethernet cable. (This may be a better and more reliable solution in any case.) Later Pi models are happy with wifi, and all the more recent ones come with wifi built in. The instructions that follow allow you to choose wifi or Ethernet according to your preferences.
+Either the desktop or server version will work, but the former adds a full Linux GUI that you will never use on your system controller, so it's better to download the server version.
 
-The Pi computer runs from an SD card (8GB or more) that contains the operating system and all the RBR files. The simplest way to set this up is to run the [Raspberry Pi Imager](https://www.raspberrypi.com/news/raspberry-pi-imager-imaging-utility/) on your computer. Here's what it looks like:
-~img:imager-1.png:center 70%~
-First choose the operating system:
-~img:imager-2.png:center 70%~
-Choose "Raspberry Pi OS (other)"
-~img:imager-3.png:center 70%~
-Choose "Raspberry Pi OS Lite (32-bit)"
-
-Then click to select the SD card to write to:
-~img:imager-4.png:center 70%~
-
-Now click the gear icon and do the advanced settings. Use these images as a guide:
-~img:imager-5.png:center 70%~
-~img:imager-6.png:center 70%~
-~img:imager-7.png:center 70%~
-
-The section about wifi is only needed if you intend to use that to connect. Ethernet doesn't require any connection details.
-
-Click to download the image and write it to the SD card. When it has completed, close the Imager, then eject the SD card from your computer, put it into the Pi and power it up. The initial boot can take several minutes, so be patient. If you connect a TV monitor to the HDMI port on the Pi you will see repeated restarts until it finally settles down.
+When the installation has finished, eject the SD card from your computer, put it into the Pi, connect this to your Internet router with an Ethernet (RJ45) cable and power up. After a few seconds there will be a red light on the board. If this does not appear there is most likely something wrong with the firmware; perhaps you downloaded the wrong operating system image.
 
 ## Setting up the system controller
 
-Here you may need to have your Internet router's manual to hand. If you don't have one, do an online search for the model name of your router. This will also tell you how to log in.
+For this you may need to have your Internet router's manual to hand. If you don't have one, do an online search for the model name of your router. This will also tell you how to log in.
 
 Type the address of your router control panel into your browser. The address varies from one model to another but it's most likely to be one of
 ```
@@ -41,25 +23,37 @@ A home router manages the devices that connect to it, assigning each one an IP a
 
 Note: If you already have equipment such as a network printer and its current address is outside the range you gave above, you may have to set the device up again.
 
-At this point it may be best to restart the router and also the Raspberry Pi. Log into the router again.
+At this point it may be best to restart the router and also the Orange Pi. Log into the router again.
 
-One of the sections of your router's admin will show you all the devices connected to it. Some of these will have names; you might recognize your computer and printer, for example. Once the system controller has booted up it will present itself as `rbr` (or whatever you set the hostname to in the Advanced settings of Imager). Make a note of its address.
+One of the sections of your router's admin will show you all the devices connected to it. Some of these will have names; you might recognize your computer and printer, for example. Once the system controller has booted up it will present itself as `orangepizero2`.
 
 On your computer, fire up a terminal emulator. On Windows you can use PuTTY; on Mac or Linux use the text console. At the command prompt type
 ```
+ssh root@xx.xx.xx.xx
+```
+where `xx.xx.xx.xx` is the IP address you found in your router admin screen. The password is `1234`. The Pi will ask you for a root password; use anything it will accept, such as `0rangepi` as we'll be changing it later. Then it asks you which shell you want; choose `bash` (option 1). It also asks you to set up a user, so use the name `pi` with the same password. Answer `Y` to all the questions, but you can skip generating locales by typing `6` at that question.
+
+Now type
+```
+wget https://rbrheating.com/setup-opi
+```
+This will download to the Pi a small script that does some initial preparation. To run the script, type
+```
+sh setup-opi
+```
+The script will run very quickly, then it will prompt you to `logout` and log in again, this time with
+```
 ssh pi@xx.xx.xx.xx
 ```
-where `xx.xx.xx.xx` is the IP address you found in your router admin screen. You'll be prompted for the password you gave in the Advanced settings. After a few seconds you'll see the standard greeting.
-
-Once all this is done, type
+and the password `rbr`. Again you will see a welcome message and you will be logged in. Now type
 ```
 wget https://rbrheating.com/setup
 ```
-This will download to the Pi a small script that sets up your system. To run the script, type
+This will download to the Pi a second small script that sets up your system. To run the script, type
 ```
 sh setup
 ```
-This may well take quite a long time to run (tens of minutes) and will display a huge amount of technical information on the console as it runs. When it has finished you can type
+This will display a large amount of technical information on the console as it runs. It will ask you for a password, so type `rbr` again. There may also be other prompts; if a default is offered choose it. When installation has finished (and the $ prompt returns) you can type
 ```
 ls
 ```
@@ -67,14 +61,14 @@ to see all the files that have been added to your Pi.
 
 Note to users outside the UK: The Python script `ec_timestamp.py` is set up for British time and will need to be adjusted for other countries.
 
-The next step is to set up networking. There are 2 options, depending if you want to use Ethernet or Wifi. As noted above, the low-cost Pi Model B+ is best used with a direct Ethernet connection to the router. Type one of the following commands:
+The next step is to set up networking. There are 2 options, depending if you want to use Ethernet or Wifi. (Note that at the time of writing these notes, only Ethernet is supported.) Type one of the following commands:
 ```
-sh setup-eth0.sh
-sh setup.wlan0.sh
+sh setup-eth0-opi.sh
+sh setup.wlan0-opi.sh
 ```
-The system will ask you a couple of questions regarding your network settings, in particular to choose the IP address you would like to use for your system controller. As stated above, pick an address that's outside the range handed out by the router's DHCP, but where the first 3 groups of digits are unchanged. Once this is done the Pi will reboot automatically and you will have to log in again, this time using your chosen IP address.
+The system will ask you a couple of questions regarding your network settings, in particular to choose the IP address you would like to use for your system controller. As stated above, pick an address that's outside the range handed out by the router's DHCP, but where the first 3 groups of digits are unchanged. Once this is done the Pi will shut down automatically and you will have to restart it and log in again, this time using your chosen IP address.
 
-Although the questions are very simple, take care or you may put the system firmware into a state from which you will be unable to recover. The worst case would require you to reprogram the SD card and start again. If you are unsure what to type at any point, [email us](mailto:info@rbrsoftware.com) to ask for help. You can abandon the setup at any point; simply power down the controller.
+Although the questions are very simple, take care or you may put the system firmware into a state from which you will be unable to recover. The worst case would require you to reprogram the SD card and start again. If you are unsure what to type at any point, [email us](mailto:info@rbrheating.com) to ask for help. You can abandon the setup at any point; simply power down the controller.
 
 To test if your system controller is connected to the Internet, type
 ```
@@ -83,6 +77,8 @@ ping rbrheating.com
 This should give a stream of responses from the remote server (type Control-C to stop it). If it fails there's something wrong with the settings; most likely the DNS server address. If you are relatively experienced you can try editing the configuration files by hand, but if you find all this is too complex, let us know by sending us an email and we'll try to help.
 
 That's the system controller done. You can log in to it at any time but in practice there's very little of interest there. The next job is to set up your room kits.
+
+~tid:content:The system controller~
 
 ~sid:RoomKit:Setting up a Room Kit~
 
