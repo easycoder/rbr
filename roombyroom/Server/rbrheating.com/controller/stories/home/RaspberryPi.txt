@@ -95,11 +95,3 @@ That's the system controller done. You can log in to it at any time but in pract
 `password` is the password handed out by the web server when your system registered itself. It comprises 6 digits.
 
 Keep these items safe and do not give them to anyone unless you want them to be able to manage your system.
-
-~tid:content:The system controller~
-
-~sid:RoomKit:Setting up a Room Kit~
-
-~sid:home:Go to the Help home page~
-
-~sid:Index:Index of pages~

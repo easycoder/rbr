@@ -1,6 +1,6 @@
 ## Configuring the system
 
-After you have set up your ~stid:Controller/content:system controller~ it will register itelf with the RBR website. The program running on the system controller sends its own unique MAC address and to the server and receives back a 6-digit numeric "password" that must be included in all requests that will change anything on the server.
+After you have set up your ~stid:Controller/content:system controller~ it will register itelf with the RBR website. The program running on the system controller sends its own unique MAC address to the server and receives back a 6-digit numeric "password" that must be included in all requests that will change anything on the server.
 
 In order to set up RBR on your phone or PC you will need both the MAC address and the password. These can be found on the system controller in files called `mac` and `password`. Use them when requested in the setup screens.
 

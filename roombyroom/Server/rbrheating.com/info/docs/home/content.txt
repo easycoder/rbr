@@ -1,0 +1,21 @@
+**RBR** is a new automated control system that can save a significant proportion of heating bills; typically between 10% and 30%. It replaces thermostatic radiator valves (TRVs) with remotely-controlled valves and individual room thermometers, and is controlled by any smartphone or PC, from inside or outside the house.
+
+Each room has its own thermometer and electrically-operated radiator valve, allowing a time and temperature profile of any desired complexity to be set up for that room. Temperatures can be monitored and the profile adjusted as desired, using a smartphone.
+
+~img:uisample.jpg:left 30%~On the left is a screenshot from a smartphone running the **RBR** webapp, a mobile web page that runs in any browser (tap/click to enlarge). It shows a system comprising several rooms, in each of which the heating can be controlled independently. The webapp can be accessed from anywhere with an Internet connection, so you can always see the temperature in each room and control the radiators. Because **RBR** manages both time and temperature independently for each room, the system can achieve significant savings. Using current projected annual heating costs it will take between 1 and 2 years for the system to pay for itself.
+
+An **RBR** system can be installed without the need for an electrician or plumber, and with no need to drill holes in walls. Similarly, it can be removed if no longer needed, without leaving a trace.
+
+For a house to benefit fully from having an **RBR** system installed:
+
+1 There must be TRVs on all radiators to be automated.
+
+2 There must be a broadband router providing good WiFi to each room that is to be included in the automation system.
+
+3 There should be a clear saving to be made. For example, in a premises where every room must be kept heated at all times, there is no opportunity to make any savings. But for most houses it is rare for all rooms to need heat at the same time, and very few rooms need to be kept at the same temperature all day. **RBR** lets you take full advantage of varying patterns of demand.
+
+## Pricing
+**RBR** can be installed by competent DIYers, but in most cases we would expect to supply and install the necessary hardware; please contact us for prices. The software is subject to a maintenance fee of £5/month after an initial free introductory period of 6 months.
+
+## Further information
+To learn more about the **RBR** system, visit [the webapp](https://rbrheating.com). Or you can email [RBR Heating](mailto:info@rbrheating.com); we will try to answer all questions.

@@ -1,0 +1,34 @@
+{
+    "#doc": "The top-level layout script",
+    "#element": "div",
+    "width": "100%",
+    "height": "100%",
+    "position": "relative",
+    "text-align": "left",
+    "display": "flex",
+    "flex-direction": "column",
+    "#": ["$Body"],
+
+    "$Body": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "column",
+        "height": "100%",
+        "text-align": "left",
+        "#": ["$Title", "$Content"],
+
+        "$Title": {
+            "#element": "div",
+            "#content": "Room By Room",
+            "font-size": "2em",
+            "font-weight": "bold",
+            "text-align": "center"
+        },
+
+        "$Content": {
+            "#element": "div",
+            "@id": "content",
+            "flex": 1
+        }
+    }
+}

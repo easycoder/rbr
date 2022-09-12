@@ -1,6 +1,19 @@
 #!/bin/sh
 
+adduser pi
+usermod -aG sudo pi
+deluser orangepi
+rm -rf /home/orangepi
 echo 'root:rbr' | chpasswd
 echo 'pi:rbr' | chpasswd
-echo "Please 'logout' then ssh in as 'pi' with password 'rbr'"
-rm setup-opi
+apt update
+apt -y full-upgrade
+
+echo "Getting required Python modules"
+apt install -y python3-pip
+runuser -l pi -c "pip3 install pytz bottle requests"
+runuser -l pi -c "wget https://rbrheating.com/resources/rbr.tgz"
+runuser -l pi -c "tar zxf rbr.tgz"
+runuser -l pi -c "ip -f inet addr show wlan0 | grep -Po 'inet \K[\d.]+' >ip"
+runuser -l pi -c "crontab pi_cron"
+echo "Now reboot the Orange Pi and log in again as pi/rbr"
