@@ -67,6 +67,7 @@
     variable SensorIP
     variable SensorSpec
     variable DemoSensors
+    variable Relays
     variable RelayState
     variable Temperature
     variable StaticData
@@ -110,6 +111,7 @@
     variable BoostWebson
     variable OnWebson
     variable OffWebson
+    variable NoneWebson
     variable DialogWebson
 
 !    debug step
@@ -182,6 +184,7 @@ Main:
     put empty into TimedWebson
     put empty into OnWebson
     put empty into OffWebson
+    put empty into NoneWebson
     put empty into DialogWebson
 
 !	Render the main screen layout
@@ -436,7 +439,17 @@ GetMap:
         if Mode is empty put `off` into Mode
 
         ! Show the mode indicator
-        if Mode is `timed`
+        put property `relays` of RoomSpec into Relays
+        if the json count of Relays is 0
+        begin
+            clear ModeHolder
+            if NoneWebson is empty
+            rest get NoneWebson from `/resources/webson/none.json?v=` cat now
+            put NoneWebson into Webson
+            replace `/ROOM/` with RoomIndex in Webson
+            render Webson in ModeHolder
+        end
+        else if Mode is `timed`
             begin
             begin
                 clear ModeHolder
@@ -550,24 +563,28 @@ GetMap:
         end
 
 	    ! Handle a click on a mode button
-        attach ModeIcon to `room-` cat RoomIndex cat `-mode-icon`
-	    on click ModeIcon
-	    begin
-        	if Blocked stop
-    		set Blocked
-            put the index of ModeIcon into ClickIndex
-            if ModeScript is empty
-            	rest get ModeScript from `/resources/ecs/mode.ecs?v=` cat now
-            run ModeScript with MainPanel
-            	and ModePanel
-            	and ModeIcon
-                and Mode
-                and Map
-                and ClickIndex
-                and Demo
-                and Result
-            go to ProcessResult
-		end
+        put property `relays` of RoomSpec into Relays
+        if the json count of Relays is not 0
+        begin
+            attach ModeIcon to `room-` cat RoomIndex cat `-mode-icon`
+            on click ModeIcon
+            begin
+                if Blocked stop
+                set Blocked
+                put the index of ModeIcon into ClickIndex
+                if ModeScript is empty
+                    rest get ModeScript from `/resources/ecs/mode.ecs?v=` cat now
+                run ModeScript with MainPanel
+                    and ModePanel
+                    and ModeIcon
+                    and Mode
+                    and Map
+                    and ClickIndex
+                    and Demo
+                    and Result
+                go to ProcessResult
+            end
+        end
         add 1 to RoomIndex
     end
     
