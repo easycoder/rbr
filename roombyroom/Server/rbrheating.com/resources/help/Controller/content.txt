@@ -8,7 +8,7 @@ The system controller can be any computer able to run Python. In practice, the d
 
 ~tid:RaspberryPi:Setting up a Raspberry Pi~
 
-~tid:OrangePi:Setting up an Orange Pi~
+~tid:OrangePi Debian:Setting up an Orange Pi~
 
 ~sid:home:Go to the Help home page~
 

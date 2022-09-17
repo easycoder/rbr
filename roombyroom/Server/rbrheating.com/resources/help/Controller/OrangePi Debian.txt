@@ -40,7 +40,7 @@ Under `Wi-Fi` you will see a list of the available connections, so select your o
 ~img:nmtui-3.png:center 100%!nolink~
 Enter your access password:
 ~img:nmtui-4.png:center 100%!nolink~
-Your wifi connection now has a star against it, to show it is connected. Press Escape to return to the previous screen, then edit your wifi connection to set a static (manual) IP address. There is a very good guide [here](https://teradici.com/web-help/pcoip_management_console/21.10/changing_network_config/). The only extra note to be made here is to use `8.8.8.8` as the DNS server address.
+Your wifi connection now has a star against it, to show it is connected. Press Escape to return to the previous screen, then edit your wifi connection to set a static (manual) IP address. There is a guide [here](https://dev.to/gtanyware/setting-up-a-low-cost-server-4ol1).
 
 When you have returned to the command prompt, type this command:
 ```

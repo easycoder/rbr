@@ -15,7 +15,7 @@ For a house to benefit fully from having an **RBR** system installed:
 3 There should be a clear saving to be made. For example, in a premises where every room must be kept heated at all times, there is no opportunity to make any savings. But for most houses it is rare for all rooms to need heat at the same time, and very few rooms need to be kept at the same temperature all day. **RBR** lets you take full advantage of varying patterns of demand.
 
 ## Pricing
-**RBR** can be installed by competent DIYers, but in most cases we would expect to supply and install the necessary hardware; please contact us for prices. The software is subject to a maintenance fee of £5/month after an initial free introductory period of 6 months.
+**RBR** can be installed by competent DIYers, but in most cases we would expect to supply and install the necessary hardware; please contact us for prices.
 
 ## Further information
 To learn more about the **RBR** system, visit [the webapp](https://rbrheating.com). Or you can email [RBR Heating](mailto:info@rbrheating.com); we will try to answer all questions.
