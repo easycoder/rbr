@@ -1,9 +1,8 @@
 #!/bin/sh
 
-rm -f rbr.tgz
+rm *.*
 wget https://rbrheating.com/resources/rbr.tgz
 tar zxf rbr.tgz
-mv rbr.ecs rbr.tmp
-sudo apt update
-sudo apt -y full-upgrade
-mv rbr.tmp rbr.ecs
+rm -f rbr.tgz
+echo $(cat mypass) | sudo -S apt update
+echo $(cat mypass) | sudo apt -y full-upgrade

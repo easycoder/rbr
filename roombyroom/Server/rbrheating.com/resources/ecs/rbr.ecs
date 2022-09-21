@@ -594,9 +594,9 @@ GetMap:
     clear Redraw
     clear Blocked
 
-    set style `visibility` of Alive to `visible`
+    set style `background` of Alive to `#f44`
     wait 50 ticks
-    set style `visibility` of Alive to `hidden`
+    set style `background` of Alive to `#6f6`
 	wait 400 ticks
 	stop
 

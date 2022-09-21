@@ -1,5 +1,11 @@
 #!/bin/sh
 
 cd /home/pi
-cat /sys/class/net/wlan0/address >mac
-python3 easycoder.py rbr.ecs
+if ! [ -s mac ]
+then
+   cat "/sys/class/net/$(cat network)/address" >mac
+fi
+p=$(ps -eaf | grep "[r]br.ecs")
+if [ -z "$p" ]; then
+   python3 easycoder.py rbr.ecs
+fi

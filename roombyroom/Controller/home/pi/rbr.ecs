@@ -116,6 +116,7 @@ ProcessMap:
     if Map is empty
     begin
         print `Error: no map found`
+        system `rm lock`
         exit
     end
 
@@ -154,9 +155,7 @@ ProcessMap:
         read Password from File
         close File
         put stringify SensorData into Sensors
-!        print `Sensors: ` cat Sensors
         get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
-!        print `NewMap: ` cat NewMap
         put json NewMap into NewMap
         put stringify Map into M1
         put stringify NewMap into M2
@@ -178,7 +177,6 @@ ProcessMap:
         close File
         print Password
     end
-!   exit
 
     ! Do all the above 6 times
     add 1 to RepeatCount
@@ -199,9 +197,14 @@ ProcessMap:
     put property `version` of RegData into Value
     if Value is not Version
     begin
-        print `New version available for download`
+        print `Installing update from ` cat Version cat ` to ` cat Value
+        system `sh update.sh`
+        open File Path cat `/version` for writing
+        write Value to File
+        close File
     end
 
+    system `rm lock`
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -281,13 +284,11 @@ PR2:
         put element E of Events into Event
         put property `until` of Event into Until
         put the timestamp of Until format `%H:%M` into Boundary
-        put the timestamp into Now
-!        if RoomName is `Front room` print E cat ` ` cat Now cat ` ` cat Boundary cat ` ` cat Until
+        put now into Now
         ! Check if this is the right time segment
         if Now is less than Boundary
         begin
             ! We've found the current time segment
-!            if RoomName is `Front room` print `Found the right segment`
             go to TurnOnOrOff
         end
         else
@@ -333,8 +334,7 @@ TurnOnOrOff:
 
     put element E of Events into Event
     put float property `temp` of Event into Target
-!    print Temperature cat ` ` cat Target
-    if Temperature is less than Target go to TurnOn
+    if float Temperature is less than Target go to TurnOn
 
 TurnOff:
     put `off` into Turn
@@ -345,7 +345,7 @@ TurnOn:
     put `on` into Turn
 
 SetRelays:
-    print Sensor cat ` ` cat Turn
+    print Sensor cat ` ` cat RoomName cat ` ` cat Turn
     put 0 into R
     while R is less than the count of Relays
     begin

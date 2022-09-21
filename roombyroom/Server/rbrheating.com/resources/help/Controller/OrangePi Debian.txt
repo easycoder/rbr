@@ -50,13 +50,13 @@ This will download to the Pi a small script that sets up your system. To run the
 ```
 sh setup-opi
 ```
-This will display a large amount of technical information on the console as it runs. At at one point it will ask for a password, so type `rbr`.
+This can take quite a long time, depending on how many updates are needed, and it will display a large amount of technical information on the console as it runs. At the start it will ask for a password for your `pi` account.
 
 Finally, type
 ```
 reboot
 ```
-to restart your Orange Pi, then log in again, this time as user `pi` and the password `rbr`. If you use the new IP address you gave to `nmtui` you can disconnect the network cable and use wifi exclusively.
+to restart your Orange Pi, then log in again, this time as user `pi` and the password you gave. If you use the new IP address you gave to `nmtui` you can disconnect the network cable and use wifi exclusively.
 
 To check the controller software is running, type
 ```

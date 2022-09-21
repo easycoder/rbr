@@ -9,7 +9,7 @@
     "flex-direction": "column",
     "font-size": "<#parent_width/27>",
     "#": ["$Titles", "$OuterPanel", "$HelpPanel", "$StatisticsPanel"],
-    
+
     "$Titles": {
         "#element": "div",
         "@id": "titles",
@@ -55,10 +55,10 @@
                     "@id": "alive",
                     "width": "0.5em",
                     "height": "0.5em",
-                    "border": "1px solid green",
+                    "border": "1px solid blue",
                     "border-radius": "50%",
                     "background": "#6f6",
-                    "margin": "0.2em auto"
+                    "margin": "0.4em auto"
                 }
             }
         },
