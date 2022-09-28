@@ -561,6 +561,7 @@ class Core(Handler):
         if value != None:
             print(f'-> {value}')
             return self.nextPC()
+        return False
 
     def k_put(self, command):
         command['value'] = self.nextValue()
@@ -783,6 +784,36 @@ class Core(Handler):
             val['content'] = content
             self.putSymbolValue(target, val)
             return self.nextPC()
+
+    def k_split(self, command):
+        if self.nextIsSymbol():
+            symbolRecord = self.getSymbolRecord()
+            if symbolRecord['valueHolder']:
+                command['target'] = symbolRecord['name']
+                command['on'] = '\n'
+                if self.peek() == 'on':
+                    self.nextToken()
+                    command['on'] = self.getValue()
+                self.add(command)
+                return True
+        return False
+
+    def r_split(self, command):
+        target = self.getVariable(command['target'])
+        value = self.getSymbolValue(target)
+        content = value['content'].split(command['on'])
+        elements = len(content)
+        target['elements'] = elements
+        target['value'] = [None] * elements
+
+        for index, item in enumerate(content):
+            element = {}
+            element['type'] = 'text'
+            element['numeric'] = 'false'
+            element['content'] = item
+            target['value'][index] = element
+        
+        return self.nextPC()
 
     def k_stop(self, command):
         self.add(command)

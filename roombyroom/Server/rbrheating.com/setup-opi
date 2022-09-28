@@ -1,18 +1,9 @@
 #!/bin/sh
 
 adduser pi
-
-read -p "Please repeat your password: " password
-echo "pi:$password" | chpasswd
-echo "$password" > /home/pi/mypass
-chown -R pi /home/pi/mypass
-echo "wlan0" > /home/pi/network
-chown -R pi /home/pi/network
-
+adduser pi sudo
 deluser orangepi
 rm -rf /home/orangepi
-
-echo "root:$password" | chpasswd
 
 apt update
 apt -y full-upgrade
@@ -20,15 +11,30 @@ apt -y full-upgrade
 echo "Install Python Pip"
 apt install -y python3-pip
 echo "Install bottle and requests"
-runuser -l pi -c "pip3 install pytz bottle requests"
+runuser -l pi -c "pip3 install bottle requests pytz"
+
 echo "Get the resource pack"
 runuser -l pi -c "wget https://rbrheating.com/resources/rbr.tgz"
 echo "Unpack resources"
 runuser -l pi -c "tar zxf rbr.tgz"
 echo "Remove the resource pack"
 runuser -l pi -c "rm rbr.tgz"
-echo "Save the IP address"
-runuser -l pi -c "ip -f inet addr show wlan0 | grep -Po 'inet \K[\d.]+' >ip"
 echo "Set up cron"
 runuser -l pi -c "crontab pi_cron"
-echo "Now reboot the Orange Pi and log in again as 'pi' with your chosen password"
+read -p "Please repeat your password: " password
+echo "pi:$password" | chpasswd
+runuser -l pi -c "echo $password >mypass"
+
+read -p "Please type your desired static IP address: " ipaddr
+read -p "Please type the IP address of your router (gateway): " gateway
+read -p "Please type a suitable DNS IP address: " dns
+nmcli con add con-name eth0 type ethernet
+nmcli con mod eth0 ipv4.method "manual" ipv4.addresses "$ipaddr/24" ipv4.gateway "$gateway" ipv4.dns "$dns"
+#nmcli device reapply eth0
+
+runuser -l pi -c "echo eth0 >network"
+runuser -l pi -c "echo $ipaddr >ip"
+
+echo "Now log in again at $ipaddr as 'pi' with password '$password'"
+
+reboot

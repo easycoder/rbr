@@ -29,20 +29,17 @@ On your computer, fire up a terminal emulator. On Windows you can use PuTTY; on 
 ```
 ssh orangepi@xxx.xxx.xxx.xxx
 ```
-and the password `orangepi`. You will see a welcome message and you will be logged in. Now type
+where `xxx.xxx.xxx.xxx` is the IP address found for the device
+
+and give the password `orangepi`. You will see a welcome message and you will be logged in.
+
+Although the Orange Pi Zero 2 has onboard wifi we recommend using the wired ethernet connection as it may be more reliable. If for some reason you are unable to keep your system controller near the router (for example if you are using someone else's wifi) then you can set up wifi on the Pi using the command
 ```
 nmtui
 ```
-~img:nmtui-1.png:center 100%!nolink~
-Select `Activate a connection`:
-~img:nmtui-2.png:center 100%!nolink~
-Under `Wi-Fi` you will see a list of the available connections, so select your own:
-~img:nmtui-3.png:center 100%!nolink~
-Enter your access password:
-~img:nmtui-4.png:center 100%!nolink~
-Your wifi connection now has a star against it, to show it is connected. Press Escape to return to the previous screen, then edit your wifi connection to set a static (manual) IP address. There is a guide [here](https://dev.to/gtanyware/setting-up-a-low-cost-server-4ol1).
+then continue with these instructions.
 
-When you have returned to the command prompt, type this command:
+Type this command:
 ```
 wget https://rbrheating.com/setup-opi
 ```
@@ -50,13 +47,9 @@ This will download to the Pi a small script that sets up your system. To run the
 ```
 sh setup-opi
 ```
-This will display a large amount of technical information on the console as it runs. At at one point it will ask for a password, so type `rbr`.
+This can take quite a long time, depending on how many updates are needed, and it will display a large amount of technical information on the console as it runs. While it runs it will ask 3 times the password you wish to use for your `pi` account. (I confess I use quite a simple password. Since it will only be used inside your house it's unlikely that you'll need an industrial-strength one, but that's up to you.) It ends by asking you for the static IP address you want to use (see above), the IP address of your router and a DNS address. The last of these is often the same as the router, but in some cases - most notably the Virgin Media Hub - this feature is not provided, so use `8.8.8.8`.
 
-Finally, type
-```
-reboot
-```
-to restart your Orange Pi, then log in again, this time as user `pi` and the password `rbr`. If you use the new IP address you gave to `nmtui` you can disconnect the network cable and use wifi exclusively.
+Finally, the Orange Pi will reboot, so log in again, this time at the IP address you gave, as user `pi` and your chosen password. If you are using wifi you can disconnect the network cable, place the system controller anywhere convenient and log in at the IP address you gave to `nmtui`.
 
 To check the controller software is running, type
 ```
@@ -74,8 +67,8 @@ Note to users outside the UK: The Python script `ec_timestamp.py` is set up for 
 
 That's the system controller done. You can log in to it at any time but in practice there's very little of interest there. The next job is to set up your room kits, but before you do so, make a note of the contents of 2 files on your system controller, both of which will be needed when you first run the webapp on your phone:
 
-`mac` contains the unique address of your system. It comprises 6 pairs of digits and the letters A to F, separated by colons.
+`mac` contains the unique MAC (Media Access Control) address of your system. It comprises 6 pairs of digits and the letters A to F, separated by colons. Type `cat mac`.
 
-`password` is the password handed out by the web server when your system registered itself. It comprises 6 digits.
+`password` is the password handed out by the web server when your system registers itself. It comprises 6 digits and it will be available 30 seconds or so after the system controller reboots. Type `cat password`.
 
-Keep these items safe and do not give them to anyone unless you want them to be able to manage your system.
+Keep these items safe and do not give them to anyone unless you want them to be able to manage your system. When you set up the webapp on a phone or other device, the MAC address will give that device access to the system setup. If the password is provided it will also allow the user to make changes on that device; otherwise the system will be read-only. This means you can allow people to view the system without also giving them permission to manage it.

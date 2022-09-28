@@ -6,6 +6,7 @@ then
    cat "/sys/class/net/$(cat network)/address" >mac
 fi
 p=$(ps -eaf | grep "[r]br.ecs")
-if [ -z "$p" ]; then
+if [ -z "$p" ]
+then
    python3 easycoder.py rbr.ecs
 fi
