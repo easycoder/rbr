@@ -280,6 +280,7 @@ GetMap:
     	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
           or put empty into Map
     end
+!    print Map
     if Map is empty put `{"rooms":[]}` into Map
     put property `rooms` of Map into Rooms
     if the json count of Rooms is 0

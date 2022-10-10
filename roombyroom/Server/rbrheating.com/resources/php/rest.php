@@ -115,8 +115,7 @@
             }
             break;
         case 'POST':
-            // These endpoints are only available for the development server
-//            if ($action[0] == '_' && $_SERVER[SERVER_NAME] == "rbr.easycoder.software") {
+            // These endpoints require the admin password
             if ($action[0] == '_') {
                 switch ($action) {
                     case '_mkdir':
@@ -126,31 +125,6 @@
                         $path = stripslashes(file_get_contents("php://input"));
     //                     logger("Create directory $path");
                         mkdir($path);
-                        exit;
-                    case '_upload':
-                        // Upload a file (an image) to the current directory
-                        // Endpoint: {site root}/easycoder/rest.php/_upload
-                        $path = $_POST['path'];
-                        $pathsegs = explode("/", $path);
-                        $path = str_replace('~', '/', $pathsegs[1]);
-                        $fileName = $_FILES['source']['name'];
-                        $tempName = $_FILES['source']['tmp_name'];
-                        $fileType = $_FILES['source']['type'];
-                        $fileSize = $_FILES['source']['size'];
-                        $fileError = $_FILES['source']['error'];
-                        if (!move_uploaded_file($tempName, "$path/$fileName")) {
-                            unlink($tempName);
-                            http_response_code(400);
-    //                         logger("Failed to upload $fileName to $path.\ntempName: $tempName\nfileType: $fileType\nfileSize:$fileSize\nfileError: $fileError");
-                        } else {
-                            logger("File $fileName uploaded successfully to $path/$fileName");
-                            $size = getimagesize("$path/$fileName");
-                            logger("$path/$fileName: width:".$size[0].", height:".$size[1]);
-                            if ($size[0] > 1024) {
-                                logger("mogrify -resize 1024x1024 $path/$fileName");
-                                systems("mogrify -resize 1024x1024 $path/$fileName");
-                            }
-                        }
                         exit;
                     case '_save':
                         // Save data to a file in the resources folder
@@ -268,7 +242,6 @@
                 $mac = $request[0];
                 $sensors = $request[1];
 
-                $ts = time();
                 $daysec = 24*60*60;
                 $day = intval($ts / $daysec) * $daysec;
 
@@ -277,12 +250,11 @@
                     $relay = $value->relay;
                     $previous = "off";
                     // Update the relay states table
-                    $res = query($conn, "SELECT id, relay from relays WHERE mac='$mac' AND sensor='$sensor'");
+                    $res = query($conn, "SELECT relay from relays WHERE mac='$mac' AND sensor='$sensor'");
                     if ($r = mysqli_fetch_object($res)) {
-                        $id = $r->id;
                         $previous = $r->relay;
-                        //print("UPDATE relays SET relay='$relay' WHERE id=$id\n");
-                        query($conn, "UPDATE relays SET relay='$relay' WHERE id=$id");
+                        //print("UPDATE relays SET relay='$relay' WHERE mac='$mac'");
+                        query($conn, "UPDATE relays SET relay='$relay' WHERE mac='$mac'");
                     } else {
                         query($conn, "INSERT INTO relays (mac,sensor,relay) VALUES ('$mac','$sensor','$relay')");
                     }
@@ -290,10 +262,9 @@
                     // Update the stats table
                     if ($previous == "off" && $relay =="on") {
                         // Mark the start of a timing period
-                        $res = query($conn, "SELECT id FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
+                        $res = query($conn, "SELECT null FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
-                            $id = $r->id;
-                            query($conn, "UPDATE stats SET start='$ts' WHERE id=$id");
+                            query($conn, "UPDATE stats SET start='$ts' WHERE mac='$mac'");
                         } else {
                             logger("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
                             query($conn, "INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
@@ -301,23 +272,21 @@
                     }
                     else if ($previous == "on" && $relay =="off") {
                         // Add the period to the total duration for this day
-                        $res = query($conn, "SELECT id, start, duration FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
+                        $res = query($conn, "SELECT start, duration FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
-                            $id = $r->id;
                             $duration = ($ts - $r->start + ($r->duration * 60)) / 60;
-                            query($conn, "UPDATE stats SET duration='$duration' WHERE id=$id");
+                            query($conn, "UPDATE stats SET duration='$duration' WHERE mac='$mac'");
                         }
                     }
                 }
                 // Write the sensor values
                 $sensors = $conn->real_escape_string(base64_encode($sensors));
-                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac'");
+                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
                     $map = base64_decode($row->map);
-                    query($conn, "UPDATE systems SET sensors='$sensors' WHERE id='$id'");
-//                     logger("UPDATE systems SET sensors='$sensors' WHERE id=$id");
-//                     print("UPDATE systems SET sensors='$sensors' WHERE id=$id"); print "\n";
+                    query($conn, "UPDATE systems SET sensors='$sensors' WHERE mac='$mac'");
+//                     logger("UPDATE systems SET sensors='$sensors' WHERE mac='$mac'");
+//                     print("UPDATE systems SET sensors='$sensors' WHERE mac='$mac'"); print "\n";
                     // Return the current map
                     print "$map\n";
                 }
@@ -346,6 +315,40 @@
                 doStatistics($conn, $request);
                 break;
 
+            case 'test':
+                // A test endpoint
+                // Endpoint: {site root}/resources/php/rest.php/test/{mac}/{password}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    print "Test passed";
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
+                }
+                break;
+
+            case 'roomname':
+                // A test endpoint that returns a value
+                // Endpoint: {site root}/resources/php/rest.php/test/{mac}/{password}/{roomindex}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $roomindex = intval(trim($request[2]));
+                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $map = $row->map;
+                    $map = base64_decode($map);
+                    $map = json_decode($map);
+                    $room = $map->rooms[$roomindex];
+                    $name = $room->name;
+                    print "Room: $name";
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
+                }
+                break;
+
             default:
                 http_response_code(404);
                 print "I don't understand this request.";
@@ -364,19 +367,18 @@
                 // Endpoint: {site root}/resources/php/rest.php/map/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $result = query($conn, "SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
                     $map = file_get_contents("php://input");
                     $map = base64_encode($map);
 //                    print "$map\n";
-                    query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
-//                     logger("UPDATE systems SET map='$map' WHERE id=$id");
+                    query($conn, "UPDATE systems SET map='$map', last=$ts WHERE mac='$mac'");
+//                     logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
-//                     logger("SELECT id FROM systems WHERE mac='$mac' AND password='$password'\n");
+//                     logger("SELECT null FROM systems WHERE mac='$mac' AND password='$password'\n");
 //                     logger("{\"message\":\"MAC and password do not match any record.\"}");
-//                     print "SELECT id FROM systems WHERE mac='$mac' AND password='$password'\n";
+//                     print "SELECT null FROM systems WHERE mac='$mac' AND password='$password'\n";
                     print "{\"message\":\"MAC and password do not match any record.\"}";
                 }
                 break;
@@ -386,15 +388,14 @@
                 // Endpoint: {site root}/resources/php/rest.php/backup/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $result = query($conn, "SELECT id FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
                     $map = file_get_contents("php://input");
 //                    print "$map\n";
                     $map = base64_encode($map);
 //                    print "$map\n";
-                    query($conn, "UPDATE systems SET backup='$map' WHERE id='$id'");
-//                     logger("UPDATE systems SET backup='$map' WHERE id=$id");
+                    query($conn, "UPDATE systems SET backup='$map' WHERE mac='$mac'");
+//                     logger("UPDATE systems SET backup='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
@@ -406,14 +407,13 @@
                 // Endpoint: {site root}/resources/php/rest.php/restore/<mac>/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-//                 logger("SELECT * FROM systems WHERE mac='$mac'");
-                $result = query($conn, "SELECT id,backup FROM systems WHERE mac='$mac' AND password='$password'");
+//                 logger("SELECT backup FROM systems WHERE mac='$mac'");
+                $result = query($conn, "SELECT backup FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
                     if ($row->backup) {
                         $map = $row->backup;
-                        query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
-//                        logger("UPDATE systems SET map='$map' WHERE id=$id");
+                        query($conn, "UPDATE systems SET map='$map', last=$ts WHERE mac='$mac'");
+//                        logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                         $map = base64_encode($map);
                         print "$map\n";
                     }
@@ -432,17 +432,16 @@
                 // Endpoint: {site root}/resources/php/rest.php/confirm/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
                     $map = $row->map;
                     $map = base64_decode($map);
                     $map = json_decode($map);
                     $map->message = "OK";
                     $map = json_encode($map);
                     $map = base64_encode($map);
-                    query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
-//                     logger("UPDATE systems SET map='$map' WHERE id=$id");
+                    query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");
+//                     logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
@@ -455,17 +454,16 @@
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));
-                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
                     $map = $row->map;
                     $map = base64_decode($map);
                     $map = json_decode($map);
                     $map->rooms[$roomindex]->advance = '';
                     $map = json_encode($map);
                     $map = base64_encode($map);
-                    query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
-//                     logger("UPDATE systems SET map='$map' WHERE id=$id");
+                    query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");
+//                     logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
@@ -479,38 +477,16 @@
                 $password = trim($request[1]);
                 $roomindex = intval(trim($request[2]));
                 $target = intval(trim($request[3]));
-                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
                     $map = $row->map;
                     $map = base64_decode($map);
                     $map = json_decode($map);
                     $map->rooms[$roomindex]->boost = $target;
                     $map = json_encode($map);
                     $map = base64_encode($map);
-                    query($conn, "UPDATE systems SET map='$map' WHERE id='$id'");
-//                     logger("UPDATE systems SET map='$map' WHERE id=$id");
-                } else {
-                    http_response_code(404);
-                    print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
-                }
-                break;
-
-            case 'test':
-                // A test endpoint that returns a value
-                // Endpoint: {site root}/resources/php/rest.php/test/{mac}/{password}/{roomindex}
-                $mac = trim($request[0]);
-                $password = trim($request[1]);
-                $roomindex = intval(trim($request[2]));
-                $result = query($conn, "SELECT id, map FROM systems WHERE mac='$mac' AND password='$password'");
-                if ($row = mysqli_fetch_object($result)) {
-                    $id = $row->id;
-                    $map = $row->map;
-                    $map = base64_decode($map);
-                    $map = json_decode($map);
-                    $room = $map->rooms[$roomindex];
-                    $name = $room->name;
-                    print "Room: $name";
+                    query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");
+//                     logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
