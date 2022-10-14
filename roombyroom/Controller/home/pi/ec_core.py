@@ -1,4 +1,4 @@
-import json, math, hashlib, threading, os, requests, time
+import json, math, hashlib, threading, os, requests, time, numbers
 from datetime import datetime, timezone
 from random import randrange
 from ec_classes import FatalError, RuntimeError
@@ -1428,15 +1428,13 @@ class Core(Handler):
         target = self.getVariable(v['target'])
         target = self.getSymbolValue(target)
         content = target['content']
-        if content == '':
-            content = ''
-            content['name'] = '(anon)'
+        val = content.get(name)
         value = {}
-        value['type'] = 'text'
-        if content.get(name):
-            value['content'] = content[name]
+        value['content'] = val
+        if isinstance(v, numbers.Number):
+            value['type'] = 'int'
         else:
-            value['content'] = ''
+            value['type'] = 'text'
         return value
 
     def v_random(self, v):

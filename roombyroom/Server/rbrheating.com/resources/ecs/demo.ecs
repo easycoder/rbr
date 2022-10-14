@@ -4,6 +4,9 @@
     
     import variable Map and variable Sensors and variable Demo
     
+    variable ProfileNumber
+    variable Profiles
+    variable Profile
     variable Rooms
     variable RoomCount
     variable RoomSpec
@@ -40,10 +43,10 @@
     begin
         while true
         begin
-            put property `rooms` of Map into Rooms
+            gosub to GetCurrentRooms
             put the json count of Rooms into RoomCount
             set the elements of Mode2 to RoomCount
-            print Sensors
+!            print Sensors
             put 0 into R
             while R is less than RoomCount
             begin
@@ -119,7 +122,7 @@ DoBoost:
         add Now to Boost
         set property `boost` of RoomSpec to Boost
         set element R of Rooms to RoomSpec
-        set property `rooms` of Map to Rooms
+        gosub CopyRoomsToMap
         put Map into storage as `map`
     end
     ! Fall into DoOn
@@ -199,8 +202,7 @@ DoTimed:
     return
 
 Init:
-	print `Init`
-    put property `rooms` of Map into Rooms
+    gosub to GetCurrentRooms
     put the json count of Rooms into RoomCount
     put 0 into R
     while R is less than RoomCount
@@ -220,6 +222,26 @@ Init:
         end
         add 1 to R
     end
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element ProfileNumber of Profiles to Profile
+    set property `profiles` of Map to Profiles
 	return
 
 RelayOn:

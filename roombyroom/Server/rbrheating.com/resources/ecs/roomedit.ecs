@@ -21,11 +21,15 @@
     button DialogButton1
     button DialogButton2
     input DialogInput
+    variable ProfileNumber
+    variable Profiles
+    variable Profile
     variable Rooms
     variable RoomSpec
     variable Webson
     variable Relays
     variable Item
+    variable Name
     variable ScheduleEditScript
     variable R
 
@@ -43,7 +47,7 @@ Editor:
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
     
-    put property `rooms` of Map into Rooms
+    gosub to GetCurrentRooms
     put element ClickIndex of Rooms into RoomSpec
     set the content of RoomName to property `name` of RoomSpec
     
@@ -86,11 +90,12 @@ NameButtonCB:
     
     on click DialogButton1
     begin
-        set property `name` of RoomSpec to the content of DialogInput
-    	set the content of RoomName to property `name` of RoomSpec
+    	put the content of DialogInput into Name
+        set property `name` of RoomSpec to Name
+    	set the content of RoomName to Name
         clear DialogPanel
         set element ClickIndex of Rooms to RoomSpec
-    	set property `rooms` of Map to Rooms
+        gosub to CopyRoomsToMap
         go to ExitWithChanges
     end
     
@@ -123,7 +128,7 @@ SensorButtonCB:
         set property `sensor` of RoomSpec to the content of DialogInput
         clear DialogPanel
         set element ClickIndex of Rooms to RoomSpec
-    	set property `rooms` of Map to Rooms
+        gosub to CopyRoomsToMap
         go to ExitWithChanges
     end
     
@@ -174,7 +179,7 @@ RelaysButtonCB:
         set property `relays` of RoomSpec to Relays
         clear DialogPanel
         set element ClickIndex of Rooms to RoomSpec
-    	set property `rooms` of Map to Rooms
+        gosub to CopyRoomsToMap
         go to ExitWithChanges
     end
     
@@ -184,6 +189,26 @@ RelaysButtonCB:
     	go to ExitWithoutChanges
         end
 	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element ProfileNumber of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the times

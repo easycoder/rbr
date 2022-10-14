@@ -33,6 +33,9 @@
     variable Webson
     variable Rooms
     variable RoomSpec
+    variable ProfileNumber
+    variable Profiles
+    variable Profile
     variable EventWebson
     variable EventInfoWebson
     variable EventEditorWebson
@@ -63,7 +66,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! The schedule editor
 	put -1 into LastEvent
-    put property `rooms` of Map into Rooms
+    gosub to GetCurrentRooms
     put element ClickIndex of Rooms into RoomSpec
 
 	clear MainPanel
@@ -112,7 +115,7 @@ RedoEvents:
         gosub to SortEvents
         set property `events` of RoomSpec to Events
         set element ClickIndex of Rooms to RoomSpec
-        set property `rooms` of Map to Rooms
+        gosub to CopyRoomsToMap
         clear MainPanel
         go to ExitWithChanges
     end
@@ -387,6 +390,26 @@ ShowValues:
     set property `until` of Event to Time
     set property `temp` of Event to Temp
     return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element ProfileNumber of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
         
 ExitWithoutChanges:
     put `Redraw` into Result

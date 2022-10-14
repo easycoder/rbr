@@ -25,6 +25,7 @@
     img Hamburger
     img ModeIcon
     a Welcome
+    button ProfilesButton
     button AddRoomButton
     button GetSysParamsButton
     button GetMACButton
@@ -40,6 +41,7 @@
     button HelpButton
     button DialogButton1
     button DialogButton2
+    module ProfileModule
     module Storyteller
     module DemoModule
     variable Mobile
@@ -53,6 +55,9 @@
     variable MAC
     variable Password
     variable SystemName
+    variable CurrentProfile
+    variable Profiles
+    variable Profile
     variable RequestIP
     variable Map
     variable Map2
@@ -74,6 +79,7 @@
     variable RoomData
     variable RoomName
     variable Timestamp
+    variable IsAlive
     variable Args
     variable Events
     variable Event
@@ -85,7 +91,9 @@
     variable TID
     variable Result
     variable Finish
-    variable ErrorCount
+    variable Name
+    variable MapErrorCount
+    variable RestErrorCount
     variable Elapsed
     variable Boost
     variable Now
@@ -133,7 +141,7 @@
     stop
 
 Main:
-    put 0 into ErrorCount
+    put 0 into MapErrorCount
 	clear Blocked
     set Redraw
     put empty into ModeScript
@@ -172,6 +180,7 @@ Main:
 
 !	First get EasyCoder scripts and the various layout scripts
     rest get HelpScript from `/resources/ecs/storyteller.ecs?v=` cat now
+    	or go to AbandonShip
 
     put empty into MainMenuWebson
     put empty into RoomWebson
@@ -189,6 +198,7 @@ Main:
 
 !	Render the main screen layout
     rest get MainScreenWebson from `/resources/webson/rbr.json?v=` cat now
+    	or go to AbandonShip
 	render MainScreenWebson in Body
     attach MainPanel to `mainpanel`
     attach OuterPanel to `outerpanel`
@@ -241,6 +251,7 @@ Main:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Main start point
 Start:
+	put 0 into RestErrorCount
 
 !	Make sure we have a MAC address; if not, go ask for one
     clear Flag
@@ -252,9 +263,9 @@ Start:
         if DemoModule is not running
         begin
 	    	rest get Script from `/resources/ecs/demo.ecs?v=` cat now
+            	or go to HandleRestError
             get Map from storage as `map`
             put empty into DemoSensors
-            print `Run the Demo module`
         	run Script with Map and DemoSensors and Demo as DemoModule
             send `run` to DemoModule
         end
@@ -278,17 +289,41 @@ GetMap:
     else
     begin
     	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-          or put empty into Map
+        or begin
+        	print `Unable to get the map`
+        	put empty into Map
+            continue
+        end
     end
-!    print Map
-    if Map is empty put `{"rooms":[]}` into Map
-    put property `rooms` of Map into Rooms
-    if the json count of Rooms is 0
+    if Map is empty
     begin
-        rest get RoomSpec from `/resources/json/newroomspec.json?v=` cat now
-        if MAC is `DEMO` set property `sensor` of RoomSpec to `0`
-        append RoomSpec to Rooms
-        set property `rooms` of Map to Rooms
+    	print `The map is empty`
+		put `{"name":"Default","rooms":[]}` into Profile
+        put `[]` into Profiles
+        append Profile to Profiles
+        set property `profiles` of Map to Profiles
+        set property `profile` of Map to 0
+    end
+    if property `rooms` of Map is empty
+    begin
+        put property `profile` of Map into CurrentProfile
+        put property `profiles` of Map into Profiles
+    	put element CurrentProfile of Profiles into Profile
+    	put property `rooms` of Profile into Rooms   
+    end
+    else
+    begin
+    	put property `rooms` of Map into Rooms
+        put `{}` into Profile
+        set property `name` of Profile to `Default`
+        set property `rooms` of Profile to Rooms
+        put `[]` into Profiles
+        append Profile to Profiles
+        set property `profiles` of Map to Profiles
+    	set property `profile` of Map to 0
+        put 0 into CurrentProfile
+        json delete property `rooms` of Map
+        fork to PostMap
     end
     if Map is not Map2 set Redraw
     put Map into Map2
@@ -311,12 +346,31 @@ GetMap:
 	! Show the system
     attach SystemNamePanel to `system-name`
     set the content of SystemNamePanel to SystemName
+    attach ProfilesButton to `profile-button`
+    on click ProfilesButton go to DoProfiles
+
+!json delete property `profile` of Map
+!json delete property `default-profile-name` of Map
+!json delete property `profiles` of Map
+	put property `default-profile-name` of Map into Name
+    if Name is empty
+    begin
+    	put `Default` into Name
+        set property `default-profile-name` of Map to Name
+        fork to PostMap
+    end
+
+	put property `profile` of Map into CurrentProfile
+   	put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    put property `name` of Profile into Name
+    set the text of ProfilesButton to `Profile: ` cat Name
 
 	! Get the current sensor values
 	if Demo put DemoSensors into Sensors
     else rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
+        or go to HandleRestError
 
-	put property `rooms` of Map into Rooms
     put the json count of Rooms into R
     if R is RoomCount clear Redraw
     else
@@ -341,8 +395,10 @@ GetMap:
     set the elements of RelayState to RoomCount
     set the elements of ModeHolder to RoomCount
     set the elements of ModeIcon to RoomCount
-    
+
+!    print Server    
 !    print Sensors
+!	 print Map
 
 	! Draw a row for each room
     put 0 into RoomIndex
@@ -370,6 +426,7 @@ GetMap:
             ! Render the Webson spec for a room
             if RoomWebson is empty
     			rest get RoomWebson from `/resources/webson/room.json?v=` cat now
+            		or go to HandleRestError
         	put RoomWebson into Webson
         	replace `/ROOM/` with RoomIndex in Webson
         	render Webson in MainPanel
@@ -420,7 +477,9 @@ GetMap:
                 else set property `alive` of RoomData to `true`
             end
             set property `room-` cat RoomIndex of StaticData to RoomData
-            if property `alive` of RoomData is `true`
+            put property `alive` of RoomData into IsAlive
+            if Demo put `true` into IsAlive
+            if IsAlive is `true`
             begin
                 put property `temperature` of SensorSpec into Temperature
             	set the content of RoomTempPanel to Temperature cat `&deg;C`
@@ -441,11 +500,14 @@ GetMap:
 
         ! Show the mode indicator
         put property `relays` of RoomSpec into Relays
-        if the json count of Relays is 0
+        put the json count of Relays into Relays
+        if Demo put 1 into Relays
+        if Relays is 0
         begin
             clear ModeHolder
             if NoneWebson is empty
             rest get NoneWebson from `/resources/webson/none.json?v=` cat now
+            	or go to HandleRestError
             put NoneWebson into Webson
             replace `/ROOM/` with RoomIndex in Webson
             render Webson in ModeHolder
@@ -456,6 +518,7 @@ GetMap:
                 clear ModeHolder
     			if TimedWebson is empty
     				rest get TimedWebson from `/resources/webson/timed.json?v=` cat now
+            			or go to HandleRestError
                 put TimedWebson into Webson
                 replace `/ROOM/` with RoomIndex in Webson
                 render Webson in ModeHolder
@@ -505,6 +568,7 @@ GetMap:
                 clear ModeHolder
                 if BoostWebson is empty
                     rest get BoostWebson from `/resources/webson/boost.json?v=` cat now
+            			or go to HandleRestError
                 put BoostWebson into Webson
                 replace `/ROOM/` with RoomIndex in Webson
                 render Webson in ModeHolder
@@ -523,7 +587,7 @@ GetMap:
             	begin
             		set property `mode` of RoomSpec to property `prevmode` of RoomSpec
             	    set element RoomIndex of Rooms to RoomSpec
-            	    set property `rooms` of Map to Rooms
+					gosub to CopyRoomsToMap
 		    		fork to PostMap
             	    set Refresh
                 end
@@ -535,6 +599,7 @@ GetMap:
                 clear ModeHolder
                 if OnWebson is empty
                     rest get OnWebson from `/resources/webson/on.json?v=` cat now
+            			or go to HandleRestError
                 put OnWebson into Webson
                 replace `/ROOM/` with RoomIndex in Webson
                 render Webson in ModeHolder
@@ -548,6 +613,7 @@ GetMap:
                 clear ModeHolder
                 if OffWebson is empty
                     rest get OffWebson from `/resources/webson/off.json?v=` cat now
+            			or go to HandleRestError
                 put OffWebson into Webson
                 replace `/ROOM/` with RoomIndex in Webson
                 render Webson in ModeHolder
@@ -564,17 +630,18 @@ GetMap:
         end
 
 	    ! Handle a click on a mode button
-        put property `relays` of RoomSpec into Relays
-        if the json count of Relays is not 0
+        if Relays is not 0
         begin
             attach ModeIcon to `room-` cat RoomIndex cat `-mode-icon`
             on click ModeIcon
             begin
                 if Blocked stop
                 set Blocked
+                on click ProfilesButton begin end
                 put the index of ModeIcon into ClickIndex
                 if ModeScript is empty
                     rest get ModeScript from `/resources/ecs/mode.ecs?v=` cat now
+            			or go to HandleRestError
                 run ModeScript with MainPanel
                     and ModePanel
                     and ModeIcon
@@ -597,7 +664,7 @@ GetMap:
 
     set style `background` of Alive to `#f44`
     wait 50 ticks
-    set style `background` of Alive to `#6f6`
+    set style `background` of Alive to `#44f`
 	wait 400 ticks
 	stop
 
@@ -639,6 +706,7 @@ GetSystemParameters:
     clear MainPanel
     if GetSysParamsWebson is empty
         rest get GetSysParamsWebson from `/resources/webson/getsysparams.json?v=` cat now
+            or go to HandleRestError
     render GetSysParamsWebson in MainPanel
 
     attach GetMACButton to `button-getmac`
@@ -695,6 +763,7 @@ GetMAC:
     clear MainPanel
     if GetMacWebson is empty
         rest get GetMacWebson from `/resources/webson/getmac.json?v=` cat now
+            or go to HandleRestError
     render GetMacWebson in MainPanel
     attach Input to `getmac-input`
     attach OKButton to `getmac-ok`
@@ -798,6 +867,7 @@ GetSystemName:
     clear MainPanel
     if GetNameWebson is empty
         rest get GetNameWebson from `/resources/webson/getname.json?v=` cat now
+            or go to HandleRestError
     render GetNameWebson in MainPanel
     attach Input to `getname-input`
     attach OKButton to `getname-ok`
@@ -843,6 +913,7 @@ GetRequestRelay:
     clear MainPanel
     if GetRequestWebson is empty
         rest get GetRequestWebson from `/resources/webson/getrequest.json?v=` cat now
+            or go to HandleRestError
     render GetRequestWebson in MainPanel
     attach Input to `getrequest-input`
     attach OKButton to `getrequest-ok`
@@ -887,6 +958,7 @@ ShowMenu:
 	clear MainPanel
     if MainMenuWebson is empty
     	rest get MainMenuWebson from `/resources/webson/mainmenu.json?v=` cat now
+            or go to HandleRestError
     render MainMenuWebson in MainPanel
     attach AddRoomButton to `button-add`
     attach GetSysParamsButton to `button-getsysparams`
@@ -902,9 +974,10 @@ ShowMenu:
     on click AddRoomButton
     begin
         rest get RoomSpec from `/resources/json/newroomspec.json?v=` cat now
+            or go to HandleRestError
         if MAC is `DEMO` set property `sensor` of RoomSpec to the json count of Rooms
         append RoomSpec to Rooms
-        set property `rooms` of Map to Rooms
+		gosub to CopyRoomsToMap
         fork to PostMap
     	clear MainPanel
         clear Blocked
@@ -948,6 +1021,27 @@ ShowMenu:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+    put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    set property `rooms` of Profile to Rooms        
+    set element CurrentProfile of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Deal with profiles
+DoProfiles:
+	if ProfileModule is running stop
+	set Blocked
+    wait 20 ticks
+    put empty into Result
+    rest get Script from `/resources/ecs/profiles.ecs?v=` cat now
+    run Script with MainPanel and Map and Result as ProfileModule
+    go to ProcessResult
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	The room tools
 RoomTools:
 	set Blocked
@@ -955,6 +1049,7 @@ RoomTools:
 	clear MainPanel
     if RoomToolsMenuWebson is empty
     	rest get RoomToolsMenuWebson from `/resources/webson/roomtoolsmenu.json?v=` cat now
+            or go to HandleRestError
     render RoomToolsMenuWebson in MainPanel
     put empty into Result
     rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
@@ -968,6 +1063,7 @@ Backup:
     attach DialogPanel to `dialog-panel`
     if DialogWebson is empty
     	rest get DialogWebson from `/resources/webson/dialog-confirm.json?v=` cat now
+            or go to HandleRestError
     render DialogWebson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
@@ -984,7 +1080,7 @@ Backup:
     	if not Demo
         begin
         	rest post Map to Server cat `/backup/` cat MAC cat `/` cat Password
-        	or continue
+            	or go to HandleRestError
         end
         set Redraw
         clear Blocked
@@ -1004,6 +1100,7 @@ Restore:
     attach DialogPanel to `dialog-panel`
     if DialogWebson is empty
     	rest get DialogWebson from `/resources/webson/dialog-confirm.json?v=` cat now
+            or go to HandleRestError
     render DialogWebson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
@@ -1020,7 +1117,7 @@ Restore:
         if not Demo
         begin
         	rest post to Server cat `/restore/` cat MAC cat `/` cat Password
-        	or continue
+            	or go to HandleRestError
         end
         set Redraw
         clear Blocked
@@ -1039,15 +1136,14 @@ PostMap:
 	if Demo put Map into storage as `map`
     else
 	begin
-    print `Post map`
    		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
    		or begin
-            add 1 to ErrorCount
-            if ErrorCount is greater than 5
+            add 1 to MapErrorCount
+            if MapErrorCount is greater than 5
             begin
             	alert `A series of network errors have occurred.`
             		cat newline cat `Some functionality may not be available.`
-                put 0 into ErrorCount
+                put 0 into MapErrorCount
             end
             continue
         end
@@ -1070,6 +1166,7 @@ Statistics:
     set style `display` of OuterPanel to `none`
     set style `display` of StatisticsPanel to `block`
     rest get Script from `/resources/ecs/statistics.ecs?v=` cat now
+        or go to HandleRestError
     run Script with StatisticsPanel and Map
     set style `display` of OuterPanel to `block`
     set style `display` of StatisticsPanel to `none`
@@ -1077,3 +1174,25 @@ Statistics:
     clear Blocked
     set Redraw
 	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Handle a REST error
+HandleRestError:
+    print `A REST error occurred`
+	add 1 to RestErrorCount
+    if RestErrorCount is less than 10
+    begin
+        clear MainPanel
+    	clear DialogPanel
+        set Redraw
+        clear Blocked
+        set Redraw
+    	stop
+    end
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Warn the user and abandon this run
+AbandonShip:
+	alert `An error has occurred while communicating with the web server.`
+    	cat newline cat `Please refresh this browser page to restart.`
+    exit

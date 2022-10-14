@@ -86,15 +86,30 @@
         "background-size": "cover",
         "background-position": "center",
         "flex": 1,
-        "#": ["$SystemName", "$ModePanel", "$DialogPanel", "$FullWidthPanel", "$MainPanel"],
+        "#": ["$Title", "$ModePanel", "$DialogPanel", "$FullWidthPanel", "$MainPanel"],
 
-        "$SystemName": {
+        "$Title": {
             "#element": "div",
-            "@id": "system-name",
+            "@id": "title",
             "background": "white",
             "padding": "0.25em 0",
-            "font-size": "75%",
-            "font-weight": "bold"
+            "font-weight": "bold",
+            "#": ["$SystemName", "$Profile"],
+
+            "$SystemName": {
+                "#element": "span",
+                "@id": "system-name",
+                "padding": "1.25em 2em 0 0"
+            },
+
+            "$Profile": {
+                "#element": "button",
+                "@id": "profile-button",
+                "#content": "Profile: Default",
+                "height": "2em",
+                "font-size": "1.1em",
+                "font-weight": "bold"
+            }
         },
 
         "$ModePanel": {

@@ -1,38 +1,28 @@
 {
-    "#doc": "The editor for timed mode",
+    "#doc": "Manage profiles",
     "#element": "div",
     "padding": "1em",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$Name", "$TimesDiv", "$Buttons"],
+    "#": ["$Profiles", "$Buttons"],
 
-    "$Name": {
+    "$Profiles": {
         "#element": "div",
-        "@id": "title-room-name",
-        "font-size": "1.3em",
-        "padding": "0.5em",
-        "border": "1px solid gray",
-        "background": "white"
-    },
-
-    "$TimesDiv": {
-        "#element": "div",
-        "@id": "edit-times",
-        "margin-top": "1em"
+        "@id": "profiles"
     },
 
     "$Buttons": {
         "#element": "div",
-        "height": "3em",
+        "height": "2em",
         "margin-bottom": "0.5em",
         "display": "flex",
         "#": ["$Add", "$Pad", "$Save", "$Pad", "$Help", "$Pad", "$Cancel"],
 
         "$Add": {
             "#element": "button",
-            "@id": "edit-add-button",
+            "@id": "profiles-add-button",
             "width": "3em",
-            "height": "3em",
+            "height": "100%",
             "margin-top": "1em",
             "#": "$Icon",
 
@@ -47,27 +37,27 @@
 
         "$Save": {
             "#element": "button",
-            "@id": "edit-save-button",
+            "@id": "profiles-save-button",
             "width": "25%",
-            "height": "3em",
+            "height": "100%",
             "margin-top": "1em",
             "#content": "Save"
         },
 
         "$Help": {
             "#element": "button",
-            "@id": "edit-help-button",
+            "@id": "profiles-help-button",
             "width": "25%",
-            "height": "3em",
+            "height": "100%",
             "margin-top": "1em",
             "#content": "Help"
         },
 
         "$Cancel": {
             "#element": "button",
-            "@id": "edit-cancel-button",
+            "@id": "profiles-cancel-button",
             "width": "25%",
-            "height": "3em",
+            "height": "100%",
             "margin-top": "1em",
             "#content": "Cancel"
         },
@@ -76,13 +66,5 @@
             "#element": "div",
             "flex": "1"
         }
-    },
-
-    "$Label": {
-        "#element": "div",
-        "font-size": "80%",
-        "font-weight": "bold",
-        "margin": "0.5em 0 0.3em 0",
-        "#content": "$Text"
     }
 }

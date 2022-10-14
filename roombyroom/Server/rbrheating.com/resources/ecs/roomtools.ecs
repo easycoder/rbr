@@ -21,6 +21,9 @@
     button CancelButton
     button DialogButton1
     button DialogButton2
+    variable ProfileNumber
+    variable Profiles
+    variable Profile
     variable Rooms
     variable RoomSpec
     variable ThisRoom
@@ -36,7 +39,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! The room tools menu
 Editor:
-	put property `rooms` of Map into Rooms
+	gosub to GetCurrentRooms
     attach RoomName to `title-room-name`
     attach RoomUpButton to `button-up`
     attach RoomDownButton to `button-down`
@@ -121,7 +124,7 @@ Editor:
                 add 1 to N
             end
             put NewRooms into Rooms
-    		set property `rooms` of Map to Rooms
+    		gosub to CopyRoomsToMap
             go to ExitWithChanges
         end
         on click DialogButton2
@@ -166,6 +169,26 @@ Editor:
     	go to ExitWithoutChanges
     end
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element ProfileNumber of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
 
 ExitWithoutChanges:
     put `Redraw` into Result

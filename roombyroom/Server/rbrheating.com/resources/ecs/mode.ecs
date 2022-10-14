@@ -36,6 +36,9 @@
     variable Target
     variable TargetFlag
     variable RoomName
+    variable CurrentProfile
+    variable Profiles
+    variable Profile
     variable CurrentMode
     variable ScheduleEditScript
     variable ModeWebson
@@ -70,7 +73,7 @@
     wait 20 ticks
 
 	clear ModePanel
-    put property `rooms` of Map into Rooms
+    gosub to GetCurrentRooms
     put element ClickIndex of Rooms into RoomSpec
     put property `name` of RoomSpec into RoomName
     put property `advance` of RoomSpec into OldAdvance
@@ -330,7 +333,7 @@ SelectMode:
 ModeChange:
 	set property `mode` of RoomSpec to Mode
     set element ClickIndex of Rooms to RoomSpec
-    set property `rooms` of Map to Rooms
+    gosub to CopyRoomsToMap
     set property `message` of Map to `confirm`
     fork to PostMap
     fork to FlashModeIndicator
@@ -379,6 +382,26 @@ FlashModeIndicator:
     end
     clear Flashing
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+	put property `profile` of Map into CurrentProfile
+    put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+	put property `profile` of Map into CurrentProfile
+    put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element CurrentProfile of Profiles to Profile
+    set property `profiles` of Map to Profiles
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Post the map to the server

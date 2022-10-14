@@ -8,6 +8,9 @@
     variable Server
     variable Version
     variable RepeatCount
+    variable CurrentProfile
+    variable Profiles
+    variable Profile
     variable Map
     variable NewMap
     variable Rooms
@@ -116,13 +119,17 @@ ProcessMap:
     if Map is empty
     begin
         print `Error: no map found`
-        system `rm lock`
         exit
     end
 
 !    print Map
     put json Map into Map
-    put property `rooms` of Map into Rooms
+!    print Map
+    put property `profiles` of Map into Profiles
+    put property `profile` of Map into CurrentProfile
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms
+    print `Profile: ` cat property `name` of Profile
     put json `{}` into SensorData
     put the count of Rooms into RoomCount
     if RoomCount is 0 print `No rooms have been added`
@@ -195,6 +202,7 @@ ProcessMap:
     end
     else put 1 into Version
     put property `version` of RegData into Value
+    print Version cat ` ` cat Value
     if Value is not Version
     begin
         print `Installing update from ` cat Version cat ` to ` cat Value
@@ -204,7 +212,6 @@ ProcessMap:
         close File
     end
 
-    system `rm lock`
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

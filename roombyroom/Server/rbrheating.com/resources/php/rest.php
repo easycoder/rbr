@@ -253,8 +253,8 @@
                     $res = query($conn, "SELECT relay from relays WHERE mac='$mac' AND sensor='$sensor'");
                     if ($r = mysqli_fetch_object($res)) {
                         $previous = $r->relay;
-                        //print("UPDATE relays SET relay='$relay' WHERE mac='$mac'");
-                        query($conn, "UPDATE relays SET relay='$relay' WHERE mac='$mac'");
+                        //print("UPDATE relays SET relay='$relay' WHERE mac='$mac' AND sensor='$sensor'\n");
+                        query($conn, "UPDATE relays SET relay='$relay' WHERE mac='$mac' AND sensor='$sensor'");
                     } else {
                         query($conn, "INSERT INTO relays (mac,sensor,relay) VALUES ('$mac','$sensor','$relay')");
                     }
@@ -275,7 +275,7 @@
                         $res = query($conn, "SELECT start, duration FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
                             $duration = ($ts - $r->start + ($r->duration * 60)) / 60;
-                            query($conn, "UPDATE stats SET duration='$duration' WHERE mac='$mac'");
+                            query($conn, "UPDATE stats SET duration='$duration' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
                         }
                     }
                 }

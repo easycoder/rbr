@@ -17,6 +17,7 @@
                 $data->$sensor += $row->duration;
             }
             mysqli_free_result($result);
+            print('Stats: ');
             print(json_encode($data));
             return;
         }
@@ -27,16 +28,18 @@
                 // Return values for every day in a given month
                 $y = $request[2];
                 $m = $request[3];
-                $start = mktime(0, 0, 0, 0, $m + 1, $y);
+                $start = mktime(0, 0, 0, $m + 1, 1, $y);
                 $mdays = [31, $y % 4 ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 31, 31];
                 $monlen = $mdays[$m];
                 $days = array();
                 for ($n = 0; $n < $monlen; $n++) {
                     $days[$n] = (object)null;
                 }
-                $result = $conn->query("SELECT * FROM stats WHERE mac='$mac' AND start>$start");
+                $finish = $start + $monlen * 24*60*60;
+                //print("SELECT * FROM stats WHERE mac='$mac' AND start>$start AND start<$finish"); print("\n");
+                $result = $conn->query("SELECT * FROM stats WHERE mac='$mac' AND start>$start AND start<$finish");
                 while ($row = mysqli_fetch_object($result)) {
-//                    print $row->sensor . " " . $row->start . " " . $row->duration . "\n";
+                    //print $row->sensor . " " . $row->start . " " . $row->duration . "\n";
                     if ($row->duration != 0) {
                         $date = getdate($row->start);
                         $year = $date["year"];
