@@ -289,11 +289,12 @@ GetMap:
     else
     begin
     	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-        or begin
-        	print `Unable to get the map`
-        	put empty into Map
-            continue
-        end
+        	or begin
+        		print `Server not responding; using local data`
+        		get Map from storage as `map`
+            	continue
+        	end
+        put Map into storage as `map`
     end
     if Map is empty
     begin
@@ -1133,20 +1134,16 @@ Restore:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Post the map to the server
 PostMap:
-	if Demo put Map into storage as `map`
-    else
-	begin
-   		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
-   		or begin
-            add 1 to MapErrorCount
-            if MapErrorCount is greater than 5
-            begin
-            	alert `A series of network errors have occurred.`
-            		cat newline cat `Some functionality may not be available.`
-                put 0 into MapErrorCount
-            end
-            continue
+   	rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
+   	or begin
+        add 1 to MapErrorCount
+        if MapErrorCount is greater than 5
+        begin
+         	alert `A series of network errors have occurred.`
+           		cat newline cat `Some functionality may not be available.`
+            put 0 into MapErrorCount
         end
+        continue
 	end
 	stop
 

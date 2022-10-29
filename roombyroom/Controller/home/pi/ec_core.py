@@ -124,7 +124,7 @@ class Core(Handler):
         val['type'] = 'boolean'
         val['content'] = False
         self.putSymbolValue(target, val)
-        self.add(command)
+        # self.add(command)
         return self.nextPC()
 
     def k_close(self, command):
@@ -560,8 +560,7 @@ class Core(Handler):
         value = self.getRuntimeValue(command['value'])
         if value != None:
             print(f'-> {value}')
-            return self.nextPC()
-        return False
+        return self.nextPC()
 
     def k_put(self, command):
         command['value'] = self.nextValue()
@@ -911,7 +910,7 @@ class Core(Handler):
         val['type'] = 'boolean'
         val['content'] = not value['content']
         self.putSymbolValue(target, val)
-        self.add(command)
+#        self.add(command)
         return self.nextPC()
 
     def k_variable(self, command):
@@ -1619,7 +1618,10 @@ class Core(Handler):
 
     def c_empty(self, condition):
         value = self.getRuntimeValue(condition['value1'])
-        comparison = len(value) == 0
+        if value == None:
+            comparison = True
+        else:
+            comparison = len(value) == 0
         return not comparison if condition['negate'] else comparison
 
     def c_exists(self, condition):

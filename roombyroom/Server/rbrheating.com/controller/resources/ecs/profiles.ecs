@@ -1,0 +1,221 @@
+!	Profiles
+
+	script Profiles
+    
+    import div MainPanel
+    	and variable Map
+        and variable Result
+
+	div UserProfileDiv
+    button SelectButton
+    button EditButton
+    button DeleteButton
+    button AddButton
+    button SaveButton
+    button HelpButton
+    button CancelButton
+    variable Mobile
+    variable ProfilesWebson
+    variable ProfileWebson
+    variable Webson
+    variable Profiles
+    variable Profile
+    variable Rooms
+    variable Name
+    variable CurrentProfile
+    variable EditingProfile
+    variable Changed
+    variable P
+    variable P2
+    
+!	Dialogs
+	div DialogPanel
+    div DialogTitle
+    div DialogText
+    button DialogButton1
+    button DialogButton2
+    input DialogInput
+    
+!    debug step
+    
+    clear Mobile
+    if mobile
+        if portrait set Mobile
+
+    clear Changed
+
+	clear MainPanel
+    rest get ProfilesWebson from `/resources/webson/profiles.json?v=` cat now
+        or go to ExitWithError
+    render ProfilesWebson in MainPanel
+    
+    rest get ProfileWebson from `/resources/webson/profile.json?v=` cat now
+    	or go to ExitWithError
+
+	attach UserProfileDiv to `profiles`
+    attach AddButton to `profiles-add-button`
+    attach SaveButton to `profiles-save-button`
+    attach HelpButton to `profiles-help-button`
+    attach CancelButton to `profiles-cancel-button`
+    
+    on click AddButton
+    begin
+    	put element 0 of Profiles into Profile
+        put property `rooms` of Profile into Rooms
+    	put `{}` into Profile
+        set property `name` of Profile to `New profile`
+        set property `rooms` of Profile to Rooms
+        json add Profile to Profiles
+        gosub to RenderProfiles
+    end
+    
+    on click SaveButton
+    begin
+        set Changed
+    	go to Exit
+    end
+    
+    on click HelpButton
+    begin
+        put `Help home Profiles` into Result
+        exit
+    end
+
+	on click CancelButton
+    begin
+    	clear Changed
+        go to Exit
+    end
+
+	put property `profile` of Map into CurrentProfile
+
+!	Set up the profiles
+	put property `profile` of Map into CurrentProfile
+    put property `profiles` of Map into Profiles
+    gosub to RenderProfiles
+
+	stop
+
+!	Render the user profiles. The base profile remains separate.
+RenderProfiles:
+	clear UserProfileDiv
+    put the json count of Profiles into P
+    set the elements of SelectButton to P
+    set the elements of EditButton to P
+    set the elements of DeleteButton to P
+	put 0 into P
+    while P is less than the json count of Profiles
+    begin
+    	put element P of Profiles into Profile
+        put property `name` of Profile into Name
+		put ProfileWebson into Webson
+        replace `!ID!` with P in Webson
+        replace `!TITLE!` with Name in Webson
+        render Webson in UserProfileDiv
+        index SelectButton to P
+        index EditButton to P
+        index DeleteButton to P
+        attach SelectButton to `profile-select-` cat P
+        attach EditButton to `profile-edit-` cat P
+        attach DeleteButton to `profile-delete-` cat P
+        if P is 0 set style `visibility` of DeleteButton to `hidden`
+        if P is CurrentProfile
+        begin
+            set style `font-size` of SelectButton to `105%`
+            set style `font-weight` of SelectButton to `bold`
+            set style `color` of SelectButton to `green`
+        end
+    	else set style `color` of SelectButton to `black`
+        on click SelectButton
+        begin
+            if index of SelectButton is not CurrentProfile
+            begin
+	        	put the index of SelectButton into CurrentProfile
+                set Changed
+            end
+            go to Exit
+        end
+        on click EditButton
+        begin
+        	put the index of EditButton into EditingProfile
+        	put element EditingProfile of Profiles into Profile
+            put property `name` of Profile into Name
+            go to GetName
+        end
+        on click DeleteButton
+        begin
+        	put the index of DeleteButton into P
+            while P is less than the json count of Profiles
+            begin
+            	add 1 to P giving P2
+                if P2 is less than the json count of Profiles
+                begin
+                	set element P of Profiles to element P2 of Profiles
+                end
+            	add 1 to P
+            end
+            take 1 from P
+            json delete element P of Profiles
+        	put CurrentProfile into P
+            if P is not less than the json count of Profiles
+            begin
+            	put the json count of Profiles into P
+                take 1 from P giving CurrentProfile
+            end
+            set Changed
+            go to RenderProfiles
+        end
+    	add 1 to P
+    end
+	return
+
+GetName:
+    attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Rename '` cat Name cat `'`
+    set the content of DialogText to `Type the new name for this profile`
+    set the content of DialogButton1 to `OK`
+    set the content of DialogButton2 to `Cancel`
+    set the content of DialogInput to Name
+    
+    on click DialogButton1
+    begin
+        set property `profile` of Map to CurrentProfile
+    	put the text of DialogInput into Name
+        set property `name` of Profile to Name
+        index SelectButton to EditingProfile
+        set the text of SelectButton to Name
+    	set element EditingProfile of Profiles to Profile
+     	set property `profiles` of Map to Profiles
+        clear DialogPanel
+        set Changed
+    end
+    
+    on click DialogButton2
+    begin
+        clear DialogPanel
+    end
+	stop
+
+Exit:
+	if Changed
+    begin
+        set property `profile` of Map to CurrentProfile
+        set property `profiles` of Map to Profiles
+        put `Changed` into Result
+    end
+    else
+    begin
+    	put `Redraw` into Result
+    end
+    exit
+
+ExitWithError:
+    put `Error` into Result
+    exit

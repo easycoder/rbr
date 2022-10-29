@@ -94,7 +94,13 @@
         read Advance from File
         close File
     end
-    else put `{}` into Advance
+    else
+    begin
+        put `{}` into Advance
+        open File Path cat `/advance` for writing
+        write Advance to File
+        close File
+    end
     put json Advance into Advance
 
 Start:
@@ -182,7 +188,6 @@ ProcessMap:
         open File Path cat `/password` for writing
         write Password to File
         close File
-        print Password
     end
 
     ! Do all the above 6 times
@@ -218,7 +223,6 @@ ProcessMap:
 !   Process a single room
 ProcessRoom:
     put property `name` of Room into RoomName
-    if RoomName is `Front Room` print RoomName
     put property `sensor` of Room into Sensor
     ! Make sure this room is in the 'advance' file
     if property Sensor of Advance is empty
@@ -384,4 +388,3 @@ SetRelays:
     set property `relay` of SensorValues to Turn
     set property Sensor of SensorData to SensorValues
     return
-

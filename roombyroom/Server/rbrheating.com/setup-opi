@@ -25,7 +25,7 @@ runuser -l pi -c "tar zxf rbr.tgz"
 echo "Remove the resource pack"
 runuser -l pi -c "rm rbr.tgz"
 echo "Set up cron"
-runuser -l pi -c "crontab crondata"
+runuser -l pi -c "crontab crondata.txt"
 
 echo "Get network information"
 read -p "Please type your desired static IP address: " ipaddr

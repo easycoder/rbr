@@ -224,7 +224,7 @@
                     $password = $row->password;
                 } else {
                     $password = rand(100000, 999999);
-                    $map = '{"rooms":[{"name":"","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}';
+                    $map = '{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0}';
                     $map = base64_encode($map);
                     query($conn, "INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
 //                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
@@ -262,17 +262,17 @@
                     // Update the stats table
                     if ($previous == "off" && $relay =="on") {
                         // Mark the start of a timing period
-                        $res = query($conn, "SELECT null FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
+                        $res = query($conn, "SELECT null FROM stats WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
-                            query($conn, "UPDATE stats SET start='$ts' WHERE mac='$mac'");
+                            query($conn, "UPDATE stats SET start='$ts' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
                         } else {
-                            logger("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
+                            // logger("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
                             query($conn, "INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
                         }
                     }
                     else if ($previous == "on" && $relay =="off") {
                         // Add the period to the total duration for this day
-                        $res = query($conn, "SELECT start, duration FROM stats where day=$day AND mac='$mac' AND sensor='$sensor'");
+                        $res = query($conn, "SELECT start, duration FROM stats WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
                         if ($r = mysqli_fetch_object($res)) {
                             $duration = ($ts - $r->start + ($r->duration * 60)) / 60;
                             query($conn, "UPDATE stats SET duration='$duration' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
@@ -482,7 +482,8 @@
                     $map = $row->map;
                     $map = base64_decode($map);
                     $map = json_decode($map);
-                    $map->rooms[$roomindex]->boost = $target;
+                    $profile = $map->profiles[$map->profile];
+                    $profile->rooms[$roomindex]->boost = $target;
                     $map = json_encode($map);
                     $map = base64_encode($map);
                     query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");

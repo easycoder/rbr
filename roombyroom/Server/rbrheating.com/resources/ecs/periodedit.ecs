@@ -1,0 +1,450 @@
+!	Period Editor
+
+	script PeriodEditor
+    
+    import div MainPanel
+    	and variable Map
+        and variable ClickIndex
+        and variable Result
+
+	div RoomName
+    div DialogPanel
+    div DialogTitle
+    div DialogText
+    div EditTimes
+    div EventContent
+    div EventInfo
+    div HourField
+    div MinuteField
+    div TempField
+    button DialogButton1
+    button DialogButton2
+    button TimesAddButton
+    button TimesSaveButton
+    button TimesCancelButton
+    button TimesHelpButton
+    button PeriodDelete
+    img HourUpButton
+    img HourDownButton
+    img MinuteUpButton
+    img MinuteDownButton
+    img TempUpButton
+    img TempDownButton
+    variable Webson
+    variable Rooms
+    variable RoomSpec
+    variable ProfileNumber
+    variable Profiles
+    variable Profile
+    variable EventWebson
+    variable EventInfoWebson
+    variable EventEditorWebson
+    variable EventIndex
+    variable Events
+    variable Event
+    variable NEvents
+    variable ThisEvent
+    variable LastEvent
+    variable NewEvents
+    variable HourValue
+    variable MinuteValue
+    variable TimeProperty
+    variable Time
+    variable TempValue
+    variable TempProperty
+    variable Temp
+    variable Value
+    variable Editing
+    variable Unsorted
+    variable Changed
+    variable D
+    variable E
+    variable F
+    variable T
+    variable T1
+    variable T2
+
+!    debug step
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The schedule editor
+	put -1 into LastEvent
+    gosub to GetCurrentRooms
+    put element ClickIndex of Rooms into RoomSpec
+
+	clear MainPanel
+    rest get Webson from `/resources/webson/timeseditor.json?v=` cat now
+    render Webson in MainPanel
+    attach RoomName to `title-room-name`
+    attach EditTimes to `edit-times`
+    set the content of RoomName to property `name` of RoomSpec
+    clear EditTimes
+    rest get EventWebson from `/resources/webson/event.json?v=` cat now
+    rest get EventInfoWebson from `/resources/webson/eventinfo.json?v=` cat now
+    rest get EventEditorWebson from `/resources/webson/eventeditor.json?v=` cat now
+    put property `events` of RoomSpec into Events
+RedoEvents:
+	gosub to BuildArrays
+    
+    attach TimesAddButton to `edit-add-button`
+    attach TimesSaveButton to `edit-save-button`
+    attach TimesCancelButton to `edit-cancel-button`
+    attach TimesHelpButton to `edit-help-button`
+    
+    on click TimesAddButton
+    begin
+    	gosub to SaveCurrentData
+        put `{}` into Event
+        set property `until` of Event to `00:00`
+        set property `temp` of Event to `20`
+        append Event to Events
+        gosub to BuildArrays
+        gosub to SortEvents
+        go to RedoEvents
+    end
+    
+    on click TimesSaveButton
+    begin
+    	if Editing
+        begin
+	        put LastEvent into E
+            if E is less than NEvents
+            begin
+		        index Event to LastEvent
+		        set element LastEvent of Events to Event
+            end
+        end
+        gosub to SaveCurrentData
+        gosub to BuildArrays
+        set property `events` of RoomSpec to Events
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        clear MainPanel
+        go to ExitWithChanges
+    end
+    
+    on click TimesCancelButton
+    begin
+       	clear MainPanel
+       	go to ExitWithoutChanges
+    end
+    
+    on click TimesHelpButton
+    begin
+        clear MainPanel
+        put `Help home PeriodEdit` into Result
+        exit
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Resize all the main arrays and populate them.
+BuildArrays:
+    put the json count of Events into NEvents
+    set the elements of Event to NEvents
+    set the elements of EventContent to NEvents
+    set the elements of EventInfo to NEvents
+    set the elements of Time to NEvents
+    set the elements of Temp to NEvents
+    ! Create the events
+    clear EditTimes
+    put 0 into E
+    while E is less than NEvents
+    begin
+    	index Event to E
+        index EventContent to E
+    	index EventInfo to E
+       	put EventWebson into Webson
+        replace `/INDEX/` with E in Webson
+        render Webson in EditTimes
+        put element E of Events into Event
+        attach EventContent to `event-content-` cat E
+        add 1 to E
+    end
+    ! Show the event info
+    put 0 into E
+    while E is less than NEvents
+    begin
+        gosub to ShowEventInfo
+        on click EventInfo go to OnClickEventInfo
+        add 1 to E
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	When an info panel is tapped it is replaced by an editor.
+OnClickEventInfo:
+    put the index of EventInfo into ThisEvent
+    if LastEvent is not -1
+    begin
+        if E is less than NEvents
+        begin
+        	gosub to SaveCurrentData
+        	if Changed go to RedoEvents
+        	put LastEvent into E
+            gosub to ShowEventInfo
+            on click EventInfo go to OnClickEventInfo
+        end
+    end
+    put ThisEvent into E
+    go to ShowEditor
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	When editing finishes, save the event.
+SaveCurrentData:
+	put `[]` into Events
+	put 0 into E
+    while E is less than NEvents
+    begin
+    	index Event to E
+    	add 1 to E
+        append Event to Events
+    end
+    
+	gosub to SortEvents
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Sort the events
+SortEvents:
+    clear Changed
+    if NEvents is less than 2 return
+    set Unsorted
+    while Unsorted
+    begin
+    	clear Unsorted
+        put 1 into E
+   	    while E is less than NEvents
+        begin
+        	take 1 from E giving D
+            index Event to D
+            put property `until` of Event into T
+            gosub to ParseTime
+            put T into T1
+            index Event to E
+            put property `until` of Event into T
+            gosub to ParseTime
+            put T into T2
+            if T2 is less than T1
+            begin
+               	put Event into T
+                index Event to D
+           		put element E of Events into Event
+                set element E of Events to element D of Events
+                index Event to E
+           		put element D of Events into Event
+                set element D of Events to T
+               	set Unsorted
+            	set Changed
+            end
+        	add 1 to E
+        end
+    end
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Parse the time, converting it to minutes.
+ParseTime:
+    put the value of left 2 of T into HourValue
+    put the value of right 2 of T into MinuteValue
+    multiply HourValue by 60 giving T
+    add MinuteValue to T
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Show an event editor. There's only a single instance.
+ShowEditor:
+	set Editing
+    put ThisEvent into E
+    put ThisEvent into LastEvent
+    index Event to E
+    index EventContent to E
+    clear EventContent
+    put EventEditorWebson into Webson
+    replace `/INDEX/` with E in Webson
+    render Webson in EventContent
+    attach HourUpButton to `hour-up`
+    attach HourDownButton to `hour-down`
+    attach MinuteUpButton to `minute-up`
+    attach MinuteDownButton to `minute-down`
+    attach TempUpButton to `temp-up`
+    attach TempDownButton to `temp-down`
+    attach HourField to `hour-text`
+    attach MinuteField to `minute-text`
+    attach TempField to `temp-text`
+    attach PeriodDelete to `period-delete`
+
+	add 1 to E giving F
+    if F is NEvents put 0 into F
+    index Event to F
+    put `` cat property `temp` of Event into TempProperty
+    index Event to E
+    put property `until` of Event into TimeProperty
+    put the value of left 2 of TimeProperty into HourValue
+    put the value of right 2 of TimeProperty into MinuteValue
+    if the position of `.` in TempProperty is -1 multiply the value of TempProperty by 10 giving TempValue
+    else
+    begin
+        split TempProperty on `.` giving Value
+        index Value to 0
+        multiply the value of Value by 10 giving TempValue
+        index Value to 1
+        add the value of Value to TempValue
+    end
+    gosub to ShowValues
+
+    on click HourUpButton
+    begin
+        if HourValue is 23 put -1 into HourValue
+        add 1 to HourValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click HourDownButton
+    begin
+        if HourValue is 0 put 24 into HourValue
+        take 1 from HourValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click MinuteUpButton
+    begin
+        if MinuteValue is 59 put -1 into MinuteValue
+        add 1 to MinuteValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click MinuteDownButton
+    begin
+        if MinuteValue is 0 put 60 into MinuteValue
+        take 1 from MinuteValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click TempUpButton
+    begin
+        add 5 to TempValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click TempDownButton
+    begin
+        if TempValue is 0 stop
+        take 5 from TempValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click PeriodDelete
+    begin
+        put E into EventIndex
+        attach DialogPanel to `dialog-panel`
+        rest get Webson from `/resources/webson/dialog-confirm.json?v=` cat now
+        render Webson in DialogPanel
+        attach DialogTitle to `dialog-title`
+        attach DialogText to `dialog-text`
+        attach DialogButton1 to `dialog-button1`
+        attach DialogButton2 to `dialog-button2`
+        set the content of DialogTitle to `Confirm deletion`
+        set the content of DialogText to `Are you sure you want to remove this row?`
+        set the content of DialogButton1 to `Yes`
+        set the content of DialogButton2 to `No`
+        on click DialogButton1
+        begin
+            clear DialogPanel
+            put `[]` into NewEvents
+            put 0 into E
+            while E is less than EventIndex
+            begin
+                append element E of Events to NewEvents
+                add 1 to E
+            end
+            add 1 to E
+            while E is less than the json count of Events
+            begin
+                append element E of Events to NewEvents
+                add 1 to E
+            end
+            put NewEvents into Events
+            go to RedoEvents
+        end
+        on click DialogButton2 clear DialogPanel
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Show the info for the event at index E
+ShowEventInfo:
+    put EventInfoWebson into Webson
+    replace `/INDEX/` with E in Webson
+    index EventContent to E
+    clear EventContent
+    render Webson in EventContent
+    add 1 to E giving F
+    if F is NEvents put 0 into F
+    index Event to E
+    put property `until` of Event into Time
+    index Event to F
+    put property `temp` of Event into Temp
+    index EventInfo to E
+    attach EventInfo to `event-info-` cat E
+    set the content of EventInfo to `From ` cat Time cat `: Target = ` cat Temp cat `&deg;C`
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Show the current values for this period
+ShowValues:
+    put `0` cat HourValue into Value
+    set the content of HourField to right 2 of Value
+    put right 2 of Value into Time
+    put `0` cat MinuteValue into Value
+    set the content of MinuteField to right 2 of Value
+    put Time cat `:` cat right 2 of Value into Time
+
+    divide TempValue by 10 giving Temp
+    put Temp cat `.` cat TempValue modulo 10 into Temp
+    put Temp cat `&deg;C` into Value
+    set the content of TempField to Value
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Update the current values for this period
+UpdateValues:
+	index Event to F
+    set property `temp` of Event to Temp
+    index Event to E
+    set property `until` of Event to Time
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element ProfileNumber of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
+        
+ExitWithoutChanges:
+    put `Redraw` into Result
+    exit
+
+ExitWithChanges:
+    put `Changed` into Result
+    exit

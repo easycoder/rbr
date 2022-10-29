@@ -31,16 +31,16 @@
     div AdvanceButton
     div AdvanceText
 	img TimedEditIcon
+    variable CurrentProfile
+    variable Profiles
+    variable Profile
     variable Rooms
     variable RoomSpec
     variable Target
     variable TargetFlag
     variable RoomName
-    variable CurrentProfile
-    variable Profiles
-    variable Profile
     variable CurrentMode
-    variable ScheduleEditScript
+    variable PeriodEditScript
     variable ModeWebson
     variable Integer
     variable FlashIndex
@@ -63,7 +63,7 @@
     
 !    debug step
 
-	put empty into ScheduleEditScript
+	put empty into PeriodEditScript
     get Server from storage as `server`
     get MAC from storage as `MAC`
     get Password from storage as `password`
@@ -206,9 +206,9 @@ ResetBoostButtons:
 ShowTimes:
     set style `visibility` of ModePanel to `hidden`
     put empty into Result
-    if ScheduleEditScript is empty
-    	rest get ScheduleEditScript from `/resources/ecs/scheduleedit.ecs?v=` cat now
-    run ScheduleEditScript with MainPanel and Map and ClickIndex and Result
+    if PeriodEditScript is empty
+    	rest get PeriodEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
+    run PeriodEditScript with MainPanel and Map and ClickIndex and Result
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -255,7 +255,6 @@ SelectBoost:
         set BoostFlag
        	go to SelectMode
     end
-    go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select 'on' mode

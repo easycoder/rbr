@@ -6,11 +6,10 @@ from ec_compiler import Compiler
 
 class Program:
 
-	def __init__(self, source, domainMap):
+	def __init__(self, source, domains):
 
-		self.domainMap = domainMap
-		self.domainList = {}
 		self.domains = []
+		self.domainIndex = {}
 		self.name = '<anon>'
 		self.code = []
 		self.symbols = {}
@@ -22,13 +21,10 @@ class Program:
 		self.compiler = Compiler(self)
 		self.value = self.compiler.value
 		self.condition = self.compiler.condition
-		for name in domainMap:
-			if name[0] != '_':
-				domain = domainMap[name](self.compiler)
-				self.domains.append(domain)
-		self.domainList = {}
-		for domain in self.domains:
-			self.domainList[domain.getName()] = domain
+		for domain in domains:
+			handler = domain(self.compiler)
+			self.domains.append(handler)
+			self.domainIndex[handler.getName()] = handler
 		self.queue = deque()
 
 		startCompile = time.time()
@@ -84,11 +80,11 @@ class Program:
 			if symbolRecord['value'] == [None]:
 				RuntimeError(f'Variable "{name}" has no value')
 				return None
-			handler = self.domainList[symbolRecord['domain']].valueHandler('symbol')
+			handler = self.domainIndex[symbolRecord['domain']].valueHandler('symbol')
 			result = handler(symbolRecord)
 		else:
 			# Call the given domain to handle a value
-			domain = self.domainList[value['domain']]
+			domain = self.domainIndex[value['domain']]
 			handler = domain.valueHandler(value['type'])
 			if handler:
 				result = handler(value)
@@ -203,7 +199,7 @@ class Program:
 						lino = command['lino'] + 1
 						line = self.script.lines[command['lino']].strip()
 						print(f'{self.name}: Line {lino}: PC: {self.pc} {domainName}:{keyword}:  {line}')
-					domain = self.domainList[domainName]
+					domain = self.domainIndex[domainName]
 					handler = domain.runHandler(keyword)
 					if handler:
 						self.pc = handler(self.code[self.pc])

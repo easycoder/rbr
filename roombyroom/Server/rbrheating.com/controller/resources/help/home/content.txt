@@ -1,0 +1,25 @@
+## RBR Control
+
+**RBR** is **_Room By Room_** - an automated central heating control system with the following key features:
+
+  - Independent control of every room
+  - Comprehensive webapp with no download or install needed
+  - Control from inside or outside the home
+  - Manual or timed with unlimited timing schedules
+  - Standard off-the-shelf components
+  - Suitable for DIY installation
+  - Built-in Demo mode for evaluation
+  - All software is free and Open Source
+
+Here's a screenshot of the user interface running on a smartphone. Tap the image to enlarge it.
+~clear~
+~img:uisample.jpg:center 30%~
+~clear~
+
+All enquiries should initially be made by email to [info@rbrheating.com](mailto:info@rbrheating.com). For any programmers who may be interested, all the software is in a GitHub repository at [https://github.com/easycoder/rbr](https://github.com/easycoder/rbr).
+
+~tid:Intro:General introduction~
+
+~tid:GettingStarted:Getting started~
+
+~sid:Index:Index of pages~

@@ -1,0 +1,132 @@
+!	Editor
+
+	script Editor
+    
+    import div MainPanel
+    	and variable RoomSpec
+        and variable Result
+    
+    div EditTimes
+    input EditRoomName
+    input EditSensorIP
+    input EditUntil
+    input EditTemperature
+    textarea EditRelayIP
+    button EditOK
+    button EditCancel
+    button AddEventButton
+    variable Relays
+    variable Events
+    variable Event
+    variable Item
+    variable E
+    variable R
+    
+    ! Webson specs
+    variable EventWebson
+    
+    debug step
+
+	rest path `rest.php`
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The room editor
+Editor:
+    attach EditRoomName to `edit-room-name`
+    attach EditSensorIP to `sensor-ip`
+    attach EditRelayIP to `relay-ip`
+    attach EditTimes to `edit-times`
+    attach EditOK to `edit-ok-button`
+    attach EditCancel to `edit-cancel-button`
+    attach AddEventButton to `add-event-button`
+    
+    rest get EventWebson from `/resources/webson/event.json?v=` cat now
+
+	! The room name
+    set the content of EditRoomName to property `name` of RoomSpec
+    
+    ! The sensor
+    set the content of EditSensorIP to property `sensor` of RoomSpec
+    
+    ! The relay(s)
+    put property `relays` of RoomSpec into Relays
+    put empty into Item
+    put 0 into R
+    while R is less than the json count of Relays
+    begin
+    	if Item is not empty put Item cat newline into Item
+    	put Item cat element R of Relays into Item
+    	add 1 to R
+    end
+    set the content of EditRelayIP to Item
+    
+    ! The event schedule
+    clear EditTimes
+    put property `events` of RoomSpec into Events
+    put 0 into E
+    while E is less than the json count of Events
+    begin
+    	put element E of Events into Event
+        render EventWebson in EditTimes
+        attach EditUntil to `until-input`
+        attach EditTemperature to `temperature-input`
+        set attribute `id` of EditUntil to `until-input-` cat E
+        set attribute `id` of EditTemperature to `temperature-input-` cat E
+        set the content of EditUntil to property `until` of Event
+        set the content of EditTemperature to property `temp` of Event
+    	add 1 to E
+    end
+    
+    on click AddEventButton
+    begin
+		put `{}` into Event
+        set property `until` of Event to `00:00`
+        set property `temp` of Event to `20`
+        append Event to Events
+        set property `events` of RoomSpec to Events
+        go to Editor
+    end
+    
+    on click EditOK
+    begin
+    	! The room name
+    	set property `name` of RoomSpec to the content of EditRoomName
+        
+        ! The sensor
+        set property `sensor` of RoomSpec to the content of EditSensorIP
+        
+        ! The relays
+        put `[]` into Relays
+        split the content of EditRelayIP on newline giving Item
+        put 0 into R
+        while R is less than the elements of Item
+        begin
+        	index Item to R
+        	append Item to Relays
+        	add 1 to R
+        end
+        set property `relays` of RoomSpec to Relays
+        
+        ! The events
+        put 0 into E
+        while E is less than the json count of Events
+        begin
+        	put element E of Events into Event
+            attach EditUntil to `until-input-` cat E
+            set property `until` of Event to the content of EditUntil
+            attach EditTemperature to `temperature-input-` cat E
+            set property `temp` of Event to the content of EditTemperature
+        	set element E of Events to Event
+        	add 1 to E
+        end
+        set property `events` of RoomSpec to Events
+        put `OK` into Result
+    	set ready
+        exit
+    end
+    on click EditCancel
+    begin
+    	set ready
+		exit
+    end
+    stop

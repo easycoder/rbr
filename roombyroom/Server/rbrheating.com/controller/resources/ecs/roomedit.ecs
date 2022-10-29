@@ -1,0 +1,226 @@
+!	Room Editor
+
+	script RoomEditor
+    
+    import div MainPanel
+    	and variable Map
+        and variable ClickIndex
+        and variable Result
+
+	div RoomName
+    div DialogPanel
+    div DialogTitle
+    div DialogText
+    button EditNameButton
+    button EditSensorButton
+    button EditRelaysButton
+    button EditTimesButton
+    button HelpButton
+    button SaveButton
+    button CancelButton
+    button DialogButton1
+    button DialogButton2
+    input DialogInput
+    variable ProfileNumber
+    variable Profiles
+    variable Profile
+    variable Rooms
+    variable RoomSpec
+    variable Webson
+    variable Relays
+    variable Item
+    variable Name
+    variable ScheduleEditScript
+    variable R
+
+!    debug step
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The room editor
+Editor:
+    attach RoomName to `title-room-name`
+    attach EditNameButton to `button-name`
+    attach EditSensorButton to `button-sensor`
+    attach EditRelaysButton to `button-relays`
+    attach EditTimesButton to `button-times`
+    attach SaveButton to `button-save`
+    attach HelpButton to `button-help`
+    attach CancelButton to `button-cancel`
+    
+    gosub to GetCurrentRooms
+    put element ClickIndex of Rooms into RoomSpec
+    set the content of RoomName to property `name` of RoomSpec
+    
+    on click EditNameButton go to NameButtonCB
+    
+    on click EditSensorButton go to SensorButtonCB
+    
+    on click EditRelaysButton go to RelaysButtonCB
+ 
+    on click EditTimesButton go to TimesButtonCB
+    
+    on click SaveButton go to ExitWithChanges
+    
+    on click CancelButton go to ExitWithoutChanges
+    
+    on click HelpButton
+    begin
+        put `Help home RoomEdit` into Result
+        exit
+    end
+    
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the name
+NameButtonCB:
+    attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Rename '` cat the content of RoomName cat `'`
+    set the content of DialogText to `Type the new name for this room`
+    set the content of DialogButton1 to `OK`
+    set the content of DialogButton2 to `Cancel`
+    set the content of DialogInput to the content of RoomName
+    
+    on click DialogButton1
+    begin
+    	put the content of DialogInput into Name
+        set property `name` of RoomSpec to Name
+    	set the content of RoomName to Name
+        clear DialogPanel
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        go to ExitWithChanges
+    end
+    
+    on click DialogButton2
+    begin
+        clear DialogPanel
+        go to ExitWithoutChanges
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the sensor
+SensorButtonCB:
+    attach DialogPanel to `dialog-panel`
+  	rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Sensor IP for '` cat property `name` of RoomSpec cat `'`
+    set the content of DialogText to `Type the IP address of the temperature sensor`
+    set the content of DialogButton1 to `Save`
+    set the content of DialogButton2 to `Cancel`
+    set the content of DialogInput to property `sensor` of RoomSpec
+    
+    on click DialogButton1
+    begin
+        set property `sensor` of RoomSpec to the content of DialogInput
+        clear DialogPanel
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        go to ExitWithChanges
+    end
+    
+    on click DialogButton2
+    begin
+    	clear DialogPanel
+      	go to ExitWithoutChanges
+        end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the relays
+RelaysButtonCB:
+	attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-textarea.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Relay IPs for '` cat property `name` of RoomSpec cat `'`
+    set the content of DialogText to `Type the IP addresses of the relays, 1 per line`
+    set the content of DialogButton1 to `Save`
+    set the content of DialogButton2 to `Cancel`
+    put property `relays` of RoomSpec into Relays
+    put empty into Item
+    put 0 into R
+    while R is less than the json count of Relays
+    begin
+        if Item is not empty put Item cat newline into Item
+        put Item cat element R of Relays into Item
+        add 1 to R
+    end
+    set the content of DialogInput to Item
+    
+    on click DialogButton1
+    begin
+        put `[]` into Relays
+        split the content of DialogInput on newline giving Item
+        put 0 into R
+        while R is less than the elements of Item
+        begin
+            index Item to R
+            append Item to Relays
+            add 1 to R
+        end
+        set property `relays` of RoomSpec to Relays
+        clear DialogPanel
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        go to ExitWithChanges
+    end
+    
+    on click DialogButton2
+    begin
+    	clear DialogPanel
+    	go to ExitWithoutChanges
+        end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+	put property `profile` of Map into ProfileNumber
+   	put property `profiles` of Map into Profiles
+    put element ProfileNumber of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element ProfileNumber of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the times
+TimesButtonCB:
+    rest get ScheduleEditScript from `/resources/ecs/scheduleedit.ecs?v=` cat now
+    run ScheduleEditScript with MainPanel and Map and ClickIndex and Result
+	exit
+
+ExitWithoutChanges:
+    put `Redraw` into Result
+    exit
+
+ExitWithChanges:
+    put `Changed` into Result
+    exit
