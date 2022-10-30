@@ -526,7 +526,7 @@ GetMap:
             end
             attach TimedInfo to `room-` cat RoomIndex cat `-timed-info`
             put property `events` of RoomSpec into Events
-            divide the time by 60 giving N
+            divide now by 60 giving N
             put N modulo 24*60 into N
             divide N by 60 giving H
             put N modulo 60 into M
