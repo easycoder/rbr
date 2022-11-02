@@ -30,7 +30,7 @@
     variable Relays
     variable Item
     variable Name
-    variable PeriodEditScript
+    variable ScheduleEditScript
     variable R
 
 !    debug step
@@ -213,8 +213,8 @@ CopyRoomsToMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the times
 TimesButtonCB:
-    rest get PeriodEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
-    run PeriodEditScript with MainPanel and Map and ClickIndex and Result
+    rest get ScheduleEditScript from `/resources/ecs/scheduleedit.ecs?v=` cat now
+    run ScheduleEditScript with MainPanel and Map and ClickIndex and Result
 	exit
 
 ExitWithoutChanges:

@@ -294,7 +294,7 @@ GetMap:
         		get Map from storage as `map`
             	continue
         	end
-        put Map into storage as `map`
+        if Map is not empty put Map into storage as `map`
     end
     if Map is empty
     begin
@@ -342,7 +342,7 @@ GetMap:
         end
     end
 
-    if Demo put Map into storage as `map`
+!    if Demo put Map into storage as `map`
 
 	! Show the system
     attach SystemNamePanel to `system-name`
