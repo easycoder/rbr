@@ -10,14 +10,12 @@ This is a list of all the pages in the Help system.The pages link to each other 
     - ~stid:home/GettingStarted:Getting started~
     - ~stid:home/MainMenu:The main system menu~
     - ~stid:home/AddRoom:Adding a room~
-    - ~stid:home/MAC:Setting the MAC address~
-    - ~stid:home/Password:Setting the system password~
+    - ~stid:home/Registration:Setting the MAC address and the system password~
     - ~stid:home/Name:Setting the system name~
     - ~stid:home/Request:Setting the request relay IP address~
     - ~stid:home/RoomEdit:The room editor~
     - ~stid:home/RoomName:Setting a room name~
-    - ~stid:home/Sensor:Setting the sensor IP address~
-    - ~stid:home/Relays:Setting relay IP addresses~
+    - ~stid:home/Devices:Setting device IP addresses~
     - ~stid:home/RoomTools:Tools for editing room details~
     - ~stid:home/Timing:Editing the timing schedule~
     - ~stid:home/ScheduleEdit:The timing schedule editor~

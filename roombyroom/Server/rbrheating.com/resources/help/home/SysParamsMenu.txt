@@ -3,9 +3,7 @@
 ~img:sysparamsmenu.jpg:50% center~
 This is the system parameters menu. Here you can set the MAC address, password, system name and request relay IP.
 
-~tid:MAC:Set the MAC address~
-
-~tid:Password:Set the system password~
+~tid:Registration:Set the MAC address and the system password~
 
 ~tid:Name:Set the system name~
 

@@ -1,0 +1,13 @@
+## Edit the Sensor and Relay IP addresses
+
+The Sensor is a Shelly H&T module that reports the current temperature every 10 minutes by sending messages to the system controller. So you can identify which sensor is in which room you must enter its IP address using this editing dialog.
+
+~img:devices.png:center 50%~
+
+The relay is the device that controls the electric valve on your radiator. We cater for 2 types; most common will be the TP-Link P100 smart plug. In some cases a room may have more than one radiator to be controlled by separate relays; you can add as many as you need. To prepare it for use here, the P100 must be set up using the Tapo app, available from Google Play or the App Store. This requires a login email address and password, both of which are also requested by the dialog here.
+
+In special circumstances a Shelly One relay module can also be used to provide power to an electric radiator valve.
+
+Go to the ~tid:RoomEdit:Room Editor Help page~.
+
+~sid:Index:Index of pages~

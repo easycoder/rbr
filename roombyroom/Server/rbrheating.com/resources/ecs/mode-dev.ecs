@@ -109,7 +109,7 @@
 
     clear BoostFlag
     put 0 into Boost
-	set style `color` of Boost1Text to `#4a4`
+	set style `color` of Boost1Text to `#aa8f4f`
 
 	set style `visibility` of ModePanel to `visible`
     put property `sensor` of RoomSpec into SensorIP
@@ -121,7 +121,7 @@
     end
     else
     begin
-        set style `color` of AdvanceText to `#4a4`
+        set style `color` of AdvanceText to `#aa8f4f`
     end
     on click ButtonT go to SelectTimed
     on click ButtonB go to SelectBoost
@@ -176,25 +176,25 @@ OnUpDown:
 !	'Boost' buttons
 Boost1:
 	gosub to ResetBoostButtons
-    set style `color` of Boost1Text to `#f44`
+    set style `color` of Boost1Text to `#aa8f4f`
     put 0 into Boost
 	stop
 
 Boost2:
 	gosub to ResetBoostButtons
-    set style `color` of Boost2Text to `#f44`
+    set style `color` of Boost2Text to `#aa8f4f`
     put 30 into Boost
 	stop
 
 Boost3:
 	gosub to ResetBoostButtons
-    set style `color` of Boost3Text to `#f44`
+    set style `color` of Boost3Text to `#aa8f4f`
     put 60 into Boost
 	stop
 
 Boost4:
 	gosub to ResetBoostButtons
-    set style `color` of Boost4Text to `#f44`
+    set style `color` of Boost4Text to `#aa8f4f`
     put 120 into Boost
 	stop
 

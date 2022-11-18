@@ -537,7 +537,7 @@ GetMap:
             attach TimedText to `room-` cat RoomIndex cat `-timed-text`
             attach TimedInfo to `room-` cat RoomIndex cat `-timed-info`
 			if property `advance` of SensorSpec is `A`
-            	set style `color` of TimedText to `#4a4`
+            	set style `color` of TimedText to `#aa8f4f`
             else
             	set style `color` of TimedText to `black`
             
@@ -680,7 +680,7 @@ GetMap:
     clear Redraw
     clear Blocked
 
-    set style `background` of Alive to `#4a4`
+    set style `background` of Alive to `#f44`
     wait 50 ticks
     set style `background` of Alive to `#44f`
 	stop

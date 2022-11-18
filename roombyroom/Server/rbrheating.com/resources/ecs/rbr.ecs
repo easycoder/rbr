@@ -169,7 +169,11 @@ Main:
     ! Get the URL of the REST server
   	json parse url the location as Args
     put property `url` of Args into Server
+    put the position of the last `/` in Server into N
+    add 1 to N
+    put left N of Server into Server
     put Server cat `resources/php/rest.php` into Server
+    dummy
     put Server into storage as `server`
 
 	create Body
@@ -420,7 +424,7 @@ GetMap:
         index RoomTempPanel to RoomIndex
         index RoomToolsButton to RoomIndex
         index TimedText to RoomIndex
-        
+
         put property `room-` cat RoomIndex of StaticData into RoomData
         if RoomData is empty
         begin
@@ -467,21 +471,7 @@ GetMap:
         if SensorIP is not empty
         begin
             put property SensorIP of Sensors into SensorSpec
-if RoomName is `Test` print SensorSpec
             put property `timestamp` of SensorSpec into Timestamp
-			put property `advance` of SensorSpec into Advance
-			if `` cat Advance is `-`
-            begin
-            	if property `advance` of RoomSpec is `A`
-                begin
-if RoomName is `Test` print `Cancel advance`
-            		set property `advance` of RoomSpec to `-`
-            		set element RoomIndex of Rooms to RoomSpec
-            		gosub to CopyRoomsToMap
-		    		fork to PostMap
-                end
-            end
-            
             put now into Now
             if Timestamp is not empty
             begin
@@ -546,11 +536,11 @@ if RoomName is `Test` print `Cancel advance`
             end
             attach TimedText to `room-` cat RoomIndex cat `-timed-text`
             attach TimedInfo to `room-` cat RoomIndex cat `-timed-info`
-    if RoomName is `Test` print property `advance` of RoomSpec
-            if property `advance` of RoomSpec is `A`
-            	set style `color` of TimedText to `#f44`
+			if property `advance` of SensorSpec is `A`
+            	set style `color` of TimedText to `#aa8f4f`
             else
             	set style `color` of TimedText to `black`
+            
             put property `events` of RoomSpec into Events
             divide now by 60 giving N
             put N modulo 24*60 into N
@@ -683,7 +673,7 @@ if RoomName is `Test` print `Cancel advance`
         end
         add 1 to RoomIndex
     end
-    
+
     put StaticData into storage as `StaticData`
 
     clear Refresh
@@ -942,7 +932,7 @@ ShowMenu:
     attach EvaluateButton to `button-evaluate`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
-    
+
     on click GetSysParamsButton go to GetSystemParameters
 
     on click AddRoomButton
@@ -999,7 +989,7 @@ ShowMenu:
 CopyRoomsToMap:
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
-    set property `rooms` of Profile to Rooms        
+    set property `rooms` of Profile to Rooms
     set element CurrentProfile of Profiles to Profile
     set property `profiles` of Map to Profiles
 	return

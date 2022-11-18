@@ -58,7 +58,7 @@
     variable R
     variable W
     
-    debug step
+!    debug step
     
     get Server from storage as `server`
     get MAC from storage as `MAC`
@@ -160,8 +160,10 @@ MonthStats:
     append `Oct` to MonthNames
     append `Nov` to MonthNames
     append `Dec` to MonthNames
+    dummy
     put the month number into MonthNumber
     put the year into Year
+    print MonthNumber
 
 !	Main entry point for the display algorithm
 Display:
