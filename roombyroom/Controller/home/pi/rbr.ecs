@@ -12,6 +12,7 @@
     variable Profiles
     variable Profile
     variable Map
+    variable MapObject
     variable NewMap
     variable Rooms
     variable Room
@@ -22,6 +23,7 @@
     variable Sensor
     variable Relays
     variable Relay
+    variable RelayType
     variable Temperature
     variable SensorData
     variable RoomCount
@@ -41,11 +43,11 @@
     variable RequestCount
     variable RequestIP
     variable Value
+    variable Email
+    variable Password
     variable E
     variable L
     variable R
-    variable M1
-    variable M2
 
     script RBR
 !    debug step
@@ -103,6 +105,27 @@
     end
     put json Advance into Advance
 
+!   See if we have the latest system software
+    if file Path cat `/version` exists
+    begin
+        open File Path cat `/version` for reading
+        read Version from File
+        put trim Version into Version
+        close File
+    end
+    else put 1 into Version
+    put property `version` of RegData into Value
+    print Version cat ` ` cat Value
+    if Value is not Version
+    begin
+        print `Installing update from ` cat Version cat ` to ` cat Value
+        system `sh update.sh`
+        open File Path cat `/version` for writing
+        write Value to File
+        close File
+        exit
+    end
+
 Start:
     ! If there's a map, load it; otherwise request it from the server
     if file Path cat `/map` exists
@@ -128,38 +151,57 @@ ProcessMap:
         exit
     end
 
-!    print Map
-    put json Map into Map
-!    print Map
-    put property `profiles` of Map into Profiles
-    put property `profile` of Map into CurrentProfile
+    put json Map into MapObject
+    put property `profiles` of MapObject into Profiles
+    put property `profile` of MapObject into CurrentProfile
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
     print `Profile: ` cat property `name` of Profile
     put json `{}` into SensorData
     put the count of Rooms into RoomCount
-    if RoomCount is 0 print `No rooms have been added`
-    else print `Processing ` cat RoomCount cat ` rooms`
-    put 0 into RequestCount
-    put 0 into RoomNumber
-    while RoomNumber is less than RoomCount
+    if RoomCount is 0
     begin
-        put element RoomNumber of Rooms into Room
-        gosub to ProcessRoom
-        add 1 to RoomNumber
+        print `There are no rooms in this profile`
     end
-    put property `request` of Map into RequestIP
-    if RequestIP is not empty
+    else
     begin
-        if RequestCount is 0 put `off` into Turn
-        else put `on` into Turn
-        post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
-        print `Request ` cat Turn
+        print `Processing ` cat RoomCount cat ` rooms`
+        put 0 into RequestCount
+        put 0 into RoomNumber
+        while RoomNumber is less than RoomCount
+        begin
+            put element RoomNumber of Rooms into Room
+            gosub to ProcessRoom
+            add 1 to RoomNumber
+        end
+        put property `request` of MapObject into RequestIP
+        if RequestIP is not empty
+        begin
+            if RequestCount is 0 put `off` into Turn
+            else put `on` into Turn
+            post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
+            print `Request ` cat Turn
+        end
     end
+    gosub to UpdateMap
 
 !   Confirm the message
     if Password is not empty post to Server cat `/confirm/` cat MAC cat `/` cat Password
 
+    ! Do all the above 6 times
+    add 1 to RepeatCount
+    print `Repeat ` cat RepeatCount cat ` done`
+    if RepeatCount is less than 6
+    begin
+        wait 9 seconds
+        go to Start
+    end
+
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Update the map
+UpdateMap:
 !   Send sensors and update the map from the website
 !   If there's no password file, register now
     if file Path cat `/password` exists
@@ -169,55 +211,37 @@ ProcessMap:
         close File
         put stringify SensorData into Sensors
         get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
-        put json NewMap into NewMap
-        put stringify Map into M1
-        put stringify NewMap into M2
-        if M2 is not M1
+        if NewMap is not Map
         begin
-            open File Path cat `/map` for writing
-            write M2 to File
-            close File
-            print `Map updated`
-            put M2 into Map
+            put json NewMap into MapObject
+            put property `profiles` of MapObject into Profiles
+            put property `profile` of MapObject into CurrentProfile
+            put element CurrentProfile of Profiles into Profile
+            put property `rooms` of Profile into Rooms
+            if the count of Rooms is not 0
+            begin
+                open File Path cat `/map` for writing
+                write NewMap to File
+                close File
+                print `Map updated`
+                put NewMap into Map
+            end
+            else print `Bad map received from server`
             go to ProcessMap
         end
     end
     else
     begin
         get Password from Server cat `/register/` cat MAC cat `?v=` cat now
-        open File Path cat `/password` for writing
-        write Password to File
+        if Password is not empty
+        begin
+            open File Path cat `/password` for writing
+            write Password to File
+        end
         close File
+        exit
     end
-
-    ! Do all the above 6 times
-    add 1 to RepeatCount
-    if RepeatCount is less than 6
-    begin
-        wait 10 seconds
-        go to Start
-    end
-
-!   See if we have the latest system software
-    if file Path cat `/version` exists
-    begin
-        open File Path cat `/version` for reading
-        read Version from File
-        close File
-    end
-    else put 1 into Version
-    put property `version` of RegData into Value
-    print Version cat ` ` cat Value
-    if Value is not Version
-    begin
-        print `Installing update from ` cat Version cat ` to ` cat Value
-        system `sh update.sh`
-        open File Path cat `/version` for writing
-        write Value to File
-        close File
-    end
-
-    exit
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
@@ -317,7 +341,7 @@ PR2:
 
 TurnOnOrOff:
     ! If we are at the 'advance' period, cancel the advance
-    if property Sensor of Advance is E
+    if property Sensor of Advance is `A`
     begin
         set property Sensor of Advance to `-`
         open File Path cat `/advance` for writing
@@ -333,9 +357,9 @@ TurnOnOrOff:
         add 1 to E
         if E is greater than L put 0 into E
         ! If the period has changed, write the file back
-        if property Sensor of Advance is not `` cat E
+        if property Sensor of Advance is not `A`
         begin
-            set property Sensor of Advance to `` cat E
+            set property Sensor of Advance to `A`
             open File Path cat `/advance` for writing
             write stringify Advance to File
             close File
@@ -357,33 +381,28 @@ TurnOn:
 
 SetRelays:
     print Sensor cat ` ` cat RoomName cat ` ` cat Turn
+    put property `relayType` of Room into RelayType
+    if RelayType is empty put `Shelly One` into RelayType
     put 0 into R
     while R is less than the count of Relays
     begin
         put element R of Relays into Relay
         if Relay is not empty
         begin
-!            print `http://` cat Relay cat `/relay/0?turn=` cat Turn
-            post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
+            if RelayType is `Shelly One`
+            begin
+!                print `http://` cat Relay cat `/relay/0?turn=` cat Turn
+                post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
+            end
+            else if RelayType is `TP-Link P100`
+            begin
+                put property `p100Email` of Room into Email
+                put property `p100Password` of Room into Password
+!                print `P100 ` cat Relay cat ` ` cat Email cat ` ` cat Password cat ` ` cat Turn
+                relay Relay Email Password Turn
+            end
         end
         add 1 to R
-    end
-    if Mode is `boost`
-    begin
-!    debug step
-!    print SensorValues
-!        put float property `target` of Room into Target
-!        put float now into Now
-!        print Now cat ` ` cat Target
-!        take Now from Target
-!        print `Target = ` cat Target
-!        if float Target is less than 0
-!        begin
-!            print `Expired`
-!        end
-!        divide Target by 60
-!        add 1 to Target
-!        set property `boost` of SensorValues to Target
     end
     set property `relay` of SensorValues to Turn
     set property Sensor of SensorData to SensorValues

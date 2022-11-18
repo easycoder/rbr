@@ -32,6 +32,7 @@
     variable Webson
     variable Script
     variable Changed
+    variable SensorIP
     variable N
 
 !    debug step
@@ -141,8 +142,9 @@ Editor:
         render Webson in DialogPanel
         attach DialogText to `dialog-text`
         attach DialogButton1 to `dialog-okbutton`
+        put property `sensor` of RoomSpec into SensorIP
         set the content of DialogText to `Information about this room:<br><br>`
-            cat Sensors
+            cat property SensorIP of Sensors
 
         on click DialogButton1
         begin

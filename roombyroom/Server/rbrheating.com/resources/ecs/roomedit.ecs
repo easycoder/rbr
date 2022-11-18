@@ -11,9 +11,10 @@
     div DialogPanel
     div DialogTitle
     div DialogText
+    div DialogText2
+    div P100Login
     button EditNameButton
-    button EditSensorButton
-    button EditRelaysButton
+    button EditDevicesButton
     button EditTimesButton
     button HelpButton
     button SaveButton
@@ -21,6 +22,10 @@
     button DialogButton1
     button DialogButton2
     input DialogInput
+    input P100Email
+    input P100Password
+    select RelayTypes
+    textarea TextArea
     variable ProfileNumber
     variable Profiles
     variable Profile
@@ -31,6 +36,7 @@
     variable Item
     variable Name
     variable ScheduleEditScript
+    variable List
     variable R
 
 !    debug step
@@ -40,8 +46,7 @@
 Editor:
     attach RoomName to `title-room-name`
     attach EditNameButton to `button-name`
-    attach EditSensorButton to `button-sensor`
-    attach EditRelaysButton to `button-relays`
+    attach EditDevicesButton to `button-devices`
     attach EditTimesButton to `button-times`
     attach SaveButton to `button-save`
     attach HelpButton to `button-help`
@@ -53,9 +58,7 @@ Editor:
     
     on click EditNameButton go to NameButtonCB
     
-    on click EditSensorButton go to SensorButtonCB
-    
-    on click EditRelaysButton go to RelaysButtonCB
+    on click EditDevicesButton go to DevicesButtonCB
  
     on click EditTimesButton go to TimesButtonCB
     
@@ -107,53 +110,53 @@ NameButtonCB:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Edit the sensor
-SensorButtonCB:
-    attach DialogPanel to `dialog-panel`
-  	rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+!	Edit the devices
+DevicesButtonCB:
+	attach DialogPanel to `dialog-panel`
+    set style `width` of DialogPanel to `80%`
+    set style `left` of DialogPanel to `10%`
+    rest get Webson from `/resources/webson/getdevices.json?v=` cat now
     render Webson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
+    attach DialogText2 to `dialog-text2`
     attach DialogButton1 to `dialog-button1`
     attach DialogButton2 to `dialog-button2`
     attach DialogInput to `dialog-input`
-    set the content of DialogTitle to `Sensor IP for '` cat property `name` of RoomSpec cat `'`
+    attach RelayTypes to `relayType`
+    attach P100Login to `p100-login`
+    attach P100Email to `p100-email`
+    attach P100Password to `p100-password`
+    
+    put `[]` into List
+    json add `TP-Link P100` to List
+    json add `Shelly One` to List
+    set RelayTypes from List as property `relayType` of RoomSpec
+    if property `relayType` of RoomSpec is `TP-Link P100`
+    begin
+        set the content of P100Email to property `p100Email` of RoomSpec
+        set the content of P100Password to property `p100Password` of RoomSpec
+    	set style `display` of P100Login to `block`
+    end
+    on change RelayTypes
+    begin
+        set property `relayType` of RoomSpec to attribute `value` of RelayTypes
+        if attribute `value` of RelayTypes is `TP-Link P100`
+        begin
+        	set style `display` of P100Login to `block`
+            set the content of P100Email to property `p100Email` of RoomSpec
+            set the content of P100Password to property `p100Password` of RoomSpec
+        end
+        else set style `display` of P100Login to `none`
+    end
+    
+    attach TextArea to `dialog-textarea`
+    set the content of DialogTitle to `Sensor and relays for '` cat property `name` of RoomSpec cat `'`
     set the content of DialogText to `Type the IP address of the temperature sensor`
+    set the content of DialogText2 to `Type the IP addresses of the relays, 1 per line`
     set the content of DialogButton1 to `Save`
     set the content of DialogButton2 to `Cancel`
     set the content of DialogInput to property `sensor` of RoomSpec
-    
-    on click DialogButton1
-    begin
-        set property `sensor` of RoomSpec to the content of DialogInput
-        clear DialogPanel
-        set element ClickIndex of Rooms to RoomSpec
-        gosub to CopyRoomsToMap
-        go to ExitWithChanges
-    end
-    
-    on click DialogButton2
-    begin
-    	clear DialogPanel
-      	go to ExitWithoutChanges
-        end
-	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Edit the relays
-RelaysButtonCB:
-	attach DialogPanel to `dialog-panel`
-    rest get Webson from `/resources/webson/dialog-textarea.json?v=` cat now
-    render Webson in DialogPanel
-    attach DialogTitle to `dialog-title`
-    attach DialogText to `dialog-text`
-    attach DialogButton1 to `dialog-button1`
-    attach DialogButton2 to `dialog-button2`
-    attach DialogInput to `dialog-input`
-    set the content of DialogTitle to `Relay IPs for '` cat property `name` of RoomSpec cat `'`
-    set the content of DialogText to `Type the IP addresses of the relays, 1 per line`
-    set the content of DialogButton1 to `Save`
-    set the content of DialogButton2 to `Cancel`
     put property `relays` of RoomSpec into Relays
     put empty into Item
     put 0 into R
@@ -163,12 +166,18 @@ RelaysButtonCB:
         put Item cat element R of Relays into Item
         add 1 to R
     end
-    set the content of DialogInput to Item
+    set the content of TextArea to Item
     
     on click DialogButton1
     begin
+        set property `sensor` of RoomSpec to the content of DialogInput
+        if property `relayType` of RoomSpec is `TP-Link P100`
+        begin
+            set property `p100Email` of RoomSpec to the content of P100Email
+            set property `p100Password` of RoomSpec to the content of P100Password
+        end
         put `[]` into Relays
-        split the content of DialogInput on newline giving Item
+        split the content of TextArea on newline giving Item
         put 0 into R
         while R is less than the elements of Item
         begin

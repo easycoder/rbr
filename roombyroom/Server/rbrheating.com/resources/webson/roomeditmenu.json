@@ -4,7 +4,7 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Title", "$Name", "$Sensor", "$Relays",
+    "#": ["$Title", "$Name", "$Devices",
         "$Times", "$Pad", "$Save", "$Cancel", "$Pad", "$Help"],
 
     "$Title": {
@@ -24,15 +24,9 @@
         "#": "$Button"
     },
 
-    "$Sensor": {
-        "$ID": "button-sensor",
-        "$Label": "Edit sensor IP address",
-        "#": "$Button"
-    },
-
-    "$Relays": {
-        "$ID": "button-relays",
-        "$Label": "Edit relay IP addresses",
+    "$Devices": {
+        "$ID": "button-devices",
+        "$Label": "Edit device IP addresses",
         "#": "$Button"
     },
 

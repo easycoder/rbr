@@ -16,7 +16,7 @@ apt -y full-upgrade
 echo "Install Python Pip"
 apt install -y python3-pip
 echo "Install bottle and requests"
-runuser -l pi -c "pip3 install bottle requests pytz"
+runuser -l pi -c "pip3 install bottle requests pytz PyP100"
 
 echo "Get the resource pack"
 runuser -l pi -c "wget https://rbrheating.com/resources/rbr.tgz"

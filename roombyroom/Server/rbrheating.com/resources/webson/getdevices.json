@@ -1,0 +1,143 @@
+{
+    "#doc": "Get the sensor and relays",
+    "#element": "div",
+    "background": "white",
+    "border": "1px solid gray",
+    "margin-top": "0.5em",
+    "padding": "0 0.5em 0.5e 0.5em",
+    "box-shadow": "0.5em 0.5em 0.5em #444",
+    "text-align": "center",
+    "#": ["$Title", "$Text", "$Input", "$Clear", "$Span", "$Select", "$P100", "$Text2", "$TextArea", "$Buttons"],
+
+    "$Title": {
+        "#element": "div",
+        "@id": "dialog-title",
+        "font-weight": "bold"
+    },
+
+    "$Text": {
+        "#element": "div",
+        "@id": "dialog-text",
+        "margin": "1em",
+        "#content": "Text"
+    },
+
+    "$Input": {
+        "#element": "input",
+        "@id": "dialog-input",
+        "width": "12em",
+        "margin": "0 auto"
+    },
+
+    "$Clear": {
+        "#element": "div",
+        "height": "1em"
+    },
+
+    "$Span": {
+        "#element": "span",
+        "margin": "1em",
+        "#content": "Select the relay type:&nbsp;&nbsp;"
+    },
+
+    "$P100": {
+        "#element": "div",
+        "@id": "p100-login",
+        "margin": "1em",
+        "display": "none",
+        "#content": "P100 login",
+        "#": ["$Email", "$Password"],
+
+        "$Email": {
+            "#element": "div",
+            "#": ["$Title", "$Data"],
+
+            "$Title": {
+                "#element": "span",
+                "margin": "1em",
+                "#content": "Email:&nbsp;&nbsp;"
+            },
+
+            "$Data": {
+                "#element": "input",
+                "@id": "p100-email",
+                "width": "12em",
+                "margin": "0 auto"
+            }
+        },
+
+        "$Password": {
+            "#element": "div",
+            "#": ["$Title", "$Data"],
+
+            "$Title": {
+                "#element": "span",
+                "margin": "1em",
+                "#content": "Password:&nbsp;&nbsp;"
+            },
+
+            "$Data": {
+                "#element": "input",
+                "@id": "p100-password",
+                "width": "12em",
+                "margin": "0 auto"
+            }
+        }
+    },
+
+    "$Select": {
+        "#element": "select",
+        "@id": "relayType",
+        "@name": "relayType"
+    },
+
+    "$Text2": {
+        "#element": "div",
+        "@id": "dialog-text2",
+        "margin": "1em",
+        "#content": "Text"
+    },
+
+    "$TextArea": {
+        "#element": "textarea",
+        "@id": "dialog-textarea",
+        "width": "20em",
+        "height": "4em",
+        "margin": "0 auto"
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "row",
+        "margin": "1em 0",
+        "#": ["$LRPadding", "$Button1", "$CenterPadding", "$Button2", "$LRPadding"],
+
+        "$Button1": {
+            "$ID": "dialog-button1",
+            "#": "$Button"
+        },
+
+        "$Button2": {
+            "$ID": "dialog-button2",
+            "#": "$Button"
+        },
+
+        "$Button": {
+            "#element": "button",
+            "@id": "$ID",
+            "width": "5em",
+            "height": "1.5em"
+        },
+
+        "$LRPadding": {
+            "#element": "div",
+            "flex": 1
+        },
+
+        "$CenterPadding": {
+            "#element": "div",
+            "width": "1em"
+        }
+    }
+}

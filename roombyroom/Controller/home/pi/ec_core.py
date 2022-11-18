@@ -141,6 +141,24 @@ class Core(Handler):
         fileRecord['file'].close()
         return self.nextPC()
 
+    def k_create(self, command):
+        print('Create')
+        if nextIs('directory'):
+            command['item'] = 'directory'
+            command['path'] = nextValue()
+            t = self.nextToken()
+            print(f'Token: {t}')
+            self.add(command)
+            return True
+        return False
+
+    def r_create(self, command):
+        if command['item'] == 'directory':
+            path = self.nextValue()
+            if not os.path.exists(path):
+                os.makedirs(path)
+        return self.nextPC()
+
     def k_debug(self, command):
         token = self.peek()
         if token in ['step', 'program']:
@@ -334,6 +352,7 @@ class Core(Handler):
     def k_if(self, command):
         command['condition'] = self.nextCondition()
         self.addCommand(command)
+        print(command)
         self.nextToken()
         pcElse = self.getPC()
         cmd = {}
@@ -517,7 +536,7 @@ class Core(Handler):
         return -1
 
     def k_post(self, command):
-        self.add(command)
+        # self.add(command)
         if self.nextIs('to'):
             command['value'] = self.getConstant('')
             command['url'] = self.getValue()
@@ -644,7 +663,7 @@ class Core(Handler):
         file = fileRecord['file']
         if file.mode == 'r':
             value = {}
-            content = file.readline().strip() if line else file.read()
+            content = file.readline() if line else file.read()
             value['type'] = 'text'
             value['numeric'] = False
             value['content'] = content
@@ -792,7 +811,7 @@ class Core(Handler):
                 command['on'] = '\n'
                 if self.peek() == 'on':
                     self.nextToken()
-                    command['on'] = self.getValue()
+                    command['on'] = self.nextValue()
                 self.add(command)
                 return True
         return False
@@ -800,7 +819,7 @@ class Core(Handler):
     def r_split(self, command):
         target = self.getVariable(command['target'])
         value = self.getSymbolValue(target)
-        content = value['content'].split(command['on'])
+        content = value['content'].split(command['on']['content'])
         elements = len(content)
         target['elements'] = elements
         target['value'] = [None] * elements
@@ -1086,6 +1105,7 @@ class Core(Handler):
                     if symbolRecord['keyword'] == 'variable':
                         value['target'] = symbolRecord['name']
                         return value
+                self.warning(f'Token \'{self.getToken()}\' is not a variable')
             return None
 
         if token == 'property':
@@ -1096,6 +1116,7 @@ class Core(Handler):
                     if symbolRecord['keyword'] == 'variable':
                         value['target'] = symbolRecord['name']
                         return value
+                self.warning(f'Token \'{self.getToken()}\' is not a variable')
             return None
 
         if token == 'arg':
@@ -1124,6 +1145,12 @@ class Core(Handler):
                 if self.nextIsSymbol():
                     value['name'] = self.getToken()
                     return value
+            return None
+
+        if token == 'keys':
+            if self.nextIs('of'):
+                value['name'] = self.nextValue()
+                return value
             return None
 
         if token == 'count':
@@ -1372,6 +1399,12 @@ class Core(Handler):
         value['content'] = int(val)
         return value
 
+    def v_keys(self, v):
+        value = {}
+        value['type'] = 'int'
+        value['content'] = list(self.getRuntimeValue(v['name']).keys())
+        return value
+
     def v_left(self, v):
         content = self.getRuntimeValue(v['content'])
         count = self.getRuntimeValue(v['count'])
@@ -1427,7 +1460,11 @@ class Core(Handler):
         target = self.getVariable(v['target'])
         target = self.getSymbolValue(target)
         content = target['content']
-        val = content.get(name)
+        try:
+            val = content.get(name)
+        except:
+            FatalError(self.program.compiler, f'"{name}" does not have any properties')
+            return None
         value = {}
         value['content'] = val
         if isinstance(v, numbers.Number):

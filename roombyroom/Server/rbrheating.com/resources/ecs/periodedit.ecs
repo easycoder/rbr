@@ -197,8 +197,8 @@ SaveCurrentData:
     while E is less than NEvents
     begin
     	index Event to E
-    	add 1 to E
         append Event to Events
+    	add 1 to E
     end
     
 	gosub to SortEvents

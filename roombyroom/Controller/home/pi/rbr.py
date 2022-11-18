@@ -8,6 +8,13 @@ app = Bottle()
 ###############################################################################
 # This is the RBR controller
 
+# Endpoint: Get <server-ip>/reset
+# Called to reset the log file
+@app.get('/reset')
+def reset():
+    os.system('rm log.txt')
+    return
+
 # Endpoint: Get <server-ip>/?hum=hhh&temp=ttt&id=id
 # Called when temperature changes
 @app.get('/')

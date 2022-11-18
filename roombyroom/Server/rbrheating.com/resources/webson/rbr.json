@@ -66,6 +66,7 @@
         "$Title": {
             "#element": "div",
             "#content": "Room By Room",
+            "@id": "rbr-banner",
             "font-size": "2em",
             "font-weight": "bold",
             "color": "#450"

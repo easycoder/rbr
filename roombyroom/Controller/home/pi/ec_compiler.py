@@ -141,7 +141,7 @@ class Compiler:
 	# Compile the current token
 	def compileToken(self):
 		token = self.getToken()
-		#print(token)
+		# print(token)
 		if not token:
 			return False
 		self.mark()
@@ -154,7 +154,8 @@ class Compiler:
 				command['keyword'] = token
 				command['debug'] = True
 				result = handler(command)
-				return result
+				if result:
+					return result
 			else:
 				self.rewind()
 		FatalError(self, f'No handler found for "{token}"')
@@ -165,7 +166,7 @@ class Compiler:
 		keyword = self.getToken()
 		if not keyword:
 			return False
-		#print(f'Compile keyword "{keyword}"')
+		# print(f'Compile keyword "{keyword}"')
 		if keyword.endswith(':'):
 			command = {}
 			command['domain'] = None

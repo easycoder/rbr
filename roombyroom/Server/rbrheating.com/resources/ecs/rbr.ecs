@@ -19,17 +19,17 @@
     div DialogPanel
     div DialogTitle
     div DialogText
+    div TimedText
     div Alive
+    div Banner
     input Input
     img StatisticsIcon
     img Hamburger
     img ModeIcon
-    a Welcome
     button ProfilesButton
     button AddRoomButton
     button GetSysParamsButton
-    button GetMACButton
-    button GetPasswordButton
+    button GetLoginButton
     button GetNameButton
     button GetRequestButton
     button OKButton
@@ -44,6 +44,7 @@
     module ProfileModule
     module Storyteller
     module DemoModule
+    module DebugModule
     variable Mobile
     variable Server
     variable Revisit
@@ -79,6 +80,7 @@
     variable RoomData
     variable RoomName
     variable Timestamp
+    variable Advance
     variable IsAlive
     variable Args
     variable Events
@@ -92,6 +94,8 @@
     variable Result
     variable Finish
     variable Name
+    variable BannerClicks
+    variable BannerClickGap
     variable MapErrorCount
     variable RestErrorCount
     variable Elapsed
@@ -111,8 +115,6 @@
     variable RoomWebson
     variable RoomToolsMenuWebson
     variable GetSysParamsWebson
-    variable GetMacWebson
-    variable GetPasswordWebson
     variable GetNameWebson
     variable GetRequestWebson
     variable TimedWebson
@@ -123,6 +125,14 @@
     variable DialogWebson
 
 !    debug step
+
+	on key
+    begin
+    	if the key is `m` print MAC
+    	if the key is `p` print Password
+    	if the key is `M` print Map
+    	if the key is `S` print Sensors
+    end
 
 	fork to Main
     wait 5 seconds
@@ -186,8 +196,6 @@ Main:
     put empty into RoomWebson
     put empty into RoomToolsMenuWebson
     put empty into GetSysParamsWebson
-    put empty into GetMacWebson
-    put empty into GetPasswordWebson
     put empty into GetNameWebson
     put empty into GetRequestWebson
     put empty into TimedWebson
@@ -200,12 +208,39 @@ Main:
     rest get MainScreenWebson from `/resources/webson/rbr.json?v=` cat now
     	or go to AbandonShip
 	render MainScreenWebson in Body
+    attach Banner to `rbr-banner`
     attach MainPanel to `mainpanel`
     attach OuterPanel to `outerpanel`
     attach HelpPanel to `helppanel`
     attach StatisticsPanel to `statisticspanel`
     attach Alive to `alive`
     attach ModePanel to `mode-panel`
+
+!	Start the debug module
+    if DebugModule is not running
+    begin
+        rest get Script from `/resources/ecs/debug.ecs?v=` cat now
+        run Script with Mobile and Body and Map and Sensors and MAC and Password as DebugModule
+    	put 0 into BannerClicks
+    end
+    on click Banner
+    begin
+    	add 1 to BannerClicks
+    	if BannerClicks is 1 add 1000 to the millisecond giving BannerClickGap
+        else if BannerClicks is 2
+        begin
+        	if the millisecond is less than BannerClickGap
+            begin
+            	send `Run` to DebugModule
+    			put 0 into BannerClicks
+            end
+            else
+            begin
+            	put 1 into BannerClicks
+                add 1000 to the millisecond giving BannerClickGap
+            end
+        end
+    end
 
     put empty into Map2
 
@@ -252,6 +287,7 @@ Main:
 !	Main start point
 Start:
 	put 0 into RestErrorCount
+    send `Count` to DebugModule
 
 !	Make sure we have a MAC address; if not, go ask for one
     clear Flag
@@ -294,38 +330,13 @@ GetMap:
         		get Map from storage as `map`
             	continue
         	end
-        if Map is not empty put Map into storage as `map`
+        if Map is empty stop
+        put Map into storage as `map`
     end
-    if Map is empty
-    begin
-    	print `The map is empty`
-		put `{"name":"Default","rooms":[]}` into Profile
-        put `[]` into Profiles
-        append Profile to Profiles
-        set property `profiles` of Map to Profiles
-        set property `profile` of Map to 0
-    end
-    if property `rooms` of Map is empty
-    begin
-        put property `profile` of Map into CurrentProfile
-        put property `profiles` of Map into Profiles
-    	put element CurrentProfile of Profiles into Profile
-    	put property `rooms` of Profile into Rooms   
-    end
-    else
-    begin
-    	put property `rooms` of Map into Rooms
-        put `{}` into Profile
-        set property `name` of Profile to `Default`
-        set property `rooms` of Profile to Rooms
-        put `[]` into Profiles
-        append Profile to Profiles
-        set property `profiles` of Map to Profiles
-    	set property `profile` of Map to 0
-        put 0 into CurrentProfile
-        json delete property `rooms` of Map
-        fork to PostMap
-    end
+    put property `profile` of Map into CurrentProfile
+    put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms
     if Map is not Map2 set Redraw
     put Map into Map2
 
@@ -350,9 +361,6 @@ GetMap:
     attach ProfilesButton to `profile-button`
     on click ProfilesButton go to DoProfiles
 
-!json delete property `profile` of Map
-!json delete property `default-profile-name` of Map
-!json delete property `profiles` of Map
 	put property `default-profile-name` of Map into Name
     if Name is empty
     begin
@@ -396,10 +404,7 @@ GetMap:
     set the elements of RelayState to RoomCount
     set the elements of ModeHolder to RoomCount
     set the elements of ModeIcon to RoomCount
-
-!    print Server    
-!    print Sensors
-!	 print Map
+    set the elements of TimedText to RoomCount
 
 	! Draw a row for each room
     put 0 into RoomIndex
@@ -414,6 +419,7 @@ GetMap:
         index RoomNamePanel to RoomIndex
         index RoomTempPanel to RoomIndex
         index RoomToolsButton to RoomIndex
+        index TimedText to RoomIndex
         
         put property `room-` cat RoomIndex of StaticData into RoomData
         if RoomData is empty
@@ -461,7 +467,21 @@ GetMap:
         if SensorIP is not empty
         begin
             put property SensorIP of Sensors into SensorSpec
+if RoomName is `Test` print SensorSpec
             put property `timestamp` of SensorSpec into Timestamp
+			put property `advance` of SensorSpec into Advance
+			if `` cat Advance is `-`
+            begin
+            	if property `advance` of RoomSpec is `A`
+                begin
+if RoomName is `Test` print `Cancel advance`
+            		set property `advance` of RoomSpec to `-`
+            		set element RoomIndex of Rooms to RoomSpec
+            		gosub to CopyRoomsToMap
+		    		fork to PostMap
+                end
+            end
+            
             put now into Now
             if Timestamp is not empty
             begin
@@ -514,7 +534,7 @@ GetMap:
             render Webson in ModeHolder
         end
         else if Mode is `timed`
-            begin
+        begin
             begin
                 clear ModeHolder
     			if TimedWebson is empty
@@ -524,7 +544,13 @@ GetMap:
                 replace `/ROOM/` with RoomIndex in Webson
                 render Webson in ModeHolder
             end
+            attach TimedText to `room-` cat RoomIndex cat `-timed-text`
             attach TimedInfo to `room-` cat RoomIndex cat `-timed-info`
+    if RoomName is `Test` print property `advance` of RoomSpec
+            if property `advance` of RoomSpec is `A`
+            	set style `color` of TimedText to `#f44`
+            else
+            	set style `color` of TimedText to `black`
             put property `events` of RoomSpec into Events
             divide now by 60 giving N
             put N modulo 24*60 into N
@@ -649,6 +675,7 @@ GetMap:
                     and Mode
                     and Map
                     and ClickIndex
+                    and Sensors
                     and Demo
                     and Result
                 go to ProcessResult
@@ -666,7 +693,6 @@ GetMap:
     set style `background` of Alive to `#f44`
     wait 50 ticks
     set style `background` of Alive to `#44f`
-	wait 400 ticks
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -710,23 +736,16 @@ GetSystemParameters:
             or go to HandleRestError
     render GetSysParamsWebson in MainPanel
 
-    attach GetMACButton to `button-getmac`
-    attach GetPasswordButton to `button-getpassword`
+    attach GetLoginButton to `button-getlogin`
     attach GetNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
 
-    on click GetMACButton
+    on click GetLoginButton
     begin
     	set Flag
-        go to GetMAC
-    end
-
-    on click GetPasswordButton
-    begin
-    	set Flag
-        go to GetPassword
+        go to GetLogin
     end
 
     on click GetNameButton
@@ -758,108 +777,62 @@ GetSystemParameters:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Ask the user for the MAC address
-GetMAC:
+!	Ask the user for the MAC address and password
+GetLogin:
 	set Blocked
     clear MainPanel
-    if GetMacWebson is empty
-        rest get GetMacWebson from `/resources/webson/getmac.json?v=` cat now
-            or go to HandleRestError
-    render GetMacWebson in MainPanel
-    attach Input to `getmac-input`
-    attach OKButton to `getmac-ok`
-    attach CancelButton to `getmac-cancel`
-    attach HelpButton to `getmac-help`
-    attach Welcome to `getmac-welcome`
-    if not Flag set style `display` of CancelButton to `none`
-    on click OKButton
+    rest get Script from `/resources/ecs/getlogin.ecs?v=` cat now
+    	or go to HandleRestError
+    run Script with MainPanel and MAC and Password and Flag and Result
+    if Result is empty
     begin
-    	put the content of Input into MAC
-        clear Input
-        print `MAC = ` cat MAC
-        if MAC is not empty
+    	print `MAC: ` cat MAC
+        print `PWD: ` cat Password
+        put MAC into storage as `MAC`
+        if MAC is `DEMO` set Demo else clear Demo
+        if Demo
         begin
-        	put MAC into storage as `MAC`
-            if MAC is `DEMO` set Demo else clear Demo
-            if Demo
-            begin
-            	put `password` into Password
-                put Password into storage as `password`
-            	put empty into SystemName
-               	put empty into storage as `SystemName`
-            end
-            clear MainPanel
-            clear Blocked
-            set Redraw
-            stop
+            put `password` into Password
+            put Password into storage as `password`
+            put empty into SystemName
+            put empty into storage as `SystemName`
         end
+        else put Password into storage as `password`
+        clear MainPanel
+        clear Blocked
+        set Redraw
     end
-    on click CancelButton
+    else if Result is `Cancel`
     begin
     	clear MainPanel
         clear Blocked
         set Redraw
     end
-    on click HelpButton
+    else if Result is `Help`
     begin
     	clear MainPanel
     	set style `display` of OuterPanel to `none`
       	set style `display` of HelpPanel to `block`
     	put `home` into SID
-        put `MAC` into TID
+        put `GetLogin` into TID
         go to RunHelp
     end
-   	on click Welcome
+    else if Result is `Welcome`
     begin
     	clear MainPanel
+    	set style `display` of OuterPanel to `none`
+      	set style `display` of HelpPanel to `block`
     	put `home` into SID
         put `Welcome` into TID
         go to RunHelp
     end
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Ask the user for the password
-GetPassword:
-	set Blocked
-    clear MainPanel
-    if GetPasswordWebson is empty
-        rest get GetPasswordWebson from `/resources/webson/getpassword.json?v=` cat now
-    render GetPasswordWebson in MainPanel
-    attach Input to `getpassword-input`
-    attach OKButton to `getpassword-ok`
-    attach CancelButton to `getpassword-cancel`
-    attach HelpButton to `getpassword-help`
-    on click OKButton
+    else
     begin
-    	put the content of Input into Password
-        if Password is not empty
-        begin
-        	put Password into storage as `password`
-            clear MainPanel
-            clear Blocked
-        	set Redraw
-            stop
-        end
-    end
-    on click CancelButton
-    begin
-!    	put empty into storage as `MAC`
     	clear MainPanel
         clear Blocked
         set Redraw
-        stop
     end
-    on click HelpButton
-    begin
-        clear MainPanel
-    	set style `display` of OuterPanel to `none`
-      	set style `display` of HelpPanel to `block`
-    	put `home` into SID
-        put `Password` into TID
-        go to RunHelp
-    end
-	stop
+    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Ask the user for the system name

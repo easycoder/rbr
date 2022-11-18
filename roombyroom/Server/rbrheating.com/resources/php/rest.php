@@ -459,7 +459,8 @@
                     $map = $row->map;
                     $map = base64_decode($map);
                     $map = json_decode($map);
-                    $map->rooms[$roomindex]->advance = '';
+                    $profile = $map->profiles[$map->profile];
+                    $profile->rooms[$roomindex]->advance = '-';
                     $map = json_encode($map);
                     $map = base64_encode($map);
                     query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");
@@ -505,7 +506,7 @@
     // Do an SQL query
     function query($conn, $sql)
     {
-        logger("$sql\n");
+//        logger("$sql\n");
         $result = mysqli_query($conn, $sql);
         if (!$result) {
             http_response_code(404);

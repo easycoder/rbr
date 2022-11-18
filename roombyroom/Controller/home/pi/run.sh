@@ -1,13 +1,20 @@
 #!/bin/sh
 
+# This script runs every minute as a cron task
 cd /home/pi
+# Make sure we have the MAC address
 if ! [ -s mac ]
 then
    cat "/sys/class/net/$(cat network)/address" >mac
 fi
-#exit
+# Look for a running instance of rbr.ecs
 p=$(ps -eaf | grep "[r]br.ecs")
-if [ -z "$p" ]
+# Get the second item; the process number
+n=$(echo $p | awk '{print $2}')
+# If it's not empty, kill the process
+if [ "$n" ]
 then
-   python3 easycoder.py rbr.ecs
+   kill $n
 fi
+# Start a new instance
+python3 easycoder.py rbr.ecs

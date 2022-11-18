@@ -4,29 +4,23 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$GetMAC", "$GetPassword", "$GetName", "$GetRequest", "$Help", "$Cancel"],
+    "#": ["$GetLogin", "$GetName", "$GetRequest", "$Help", "$Cancel"],
 
-    "$GetMAC": {
-        "$ID": "button-getmac",
-        "$Label": "Set the MAC Address",
-        "#": "$Button"
-    },
-
-    "$GetPassword": {
-        "$ID": "button-getpassword",
-        "$Label": "Set the system password",
+    "$GetLogin": {
+        "$ID": "button-getlogin",
+        "$Label": "Get the login details",
         "#": "$Button"
     },
 
     "$GetName": {
         "$ID": "button-getname",
-        "$Label": "Set the system name",
+        "$Label": "Get the system name",
         "#": "$Button"
     },
 
     "$GetRequest": {
         "$ID": "button-getrequest",
-        "$Label": "Set the request relay",
+        "$Label": "Get the request relay",
         "#": "$Button"
     },
 

@@ -48,6 +48,7 @@
             "$Content1": {
                 "#element": "div",
                 "#content": "Timed",
+                "@id": "room-/ROOM/-timed-text",
                 "font-size": "1.4em",
                 "font-weight": "bold"
             },

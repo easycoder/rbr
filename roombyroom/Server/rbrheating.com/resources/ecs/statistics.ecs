@@ -58,6 +58,8 @@
     variable R
     variable W
     
+    debug step
+    
     get Server from storage as `server`
     get MAC from storage as `MAC`
     
