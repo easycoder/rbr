@@ -50,13 +50,17 @@ class Program:
 		self.code.append(command)
 
 	def getSymbolRecord(self, name):
-		target = self.code[self.symbols[name]]
+		try:
+			target = self.code[self.symbols[name]]
+		except:
+			RuntimeError(f'Unknown symbol \'{name}\'')
+			return None
+
 		return target
 
 	def doValue(self, value):
 		if value == None:
 			FatalError(self.compiler, f'Undefined value (variable not initialized?)')
-			return None
 
 		result = {}
 		valType = value['type']
@@ -221,7 +225,12 @@ class Program:
 		v2 = val2['content']
 		if v1 != None and val1['type'] == 'int':
 			if not val2['type'] == 'int':
-				v2 = 0 if v2 == None else int(v2)
+				if type(v2) is str:
+					try:
+						v2 = int(v2)
+					except:
+						lino = self.code[self.pc]['lino'] + 1
+						RuntimeError(f'Line {lino}: \'{v2}\' is not an integer')
 		else:
 			if v2 != None and val2['type'] == 'int':
 				v2 = str(v2)

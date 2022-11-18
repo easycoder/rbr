@@ -35,7 +35,7 @@ class Core(Handler):
                         command['target'] = self.getToken()
                         self.add(command)
                         return True
-                self.warning(f'core.take: Expected value holder')
+                self.warning(f'core.add: Expected value holder')
             else:
                 # Here we have 2 values so 'giving' must come next
                 command['value2'] = self.getValue()
@@ -43,7 +43,7 @@ class Core(Handler):
                     command['target'] = self.nextToken()
                     self.add(command)
                     return True
-                self.warning(f'core.take: Expected "giving"')
+                self.warning(f'core.add: Expected "giving"')
         return False
 
     def r_add(self, command):
@@ -106,6 +106,7 @@ class Core(Handler):
             cmd['debug'] = True
             cmd['lino'] = command['lino']
             self.addCommand(cmd)
+            return self.nextPC()
         else:
             return self.compileFromHere(['end'])
 
@@ -142,19 +143,16 @@ class Core(Handler):
         return self.nextPC()
 
     def k_create(self, command):
-        print('Create')
-        if nextIs('directory'):
+        if self.nextIs('directory'):
             command['item'] = 'directory'
-            command['path'] = nextValue()
-            t = self.nextToken()
-            print(f'Token: {t}')
+            command['path'] = self.nextValue()
             self.add(command)
             return True
         return False
 
     def r_create(self, command):
         if command['item'] == 'directory':
-            path = self.nextValue()
+            path = self.getRuntimeValue(command['path'])
             if not os.path.exists(path):
                 os.makedirs(path)
         return self.nextPC()
@@ -207,7 +205,7 @@ class Core(Handler):
                     command['target'] = self.getToken()
                     self.add(command)
                     return True
-                FatalError(self.compiler, f'{self.code[self.pc].lino}: Symbol expected')
+                FatalError(self.program.compiler, f'{self.code[self.pc].lino}: Symbol expected')
             else:
                 # First value must be a variable
                 if command['value1']['type'] == 'symbol':
@@ -352,7 +350,6 @@ class Core(Handler):
     def k_if(self, command):
         command['condition'] = self.nextCondition()
         self.addCommand(command)
-        print(command)
         self.nextToken()
         pcElse = self.getPC()
         cmd = {}
@@ -461,14 +458,14 @@ class Core(Handler):
                     command['target'] = self.getToken()
                     self.add(command)
                     return True
-                FatalError(f'self.compiler, Symbol expected')
+                FatalError(self.program.compiler, f'{self.code[self.pc].lino}: Symbol expected')
             else:
                 # First value must be a variable
                 if command['value1']['type'] == 'symbol':
                     command['target'] = command['value1']['name']
                     self.add(command)
                     return True
-                FatalError(f'self.compiler, First value must be a variable')
+                FatalError(self.program.compiler, f'{self.code[self.pc].lino}: First value must be a variable')
         return False
 
     def r_multiply(self, command):
@@ -515,7 +512,7 @@ class Core(Handler):
                     elif token == 'writing':
                         mode = 'w'
                     else:
-                        FatalError(f'self.compiler, Unknown file open mode {token}')
+                        FatalError(self.program.compiler, f'{self.code[self.pc].lino}: Unknown file open mode {self.getToken()}')
                         return False
                     command['mode'] = mode
                     self.add(command)
@@ -879,10 +876,14 @@ class Core(Handler):
                 # Here we have 2 values so 'giving' must come next
                 command['value2'] = self.getValue()
                 if self.nextToken() == 'giving':
-                    command['target'] = self.nextToken()
-                    self.add(command)
-                    return True
-                self.warning(f'core.take: Expected "giving"')
+                    if (self.nextIsSymbol()):
+                        command['target'] = self.getToken()
+                        self.add(command)
+                        return True
+                    else:
+                        FatalError(self.program.compiler, f'\'{self.getToken()}\' is not a symbol')
+                else:
+                    self.warning(f'core.take: Expected "giving"')
         return False
 
     def r_take(self, command):
@@ -1244,7 +1245,7 @@ class Core(Handler):
                 return value
             return None
 
-
+        print(f'Unknown token {token}')
         return None
 
     #############################################################################

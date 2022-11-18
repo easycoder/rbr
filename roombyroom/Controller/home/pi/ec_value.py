@@ -52,6 +52,7 @@ class Value:
 			if item != None:
 				return item
 			self.compiler.rewind()
+		FatalError(self.compiler, f'I don\'t understand \'{token}\'')
 		return None
 
 	def compileValue(self):

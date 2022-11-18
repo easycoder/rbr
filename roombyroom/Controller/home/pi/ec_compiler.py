@@ -183,15 +183,15 @@ class Compiler:
 			keyword = token.token
 #			line = self.script.lines[token.lino]
 #			print(f'{keyword} - {line}')
-			if keyword != 'else':
-				if self.compileOne() == True:
-					if self.index == len(self.tokens) - 1:
-						return True
-					token = self.nextToken()
-					if token in stopOn:
-						return True
-				else:
-					return False
+#			if keyword != 'else':
+			if self.compileOne() == True:
+				if self.index == len(self.tokens) - 1:
+					return True
+				token = self.nextToken()
+				if token in stopOn:
+					return True
+			else:
+				return False
 
 	def compileFromHere(self, stopOn):
 		return self.compileFrom(self.getIndex(), stopOn)

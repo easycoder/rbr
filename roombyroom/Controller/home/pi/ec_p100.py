@@ -25,17 +25,20 @@ class P100(Handler):
         return True
 
     def r_relay(self, command):
-        address = self.getRuntimeValue(command['address'])
-        email = self.getRuntimeValue(command['email'])
-        password = self.getRuntimeValue(command['password'])
-        state = self.getRuntimeValue(command['state'])
-        p100 = PyP100.P100(address, email, password)
-        p100.handshake()
-        p100.login()
-        if state == 'on':
-            p100.turnOn()
-        else:
-            p100.turnOff()
+        try:
+            address = self.getRuntimeValue(command['address'])
+            email = self.getRuntimeValue(command['email'])
+            password = self.getRuntimeValue(command['password'])
+            state = self.getRuntimeValue(command['state'])
+            p100 = PyP100.P100(address, email, password)
+            p100.handshake()
+            p100.login()
+            if state == 'on':
+                p100.turnOn()
+            else:
+                p100.turnOff()
+        except Exception as e:
+            print(f'Relay: {e}')
         return self.nextPC()
 
     def k_set(self, command):

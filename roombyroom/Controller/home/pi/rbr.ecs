@@ -27,6 +27,7 @@
     variable Temperature
     variable SensorData
     variable RoomCount
+    variable NPeriods
     variable Events
     variable Event
     variable Until
@@ -45,8 +46,8 @@
     variable Value
     variable Email
     variable Password
+    variable RA
     variable E
-    variable L
     variable R
 
     script RBR
@@ -89,21 +90,10 @@
         print `Password: ` cat Value
     end
 
-    ! Make sure there's an 'advance' file
-    if file Path cat `/advance` exists
-    begin
-        open File Path cat `/advance` for reading
-        read Advance from File
-        close File
-    end
-    else
-    begin
-        put `{}` into Advance
-        open File Path cat `/advance` for writing
-        write Advance to File
-        close File
-    end
-    put json Advance into Advance
+    ! Make sure there's an 'advance' directory
+    put Path cat `/advance` into Advance
+    if file Advance exists begin end
+    else create directory Advance
 
 !   See if we have the latest system software
     if file Path cat `/version` exists
@@ -133,7 +123,6 @@ Start:
         open File Path cat `/map` for reading
         read Map from File
         close File
-!        print Map
     end
     else
     begin
@@ -142,6 +131,7 @@ Start:
         write trim Map to File
         close File
     end
+!    print Map
 
 ProcessMap:
     put json `{}` into Sensors
@@ -180,7 +170,6 @@ ProcessMap:
             if RequestCount is 0 put `off` into Turn
             else put `on` into Turn
             post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
-            print `Request ` cat Turn
         end
     end
     gosub to UpdateMap
@@ -247,30 +236,36 @@ UpdateMap:
 !   Process a single room
 ProcessRoom:
     put property `name` of Room into RoomName
-    put property `sensor` of Room into Sensor
-    ! Make sure this room is in the 'advance' file
-    if property Sensor of Advance is empty
-    begin
-        set property Sensor of Advance to `-`
-        open File Path cat `/advance` for writing
-        write stringify Advance to File
-        close File
-    end
-
     put property `sensor` of Room into  Sensor
     if Sensor is empty return
     if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
     return
 
 PR2:
+    ! Make sure there's an 'advance' file
+    if file Path cat `/advance/` cat Sensor exists
+    begin
+        open File Path cat `/advance/` cat Sensor for reading
+        read Advance from File
+        close File
+    end
+    else
+    begin
+        open File Path cat `/advance/` cat Sensor for writing
+        put `-` into Advance
+        write Advance to File
+        close File
+    end
+
     open File Path cat `/sensors/` cat Sensor cat `.txt` for reading
     read SensorValues from File
     close File
     put json SensorValues into SensorValues
+
     put float property `temperature` of SensorValues into Temperature
     put property `relays` of Room into Relays
     put property `events` of Room into Events
-    take 1 from the length of Events giving L
+    take 1 from the length of Events giving NPeriods
 
     ! Deal with mode requests
     put property `mode` of Room into Mode
@@ -324,49 +319,57 @@ PR2:
         if Now is less than Boundary
         begin
             ! We've found the current time segment
-            go to TurnOnOrOff
+            go to CheckAdvance
         end
         else
         begin
-            if E is L
+            if E is NPeriods
             begin
                 ! We've gone past the last time segment so use the first
                 put 0 into E
-                go to TurnOnOrOff
+                go to CheckAdvance
             end
         end
         add 1 to E
     end
     return
 
-TurnOnOrOff:
-    ! If we are at the 'advance' period, cancel the advance
-    if property Sensor of Advance is `A`
-    begin
-        set property Sensor of Advance to `-`
-        open File Path cat `/advance` for writing
-        write stringify Advance to File
-        close File
-        set property `advance` of Room to empty
-        if Password is not empty post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat RoomNumber
-    end
+!   This is called in 'timed' mode to deal with the Advance setting
+CheckAdvance:
+    put property `advance` of Room into RA
+    if RA is empty put `-` into RA
+    if RA is `A` go to SetAdvance
+    else if RA is `C` go to ClearAdvance
 
-    ! If advance is requested, use the next event
-    if property `advance` of Room is `A`
+    ! Check if we're past the end of the advance period
+    if Advance is not `-`
+    begin
+        if Advance is not `` cat E go to ClearAdvance
+    end
+    go to TurnOnOrOff
+
+SetAdvance:
+    put `` cat E into Advance
+    go to AcknowlegeAdvance
+
+ClearAdvance:
+    put `-` into Advance
+
+AcknowlegeAdvance:
+    ! Acknowledge the request by resetting the request flag
+    post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat RoomNumber
+    ! Write the new advance state to the sensor spec
+    open File Path cat `/advance/` cat Sensor for writing
+    write Advance to File
+    close File
+    go to TurnOnOrOff
+
+TurnOnOrOff:
+    if Advance is not `-`
     begin
         add 1 to E
-        if E is greater than L put 0 into E
-        ! If the period has changed, write the file back
-        if property Sensor of Advance is not `A`
-        begin
-            set property Sensor of Advance to `A`
-            open File Path cat `/advance` for writing
-            write stringify Advance to File
-            close File
-!            print Advance
-        end
+        if E is greater than NPeriods put 0 into E
     end
-
     put element E of Events into Event
     put float property `temp` of Event into Target
     if float Temperature is less than Target go to TurnOn
@@ -398,12 +401,12 @@ SetRelays:
             begin
                 put property `p100Email` of Room into Email
                 put property `p100Password` of Room into Password
-!                print `P100 ` cat Relay cat ` ` cat Email cat ` ` cat Password cat ` ` cat Turn
                 relay Relay Email Password Turn
             end
         end
         add 1 to R
     end
     set property `relay` of SensorValues to Turn
+    set property `advance` of SensorValues to Advance
     set property Sensor of SensorData to SensorValues
     return

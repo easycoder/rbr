@@ -17,4 +17,4 @@ then
    kill $n
 fi
 # Start a new instance
-python3 easycoder.py rbr.ecs
+python3 ec.py rbr.ecs
