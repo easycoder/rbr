@@ -8,6 +8,8 @@ The relay is the device that controls the electric valve on your radiator. We ca
 
 In special circumstances a Shelly One relay module can also be used to provide power to an electric radiator valve.
 
-Go to the ~tid:RoomEdit:Room Editor Help page~.
+Go to the ~tid:RoomEdit:Room Editor Help page~
+
+Go to the ~tid:Evaluate:Evaluation page~
 
 ~sid:Index:Index of pages~

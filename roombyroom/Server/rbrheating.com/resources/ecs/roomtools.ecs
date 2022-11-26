@@ -33,6 +33,7 @@
     variable Script
     variable Changed
     variable SensorIP
+    variable Text
     variable N
 
 !    debug step
@@ -69,6 +70,7 @@ Editor:
         add 1 to ClickIndex
         set element ClickIndex of Rooms to ThatRoom
     	set property `rooms` of Map to Rooms
+    	gosub to CopyRoomsToMap
         go to ExitWithChanges
     end
     
@@ -81,6 +83,7 @@ Editor:
         take 1 from ClickIndex
         set element ClickIndex of Rooms to ThatRoom
     	set property `rooms` of Map to Rooms
+    	gosub to CopyRoomsToMap
         go to ExitWithChanges
     end
     
@@ -143,8 +146,9 @@ Editor:
         attach DialogText to `dialog-text`
         attach DialogButton1 to `dialog-okbutton`
         put property `sensor` of RoomSpec into SensorIP
-        set the content of DialogText to `Information about this room:<br><br>`
-            cat property SensorIP of Sensors
+        put property SensorIP of Sensors into Text
+        replace `,` with `, ` in Text
+        set the content of DialogText to `Information about this room:<br><br>` cat Text
 
         on click DialogButton1
         begin

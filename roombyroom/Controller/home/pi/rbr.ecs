@@ -46,6 +46,8 @@
     variable Value
     variable Email
     variable Password
+    variable Response
+    variable SimulatorData
     variable RA
     variable E
     variable R
@@ -105,7 +107,7 @@
     end
     else put 1 into Version
     put property `version` of RegData into Value
-    print Version cat ` ` cat Value
+    print `Current version: ` cat Version
     if Value is not Version
     begin
         print `Installing update from ` cat Version cat ` to ` cat Value
@@ -113,6 +115,8 @@
         open File Path cat `/version` for writing
         write Value to File
         close File
+        print `Updated to version ` cat Value
+        wait 5
         exit
     end
 
@@ -156,6 +160,7 @@ ProcessMap:
     else
     begin
         print `Processing ` cat RoomCount cat ` rooms`
+        put json `{}` into SimulatorData
         put 0 into RequestCount
         put 0 into RoomNumber
         while RoomNumber is less than RoomCount
@@ -171,6 +176,9 @@ ProcessMap:
             else put `on` into Turn
             post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
         end
+        print SimulatorData
+        open File Path cat `/simulator` for writing
+        write stringify SimulatorData to File
     end
     gosub to UpdateMap
 
@@ -236,7 +244,9 @@ UpdateMap:
 !   Process a single room
 ProcessRoom:
     put property `name` of Room into RoomName
-    put property `sensor` of Room into  Sensor
+    put property `sensor` of Room into Sensor
+    put property `relayType` of Room into RelayType
+    if RelayType is empty put `` into RelayType
     if Sensor is empty return
     if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
     return
@@ -256,14 +266,14 @@ PR2:
         write Advance to File
         close File
     end
-
     open File Path cat `/sensors/` cat Sensor cat `.txt` for reading
     read SensorValues from File
     close File
     put json SensorValues into SensorValues
 
-    put float property `temperature` of SensorValues into Temperature
+    put property `temperature` of SensorValues into Temperature
     put property `relays` of Room into Relays
+    put float Temperature into Temperature
     put property `events` of Room into Events
     take 1 from the length of Events giving NPeriods
 
@@ -379,29 +389,38 @@ TurnOff:
     go to SetRelays
 
 TurnOn:
-    add 1 to RequestCount
+    if RelayType is not `Simulator` add 1 to RequestCount
     put `on` into Turn
 
 SetRelays:
     print Sensor cat ` ` cat RoomName cat ` ` cat Turn
-    put property `relayType` of Room into RelayType
     if RelayType is empty put `Shelly One` into RelayType
     put 0 into R
     while R is less than the count of Relays
     begin
-        put element R of Relays into Relay
+        set property `status` of SensorValues to `Good`
+        if RelayType is `Simulator` put `-` into Relay
+        else put element R of Relays into Relay
         if Relay is not empty
         begin
             if RelayType is `Shelly One`
             begin
 !                print `http://` cat Relay cat `/relay/0?turn=` cat Turn
-                post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
+                post to `http://` cat Relay cat `/relay/0?turn=` cat Turn giving Response
+                if Response is `Error`
+                begin
+                    set property `status` of SensorValues to `Fail`
+                end
             end
             else if RelayType is `TP-Link P100`
             begin
                 put property `p100Email` of Room into Email
                 put property `p100Password` of Room into Password
                 relay Relay Email Password Turn
+            end
+            else if RelayType is `Simulator`
+            begin
+                set property Sensor of SimulatorData to Turn
             end
         end
         add 1 to R

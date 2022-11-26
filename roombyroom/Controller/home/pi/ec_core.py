@@ -1,4 +1,4 @@
-import json, math, hashlib, threading, os, requests, time, numbers
+import json, math, hashlib, threading, os, requests, time, numbers, sys
 from datetime import datetime, timezone
 from random import randrange
 from ec_classes import FatalError, RuntimeError
@@ -22,7 +22,7 @@ class Core(Handler):
         if self.nextToken() == 'to':
             if self.nextIsSymbol():
                 symbolRecord = self.getSymbolRecord()
-                if symbolRecord['valueHolder']:
+                if symbolRecord['isValueHolder']:
                     if self.peek() == 'giving':
                         # This variable must be treated as a second value
                         command['value2'] = self.getValue()
@@ -53,7 +53,7 @@ class Core(Handler):
         except:
             value2 = None
         target = self.getVariable(command['target'])
-        if not target['valueHolder']:
+        if not target['isValueHolder']:
             self.variableDoesNotHoldAValueError(target['name'])
             return None
         value = self.getSymbolValue(target)
@@ -79,7 +79,7 @@ class Core(Handler):
         if self.nextIs('to'):
             if self.nextIsSymbol():
                 symbolRecord = self.getSymbolRecord()
-                if symbolRecord['valueHolder']:
+                if symbolRecord['isValueHolder']:
                     command['target'] = symbolRecord['name']
                     self.add(command)
                     return True
@@ -113,7 +113,7 @@ class Core(Handler):
     def k_clear(self, command):
         if self.nextIsSymbol():
             target = self.getSymbolRecord()
-            if target['valueHolder']:
+            if target['isValueHolder']:
                 command['target'] = target['name']
                 self.add(command)
                 return True
@@ -178,7 +178,7 @@ class Core(Handler):
     def k_decrement(self, command):
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
-            if symbolRecord['valueHolder']:
+            if symbolRecord['isValueHolder']:
                 command['target'] = self.getToken()
                 self.add(command)
                 return True
@@ -189,7 +189,7 @@ class Core(Handler):
         return self.incdec(command, '-')
 
     def k_dictionary(self, command):
-        return self.compileVariable(command, False)
+        return self.compileVariable(command)
 
     def r_dictionary(self, command):
         return self.nextPC()
@@ -222,7 +222,7 @@ class Core(Handler):
         except:
             value2 = None
         target = self.getVariable(command['target'])
-        if not target['valueHolder']:
+        if not target['isValueHolder']:
             self.variableDoesNotHoldAValueError(target['name'])
             return None
         value = self.getSymbolValue(target)
@@ -261,10 +261,11 @@ class Core(Handler):
         return True
 
     def r_exit(self, command):
+        sys.exit()
         return 0
 
     def k_file(self, command):
-        return self.compileVariable(command, False)
+        return self.compileVariable(command)
 
     def r_file(self, command):
         return self.nextPC()
@@ -291,7 +292,7 @@ class Core(Handler):
         self.add(command)
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
-            if symbolRecord['valueHolder']:
+            if symbolRecord['isValueHolder']:
                 command['target'] = self.getToken()
             else:
                 FatalError(self.compiler, f'Variable "{symbolRecord["name"]}" does not hold a value')
@@ -302,7 +303,7 @@ class Core(Handler):
 
     def r_get(self, command):
         url = self.getRuntimeValue(command['url'])
-        response = requests.get(url, auth = ('user', 'pass'))
+        response = requests.get(url, auth = ('user', 'pass'), timeout=5)
         symbolRecord = self.getVariable(command['target'])
         value = {}
         value['type'] = 'text'
@@ -395,7 +396,7 @@ class Core(Handler):
     def k_increment(self, command):
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
-            if symbolRecord['valueHolder']:
+            if symbolRecord['isValueHolder']:
                 command['target'] = self.getToken()
                 self.add(command)
                 return True
@@ -475,7 +476,7 @@ class Core(Handler):
         except:
             value2 = None
         target = self.getVariable(command['target'])
-        if not target['valueHolder']:
+        if not target['isValueHolder']:
             self.variableDoesNotHoldAValueError(target['name'])
             return None
         value = self.getSymbolValue(target)
@@ -529,7 +530,7 @@ class Core(Handler):
         if command['mode'] == 'r' and os.path.exists(path) or command['mode'] != 'r':
             symbolRecord['file'] = open(path, command['mode'])
             return self.nextPC()
-        RuntimeError(f"File {path} does not exist")
+        RuntimeError(command['program'], f'File {path} does not exist')
         return -1
 
     def k_post(self, command):
@@ -551,7 +552,7 @@ class Core(Handler):
         value = self.getRuntimeValue(command['value'])
         url = self.getRuntimeValue(command['url'])
         try:
-            response = requests.post(url, json=value)
+            response = requests.post(url, json=value, timeout=5)
             if command.get('result'):
                 value = {}
                 value['type'] = 'text'
@@ -584,7 +585,7 @@ class Core(Handler):
             if self.nextIsSymbol():
                 symbolRecord = self.getSymbolRecord()
                 command['target'] = symbolRecord['name']
-                if symbolRecord['valueHolder']:
+                if symbolRecord['isValueHolder']:
                         self.add(command)
                         return True
                 elif symbolRecord['keyword'] == 'dictionary':
@@ -605,7 +606,7 @@ class Core(Handler):
         if value == None:
             return -1
         symbolRecord = self.getVariable(command['target'])
-        if not symbolRecord['valueHolder']:
+        if not symbolRecord['isValueHolder']:
             FatalError(self.program.compiler, f'{symbolRecord["name"]} does not hold a value')
             return -1
         self.putSymbolValue(symbolRecord, value)
@@ -638,7 +639,7 @@ class Core(Handler):
             command['line'] = False
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
-            if symbolRecord['valueHolder']:
+            if symbolRecord['isValueHolder']:
                 if self.peek() == 'from':
                     self.nextToken()
                     if self.nextIsSymbol():
@@ -709,7 +710,7 @@ class Core(Handler):
     def k_set(self, command):
         if self.nextIsSymbol():
             target = self.getSymbolRecord()
-            if target['valueHolder']:
+            if target['isValueHolder']:
                 command['type'] = 'set'
                 command['target'] = target['name']
                 self.add(command)
@@ -736,6 +737,7 @@ class Core(Handler):
             command['name'] = self.nextValue()
             if self.nextIs('of'):
                 if self.nextIsSymbol():
+                    t = self.getToken()
                     command['target'] = self.getSymbolRecord()['name']
                     if self.nextIs('to'):
                         command['value'] = self.nextValue()
@@ -803,7 +805,7 @@ class Core(Handler):
     def k_split(self, command):
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
-            if symbolRecord['valueHolder']:
+            if symbolRecord['isValueHolder']:
                 command['target'] = symbolRecord['name']
                 command['on'] = '\n'
                 if self.peek() == 'on':
@@ -858,7 +860,7 @@ class Core(Handler):
         if self.nextToken() == 'from':
             if self.nextIsSymbol():
                 symbolRecord = self.getSymbolRecord()
-                if symbolRecord['valueHolder']:
+                if symbolRecord['isValueHolder']:
                     if self.peek() == 'giving':
                         # This variable must be treated as a second value
                         command['value2'] = self.getValue()
@@ -893,7 +895,7 @@ class Core(Handler):
         except:
             value2 = None
         target = self.getVariable(command['target'])
-        if not target['valueHolder']:
+        if not target['isValueHolder']:
             self.variableDoesNotHoldAValueError(target['name'])
             return None
         value = self.getSymbolValue(target)
@@ -917,7 +919,7 @@ class Core(Handler):
     def k_toggle(self, command):
         if self.nextIsSymbol():
             target = self.getSymbolRecord()
-            if target['valueHolder']:
+            if target['isValueHolder']:
                 command['target'] = target['name']
                 self.add(command)
                 return True
@@ -1037,7 +1039,7 @@ class Core(Handler):
 
     def incdec(self, command, mode):
         symbolRecord = self.getVariable(command['target'])
-        if not symbolRecord['valueHolder']:
+        if not symbolRecord['isValueHolder']:
             FatalError(self.program.compiler, f'{symbolRecord["name"]} does not hold a value')
             return None
         value = self.getSymbolValue(symbolRecord)
@@ -1062,7 +1064,7 @@ class Core(Handler):
                 value['type'] = 'module'
                 return value
 
-            if keyword in ['variable', 'dictionary']:
+            if symbolRecord['isValueHolder'] == True or keyword == 'dictionary':
                 value['type'] = 'symbol'
                 return value
             return None
@@ -1103,7 +1105,7 @@ class Core(Handler):
             if self.nextToken() == 'of':
                 if self.nextIsSymbol():
                     symbolRecord = self.getSymbolRecord()
-                    if symbolRecord['keyword'] == 'variable':
+                    if symbolRecord['isValueHolder']:
                         value['target'] = symbolRecord['name']
                         return value
                 self.warning(f'Token \'{self.getToken()}\' is not a variable')
@@ -1114,7 +1116,7 @@ class Core(Handler):
             if self.nextToken() == 'of':
                 if self.nextIsSymbol():
                     symbolRecord = self.getSymbolRecord()
-                    if symbolRecord['keyword'] == 'variable':
+                    if symbolRecord['isValueHolder']:
                         value['target'] = symbolRecord['name']
                         return value
                 self.warning(f'Token \'{self.getToken()}\' is not a variable')
@@ -1125,7 +1127,7 @@ class Core(Handler):
             if self.getToken() == 'of':
                 if self.nextIsSymbol():
                     symbolRecord = self.getSymbolRecord()
-                    if symbolRecord['keyword'] == 'variable':
+                    if symbolRecord['isValueHolder'] :
                         value['target'] = symbolRecord['name']
                         return value
             return None
@@ -1458,19 +1460,21 @@ class Core(Handler):
 
     def v_property(self, v):
         name = self.getRuntimeValue(v['name'])
-        target = self.getVariable(v['target'])
-        target = self.getSymbolValue(target)
-        content = target['content']
-        try:
-            val = content.get(name)
-        except:
-            FatalError(self.program.compiler, f'"{name}" does not have any properties')
-            return None
+        targetName = v['target']
+        target = self.getVariable(targetName)
+        targetValue = self.getSymbolValue(target)
+        content = targetValue['content']
         value = {}
-        value['content'] = val
-        if isinstance(v, numbers.Number):
-            value['type'] = 'int'
-        else:
+        try:
+            val = content[name]
+            value['content'] = val
+            if isinstance(v, numbers.Number):
+                value['type'] = 'int'
+            else:
+                value['type'] = 'text'
+        except:
+            # RuntimeError(self.program, f'"{targetName}" does not have any properties')
+            value['content'] = ''
             value['type'] = 'text'
         return value
 
@@ -1527,7 +1531,7 @@ class Core(Handler):
 
     def v_symbol(self, symbolRecord):
         result = {}
-        if symbolRecord['keyword'] == 'variable':
+        if symbolRecord['isValueHolder']:
             symbolValue = self.getSymbolValue(symbolRecord)
             if symbolValue == None:
                 return None

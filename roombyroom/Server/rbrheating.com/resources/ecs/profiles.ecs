@@ -9,15 +9,18 @@
 	div UserProfileDiv
     button SelectButton
     button EditButton
+    button UpButton
+    button DownButton
     button DeleteButton
     button AddButton
-    button SaveButton
+    button OKButton
     button HelpButton
     button CancelButton
     variable Mobile
     variable ProfilesWebson
     variable ProfileWebson
     variable Webson
+    variable NProfiles
     variable Profiles
     variable Profile
     variable Rooms
@@ -25,8 +28,12 @@
     variable CurrentProfile
     variable EditingProfile
     variable Changed
+    variable Temp
+    variable D
+    variable D2
     variable P
-    variable P2
+    variable UD
+    variable UD2
     
 !	Dialogs
 	div DialogPanel
@@ -54,22 +61,25 @@
 
 	attach UserProfileDiv to `profiles`
     attach AddButton to `profiles-add-button`
-    attach SaveButton to `profiles-save-button`
+    attach OKButton to `profiles-ok-button`
     attach HelpButton to `profiles-help-button`
     attach CancelButton to `profiles-cancel-button`
+
+	put property `profile` of Map into CurrentProfile
     
     on click AddButton
     begin
-    	put element 0 of Profiles into Profile
+    	put element CurrentProfile of Profiles into Profile
+        put property `name` of Profile into Name
         put property `rooms` of Profile into Rooms
     	put `{}` into Profile
-        set property `name` of Profile to `New profile`
+        set property `name` of Profile to Name cat ` copy`
         set property `rooms` of Profile to Rooms
         json add Profile to Profiles
         gosub to RenderProfiles
     end
     
-    on click SaveButton
+    on click OKButton
     begin
         set Changed
     	go to Exit
@@ -87,8 +97,6 @@
         go to Exit
     end
 
-	put property `profile` of Map into CurrentProfile
-
 !	Set up the profiles
 	put property `profile` of Map into CurrentProfile
     put property `profiles` of Map into Profiles
@@ -102,9 +110,12 @@ RenderProfiles:
     put the json count of Profiles into P
     set the elements of SelectButton to P
     set the elements of EditButton to P
+    set the elements of UpButton to P
+    set the elements of DownButton to P
     set the elements of DeleteButton to P
+    put the json count of Profiles into NProfiles
 	put 0 into P
-    while P is less than the json count of Profiles
+    while P is less than NProfiles
     begin
     	put element P of Profiles into Profile
         put property `name` of Profile into Name
@@ -114,11 +125,21 @@ RenderProfiles:
         render Webson in UserProfileDiv
         index SelectButton to P
         index EditButton to P
+        index UpButton to P
+        index DownButton to P
         index DeleteButton to P
         attach SelectButton to `profile-select-` cat P
         attach EditButton to `profile-edit-` cat P
+        attach UpButton to `profile-up-` cat P
+        attach DownButton to `profile-down-` cat P
         attach DeleteButton to `profile-delete-` cat P
-        if P is 0 set style `visibility` of DeleteButton to `hidden`
+        if P is 0
+        begin
+        	set style `visibility` of UpButton to `hidden`
+        	if NProfiles is 1 set style `visibility` of DeleteButton to `hidden`
+        end
+        take 1 from NProfiles giving Temp
+        if P is Temp set style `visibility` of DownButton to `hidden`
         if P is CurrentProfile
         begin
             set style `font-size` of SelectButton to `105%`
@@ -131,9 +152,8 @@ RenderProfiles:
             if index of SelectButton is not CurrentProfile
             begin
 	        	put the index of SelectButton into CurrentProfile
-                set Changed
+            	go to RenderProfiles
             end
-            go to Exit
         end
         on click EditButton
         begin
@@ -142,25 +162,46 @@ RenderProfiles:
             put property `name` of Profile into Name
             go to GetName
         end
+        on click UpButton
+        begin
+        	put the index of UpButton into UD
+            take 1 from UD giving UD2
+            put element UD of Profiles into Temp
+            set element UD of Profiles to element UD2 of Profiles
+            set element UD2 of Profiles to Temp
+            set Changed
+            go to RenderProfiles
+        end
+        on click DownButton
+        begin
+        	put the index of DownButton into UD
+            add 1 to UD giving UD2
+            put element UD of Profiles into Temp
+            set element UD of Profiles to element UD2 of Profiles
+            set element UD2 of Profiles to Temp
+            set Changed
+            go to RenderProfiles
+        end
         on click DeleteButton
         begin
-        	put the index of DeleteButton into P
-            while P is less than the json count of Profiles
+        	put the index of DeleteButton into D
+            while D is less than NProfiles
             begin
-            	add 1 to P giving P2
-                if P2 is less than the json count of Profiles
+            	add 1 to D giving D2
+                if D2 is less than NProfiles
                 begin
-                	set element P of Profiles to element P2 of Profiles
+                	set element D of Profiles to element D2 of Profiles
                 end
-            	add 1 to P
+            	add 1 to D
             end
-            take 1 from P
-            json delete element P of Profiles
-        	put CurrentProfile into P
-            if P is not less than the json count of Profiles
+            take 1 from D
+            json delete element D of Profiles
+            take 1 from NProfiles
+        	put CurrentProfile into D
+            if D is not less than NProfiles
             begin
-            	put the json count of Profiles into P
-                take 1 from P giving CurrentProfile
+            	put NProfiles into D
+                take 1 from D giving CurrentProfile
             end
             set Changed
             go to RenderProfiles

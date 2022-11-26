@@ -19,6 +19,8 @@
         "#element": "div",
         "@id": "dialog-text",
         "margin": "1em",
+        "overflow": "auto",
+        "text-align": "left",
         "#content": "Text"
     },
 

@@ -32,12 +32,15 @@
     attach HelpButton to `getlogin-help`
     attach Welcome to `getlogin-welcome`
     if not Flag set style `display` of CancelButton to `none`
+    set the content of MACInput to MAC
+    set the content of PWDInput to Password
     on click OKButton
     begin
     	put the content of MACInput into MAC
     	put the content of PWDInput into Password
         if MAC is empty go to MissingInput
-        if Password is empty go to MissingInput
+        if Password is empty
+        	if MAC is not `DEMO` go to MissingInput
         clear MACInput
         clear PWDInput
       	put empty into Result

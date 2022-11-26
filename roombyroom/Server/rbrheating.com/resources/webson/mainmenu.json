@@ -5,8 +5,8 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Welcome", "$Evaluate", "$Pad", "$GetSysParams", "$Pad", "$Add", "$Pad", "$Backup", "$Restore",
-        "$Pad", "$Help", "$Cancel"],
+    "#": ["$Welcome", "$Pad", "$GetSysParams", "$Pad", "$Select", "$Add", "$Pad", "$Backup", "$Restore",
+        "$Pad", "$Evaluate", "$Pad", "$Help", "$Cancel"],
 
     "$Welcome": {
         "$ID": "button-welcome",
@@ -14,12 +14,12 @@
         "#": "$Button"
     },
 
-    "$Evaluate": {
-        "$ID": "button-evaluate",
-        "$Label": "Evaluate RBR",
+    "$Select": {
+        "$ID": "button-select",
+        "$Label": "Select a system",
         "#": "$Button"
     },
-    
+
     "$Add": {
         "$ID": "button-add",
         "$Label": "Add a room",
@@ -41,6 +41,12 @@
     "$Restore": {
         "$ID": "button-restore",
         "$Label": "Restore the system",
+        "#": "$Button"
+    },
+
+    "$Evaluate": {
+        "$ID": "button-evaluate",
+        "$Label": "Evaluate RBR",
         "#": "$Button"
     },
 

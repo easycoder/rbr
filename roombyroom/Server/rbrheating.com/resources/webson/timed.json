@@ -48,14 +48,14 @@
             "$Content1": {
                 "#element": "div",
                 "#content": "Timed",
-                "@id": "room-/ROOM/-timed-text",
+                "@id": "room-/ROOM/-mode-text",
                 "font-size": "1.4em",
                 "font-weight": "bold"
             },
 
             "$Content2": {
                 "#element": "div",
-                "@id" : "room-/ROOM/-timed-info",
+                "@id" : "room-/ROOM/-mode-info",
                 "font-size": "0.7em",
                 "font-weight": "bold"
             }

@@ -49,13 +49,14 @@
             "$Content1": {
                 "#element": "div",
                 "#content": "On",
+                "@id": "room-/ROOM/-mode-text",
                 "font-size": "1.4em",
                 "font-weight": "bold"
             },
 
             "$Content2": {
                 "#element": "div",
-                "@id" : "room-/ROOM/-target",
+                "@id" : "room-/ROOM/-mode-info",
                 "font-size": "0.9em",
                 "font-weight": "bold"
             }

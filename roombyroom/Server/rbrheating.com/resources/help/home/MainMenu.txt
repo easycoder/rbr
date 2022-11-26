@@ -5,8 +5,6 @@ This is the main system menu. Here you can set up a new system, add rooms, backu
 
 ~tid:Welcome:Welcome to RBR!~
 
-~tid:Evaluate:Evaluate RBR~
-
 ~tid:SysParamsMenu:Set system parameters~
 
 ~tid:AddRoom:Add a room~
@@ -14,5 +12,7 @@ This is the main system menu. Here you can set up a new system, add rooms, backu
 ~tid:Backup:Back up your configuration~
 
 ~tid:Restore:Restore your configuration to the backed-up version~
+
+~tid:Evaluate:Evaluate RBR (no hardware required)~
 
 ~sid:Index:Index of pages~

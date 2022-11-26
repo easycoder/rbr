@@ -24,8 +24,8 @@
     input DialogInput
     input P100Email
     input P100Password
-    select RelayTypes
     textarea TextArea
+    select RelayTypes
     variable ProfileNumber
     variable Profiles
     variable Profile
@@ -120,6 +120,7 @@ DevicesButtonCB:
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
     attach DialogText2 to `dialog-text2`
+    attach TextArea to `dialog-textarea`
     attach DialogButton1 to `dialog-button1`
     attach DialogButton2 to `dialog-button2`
     attach DialogInput to `dialog-input`
@@ -131,12 +132,18 @@ DevicesButtonCB:
     put `[]` into List
     json add `TP-Link P100` to List
     json add `Shelly One` to List
+    json add `Simulator` to List
     set RelayTypes from List as property `relayType` of RoomSpec
     if property `relayType` of RoomSpec is `TP-Link P100`
     begin
         set the content of P100Email to property `p100Email` of RoomSpec
         set the content of P100Password to property `p100Password` of RoomSpec
     	set style `display` of P100Login to `block`
+    end
+    if property `relayType` of RoomSpec is `Simulator`
+    begin
+        set style `display` of DialogText2 to `none`
+        set style `display` of TextArea to `none`
     end
     on change RelayTypes
     begin
@@ -148,9 +155,18 @@ DevicesButtonCB:
             set the content of P100Password to property `p100Password` of RoomSpec
         end
         else set style `display` of P100Login to `none`
+        if attribute `value` of RelayTypes is `Simulator`
+        begin
+            set style `display` of DialogText2 to `none`
+            set style `display` of TextArea to `none`
+        end
+        else
+        begin
+            set style `display` of DialogText2 to `block`
+            set style `display` of TextArea to `block`
+        end
     end
     
-    attach TextArea to `dialog-textarea`
     set the content of DialogTitle to `Sensor and relays for '` cat property `name` of RoomSpec cat `'`
     set the content of DialogText to `Type the IP address of the temperature sensor`
     set the content of DialogText2 to `Type the IP addresses of the relays, 1 per line`
@@ -222,7 +238,7 @@ CopyRoomsToMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the times
 TimesButtonCB:
-    rest get ScheduleEditScript from `/resources/ecs/scheduleedit.ecs?v=` cat now
+    rest get ScheduleEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
     run ScheduleEditScript with MainPanel and Map and ClickIndex and Result
 	exit
 

@@ -16,7 +16,7 @@
         "height": "2em",
         "margin-bottom": "0.5em",
         "display": "flex",
-        "#": ["$Add", "$Pad", "$Save", "$Pad", "$Help", "$Pad", "$Cancel"],
+        "#": ["$Add", "$Pad", "$OK", "$Pad", "$Help", "$Pad", "$Cancel"],
 
         "$Add": {
             "#element": "button",
@@ -35,13 +35,13 @@
             }
         },
 
-        "$Save": {
+        "$OK": {
             "#element": "button",
-            "@id": "profiles-save-button",
+            "@id": "profiles-ok-button",
             "width": "25%",
             "height": "100%",
             "margin-top": "1em",
-            "#content": "Save"
+            "#content": "OK"
         },
 
         "$Help": {

@@ -53,7 +53,7 @@ class Program:
 		try:
 			target = self.code[self.symbols[name]]
 		except:
-			RuntimeError(f'Unknown symbol \'{name}\'')
+			RuntimeError(self.compiler.program, f'Unknown symbol \'{name}\'')
 			return None
 
 		return target
@@ -82,7 +82,7 @@ class Program:
 			name = value['name']
 			symbolRecord = self.getSymbolRecord(name)
 			if symbolRecord['value'] == [None]:
-				RuntimeError(f'Variable "{name}" has no value')
+				RuntimeError(self.compiler.program, f'Variable "{name}" has no value')
 				return None
 			handler = self.domainIndex[symbolRecord['domain']].valueHandler('symbol')
 			result = handler(symbolRecord)
@@ -206,7 +206,9 @@ class Program:
 					domain = self.domainIndex[domainName]
 					handler = domain.runHandler(keyword)
 					if handler:
-						self.pc = handler(self.code[self.pc])
+						command = self.code[self.pc]
+						command['program'] = self
+						self.pc = handler(command)
 						if self.pc == 0 or self.pc >= len(self.code):
 							return 0
 				if self.pc < 0:
@@ -219,8 +221,10 @@ class Program:
 		raise FatalError(self.compiler, f'Variable "{name}" does not hold a value')
 
 	def compare(self, value1, value2):
+		# print(f'Compare {value1} with {value2}')
 		val1 = self.evaluate(value1)
 		val2 = self.evaluate(value2)
+		# print(f'Compare {val1} with {val2}')
 		v1 = val1['content']
 		v2 = val2['content']
 		if v1 != None and val1['type'] == 'int':
@@ -230,7 +234,7 @@ class Program:
 						v2 = int(v2)
 					except:
 						lino = self.code[self.pc]['lino'] + 1
-						RuntimeError(f'Line {lino}: \'{v2}\' is not an integer')
+						RuntimeError(None, f'Line {lino}: \'{v2}\' is not an integer')
 		else:
 			if v2 != None and val2['type'] == 'int':
 				v2 = str(v2)

@@ -8,4 +8,6 @@ Because there is a significant cost in equipping radiators with electric control
 
 To close this Help screen tap the Hamburger menu - the 3 bars at the top right of the screen. You will be asked to supply the MAC address of your system controller. Click the Help button on that screen for more information, including how to set up in demo mode.
 
+~tid:MainMenu:The main menu~
+
 ~sid:Index:Index of pages~

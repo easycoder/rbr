@@ -1,3 +1,5 @@
+import json
+
 class Handler:
 
 	def __init__(self, compiler):
@@ -16,6 +18,7 @@ class Handler:
 		self.nextIsSymbol = compiler.nextIsSymbol
 		self.getSymbolRecord = compiler.getSymbolRecord
 		self.compileVariable = compiler.compileVariable
+		self.rewindTo = compiler.rewindTo
 		self.warning = compiler.warning
 		self.getPC = compiler.getPC
 		self.addCommand = compiler.addCommand
@@ -58,3 +61,10 @@ class Handler:
 	# Get a condition handler
 	def conditionHandler(self, name):
 		return getattr(self, f'c_{name}')
+
+	def isJson(value):
+		try:
+			json.loads(value)
+		except ValueError as e:
+			return False
+		return True
