@@ -30,7 +30,7 @@ Each of the rows describes a timing period. The rows are kept in time order by t
 
 Use the buttons to adjust the time and temperature, then either tap another row or the Save button.
 
-Timed mode has a button labeled `Advance` (shown at the top of this page). When you tap this the system remains in timed mode but advances to (brings forward) the state for the next timing period. If you open the dialog again the text will show in red to indicate the advance is active. Tap the button again to cancel the advance. The advance cancels itself automatically when the next timing period starts.
+Timed mode has a button labeled `Advance` (shown at the top of this page). When you tap this the system remains in timed mode but advances to (brings forward) the state for the next timing period. If you open the dialog again the text will change colour to indicate the advance is active. Tap the button again to cancel the advance. The advance cancels itself automatically when the next timing period starts.
 
 ## "Off" mode
 In this mode the heating will always be off in the room.

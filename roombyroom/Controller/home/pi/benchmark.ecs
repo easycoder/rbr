@@ -9,10 +9,9 @@
 	variable Y
 	variable Z
 	file File
-	
 	dictionary Dictionary
-	
-	!go to Skip
+
+!	debug step
 	
 	print `FOR loop counting to 100,000`
 	put now into Start
@@ -21,8 +20,6 @@
 	put now into Finish
 	take Start from Finish giving N
 	print N cat ` seconds`
-	
-!	debug step
 
 	print `Compare 100,000 long integers for equality`
 	put now into Start
@@ -79,8 +76,8 @@
 	put 1 into N
 	while N is less than 6
 	begin
-			append N to Y
-			increment N
+		append N to Y
+		increment N
 	end
 	set element 2 of Y to `Some data`
 	print element 2 of Y
@@ -104,19 +101,19 @@
 	put 0 into N
 	while N is less than 10
 	begin
-			if N is even print N cat ` is even`
-			if N is odd print N cat ` is odd`
-			add 1 to N
+		if N is even print N cat ` is even`
+		if N is odd print N cat ` is odd`
+		add 1 to N
 	end
 
 	put 51 into N
 	while N is less than 54
 	begin
-			if 52 is greater than N print `52 is greater than ` cat N else print `52 is not greater than ` cat N
-			if 52 is less than N print `52 is less than ` cat N else print `52 is not less than ` cat N
-			if 52 is not greater than N print `52 is not greater than ` cat N else print `52 is greater than ` cat N
-			if 52 is not less than N print `52 is not less than ` cat N else print `52 is less than ` cat N
-			add 1 to N
+		if 52 is greater than N print `52 is greater than ` cat N else print `52 is not greater than ` cat N
+		if 52 is less than N print `52 is less than ` cat N else print `52 is not less than ` cat N
+		if 52 is not greater than N print `52 is not greater than ` cat N else print `52 is greater than ` cat N
+		if 52 is not less than N print `52 is not less than ` cat N else print `52 is less than ` cat N
+		add 1 to N
 	end
 
 	print `Start`

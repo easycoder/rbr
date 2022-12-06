@@ -33,6 +33,10 @@
     variable Script
     variable Changed
     variable SensorIP
+    variable Sensor
+    variable Timestamp
+    variable DateFormat
+    variable Item
     variable Text
     variable N
 
@@ -146,9 +150,27 @@ Editor:
         attach DialogText to `dialog-text`
         attach DialogButton1 to `dialog-okbutton`
         put property `sensor` of RoomSpec into SensorIP
-        put property SensorIP of Sensors into Text
-        replace `,` with `, ` in Text
-        set the content of DialogText to `Information about this room:<br><br>` cat Text
+        put property SensorIP of Sensors into Sensor
+        put property `timestamp` of Sensor into Timestamp
+        set DateFormat to object
+        set property `mode` of DateFormat to `date`
+        set property `locale` of DateFormat to `en-EN`
+        set Item to object
+        set property `year` of Item to `numeric`
+        set property `month` of Item to `long`
+        set property `day` of Item to `numeric`
+        set property `hour` of Item to `numeric`
+        set property `minute` of Item to `numeric`
+        set property `hour12` of Item to false
+        set property `options` of DateFormat to Item
+        put Timestamp cat `<br>(` cat Timestamp format DateFormat into Timestamp
+        put Timestamp cat `)` into Timestamp
+        set property `timestamp` of Sensor to Timestamp
+        replace `{"` with `"` in Sensor
+        replace `"}` with `"` in Sensor
+        replace `":"` with `": "` in Sensor
+        replace `",` with `"<br>` in Sensor
+        set the content of DialogText to `Information about this room:<br><br>` cat Sensor
 
         on click DialogButton1
         begin

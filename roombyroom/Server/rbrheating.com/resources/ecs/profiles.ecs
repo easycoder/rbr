@@ -6,12 +6,15 @@
     	and variable Map
         and variable Result
 
+	div ProfilesPanel
+    div CalendarPanel
 	div UserProfileDiv
     button SelectButton
     button EditButton
     button UpButton
     button DownButton
     button DeleteButton
+    button CalendarButton
     button AddButton
     button OKButton
     button HelpButton
@@ -29,6 +32,7 @@
     variable EditingProfile
     variable Changed
     variable Temp
+    variable Script
     variable D
     variable D2
     variable P
@@ -59,13 +63,26 @@
     rest get ProfileWebson from `/resources/webson/profile.json?v=` cat now
     	or go to ExitWithError
 
+	attach ProfilesPanel to `profiles-panel`
+	attach CalendarPanel to `calendar-panel`
 	attach UserProfileDiv to `profiles`
+    attach CalendarButton to `calendar`
     attach AddButton to `profiles-add-button`
     attach OKButton to `profiles-ok-button`
     attach HelpButton to `profiles-help-button`
     attach CancelButton to `profiles-cancel-button`
 
 	put property `profile` of Map into CurrentProfile
+    
+    on click CalendarButton
+    begin
+        rest get Script from `/resources/ecs/calendar.ecs?v=` cat now
+        set style `display` of ProfilesPanel to `none`
+        set style `display` of CalendarPanel to `block`
+        run Script with MainPanel and Map and Result
+        set style `display` of ProfilesPanel to `block`
+        set style `display` of CalendarPanel to `none`
+    end
     
     on click AddButton
     begin
@@ -145,6 +162,7 @@ RenderProfiles:
             set style `font-size` of SelectButton to `105%`
             set style `font-weight` of SelectButton to `bold`
             set style `color` of SelectButton to `green`
+            set style `background` of SelectButton to `white`
         end
     	else set style `color` of SelectButton to `black`
         on click SelectButton

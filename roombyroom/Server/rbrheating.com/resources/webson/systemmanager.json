@@ -7,37 +7,44 @@
     "padding": "0 0.5em 0.5e 0.5em",
     "box-shadow": "0.5em 0.5em 0.5em #444",
     "text-align": "center",
-    "#": ["$Title", "$Text", "$Select", "$Login", "$Buttons"],
+    "#": ["$Title", "$Select", "$Login", "$Buttons"],
 
     "$Title": {
         "#element": "div",
-        "@id": "dialog-title",
-        "font-weight": "bold"
-    },
-
-    "$Text": {
-        "#element": "div",
-        "@id": "dialog-text",
-        "margin": "1em",
-        "#content": "Text"
+        "font-weight": "bold",
+        "#content": "System Manager"
     },
 
     "$Select": {
-        "#element": "select",
-        "@id": "system-names",
-        "@name": "systemName"
+        "#element": "div",
+        "@id": "system-select",
+        "#": ["$Text", "$Names"],
+
+        "$Text": {
+            "#element": "div",
+            "margin": "1em",
+            "#content": "Choose the system you want to manage"
+        },
+
+        "$Names": {
+            "#element": "div",
+            "@id": "system-names",
+            "width": "80%",
+            "border": "1px solid gray",
+            "background": "#ffc",
+            "margin": "auto"
+        }
     },
 
     "$Login": {
         "#element": "div",
         "@id": "login",
-        "display": "none",
         "width": "80%",
         "margin": "1em auto",
         "padding-bottom": "1em",
         "background": "#ffc",
         "border": "1px solid gray",
-        "#": ["$MACTitle", "$MACInput", "$PWDTitle", "$PWDInput"],
+        "#": ["$MACTitle", "$MACInput", "$PWDTitle", "$PWDInput", "$AddThis"],
 
         "$MACTitle": {
             "#element": "div",
@@ -67,6 +74,14 @@
             "@id": "getpassword-input",
             "width": "90%",
             "margin-top": "0.5em"
+        },
+
+        "$AddThis": {
+            "#element": "button",
+            "@id": "addthis-button",
+            "#content": "Add this system",
+            "width": "90%",
+            "margin-top": "1em"
         }
     },
 
@@ -75,7 +90,15 @@
         "display": "flex",
         "flex-direction": "row",
         "margin": "1em 0",
-        "#": ["$LRPadding", "$Help", "$CenterPadding", "$Cancel", "$LRPadding"],
+        "#": ["$LRPadding", "$OK", "$OKPadding", "$Add", "$FixedPadding", "$Remove",
+            "$RemovePadding", "$Help", "$FixedPadding", "$Cancel", "$LRPadding"],
+
+        "$OK": {
+            "#element": "button",
+            "@id": "ok-button",
+            "display": "none",
+            "#content": "OK"
+        },
 
         "$Add": {
             "#element": "button",
@@ -86,6 +109,7 @@
         "$Remove": {
             "#element": "button",
             "@id": "remove-button",
+            "display": "none",
             "#content": "Remove"
         },
 
@@ -106,8 +130,22 @@
             "flex": 1
         },
 
-        "$CenterPadding": {
+        "$FixedPadding": {
             "#element": "div",
+            "width": "1em"
+        },
+
+        "$OKPadding": {
+            "#element": "div",
+            "@id": "ok-padding",
+            "display": "none",
+            "width": "1em"
+        },
+
+        "$RemovePadding": {
+            "#element": "div",
+            "@id": "remove-padding",
+            "display": "none",
             "width": "1em"
         }
     }

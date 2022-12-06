@@ -2,10 +2,11 @@
     "#doc": "The icon and text for 'timed' mode",
     "#element": "button",
     "@id" : "room-/ROOM/-mode-icon",
+    "position": "relative",
     "display": "flex",
     "flex-direction": "row",
     "width": "10em",
-    "#": ["$Button", "$Padding", "$Text"],
+    "#": ["$Button", "$Padding", "$Text", "$Advance"],
 
     "$Button": {
         "#element": "div",
@@ -60,5 +61,19 @@
                 "font-weight": "bold"
             }
         }
+    },
+
+    "$Advance": {
+        "#element": "div",
+        "@id": "room-/ROOM/-advance-indicator",
+        "position": "absolute",
+        "top": "0.1em",
+        "left": "0.1em",
+        "display": "none",
+        "height": "0.5em",
+        "width": "0.5em",
+        "border-radius": "0.5em",
+        "border": "1px solid darkgreen",
+        "background": "green"
     }
 }

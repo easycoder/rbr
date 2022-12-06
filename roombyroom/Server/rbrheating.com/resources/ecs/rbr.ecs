@@ -4,6 +4,11 @@
 
     div Body
     div MainPanel
+    div Mask
+    div BannerMask
+    div TitleMask
+    div MaskLayer
+    div SystemTitlePanel
     div SystemNamePanel
     div OuterPanel
     div HelpPanel
@@ -22,16 +27,17 @@
     div ModeInfo
     div Alive
     div Banner
+    div AdvanceIndicator
+    div StatusPanel
     input Input
     img StatisticsIcon
     img Hamburger
     img ModeIcon
     button ProfilesButton
-    button SelectSystemButton
-    button AddRoomButton
+    button SystemManagerButton
+    button AddButton
     button GetSysParamsButton
     button GetSystemNameButton
-    button GetLoginButton
     button GetRequestButton
     button OKButton
     button CancelButton
@@ -42,7 +48,6 @@
     button HelpButton
     button DialogButton1
     button DialogButton2
-    select SystemNames
     module ProfileModule
     module Storyteller
     module DemoModule
@@ -73,6 +78,7 @@
     variable ClickIndex
     variable Redraw
     variable Refresh
+    variable Sensor
     variable Sensors
     variable SensorIP
     variable SensorSpec
@@ -89,6 +95,7 @@
     variable Args
     variable Events
     variable Event
+    variable Event2
     variable Blocked
     variable Mode
     variable Flag
@@ -98,19 +105,26 @@
     variable Result
     variable Finish
     variable Name
-    variable Keys
+    variable DateFormat
     variable BannerClicks
     variable BannerClickGap
     variable MapErrorCount
     variable RestErrorCount
     variable IsSimulator
+    variable Item
     variable Status
     variable Elapsed
     variable Boost
+    variable Advance
     variable Now
+    variable UntilTime
+    variable UntilTemp
+    variable Keys
+    variable Key
     variable FH
     variable FM
     variable E
+    variable F
     variable H
     variable M
     variable N
@@ -138,7 +152,33 @@
     	if the key is `m` print MAC
     	if the key is `p` print Password
     	if the key is `M` print Map
-    	if the key is `S` print Sensors
+    	if the key is `S`
+        begin
+        	put the json keys of Sensors into Keys
+            print Keys
+            put 0 into N
+            while N is less than the json count of Keys
+            begin
+            	put element N of Keys into Key
+                put property Key of Sensors into Sensor
+                put property `timestamp` of Sensor into Timestamp
+                set DateFormat to object
+                set property `mode` of DateFormat to `date`
+                set property `locale` of DateFormat to `en-EN`
+                set Item to object
+                set property `year` of Item to `numeric`
+                set property `month` of Item to `long`
+                set property `day` of Item to `numeric`
+                set property `hour` of Item to `numeric`
+                set property `minute` of Item to `numeric`
+				set property `hour12` of Item to false
+                set property `options` of DateFormat to Item
+                set property `timestamp` of Sensor to Timestamp cat `: ` cat Timestamp format DateFormat
+                set property Key of Sensors to Sensor
+            	add 1 to N
+            end
+        	print Sensors
+        end
     end
 
 	fork to Main
@@ -197,6 +237,7 @@ Main:
         set style `border` of Body to `1px solid lightgray`
     end
 !    put empty into storage as `Systems`
+!    put empty into storage as `MAC`
 
 !	First get EasyCoder scripts and the various layout scripts
     rest get HelpScript from `/resources/ecs/storyteller.ecs?v=` cat now
@@ -218,13 +259,23 @@ Main:
     rest get MainScreenWebson from `/resources/webson/rbr.json?v=` cat now
     	or go to AbandonShip
 	render MainScreenWebson in Body
+    attach Mask to `top-level-mask`
+    attach BannerMask to `banner-mask`
+    attach TitleMask to `title-mask`
+    attach MaskLayer to `mask-layer`
     attach Banner to `rbr-banner`
+    attach SystemTitlePanel to `system-title`
+    attach SystemNamePanel to `system-name`
     attach MainPanel to `mainpanel`
     attach OuterPanel to `outerpanel`
     attach HelpPanel to `helppanel`
     attach StatisticsPanel to `statisticspanel`
     attach Alive to `alive`
     attach ModePanel to `mode-panel`
+    attach StatusPanel to `rbr-status`
+    attach StatisticsIcon to `statistics-icon`
+    attach Hamburger to `hamburger-icon`
+    attach ProfilesButton to `profile-button`
 
 !	Start the debug module
     if DebugModule is not running
@@ -255,7 +306,6 @@ Main:
     put empty into Map2
 
 !	Set up the statistics and hamburger icons
-    attach StatisticsIcon to `statistics-icon`
     on click StatisticsIcon
     begin
     	if Storyteller is running
@@ -269,7 +319,6 @@ Main:
         end
         else if not Blocked go to Statistics
     end
-    attach Hamburger to `hamburger-icon`
     on click Hamburger
     begin
     	if Storyteller is running
@@ -296,13 +345,14 @@ Main:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Main start point
 Start:
+    gosub to Unmask
 	put 0 into RestErrorCount
     send `Count` to DebugModule
 
 !	Make sure we have a MAC address; if not, go ask for one
     clear Flag
     get MAC from storage as `MAC`
-    if MAC is empty go to GetLogin
+    if MAC is empty go to SystemManager ! GetLogin
     if MAC is `DEMO`
     begin
     	set Demo
@@ -366,19 +416,13 @@ GetMap:
     if Systems is empty
     begin
     	put `{}` into Systems
-!    put `{}` into System
-!    set property `mac` of System to MAC
-!    set property `password` of System to Password
-!    set property SystemName of Systems to System
     	put Systems into storage as `Systems`
     end
 
 !    if Demo put Map into storage as `map`
 
 	! Show the system
-    attach SystemNamePanel to `system-name`
     set the content of SystemNamePanel to SystemName
-    attach ProfilesButton to `profile-button`
     on click ProfilesButton go to DoProfiles
 
 	put property `default-profile-name` of Map into Name
@@ -425,6 +469,7 @@ GetMap:
     set the elements of ModeHolder to RoomCount
     set the elements of ModeIcon to RoomCount
     set the elements of ModeText to RoomCount
+    set the elements of AdvanceIndicator to RoomCount
 
 	! Draw a row for each room
     put 0 into RoomIndex
@@ -440,6 +485,7 @@ GetMap:
         index RoomTempPanel to RoomIndex
         index RoomToolsButton to RoomIndex
         index ModeText to RoomIndex
+        index AdvanceIndicator to RoomIndex
 
         put property `room-` cat RoomIndex of StaticData into RoomData
         if RoomData is empty
@@ -585,12 +631,16 @@ GetMap:
             	set style `color` of ModeText to `red`
         	if Mode is `timed`
             begin
+                put `` cat property `advance` of SensorSpec into Advance
             	if Status is `Good`
                 begin
-                	if property `advance` of SensorSpec is `A`
-                    	set style `color` of ModeText to `#508e62`
-                	else
-                    	set style `color` of ModeText to `black`
+                	if Advance is not `-`
+                    begin
+                    	set style `color` of ModeText to `green`
+                        attach AdvanceIndicator to `room-` cat RoomIndex cat `-advance-indicator`
+                        set style `display` of AdvanceIndicator to `block`
+                    end
+                	else set style `color` of ModeText to `black`
                 end
 
                 put property `events` of RoomSpec into Events
@@ -602,15 +652,24 @@ GetMap:
                 while E is less than the json count of Events
                 begin
                     put element E of Events into Event
-                    put property `until` of Event into Finish
-                    split Finish on `:` giving Finish
+                    put property `until` of Event into UntilTime
+                    put property `temp` of Event into UntilTemp
+                    split UntilTime on `:` giving Finish
+                    if Advance is not `-`
+                    begin
+                    	add 1 to E giving F
+                        if F is not less than the json count of Events put 0 into F
+                        put element F of Events into Event2
+                        put property `until` of Event2 into UntilTime
+                    	put property `temp` of Event2 into UntilTemp
+                    end
                     index Finish to 0
                     put the value of Finish into FH
                     if FH is 0 put 24 into FH
                     if H is less than FH
                     begin
-                        set the content of ModeInfo to property `temp` of Event
-                            cat `&deg;C->` cat property `until` of Event
+                        set the content of ModeInfo to UntilTemp
+                            cat `&deg;C->` cat UntilTime
                         go to HandleClicks
                     end
                     else if H is FH
@@ -619,8 +678,8 @@ GetMap:
                         put the value of Finish into FM
                         if M is less than FM
                         begin
-                            set the content of ModeInfo to property `temp` of Event
-                                cat `&deg;C->` cat property `until` of Event
+                            set the content of ModeInfo to UntilTemp
+                                cat `&deg;C->` cat UntilTime
                             go to HandleClicks
                         end
                     end
@@ -643,14 +702,14 @@ GetMap:
                     add 1 to Boost
                     if Boost is 1 set the content of BoostName to Boost cat ` min`
                     else set the content of BoostName to Boost cat ` mins`
-                    if the value of Boost is less than 1
-                    begin
-                        set property `mode` of RoomSpec to property `prevmode` of RoomSpec
-                        set element RoomIndex of Rooms to RoomSpec
-                        gosub to CopyRoomsToMap
-                        fork to PostMap
-                        set Refresh
-                    end
+!                    if the value of Boost is less than 1
+!                    begin
+!                        set property `mode` of RoomSpec to property `prevmode` of RoomSpec
+!                        set element RoomIndex of Rooms to RoomSpec
+!                        gosub to CopyRoomsToMap
+!                        fork to PostMap
+!                        set Refresh
+!                    end
                 end
             end
             else if Mode is `on`
@@ -680,6 +739,7 @@ GetMap:
             begin
                 if Blocked stop
                 set Blocked
+                gosub to MaskScreen
                 on click ProfilesButton begin end
                 put the index of ModeIcon into ClickIndex
                 if ModeScript is empty
@@ -699,6 +759,13 @@ GetMap:
         end
         add 1 to RoomIndex
     end
+    
+    if property `status` of Sensors
+    begin
+    	set the content of StatusPanel to property `status` of Sensors
+        set style `display` of StatusPanel to `block`
+    end
+    else set style `display` of StatusPanel to `none`
 
     put StaticData into storage as `StaticData`
 
@@ -706,9 +773,9 @@ GetMap:
     clear Redraw
     clear Blocked
 
-    set style `background` of Alive to `#f44`
+    set style `background` of Alive to `#fee`
     wait 50 ticks
-    set style `background` of Alive to `#44f`
+    set style `background` of Alive to `#228`
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -746,14 +813,15 @@ Reset:
 !	Deal with the main hamburger menu
 ShowMenu:
 	set Blocked
+    gosub to MaskMainPanel
     wait 20 ticks
 	clear MainPanel
     if MainMenuWebson is empty
     	rest get MainMenuWebson from `/resources/webson/mainmenu.json?v=` cat now
             or go to HandleRestError
     render MainMenuWebson in MainPanel
-    attach SelectSystemButton to `button-select`
-    attach AddRoomButton to `button-add`
+    attach SystemManagerButton to `button-systemmanager`
+    attach AddButton to `button-add`
     attach GetSysParamsButton to `button-getsysparams`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
@@ -764,48 +832,9 @@ ShowMenu:
 
     on click GetSysParamsButton go to GetSystemParameters
     
-    on click SelectSystemButton
-    begin
-        attach DialogPanel to `dialog-panel`
-        set style `width` of DialogPanel to `50%`
-        set style `left` of DialogPanel to `25%`
-        rest get Webson from `/resources/webson/getsystems.json?v=` cat now
-        render Webson in DialogPanel
-        attach DialogTitle to `dialog-title`
-        attach DialogText to `dialog-text`
-        attach DialogButton1 to `cancel-button`
-        attach SystemNames to `system-names`
-        set the content of DialogTitle to `RBR Systems`
-        set the content of DialogText to `Choose the system you want to monitor/control`
-        get Systems from storage as `Systems`
-        if Systems is empty stop
-        put the json keys of Systems into Keys
-        set SystemNames from Keys as property `name` of RoomSpec
-        on change SystemNames
-        begin
-        	put attribute `value` of SystemNames into Name
- 			put property Name of Systems into System
-            put property `mac` of System into MAC
-            put MAC into storage as `MAC`
-            put property `password` of System into Password
-            put Password into storage as `password`
-            clear DialogPanel
-            clear MainPanel
-            clear Blocked
-            set Redraw
-            stop
-		end
-        on click DialogButton1
-        begin
-            clear DialogPanel
-            clear MainPanel
-            clear Blocked
-            set Redraw
-            stop
-        end
-    end
+    on click SystemManagerButton go to SystemManager
 
-    on click AddRoomButton
+    on click AddButton
     begin
         rest get RoomSpec from `/resources/json/newroomspec.json?v=` cat now
             or go to HandleRestError
@@ -855,6 +884,54 @@ ShowMenu:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	The system manager
+SystemManager:
+	set Blocked
+    clear MainPanel
+    rest get Script from `/resources/ecs/systemmanager.ecs?v=` cat now
+    	or go to HandleRestError
+    run Script with MainPanel and MAC and Password and Map and Server and Flag and Result
+    if Result is `OK`
+    begin
+        put MAC into storage as `MAC`
+        if MAC is `DEMO` set Demo else clear Demo
+        if Demo put `password` into Password
+        put Password into storage as `password`
+    	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
+        	or begin
+        		print `Server not responding`
+                put empty into Map
+            	continue
+        	end
+        if Map is empty
+        begin
+            set Redraw
+            clear Blocked
+            stop
+        end
+        put Map into storage as `map`
+        put property `name` of Map into SystemName
+        if SystemName is empty put `New` into SystemName
+        ! Update the system list
+        get Systems from storage as `Systems`
+        if Systems is empty put `{}` into Systems
+        put `{}` into System
+        set property `mac` of System to MAC
+        set property `password` of System to Password
+        set property SystemName of Systems to System
+        put Systems into storage as `Systems`
+    end
+    else if Result is `Help`
+    begin
+        put `home` into SID
+        put `SystemManager` into TID
+      	go to RunHelp
+    end
+    set Redraw
+    clear Blocked
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Get system parameters
 GetSystemParameters:
 	set Blocked
@@ -864,17 +941,10 @@ GetSystemParameters:
             or go to HandleRestError
     render GetSysParamsWebson in MainPanel
 
-    attach GetLoginButton to `button-getlogin`
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
-
-    on click GetLoginButton
-    begin
-    	set Flag
-        go to GetLogin
-    end
 
     on click GetSystemNameButton
     begin
@@ -903,73 +973,6 @@ GetSystemParameters:
         stop
     end
 	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Ask the user for the MAC address and password
-GetLogin:
-	set Blocked
-    clear MainPanel
-    rest get Script from `/resources/ecs/getlogin.ecs?v=` cat now
-    	or go to HandleRestError
-    run Script with MainPanel and MAC and Password and Flag and Result
-    if Result is empty
-    begin
-        put MAC into storage as `MAC`
-        if MAC is `DEMO` set Demo else clear Demo
-        if Demo put `password` into Password
-        put Password into storage as `password`
-    	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-        	or begin
-        		print `Server not responding`
-                put empty into Map
-            	continue
-        	end
-        if Map is not empty put Map into storage as `map`
-        put property `name` of Map into SystemName
-        if SystemName is empty put `New` into SystemName
-        ! Update the system list
-        get Systems from storage as `Systems`
-        if Systems is empty put `{}` into Systems
-        put `{}` into System
-        set property `mac` of System to MAC
-        set property `password` of System to Password
-        set property SystemName of Systems to System
-        put Systems into storage as `Systems`
-        clear MainPanel
-        clear Blocked
-        set Redraw
-    end
-    else if Result is `Cancel`
-    begin
-    	clear MainPanel
-        clear Blocked
-        set Redraw
-    end
-    else if Result is `Help`
-    begin
-    	clear MainPanel
-    	set style `display` of OuterPanel to `none`
-      	set style `display` of HelpPanel to `block`
-    	put `home` into SID
-        put `GetLogin` into TID
-        go to RunHelp
-    end
-    else if Result is `Welcome`
-    begin
-    	clear MainPanel
-    	set style `display` of OuterPanel to `none`
-      	set style `display` of HelpPanel to `block`
-    	put `home` into SID
-        put `Welcome` into TID
-        go to RunHelp
-    end
-    else
-    begin
-    	clear MainPanel
-        clear Blocked
-        set Redraw
-    end
-    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Ask the user for the system name
@@ -1080,9 +1083,10 @@ CopyRoomsToMap:
 DoProfiles:
 	if ProfileModule is running stop
 	set Blocked
-    wait 20 ticks
+    gosub to MaskMainPanel
+!    wait 20 ticks
     put empty into Result
-    rest get Script from `/resources/ecs/profiles-dev.ecs?v=` cat now
+    rest get Script from `/resources/ecs/profiles.ecs?v=` cat now
     run Script with MainPanel and Map and Result as ProfileModule
     go to ProcessResult
 
@@ -1090,6 +1094,7 @@ DoProfiles:
 ! 	The room tools
 RoomTools:
 	set Blocked
+    gosub to MaskMainPanel
     wait 20 ticks ! to allow things to complete before running the editor!
 	clear MainPanel
     if RoomToolsMenuWebson is empty
@@ -1195,6 +1200,7 @@ PostMap:
 !	Show a help page
 RunHelp:
 	set Blocked
+    gosub to Unmask
     set style `display` of OuterPanel to `none`
     set style `display` of HelpPanel to `block`
     run HelpScript with HelpPanel and SID and TID as Storyteller
@@ -1215,6 +1221,29 @@ Statistics:
     clear Blocked
     set Redraw
 	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Mask the screen
+MaskScreen:
+	set style `display` of Mask to `block`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Mask the main panel
+MaskMainPanel:
+	set style `display` of BannerMask to `block`
+	set style `display` of MaskLayer to `block`
+    set style `display` of TitleMask to `block`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Unmask everything
+Unmask:
+	set style `display` of Mask to `none`
+	set style `display` of BannerMask to `none`
+	set style `display` of MaskLayer to `none`
+    set style `display` of TitleMask to `none`
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Handle a REST error

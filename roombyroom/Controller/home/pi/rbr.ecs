@@ -3,6 +3,8 @@
 !   This script manages the local hardware - sensors and relays - to act
 !   in accordance with the rules in the system map.
 
+    script RBR
+
     file File
     variable Path
     variable Server
@@ -45,14 +47,14 @@
     variable RequestIP
     variable Value
     variable Email
-    variable Password
+    variable TPPassword
     variable Response
     variable SimulatorData
     variable RA
     variable E
+    variable N
     variable R
 
-    script RBR
 !    debug step
 
     put `https://rbrheating.com/resources/php/rest.php` into Server
@@ -152,6 +154,7 @@ ProcessMap:
     put property `rooms` of Profile into Rooms
     print `Profile: ` cat property `name` of Profile
     put json `{}` into SensorData
+    set property `status` of SensorData to ``
     put the count of Rooms into RoomCount
     if RoomCount is 0
     begin
@@ -174,7 +177,8 @@ ProcessMap:
         begin
             if RequestCount is 0 put `off` into Turn
             else put `on` into Turn
-            post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
+            post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn giving Response
+            if Response is `Error` set property `status` of SensorData to `Request relay did not respond`
         end
         print SimulatorData
         open File Path cat `/simulator` for writing
@@ -200,43 +204,28 @@ ProcessMap:
 !   Update the map
 UpdateMap:
 !   Send sensors and update the map from the website
-!   If there's no password file, register now
-    if file Path cat `/password` exists
+!    open File Path cat `/password` for reading
+!    read Password from File
+    close File
+    put stringify SensorData into Sensors
+    get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
+    if NewMap is not Map
     begin
-        open File Path cat `/password` for reading
-        read Password from File
-        close File
-        put stringify SensorData into Sensors
-        get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
-        if NewMap is not Map
+        put json NewMap into MapObject
+        put property `profiles` of MapObject into Profiles
+        put property `profile` of MapObject into CurrentProfile
+        put element CurrentProfile of Profiles into Profile
+        put property `rooms` of Profile into Rooms
+        if the count of Rooms is not 0
         begin
-            put json NewMap into MapObject
-            put property `profiles` of MapObject into Profiles
-            put property `profile` of MapObject into CurrentProfile
-            put element CurrentProfile of Profiles into Profile
-            put property `rooms` of Profile into Rooms
-            if the count of Rooms is not 0
-            begin
-                open File Path cat `/map` for writing
-                write NewMap to File
-                close File
-                print `Map updated`
-                put NewMap into Map
-            end
-            else print `Bad map received from server`
-            go to ProcessMap
+            open File Path cat `/map` for writing
+            write NewMap to File
+            close File
+            print `Map updated`
+            put NewMap into Map
         end
-    end
-    else
-    begin
-        get Password from Server cat `/register/` cat MAC cat `?v=` cat now
-        if Password is not empty
-        begin
-            open File Path cat `/password` for writing
-            write Password to File
-        end
-        close File
-        exit
+        else print `Bad map received from server`
+        go to ProcessMap
     end
     return
 
@@ -288,13 +277,26 @@ PR2:
             put from 1 of Boost into Target
             multiply Target by 60
             add the timestamp to Target
-            if Password is not empty post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
-                cat RoomNumber cat `/` cat Target
+            if Password is not empty
+            begin
+                print Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
+                    cat RoomNumber cat `/` cat Target
+                post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
+                    cat RoomNumber cat `/` cat Target giving Response
+                if Response is not empty print `Error sending boost data`
+            end
         end
         else
         begin
-            ! Boost contains the remaining time, in seconds
-            if Boost is less than 0 put property `prevmode` of Room into Mode
+            ! Boost contains the timestamp of the target (the end of the boost period).
+            put now into N
+            take integer Boost from N
+            if N is greater than 0
+            begin
+                post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
+                    cat RoomNumber cat `/0`
+                put property `prevmode` of Room into Mode
+            end
         end
         ! Use the target setting for 'on' mode
         put float property `target` of Room into Target
@@ -410,13 +412,14 @@ SetRelays:
                 if Response is `Error`
                 begin
                     set property `status` of SensorValues to `Fail`
+                    set property `status` of SensorData to `No response from ` cat RoomName
                 end
             end
             else if RelayType is `TP-Link P100`
             begin
                 put property `p100Email` of Room into Email
-                put property `p100Password` of Room into Password
-                relay Relay Email Password Turn
+                put property `p100Password` of Room into TPPassword
+                relay Relay Email TPPassword Turn
             end
             else if RelayType is `Simulator`
             begin

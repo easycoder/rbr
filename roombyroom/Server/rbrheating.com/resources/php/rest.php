@@ -189,7 +189,7 @@
             http_response_code(400);
             break;
     }
-    mysqli_close();
+    mysqli_close($conn);
     exit;
 
     // GET
@@ -485,12 +485,16 @@
                     $map = json_decode($map);
                     $profile = $map->profiles[$map->profile];
                     $profile->rooms[$roomindex]->boost = $target;
+                    if ($target == 0) {
+                        $profile->rooms[$roomindex]->mode = $profile->rooms[$roomindex]->prevmode;
+                    }
                     $map = json_encode($map);
                     $map = base64_encode($map);
+                    // logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                     query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");
-//                     logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
+                    logger("Boost request failed: MAC $mac and password $password do not match any record.\n");
                     print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
                 }
                 break;
@@ -506,7 +510,7 @@
     // Do an SQL query
     function query($conn, $sql)
     {
-//        logger("$sql\n");
+       // logger("$sql\n");
         $result = mysqli_query($conn, $sql);
         if (!$result) {
             http_response_code(404);
@@ -519,6 +523,7 @@
     // Log a message.
     function logger($message)
     {
+        // print("$message\n");
         $timestamp = time();
         $date = date("Y/m/d H:i", $timestamp);
         if (!file_exists("log")) mkdir("log");

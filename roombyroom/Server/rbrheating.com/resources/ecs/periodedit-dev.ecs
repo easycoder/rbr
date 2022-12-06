@@ -46,6 +46,8 @@
     variable ThisEvent
     variable LastEvent
     variable NewEvents
+    variable TempEvent
+    variable TempEvent2
     variable HourValue
     variable MinuteValue
     variable TimeProperty
@@ -94,10 +96,14 @@ RedoEvents:
     on click TimesAddButton
     begin
     	gosub to SaveCurrentData
+        ! Adjut the target temperature of the second (previously first) element
+        put element 0 of Events into TempEvent
         put `{}` into Event
         set property `until` of Event to `00:00`
-        set property `temp` of Event to `20`
+        set property `temp` of Event to property `temp` of TempEvent
         append Event to Events
+        set property `temp` of TempEvent to `15.0`
+        set element 0 of Events to TempEvent
         gosub to BuildArrays
         gosub to SortEvents
         go to RedoEvents
@@ -132,7 +138,7 @@ RedoEvents:
     on click TimesHelpButton
     begin
         clear MainPanel
-        put `Help home ScheduleEdit` into Result
+        put `Help home PeriodEdit` into Result
         exit
     end
 	stop
@@ -192,13 +198,14 @@ OnClickEventInfo:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	When editing finishes, save the event.
 SaveCurrentData:
+	put the json count of Events into NEvents
 	put `[]` into Events
 	put 0 into E
     while E is less than NEvents
     begin
     	index Event to E
-    	add 1 to E
         append Event to Events
+    	add 1 to E
     end
     
 	gosub to SortEvents
@@ -208,6 +215,7 @@ SaveCurrentData:
 ! 	Sort the events
 SortEvents:
     clear Changed
+    put the json count of Events into NEvents
     if NEvents is less than 2 return
     set Unsorted
     while Unsorted
@@ -359,11 +367,22 @@ ShowEditor:
             clear DialogPanel
             put `[]` into NewEvents
             put 0 into E
+            ! Copy all events up to the selected one
             while E is less than EventIndex
             begin
                 append element E of Events to NewEvents
                 add 1 to E
             end
+            ! Set the target temperature for the next event to that of the deleted one.
+            add 1 to E giving F
+            if F is less than the json count of Events
+            begin
+            	put element E of Events into TempEvent
+            	put element F of Events into TempEvent2
+            	set property `temp` of TempEvent2 to property `temp` of TempEvent
+            	set element F of Events to TempEvent2
+            end
+            ! Copy the remaining events
             add 1 to E
             while E is less than the json count of Events
             begin

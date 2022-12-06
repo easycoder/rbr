@@ -29,6 +29,8 @@
 
 	rest path `rest.php`
     
+    alert `editor.ecs - unused file?`
+    
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! The room editor
 Editor:

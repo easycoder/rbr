@@ -5,7 +5,7 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Welcome", "$Pad", "$GetSysParams", "$Pad", "$Select", "$Add", "$Pad", "$Backup", "$Restore",
+    "#": ["$Welcome", "$Pad", "$SystemManager", "$GetSysParams", "$Add", "$Pad", "$Backup", "$Restore",
         "$Pad", "$Evaluate", "$Pad", "$Help", "$Cancel"],
 
     "$Welcome": {
@@ -14,21 +14,21 @@
         "#": "$Button"
     },
 
-    "$Select": {
-        "$ID": "button-select",
-        "$Label": "Select a system",
-        "#": "$Button"
-    },
-
-    "$Add": {
-        "$ID": "button-add",
-        "$Label": "Add a room",
+    "$SystemManager": {
+        "$ID": "button-systemmanager",
+        "$Label": "System Manager",
         "#": "$Button"
     },
 
     "$GetSysParams": {
         "$ID": "button-getsysparams",
         "$Label": "Set System Parameters",
+        "#": "$Button"
+    },
+
+    "$Add": {
+        "$ID": "button-add",
+        "$Label": "Add a room",
         "#": "$Button"
     },
 

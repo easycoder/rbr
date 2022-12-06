@@ -4,13 +4,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$GetLogin", "$GetName", "$GetRequest", "$Help", "$Cancel"],
-
-    "$GetLogin": {
-        "$ID": "button-getlogin",
-        "$Label": "Get the login details",
-        "#": "$Button"
-    },
+    "#": ["$GetName", "$GetRequest", "$Help", "$Cancel"],
 
     "$GetName": {
         "$ID": "button-getname",
