@@ -55,7 +55,7 @@
     button DialogButton2
     input DialogInput
     
-    debug step
+!    debug step
     
     clear Mobile
     if mobile
@@ -64,7 +64,7 @@
     clear Changed
 
 	clear MainPanel
-    rest get ProfilesWebson from `/resources/webson/profiles-dev.json?v=` cat now
+    rest get ProfilesWebson from `/resources/webson/profiles.json?v=` cat now
         or go to ExitWithError
     render ProfilesWebson in MainPanel
     
@@ -95,6 +95,7 @@
     begin
         set style `display` of CalendarOn to `none`
         set style `display` of CalendarOff to `flex`
+        set style `display` of ProfilesMask to `block`
     end
     
     on click CalendarOff
@@ -132,7 +133,7 @@
     
     on click CalendarButton
     begin
-        rest get Script from `/resources/ecs/calendar-dev.ecs?v=` cat now
+        rest get Script from `/resources/ecs/calendar.ecs?v=` cat now
         set style `display` of ProfilesPanel to `none`
         set style `display` of CalendarPanel to `block`
         set the content of PageHeader to `Calendar`
@@ -290,6 +291,7 @@ RenderProfiles:
         end
     	add 1 to P
     end
+    if property `calendar` of Map is `on` set style `display` of ProfilesMask to `block`
 	return
 
 GetName:

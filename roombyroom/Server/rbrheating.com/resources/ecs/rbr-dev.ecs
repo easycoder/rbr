@@ -1115,7 +1115,7 @@ DoProfiles:
     gosub to MaskMainPanel
 !    wait 20 ticks
     put empty into Result
-    rest get Script from `/resources/ecs/profiles.ecs?v=` cat now
+    rest get Script from `/resources/ecs/profiles-dev.ecs?v=` cat now
     run Script with MainPanel and Map and Result as ProfileModule
     go to ProcessResult
 
