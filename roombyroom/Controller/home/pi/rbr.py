@@ -28,12 +28,12 @@ def sim(data):
     file.close()
     return response
 
-# Endpoint: Get <server-ip>/reset
-# Called to reset the log file
-@app.get('/reset')
-def reset():
-    os.system('rm log.txt')
-    return
+# Endpoint: Get <server-ip>/status
+# Called to return a status message
+@app.get('/status')
+def status():
+    response = 'OK'
+    return response
 
 # Endpoint: Get <server-ip>/?hum=hhh&temp=ttt&id=id
 # Called when temperature changes

@@ -9,6 +9,8 @@
 	div ProfilesPanel
     div CalendarPanel
 	div UserProfileDiv
+    div ProfilesMask
+    div PageHeader
     button SelectButton
     button EditButton
     button UpButton
@@ -19,6 +21,8 @@
     button OKButton
     button HelpButton
     button CancelButton
+    img CalendarOff
+    img CalendarOn
     variable Mobile
     variable ProfilesWebson
     variable ProfileWebson
@@ -30,9 +34,13 @@
     variable Name
     variable CurrentProfile
     variable EditingProfile
+    variable CalendarData
+    variable Calendar
     variable Changed
     variable Temp
     variable Script
+    variable Count
+    variable Day
     variable D
     variable D2
     variable P
@@ -63,25 +71,77 @@
     rest get ProfileWebson from `/resources/webson/profile.json?v=` cat now
     	or go to ExitWithError
 
+	attach PageHeader to `profiles-page-header`
 	attach ProfilesPanel to `profiles-panel`
+    attach ProfilesMask to `profiles-mask`
 	attach CalendarPanel to `calendar-panel`
 	attach UserProfileDiv to `profiles`
-    attach CalendarButton to `calendar`
+    attach CalendarOff to `calendar-off`
+    attach CalendarOn to `calendar-on`
+    attach CalendarButton to `calendar-edit`
     attach AddButton to `profiles-add-button`
     attach OKButton to `profiles-ok-button`
     attach HelpButton to `profiles-help-button`
     attach CancelButton to `profiles-cancel-button`
 
 	put property `profile` of Map into CurrentProfile
+    put property `calendar` of Map into Calendar
+    if Calendar is `on`
+    begin
+        set style `display` of CalendarOff to `none`
+        set style `display` of CalendarOn to `flex`
+    end
+    else
+    begin
+        set style `display` of CalendarOn to `none`
+        set style `display` of CalendarOff to `flex`
+    end
+    
+    on click CalendarOff
+    begin
+    	put property `calendar-data` of Map into CalendarData
+        if CalendarData is empty go to ShowErrorMessage
+        put 0 into Count
+        put 0 into D
+        while D is less than 7
+        begin
+        	put element D of CalendarData into Day
+            if Day is not `{}`
+            begin
+            	if property `day` cat D cat `-profile` of Day is not empty add 1 to Count
+            end
+        	add 1 to D
+        end
+        if Count is 0 go to ShowErrorMessage
+        set style `display` of CalendarOff to `none`
+        set style `display` of CalendarOn to `flex`
+        set style `display` of ProfilesMask to `block`
+        set property `calendar` of Map to `on`
+    end
+
+    on click CalendarOn
+    begin
+        set style `display` of CalendarOn to `none`
+        set style `display` of CalendarOff to `flex`
+        set style `display` of ProfilesMask to `none`
+        set property `calendar` of Map to `off`
+    end
+    
+    on click ProfilesMask
+    	alert `Profiles cannot be accessed while the Calendar is on`
     
     on click CalendarButton
     begin
-        rest get Script from `/resources/ecs/calendar.ecs?v=` cat now
+        rest get Script from `/resources/ecs/calendar-dev.ecs?v=` cat now
         set style `display` of ProfilesPanel to `none`
         set style `display` of CalendarPanel to `block`
+        set the content of PageHeader to `Calendar`
         run Script with MainPanel and Map and Result
+        set the content of PageHeader to `Profiles and Calendar`
         set style `display` of ProfilesPanel to `block`
         set style `display` of CalendarPanel to `none`
+        if Result is `Changed` set Changed
+        if left 4 of Result is `Help` exit
     end
     
     on click AddButton
@@ -120,6 +180,10 @@
     gosub to RenderProfiles
 
 	stop
+
+ShowErrorMessage:
+	alert `The calendar must specify at least one day`
+    stop
 
 !	Render the user profiles. The base profile remains separate.
 RenderProfiles:
@@ -226,6 +290,7 @@ RenderProfiles:
         end
     	add 1 to P
     end
+    if property `calendar` of Map is `on` set style `display` of ProfilesMask to `block`
 	return
 
 GetName:

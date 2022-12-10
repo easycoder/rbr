@@ -1,44 +1,150 @@
 {
     "#doc": "Profiles and Calendar",
     "#element": "div",
-    "#": ["$ProfilesPanel", "$CalendarPanel"],
+    "position": "relative",
+    "background": "#ffc",
+    "#": ["$Title", "$ProfilesPanel", "$CalendarPanel"],
+
+    "$Title": {
+        "#element": "div",
+        "@id": "profiles-page-header",
+        "font-size": "1.5em",
+        "font-weight": "bold",
+        "margin-bottom": "0.5em",
+        "#content": "Profiles and Calendar"
+    },
 
     "$ProfilesPanel": {
         "#element": "div",
         "@id": "profiles-panel",
         "padding": "1em",
-        "background": "#ffc",
         "text-align": "center",
-        "#": ["$Title", "$Profiles", "$Calendar", "$Buttons"],
+        "#": ["$ProfilesOuter", "$Calendar", "$Buttons"],
 
-        "$Title": {
+        "$ProfilesOuter": {
             "#element": "div",
-            "font-size": "1.5em",
-            "font-weight": "bold",
-            "margin-bottom": "0.5em",
-            "#content": "Profiles"
-        },
-
-        "$Profiles": {
-            "#element": "div",
+            "position": "relative",
             "padding": "1em",
             "border": "1px solid gray",
-            "@id": "profiles"
+            "#": ["$Title", "$Profiles", "$ProfilesMask"],
+
+            "$Title": {
+                "#element": "div",
+                "#content": "&nbsp;Profiles&nbsp;",
+                "position": "absolute",
+                "left": "50%",
+                "top": 0,
+                "transform": "translate(-50%, -50%)",
+                "font-size": "80%",
+                "font-weight": "bold",
+                    "background": "#ffc"
+            },
+
+            "$Profiles": {
+                "#element": "div",
+                "@id": "profiles"
+            },
+
+            "$ProfilesMask": {
+                "#element": "div",
+                "@id": "profiles-mask",
+                "position": "absolute",
+                "left": "0.5em",
+                "top": "0.5em",
+                "width": "calc(100% - 1em)",
+                "height": "calc(100% - 1em)",
+                "display": "none",
+                "background": "rgba(255, 255, 255, 0.5)"
+            }
         },
 
         "$Calendar": {
             "#element": "div",
-            "margin-top": "0.5em",
+            "border": "1px solid gray",
+            "position": "relative",
+            "margin": "1em auto 0 auto",
             "padding": "1em 3em",
-            "#": "$Button",
+            "display": "flex",
+            "align-items": "center",
+            "#": ["$Title", "$On", "$Off", "$Pad", "$Edit"],
 
-            "$Button": {
+            "$Title": {
+                "#element": "div",
+                "#content": "&nbsp;Calendar&nbsp;",
+                "position": "absolute",
+                "left": "50%",
+                "top": 0,
+                "transform": "translate(-50%, -50%)",
+                "font-size": "80%",
+                "font-weight": "bold",
+                "background": "#ffc"
+            },
+
+            "$Off": {
+                "#element": "div",
+                "@id": "calendar-off",
+                "display": "flex",
+                "align-items": "center",
+                "width": "5em",
+                "cursor": "pointer",
+                "#": ["$Icon", "$Label"],
+
+                "$Icon": {
+                    "#element": "img",
+                    "@src": "resources/icon/power-lo.png",
+                    "width": "2em",
+                    "height": "2em",
+                    "pointer-events": "none"
+                },
+
+                "$Label": {
+                    "#element": "div",
+                    "#content": "&nbsp;&nbsp;Off",
+                    "flex": 1,
+                    "text-align": "left",
+                    "font-weight": "bold",
+                    "pointer-events": "none"
+                }
+            },
+
+            "$On": {
+                "#element": "div",
+                "@id": "calendar-on",
+                "display": "flex",
+                "align-items": "center",
+                "width": "5em",
+                "cursor": "pointer",
+                "#": ["$Icon", "$Label"],
+
+                "$Icon": {
+                    "#element": "img",
+                    "@src": "resources/icon/power-hi.png",
+                    "width": "2em",
+                    "height": "2em",
+                    "pointer-events": "none"
+                },
+
+                "$Label": {
+                    "#element": "div",
+                    "#content": "&nbsp;&nbsp;On",
+                    "flex": 1,
+                    "text-align": "left",
+                    "font-weight": "bold",
+                    "pointer-events": "none"
+                }
+            },
+
+            "$Edit": {
                 "#element": "button",
-                "@id": "calendar",
+                "@id": "calendar-edit",
+                "width": "8em",
                 "height": "3em",
-                "font-size": "102%",
-                "padding": "0 3em",
-                "#content": "Calendar"
+                "#content": "Edit"
+            },
+
+            "$Pad": {
+                "#element": "div",
+                "flex": 1
             }
         },
 
@@ -107,15 +213,7 @@
         "padding": "1em",
         "background": "#ffc",
         "text-align": "center",
-        "#": ["$Title", "$Table", "$Buttons"],
-
-        "$Title": {
-            "#element": "div",
-            "font-size": "1.5em",
-            "font-weight": "bold",
-            "margin-bottom": "0.5em",
-            "#content": "Calendar"
-        },
+        "#": ["$Table", "$Buttons"],
 
         "$Table": {
             "#element": "div",
@@ -136,18 +234,21 @@
                 "border": "1px solid gray",
                 "background": "white",
                 "display": "none",
+                "z-index": 5,
                 "#": ["$List", "$Buttons"],
 
                 "$List": {
                     "#element": "div",
                     "@id": "profile-list",
-                    "flex": 1
+                    "flex": 1,
+                    "border": "1px solid gray",
+                    "margin": "0.5em"
                 },
 
                 "$Buttons": {
                     "#element": "div",
                     "width": "60%",
-                    "margin": "0.5em auto",
+                    "margin": "auto",
                     "#": "$Cancel",
 
                     "$Cancel": {
@@ -155,7 +256,7 @@
                         "@id": "calendar-dialog-cancel-button",
                         "width": "6em",
                         "height": "2em",
-                        "margin-top": "1em",
+                        "margin": "0.5em 0",
                         "#content": "Cancel"
                     }
                 }
@@ -218,11 +319,11 @@
                 "height": "2em",
                 "padding": "0.5em",
                 "background": "$Background",
-                "#": ["$DayName", "$Profile1", "$Time", "$Profile2"],
+                "#": ["$DayName", "$Time", "$Profile"],
 
                 "$DayName": {
                     "#element": "div",
-                    "width": "3em",
+                    "width": "5em",
                     "text-align": "left",
                     "font-weight": "bold",
                     "pointer-events": "none",
@@ -230,29 +331,46 @@
                     "#content": "$Name"
                 },
 
-                "$Profile1": {
-                    "#element": "div",
-                    "@id": "profile1-$Index",
-                    "flex": 1,
-                    "border-left": "1px solid gray",
-                    "cursor": "pointer",
-                    "#content": "&nbsp;"
-                },
-
                 "$Time": {
                     "#element": "div",
-                    "@id": "profile-time-$Index",
-                    "width": "5em",
-                    "border-left": "1px solid gray",
-                    "cursor": "pointer",
-                    "#content": "&nbsp;"
+                    "width": "7em",
+                    "height": "100%",
+                    "position": "relative",
+                    "display": "flex",
+                    "align-items": "center",
+                    "#": ["$Down", "$TimeText", "$Up"],
+
+                    "$Down": {
+                        "#element": "img",
+                        "@id": "time-down-$Index",
+                        "@src": "resources/icon/down.png",
+                        "width": "1.5em",
+                        "height": "1.5em",
+                        "padding": "0 0.25em"
+                    },
+
+                    "$TimeText": {
+                        "#element": "div",
+                        "@id": "time-$Index",
+                        "flex": "1",
+                        "cursor": "pointer"
+                    },
+
+                    "$Up": {
+                        "#element": "img",
+                        "@id": "time-up-$Index",
+                        "@src": "resources/icon/up.png",
+                        "width": "1.5em",
+                        "height": "1.5em",
+                        "padding": "0 0.25em"
+                    }
                 },
 
-                "$Profile2": {
+                "$Profile": {
                     "#element": "div",
-                    "@id": "profile2-$Index",
+                    "@id": "profile-$Index",
                     "flex": 1,
-                    "border-left": "1px solid gray",
+                    "height": "1em",
                     "cursor": "pointer",
                     "#content": "&nbsp;"
                 }

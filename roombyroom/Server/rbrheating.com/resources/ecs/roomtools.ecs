@@ -37,7 +37,6 @@
     variable Timestamp
     variable DateFormat
     variable Item
-    variable Text
     variable N
 
 !    debug step
@@ -99,6 +98,7 @@ Editor:
         put empty into Result
     	rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
         run Script with MainPanel and Map and ClickIndex and Result
+        if left 4 of Result is `Help` exit
         if Result is `Changed` go to ExitWithChanges else go to ExitWithoutChanges
     end
     

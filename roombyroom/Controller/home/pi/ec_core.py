@@ -205,14 +205,14 @@ class Core(Handler):
                     command['target'] = self.getToken()
                     self.add(command)
                     return True
-                FatalError(self.program.compiler, f'{self.code[self.pc].lino}: Symbol expected')
+                FatalError(self.program.compiler, 'Symbol expected')
             else:
                 # First value must be a variable
                 if command['value1']['type'] == 'symbol':
                     command['target'] = command['value1']['name']
                     self.add(command)
                     return True
-                FatalError(self.compiler, f'{self.code[self.pc].lino}: First value must be a variable')
+                FatalError(self.compiler, 'First value must be a variable')
         return False
 
     def r_divide(self, command):
@@ -282,7 +282,7 @@ class Core(Handler):
         try:
             label = self.symbols[label + ':']
         except:
-            FatalError(self.compiler, f'There is no label "{label + ":"}"')
+            RuntimeError(self.program, f'There is no label "{label + ":"}"')
             return None
         self.run(label)
         return next
@@ -327,7 +327,7 @@ class Core(Handler):
         if address != None:
             self.stack.append(self.nextPC())
             return address
-        FatalError(self.program.compiler, f'There is no label "{label + ":"}"')
+        RuntimeError(self.program, f'There is no label "{label + ":"}"')
         return None
 
     def k_go(self, command):
@@ -345,7 +345,7 @@ class Core(Handler):
         label = f'{command["goto"]}:'
         if self.symbols[label]:
             return self.symbols[label]
-        FatalError(self.program.compiler, f'There is no label "{label}"')
+        RuntimeError(self.program, f'There is no label "{label}"')
         return None
 
     def r_gotoPC(self, command):
@@ -462,14 +462,14 @@ class Core(Handler):
                     command['target'] = self.getToken()
                     self.add(command)
                     return True
-                FatalError(self.program.compiler, f'{self.code[self.pc].lino}: Symbol expected')
+                FatalError(self.program.compiler, 'Symbol expected')
             else:
                 # First value must be a variable
                 if command['value1']['type'] == 'symbol':
                     command['target'] = command['value1']['name']
                     self.add(command)
                     return True
-                FatalError(self.program.compiler, f'{self.code[self.pc].lino}: First value must be a variable')
+                FatalError(self.program.compiler, 'First value must be a variable')
         return False
 
     def r_multiply(self, command):
@@ -516,7 +516,7 @@ class Core(Handler):
                     elif token == 'writing':
                         mode = 'w'
                     else:
-                        FatalError(self.program.compiler, f'{self.code[self.pc].lino}: Unknown file open mode {self.getToken()}')
+                        FatalError(self.program.compiler, 'Unknown file open mode {self.getToken()}')
                         return False
                     command['mode'] = mode
                     self.add(command)
@@ -613,7 +613,7 @@ class Core(Handler):
             return -1
         symbolRecord = self.getVariable(command['target'])
         if not symbolRecord['valueHolder']:
-            FatalError(self.program.compiler, f'{symbolRecord["name"]} does not hold a value')
+            RuntimeError(self.program, f'{symbolRecord["name"]} does not hold a value')
             return -1
         self.putSymbolValue(symbolRecord, value)
         return self.nextPC()
@@ -1042,7 +1042,7 @@ class Core(Handler):
     def incdec(self, command, mode):
         symbolRecord = self.getVariable(command['target'])
         if not symbolRecord['valueHolder']:
-            FatalError(self.program.compiler, f'{symbolRecord["name"]} does not hold a value')
+            RuntimeError(self.program, f'{symbolRecord["name"]} does not hold a value')
             return None
         value = self.getSymbolValue(symbolRecord)
         if mode == '+':
@@ -1312,8 +1312,11 @@ class Core(Handler):
         content = val['content']
         value = {}
         value['type'] = 'int' if isinstance(content, int) else 'text'
-        value['content'] = content[index]
-        return value
+        if type(content) == list:
+            value['content'] = content[index]
+            return value
+        lino = self.program.code[self.program.pc]['lino']
+        RuntimeError(self.program, 'Item is not an array')
 
     def v_elements(self, v):
         value = {}
@@ -1472,7 +1475,7 @@ class Core(Handler):
         try:
             val = content.get(name)
         except:
-            FatalError(self.program.compiler, f'"{name}" does not have any properties')
+            RuntimeError(self.program, f'"{name}" does not have any properties')
             return None
         value = {}
         value['content'] = val

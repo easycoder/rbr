@@ -120,8 +120,12 @@ class Compiler:
 		return self.compileSymbol(command, self.nextToken(), valueHolder)
 
 	def compileSymbol(self, command, name, valueHolder):
-		if hasattr(self.symbols, name):
-			FatalError(self, f'{self.code[self.pc].lino}: Duplicate symbol name "{name}"')
+		try:
+			v = self.symbols[name]
+		except:
+			v = None
+		if v:
+			FatalError(self, f'Duplicate symbol name "{name}"')
 			return False
 		self.symbols[name] = self.getPC()
 		command['type'] = 'symbol'

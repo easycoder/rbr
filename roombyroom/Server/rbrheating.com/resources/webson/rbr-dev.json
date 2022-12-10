@@ -89,7 +89,7 @@
             "width": "100%",
             "height": "100%",
             "display": "none",
-            "background": "rgba(0, 0, 0, 0.5)"
+            "background": "rgba(128, 128, 128, 0.5)"
         }
     },
 
@@ -112,7 +112,7 @@
             "width": "100%",
             "height": "100%",
             "display": "none",
-            "background": "rgba(0, 0, 0, 0.5)"
+            "background": "rgba(128, 128, 128, 0.5)"
         },
 
         "$Panels": {
@@ -129,20 +129,32 @@
                 "background": "white",
                 "padding": "0.25em 0",
                 "font-weight": "bold",
-                "#": ["$SystemName", "$Profile"],
+                "display": "flex",
+                "align-items": "center",
+                "#": ["$SystemName", "$Calendar", "$Profile"],
 
                 "$SystemName": {
                     "#element": "span",
                     "@id": "system-name",
-                    "float": "left",
-                    "margin": ".5em 0 0 1em"
+                    "flex": 1,
+                    "margin-left": "0.5em",
+                    "text-align": "left"
+                },
+
+                "$Calendar": {
+                    "#element": "img",
+                    "@id": "calendar-icon",
+                    "width": "1em",
+                    "height": "1em",
+                    "margin-right": "0.5em",
+                    "@src": "resources/icon/calendar.png"
                 },
 
                 "$Profile": {
                     "#element": "button",
                     "@id": "profile-button",
                     "#content": "Profile",
-                    "float": "right",
+                    "width": "auto",
                     "height": "2em",
                     "font-size": "1.1em"
                 }
@@ -157,7 +169,7 @@
                 "width": "100%",
                 "height": "2.75em",
                 "display": "none",
-                "background": "rgba(0, 0, 0, 0.5)"
+                "background": "rgba(128, 128, 128, 0.5)"
             },
 
             "$ModePanel": {
@@ -229,7 +241,7 @@
         "width": "100%",
         "height": "100%",
         "display": "none",
-        "background": "rgba(0, 0, 0, 0.5)"
+        "background": "rgba(128, 128, 128, 0.5)"
     },
 
     "$StatusPanel": {
@@ -239,7 +251,7 @@
         "position": "absolute",
         "bottom": 0,
         "width": "100%",
-        "background": "rgba(255,255,255,0.25)",
+        "background": "rgba(255, 255, 255, 0.25)",
         "color": "red",
         "#content": "No errors"
     }

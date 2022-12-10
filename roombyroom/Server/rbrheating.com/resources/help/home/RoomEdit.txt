@@ -1,6 +1,6 @@
 ## Room Editor
 
-The Room Editor is where you configure each of your rooms. It starts with a menu, headed by the name of the room, where you can
+The Room Editor is where you configure each of your rooms. It consists of a menu, headed by the name of the room, where you can
 
   - Edit the room name - see the ~tid:RoomName:Room Name editor~
   - Edit the IP addresses of the temperature sensor and each of the relays controlled in this room - see the ~tid:Devices:Device IP editor~
@@ -10,4 +10,4 @@ The Room Editor is where you configure each of your rooms. It starts with a menu
 
 ~sid:Index:Index of pages~
 
-~img:roomedit.png:50% center~
+~img:roomeditmenu.png:50% center~

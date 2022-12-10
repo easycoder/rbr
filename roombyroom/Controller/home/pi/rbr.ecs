@@ -13,6 +13,7 @@
     variable CurrentProfile
     variable Profiles
     variable Profile
+    variable ProfileName
     variable Map
     variable MapObject
     variable NewMap
@@ -26,6 +27,7 @@
     variable Relays
     variable Relay
     variable RelayType
+    variable Timestamp
     variable Temperature
     variable SensorData
     variable RoomCount
@@ -50,10 +52,16 @@
     variable TPPassword
     variable Response
     variable SimulatorData
+    variable Calendar
+    variable Time
+    variable Day
     variable RA
+    variable D
     variable E
     variable N
+    variable P
     variable R
+    variable W
 
 !    debug step
 
@@ -64,11 +72,19 @@
     put empty into Password
 
     ! Read the MAC address
-    open File Path cat `/mac` for reading
-    read MAC from File
-    close File
-    put trim MAC into MAC
-    print `MAC: ` cat MAC
+    if file Path cat `/mac` exists
+    begin
+        open File Path cat `/mac` for reading
+        read MAC from File
+        close File
+        put trim MAC into MAC
+        print `MAC: ` cat MAC
+    end
+    else
+    begin
+        system `sh update.sh`
+        exit
+    end
 
     ! Read the saved password
     if file Path cat `/password` exists
@@ -80,9 +96,19 @@
     else put empty into Password
     print `Saved Password: ` cat Password
 
-    ! Ask the server for our password
+    ! Ask the server for our password and other data
     get RegData from Server cat `/register/` cat MAC cat `?v=` cat now
     put json RegData into RegData
+    if property `reboot` of RegData is not empty
+    begin
+        system `echo $(cat mypass) | sudo reboot`
+        exit
+    end
+    if property `update` of RegData is not empty
+    begin
+        system `sh update.sh`
+        exit
+    end
     put property `password` of RegData into Value
 
     ! Check if passwords match
@@ -123,6 +149,7 @@
     end
 
 Start:
+    add 9 to now giving Timestamp
     ! If there's a map, load it; otherwise request it from the server
     if file Path cat `/map` exists
     begin
@@ -148,12 +175,54 @@ ProcessMap:
     end
 
     put json Map into MapObject
+
     put property `profiles` of MapObject into Profiles
+    ! If the Calendar is on, find which profile is active
+    if property `calendar` of MapObject is `off` go to L2
+    put property `calendar-data` of MapObject into Calendar
+    if Calendar is empty go to L2
+    ! Examine the data for today
+    put the weekday into W
+    put element W of Calendar into Day
+    if stringify Day is not `{}`
+    begin
+        put `day` cat W cat `-time` into P
+        put property P of Day into Time
+        multiply Time by 360
+        add today to Time
+        divide Time by 1000
+        if now is greater than Time
+        begin
+            put `day` cat W cat `-profile` into P
+            put property P of Day into ProfileName
+            gosub to FindProfile
+            if CurrentProfile is less than 0 go to L2
+            go to DoRooms
+        end
+    end
+    ! Go back through the days to find the most recent profile change
+    put W into D
+L1:
+    take 1 from D
+    if D is not W
+    begin
+        put element D of Calendar into Day
+        if stringify Day is `{}` go to L1
+        put `day` cat D cat `-profile` into P
+        put property P of Day into ProfileName
+        gosub to FindProfile
+        if CurrentProfile is less than 0 go to L2
+        go to DoRooms
+    end
+
+L2:
     put property `profile` of MapObject into CurrentProfile
+DoRooms:
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
     print `Profile: ` cat property `name` of Profile
     put json `{}` into SensorData
+    set property `actual` of SensorData to CurrentProfile
     set property `status` of SensorData to ``
     put the count of Rooms into RoomCount
     if RoomCount is 0
@@ -172,15 +241,17 @@ ProcessMap:
             gosub to ProcessRoom
             add 1 to RoomNumber
         end
+
+        ! Deal with the request relay
         put property `request` of MapObject into RequestIP
         if RequestIP is not empty
         begin
             if RequestCount is 0 put `off` into Turn
             else put `on` into Turn
+            print `Request is ` cat Turn
             post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn giving Response
             if Response is `Error` set property `status` of SensorData to `Request relay did not respond`
         end
-        print SimulatorData
         open File Path cat `/simulator` for writing
         write stringify SimulatorData to File
     end
@@ -194,19 +265,33 @@ ProcessMap:
     print `Repeat ` cat RepeatCount cat ` done`
     if RepeatCount is less than 6
     begin
-        wait 9 seconds
+        while now is less than Timestamp wait 50 ticks
         go to Start
     end
 
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Find a profile
+FindProfile:
+    put 0 into P
+    while P is less than the count of Profiles
+    begin
+        put element P of Profiles into Profile
+        if property `name` of Profile is ProfileName
+        begin
+            put P into CurrentProfile
+            return
+        end
+        add 1 to P
+    end
+    put -1 into CurrentProfile
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the map
 UpdateMap:
 !   Send sensors and update the map from the website
-!    open File Path cat `/password` for reading
-!    read Password from File
-    close File
     put stringify SensorData into Sensors
     get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
     if NewMap is not Map
@@ -265,6 +350,19 @@ PR2:
     put float Temperature into Temperature
     put property `events` of Room into Events
     take 1 from the length of Events giving NPeriods
+
+    ! See if this room is set for winter protection
+    if property `protect` of Room is `yes`
+    begin
+        put float property `ptemp` of Room into Target
+        if Temperature is not greater than Target
+        begin
+            print `Frost protect ON`
+            add 1 to RequestCount
+            set property `protect` of SensorData to Sensor
+        end
+        else set property `protect` of SensorData to empty
+    end
 
     ! Deal with mode requests
     put property `mode` of Room into Mode

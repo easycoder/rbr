@@ -312,6 +312,7 @@
                 break;
 
             case 'stats':
+                // Endpoint: {site root}/resources/php/rest.php/stats/{mac}/{action}/...}
                 doStatistics($conn, $request);
                 break;
 

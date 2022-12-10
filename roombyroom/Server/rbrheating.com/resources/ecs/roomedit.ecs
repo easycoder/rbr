@@ -21,9 +21,12 @@
     button CancelButton
     button DialogButton1
     button DialogButton2
+    button DialogButton3
     input DialogInput
+    input ProtectTemp
     input P100Email
     input P100Password
+    input Protect
     textarea TextArea
     select RelayTypes
     variable ProfileNumber
@@ -123,11 +126,17 @@ DevicesButtonCB:
     attach TextArea to `dialog-textarea`
     attach DialogButton1 to `dialog-button1`
     attach DialogButton2 to `dialog-button2`
+    attach DialogButton3 to `dialog-button3`
     attach DialogInput to `dialog-input`
     attach RelayTypes to `relayType`
     attach P100Login to `p100-login`
     attach P100Email to `p100-email`
     attach P100Password to `p100-password`
+    attach ProtectTemp to `dialog-winter-temp`
+    attach Protect to `dialog-winter-protect`
+    
+    if property `protect` of RoomSpec is `yes` set attribute `checked` of Protect to `checked`
+    set the content of ProtectTemp to  property `ptemp` of RoomSpec
     
     put `[]` into List
     json add `TP-Link P100` to List
@@ -171,7 +180,8 @@ DevicesButtonCB:
     set the content of DialogText to `Type the IP address of the temperature sensor`
     set the content of DialogText2 to `Type the IP addresses of the relays, 1 per line`
     set the content of DialogButton1 to `Save`
-    set the content of DialogButton2 to `Cancel`
+    set the content of DialogButton2 to `Help`
+    set the content of DialogButton3 to `Cancel`
     set the content of DialogInput to property `sensor` of RoomSpec
     put property `relays` of RoomSpec into Relays
     put empty into Item
@@ -187,6 +197,12 @@ DevicesButtonCB:
     on click DialogButton1
     begin
         set property `sensor` of RoomSpec to the content of DialogInput
+        if attribute `checked` of Protect
+        begin
+        	set property `protect` of RoomSpec to `yes`
+            set property `ptemp` of RoomSpec to the content of ProtectTemp
+        end
+        else set property `protect` of RoomSpec to `no`
         if property `relayType` of RoomSpec is `TP-Link P100`
         begin
             set property `p100Email` of RoomSpec to the content of P100Email
@@ -211,8 +227,15 @@ DevicesButtonCB:
     on click DialogButton2
     begin
     	clear DialogPanel
+        put `Help home Devices` into Result
+    	exit
+    end
+    
+    on click DialogButton3
+    begin
+    	clear DialogPanel
     	go to ExitWithoutChanges
-        end
+    end
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

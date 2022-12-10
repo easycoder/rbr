@@ -29,8 +29,10 @@
     div Banner
     div AdvanceIndicator
     div StatusPanel
+    div Snowflake
     input Input
     img StatisticsIcon
+    img CalendarIcon
     img Hamburger
     img ModeIcon
     button ProfilesButton
@@ -274,6 +276,7 @@ Main:
     attach ModePanel to `mode-panel`
     attach StatusPanel to `rbr-status`
     attach StatisticsIcon to `statistics-icon`
+    attach CalendarIcon to `calendar-icon`
     attach Hamburger to `hamburger-icon`
     attach ProfilesButton to `profile-button`
 
@@ -393,10 +396,6 @@ GetMap:
         if Map is empty stop
         put Map into storage as `map`
     end
-    put property `profile` of Map into CurrentProfile
-    put property `profiles` of Map into Profiles
-    put element CurrentProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms
     if Map is not Map2 set Redraw
     put Map into Map2
 
@@ -418,6 +417,9 @@ GetMap:
     	put `{}` into Systems
     	put Systems into storage as `Systems`
     end
+    
+    if property `calendar` of Map is `on` set style `display` of CalendarIcon to `block`
+    else set style `display` of CalendarIcon to `none`
 
 !    if Demo put Map into storage as `map`
 
@@ -433,16 +435,18 @@ GetMap:
         fork to PostMap
     end
 
-	put property `profile` of Map into CurrentProfile
-   	put property `profiles` of Map into Profiles
-    put element CurrentProfile of Profiles into Profile
-    put property `name` of Profile into Name
-    set the text of ProfilesButton to `Profile: ` cat Name
-
 	! Get the current sensor values
 	if Demo put DemoSensors into Sensors
     else rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
         or go to HandleRestError
+
+   	put property `profiles` of Map into Profiles
+	put property `actual` of Sensors into CurrentProfile
+    if CurrentProfile is empty put property `profile` of Map into CurrentProfile
+    put element CurrentProfile of Profiles into Profile
+    put property `name` of Profile into Name
+    set the text of ProfilesButton to `Profile: ` cat Name
+    put property `rooms` of Profile into Rooms
 
     put the json count of Rooms into R
     if R is RoomCount clear Redraw
@@ -470,6 +474,7 @@ GetMap:
     set the elements of ModeIcon to RoomCount
     set the elements of ModeText to RoomCount
     set the elements of AdvanceIndicator to RoomCount
+    set the elements of Snowflake to RoomCount
 
 	! Draw a row for each room
     put 0 into RoomIndex
@@ -486,6 +491,7 @@ GetMap:
         index RoomToolsButton to RoomIndex
         index ModeText to RoomIndex
         index AdvanceIndicator to RoomIndex
+        index Snowflake to RoomIndex
 
         put property `room-` cat RoomIndex of StaticData into RoomData
         if RoomData is empty
@@ -503,10 +509,14 @@ GetMap:
         	put RoomWebson into Webson
         	replace `/ROOM/` with RoomIndex in Webson
         	render Webson in MainPanel
-            attach ModeHolder to `room-` cat RoomIndex cat `-mode-holder`
         end
 
 		! Attach to various elements of the display
+        attach ModeHolder to `room-` cat RoomIndex cat `-mode-holder` or
+        begin
+        	print `Can't find room-` cat RoomIndex cat `-mode-holder`
+        	stop
+        end
         attach RoomNamePanel to `room-name-` cat RoomIndex or
         begin
         	print `Can't find room-name-` cat RoomIndex
@@ -522,11 +532,21 @@ GetMap:
         	print `Can't find room-tools-` cat RoomIndex
         	stop
         end
+        attach Snowflake to `room-snowflake-` cat RoomIndex or
+        begin
+        	print `Can't find room-snowflake-` cat RoomIndex
+        	stop
+        end
 
 		! Set the room name
 		put element RoomIndex of Rooms into RoomSpec
         put property `name` of RoomSpec into RoomName
         set the content of RoomNamePanel to RoomName
+        
+		if property `protect` of Sensors is SensorIP
+        	set style `display` of Snowflake to `block`
+        else
+        	set style `display` of Snowflake to `none`
         
         put property `relayType` of RoomSpec into RelayType
         if RelayType is `Simulator` set IsSimulator
@@ -571,6 +591,14 @@ GetMap:
             end
         end
 
+		! Deal with the Protect flag
+		if property `protect` of Sensors is SensorIP
+        begin
+        	set style `display` of Snowflake to `block`
+        end
+        else
+        	set style `display` of Snowflake to `none`
+        
         ! Get the mode
         put property `mode` of RoomSpec into Mode
         if Mode is empty put `off` into Mode
@@ -792,6 +820,7 @@ ProcessResult:
     end
     if Result is `Changed`
     begin
+    	clear MainPanel
         fork to PostMap
         set Redraw
         clear Blocked

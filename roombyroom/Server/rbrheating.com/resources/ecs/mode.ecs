@@ -30,6 +30,10 @@
     div Boost4Text
     div AdvanceButton
     div AdvanceText
+    div Mask
+    div BannerMask
+    div TitleMask
+    div MaskLayer
 	img TimedEditIcon
     variable Map2
     variable CurrentProfile
@@ -100,6 +104,10 @@
     attach TimedEditIcon to `timed-edit`
     attach AdvanceButton to `timed-advance`
     attach AdvanceText to `timed-advance-text`
+    attach Mask to `top-level-mask`
+    attach BannerMask to `banner-mask`
+    attach TitleMask to `title-mask`
+    attach MaskLayer to `mask-layer`
 
     put property `target` of RoomSpec into Target
 	set the content of OnTarget to Target cat `&deg;C`
@@ -172,6 +180,10 @@ OnUpDown:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Show the schedule times
 ShowTimes:
+    set style `display` of Mask to `none`
+    set style `display` of BannerMask to `block`
+    set style `display` of TitleMask to `block`
+    set style `display` of MaskLayer to `block`
     set style `visibility` of ModePanel to `hidden`
     put empty into Result
     if PeriodEditScript is empty
