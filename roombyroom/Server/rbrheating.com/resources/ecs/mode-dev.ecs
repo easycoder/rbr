@@ -30,6 +30,10 @@
     div Boost4Text
     div AdvanceButton
     div AdvanceText
+    div Mask
+    div BannerMask
+    div TitleMask
+    div MaskLayer
 	img TimedEditIcon
     variable Map2
     variable CurrentProfile
@@ -100,6 +104,10 @@
     attach TimedEditIcon to `timed-edit`
     attach AdvanceButton to `timed-advance`
     attach AdvanceText to `timed-advance-text`
+    attach Mask to `top-level-mask`
+    attach BannerMask to `banner-mask`
+    attach TitleMask to `title-mask`
+    attach MaskLayer to `mask-layer`
 
     put property `target` of RoomSpec into Target
 	set the content of OnTarget to Target cat `&deg;C`
@@ -172,11 +180,15 @@ OnUpDown:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Show the schedule times
 ShowTimes:
+    set style `display` of Mask to `none`
+    set style `display` of BannerMask to `block`
+    set style `display` of TitleMask to `block`
+    set style `display` of MaskLayer to `block`
     set style `visibility` of ModePanel to `hidden`
     put empty into Result
     if PeriodEditScript is empty
     	rest get PeriodEditScript from `/resources/ecs/periodedit-dev.ecs?v=` cat now
-    run PeriodEditScript with MainPanel and Map and ClickIndex and Result
+    run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -206,7 +218,7 @@ Boost1:
 Boost2:
 	gosub to ResetBoostButtons
     set style `color` of Boost2Text to `#508e62`
-    put 30 into Boost
+    put 3 into Boost
 	go to SelectBoost
 
 Boost3:
@@ -390,7 +402,7 @@ FlashAdvance:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the current room set from the map
 GetCurrentRooms:
-	put property `profile` of Map into CurrentProfile
+	put property `actual` of Sensors into CurrentProfile
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms        
@@ -399,7 +411,7 @@ GetCurrentRooms:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Copy the current room set to the map
 CopyRoomsToMap:
-	put property `profile` of Map into CurrentProfile
+	put property `actual` of Sensors into CurrentProfile
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
     set property `rooms` of Profile to Rooms  

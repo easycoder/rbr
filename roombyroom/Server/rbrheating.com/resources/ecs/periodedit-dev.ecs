@@ -4,6 +4,7 @@
     
     import div MainPanel
     	and variable Map
+        and variable CurrentProfile
         and variable ClickIndex
         and variable Result
 
@@ -33,7 +34,6 @@
     variable Webson
     variable Rooms
     variable RoomSpec
-    variable ProfileNumber
     variable Profiles
     variable Profile
     variable EventWebson
@@ -443,20 +443,18 @@ UpdateValues:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the current room set from the map
 GetCurrentRooms:
-	put property `profile` of Map into ProfileNumber
    	put property `profiles` of Map into Profiles
-    put element ProfileNumber of Profiles into Profile
+    put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms        
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Copy the current room set to the map
 CopyRoomsToMap:
-	put property `profile` of Map into ProfileNumber
    	put property `profiles` of Map into Profiles
-    put element ProfileNumber of Profiles into Profile
+    put element CurrentProfile of Profiles into Profile
     set property `rooms` of Profile to Rooms  
-    set element ProfileNumber of Profiles to Profile
+    set element CurrentProfile of Profiles to Profile
     set property `profiles` of Map to Profiles
 	return
         

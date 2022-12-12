@@ -90,12 +90,13 @@
     begin
         set style `display` of CalendarOff to `none`
         set style `display` of CalendarOn to `flex`
+        set style `display` of ProfilesMask to `block`
     end
     else
     begin
         set style `display` of CalendarOn to `none`
         set style `display` of CalendarOff to `flex`
-        set style `display` of ProfilesMask to `block`
+        set style `display` of ProfilesMask to `none`
     end
     
     on click CalendarOff

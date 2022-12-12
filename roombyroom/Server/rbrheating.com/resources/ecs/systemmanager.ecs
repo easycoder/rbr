@@ -6,10 +6,12 @@
     	and variable MAC
         and variable Password
         and variable Map
+        and variable Sensors
         and variable Server
     	and variable Flag
         and variable Result
     
+    div SystemVersion
     div SystemManager
     div SystemSelect
     div SystemNames
@@ -47,6 +49,7 @@
     set style `left` of SystemManager to `10%`
     rest get Webson from `/resources/webson/systemmanager.json?v=` cat now
     render Webson in SystemManager
+    attach SystemVersion to `system-version`
     attach SystemSelect to `system-select`
     attach SystemNames to `system-names`
     attach LoginPanel to `login`
@@ -57,6 +60,9 @@
     attach CancelButton to `cancel-button`
     attach OKPadding to `ok-padding`
     attach RemovePadding to `remove-padding`
+    
+    if property `version` of Sensors is not empty
+    	set the content of SystemVersion to `System version ` cat property `version` of Sensors
 
     get Systems from storage as `Systems`
     if Systems is empty put `{}` into Systems

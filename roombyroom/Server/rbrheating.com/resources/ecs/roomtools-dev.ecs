@@ -96,7 +96,7 @@ Editor:
     	rest get Webson from `/resources/webson/roomeditmenu.json?v=` cat now
         render Webson in MainPanel
         put empty into Result
-    	rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
+    	rest get Script from `/resources/ecs/roomedit-dev.ecs?v=` cat now
         run Script with MainPanel and Map and CurrentProfile and ClickIndex and Result
         if left 4 of Result is `Help` exit
         if Result is `Changed` go to ExitWithChanges else go to ExitWithoutChanges

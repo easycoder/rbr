@@ -69,6 +69,7 @@
             "@id": "rbr-banner",
             "font-size": "2em",
             "font-weight": "bold",
+            "user-select": "none",
             "color": "#450"
         },
 
@@ -76,8 +77,9 @@
             "#element": "div",
             "font-size": "<#parent_width/35>",
             "font-family": "Arial, SansSerif",
-            "#content": "Intelligent heating when and where you need it",
-            "color": "#450"
+            "user-select": "none",
+            "color": "#450",
+            "#content": "Intelligent heating when and where you need it"
         },
 
         "$BannerMask": {

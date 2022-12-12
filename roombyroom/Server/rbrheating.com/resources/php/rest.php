@@ -474,20 +474,22 @@
 
             case 'boost':
                 // Handle a 'boost' request (sent by controller)
-                // Endpoint: {site root}/resources/php/rest.php/boost/{mac}/{password}/{roomindex}/{target}
+                // Endpoint: {site root}/resources/php/rest.php/boost/{mac}/{password}/{profile}/{roomindex}/{target}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $roomindex = intval(trim($request[2]));
-                $target = intval(trim($request[3]));
+                $currentProfile = intval(trim($request[2]));
+                $roomIndex = intval(trim($request[3]));
+                $target = intval(trim($request[4]));
                 $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $map = $row->map;
                     $map = base64_decode($map);
                     $map = json_decode($map);
-                    $profile = $map->profiles[$map->profile];
-                    $profile->rooms[$roomindex]->boost = $target;
+                    // $profile = $map->profiles[$map->profile];
+                    $profile = $map->profiles[$currentProfile];
+                    $profile->rooms[$roomIndex]->boost = $target;
                     if ($target == 0) {
-                        $profile->rooms[$roomindex]->mode = $profile->rooms[$roomindex]->prevmode;
+                        $profile->rooms[$roomIndex]->mode = $profile->rooms[$roomIndex]->prevmode;
                     }
                     $map = json_encode($map);
                     $map = base64_encode($map);

@@ -1,4 +1,4 @@
-!    RBR Controller script for Python/EasyCoder
+!    RBR Controller script for Python/EasyCoder, 11/12/2022 19:40
 
 !   This script manages the local hardware - sensors and relays - to act
 !   in accordance with the rules in the system map.
@@ -292,10 +292,12 @@ FindProfile:
 !   Update the map
 UpdateMap:
 !   Send sensors and update the map from the website
+    set property `version` of SensorData to Version
     put stringify SensorData into Sensors
     get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
     if NewMap is not Map
     begin
+        print `New map received`
         put json NewMap into MapObject
         put property `profiles` of MapObject into Profiles
         put property `profile` of MapObject into CurrentProfile
@@ -310,7 +312,7 @@ UpdateMap:
             put NewMap into Map
         end
         else print `Bad map received from server`
-        go to ProcessMap
+!        go to ProcessMap
     end
     return
 
@@ -377,10 +379,8 @@ PR2:
             add the timestamp to Target
             if Password is not empty
             begin
-                print Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
-                    cat RoomNumber cat `/` cat Target
                 post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
-                    cat RoomNumber cat `/` cat Target giving Response
+                    cat CurrentProfile cat `/` cat RoomNumber cat `/` cat Target giving Response
                 if Response is not empty print `Error sending boost data`
             end
         end

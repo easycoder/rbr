@@ -427,14 +427,6 @@ GetMap:
     set the content of SystemNamePanel to SystemName
     on click ProfilesButton go to DoProfiles
 
-	put property `default-profile-name` of Map into Name
-    if Name is empty
-    begin
-    	put `Default` into Name
-        set property `default-profile-name` of Map to Name
-        fork to PostMap
-    end
-
 	! Get the current sensor values
 	if Demo put DemoSensors into Sensors
     else rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
@@ -442,7 +434,7 @@ GetMap:
 
    	put property `profiles` of Map into Profiles
 	put property `actual` of Sensors into CurrentProfile
-    if CurrentProfile is empty put property `profile` of Map into CurrentProfile
+    if `` cat CurrentProfile is empty put property `profile` of Map into CurrentProfile
     put element CurrentProfile of Profiles into Profile
     put property `name` of Profile into Name
     set the text of ProfilesButton to `Profile: ` cat Name
@@ -730,14 +722,14 @@ GetMap:
                     add 1 to Boost
                     if Boost is 1 set the content of BoostName to Boost cat ` min`
                     else set the content of BoostName to Boost cat ` mins`
-!                    if the value of Boost is less than 1
-!                    begin
-!                        set property `mode` of RoomSpec to property `prevmode` of RoomSpec
-!                        set element RoomIndex of Rooms to RoomSpec
-!                        gosub to CopyRoomsToMap
-!                        fork to PostMap
-!                        set Refresh
-!                    end
+                    if the value of Boost is less than 1
+                    begin
+                        set property `mode` of RoomSpec to property `prevmode` of RoomSpec
+                        set element RoomIndex of Rooms to RoomSpec
+                        gosub to CopyRoomsToMap
+                        fork to PostMap
+                        set Refresh
+                    end
                 end
             end
             else if Mode is `on`
@@ -771,7 +763,7 @@ GetMap:
                 on click ProfilesButton begin end
                 put the index of ModeIcon into ClickIndex
                 if ModeScript is empty
-                    rest get ModeScript from `/resources/ecs/mode.ecs?v=` cat now
+                    rest get ModeScript from `/resources/ecs/mode-dev.ecs?v=` cat now
             			or go to HandleRestError
                 run ModeScript with MainPanel
                     and ModePanel
@@ -919,7 +911,7 @@ SystemManager:
     clear MainPanel
     rest get Script from `/resources/ecs/systemmanager.ecs?v=` cat now
     	or go to HandleRestError
-    run Script with MainPanel and MAC and Password and Map and Server and Flag and Result
+    run Script with MainPanel and MAC and Password and Map and Sensors and Server and Flag and Result
     if Result is `OK`
     begin
         put MAC into storage as `MAC`
@@ -1131,7 +1123,7 @@ RoomTools:
             or go to HandleRestError
     render RoomToolsMenuWebson in MainPanel
     put empty into Result
-    rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
+    rest get Script from `/resources/ecs/roomtools-dev.ecs?v=` cat now
     run Script with MainPanel and Map and Sensors and ClickIndex and Result
     go to ProcessResult
 

@@ -7,12 +7,19 @@
     "padding": "0 0.5em 0.5e 0.5em",
     "box-shadow": "0.5em 0.5em 0.5em #444",
     "text-align": "center",
-    "#": ["$Title", "$Select", "$Login", "$Buttons"],
+    "#": ["$Title", "$Version", "$Select", "$Login", "$Buttons"],
 
     "$Title": {
         "#element": "div",
         "font-weight": "bold",
         "#content": "System Manager"
+    },
+
+    "$Version": {
+        "#element": "div",
+        "font-size": "75%",
+        "margin-top": "1em",
+        "@id": "system-version"
     },
 
     "$Select": {
