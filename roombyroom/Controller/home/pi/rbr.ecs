@@ -1,4 +1,4 @@
-!    RBR Controller script for Python/EasyCoder, 11/12/2022 19:40
+!    RBR Controller script for Python/EasyCoder
 
 !   This script manages the local hardware - sensors and relays - to act
 !   in accordance with the rules in the system map.
@@ -384,17 +384,27 @@ PR2:
                 if Response is not empty print `Error sending boost data`
             end
         end
-        else
+        else if Boost is not 0
         begin
             ! Boost contains the timestamp of the target (the end of the boost period).
             put now into N
             take integer Boost from N
             if N is greater than 0
             begin
+                ! Deal with the end of the boost period
                 post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
-                    cat RoomNumber cat `/0`
-                put property `prevmode` of Room into Mode
+                    cat CurrentProfile cat `/` cat RoomNumber cat `/0`
+!                set property `boost` of Room to 0
+!                put property `prevmode` of Room into Mode
+!                set property `mode` of Room to Mode
+!                set element RoomNumber of Rooms to Room
+!                set property `rooms` of Profile to Rooms
+!                set element CurrentProfile of Profiles to Profile
+!                set property `profiles` of MapObject to Profiles
+!                put stringify MapObject into Map
+                print `Boost ended`
             end
+            else print `Boost running`
         end
         ! Use the target setting for 'on' mode
         put float property `target` of Room into Target

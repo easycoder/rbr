@@ -722,14 +722,14 @@ GetMap:
                     add 1 to Boost
                     if Boost is 1 set the content of BoostName to Boost cat ` min`
                     else set the content of BoostName to Boost cat ` mins`
-                    if the value of Boost is less than 1
-                    begin
-                        set property `mode` of RoomSpec to property `prevmode` of RoomSpec
-                        set element RoomIndex of Rooms to RoomSpec
-                        gosub to CopyRoomsToMap
-                        fork to PostMap
-                        set Refresh
-                    end
+!                    if the value of Boost is less than 1
+!                    begin
+!                        set property `mode` of RoomSpec to property `prevmode` of RoomSpec
+!                        set element RoomIndex of Rooms to RoomSpec
+!                        gosub to CopyRoomsToMap
+!                        fork to PostMap
+!                        set Refresh
+!                    end
                 end
             end
             else if Mode is `on`

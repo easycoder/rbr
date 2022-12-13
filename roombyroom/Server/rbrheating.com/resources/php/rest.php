@@ -384,6 +384,27 @@
                 }
                 break;
 
+            case 'map-dev':
+                // Set the system map
+                // Endpoint: {site root}/resources/php/rest.php/map-dev/{mac}/{password}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $map = file_get_contents("php://input");
+                    $map = base64_encode($map);
+//                    print "$map\n";
+                    query($conn, "UPDATE systems SET map='$map', last=$ts WHERE mac='$mac'");
+//                     logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
+                } else {
+                    http_response_code(404);
+//                     logger("SELECT null FROM systems WHERE mac='$mac' AND password='$password'\n");
+//                     logger("{\"message\":\"MAC and password do not match any record.\"}");
+//                     print "SELECT null FROM systems WHERE mac='$mac' AND password='$password'\n";
+                    print "{\"message\":\"MAC and password do not match any record.\"}";
+                }
+                break;
+
             case 'backup':
                 // Set the system backup map
                 // Endpoint: {site root}/resources/php/rest.php/backup/{mac}/{password}
@@ -488,6 +509,7 @@
                     // $profile = $map->profiles[$map->profile];
                     $profile = $map->profiles[$currentProfile];
                     $profile->rooms[$roomIndex]->boost = $target;
+                    // Deal with boost end
                     if ($target == 0) {
                         $profile->rooms[$roomIndex]->mode = $profile->rooms[$roomIndex]->prevmode;
                     }
