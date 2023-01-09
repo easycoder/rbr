@@ -1,0 +1,7 @@
+{
+    "#doc": "The period information component",
+    "#element": "div",
+    "@id": "period-info-/INDEX/",
+    "padding": "1em",
+    "cursor": "pointer"
+}
