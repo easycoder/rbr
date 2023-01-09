@@ -25,9 +25,9 @@
     variable Name
     variable Time
     variable DialogOpen
+    variable Day
     variable Index
     variable Value
-    variable Day
     variable Calendar
     variable DialogResult
     variable D

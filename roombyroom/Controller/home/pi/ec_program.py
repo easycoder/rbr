@@ -225,6 +225,8 @@ class Program:
 		val1 = self.evaluate(value1)
 		val2 = self.evaluate(value2)
 		# print(f'Compare {val1} with {val2}')
+		if val1 == None or val2 == None:
+			return 0
 		v1 = val1['content']
 		v2 = val2['content']
 		if v1 != None and val1['type'] == 'int':

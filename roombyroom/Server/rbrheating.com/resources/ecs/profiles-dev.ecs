@@ -138,8 +138,10 @@
         set style `display` of ProfilesPanel to `none`
         set style `display` of CalendarPanel to `block`
         set the content of PageHeader to `Calendar`
+        set style `margin-bottom` of PageHeader to 0
         run Script with MainPanel and Map and Result
         set the content of PageHeader to `Profiles and Calendar`
+        set style `margin-bottom` of PageHeader to `0.5em`
         set style `display` of ProfilesPanel to `block`
         set style `display` of CalendarPanel to `none`
         if Result is `Changed` set Changed

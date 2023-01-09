@@ -7,7 +7,9 @@
 
     file File
     variable Path
+    variable RamDisk
     variable Server
+    variable LocalServer
     variable Version
     variable RepeatCount
     variable CurrentProfile
@@ -53,11 +55,10 @@
     variable Response
     variable SimulatorData
     variable Calendar
-    variable Time
     variable Day
     variable RA
-    variable D
     variable E
+    variable EE
     variable N
     variable P
     variable R
@@ -67,6 +68,14 @@
 
     put `https://rbrheating.com/resources/php/rest.php` into Server
     put `.` into Path
+    put `/mnt/data` into RamDisk
+
+    open File Path cat `/ip` for reading
+    read LocalServer from File
+    put trim LocalServer into LocalServer
+    close File
+    put `http://` cat LocalServer cat `:5555` into LocalServer
+    print LocalServer
 
     put 0 into RepeatCount
     put empty into Password
@@ -120,11 +129,6 @@
         print `Password: ` cat Value
     end
 
-    ! Make sure there's an 'advance' directory
-    put Path cat `/advance` into Advance
-    if file Advance exists begin end
-    else create directory Advance
-
 !   See if we have the latest system software
     if file Path cat `/version` exists
     begin
@@ -145,22 +149,32 @@
         close File
         print `Updated to version ` cat Value
         wait 5
+        system `echo $(cat mypass) | sudo reboot`
         exit
     end
+
+!   Make sure there's an 'advance' directory
+!    put Path cat `/advance` into Advance
+    put RamDisk cat `/advance` into Advance
+    if file Advance exists begin end
+    else create directory Advance
 
 Start:
     add 9 to now giving Timestamp
     ! If there's a map, load it; otherwise request it from the server
-    if file Path cat `/map` exists
+!    if file Path cat `/map` exists
+    if file RamDisk cat `/map` exists
     begin
-        open File Path cat `/map` for reading
+!        open File Path cat `/map` for reading
+        open File RamDisk cat `/map` for reading
         read Map from File
         close File
     end
     else
     begin
         get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-        open File Path cat `/map` for writing
+!        open File Path cat `/map` for writing
+        open File RamDisk cat `/map` for writing
         write trim Map to File
         close File
     end
@@ -175,48 +189,31 @@ ProcessMap:
     end
 
     put json Map into MapObject
-
     put property `profiles` of MapObject into Profiles
+
     ! If the Calendar is on, find which profile is active
-    if property `calendar` of MapObject is `off` go to L2
+    if property `calendar` of MapObject is `off` go to PM2
     put property `calendar-data` of MapObject into Calendar
-    if Calendar is empty go to L2
+    if Calendar is empty go to PM2
     ! Examine the data for today
     put the weekday into W
     put element W of Calendar into Day
-    if stringify Day is not `{}`
+    if stringify Day is not `{}` put property `day` cat W cat `-profile` of Day into ProfileName
+    put 0 into P
+    while P is less than the count of Profiles
     begin
-        put `day` cat W cat `-time` into P
-        put property P of Day into Time
-        multiply Time by 360
-        add today to Time
-        divide Time by 1000
-        if now is greater than Time
+        put element P of Profiles into Profile
+        if property `name` of Profile is ProfileName
         begin
-            put `day` cat W cat `-profile` into P
-            put property P of Day into ProfileName
-            gosub to FindProfile
-            if CurrentProfile is less than 0 go to L2
+            put P into CurrentProfile
             go to DoRooms
         end
+        add 1 to P
     end
-    ! Go back through the days to find the most recent profile change
-    put W into D
-L1:
-    take 1 from D
-    if D is not W
-    begin
-        put element D of Calendar into Day
-        if stringify Day is `{}` go to L1
-        put `day` cat D cat `-profile` into P
-        put property P of Day into ProfileName
-        gosub to FindProfile
-        if CurrentProfile is less than 0 go to L2
-        go to DoRooms
-    end
-
-L2:
+PM2:
     put property `profile` of MapObject into CurrentProfile
+
+!   Process all the rooms
 DoRooms:
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
@@ -252,12 +249,12 @@ DoRooms:
             post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn giving Response
             if Response is `Error` set property `status` of SensorData to `Request relay did not respond`
         end
-        open File Path cat `/simulator` for writing
-        write stringify SimulatorData to File
+        post to LocalServer cat `/simdata/` cat stringify SimulatorData
     end
     gosub to UpdateMap
 
 !   Confirm the message
+
     if Password is not empty post to Server cat `/confirm/` cat MAC cat `/` cat Password
 
     ! Do all the above 6 times
@@ -270,23 +267,6 @@ DoRooms:
     end
 
     exit
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Find a profile
-FindProfile:
-    put 0 into P
-    while P is less than the count of Profiles
-    begin
-        put element P of Profiles into Profile
-        if property `name` of Profile is ProfileName
-        begin
-            put P into CurrentProfile
-            return
-        end
-        add 1 to P
-    end
-    put -1 into CurrentProfile
-    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the map
@@ -305,7 +285,8 @@ UpdateMap:
         put property `rooms` of Profile into Rooms
         if the count of Rooms is not 0
         begin
-            open File Path cat `/map` for writing
+!            open File Path cat `/map` for writing
+            open File RamDisk cat `/map` for writing
             write NewMap to File
             close File
             print `Map updated`
@@ -324,25 +305,30 @@ ProcessRoom:
     put property `relayType` of Room into RelayType
     if RelayType is empty put `` into RelayType
     if Sensor is empty return
-    if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
+!    if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
+    if file RamDisk cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
     return
 
 PR2:
-    ! Make sure there's an 'advance' file
-    if file Path cat `/advance/` cat Sensor exists
+    ! Make sure there's an 'advance' file. Read it into Advance
+!    if file Path cat `/advance/` cat Sensor exists
+    if file RamDisk cat `/advance/` cat Sensor exists
     begin
-        open File Path cat `/advance/` cat Sensor for reading
+!        open File Path cat `/advance/` cat Sensor for reading
+        open File RamDisk cat `/advance/` cat Sensor for reading
         read Advance from File
         close File
     end
     else
     begin
-        open File Path cat `/advance/` cat Sensor for writing
+!        open File Path cat `/advance/` cat Sensor for writing
+        open File RamDisk cat `/advance/` cat Sensor for writing
         put `-` into Advance
         write Advance to File
         close File
     end
-    open File Path cat `/sensors/` cat Sensor cat `.txt` for reading
+!    open File Path cat `/sensors/` cat Sensor cat `.txt` for reading
+    open File RamDisk cat `/sensors/` cat Sensor cat `.txt` for reading
     read SensorValues from File
     close File
     put json SensorValues into SensorValues
@@ -394,14 +380,6 @@ PR2:
                 ! Deal with the end of the boost period
                 post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
                     cat CurrentProfile cat `/` cat RoomNumber cat `/0`
-!                set property `boost` of Room to 0
-!                put property `prevmode` of Room into Mode
-!                set property `mode` of Room to Mode
-!                set element RoomNumber of Rooms to Room
-!                set property `rooms` of Profile to Rooms
-!                set element CurrentProfile of Profiles to Profile
-!                set property `profiles` of MapObject to Profiles
-!                put stringify MapObject into Map
                 print `Boost ended`
             end
             else print `Boost running`
@@ -456,33 +434,54 @@ PR2:
 
 !   This is called in 'timed' mode to deal with the Advance setting
 CheckAdvance:
+    put `` cat E into EE
     put property `advance` of Room into RA
-    if RA is empty put `-` into RA
-    if RA is `A` go to SetAdvance
-    else if RA is `C` go to ClearAdvance
-
-    ! Check if we're past the end of the advance period
-    if Advance is not `-`
+    if RA is empty go to TurnOnOrOff
+    if Advance is `-`
     begin
-        if Advance is not `` cat E go to ClearAdvance
+        if RA is `A`
+        begin
+            put EE into Advance
+            gosub to WriteAdvance
+            go to AcknowlegeAdvance
+        end
+    end
+    else
+    begin
+        if Advance is not EE
+        begin
+            go to CancelAdvance
+        end
+        if RA is `C` go to CancelAdvance
+        if EE is not Advance go to CancelAdvance
     end
     go to TurnOnOrOff
 
-SetAdvance:
-    put `` cat E into Advance
-    go to AcknowlegeAdvance
-
-ClearAdvance:
-    put `-` into Advance
-
-AcknowlegeAdvance:
-    ! Acknowledge the request by resetting the request flag
-    post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat RoomNumber
-    ! Write the new advance state to the sensor spec
-    open File Path cat `/advance/` cat Sensor for writing
+WriteAdvance:
+!    open File Path cat `/advance/` cat Sensor for writing
+    open File RamDisk cat `/advance/` cat Sensor for writing
     write Advance to File
     close File
-    go to TurnOnOrOff
+    return
+
+UpdateAdvance:
+    set property `advance` of Room to `-`
+    set element RoomNumber of Rooms to Room
+    set property `rooms` of Profile to Rooms
+    set element CurrentProfile of Profiles to Profile
+    set property `profiles` of MapObject to Profiles
+    put stringify MapObject into Map
+    return
+
+CancelAdvance:
+    put `-` into Advance
+    gosub to WriteAdvance
+
+!   Clear the advance A or C request in the room record
+AcknowlegeAdvance:
+    gosub to UpdateAdvance
+    ! Ask the server to acknowledge (clear) the request by putting `-` into the room record
+    post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat CurrentProfile cat `/` cat RoomNumber
 
 TurnOnOrOff:
     if Advance is not `-`

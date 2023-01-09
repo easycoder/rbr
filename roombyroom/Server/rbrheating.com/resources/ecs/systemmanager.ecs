@@ -37,6 +37,7 @@
     variable System
     variable SelectedSystem
     variable SystemName
+    variable Version
     variable Keys
     variable Text
     variable K
@@ -61,12 +62,15 @@
     attach OKPadding to `ok-padding`
     attach RemovePadding to `remove-padding`
     
-    if property `version` of Sensors is not empty
-    	set the content of SystemVersion to `System version ` cat property `version` of Sensors
+    if Sensors is not empty
+        if property `version` of Sensors is not empty
+            set the content of SystemVersion to `System version ` cat property `version` of Sensors
+    if Version is empty put 0 into Version
+    set the content of SystemVersion to `System version ` cat Version
 
     get Systems from storage as `Systems`
     if Systems is empty put `{}` into Systems
-    if Map is empty put `` into SystemName
+    if Map is empty put `New system` into SystemName
     else put property `name` of Map into SystemName
     gosub to CreateList
     if the json count of Keys is 0
@@ -108,8 +112,6 @@
         begin
         	json delete property SystemName of Systems
             gosub to CreateList
-            set style `display` of OKButton to `none`
-            set style `display` of OKPadding to `none`
         	remove element DialogPanel
         end
         on click DialogButton2
@@ -197,6 +199,7 @@ SetupAdd:
                 return
             end
             put property `name` of Map into SystemName
+            if SystemName is empty put `New` into SystemName
         end
         put `{}` into System
         set property `mac` of System to MAC

@@ -25,6 +25,8 @@ runuser -l pi -c "tar zxf rbr.tgz"
 echo "Remove the resource pack"
 runuser -l pi -c "rm rbr.tgz"
 echo "Set up cron"
+echo "@reboot mkdir /mnt/data; mount -t tmpfs -o size=1M tmpfs /mnt/data; chmod -R a+w /mnt/data/.*" > cronroot.txt
+crontab cronroot.txt
 runuser -l pi -c "crontab crondata.txt"
 
 echo "Get network information"
@@ -33,7 +35,6 @@ read -p "Please type the IP address of your router (gateway): " gateway
 read -p "Please type a suitable DNS IP address: " dns
 nmcli con add con-name eth0 type ethernet
 nmcli con mod eth0 ipv4.method "manual" ipv4.addresses "$ipaddr/24" ipv4.gateway "$gateway" ipv4.dns "$dns"
-#nmcli device reapply eth0
 
 runuser -l pi -c "echo $password >mypass"
 runuser -l pi -c "echo eth0 >network"

@@ -142,7 +142,7 @@ class Compiler:
 	# Compile the current token
 	def compileToken(self):
 		token = self.getToken()
-		# print(token)
+		# print(f'Compile {token}')
 		if not token:
 			return False
 		mark = self.getIndex()

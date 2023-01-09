@@ -12,7 +12,8 @@ app = Bottle()
 # Called to pass simulator data
 @app.get('/sim/<data>')
 def sim(data):
-    dir = f'/home/pi/sensors'
+    # dir = f'{os.getcwd()}/sensors'
+    dir = '/mnt/data/sensors'
     if not os.path.exists(f'{dir}'):
         os.makedirs(f'{dir}')
     data = json.loads(f'[{data}]')
@@ -47,7 +48,8 @@ def index():
             ts = round(time.time())
             temp = round(float(temp), 1)
 #            print(f'hum={hum}, temp={temp}, source={source}, ts={ts}')
-            dir = f'/home/pi/sensors'
+            # dir = f'{os.getcwd()}/sensors'
+            dir = '/mnt/data/sensors'
             if not os.path.exists(f'{dir}'):
                 os.makedirs(f'{dir}')
             file = open(f'{dir}/{source}.txt', 'w')
@@ -63,7 +65,7 @@ def index():
 # Initialization
 
 if __name__ == '__main__':
-    file = open('/home/pi/ip', 'r')
+    file = open(f'{os.getcwd()}/ip', 'r')
     ip = file.read().strip()
     file.close()
     if ip != '':

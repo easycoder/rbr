@@ -30,6 +30,7 @@
     div AdvanceIndicator
     div StatusPanel
     div Snowflake
+    div Date
     input Input
     img StatisticsIcon
     img CalendarIcon
@@ -277,6 +278,7 @@ Main:
     attach StatusPanel to `rbr-status`
     attach StatisticsIcon to `statistics-icon`
     attach CalendarIcon to `calendar-icon`
+    attach Date to `calendar-date`
     attach Hamburger to `hamburger-icon`
     attach ProfilesButton to `profile-button`
 
@@ -420,6 +422,7 @@ GetMap:
     
     if property `calendar` of Map is `on` set style `display` of CalendarIcon to `block`
     else set style `display` of CalendarIcon to `none`
+    set the content of Date to the day number
 
 !    if Demo put Map into storage as `map`
 
@@ -558,8 +561,8 @@ GetMap:
                 begin
                 	if property `alive` of RoomData is `true`
                     begin
-                    	alert `The sensor for ` cat RoomName cat ` is not reporting. `
-                        	cat `Power down the device then re-power it.`
+                    	alert `The sensor for ` cat RoomName cat ` has not reported recently. `
+                        	cat `If it doesn't come back by itself, power it down then re-power it.`
                     	set property `alive` of RoomData to `false`
                     end
                 end
@@ -644,23 +647,32 @@ GetMap:
             render Webson in ModeHolder
     	    attach ModeText to `room-` cat RoomIndex cat `-mode-text`
 	        attach ModeInfo to `room-` cat RoomIndex cat `-mode-info`
-			put property `status` of SensorSpec into Status
-            if Status is `Good`
-            	set style `color` of ModeText to `black`
-            else
-            	set style `color` of ModeText to `red`
+            if SensorSpec is not empty
+            begin
+                put property `status` of SensorSpec into Status
+                if Status is `Good`
+                    set style `color` of ModeText to `black`
+                else
+                    set style `color` of ModeText to `red`
+            end
         	if Mode is `timed`
             begin
                 put `` cat property `advance` of SensorSpec into Advance
             	if Status is `Good`
                 begin
-                	if Advance is not `-`
+                    if Advance is not empty
                     begin
-                    	set style `color` of ModeText to `green`
-                        attach AdvanceIndicator to `room-` cat RoomIndex cat `-advance-indicator`
-                        set style `display` of AdvanceIndicator to `block`
+                        if Advance is not `-`
+                        begin
+                            if Advance is not `C`
+                            begin
+                                set style `color` of ModeText to `green`
+                                attach AdvanceIndicator to `room-` cat RoomIndex cat `-advance-indicator`
+                                set style `display` of AdvanceIndicator to `block`
+                            end
+                        end
+                        else set style `color` of ModeText to `black`
                     end
-                	else set style `color` of ModeText to `black`
                 end
 
                 put property `events` of RoomSpec into Events
@@ -722,14 +734,6 @@ GetMap:
                     add 1 to Boost
                     if Boost is 1 set the content of BoostName to Boost cat ` min`
                     else set the content of BoostName to Boost cat ` mins`
-!                    if the value of Boost is less than 1
-!                    begin
-!                        set property `mode` of RoomSpec to property `prevmode` of RoomSpec
-!                        set element RoomIndex of Rooms to RoomSpec
-!                        gosub to CopyRoomsToMap
-!                        fork to PostMap
-!                        set Refresh
-!                    end
                 end
             end
             else if Mode is `on`
@@ -1123,7 +1127,7 @@ RoomTools:
             or go to HandleRestError
     render RoomToolsMenuWebson in MainPanel
     put empty into Result
-    rest get Script from `/resources/ecs/roomtools-dev.ecs?v=` cat now
+    rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
     run Script with MainPanel and Map and Sensors and ClickIndex and Result
     go to ProcessResult
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # This script runs every minute as a cron task
-cd /home/pi
+#cd /home/pi
 # Make sure we have the MAC address
 if ! [ -s mac ]
 then

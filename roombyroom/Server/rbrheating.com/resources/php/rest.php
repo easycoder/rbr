@@ -219,20 +219,22 @@
                 // Register a new MAC and get the password.
                 // Endpoint: {site root}/resources/php/rest.php/register/<mac>
                 $mac = trim($request[0]);
-                $result = query($conn, "SELECT password FROM systems WHERE mac='$mac'");
-                if ($row = mysqli_fetch_object($result)) {
-                    $password = $row->password;
-                } else {
-                    $password = rand(100000, 999999);
-                    $map = '{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0}';
-                    $map = base64_encode($map);
-                    query($conn, "INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
-//                     logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
+                if ($mac) {
+                    $result = query($conn, "SELECT password FROM systems WHERE mac='$mac'");
+                    if ($row = mysqli_fetch_object($result)) {
+                        $password = $row->password;
+                    } else {
+                        $password = rand(100000, 999999);
+                        $map = '{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0,"name":"New system"}';
+                        $map = base64_encode($map);
+                        query($conn, "INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
+                        // logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
+                    }
+                    $file = fopen('resources/version', 'r');
+                    $version = trim(fgets($file));
+                    fclose($file);
+                    print '{"password":"'.$password.'","version":"'.$version.'"}';
                 }
-                $file = fopen('resources/version', 'r');
-                $version = trim(fgets($file));
-                fclose($file);
-                print '{"password":"'.$password.'","version":"'.$version.'"}';
                 break;
 
             case 'update':
@@ -471,17 +473,18 @@
                 break;
 
             case 'advance':
-                // Acknowledge an 'advance' request (sent by controller)
-                // Endpoint: {site root}/resources/php/rest.php/advance/{mac}/{password}/{roomindex}
+                // Clear an 'advance' request (sent by controller)
+                // Endpoint: {site root}/resources/php/rest.php/advance/{mac}/{password}/{profile}/{roomindex}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $roomindex = intval(trim($request[2]));
+                $currentProfile = intval(trim($request[2]));
+                $roomindex = intval(trim($request[3]));
                 $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $map = $row->map;
                     $map = base64_decode($map);
                     $map = json_decode($map);
-                    $profile = $map->profiles[$map->profile];
+                    $profile = $map->profiles[$currentProfile];
                     $profile->rooms[$roomindex]->advance = '-';
                     $map = json_encode($map);
                     $map = base64_encode($map);
@@ -506,7 +509,6 @@
                     $map = $row->map;
                     $map = base64_decode($map);
                     $map = json_decode($map);
-                    // $profile = $map->profiles[$map->profile];
                     $profile = $map->profiles[$currentProfile];
                     $profile->rooms[$roomIndex]->boost = $target;
                     // Deal with boost end

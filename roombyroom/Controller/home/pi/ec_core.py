@@ -1,4 +1,4 @@
-import json, math, hashlib, threading, os, requests, time, numbers
+import json, math, hashlib, threading, os, sys, requests, time, numbers
 from datetime import datetime, timezone
 from random import randrange
 from ec_classes import FatalError, RuntimeError
@@ -261,6 +261,7 @@ class Core(Handler):
         return True
 
     def r_exit(self, command):
+        sys.exit()
         return 0
 
     def k_file(self, command):
@@ -1107,10 +1108,10 @@ class Core(Handler):
             if self.nextToken() == 'of':
                 if self.nextIsSymbol():
                     symbolRecord = self.getSymbolRecord()
-                    if symbolRecord['keyword'] == 'variable':
+                    if symbolRecord['valueHolder']:
                         value['target'] = symbolRecord['name']
                         return value
-                self.warning(f'Token \'{self.getToken()}\' is not a variable')
+                self.warning(f'Token \'{self.getToken()}\' does not hold a value')
             return None
 
         if token == 'property':
@@ -1118,10 +1119,10 @@ class Core(Handler):
             if self.nextToken() == 'of':
                 if self.nextIsSymbol():
                     symbolRecord = self.getSymbolRecord()
-                    if symbolRecord['keyword'] == 'variable':
+                    if symbolRecord['valueHolder']:
                         value['target'] = symbolRecord['name']
                         return value
-                self.warning(f'Token \'{self.getToken()}\' is not a variable')
+                self.warning(f'Token \'{self.getToken()}\' does not hold a value')
             return None
 
         if token == 'arg':

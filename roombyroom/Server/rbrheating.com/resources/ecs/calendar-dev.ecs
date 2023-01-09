@@ -6,8 +6,8 @@
     	and variable Map
         and variable Result
 
-    div TimeColumn
-    div ProfileColumn
+    div ProfileRow
+    div ProfileRowText
     div Dialog
     div List
     div DialogRow
@@ -15,24 +15,18 @@
     button HelpButton
     button CancelButton
     button DialogCancelButton
-    img TimeDown
-    img TimeUp
     variable Mobile
     variable Changed
     variable Profile
     variable Profiles
     variable NProfiles
     variable Name
-    variable Time
     variable DialogOpen
-    variable Index
-    variable Value
     variable Day
     variable Calendar
     variable DialogResult
     variable D
     variable P
-    variable T
     
 !    debug step
     
@@ -41,103 +35,51 @@
         if portrait set Mobile
     
 	put property `profiles` of Map into Profiles
-    put `{}` into Profile
-    set property `name` of Profile to `-none-`
-    append Profile to Profiles
     
-    set the elements of TimeColumn to 7
-    set the elements of ProfileColumn to 7
-    set the elements of TimeDown to 7
-    set the elements of TimeUp to 7
-    set the elements of Time to 7
+    set the elements of ProfileRow to 7
+    set the elements of ProfileRowText to 7
 
 	put 0 into D
     while D is less than 7
     begin
-        index TimeColumn to D
-        index ProfileColumn to D
-        index TimeDown to D
-        index TimeUp to D
-        index Time to D
-        attach TimeColumn to `time-` cat D
-        attach ProfileColumn to `profile-` cat D
-        attach TimeDown to `time-down-` cat D
-        attach TimeUp to `time-up-` cat D
-        put 0 into Time
+        index ProfileRow to D
+        index ProfileRowText to D
+        attach ProfileRow to `profile-` cat D
+        attach ProfileRowText to `profile-text-` cat D
     	add 1 to D
     end
-    on click TimeDown
-    begin
-    	put the index of TimeDown into Index
-    	index Time to Index
-        index TimeColumn to Index
-        if the content of TimeColumn is empty put 0 into Time
-        else
-        begin
-            if Time is 0 put 240 into Time
-            take 5 from Time
-        end
-        divide Time by 10 giving T
-        if T is less than 10 put `0` into Value else put empty into Value
-        put Value cat T cat `:` into Value
-        if Time modulo 10 is not 0 put Value cat `30` into Value
-        else put Value cat `00` into Value
-        set the content of TimeColumn to Value
-    end
-    on click TimeUp
-    begin
-    	put the index of TimeUp into Index
-    	index Time to Index
-        index TimeColumn to Index
-        if the content of TimeColumn is empty put 0 into Time
-        else
-        begin
-        	add 5 to Time
-            if Time is 240 put 0 into Time
-        end
-        divide Time by 10 giving T
-        if T is less than 10 put `0` into Value else put empty into Value
-        put Value cat T cat `:` into Value
-        if Time modulo 10 is not 0 put Value cat `30` into Value
-        else put Value cat `00` into Value
-        index TimeColumn to Index
-        set the content of TimeColumn to Value
-    end
-    on click TimeColumn
-    begin
-        set the content of TimeColumn to empty
-    end
-    on click ProfileColumn
+    on click ProfileRow
     begin
     	gosub to GetProfile
         if DialogResult is not empty
         begin
-	        if DialogResult is `-none-` set the content of ProfileColumn to empty
-        	else set the content of ProfileColumn to DialogResult
+        	index ProfileRowText to the index of ProfileRow
+            set the content of ProfileRowText to DialogResult
         end
     end
     
+    put element 0 of Profiles into Profile
+    put property `name` of Profile into Name
     put property `calendar-data` of Map into Calendar
-    if Calendar is not empty
+    if Calendar is empty
     begin
         put 0 into D
         while D is less than 7
         begin
-        	index Time to D
-            index TimeColumn to D
-            index ProfileColumn to D
+            index ProfileRowText to D
+            set the content of ProfileRowText to Name
+            add 1 to D
+        end
+    end
+    else
+    begin
+        put 0 into D
+        while D is less than 7
+        begin
+            index ProfileRowText to D
             put element D of Calendar into Day
-            if Day is not `{}`
-            begin
-                put property `day` cat D cat `-time` of Day into Time
-                divide Time by 10 giving T
-                if T is less than 10 put `0` into Value else put empty into Value
-                put Value cat T cat `:` into Value
-                if Time modulo 10 is not 0 put Value cat `30` into Value
-                else put Value cat `00` into Value
-                set the content of TimeColumn to Value
-                set the content of ProfileColumn to property `day` cat D cat `-profile` of Day
-            end
+            if Day is `{}` set the content of ProfileRowText to Name
+            else set the content of ProfileRowText to property `day` cat D cat `-profile` of Day
             add 1 to D
         end
     end
@@ -156,15 +98,9 @@
         put 0 into D
         while D is less than 7
         begin
-        	index TimeColumn to D
-            index ProfileColumn to D
+            index ProfileRowText to D
             put `{}` into Day
-            if the content of TimeColumn is not empty
-            begin
-            	index Time to D
-                set property `day` cat D cat `-time` of Day to Time
-                set property `day` cat D cat `-profile` of Day to the content of ProfileColumn
-            end
+            set property `day` cat D cat `-profile` of Day to the content of ProfileRowText
         	set element D of Calendar to Day
         	add 1 to D
         end
