@@ -1,0 +1,8 @@
+127.0.0.1   localhost
+127.0.0.1 dnsmasq
+172.24.1.1 dnsmasq rbr.home
+127.0.1.1   orangepizero2
+::1         localhost orangepizero2 ip6-localhost ip6-loopback
+172.24.1.1 gateway
+172.24.1.5 kitchen.rbr.home
+

@@ -1,0 +1,2 @@
+* * * * * sh run.sh
+@reboot sleep 10; sh init.sh

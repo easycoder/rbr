@@ -1,0 +1,15 @@
+!   Test
+
+    script Test
+
+    file File
+    variable Path
+    variable Advance
+
+    put `.` into Path
+    put Path cat `/advance` into Advance
+    if file Advance exists begin end
+    else create directory Advance
+
+    print `Hello`
+    exit

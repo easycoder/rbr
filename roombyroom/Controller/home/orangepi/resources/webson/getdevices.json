@@ -1,0 +1,217 @@
+{
+    "#doc": "Get the sensor and relays",
+    "#element": "div",
+    "background": "white",
+    "border": "1px solid gray",
+    "margin-top": "0.5em",
+    "padding": "0 0.5em 0.5e 0.5em",
+    "box-shadow": "0.5em 0.5em 0.5em #444",
+    "text-align": "center",
+    "#": ["$Title",
+        "$Text",
+        "$Input",
+        "$Clear",
+        "$Winter",
+        "$Clear",
+        "$Span",
+        "$Select",
+        "$P100",
+        "$Text2",
+        "$TextArea",
+        "$Buttons"],
+
+    "$Title": {
+        "#element": "div",
+        "@id": "dialog-title",
+        "font-weight": "bold"
+    },
+
+    "$Text": {
+        "#element": "div",
+        "@id": "dialog-text",
+        "margin": "1em",
+        "#content": "Text"
+    },
+
+    "$Input": {
+        "#element": "input",
+        "@id": "dialog-input",
+        "width": "12em",
+        "margin": "0 auto"
+    },
+
+    "$Winter": {
+        "#element": "div",
+        "position": "relative",
+        "display": "flex",
+        "align-items": "center",
+        "width": "calc(100% - 4em)",
+        "height": "2em",
+        "margin": "0 auto",
+        "padding": "0.3em 1em 0 0",
+        "border": "1px solid gray",
+        "#": ["$Title", "$Trigger", "$Temp", "$Deg", "$Pad", "$Check", "$Protect"],
+
+        "$Title": {
+            "#element": "div",
+            "#content": "&nbsp;Frost Protection&nbsp;",
+            "position": "absolute",
+            "left": "50%",
+            "top": 0,
+            "transform": "translate(-50%, -50%)",
+            "font-size": "80%",
+            "font-weight": "bold",
+            "background": "white"
+        },
+
+        "$Trigger": {
+            "#element": "div",
+            "#content": "&nbsp;Temp&nbsp;"
+        },
+
+        "$Deg": {
+            "#element": "div",
+            "#content": "&nbsp;&deg;C"
+        },
+
+        "$Temp": {
+            "#element": "input",
+            "@id": "dialog-winter-temp",
+            "width": "3em"
+        },
+
+        "$Check": {
+            "#element": "input",
+            "@type": "checkbox",
+            "@id": "dialog-winter-protect",
+            "@value": "protect"
+        },
+
+        "$Protect": {
+            "#element": "div",
+            "#content": "Protect"
+        },
+
+        "$Pad": {
+            "#element": "div",
+            "flex": 1
+        }
+    },
+
+    "$Clear": {
+        "#element": "div",
+        "height": "1em"
+    },
+
+    "$Span": {
+        "#element": "span",
+        "margin": "1em",
+        "#content": "Select the relay type:&nbsp;&nbsp;"
+    },
+
+    "$P100": {
+        "#element": "div",
+        "@id": "p100-login",
+        "margin": "1em",
+        "display": "none",
+        "#content": "P100 login",
+        "#": ["$Email", "$Password"],
+
+        "$Email": {
+            "#element": "div",
+            "#": ["$Title", "$Data"],
+
+            "$Title": {
+                "#element": "span",
+                "margin": "1em",
+                "#content": "Email:&nbsp;&nbsp;"
+            },
+
+            "$Data": {
+                "#element": "input",
+                "@id": "p100-email",
+                "width": "12em",
+                "margin": "0 auto"
+            }
+        },
+
+        "$Password": {
+            "#element": "div",
+            "#": ["$Title", "$Data"],
+
+            "$Title": {
+                "#element": "span",
+                "margin": "1em",
+                "#content": "Password:&nbsp;&nbsp;"
+            },
+
+            "$Data": {
+                "#element": "input",
+                "@id": "p100-password",
+                "width": "12em",
+                "margin": "0 auto"
+            }
+        }
+    },
+
+    "$Select": {
+        "#element": "select",
+        "@id": "relayType",
+        "@name": "relayType"
+    },
+
+    "$Text2": {
+        "#element": "div",
+        "@id": "dialog-text2",
+        "margin": "1em",
+        "#content": "Text"
+    },
+
+    "$TextArea": {
+        "#element": "textarea",
+        "@id": "dialog-textarea",
+        "width": "20em",
+        "height": "4em",
+        "margin": "0 auto"
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "row",
+        "margin": "1em 0",
+        "#": ["$LRPadding", "$Button1", "$CenterPadding", "$Button2", "$CenterPadding", "$Button3", "$LRPadding"],
+
+        "$Button1": {
+            "$ID": "dialog-button1",
+            "#": "$Button"
+        },
+
+        "$Button2": {
+            "$ID": "dialog-button2",
+            "#": "$Button"
+        },
+
+        "$Button3": {
+            "$ID": "dialog-button3",
+            "#": "$Button"
+        },
+
+        "$Button": {
+            "#element": "button",
+            "@id": "$ID",
+            "width": "5em",
+            "height": "1.5em"
+        },
+
+        "$LRPadding": {
+            "#element": "div",
+            "flex": 1
+        },
+
+        "$CenterPadding": {
+            "#element": "div",
+            "width": "1em"
+        }
+    }
+}

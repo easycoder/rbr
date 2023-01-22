@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/data/Projects/rbr/roombyroom/Controller/home/pi/rbr.py", line 68, in <module>
+    file = open(f'{os.getcwd()}/ip', 'r')
+FileNotFoundError: [Errno 2] No such file or directory: '/data/Projects/rbr/roombyroom/Controller/home/pi/ip'
