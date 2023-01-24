@@ -1,0 +1,243 @@
+!	Calendar
+
+	script Calendar
+    
+    import div MainPanel
+    	and variable Map
+        and variable Result
+
+    div TimeColumn
+    div ProfileColumn
+    div Dialog
+    div List
+    div DialogRow
+    button OKButton
+    button HelpButton
+    button CancelButton
+    button DialogCancelButton
+    img TimeDown
+    img TimeUp
+    variable Mobile
+    variable Changed
+    variable Profile
+    variable Profiles
+    variable NProfiles
+    variable Name
+    variable Time
+    variable DialogOpen
+    variable Day
+    variable Index
+    variable Value
+    variable Calendar
+    variable DialogResult
+    variable D
+    variable P
+    variable T
+    
+!    debug step
+    
+    clear Mobile
+    if mobile
+        if portrait set Mobile
+    
+	put property `profiles` of Map into Profiles
+    put `{}` into Profile
+    set property `name` of Profile to `-none-`
+    append Profile to Profiles
+    
+    set the elements of TimeColumn to 7
+    set the elements of ProfileColumn to 7
+    set the elements of TimeDown to 7
+    set the elements of TimeUp to 7
+    set the elements of Time to 7
+
+	put 0 into D
+    while D is less than 7
+    begin
+        index TimeColumn to D
+        index ProfileColumn to D
+        index TimeDown to D
+        index TimeUp to D
+        index Time to D
+        attach TimeColumn to `time-` cat D
+        attach ProfileColumn to `profile-` cat D
+        attach TimeDown to `time-down-` cat D
+        attach TimeUp to `time-up-` cat D
+        put 0 into Time
+    	add 1 to D
+    end
+    on click TimeDown
+    begin
+    	put the index of TimeDown into Index
+    	index Time to Index
+        index TimeColumn to Index
+        if the content of TimeColumn is empty put 0 into Time
+        else
+        begin
+            if Time is 0 put 240 into Time
+            take 5 from Time
+        end
+        divide Time by 10 giving T
+        if T is less than 10 put `0` into Value else put empty into Value
+        put Value cat T cat `:` into Value
+        if Time modulo 10 is not 0 put Value cat `30` into Value
+        else put Value cat `00` into Value
+        set the content of TimeColumn to Value
+    end
+    on click TimeUp
+    begin
+    	put the index of TimeUp into Index
+    	index Time to Index
+        index TimeColumn to Index
+        if the content of TimeColumn is empty put 0 into Time
+        else
+        begin
+        	add 5 to Time
+            if Time is 240 put 0 into Time
+        end
+        divide Time by 10 giving T
+        if T is less than 10 put `0` into Value else put empty into Value
+        put Value cat T cat `:` into Value
+        if Time modulo 10 is not 0 put Value cat `30` into Value
+        else put Value cat `00` into Value
+        index TimeColumn to Index
+        set the content of TimeColumn to Value
+    end
+    on click TimeColumn
+    begin
+        set the content of TimeColumn to empty
+    end
+    on click ProfileColumn
+    begin
+    	gosub to GetProfile
+        if DialogResult is not empty
+        begin
+	        if DialogResult is `-none-` set the content of ProfileColumn to empty
+        	else set the content of ProfileColumn to DialogResult
+        end
+    end
+    
+    put property `calendar-data` of Map into Calendar
+    if Calendar is not empty
+    begin
+        put 0 into D
+        while D is less than 7
+        begin
+        	index Time to D
+            index TimeColumn to D
+            index ProfileColumn to D
+            put element D of Calendar into Day
+            if Day is not `{}`
+            begin
+                put property `day` cat D cat `-time` of Day into Time
+                divide Time by 10 giving T
+                if T is less than 10 put `0` into Value else put empty into Value
+                put Value cat T cat `:` into Value
+                if Time modulo 10 is not 0 put Value cat `30` into Value
+                else put Value cat `00` into Value
+                set the content of TimeColumn to Value
+                set the content of ProfileColumn to property `day` cat D cat `-profile` of Day
+            end
+            add 1 to D
+        end
+    end
+
+    attach OKButton to `calendar-ok-button`
+    attach HelpButton to `calendar-help-button`
+    attach CancelButton to `calendar-cancel-button`
+	attach Dialog to `calendar-dialog`
+    attach List to `profile-list`
+    attach DialogCancelButton to `calendar-dialog-cancel-button`
+
+    on click OKButton
+    begin
+    	if DialogOpen stop
+        put `[]` into Calendar
+        put 0 into D
+        while D is less than 7
+        begin
+        	index TimeColumn to D
+            index ProfileColumn to D
+            put `{}` into Day
+            if the content of TimeColumn is not empty
+            begin
+            	index Time to D
+                set property `day` cat D cat `-time` of Day to Time
+                set property `day` cat D cat `-profile` of Day to the content of ProfileColumn
+            end
+        	set element D of Calendar to Day
+        	add 1 to D
+        end
+        print Calendar
+        set property `calendar-data` of Map to Calendar
+        set Changed
+    	go to Exit
+    end
+    
+    on click HelpButton
+    begin
+    	if DialogOpen stop
+        put `Help home Calendar` into Result
+        exit
+    end
+
+	on click CancelButton
+    begin
+    	if DialogOpen stop
+    	clear Changed
+        go to Exit
+    end
+
+	stop
+
+Exit:
+	if Changed put `Changed` into Result
+    exit
+
+ExitWithError:
+    put `Error` into Result
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Choose a profile
+GetProfile:
+    put the json count of Profiles into NProfiles
+    set the elements of Name to NProfiles
+    set the elements of DialogRow to NProfiles
+    clear List
+	put 0 into P
+    while P is less than NProfiles
+    begin
+    	put element P of Profiles into Profile
+        index Name to P
+        put property `name` of Profile into Name
+        index DialogRow to P
+        create DialogRow in List
+        set style `height` of DialogRow to `1.5em`
+        if P modulo 2 set style `background` of DialogRow to `#eee`
+        else set style `background` of DialogRow to `#ddd`
+        set style `cursor` of DialogRow to `pointer`
+        set the content of DialogRow to Name
+        add 1 to P
+    end
+    on click DialogRow
+    begin
+        put the index of DialogRow into P
+!    	index Name to P
+		put element P of Profiles into Profile
+        put property `name` of Profile into DialogResult
+    	set style `display` of Dialog to `none`
+    	clear DialogOpen
+    end
+    set style `display` of Dialog to `flex`
+    on click DialogCancelButton
+    begin
+		put empty into DialogResult
+    	set style `display` of Dialog to `none`
+!        index Name to 0
+!        put empty into Name
+    	clear DialogOpen
+    end
+    set DialogOpen
+    while DialogOpen wait 20 ticks
+	return

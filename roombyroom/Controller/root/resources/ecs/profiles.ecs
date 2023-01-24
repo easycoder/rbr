@@ -1,0 +1,347 @@
+!	Profiles
+
+	script Profiles
+    
+    import div MainPanel
+    	and variable Map
+        and variable Result
+
+	div ProfilesPanel
+    div CalendarPanel
+	div UserProfileDiv
+    div ProfilesMask
+    div PageHeader
+    button SelectButton
+    button EditButton
+    button UpButton
+    button DownButton
+    button DeleteButton
+    button CalendarButton
+    button AddButton
+    button OKButton
+    button HelpButton
+    button CancelButton
+    img CalendarOff
+    img CalendarOn
+    variable Mobile
+    variable ProfilesWebson
+    variable ProfileWebson
+    variable Webson
+    variable NProfiles
+    variable Profiles
+    variable Profile
+    variable Rooms
+    variable Name
+    variable CurrentProfile
+    variable EditingProfile
+    variable CalendarData
+    variable Calendar
+    variable Changed
+    variable Temp
+    variable Script
+    variable Count
+    variable Day
+    variable D
+    variable D2
+    variable P
+    variable UD
+    variable UD2
+    
+!	Dialogs
+	div DialogPanel
+    div DialogTitle
+    div DialogText
+    button DialogButton1
+    button DialogButton2
+    input DialogInput
+    
+!    debug step
+    
+    clear Mobile
+    if mobile
+        if portrait set Mobile
+
+    clear Changed
+
+	clear MainPanel
+    rest get ProfilesWebson from `/resources/webson/profiles.json?v=` cat now
+        or go to ExitWithError
+    render ProfilesWebson in MainPanel
+    
+    rest get ProfileWebson from `/resources/webson/profile.json?v=` cat now
+    	or go to ExitWithError
+
+	attach PageHeader to `profiles-page-header`
+	attach ProfilesPanel to `profiles-panel`
+    attach ProfilesMask to `profiles-mask`
+	attach CalendarPanel to `calendar-panel`
+	attach UserProfileDiv to `profiles`
+    attach CalendarOff to `calendar-off`
+    attach CalendarOn to `calendar-on`
+    attach CalendarButton to `calendar-edit`
+    attach AddButton to `profiles-add-button`
+    attach OKButton to `profiles-ok-button`
+    attach HelpButton to `profiles-help-button`
+    attach CancelButton to `profiles-cancel-button`
+
+	put property `profile` of Map into CurrentProfile
+    put property `calendar` of Map into Calendar
+    if Calendar is `on`
+    begin
+        set style `display` of CalendarOff to `none`
+        set style `display` of CalendarOn to `flex`
+        set style `display` of ProfilesMask to `block`
+    end
+    else
+    begin
+        set style `display` of CalendarOn to `none`
+        set style `display` of CalendarOff to `flex`
+        set style `display` of ProfilesMask to `none`
+    end
+    
+    on click CalendarOff
+    begin
+    	put property `calendar-data` of Map into CalendarData
+        if CalendarData is empty go to ShowErrorMessage
+        put 0 into Count
+        put 0 into D
+        while D is less than 7
+        begin
+        	put element D of CalendarData into Day
+            if Day is not `{}`
+            begin
+            	if property `day` cat D cat `-profile` of Day is not empty add 1 to Count
+            end
+        	add 1 to D
+        end
+        if Count is 0 go to ShowErrorMessage
+        set style `display` of CalendarOff to `none`
+        set style `display` of CalendarOn to `flex`
+        set style `display` of ProfilesMask to `block`
+        set property `calendar` of Map to `on`
+    end
+
+    on click CalendarOn
+    begin
+        set style `display` of CalendarOn to `none`
+        set style `display` of CalendarOff to `flex`
+        set style `display` of ProfilesMask to `none`
+        set property `calendar` of Map to `off`
+    end
+    
+    on click ProfilesMask
+    	alert `Profiles cannot be accessed while the Calendar is on`
+    
+    on click CalendarButton
+    begin
+        rest get Script from `/resources/ecs/calendar.ecs?v=` cat now
+        set style `display` of ProfilesPanel to `none`
+        set style `display` of CalendarPanel to `block`
+        set the content of PageHeader to `Calendar`
+        run Script with MainPanel and Map and Result
+        set the content of PageHeader to `Profiles and Calendar`
+        set style `display` of ProfilesPanel to `block`
+        set style `display` of CalendarPanel to `none`
+        if Result is `Changed` set Changed
+        if left 4 of Result is `Help` exit
+    end
+    
+    on click AddButton
+    begin
+    	put element CurrentProfile of Profiles into Profile
+        put property `name` of Profile into Name
+        put property `rooms` of Profile into Rooms
+    	put `{}` into Profile
+        set property `name` of Profile to Name cat ` copy`
+        set property `rooms` of Profile to Rooms
+        json add Profile to Profiles
+        gosub to RenderProfiles
+    end
+    
+    on click OKButton
+    begin
+        set Changed
+    	go to Exit
+    end
+    
+    on click HelpButton
+    begin
+        put `Help home Profiles` into Result
+        exit
+    end
+
+	on click CancelButton
+    begin
+    	clear Changed
+        go to Exit
+    end
+
+!	Set up the profiles
+	put property `profile` of Map into CurrentProfile
+    put property `profiles` of Map into Profiles
+    gosub to RenderProfiles
+
+	stop
+
+ShowErrorMessage:
+	alert `The calendar must specify at least one day`
+    stop
+
+!	Render the user profiles. The base profile remains separate.
+RenderProfiles:
+	clear UserProfileDiv
+    put the json count of Profiles into P
+    set the elements of SelectButton to P
+    set the elements of EditButton to P
+    set the elements of UpButton to P
+    set the elements of DownButton to P
+    set the elements of DeleteButton to P
+    put the json count of Profiles into NProfiles
+	put 0 into P
+    while P is less than NProfiles
+    begin
+    	put element P of Profiles into Profile
+        put property `name` of Profile into Name
+		put ProfileWebson into Webson
+        replace `!ID!` with P in Webson
+        replace `!TITLE!` with Name in Webson
+        render Webson in UserProfileDiv
+        index SelectButton to P
+        index EditButton to P
+        index UpButton to P
+        index DownButton to P
+        index DeleteButton to P
+        attach SelectButton to `profile-select-` cat P
+        attach EditButton to `profile-edit-` cat P
+        attach UpButton to `profile-up-` cat P
+        attach DownButton to `profile-down-` cat P
+        attach DeleteButton to `profile-delete-` cat P
+        if P is 0
+        begin
+        	set style `visibility` of UpButton to `hidden`
+        	if NProfiles is 1 set style `visibility` of DeleteButton to `hidden`
+        end
+        take 1 from NProfiles giving Temp
+        if P is Temp set style `visibility` of DownButton to `hidden`
+        if P is CurrentProfile
+        begin
+            set style `font-size` of SelectButton to `105%`
+            set style `font-weight` of SelectButton to `bold`
+            set style `color` of SelectButton to `green`
+            set style `background` of SelectButton to `white`
+        end
+    	else set style `color` of SelectButton to `black`
+        on click SelectButton
+        begin
+            if index of SelectButton is not CurrentProfile
+            begin
+	        	put the index of SelectButton into CurrentProfile
+            	go to RenderProfiles
+            end
+        end
+        on click EditButton
+        begin
+        	put the index of EditButton into EditingProfile
+        	put element EditingProfile of Profiles into Profile
+            put property `name` of Profile into Name
+            go to GetName
+        end
+        on click UpButton
+        begin
+        	put the index of UpButton into UD
+            take 1 from UD giving UD2
+            put element UD of Profiles into Temp
+            set element UD of Profiles to element UD2 of Profiles
+            set element UD2 of Profiles to Temp
+            set Changed
+            go to RenderProfiles
+        end
+        on click DownButton
+        begin
+        	put the index of DownButton into UD
+            add 1 to UD giving UD2
+            put element UD of Profiles into Temp
+            set element UD of Profiles to element UD2 of Profiles
+            set element UD2 of Profiles to Temp
+            set Changed
+            go to RenderProfiles
+        end
+        on click DeleteButton
+        begin
+        	put the index of DeleteButton into D
+            while D is less than NProfiles
+            begin
+            	add 1 to D giving D2
+                if D2 is less than NProfiles
+                begin
+                	set element D of Profiles to element D2 of Profiles
+                end
+            	add 1 to D
+            end
+            take 1 from D
+            json delete element D of Profiles
+            take 1 from NProfiles
+        	put CurrentProfile into D
+            if D is not less than NProfiles
+            begin
+            	put NProfiles into D
+                take 1 from D giving CurrentProfile
+            end
+            set Changed
+            go to RenderProfiles
+        end
+    	add 1 to P
+    end
+    if property `calendar` of Map is `on` set style `display` of ProfilesMask to `block`
+	return
+
+GetName:
+    attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Rename '` cat Name cat `'`
+    set the content of DialogText to `Type the new name for this profile`
+    set the content of DialogButton1 to `OK`
+    set the content of DialogButton2 to `Cancel`
+    set the content of DialogInput to Name
+    
+    on click DialogButton1
+    begin
+        set property `profile` of Map to CurrentProfile
+    	put the text of DialogInput into Name
+        set property `name` of Profile to Name
+        index SelectButton to EditingProfile
+        set the text of SelectButton to Name
+    	set element EditingProfile of Profiles to Profile
+     	set property `profiles` of Map to Profiles
+        clear DialogPanel
+        set Changed
+    end
+    
+    on click DialogButton2
+    begin
+        clear DialogPanel
+    end
+	stop
+
+Exit:
+	if Changed
+    begin
+        set property `profile` of Map to CurrentProfile
+        set property `profiles` of Map to Profiles
+        put `Changed` into Result
+    end
+    else
+    begin
+    	put `Redraw` into Result
+    end
+    exit
+
+ExitWithError:
+    put `Error` into Result
+    exit

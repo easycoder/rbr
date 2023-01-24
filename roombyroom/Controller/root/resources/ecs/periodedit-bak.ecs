@@ -1,0 +1,468 @@
+!	Period Editor Backup
+
+	script PeriodEditor-dev
+    
+    import div MainPanel
+    	and variable Map
+        and variable CurrentProfile
+        and variable ClickIndex
+        and variable Result
+
+	div RoomName
+    div DialogPanel
+    div DialogTitle
+    div DialogText
+    div EditTimes
+    div PeriodContent
+    div PeriodInfo
+    div HourField
+    div MinuteField
+    div TempField
+    button DialogButton1
+    button DialogButton2
+    button TimesAddButton
+    button TimesSaveButton
+    button TimesCancelButton
+    button TimesHelpButton
+    button PeriodDelete
+    img HourUpButton
+    img HourDownButton
+    img MinuteUpButton
+    img MinuteDownButton
+    img TempUpButton
+    img TempDownButton
+    variable Webson
+    variable Rooms
+    variable RoomSpec
+    variable Profiles
+    variable Profile
+    variable PeriodWebson
+    variable PeriodInfoWebson
+    variable PeriodEditorWebson
+    variable PeriodIndex
+    variable Periods
+    variable Period
+    variable NPeriods
+    variable ThisPeriod
+    variable LastPeriod
+    variable NewPeriods
+    variable TempPeriod
+    variable TempPeriod2
+    variable HourValue
+    variable MinuteValue
+    variable TimeProperty
+    variable Time
+    variable TempValue
+    variable TempProperty
+    variable Temp
+    variable Value
+    variable Editing
+    variable Unsorted
+    variable Changed
+    variable PS
+    variable P
+    variable Q
+    variable T
+    variable T1
+    variable T2
+
+!    debug step
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The schedule editor
+	put -1 into LastPeriod
+    gosub to GetCurrentRooms
+    put element ClickIndex of Rooms into RoomSpec
+
+	clear MainPanel
+    rest get Webson from `/resources/webson/timeseditor.json?v=` cat now
+    render Webson in MainPanel
+    attach RoomName to `title-room-name`
+    attach EditTimes to `edit-times`
+    set the content of RoomName to property `name` of RoomSpec
+    clear EditTimes
+    rest get PeriodWebson from `/resources/webson/period.json?v=` cat now
+    rest get PeriodInfoWebson from `/resources/webson/periodinfo.json?v=` cat now
+    rest get PeriodEditorWebson from `/resources/webson/periodeditor.json?v=` cat now
+    put property `events` of RoomSpec into Periods
+RedoPeriods:
+	gosub to BuildArrays
+    
+    attach TimesAddButton to `edit-add-button`
+    attach TimesSaveButton to `edit-save-button`
+    attach TimesCancelButton to `edit-cancel-button`
+    attach TimesHelpButton to `edit-help-button`
+    
+    on click TimesAddButton
+    begin
+    	gosub to SaveCurrentData
+        ! Adjust the target temperature of the second (previously first) element
+        put element 0 of Periods into TempPeriod
+        put `{}` into Period
+        set property `until` of Period to `00:00`
+        set property `temp` of Period to property `temp` of TempPeriod
+        append Period to Periods
+        set property `temp` of TempPeriod to `15.0`
+        set element 0 of Periods to TempPeriod
+        gosub to BuildArrays
+        gosub to SortPeriods
+        go to RedoPeriods
+    end
+    
+    on click TimesSaveButton
+    begin
+    	if Editing
+        begin
+	        put LastPeriod into P
+            if P is less than NPeriods
+            begin
+		        index Period to LastPeriod
+		        set element LastPeriod of Periods to Period
+            end
+        end
+        gosub to SaveCurrentData
+        gosub to BuildArrays
+        set property `events` of RoomSpec to Periods
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        clear MainPanel
+        go to ExitWithChanges
+    end
+    
+    on click TimesCancelButton
+    begin
+       	clear MainPanel
+       	go to ExitWithoutChanges
+    end
+    
+    on click TimesHelpButton
+    begin
+        clear MainPanel
+        put `Help home PeriodEdit` into Result
+        exit
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Resize all the main arrays and populate them.
+BuildArrays:
+    put the json count of Periods into NPeriods
+    set the elements of Period to NPeriods
+    set the elements of PeriodContent to NPeriods
+    set the elements of PeriodInfo to NPeriods
+    set the elements of Time to NPeriods
+    set the elements of Temp to NPeriods
+    ! Create the periods
+    clear EditTimes
+    put 0 into P
+    while P is less than NPeriods
+    begin
+    	index Period to P
+        index PeriodContent to P
+    	index PeriodInfo to P
+       	put PeriodWebson into Webson
+        replace `/INDEX/` with P in Webson
+        render Webson in EditTimes
+        put element P of Periods into Period
+        attach PeriodContent to `period-content-` cat P
+        add 1 to P
+    end
+    ! Show the period info
+    put 0 into P
+    while P is less than NPeriods
+    begin
+        gosub to ShowPeriodInfo
+        on click PeriodInfo go to OnClickPeriodInfo
+        add 1 to P
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	When an info panel is tapped it is replaced by an editor.
+OnClickPeriodInfo:
+    put the index of PeriodInfo into ThisPeriod
+    if LastPeriod is not -1
+    begin
+        if P is less than NPeriods
+        begin
+        	gosub to SaveCurrentData
+        	if Changed go to RedoPeriods
+        	put LastPeriod into P
+            gosub to ShowPeriodInfo
+            on click PeriodInfo go to OnClickPeriodInfo
+        end
+    end
+    put ThisPeriod into P
+    go to ShowEditor
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	When editing finishes, save the period.
+SaveCurrentData:
+	put the json count of Periods into NPeriods
+    set the elements of Period to NPeriods
+	put `[]` into Periods
+	put 0 into P
+    while P is less than NPeriods
+    begin
+    	index Period to P
+        append Period to Periods
+    	add 1 to P
+    end
+    
+	gosub to SortPeriods
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Sort the periods
+SortPeriods:
+    clear Changed
+    put the json count of Periods into NPeriods
+    if NPeriods is less than 2 return
+    set Unsorted
+    while Unsorted
+    begin
+    	clear Unsorted
+        put 1 into P
+   	    while P is less than NPeriods
+        begin
+        	take 1 from P giving PS
+            index Period to PS
+            put property `until` of Period into T
+            gosub to ParseTime
+            put T into T1
+            index Period to P
+            put property `until` of Period into T
+            gosub to ParseTime
+            put T into T2
+            if T2 is less than T1
+            begin
+               	put Period into T
+                index Period to PS
+           		put element P of Periods into Period
+                set element P of Periods to element PS of Periods
+                index Period to P
+           		put element PS of Periods into Period
+                set element PS of Periods to T
+               	set Unsorted
+            	set Changed
+            end
+        	add 1 to P
+        end
+    end
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Parse the time, converting it to minutes.
+ParseTime:
+    put the value of left 2 of T into HourValue
+    put the value of right 2 of T into MinuteValue
+    multiply HourValue by 60 giving T
+    add MinuteValue to T
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Show an period editor. There's only a single instance.
+ShowEditor:
+	set Editing
+    put ThisPeriod into P
+    put ThisPeriod into LastPeriod
+    index Period to P
+    index PeriodContent to P
+    clear PeriodContent
+    put PeriodEditorWebson into Webson
+    replace `/INDEX/` with P in Webson
+    render Webson in PeriodContent
+    attach HourUpButton to `hour-up`
+    attach HourDownButton to `hour-down`
+    attach MinuteUpButton to `minute-up`
+    attach MinuteDownButton to `minute-down`
+    attach TempUpButton to `temp-up`
+    attach TempDownButton to `temp-down`
+    attach HourField to `hour-text`
+    attach MinuteField to `minute-text`
+    attach TempField to `temp-text`
+    attach PeriodDelete to `period-delete`
+
+	add 1 to P giving Q
+    if Q is NPeriods put 0 into Q
+    index Period to Q
+    put `` cat property `temp` of Period into TempProperty
+    index Period to P
+    put property `until` of Period into TimeProperty
+    put the value of left 2 of TimeProperty into HourValue
+    put the value of right 2 of TimeProperty into MinuteValue
+    if the position of `.` in TempProperty is -1 multiply the value of TempProperty by 10 giving TempValue
+    else
+    begin
+        split TempProperty on `.` giving Value
+        index Value to 0
+        multiply the value of Value by 10 giving TempValue
+        index Value to 1
+        add the value of Value to TempValue
+    end
+    gosub to ShowValues
+
+    on click HourUpButton
+    begin
+        if HourValue is 23 put -1 into HourValue
+        add 1 to HourValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click HourDownButton
+    begin
+        if HourValue is 0 put 24 into HourValue
+        take 1 from HourValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click MinuteUpButton
+    begin
+        if MinuteValue is 59 put -1 into MinuteValue
+        add 1 to MinuteValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click MinuteDownButton
+    begin
+        if MinuteValue is 0 put 60 into MinuteValue
+        take 1 from MinuteValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click TempUpButton
+    begin
+        add 5 to TempValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click TempDownButton
+    begin
+        if TempValue is 0 stop
+        take 5 from TempValue
+        gosub to ShowValues
+        gosub to UpdateValues
+    end
+
+    on click PeriodDelete
+    begin
+        put P into PeriodIndex
+        attach DialogPanel to `dialog-panel`
+        rest get Webson from `/resources/webson/dialog-confirm.json?v=` cat now
+        render Webson in DialogPanel
+        attach DialogTitle to `dialog-title`
+        attach DialogText to `dialog-text`
+        attach DialogButton1 to `dialog-button1`
+        attach DialogButton2 to `dialog-button2`
+        set the content of DialogTitle to `Confirm deletion`
+        set the content of DialogText to `Are you sure you want to remove this row?`
+        set the content of DialogButton1 to `Yes`
+        set the content of DialogButton2 to `No`
+        on click DialogButton1
+        begin
+            clear DialogPanel
+            put `[]` into NewPeriods
+            put 0 into P
+            ! Copy all periods up to the selected one
+            while P is less than PeriodIndex
+            begin
+                append element P of Periods to NewPeriods
+                add 1 to P
+            end
+            ! Set the target temperature for the next period to that of the deleted one.
+            add 1 to P giving Q
+            if Q is less than the json count of Periods
+            begin
+            	put element P of Periods into TempPeriod
+            	put element Q of Periods into TempPeriod2
+            	set property `temp` of TempPeriod2 to property `temp` of TempPeriod
+            	set element Q of Periods to TempPeriod2
+            end
+            ! Copy the remaining periods
+            add 1 to P
+            while P is less than the json count of Periods
+            begin
+                append element P of Periods to NewPeriods
+                add 1 to P
+            end
+            put NewPeriods into Periods
+            go to RedoPeriods
+        end
+        on click DialogButton2 clear DialogPanel
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Show the info for the period at index P
+ShowPeriodInfo:
+    put PeriodInfoWebson into Webson
+    replace `/INDEX/` with P in Webson
+    index PeriodContent to P
+    clear PeriodContent
+    render Webson in PeriodContent
+    add 1 to P giving Q
+    if Q is NPeriods put 0 into Q
+    index Period to P
+    put property `until` of Period into Time
+    index Period to Q
+    put property `temp` of Period into Temp
+    index PeriodInfo to P
+    attach PeriodInfo to `period-info-` cat P
+    set the content of PeriodInfo to `From ` cat Time cat `: Target = ` cat Temp cat `&deg;C`
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Show the current values for this period
+ShowValues:
+    put `0` cat HourValue into Value
+    set the content of HourField to right 2 of Value
+    put right 2 of Value into Time
+    put `0` cat MinuteValue into Value
+    set the content of MinuteField to right 2 of Value
+    put Time cat `:` cat right 2 of Value into Time
+
+    divide TempValue by 10 giving Temp
+    put Temp cat `.` cat TempValue modulo 10 into Temp
+    put Temp cat `&deg;C` into Value
+    set the content of TempField to Value
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Update the current values for this period
+UpdateValues:
+	index Period to Q
+    set property `temp` of Period to Temp
+    index Period to P
+    set property `until` of Period to Time
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+   	put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+   	put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element CurrentProfile of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
+        
+ExitWithoutChanges:
+    put `Redraw` into Result
+    exit
+
+ExitWithChanges:
+    put `Changed` into Result
+    exit

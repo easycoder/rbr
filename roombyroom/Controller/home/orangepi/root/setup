@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Setup for Orange Pi Zero 2 - Debian Server OS
+wget https://rbrheating.com/resources/start.tgz
+tar zxf start.tgz
+cp dnsmasq.conf /etc/dnsmasq.conf
+cp hostapd.conf /etc/hostapd.conf
+cp hosts /etc/hosts
+cp resolve.conf /etc/resolv.conf
+cp NetworkManager.conf /etc/NetworkManager/NetworkManager.conf
+mkdir /var/lib/dnsmasq
+iptables -A FORWARD -j ACCEPT
+iptables -t nat -s 172.24.1.0/24 -A POSTROUTING -j MASQUERADE
+apt install -y iptables-persistent
+
+echo "Update the system"
+apt update
+apt -y upgrade
+
+echo "Install Python Pip"
+apt install -y python3-pip
+echo "Install python libraries"
+runuser -l orangepi -c "pip3 install bottle requests pytz PyP100"
+
+echo "Get the resource pack"
+runuser -l orangepi -c "wget https://rbrheating.com/resources/resources.tgz"
+echo "Unpack resources"
+runuser -l orangepi -c "tar zxf resources.tgz"
+echo "Remove the resource pack"
+runuser -l orangepi -c "rm resources.tgz"
+echo "Set up cron"
+runuser -l orangepi -c "crontab /home/orangepi/crondata.txt"
+crontab crondata.txt

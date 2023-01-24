@@ -1,0 +1,33 @@
+#!/bin/sh
+
+# Setup for Orange Pi Zero 2 - Debian Server OS
+echo "Get the resource pack"
+wget https://rbrheating.com/resources/rbr2.tgz
+echo "Unpack resources"
+tar zxf rbr2.tgz
+echo "Remove the resource pack"
+rm rbr2.tgz
+echo "Set up cron"
+crontab crondata.txt
+echo "Modify system files"
+cp system/dnsmasq.conf /etc/dnsmasq.conf
+cp system/hostapd.conf /etc/hostapd.conf
+cp system/hosts /etc/hosts
+cp system/resolve.conf /etc/resolv.conf
+cp system/NetworkManager.conf /etc/NetworkManager/NetworkManager.conf
+mkdir /var/lib/dnsmasq
+systemctl restart dnsmasq
+systemctl restart hostapd
+iptables -A FORWARD -j ACCEPT
+iptables -t nat -s 172.24.1.0/24 -A POSTROUTING -j MASQUERADE
+apt install -y iptables-persistent
+
+echo "Update the system"
+apt update
+apt -y upgrade
+
+echo "Install Python Pip"
+apt install -y python3-pip
+echo "Install python libraries"
+pip3 install bottle requests pytz PyP100
+

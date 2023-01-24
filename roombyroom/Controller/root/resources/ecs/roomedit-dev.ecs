@@ -1,0 +1,268 @@
+!	Room Editor
+
+	script RoomEditor
+    
+    import div MainPanel
+    	and variable Map
+        and variable CurrentProfile
+        and variable ClickIndex
+        and variable Result
+
+	div RoomName
+    div DialogPanel
+    div DialogTitle
+    div DialogText
+    div DialogText2
+    div P100Login
+    button EditNameButton
+    button EditDevicesButton
+    button EditTimesButton
+    button HelpButton
+    button CancelButton
+    button DialogButton1
+    button DialogButton2
+    button DialogButton3
+    input DialogInput
+    input ProtectTemp
+    input P100Email
+    input P100Password
+    input Protect
+    textarea TextArea
+    select RelayTypes
+    variable Profiles
+    variable Profile
+    variable Rooms
+    variable RoomSpec
+    variable Webson
+    variable Relays
+    variable Item
+    variable Name
+    variable PeriodEditScript
+    variable List
+    variable R
+
+!    debug step
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The room editor
+Editor:
+    attach RoomName to `title-room-name`
+    attach EditNameButton to `button-name`
+    attach EditDevicesButton to `button-devices`
+    attach EditTimesButton to `button-times`
+    attach HelpButton to `button-help`
+    attach CancelButton to `button-cancel`
+    
+    gosub to GetCurrentRooms
+    put element ClickIndex of Rooms into RoomSpec
+    set the content of RoomName to property `name` of RoomSpec
+    
+    on click EditNameButton go to NameButtonCB
+    
+    on click EditDevicesButton go to DevicesButtonCB
+ 
+    on click EditTimesButton go to TimesButtonCB
+    
+    on click CancelButton go to ExitWithoutChanges
+    
+    on click HelpButton
+    begin
+        put `Help home RoomEdit` into Result
+        exit
+    end
+    
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the name
+NameButtonCB:
+    attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Rename '` cat the content of RoomName cat `'`
+    set the content of DialogText to `Type the new name for this room`
+    set the content of DialogButton1 to `OK`
+    set the content of DialogButton2 to `Cancel`
+    set the content of DialogInput to the content of RoomName
+    
+    on click DialogButton1
+    begin
+    	put the content of DialogInput into Name
+        set property `name` of RoomSpec to Name
+    	set the content of RoomName to Name
+        clear DialogPanel
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        go to ExitWithChanges
+    end
+    
+    on click DialogButton2
+    begin
+        clear DialogPanel
+        go to ExitWithoutChanges
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the devices
+DevicesButtonCB:
+	attach DialogPanel to `dialog-panel`
+    set style `width` of DialogPanel to `80%`
+    set style `left` of DialogPanel to `10%`
+    rest get Webson from `/resources/webson/getdevices.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogText2 to `dialog-text2`
+    attach TextArea to `dialog-textarea`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogButton3 to `dialog-button3`
+    attach DialogInput to `dialog-input`
+    attach RelayTypes to `relayType`
+    attach P100Login to `p100-login`
+    attach P100Email to `p100-email`
+    attach P100Password to `p100-password`
+    attach ProtectTemp to `dialog-winter-temp`
+    attach Protect to `dialog-winter-protect`
+    
+    if property `protect` of RoomSpec is `yes` set attribute `checked` of Protect to `checked`
+    set the content of ProtectTemp to  property `ptemp` of RoomSpec
+    
+    put `[]` into List
+    json add `TP-Link P100` to List
+    json add `Shelly One` to List
+    json add `Simulator` to List
+    set RelayTypes from List as property `relayType` of RoomSpec
+    if property `relayType` of RoomSpec is `TP-Link P100`
+    begin
+        set the content of P100Email to property `p100Email` of RoomSpec
+        set the content of P100Password to property `p100Password` of RoomSpec
+    	set style `display` of P100Login to `block`
+    end
+    if property `relayType` of RoomSpec is `Simulator`
+    begin
+        set style `display` of DialogText2 to `none`
+        set style `display` of TextArea to `none`
+    end
+    on change RelayTypes
+    begin
+        set property `relayType` of RoomSpec to attribute `value` of RelayTypes
+        if attribute `value` of RelayTypes is `TP-Link P100`
+        begin
+        	set style `display` of P100Login to `block`
+            set the content of P100Email to property `p100Email` of RoomSpec
+            set the content of P100Password to property `p100Password` of RoomSpec
+        end
+        else set style `display` of P100Login to `none`
+        if attribute `value` of RelayTypes is `Simulator`
+        begin
+            set style `display` of DialogText2 to `none`
+            set style `display` of TextArea to `none`
+        end
+        else
+        begin
+            set style `display` of DialogText2 to `block`
+            set style `display` of TextArea to `block`
+        end
+    end
+    
+    set the content of DialogTitle to `Sensor and relays for '` cat property `name` of RoomSpec cat `'`
+    set the content of DialogText to `Type the IP address of the temperature sensor`
+    set the content of DialogText2 to `Type the IP addresses of the relays, 1 per line`
+    set the content of DialogButton1 to `Save`
+    set the content of DialogButton2 to `Help`
+    set the content of DialogButton3 to `Cancel`
+    set the content of DialogInput to property `sensor` of RoomSpec
+    put property `relays` of RoomSpec into Relays
+    put empty into Item
+    put 0 into R
+    while R is less than the json count of Relays
+    begin
+        if Item is not empty put Item cat newline into Item
+        put Item cat element R of Relays into Item
+        add 1 to R
+    end
+    set the content of TextArea to Item
+    
+    on click DialogButton1
+    begin
+        set property `sensor` of RoomSpec to the content of DialogInput
+        if attribute `checked` of Protect
+        begin
+        	set property `protect` of RoomSpec to `yes`
+            set property `ptemp` of RoomSpec to the content of ProtectTemp
+        end
+        else set property `protect` of RoomSpec to `no`
+        if property `relayType` of RoomSpec is `TP-Link P100`
+        begin
+            set property `p100Email` of RoomSpec to the content of P100Email
+            set property `p100Password` of RoomSpec to the content of P100Password
+        end
+        put `[]` into Relays
+        split the content of TextArea on newline giving Item
+        put 0 into R
+        while R is less than the elements of Item
+        begin
+            index Item to R
+            append Item to Relays
+            add 1 to R
+        end
+        set property `relays` of RoomSpec to Relays
+        clear DialogPanel
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        go to ExitWithChanges
+    end
+    
+    on click DialogButton2
+    begin
+    	clear DialogPanel
+        put `Help home Devices` into Result
+    	exit
+    end
+    
+    on click DialogButton3
+    begin
+    	clear DialogPanel
+    	go to ExitWithoutChanges
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+   	put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms        
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+   	put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element CurrentProfile of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Edit the times
+TimesButtonCB:
+    rest get PeriodEditScript from `/resources/ecs/periodedit-dev.ecs?v=` cat now
+    run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
+	exit
+
+ExitWithoutChanges:
+    put `Redraw` into Result
+    exit
+
+ExitWithChanges:
+    put `Changed` into Result
+    exit

@@ -1,12 +1,42 @@
 #!/usr/bin/env python3
 
-import bottle, time, os, json
-from bottle import Bottle, run, request
+import bottle, time, os, json, subprocess
+from bottle import Bottle, run, request, static_file
 
 app = Bottle()
 
 ###############################################################################
-# This is the RBR controller
+# This is the RBR website
+
+# Endpoint: Get <server-ip>/register/<mac>
+# Called to register
+@app.get('/register/<mac>')
+def register(mac):
+    print('Register')
+    return static_file('map', root='.')
+
+# Endpoint: Get <server-ip>/resources/php/rest.php/map/<mac>
+# Called to return the map
+@app.get('/resources/php/rest.php/map/<mac>')
+def getMap(path):
+    print('Get the map')
+    return static_file('map', root='.')
+
+# Endpoint: Get <server-ip>/resources/<path:path>
+# Called to return a resource file
+@app.get('/resources/<path:path>')
+def getFile(path):
+    return static_file(path, root='resources')
+
+# Endpoint: Get <server-ip>/
+# Called to return the index file
+@app.get('/')
+def index():
+    print('Get the index file')
+    file = open('index.html', 'r')
+    response = file.read()
+    file.close()
+    return response
 
 # Endpoint: Get <server-ip>/sim/<data>
 # Called to pass simulator data
@@ -38,8 +68,8 @@ def ms(message):
 
 # Endpoint: Get <server-ip>/?hum=hhh&temp=ttt&id=id
 # Called when temperature changes
-@app.get('/')
-def index():
+@app.get('/notify')
+def notify():
     try:
         source = request.get("REMOTE_ADDR")
         hum = request.query.hum
@@ -65,12 +95,8 @@ def index():
 # Initialization
 
 if __name__ == '__main__':
-    file = open(f'{os.getcwd()}/ip', 'r')
-    ip = file.read().strip()
-    file.close()
-    if ip != '':
-        print(f'rbr.py: IP address = {ip}')
-        app.run(host=f'{ip}', port=5555, debug=False)
-    else:
-        print('rbr.py: No IP address found')
+    # ip = subprocess.getoutput("hostname -I").strip()
+    ip = '172.24.1.1'
+    print(f'rbr.py: IP address = {ip}')
+    app.run(host=ip, port=8080, debug=False)
 
