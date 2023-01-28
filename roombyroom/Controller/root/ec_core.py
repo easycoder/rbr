@@ -534,7 +534,7 @@ class Core(Handler):
         if command['mode'] == 'r' and os.path.exists(path) or command['mode'] != 'r':
             symbolRecord['file'] = open(path, command['mode'])
             return self.nextPC()
-        RuntimeError(f"File {path} does not exist")
+        RuntimeError(self.program, f"File {path} does not exist")
         return -1
 
     def k_post(self, command):

@@ -13,9 +13,9 @@
     !	Room By Room
 
         script Loader
-        debug step
 
         variable Script
+        put `local` into storage as `host`
         rest get Script from `/resources/ecs/rbr.ecs?v=` cat now
         run Script
     </pre>

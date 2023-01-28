@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-import bottle, time, os, json, subprocess
+import bottle, time, os, json, subprocess, base64
+from os import listdir
+from os.path import isfile, join
 from bottle import Bottle, run, request, static_file
 
 app = Bottle()
@@ -8,39 +10,133 @@ app = Bottle()
 ###############################################################################
 # This is the RBR website
 
-# Endpoint: Get <server-ip>/register/<mac>
+# Endpoint: GET <server-ip>/register/<mac>
 # Called to register
 @app.get('/register/<mac>')
 def register(mac):
-    print('Register')
+    # print('Register')
     return static_file('map', root='.')
 
-# Endpoint: Get <server-ip>/resources/php/rest.php/map/<mac>
+# Endpoint: GET <server-ip>/resources/php/rest.php/map/<mac>
 # Called to return the map
 @app.get('/resources/php/rest.php/map/<mac>')
-def getMap(path):
-    print('Get the map')
-    return static_file('map', root='.')
+def getMap(mac):
+    # print('getMap')
+    if not isfile('map'):
+        f = open('map', 'w')
+        f.write('{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0,"name":"New system"}')
+        f.close()
+    return static_file('map', root='')
 
-# Endpoint: Get <server-ip>/resources/<path:path>
-# Called to return a resource file
-@app.get('/resources/<path:path>')
-def getFile(path):
-    return static_file(path, root='resources')
+# Endpoint: GET <server-ip>/resources/php/rest.php/sensors/<mac>
+# Called to return the sensors
+@app.get('/resources/php/rest.php/sensors/<mac>')
+def getSensors(mac):
+    # print('getSensors')
+    if not isfile('/mnt/data/sensorData'):
+        f = open('/mnt/data/sensorData', 'w')
+        f.write('{"actual": 0}')
+        f.close()
+    return static_file('sensorData', root='/mnt/data')
 
-# Endpoint: Get <server-ip>/<path:path>
-# Called to return a file
-@app.get('/<path>')
-def index(path):
-    return static_file(path, root='')
+# Endpoint: GET <server-ip>/resources/php/rest.php/_list/<name>
+# Called to return a file list
+@app.get('/resources/php/rest.php/_list/<name>')
+def getFileList(name):
+    # print('getFileList')
+    path = f'resources/{name}'
+    files = []
+    for name in listdir(path):
+        if isfile(f'{path}/{name}'):
+            f = {}
+            f['name'] = name
+            f['type'] = 'ecs'
+            files.append(f)
+    def getName(f):
+        return f['name']
+    files.sort(key = getName)
+    return json.dumps(files)
 
-# Endpoint: Get <server-ip>/
+# Endpoint: GET <server-ip>/resources/ecs/<name>
+# Called to return an ecs script
+@app.get('/resources/ecs/<name>')
+def getScript(name):
+    # print(f'getScript {name}')
+    return static_file(name, root='./resources/ecs')
+
+# Endpoint: GET <server-ip>/resources/webson/<name>
+# Called to return a webson script
+@app.get('/resources/webson/<name>')
+def getWebson(name):
+    # print(f'getWebson {name}')
+    return static_file(name, root='./resources/webson')
+
+# Endpoint: GET <server-ip>/resources/json/<name>
+# Called to return a json script
+@app.get('/resources/json/<name>')
+def getJson(name):
+    # print(f'getJson {name}')
+    return static_file(name, root='./resources/json')
+
+# Endpoint: GET <server-ip>/resources/icon/<name>
+# Called to return an icon
+@app.get('/resources/icon/<name>')
+def getIcon(name):
+    # print(f'getIcon {name}')
+    return static_file(name, root='./resources/icon')
+
+# Endpoint: GET <server-ip>/resources/image/<name>
+# Called to return an image
+@app.get('/resources/image/<name>')
+def getImage(name):
+    # print(f'getImage {name}')
+    return static_file(name, root='./resources/img')
+
+# Endpoint: GET <server-ip>/resources/help/<name>
+# Called to return a help file
+@app.get('/resources/help/<path:path>')
+def getHelp(path):
+    # print(f'getHelp {path}')
+    return static_file(name, root='./resources/path')
+
+# Endpoint: POST <server-ip>/resources/php/rest.php/map/<mac><password>
+# Called to post the map
+@app.post('/resources/php/rest.php/map/<mac>/<password>')
+def postMap(mac, password):
+    # print('postMap')
+    data = request.body.getvalue().decode("ascii")
+    f = open('map', 'w')
+    f.write(data)
+    f.close()
+    return
+
+# Endpoint: POST <server-ip>/resources/php/rest.php/_save/path>
+# Called to save a resource file
+@app.post('/resources/php/rest.php/_save/<path>')
+def save(path):
+    # print('save')
+    data = request.body.getvalue().decode("ascii")
+    data = base64.b64decode(data).decode("ascii")
+    path = path.replace('~', '/')
+    f = open(f'resources/{path}', 'w')
+    f.write(data)
+    f.close()
+
+# Endpoint: GET <server-ip>/
+# Called to return an HTML file
+@app.get('/<name>')
+def getHTML(name):
+    # print('getHTML')
+    return static_file(name, root='.')
+
+# Endpoint: GET <server-ip>/
 # Called to return the index file
 @app.get('/')
-def index():
-    return static_file('index.html', root='')
+def getIndex():
+    # print('getIndex')
+    return static_file('index.html', root='.')
 
-# Endpoint: Get <server-ip>/sim/<data>
+# Endpoint: GET <server-ip>/sim/<data>
 # Called to pass simulator data
 @app.get('/sim/<data>')
 def sim(data):
@@ -61,14 +157,14 @@ def sim(data):
     file.close()
     return response
 
-# Endpoint: Get <server-ip>/ms/<data>
+# Endpoint: GET <server-ip>/ms/<data>
 # Called to report movement
 @app.get('/ms/<message>')
 def ms(message):
     print(message)
     return
 
-# Endpoint: Get <server-ip>/?hum=hhh&temp=ttt&id=id
+# Endpoint: GET <server-ip>/?hum=hhh&temp=ttt&id=id
 # Called when temperature changes
 @app.get('/notify')
 def notify():
@@ -99,7 +195,6 @@ def notify():
 if __name__ == '__main__':
     # ip = subprocess.getoutput("hostname -I").strip()
     ip = '172.24.1.1'
-    ip = '192.168.0.213'
     print(f'rbr.py: IP address = {ip}')
     app.run(host=ip, port=80, debug=False)
 

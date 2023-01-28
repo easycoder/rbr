@@ -54,6 +54,7 @@
     module Storyteller
     module DemoModule
     module DebugModule
+    variable Host
     variable Mobile
     variable Systems
     variable System
@@ -148,6 +149,8 @@
     variable DialogWebson
 
 !    debug step
+
+	get Host from storage as `host`
 
 	on key
     begin
@@ -352,28 +355,36 @@ Start:
 	put 0 into RestErrorCount
     send `Count` to DebugModule
 
-!	Make sure we have a MAC address; if not, go ask for one
-    clear Flag
-    get MAC from storage as `MAC`
-    if MAC is empty go to SystemManager ! GetLogin
-    if MAC is `DEMO`
+    if Host is `local`
     begin
-    	set Demo
-        if DemoModule is not running
-        begin
-	    	rest get Script from `/resources/ecs/demo.ecs?v=` cat now
-            	or go to HandleRestError
-            get Map from storage as `map`
-            put empty into DemoSensors
-        	run Script with Map and DemoSensors and Demo as DemoModule
-            send `run` to DemoModule
-        end
+        put `MAC` into MAC
+        put `Password` into Password
     end
-    else clear Demo
+    else
+    begin
+    !	Make sure we have a MAC address; if not, go ask for one
+        clear Flag
+        get MAC from storage as `MAC`
+        if MAC is empty go to SystemManager ! GetLogin
+        if MAC is `DEMO`
+        begin
+            set Demo
+            if DemoModule is not running
+            begin
+                rest get Script from `/resources/ecs/demo.ecs?v=` cat now
+                    or go to HandleRestError
+                get Map from storage as `map`
+                put empty into DemoSensors
+                run Script with Map and DemoSensors and Demo as DemoModule
+                send `run` to DemoModule
+            end
+        end
+        else clear Demo
 
-!	Make sure we have the password; if not, ask for it
-    get Password from storage as `password`
-    if Password is empty go to GetLogin
+    !	Make sure we have the password; if not, ask for it
+        get Password from storage as `password`
+        if Password is empty go to GetLogin
+    end
 
 	if not Redraw go to GetMap
     clear MainPanel
