@@ -6,9 +6,7 @@
     script RBR
 
     file File
-    variable Path
     variable RamDisk
-    variable Server
     variable LocalServer
     variable Version
     variable RepeatCount
@@ -67,127 +65,36 @@
 
 !    debug step
 
-    put `https://rbrheating.com/resources/php/rest.php` into Server
-    put `.` into Path
     put `/mnt/data` into RamDisk
-
-    open File Path cat `/ip` for reading
-    read LocalServer from File
-    put trim LocalServer into LocalServer
-    close File
-    put `http://` cat LocalServer cat `:5555` into LocalServer
-    print LocalServer
+    put `http://rbr.home` into LocalServer
 
     put 0 into RepeatCount
     put empty into Password
 
-    ! Read the MAC address
-    if file Path cat `/mac` exists
-    begin
-        open File Path cat `/mac` for reading
-        read MAC from File
-        close File
-        put trim MAC into MAC
-        print `MAC: ` cat MAC
-    end
-    else
-    begin
-        system `sh update.sh`
-        exit
-    end
-
-    ! Read the saved password
-    if file Path cat `/password` exists
-    begin
-        open File Path cat `/password` for reading
-        read Password from File
-        close File
-    end
-    else put empty into Password
-    print `Saved Password: ` cat Password
-
-    ! Ask the server for our password and other data
-    get RegData from Server cat `/register/` cat MAC cat `?v=` cat now
-    put json RegData into RegData
-    if property `reboot` of RegData is not empty
-    begin
-        system `echo $(cat mypass) | sudo reboot`
-        exit
-    end
-    if property `update` of RegData is not empty
-    begin
-        system `sh update.sh`
-        exit
-    end
-    put property `password` of RegData into Value
-
-    ! Check if passwords match
-    if Password is not Value
-    begin
-        open File Path cat `/password` for writing
-        write Value to File
-        close File
-        print `Password: ` cat Value
-    end
-
-!   See if we have the latest system software
-    if file Path cat `/version` exists
-    begin
-        open File Path cat `/version` for reading
-        read Version from File
-        put trim Version into Version
-        close File
-    end
-    else put 1 into Version
-    put property `version` of RegData into Value
-    print `Current version: ` cat Version
-    if Value is not Version
-    begin
-        print `Installing update from ` cat Version cat ` to ` cat Value
-        system `sh update.sh`
-        open File Path cat `/version` for writing
-        write Value to File
-        close File
-        print `Updated to version ` cat Value
-        wait 5
-        system `echo $(cat mypass) | sudo reboot`
-        exit
-    end
-
 !   Make sure there's an 'advance' directory
-!    put Path cat `/advance` into Advance
     put RamDisk cat `/advance` into Advance
     if file Advance exists begin end
     else create directory Advance
 
 Start:
     add 9 to now giving Timestamp
-    ! If there's a map, load it; otherwise request it from the server
-!    if file Path cat `/map` exists
-    if file RamDisk cat `/map` exists
+    ! Load the map
+    if file `map` exists
     begin
-!        open File Path cat `/map` for reading
-        open File RamDisk cat `/map` for reading
+        open File `map` for reading
         read Map from File
         close File
     end
     else
     begin
-        get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-!        open File Path cat `/map` for writing
-        open File RamDisk cat `/map` for writing
-        write trim Map to File
-        close File
-    end
-!    print Map
-
-ProcessMap:
-    put json `{}` into Sensors
-    if Map is empty
-    begin
-        print `Error: no map found`
+        print `No map can be found`
         exit
     end
+
+ProcessMap:
+    open File RamDisk cat `/sensorData` for reading
+    read Sensors from File
+    close File
 
     put json Map into MapObject
     put property `profiles` of MapObject into Profiles
@@ -253,11 +160,15 @@ DoRooms:
         put stringify SimulatorData into SD
         if SD is not `{}` post to LocalServer cat `/simdata/` cat SD
     end
-    gosub to UpdateMap
+    put stringify SensorData into Sensors
+    open File RamDisk cat `/sensorData` for writing
+    write Sensors to File
+    close File
+    gosub to ExportMap
 
 !   Confirm the message
 
-    if Password is not empty post to Server cat `/confirm/` cat MAC cat `/` cat Password
+!    if Password is not empty post to Server cat `/confirm/` cat MAC cat `/` cat Password
 
     ! Do all the above 6 times
     add 1 to RepeatCount
@@ -271,12 +182,12 @@ DoRooms:
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Update the map
-UpdateMap:
-!   Send sensors and update the map from the website
+!   Export the map and sensors to the RBR website
+ExportMap:
+return
     set property `version` of SensorData to Version
     put stringify SensorData into Sensors
-    get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
+!    get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
     if NewMap is not Map
     begin
         print `New map received`
@@ -307,29 +218,24 @@ ProcessRoom:
     put property `relayType` of Room into RelayType
     if RelayType is empty put `` into RelayType
     if Sensor is empty return
-!    if file Path cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
     if file RamDisk cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
     return
 
 PR2:
     ! Make sure there's an 'advance' file. Read it into Advance
-!    if file Path cat `/advance/` cat Sensor exists
     if file RamDisk cat `/advance/` cat Sensor exists
     begin
-!        open File Path cat `/advance/` cat Sensor for reading
         open File RamDisk cat `/advance/` cat Sensor for reading
         read Advance from File
         close File
     end
     else
     begin
-!        open File Path cat `/advance/` cat Sensor for writing
         open File RamDisk cat `/advance/` cat Sensor for writing
         put `-` into Advance
         write Advance to File
         close File
     end
-!    open File Path cat `/sensors/` cat Sensor cat `.txt` for reading
     open File RamDisk cat `/sensors/` cat Sensor cat `.txt` for reading
     read SensorValues from File
     close File
@@ -367,9 +273,9 @@ PR2:
             add the timestamp to Target
             if Password is not empty
             begin
-                post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
-                    cat CurrentProfile cat `/` cat RoomNumber cat `/` cat Target giving Response
-                if Response is not empty print `Error sending boost data`
+!                post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
+!                    cat CurrentProfile cat `/` cat RoomNumber cat `/` cat Target giving Response
+!                if Response is not empty print `Error sending boost data`
             end
         end
         else if Boost is not 0
@@ -380,8 +286,8 @@ PR2:
             if N is greater than 0
             begin
                 ! Deal with the end of the boost period
-                post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
-                    cat CurrentProfile cat `/` cat RoomNumber cat `/0`
+!                post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
+!                    cat CurrentProfile cat `/` cat RoomNumber cat `/0`
                 print `Boost ended`
             end
             else print `Boost running`
@@ -483,7 +389,7 @@ CancelAdvance:
 AcknowlegeAdvance:
     gosub to UpdateAdvance
     ! Ask the server to acknowledge (clear) the request by putting `-` into the room record
-    post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat CurrentProfile cat `/` cat RoomNumber
+!    post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat CurrentProfile cat `/` cat RoomNumber
 
 TurnOnOrOff:
     if Advance is not `-`

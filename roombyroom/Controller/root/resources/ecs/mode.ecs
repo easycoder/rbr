@@ -35,6 +35,7 @@
     div TitleMask
     div MaskLayer
 	img TimedEditIcon
+    variable Host
     variable Map2
     variable CurrentProfile
     variable Profiles
@@ -68,6 +69,8 @@
     variable X
     
 !    debug step
+
+	get Host from storage as `host`
 
 	put empty into PeriodEditScript
     get Server from storage as `server`
@@ -337,21 +340,24 @@ ModeChange:
     set property `message` of Map to `confirm`
     fork to PostMap
     fork to FlashModeIndicator
-	! Wait for a response from the server
-   	if Demo wait 5 seconds
-    else
+    if Host is not `local`
     begin
-    	put 10 into Count
-        while Count is greater than 0
+        ! Wait for a response from the server
+        if Demo wait 5 seconds
+        else
         begin
-            wait 5 seconds
-            rest get Map2 from Server cat `/map/` cat MAC cat `?v=` cat now
-            if property `message` of Map2 is `OK` go to SM2
-            take 1 from Count
+            put 10 into Count
+            while Count is greater than 0
+            begin
+                wait 5 seconds
+                rest get Map2 from Server cat `/map/` cat MAC cat `?v=` cat now
+                if property `message` of Map2 is `OK` go to SM2
+                take 1 from Count
+            end
+            alert `System is not responding"
+            put `Refresh` into Result
+            exit
         end
-    	alert `System is not responding"
-		put `Refresh` into Result
-        exit
     end
 SM2:
 	put Map2 into Map

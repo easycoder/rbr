@@ -359,6 +359,8 @@ Start:
     begin
         put `MAC` into MAC
         put `Password` into Password
+        put `MAC` into storage as `MAC`
+        put `Password` into storage as `password`
     end
     else
     begin
@@ -442,6 +444,7 @@ GetMap:
 	if Demo put DemoSensors into Sensors
     else rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
         or go to HandleRestError
+print Sensors
 
    	put property `profiles` of Map into Profiles
 	put property `actual` of Sensors into CurrentProfile

@@ -85,9 +85,9 @@ def getIcon(name):
     # print(f'getIcon {name}')
     return static_file(name, root='./resources/icon')
 
-# Endpoint: GET <server-ip>/resources/image/<name>
+# Endpoint: GET <server-ip>/resources/img/<name>
 # Called to return an image
-@app.get('/resources/image/<name>')
+@app.get('/resources/img/<name>')
 def getImage(name):
     # print(f'getImage {name}')
     return static_file(name, root='./resources/img')
