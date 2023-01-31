@@ -195,6 +195,5 @@ def notify():
 if __name__ == '__main__':
     # ip = subprocess.getoutput("hostname -I").strip()
     ip = '172.24.1.1'
-    print(f'rbr.py: IP address = {ip}')
     app.run(host=ip, port=80, debug=False)
 

@@ -197,8 +197,7 @@ ShowTimes:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Send an advance or cancel request
 DoAdvance:
-	if Advance is `-` put `A` into Advance
-    else put `C` into Advance
+	if Advance is `-` put `A` into Advance else put `C` into Advance
     set property `advance` of RoomSpec to Advance
     set Flag
     go to SelectTimed
@@ -303,6 +302,7 @@ SelectMode:
     if Mode is `timed`
     begin
         set property `boost` of RoomSpec to 0
+    	clear BoostFlag
         if Flag go to ModeChange
     end
     else if Mode is `on`

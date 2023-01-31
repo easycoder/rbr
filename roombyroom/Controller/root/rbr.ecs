@@ -90,6 +90,7 @@ Start:
         print `No map can be found`
         exit
     end
+print Map
 
 ProcessMap:
     open File RamDisk cat `/sensorData` for reading
@@ -271,12 +272,7 @@ PR2:
             put from 1 of Boost into Target
             multiply Target by 60
             add the timestamp to Target
-            if Password is not empty
-            begin
-!                post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
-!                    cat CurrentProfile cat `/` cat RoomNumber cat `/` cat Target giving Response
-!                if Response is not empty print `Error sending boost data`
-            end
+            set property `boost` of Room to Target
         end
         else if Boost is not 0
         begin
@@ -286,12 +282,12 @@ PR2:
             if N is greater than 0
             begin
                 ! Deal with the end of the boost period
-!                post to Server cat `/boost/` cat MAC cat `/` cat Password cat `/`
-!                    cat CurrentProfile cat `/` cat RoomNumber cat `/0`
-                print `Boost ended`
+                set property `boost` of Room to 0
+                set property `mode` of Room to property `prevmode` of Room
             end
             else print `Boost running`
         end
+        gosub to UpdateRoom
         ! Use the target setting for 'on' mode
         put float property `target` of Room into Target
         if Temperature is less than Target go to TurnOn
@@ -366,7 +362,6 @@ CheckAdvance:
     go to TurnOnOrOff
 
 WriteAdvance:
-!    open File Path cat `/advance/` cat Sensor for writing
     open File RamDisk cat `/advance/` cat Sensor for writing
     write Advance to File
     close File
@@ -374,11 +369,16 @@ WriteAdvance:
 
 UpdateAdvance:
     set property `advance` of Room to `-`
+
+UpdateRoom:
     set element RoomNumber of Rooms to Room
     set property `rooms` of Profile to Rooms
     set element CurrentProfile of Profiles to Profile
     set property `profiles` of MapObject to Profiles
     put stringify MapObject into Map
+    open File `map` for writing
+    write Map to File
+    close File
     return
 
 CancelAdvance:
@@ -388,8 +388,6 @@ CancelAdvance:
 !   Clear the advance A or C request in the room record
 AcknowlegeAdvance:
     gosub to UpdateAdvance
-    ! Ask the server to acknowledge (clear) the request by putting `-` into the room record
-!    post to Server cat `/advance/` cat MAC cat `/` cat Password cat `/` cat CurrentProfile cat `/` cat RoomNumber
 
 TurnOnOrOff:
     if Advance is not `-`
