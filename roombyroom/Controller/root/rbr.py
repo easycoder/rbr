@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import bottle, time, os, json, subprocess, base64
+import bottle, time, os, json, subprocess, base64, requests
 from os import listdir
 from os.path import isfile, join
 from bottle import Bottle, run, request, static_file
@@ -97,18 +97,65 @@ def getImage(name):
 @app.get('/resources/help/<path:path>')
 def getHelp(path):
     # print(f'getHelp {path}')
-    return static_file(name, root='./resources/path')
+    return static_file(path, root='./resources/help')
+
+# Endpoint: GET <server-ip>/resources/js/<name>
+# Called to return a js file
+@app.get('/resources/js/<name>')
+def getJS(name):
+    # print(f'getJS {name}')
+    return static_file(name, root='./resources/js')
 
 # Endpoint: POST <server-ip>/resources/php/rest.php/map/<mac><password>
 # Called to post the map
 @app.post('/resources/php/rest.php/map/<mac>/<password>')
 def postMap(mac, password):
     # print('postMap')
-    data = request.body.getvalue().decode("ascii")
+    map = request.body.getvalue().decode("ascii")
     f = open('map', 'w')
+    f.write(map)
+    f.close()
+    # If we have communication with the web server, post the map to it
+    f = open('/mnt/data/password', 'r')
+    password = f.read().strip()
+    f.close()
+    if password:
+        f = open('mac', 'r')
+        mac = f.read().strip()
+        f.close()
+        try:
+            print(f'Post to https://rbrheating.com/resources/php/rest.php/map/{mac}/{password}')
+            response = requests.post(f'https://rbrheating.com/resources/php/rest.php/map/{mac}/{password}', json=map, timeout=5)
+            if response.status_code >= 400:
+                print(f'Error posting map: {response.reason} (code {response.status_code})')
+        except Exception as e:
+            print(f'Error posting map: {str(e)}')
+    return
+
+# Endpoint: POST <server-ip>/resources/php/rest.php/backup/<mac><password>
+# Called to post the backup
+@app.post('/resources/php/rest.php/backup/<mac>/<password>')
+def postBackup(mac, password):
+    # print('postBackup')
+    data = request.body.getvalue().decode("ascii")
+    f = open('backup', 'w')
     f.write(data)
     f.close()
     return
+
+# Endpoint: POST <server-ip>/resources/php/rest.php/restore/<mac>/<password>
+# Called to restore the backup if it exists
+@app.post('/resources/php/rest.php/restore/<mac>/<password>')
+def restoreBackup(mac, password):
+    # print('restoreBackup')
+    if isfile('backup'):
+        f = open('backup', 'r')
+        map = f.read()
+        f.close()
+        f = open('map', 'w')
+        f.write(map)
+        f.close()
+    return static_file('map', root='')
 
 # Endpoint: POST <server-ip>/resources/php/rest.php/_save/path>
 # Called to save a resource file

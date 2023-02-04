@@ -4,7 +4,7 @@
 # Make sure we have the MAC address
 if ! [ -s mac ]
 then
-   cat "/sys/class/net/wlan0/address" >/mnt/data/mac
+   cat "/sys/class/net/wlan0/address" >mac
 fi
 # Look for a running instance of rbr.ecs
 p=$(ps -eaf | grep "[r]br.ecs")

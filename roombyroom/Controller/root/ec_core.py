@@ -298,10 +298,29 @@ class Core(Handler):
                 FatalError(self.compiler, f'Variable "{symbolRecord["name"]}" does not hold a value')
         if self.nextIs('from'):
             command['url'] = self.nextValue()
-            return True
-        return False
+        command['or'] = None
+        get = self.getPC()
+        self.addCommand(command)
+        if self.nextIs('or'):
+            self.nextToken()
+            # Add a 'goto' to skip the 'or'
+            cmd = {}
+            cmd['lino'] = command['lino']
+            cmd['domain'] = 'core'
+            cmd['keyword'] = 'gotoPC'
+            cmd['goto'] = 0
+            cmd['debug'] = False
+            skip = self.getPC()
+            self.addCommand(cmd)
+            # Process the 'or'
+            self.getCommandAt(get)['or'] = self.getPC()
+            self.compileOne()
+            # Fixup the skip
+            self.getCommandAt(skip)['goto'] = self.getPC()
+        return True
 
     def r_get(self, command):
+        global errorCode, errorReason
         retval = {}
         retval['type'] = 'text'
         retval['numeric'] = False
@@ -309,9 +328,20 @@ class Core(Handler):
         target = self.getVariable(command['target'])
         try:
             response = requests.get(url, auth = ('user', 'pass'), timeout=5)
-            retval['content'] = response.text
+            if response.status_code >= 400:
+                errorCode = response.status_code
+                errorReason = response.reason
+                if command['or'] != None:
+                    return command['or']
+                else:
+                    RuntimeError(self.program, f'Error code {errorCode}: {errorReason}')
         except Exception as e:
-            retval['content'] = 'Error'
+            errorReason = str(e)
+            if command['or'] != None:
+                return command['or']
+            else:
+                RuntimeError(self.program, f'Error: {errorReason}')
+        retval['content'] = response.text
         self.program.putSymbolValue(target, retval);
         return self.nextPC()
 
@@ -538,7 +568,6 @@ class Core(Handler):
         return -1
 
     def k_post(self, command):
-        # self.add(command)
         if self.nextIs('to'):
             command['value'] = self.getConstant('')
             command['url'] = self.getValue()
@@ -549,10 +578,31 @@ class Core(Handler):
         if self.peek() == 'giving':
             self.nextToken()
             command['result'] = self.nextToken()
-        self.add(command)
+        else:
+            command['result'] = None
+        command['or'] = None
+        post = self.getPC()
+        self.addCommand(command)
+        if self.nextIs('or'):
+            self.nextToken()
+            # Add a 'goto' to skip the 'or'
+            cmd = {}
+            cmd['lino'] = command['lino']
+            cmd['domain'] = 'core'
+            cmd['keyword'] = 'gotoPC'
+            cmd['goto'] = 0
+            cmd['debug'] = False
+            skip = self.getPC()
+            self.addCommand(cmd)
+            # Process the 'or'
+            self.getCommandAt(post)['or'] = self.getPC()
+            self.compileOne()
+            # Fixup the skip
+            self.getCommandAt(skip)['goto'] = self.getPC()
         return True
 
     def r_post(self, command):
+        global errorCode, errorReason
         retval = {}
         retval['type'] = 'text'
         retval['numeric'] = False
@@ -561,14 +611,22 @@ class Core(Handler):
         try:
             response = requests.post(url, json=value, timeout=5)
             retval['content'] = response.text
-        except  Exception as e:
-            print(str(e))
-            retval['content'] = 'Error'
-        try:
+            if response.status_code >= 400:
+                errorCode = response.status_code
+                errorReason = response.reason
+                if command['or'] != None:
+                    return command['or']
+                else:
+                    RuntimeError(self.program, f'Error code {errorCode}: {errorReason}')
+        except Exception as e:
+            errorReason = str(e)
+            if command['or'] != None:
+                return command['or']
+            else:
+                RuntimeError(self.program, f'Error: {errorReason}')
+        if command['result'] != None:
             result = self.getVariable(command['result'])
             self.program.putSymbolValue(result, retval);
-        except:
-            pass
         return self.nextPC()
 
     def k_print(self, command):
@@ -835,7 +893,7 @@ class Core(Handler):
             element['numeric'] = 'false'
             element['content'] = item
             target['value'][index] = element
-        
+
         return self.nextPC()
 
     def k_stop(self, command):
@@ -1230,7 +1288,7 @@ class Core(Handler):
                     value['haystack'] = self.nextValue()
                     return value
 
-        if token in ['message', 'error']:
+        if token == 'message':
             self.nextToken()
             return value
 
@@ -1253,6 +1311,16 @@ class Core(Handler):
         if token == 'weekday':
             value['type'] = 'weekday'
             return value
+
+        if token == 'error':
+            if self.peek() == 'code':
+                self.nextToken()
+                value['item'] = 'errorCode'
+                return value
+            if self.peek() == 'reason':
+                self.nextToken()
+                value['item'] = 'errorReason'
+                return value
 
         print(f'Unknown token {token}')
         return None
@@ -1343,6 +1411,17 @@ class Core(Handler):
         value = {}
         value['type'] = 'text'
         value['content'] = self.program.encode(v['content'])
+        return value
+
+    def v_error(self, v):
+        global errorCode, errorReason
+        value = {}
+        if v['item'] == 'errorCode':
+            value['type'] = 'int'
+            value['content'] = errorCode
+        elif v['item'] == 'errorReason':
+            value['type'] = 'text'
+            value['content'] = errorReason
         return value
 
     def v_stringify(self, v):

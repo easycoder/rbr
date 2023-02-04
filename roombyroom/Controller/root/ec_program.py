@@ -72,10 +72,11 @@ class Program:
 				val = self.doValue(part)
 				if val == None:
 					return None
-				val = str(val['content'])
-				if val == None:
-					return None
-				content += val
+				if val != '':
+					val = str(val['content'])
+					if val == None:
+						return None
+					content += val
 			result['type'] = 'text'
 			result['content'] = content
 		elif valType == 'symbol':

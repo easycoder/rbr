@@ -8,6 +8,8 @@
     file File
     variable RamDisk
     variable LocalServer
+    variable RBRServer
+    variable RegData
     variable Version
     variable RepeatCount
     variable CurrentProfile
@@ -41,18 +43,16 @@
     variable Boundary
     variable Turn
     variable MAC
-    variable RegData
     variable Password
     variable Advance
     variable Boost
     variable RequestCount
     variable RequestIP
-    variable Value
     variable Email
     variable TPPassword
-    variable Response
     variable SimulatorData
     variable SD
+    variable Value
     variable Calendar
     variable Day
     variable RA
@@ -67,9 +67,64 @@
 
     put `/mnt/data` into RamDisk
     put `http://rbr.home` into LocalServer
+    put `https://rbrheating.com/resources/php/rest.php` into RBRServer
 
     put 0 into RepeatCount
-    put empty into Password
+    open File `mac` for reading
+    read MAC from File
+    close File
+
+    ! Ask the server for our password and other data
+    put empty into RegData
+    get RegData from RBRServer cat `/register/` cat MAC cat `?v=` cat now
+    or begin
+        print `Server did not respond`
+        put empty into Password
+        go to SkipServerInteraction
+    end
+
+    put json RegData into RegData
+    put property `password` of RegData into Password
+    print `Password: ` cat Password
+    if property `reboot` of RegData is not empty
+    begin
+        system `reboot`
+        exit
+    end
+    if property `update` of RegData is not empty
+    begin
+        system `sh update.sh`
+        exit
+    end
+
+!   See if we have the latest system software
+    if file `version` exists
+    begin
+        open File `version` for reading
+        read Version from File
+        put trim Version into Version
+        close File
+    end
+    else put 1 into Version
+    put property `version` of RegData into Value
+    print `Current version: ` cat Version
+    if Value is not Version
+    begin
+        print `Installing update from ` cat Version cat ` to ` cat Value
+!        system `sh update.sh`
+        open File `version` for writing
+        write Value to File
+        close File
+        print `Updated to version ` cat Value
+        wait 5
+        system `reboot`
+        exit
+    end
+
+SkipServerInteraction:
+    open File `/mnt/data/password` for writing
+    write Password to File
+    close File
 
 !   Make sure there's an 'advance' directory
     put RamDisk cat `/advance` into Advance
@@ -85,12 +140,14 @@ Start:
         read Map from File
         close File
     end
-    else
+    else put empty into Map
+    if Map is empty
     begin
-        print `No map can be found`
-        exit
+        put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0,"name":"New system"}` into Map
+        open File `map` for writing
+        write Map to File
+        close File
     end
-print Map
 
 ProcessMap:
     open File RamDisk cat `/sensorData` for reading
@@ -155,8 +212,8 @@ DoRooms:
             if RequestCount is 0 put `off` into Turn
             else put `on` into Turn
             print `Request is ` cat Turn
-            post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn giving Response
-            if Response is `Error` set property `status` of SensorData to `Request relay did not respond`
+            post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
+            or set property `status` of SensorData to `Request relay did not respond`
         end
         put stringify SimulatorData into SD
         if SD is not `{}` post to LocalServer cat `/simdata/` cat SD
@@ -421,9 +478,8 @@ SetRelays:
             if RelayType is `Shelly One`
             begin
 !                print `http://` cat Relay cat `/relay/0?turn=` cat Turn
-                post to `http://` cat Relay cat `/relay/0?turn=` cat Turn giving Response
-                if Response is `Error`
-                begin
+                post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
+                or begin
                     set property `status` of SensorValues to `Fail`
                     set property `status` of SensorData to `No response from ` cat RoomName
                 end
