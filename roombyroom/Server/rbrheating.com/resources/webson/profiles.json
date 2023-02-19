@@ -213,7 +213,13 @@
         "padding": "1em",
         "background": "#ffc",
         "text-align": "center",
-        "#": ["$Table", "$Buttons"],
+        "#": ["$Text", "$Table", "$Buttons"],
+
+        "$Text": {
+            "#element": "div",
+            "#content": "Choose the profile to use for each day of the week",
+            "margin-bottom": "0.5em"
+        },
 
         "$Table": {
             "#element": "div",
@@ -313,13 +319,15 @@
 
             "$Day": {
                 "#element": "div",
+                "@id": "profile-$Index",
+                "cursor": "pointer",
                 "display": "flex",
                 "flex-direction": "row",
                 "align-items": "center",
                 "height": "2em",
                 "padding": "0.5em",
                 "background": "$Background",
-                "#": ["$DayName", "$Time", "$Profile"],
+                "#": ["$DayName", "$Profile"],
 
                 "$DayName": {
                     "#element": "div",
@@ -331,47 +339,12 @@
                     "#content": "$Name"
                 },
 
-                "$Time": {
-                    "#element": "div",
-                    "width": "7em",
-                    "height": "100%",
-                    "position": "relative",
-                    "display": "flex",
-                    "align-items": "center",
-                    "#": ["$Down", "$TimeText", "$Up"],
-
-                    "$Down": {
-                        "#element": "img",
-                        "@id": "time-down-$Index",
-                        "@src": "resources/icon/down.png",
-                        "width": "1.5em",
-                        "height": "1.5em",
-                        "padding": "0 0.25em"
-                    },
-
-                    "$TimeText": {
-                        "#element": "div",
-                        "@id": "time-$Index",
-                        "flex": "1",
-                        "cursor": "pointer"
-                    },
-
-                    "$Up": {
-                        "#element": "img",
-                        "@id": "time-up-$Index",
-                        "@src": "resources/icon/up.png",
-                        "width": "1.5em",
-                        "height": "1.5em",
-                        "padding": "0 0.25em"
-                    }
-                },
-
                 "$Profile": {
                     "#element": "div",
-                    "@id": "profile-$Index",
+                    "@id": "profile-text-$Index",
+                    "pointer-events": "none",
                     "flex": 1,
                     "height": "1em",
-                    "cursor": "pointer",
                     "#content": "&nbsp;"
                 }
             }

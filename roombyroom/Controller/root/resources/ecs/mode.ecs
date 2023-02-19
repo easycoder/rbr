@@ -35,8 +35,6 @@
     div TitleMask
     div MaskLayer
 	img TimedEditIcon
-    variable Host
-    variable Map2
     variable CurrentProfile
     variable Profiles
     variable Profile
@@ -51,26 +49,20 @@
     variable PeriodEditScript
     variable ModeWebson
     variable Integer
-    variable FlashIndex
     variable Password
     variable Server
-    variable Count
-    variable Waiting
-    variable Flashing
     variable Advance
     variable MAC
     variable Dot
     variable OnUD
     variable Boost
     variable BoostFlag
-    variable Flag
+    variable Changed
     variable L
     variable T
     variable X
     
 !    debug step
-
-	get Host from storage as `host`
 
 	put empty into PeriodEditScript
     get Server from storage as `server`
@@ -85,6 +77,7 @@
     gosub to GetCurrentRooms
     put element ClickIndex of Rooms into RoomSpec
     put property `name` of RoomSpec into RoomName
+    put property `mode` of RoomSpec into Mode
     rest get ModeWebson from `/resources/webson/mode.json?v=` cat now
     replace `/ROOM/` with RoomName in ModeWebson
 	render ModeWebson in ModePanel
@@ -192,19 +185,22 @@ ShowTimes:
     if PeriodEditScript is empty
     	rest get PeriodEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
+    set style `display` of MaskLayer to `none`
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Send an advance or cancel request
 DoAdvance:
-	if Advance is `-` put `A` into Advance else put `C` into Advance
+	if Advance is `-` put `A` into Advance
+    else put `C` into Advance
     set property `advance` of RoomSpec to Advance
-    set Flag
+    set Changed
     go to SelectTimed
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select timed mode
 SelectTimed:
+    if Mode is not `timed` set Changed
    	put `timed` into Mode
     clear BoostFlag
     go to SelectMode
@@ -252,7 +248,11 @@ SelectBoost:
         	put property `prevmode` of RoomSpec into Mode
         	clear BoostFlag
         end
-        else set BoostFlag
+        else
+        begin
+            set property `advance` of RoomSpec to `-`
+            set BoostFlag
+        end
         go to SelectMode
     end
    	if Boost is 0 go to SelectCancel
@@ -302,8 +302,7 @@ SelectMode:
     if Mode is `timed`
     begin
         set property `boost` of RoomSpec to 0
-    	clear BoostFlag
-        if Flag go to ModeChange
+        if Changed go to ModeChange
     end
     else if Mode is `on`
     begin
@@ -316,20 +315,20 @@ SelectMode:
     end
     else if Mode is `boost`
     begin
-    	clear Flag
+    	clear Changed
     	if TargetFlag
         begin
 			set property `target` of RoomSpec to Target
 			set property `boost` of RoomSpec to 0
-            set Flag
+            set Changed
         end
     	if BoostFlag
         begin
 			set property `boost` of RoomSpec to `B` cat Boost
     		set property `advance` of RoomSpec to ``
-            set Flag
+            set Changed
         end
-        if Flag go to ModeChange
+        if Changed go to ModeChange
     end
 	if Mode is CurrentMode exit
 
@@ -337,81 +336,15 @@ ModeChange:
 	set property `mode` of RoomSpec to Mode
     set element ClickIndex of Rooms to RoomSpec
     gosub to CopyRoomsToMap
-    set property `message` of Map to `confirm`
-    fork to PostMap
-    fork to FlashModeIndicator
-    if Host is not `local`
-    begin
-        ! Wait for a response from the server
-        if Demo wait 5 seconds
-        else
-        begin
-            put 10 into Count
-            while Count is greater than 0
-            begin
-                wait 5 seconds
-                rest get Map2 from Server cat `/map/` cat MAC cat `?v=` cat now
-                if property `message` of Map2 is `OK` go to SM2
-                take 1 from Count
-            end
-            alert `System is not responding"
-            put `Refresh` into Result
-            exit
-        end
-    end
-SM2:
-	put Map2 into Map
-	clear Waiting
-    put 0 into Count
-    while Count is less than 10
-    begin
-    	if not Flashing go to SM3
-        wait 10 ticks
-    	add 1 to Count
-    end
-SM3:
-    exit
+    go to PostMap
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Flash the mode indicator button while waiting
-FlashModeIndicator:
-    set Waiting
-    set Flashing
-    put the index of ModeIcon into FlashIndex
-	while Waiting
-    begin
-        index ModeIcon to FlashIndex
-	    set style `opacity` of ModeIcon to `0.25`
-    	wait 50 ticks
-        index ModeIcon to FlashIndex
-	    set style `opacity` of ModeIcon to `1.0`
-        wait 50 ticks
-    end
-    clear Flashing
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Flash the advance button
-FlashAdvance:
-    set Waiting
-    set Flashing
-	while Waiting
-    begin
-	    set style `opacity` of AdvanceButton to `0.25`
-    	wait 50 ticks
-	    set style `opacity` of AdvanceButton to `1.0`
-        wait 50 ticks
-    end
-    clear Flashing
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the current room set from the map
 GetCurrentRooms:
 	put property `actual` of Sensors into CurrentProfile
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms        
+    put property `rooms` of Profile into Rooms
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -438,4 +371,4 @@ PostMap:
         	continue
         end
 	end
-	stop
+	exit

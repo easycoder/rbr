@@ -1,7 +1,7 @@
 import json, math, hashlib, threading, os, sys, requests, time, numbers
 from datetime import datetime, timezone
 from random import randrange
-from ec_classes import FatalError, RuntimeError
+from ec_classes import FatalError, RuntimeWarning
 from ec_handler import Handler
 from ec_timestamp import getTimestamp
 
@@ -159,7 +159,7 @@ class Core(Handler):
 
     def k_debug(self, command):
         token = self.peek()
-        if token in ['step', 'program']:
+        if token in ['step', 'stop', 'program']:
             command['mode'] = token
             self.nextToken()
         else:
@@ -170,6 +170,8 @@ class Core(Handler):
     def r_debug(self, command):
         if command['mode'] == 'step':
             self.program.debugStep = True
+        elif command['mode'] == 'stop':
+            self.program.debugStep = False
         elif command['mode'] == 'program':
             for item in self.code:
                 print(json.dumps(item, indent = 2))
@@ -301,7 +303,8 @@ class Core(Handler):
         command['or'] = None
         get = self.getPC()
         self.addCommand(command)
-        if self.nextIs('or'):
+        if self.peek() == 'or':
+            self.nextToken()
             self.nextToken()
             # Add a 'goto' to skip the 'or'
             cmd = {}
@@ -583,7 +586,8 @@ class Core(Handler):
         command['or'] = None
         post = self.getPC()
         self.addCommand(command)
-        if self.nextIs('or'):
+        if self.peek() == 'or':
+            self.nextToken()
             self.nextToken()
             # Add a 'goto' to skip the 'or'
             cmd = {}
@@ -609,7 +613,7 @@ class Core(Handler):
         value = self.getRuntimeValue(command['value'])
         url = self.getRuntimeValue(command['url'])
         try:
-            response = requests.post(url, json=value, timeout=5)
+            response = requests.post(url, value, timeout=5)
             retval['content'] = response.text
             if response.status_code >= 400:
                 errorCode = response.status_code
@@ -841,14 +845,21 @@ class Core(Handler):
         if cmdType == 'property':
             value = self.getRuntimeValue(command['value'])
             name = self.getRuntimeValue(command['name'])
-            target = self.getVariable(command['target'])
-            val = self.getSymbolValue(target)
-            content = val['content']
+            target = command['target']
+            targetVariable = self.getVariable(target)
+            val = self.getSymbolValue(targetVariable)
+            try:
+                content = val['content']
+            except:
+                RuntimeError(self.program, f'{target} is not an object')
             if content == '':
                 content = {}
-            content[name] = value
+            try:
+                content[name] = value
+            except:
+                RuntimeError(self.program, f'{target} is not an object')
             val['content'] = content
-            self.putSymbolValue(target, val)
+            self.putSymbolValue(targetVariable, val)
             return self.nextPC()
 
         if cmdType == 'element':
@@ -1463,7 +1474,11 @@ class Core(Handler):
         val = self.getRuntimeValue(v['content'])
         value = {}
         value['type'] = 'float'
-        value['content'] = float(val)
+        try:
+            value['content'] = float(val)
+        except:
+            RuntimeWarning(self.program, f'Value cannot be parsed as floating-point')
+            value['content'] = 0.0
         return value
 
     def v_index(self, v):
@@ -1720,7 +1735,10 @@ class Core(Handler):
     # Condition handlers
 
     def c_boolean(self, condition):
-        return type(self.getRuntimeValue(condition['value1'])) == bool
+        value = self.getRuntimeValue(condition['value1'])
+        if type(value) == bool:
+            return value;
+        return False
 
     def c_numeric(self, condition):
         return isinstance(self.getRuntimeValue(condition['value1']), int)

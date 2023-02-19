@@ -18,7 +18,6 @@
     variable ProfileName
     variable Map
     variable MapObject
-    variable NewMap
     variable Rooms
     variable Room
     variable RoomNumber
@@ -46,13 +45,21 @@
     variable Password
     variable Advance
     variable Boost
+    variable Request
     variable RequestCount
     variable RequestIP
+    variable Action
+    variable Operation
+    variable Items
+    variable Key
+    variable Keys
     variable Email
     variable TPPassword
     variable SimulatorData
     variable SD
     variable Value
+    variable Changed
+    variable Confirm
     variable Calendar
     variable Day
     variable RA
@@ -65,14 +72,23 @@
 
 !    debug step
 
+    open File `server.txt` for reading
+    read RBRServer from File
+    close File
+    put trim RBRServer into RBRServer
+    put RBRServer cat `/resources/php/rest.php` into RBRServer
+
     put `/mnt/data` into RamDisk
     put `http://rbr.home` into LocalServer
-    put `https://rbrheating.com/resources/php/rest.php` into RBRServer
 
     put 0 into RepeatCount
     open File `mac` for reading
     read MAC from File
     close File
+    put trim MAC into MAC
+
+    clear Changed
+    clear Confirm
 
     ! Ask the server for our password and other data
     put empty into RegData
@@ -121,6 +137,7 @@
         exit
     end
 
+!   Continue here if we are not connected to the RBR web server
 SkipServerInteraction:
     open File `/mnt/data/password` for writing
     write Password to File
@@ -143,19 +160,142 @@ Start:
     else put empty into Map
     if Map is empty
     begin
-        put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0,"name":"New system"}` into Map
+        ! Try to get the map from the RBR server
+        if Password is not empty
+        begin
+        end
+        put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
         open File `map` for writing
         write Map to File
         close File
     end
 
-ProcessMap:
-    open File RamDisk cat `/sensorData` for reading
-    read Sensors from File
-    close File
-
     put json Map into MapObject
     put property `profiles` of MapObject into Profiles
+    put property `profile` of MapObject into CurrentProfile
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms
+    print `Profile: ` cat property `name` of Profile
+
+    !   Get the request, if any
+    if Password is empty go to SkipRequests
+
+    get Request from RBRServer cat `/request/` cat MAC cat `?v=` cat now or stop
+    if Request is not empty
+    begin
+!print Request
+        set Changed
+        set Confirm
+        put json Request into Request
+        put property `action` of Request into Action
+        if Action is `SystemName`
+        begin
+            set property `name` of MapObject to property `SystemName` of Request
+        end
+        else if Action is `addroom`
+        begin
+            put property `spec` of Request into Room
+            append Room to Rooms
+            gosub to UpdateRooms
+        end
+        else if Action is `rooms`
+        begin
+            put property `rooms` of Request into Rooms
+            gosub to UpdateRooms
+        end
+        else if Action is `backup`
+        begin
+            open File `backup` for writing
+            write Map to File
+            close File
+        end
+        else if Action is `restore`
+        begin
+            open File `backup` for reading
+            read Map from File
+            close File
+            gosub to SaveMap
+            put json Map into MapObject
+        end
+        else if Action is `profiles`
+        begin
+            put property `profiles` of Request into Profiles
+            put property `profile` of Request into CurrentProfile
+            set property `profiles` of MapObject to Profiles
+            set property `profile` of MapObject to CurrentProfile
+            set property `calendar` of MapObject to property `calendar` of Request
+            set property `calendar-data` of MapObject to property `calendar-data` of Request
+            put stringify MapObject into Map
+            gosub to SaveMap
+        end
+        else if Action is `mode`
+        begin
+            put property `roomnumber` of Request into RoomNumber
+            put element RoomNumber of Rooms into Room
+            put property `name` of Room into RoomName
+            put property `mode` of Request into Mode
+            set property `mode` of Room to Mode
+            if Mode is `timed`
+                set property `advance` of Room to property `advance` of Request
+            else if Mode is `boost`
+            begin
+                put property `operation` of Request into Operation
+                if Operation is `target`
+                    set property `target` of Room to property `target` of Request
+                else if Operation is `boost`
+                begin
+                    set property `boost` of Room to property `boost` of Request
+                end
+            end
+            gosub to UpdateRoom
+        end
+        else if Action is `profiles`
+        begin
+        end
+        else if Action is `roomname`
+        begin
+            put property `roomnumber` of Request into RoomNumber
+            put element RoomNumber of Rooms into Room
+            set property `name` of Room to property `name` of Request
+            gosub to UpdateRoom
+        end
+        else if Action is `roomdata`
+        begin
+            put property `roomnumber` of Request into RoomNumber
+            put element RoomNumber of Rooms into Room
+            put property `items` of Request into Items
+            put the keys of Items into Keys
+            put 0 into N
+            while N is less than the count of Keys
+            begin
+                put element N of Keys into Key
+                set property Key of Room to property Key of Items
+                add 1 to N
+            end
+            gosub to UpdateRoom
+        end
+        else if Action is `periods`
+        begin
+            put property `roomnumber` of Request into RoomNumber
+            put element RoomNumber of Rooms into Room
+            set property `events` of Room to property `periods` of Request
+            gosub to UpdateRoom
+        end
+        else if Action is `request`
+        begin
+            set property `request` of MapObject to property `request` of Request
+        end
+    end
+
+!   Process the map
+SkipRequests:
+    if file RamDisk cat `/sensorData` exists
+    begin
+        open File RamDisk cat `/sensorData` for reading
+        read Sensors from File
+        close File
+    end
+    else put `{}` into Sensors
 
     ! If the Calendar is on, find which profile is active
     if property `calendar` of MapObject is `off` go to PM2
@@ -181,9 +321,6 @@ PM2:
 
 !   Process all the rooms
 DoRooms:
-    put element CurrentProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms
-    print `Profile: ` cat property `name` of Profile
     put json `{}` into SensorData
     set property `actual` of SensorData to CurrentProfile
     set property `status` of SensorData to ``
@@ -211,7 +348,7 @@ DoRooms:
         begin
             if RequestCount is 0 put `off` into Turn
             else put `on` into Turn
-            print `Request is ` cat Turn
+            print `Request relay is ` cat Turn
             post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
             or set property `status` of SensorData to `Request relay did not respond`
         end
@@ -222,11 +359,35 @@ DoRooms:
     open File RamDisk cat `/sensorData` for writing
     write Sensors to File
     close File
-    gosub to ExportMap
 
-!   Confirm the message
+    if Password is not empty
+    begin
+        post Sensors to RBRServer cat `/sensors/` cat MAC cat `/` cat Password
 
-!    if Password is not empty post to Server cat `/confirm/` cat MAC cat `/` cat Password
+        ! If the map has changed, write it back to the RBR server.
+        if Changed
+        begin
+            put stringify MapObject into Map
+            open File `map` for writing
+            write Map to File
+            close File
+            if Password is not empty
+            begin
+                if Confirm
+                begin
+                    print `Post map + confirm`
+                    post stringify MapObject to RBRServer cat `/confirm/` cat MAC cat `/` cat Password
+                    clear Confirm
+                end
+                else
+                begin
+                    print `Post map`
+                    post stringify MapObject to RBRServer cat `/map/` cat MAC cat `/` cat Password
+                end
+            end
+            clear Changed
+        end
+    end
 
     ! Do all the above 6 times
     add 1 to RepeatCount
@@ -238,35 +399,6 @@ DoRooms:
     end
 
     exit
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Export the map and sensors to the RBR website
-ExportMap:
-return
-    set property `version` of SensorData to Version
-    put stringify SensorData into Sensors
-!    get NewMap from Server cat `/update/` cat MAC cat `/` cat Sensors cat `?v=` cat now
-    if NewMap is not Map
-    begin
-        print `New map received`
-        put json NewMap into MapObject
-        put property `profiles` of MapObject into Profiles
-        put property `profile` of MapObject into CurrentProfile
-        put element CurrentProfile of Profiles into Profile
-        put property `rooms` of Profile into Rooms
-        if the count of Rooms is not 0
-        begin
-!            open File Path cat `/map` for writing
-            open File RamDisk cat `/map` for writing
-            write NewMap to File
-            close File
-            print `Map updated`
-            put NewMap into Map
-        end
-        else print `Bad map received from server`
-!        go to ProcessMap
-    end
-    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
@@ -289,10 +421,8 @@ PR2:
     end
     else
     begin
-        open File RamDisk cat `/advance/` cat Sensor for writing
         put `-` into Advance
-        write Advance to File
-        close File
+        gosub to WriteAdvance
     end
     open File RamDisk cat `/sensors/` cat Sensor cat `.txt` for reading
     read SensorValues from File
@@ -330,6 +460,12 @@ PR2:
             multiply Target by 60
             add the timestamp to Target
             set property `boost` of Room to Target
+            set property `prevmode` of Room to `timed`
+            set property `message` of MapObject to `confirm`
+            gosub to UpdateRoom
+            set property `advance` of Room to `-`
+            put `-` into Advance
+            gosub to WriteAdvance
         end
         else if Boost is not 0
         begin
@@ -339,15 +475,21 @@ PR2:
             if N is greater than 0
             begin
                 ! Deal with the end of the boost period
+                print `Boost finished`
                 set property `boost` of Room to 0
                 set property `mode` of Room to property `prevmode` of Room
+                gosub to UpdateRoom
             end
-            else print `Boost running`
+            else print `Boost at ` cat N
         end
-        gosub to UpdateRoom
         ! Use the target setting for 'on' mode
-        put float property `target` of Room into Target
-        if Temperature is less than Target go to TurnOn
+        put property `target` of Room into Target
+        print `Target: ` cat Target
+        if Target is not empty
+        begin
+            put float Target into Target
+            if Temperature is less than Target go to TurnOn
+        end
         go to TurnOff
     end
 
@@ -402,6 +544,7 @@ CheckAdvance:
     begin
         if RA is `A`
         begin
+            set property `boost` of Room to 0
             put EE into Advance
             gosub to WriteAdvance
             go to AcknowlegeAdvance
@@ -429,13 +572,12 @@ UpdateAdvance:
 
 UpdateRoom:
     set element RoomNumber of Rooms to Room
+UpdateRooms:
     set property `rooms` of Profile to Rooms
     set element CurrentProfile of Profiles to Profile
     set property `profiles` of MapObject to Profiles
     put stringify MapObject into Map
-    open File `map` for writing
-    write Map to File
-    close File
+    set Changed
     return
 
 CancelAdvance:
@@ -445,6 +587,12 @@ CancelAdvance:
 !   Clear the advance A or C request in the room record
 AcknowlegeAdvance:
     gosub to UpdateAdvance
+
+SaveMap:
+    open File `map` for writing
+    write Map to File
+    close File
+    return
 
 TurnOnOrOff:
     if Advance is not `-`
@@ -465,7 +613,7 @@ TurnOn:
     put `on` into Turn
 
 SetRelays:
-    print Sensor cat ` ` cat RoomName cat ` ` cat Turn
+    print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat Turn
     if RelayType is empty put `Shelly One` into RelayType
     put 0 into R
     while R is less than the count of Relays

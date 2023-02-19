@@ -204,7 +204,8 @@ GetCurrentRooms:
 	put property `actual` of Sensors into CurrentProfile
    	put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms        
+    put property `rooms` of Profile into Rooms
+print Rooms
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

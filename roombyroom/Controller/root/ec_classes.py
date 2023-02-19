@@ -19,6 +19,16 @@ class RuntimeError:
 			print(f'Runtime Error in {program.name} at line {lino + 1} ({script}): {message}')
 			sys.exit()
 
+class RuntimeWarning:
+	def __init__(self, program, message):
+		if program == None:
+			print(f'Runtime Warning: {message}')
+		else:
+			code = program.code[program.pc]
+			lino = code['lino']
+			script = program.script.lines[lino].strip()
+			print(f'Runtime Warning in {program.name} at line {lino + 1} ({script}): {message}')
+
 class Script:
 	def __init__(self, source):
 		self.lines = source.splitlines()

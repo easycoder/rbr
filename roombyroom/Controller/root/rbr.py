@@ -8,7 +8,7 @@ from bottle import Bottle, run, request, static_file
 app = Bottle()
 
 ###############################################################################
-# This is the RBR website
+# This is the RBR local website at http://rbr.home
 
 # Endpoint: GET <server-ip>/register/<mac>
 # Called to register
@@ -107,41 +107,26 @@ def getJS(name):
     return static_file(name, root='./resources/js')
 
 # Endpoint: POST <server-ip>/resources/php/rest.php/map/<mac><password>
-# Called to post the map
+# Called to post the map. This always comes from the local UI
 @app.post('/resources/php/rest.php/map/<mac>/<password>')
 def postMap(mac, password):
-    # print('postMap')
     map = request.body.getvalue().decode("ascii")
     f = open('map', 'w')
     f.write(map)
     f.close()
-    # If we have communication with the web server, post the map to it
-    f = open('/mnt/data/password', 'r')
-    password = f.read().strip()
-    f.close()
-    if password:
-        f = open('mac', 'r')
-        mac = f.read().strip()
-        f.close()
-        try:
-            print(f'Post to https://rbrheating.com/resources/php/rest.php/map/{mac}/{password}')
-            response = requests.post(f'https://rbrheating.com/resources/php/rest.php/map/{mac}/{password}', json=map, timeout=5)
-            if response.status_code >= 400:
-                print(f'Error posting map: {response.reason} (code {response.status_code})')
-        except Exception as e:
-            print(f'Error posting map: {str(e)}')
-    return
+    postMap(map)
 
 # Endpoint: POST <server-ip>/resources/php/rest.php/backup/<mac><password>
 # Called to post the backup
 @app.post('/resources/php/rest.php/backup/<mac>/<password>')
 def postBackup(mac, password):
     # print('postBackup')
-    data = request.body.getvalue().decode("ascii")
-    f = open('backup', 'w')
-    f.write(data)
+    f = open('map', 'r')
+    map = f.read()
     f.close()
-    return
+    f = open('backup', 'w')
+    f.write(map)
+    f.close()
 
 # Endpoint: POST <server-ip>/resources/php/rest.php/restore/<mac>/<password>
 # Called to restore the backup if it exists
@@ -155,6 +140,7 @@ def restoreBackup(mac, password):
         f = open('map', 'w')
         f.write(map)
         f.close()
+        postMap(map)
     return static_file('map', root='')
 
 # Endpoint: POST <server-ip>/resources/php/rest.php/_save/path>
@@ -231,16 +217,34 @@ def notify():
             message = '{"temperature": "' + str(temp) + '", "timestamp": "' + str(ts) + '"}'
             file.write(message)
             file.close()
-#            print(f'Written {message} to {source}.txt')
-        return
     except:
         print('Error')
-        return
+
+# Post the map to the RBR web server
+def postMap(map):
+    # Check if we have communication with the web server
+    f = open('/mnt/data/password', 'r')
+    password = f.read().strip()
+    f.close()
+    if password:
+        f = open('server.txt', 'r')
+        server = f.read().strip()
+        f.close()
+        f = open('mac', 'r')
+        mac = f.read().strip()
+        f.close()
+        try:
+            print(f'Post to {server}/resources/php/rest.php/map/{mac}/{password}')
+            response = requests.post(f'{server}/resources/php/rest.php/map/{mac}/{password}', map, timeout=5)
+            if response.status_code >= 400:
+                print(f'Error posting map: {response.reason} (code {response.status_code})')
+        except Exception as e:
+            print(f'Error posting map: {str(e)}')
 
 # Initialization
 
 if __name__ == '__main__':
-    # ip = subprocess.getoutput("hostname -I").strip()
-    ip = '172.24.1.1'
+    ip = subprocess.getoutput("hostname -I").strip()
+    # ip = '192.168.1.10'
     app.run(host=ip, port=80, debug=False)
 
