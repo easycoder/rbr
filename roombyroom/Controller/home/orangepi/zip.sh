@@ -2,4 +2,4 @@
 
 # This is used on the development machine to update the distribution.
 
-tar zcf ../../../Server/rbrheating.com/resources/resources.tgz *.*
+tar zcf ../../Server/rbrheating.com/resources/dist.tgz *

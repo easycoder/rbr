@@ -1,11 +1,10 @@
 #!/bin/sh
 
 # This script runs every minute as a cron task
-#cd /home/pi
 # Make sure we have the MAC address
 if ! [ -s mac ]
 then
-   cat "/sys/class/net/$(cat network)/address" >mac
+   cat "/sys/class/net/wlan0/address" >mac
 fi
 # Look for a running instance of rbr.ecs
 p=$(ps -eaf | grep "[r]br.ecs")

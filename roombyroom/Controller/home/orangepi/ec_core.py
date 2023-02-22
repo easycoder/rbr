@@ -1,7 +1,7 @@
 import json, math, hashlib, threading, os, sys, requests, time, numbers
 from datetime import datetime, timezone
 from random import randrange
-from ec_classes import FatalError, RuntimeError
+from ec_classes import FatalError, RuntimeWarning
 from ec_handler import Handler
 from ec_timestamp import getTimestamp
 
@@ -159,7 +159,7 @@ class Core(Handler):
 
     def k_debug(self, command):
         token = self.peek()
-        if token in ['step', 'program']:
+        if token in ['step', 'stop', 'program']:
             command['mode'] = token
             self.nextToken()
         else:
@@ -170,6 +170,8 @@ class Core(Handler):
     def r_debug(self, command):
         if command['mode'] == 'step':
             self.program.debugStep = True
+        elif command['mode'] == 'stop':
+            self.program.debugStep = False
         elif command['mode'] == 'program':
             for item in self.code:
                 print(json.dumps(item, indent = 2))
@@ -298,10 +300,30 @@ class Core(Handler):
                 FatalError(self.compiler, f'Variable "{symbolRecord["name"]}" does not hold a value')
         if self.nextIs('from'):
             command['url'] = self.nextValue()
-            return True
-        return False
+        command['or'] = None
+        get = self.getPC()
+        self.addCommand(command)
+        if self.peek() == 'or':
+            self.nextToken()
+            self.nextToken()
+            # Add a 'goto' to skip the 'or'
+            cmd = {}
+            cmd['lino'] = command['lino']
+            cmd['domain'] = 'core'
+            cmd['keyword'] = 'gotoPC'
+            cmd['goto'] = 0
+            cmd['debug'] = False
+            skip = self.getPC()
+            self.addCommand(cmd)
+            # Process the 'or'
+            self.getCommandAt(get)['or'] = self.getPC()
+            self.compileOne()
+            # Fixup the skip
+            self.getCommandAt(skip)['goto'] = self.getPC()
+        return True
 
     def r_get(self, command):
+        global errorCode, errorReason
         retval = {}
         retval['type'] = 'text'
         retval['numeric'] = False
@@ -309,9 +331,20 @@ class Core(Handler):
         target = self.getVariable(command['target'])
         try:
             response = requests.get(url, auth = ('user', 'pass'), timeout=5)
-            retval['content'] = response.text
+            if response.status_code >= 400:
+                errorCode = response.status_code
+                errorReason = response.reason
+                if command['or'] != None:
+                    return command['or']
+                else:
+                    RuntimeError(self.program, f'Error code {errorCode}: {errorReason}')
         except Exception as e:
-            retval['content'] = 'Error'
+            errorReason = str(e)
+            if command['or'] != None:
+                return command['or']
+            else:
+                RuntimeError(self.program, f'Error: {errorReason}')
+        retval['content'] = response.text
         self.program.putSymbolValue(target, retval);
         return self.nextPC()
 
@@ -534,11 +567,10 @@ class Core(Handler):
         if command['mode'] == 'r' and os.path.exists(path) or command['mode'] != 'r':
             symbolRecord['file'] = open(path, command['mode'])
             return self.nextPC()
-        RuntimeError(f"File {path} does not exist")
+        RuntimeError(self.program, f"File {path} does not exist")
         return -1
 
     def k_post(self, command):
-        # self.add(command)
         if self.nextIs('to'):
             command['value'] = self.getConstant('')
             command['url'] = self.getValue()
@@ -549,26 +581,56 @@ class Core(Handler):
         if self.peek() == 'giving':
             self.nextToken()
             command['result'] = self.nextToken()
-        self.add(command)
+        else:
+            command['result'] = None
+        command['or'] = None
+        post = self.getPC()
+        self.addCommand(command)
+        if self.peek() == 'or':
+            self.nextToken()
+            self.nextToken()
+            # Add a 'goto' to skip the 'or'
+            cmd = {}
+            cmd['lino'] = command['lino']
+            cmd['domain'] = 'core'
+            cmd['keyword'] = 'gotoPC'
+            cmd['goto'] = 0
+            cmd['debug'] = False
+            skip = self.getPC()
+            self.addCommand(cmd)
+            # Process the 'or'
+            self.getCommandAt(post)['or'] = self.getPC()
+            self.compileOne()
+            # Fixup the skip
+            self.getCommandAt(skip)['goto'] = self.getPC()
         return True
 
     def r_post(self, command):
+        global errorCode, errorReason
         retval = {}
         retval['type'] = 'text'
         retval['numeric'] = False
         value = self.getRuntimeValue(command['value'])
         url = self.getRuntimeValue(command['url'])
         try:
-            response = requests.post(url, json=value, timeout=5)
+            response = requests.post(url, value, timeout=5)
             retval['content'] = response.text
-        except  Exception as e:
-            print(str(e))
-            retval['content'] = 'Error'
-        try:
+            if response.status_code >= 400:
+                errorCode = response.status_code
+                errorReason = response.reason
+                if command['or'] != None:
+                    return command['or']
+                else:
+                    RuntimeError(self.program, f'Error code {errorCode}: {errorReason}')
+        except Exception as e:
+            errorReason = str(e)
+            if command['or'] != None:
+                return command['or']
+            else:
+                RuntimeError(self.program, f'Error: {errorReason}')
+        if command['result'] != None:
             result = self.getVariable(command['result'])
             self.program.putSymbolValue(result, retval);
-        except:
-            pass
         return self.nextPC()
 
     def k_print(self, command):
@@ -783,14 +845,21 @@ class Core(Handler):
         if cmdType == 'property':
             value = self.getRuntimeValue(command['value'])
             name = self.getRuntimeValue(command['name'])
-            target = self.getVariable(command['target'])
-            val = self.getSymbolValue(target)
-            content = val['content']
+            target = command['target']
+            targetVariable = self.getVariable(target)
+            val = self.getSymbolValue(targetVariable)
+            try:
+                content = val['content']
+            except:
+                RuntimeError(self.program, f'{target} is not an object')
             if content == '':
                 content = {}
-            content[name] = value
+            try:
+                content[name] = value
+            except:
+                RuntimeError(self.program, f'{target} is not an object')
             val['content'] = content
-            self.putSymbolValue(target, val)
+            self.putSymbolValue(targetVariable, val)
             return self.nextPC()
 
         if cmdType == 'element':
@@ -835,7 +904,7 @@ class Core(Handler):
             element['numeric'] = 'false'
             element['content'] = item
             target['value'][index] = element
-        
+
         return self.nextPC()
 
     def k_stop(self, command):
@@ -1230,7 +1299,7 @@ class Core(Handler):
                     value['haystack'] = self.nextValue()
                     return value
 
-        if token in ['message', 'error']:
+        if token == 'message':
             self.nextToken()
             return value
 
@@ -1253,6 +1322,16 @@ class Core(Handler):
         if token == 'weekday':
             value['type'] = 'weekday'
             return value
+
+        if token == 'error':
+            if self.peek() == 'code':
+                self.nextToken()
+                value['item'] = 'errorCode'
+                return value
+            if self.peek() == 'reason':
+                self.nextToken()
+                value['item'] = 'errorReason'
+                return value
 
         print(f'Unknown token {token}')
         return None
@@ -1345,18 +1424,37 @@ class Core(Handler):
         value['content'] = self.program.encode(v['content'])
         return value
 
+    def v_error(self, v):
+        global errorCode, errorReason
+        value = {}
+        if v['item'] == 'errorCode':
+            value['type'] = 'int'
+            value['content'] = errorCode
+        elif v['item'] == 'errorReason':
+            value['type'] = 'text'
+            value['content'] = errorReason
+        return value
+
     def v_stringify(self, v):
         item = self.getRuntimeValue(v['content'])
         value = {}
         value['type'] = 'text'
-        value['content'] = json.dumps(item)
+        try:
+            value['content'] = json.dumps(item)
+        except Exception as err:
+            print(f'Error in item: {item}\n{err}')
+            value['content'] = {}
         return value
 
     def v_json(self, v):
         item = self.getRuntimeValue(v['content'])
         value = {}
         value['type'] = 'object'
-        value['content'] = json.loads(item)
+        try:
+            value['content'] = json.loads(item)
+        except Exception as err:
+            print(f'Error in item: {item}\n{err}')
+            value['content'] = {}
         return value
 
     def v_from(self, v):
@@ -1384,7 +1482,11 @@ class Core(Handler):
         val = self.getRuntimeValue(v['content'])
         value = {}
         value['type'] = 'float'
-        value['content'] = float(val)
+        try:
+            value['content'] = float(val)
+        except:
+            RuntimeWarning(self.program, f'Value cannot be parsed as floating-point')
+            value['content'] = 0.0
         return value
 
     def v_index(self, v):
@@ -1641,7 +1743,10 @@ class Core(Handler):
     # Condition handlers
 
     def c_boolean(self, condition):
-        return type(self.getRuntimeValue(condition['value1'])) == bool
+        value = self.getRuntimeValue(condition['value1'])
+        if type(value) == bool:
+            return value;
+        return False
 
     def c_numeric(self, condition):
         return isinstance(self.getRuntimeValue(condition['value1']), int)

@@ -9,7 +9,8 @@
     debug step
 
     create screen
-        size 800 600
+!        size 800 600
+        fullscreen
         fill `#ffc`
 
     open File `json/test.json` for reading

@@ -24,20 +24,23 @@ def createScreen(values):
     running = True
     screen = tk.Tk()
     screen.title('RBR Simulator')
-    # screen.attributes('-fullscreen', True)
+    if values['fullscreen']:
+        width = screen.winfo_screenwidth()
+        height = screen.winfo_screenheight()
+        screen.attributes('-fullscreen', True)
+    else:
+        # screen.overrideredirect(True)
+        width = values['width']['content'] if 'width' in values else 600
+        height = values['height']['content'] if 'height' in values else 800
+        screenLeft = int((screen.winfo_screenwidth() - width) / 2)
+        screenTop = int((screen.winfo_screenheight() - height) / 2)
+        if 'left' in values:
+            screenLeft = values['left']['content']
+        if 'top' in values:
+            screenTop = values['top']['content']
 
-    # screen.overrideredirect(True)
-    width = values['width']['content'] if 'width' in values else 600
-    height = values['height']['content'] if 'height' in values else 800
-    screenLeft = int((screen.winfo_screenwidth() - width) / 2)
-    screenTop = int((screen.winfo_screenheight() - height) / 2)
-    if 'left' in values:
-        screenLeft = values['left']['content']
-    if 'top' in values:
-        screenTop = values['top']['content'] 
-
-    geometry = str(width) + 'x' + str(height) + '+' + str(screenLeft) + '+' + str(screenTop) 
-    screen.geometry(geometry)
+        geometry = str(width) + 'x' + str(height) + '+' + str(screenLeft) + '+' + str(screenTop)
+        screen.geometry(geometry)
 
     # Handle a click in the screen
     def onClick(event):

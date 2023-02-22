@@ -72,10 +72,11 @@ class Program:
 				val = self.doValue(part)
 				if val == None:
 					return None
-				val = str(val['content'])
-				if val == None:
-					return None
-				content += val
+				if val != '':
+					val = str(val['content'])
+					if val == None:
+						return None
+					content += val
 			result['type'] = 'text'
 			result['content'] = content
 		elif valType == 'symbol':
@@ -224,11 +225,12 @@ class Program:
 		# print(f'Compare {value1} with {value2}')
 		val1 = self.evaluate(value1)
 		val2 = self.evaluate(value2)
-		# print(f'Compare {val1} with {val2}')
 		if val1 == None or val2 == None:
 			return 0
 		v1 = val1['content']
 		v2 = val2['content']
+		if v1 == None and v2 != None or v1 != None and v2 == None:
+			return 0
 		if v1 != None and val1['type'] == 'int':
 			if not val2['type'] == 'int':
 				if type(v2) is str:
