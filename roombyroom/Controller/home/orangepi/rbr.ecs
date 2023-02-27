@@ -68,6 +68,7 @@
     variable N
     variable P
     variable R
+    variable T
     variable W
 
 !    debug step
@@ -185,15 +186,16 @@ Start:
     get Request from RBRServer cat `/request/` cat MAC cat `?v=` cat now or stop
     if Request is not empty
     begin
-print Request
+!print Request
         set Changed
         set Confirm
         put json Request into Request
         put property `action` of Request into Action
         if Action is `SystemName`
         begin
-            set property `name` of MapObject to property `SystemName` of Request
+            set property `name` of MapObject to property `data` of Request
             gosub to StringifyMap
+            gosub to SaveMap
         end
         else if Action is `addroom`
         begin
@@ -243,13 +245,13 @@ print Request
             else if Mode is `boost`
             begin
                 put property `operation` of Request into Operation
-                if Operation is `target`
-                    set property `target` of Room to property `target` of Request
-                else if Operation is `boost`
+                if Operation is `boost`
                 begin
                     set property `boost` of Room to property `boost` of Request
                 end
             end
+            if property `targetFlag` of Request is `target`
+                set property `target` of Room to property `target` of Request
             gosub to UpdateRoom
         end
         else if Action is `profiles`
@@ -361,6 +363,7 @@ DoRooms:
     put stringify SensorData into Sensors
     open File RamDisk cat `/sensorData` for writing
     write Sensors to File
+print Sensors
     close File
 
     if Password is not empty
@@ -379,13 +382,13 @@ DoRooms:
                 if Confirm
                 begin
                     print `Post map + confirm`
-                    post stringify MapObject to RBRServer cat `/confirm/` cat MAC cat `/` cat Password
+                    post Map to RBRServer cat `/confirm/` cat MAC cat `/` cat Password
                     clear Confirm
                 end
                 else
                 begin
                     print `Post map`
-                    post stringify MapObject to RBRServer cat `/map/` cat MAC cat `/` cat Password
+                    post Map to RBRServer cat `/map/` cat MAC cat `/` cat Password
                 end
             end
             clear Changed
@@ -444,7 +447,7 @@ PR2:
         put float property `ptemp` of Room into Target
         if Temperature is not greater than Target
         begin
-            print `Frost protect ON`
+!            print `Frost protect ON`
             add 1 to RequestCount
             set property `protect` of SensorData to Sensor
         end
@@ -651,5 +654,7 @@ SetRelays:
     end
     set property `relay` of SensorValues to Turn
     set property `advance` of SensorValues to Advance
-    set property Sensor of SensorData to SensorValues
+    put property `timestamp` of SensorValues into T
+    add 1800 to T
+    if T is greater than now set property Sensor of SensorData to SensorValues
     return

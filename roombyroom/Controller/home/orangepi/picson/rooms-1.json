@@ -1,0 +1,12 @@
+[
+    {
+        "name": "room0",
+        "type": "rect",
+        "left": 2,
+        "top": 55,
+        "width": 796,
+        "height": 400,
+        "outline": "black",
+        "#": "/PANEL0/"
+    }
+]

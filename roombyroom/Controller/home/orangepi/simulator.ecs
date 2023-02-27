@@ -6,7 +6,7 @@
     ellipse Relay
     text Temperature
     file File
-    spec Graphson
+    spec Spec
     spec Room
     variable Server
     variable Interval
@@ -36,9 +36,9 @@
         fill `#ffc`
 
     open File `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py/json/background.json` for reading
-    read Graphson from File
+    read Spec from File
     close File
-    render Graphson
+    render Spec
 
     attach Exit to `exit`
     on click Exit
@@ -48,7 +48,7 @@
     end
 
     open File `/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py/json/row.json` for reading
-    read Graphson from File
+    read Spec from File
     close File
 
     gosub to SetupRooms
@@ -172,7 +172,7 @@ SetupRooms:
 
     index Room to 0
     put json `{}` into Room
-    set property `spec` of Room to Graphson
+    set property `spec` of Room to Spec
     put json `{}` into Args
     set property `$id` of Args to `row0`
     set property `$id-temp` of Args to `temp0`
@@ -190,7 +190,7 @@ SetupRooms:
 
     index Room to 1
     put json `{}` into Room
-    set property `spec` of Room to Graphson
+    set property `spec` of Room to Spec
     put json `{}` into Args
     set property `$id` of Args to `row1`
     set property `$id-temp` of Args to `temp1`
@@ -208,7 +208,7 @@ SetupRooms:
 
     index Room to 2
     put json `{}` into Room
-    set property `spec` of Room to Graphson
+    set property `spec` of Room to Spec
     put json `{}` into Args
     set property `$id` of Args to `row2`
     set property `$id-temp` of Args to `temp2`
@@ -226,7 +226,7 @@ SetupRooms:
 
     index Room to 3
     put json `{}` into Room
-    set property `spec` of Room to Graphson
+    set property `spec` of Room to Spec
     put json `{}` into Args
     set property `$id` of Args to `row3`
     set property `$id-temp` of Args to `temp3`
@@ -244,7 +244,7 @@ SetupRooms:
 
     index Room to 4
     put json `{}` into Room
-    set property `spec` of Room to Graphson
+    set property `spec` of Room to Spec
     put json `{}` into Args
     set property `$id` of Args to `row4`
     set property `$id-temp` of Args to `temp4`

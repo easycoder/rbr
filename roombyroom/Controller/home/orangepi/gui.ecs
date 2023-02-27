@@ -1,23 +1,86 @@
-!   test.ecs
+!   gui.ecs
 
-    script Test
+    script GUI
 
     file File
-    text Exit
-    variable Pyctures
+    text Temperature
+    text Target
+    text Mode
+    element RedButton
+    element Exit
+    spec Spec
+    variable Text
+    variable Script
+    variable Args
+    variable Map
+    variable NewMap
+    variable Profiles
+    variable CurrentProfile
+    variable Profile
+    variable Rooms
+    variable Room
+    variable NRooms
+    variable RoomIndex
+    variable Sensors
+    variable Sensor
+    variable FileName
+    variable ModeName
+    variable TargetText
+    variable TickCount
+    variable T
 
-    debug step
+!    debug step
 
     create screen
-!        size 800 600
         fullscreen
-        fill `#ffc`
+        loglevel 3
 
-    open File `json/test.json` for reading
-    read Pyctures from File
+    log `This is the RBR GUI`
+
+    gosub to ReadMap
+    gosub to SetupProfiles
+    gosub to SetupRooms
+
+    put 0 into TickCount
+    on tick go to Tick
+
+    show screen
+    exit
+
+Tick:
+    add 1 to TickCount
+    if TickCount is greater than 10
+    begin
+        gosub to UpdateScreen
+        put 0 into TickCount
+    end
+    stop
+
+ReadMap:
+    open File `map` for reading
+    read Map from File
     close File
-    print Pyctures
-    render Pyctures
+    put json Map into Map
+LoadMap:
+    put property `profiles` of Map into Profiles
+    put property `profile` of Map into CurrentProfile
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms
+    put the count of Rooms into NRooms
+    return
+
+!   Set up the Profiles panel
+SetupProfiles:
+    open File `picson/rbr.json` for reading
+    read Script from File
+    close File
+
+    put json `{}` into Spec
+    set property `spec` of Spec to Script
+    put json `{}` into Args
+    set property `$text` of Args to `Profile: ` cat property `name` of Profile
+    set property `args` of Spec to Args
+    render Spec
 
     attach Exit to `exit`
     on click Exit
@@ -25,6 +88,113 @@
         close screen
         exit
     end
+    return
 
-    show screen
-    exit
+!   Set up the room panels
+SetupRooms:
+    open File `picson/rooms-` cat NRooms cat `.json` for reading
+    read Script from File
+    close File
+
+    put 0 into RoomIndex
+    while RoomIndex is less than NRooms
+    begin
+        open File `picson/panel-` cat NRooms cat `.json` for reading
+        read Text from File
+        close File
+
+        put element RoomIndex of Rooms into Room
+        replace `/ROOM/` with `panel` cat RoomIndex in Text
+        replace `/ROOMNAME/` with property `name` of Room in Text
+        replace `/RED/` with `red` cat RoomIndex in Text
+        replace `/TEMP/` with `temp` cat RoomIndex in Text
+        replace `/TEMPTEXT/` with `` in Text
+        replace `/TARGET/` with `target` cat RoomIndex in Text
+        replace `/TARGETTEXT/` with `` in Text
+        replace `/MODE/` with `mode` cat RoomIndex in Text
+        replace `/MODETEXT/` with `` in Text
+
+        replace `"/PANEL` cat RoomIndex cat `/"` with Text in Script
+        add 1 to RoomIndex
+    end
+    render Script
+
+!   Update the screen every second
+UpdateScreen:
+    open File `map` for reading
+    read NewMap from File
+    close File
+    if NewMap is not stringify Map
+    begin
+        clear screen
+        put json NewMap into Map
+        gosub to LoadMap
+        gosub to SetupProfiles
+        gosub to SetupRooms
+        return
+    end
+
+    put 0 into RoomIndex
+    while RoomIndex is less than NRooms
+    begin
+        open File `picson/panel-` cat NRooms cat `.json` for reading
+        read Text from File
+        close File
+
+        put element RoomIndex of Rooms into Room
+        attach Temperature to `temp` cat RoomIndex
+
+        put element RoomIndex of Rooms into Room
+        replace `/ROOM/` with `panel` cat RoomIndex in Text
+        replace `/ROOMNAME/` with property `name` of Room in Text
+        replace `/RED/` with `red` cat RoomIndex in Text
+        replace `/TEMP/` with `temp` cat RoomIndex in Text
+
+        put `--.-` into T
+        put property `sensor` of Room into Sensor
+        put `/mnt/data/sensorData` into FileName
+        if file FileName exists
+        begin
+            open File FileName for reading
+            read Sensors from File
+            close File
+            put json Sensors into Sensors
+            if Sensors has property Sensor
+            begin
+                put property Sensor of Sensors into Sensor
+                if Sensor has property `temperature`
+                begin
+                    put property `temperature` of Sensor into T
+                end
+            end
+        end
+        put T cat char 176 into T
+        put T cat `C` into T
+        replace `/TEMPTEXT/` with T in Text
+        set the text of Temperature to T
+
+        put property `target` of Room into TargetText
+        put `Target: ` cat TargetText cat char 176 into TargetText
+        put TargetText cat `C` into TargetText
+        attach Target to `target` cat RoomIndex
+        set the text of Target to TargetText
+
+        put property `mode` of Room into ModeName
+        if ModeName is `timed` put `Timed` into ModeName
+        else if ModeName is `boost` put `Boost` into ModeName
+        else if ModeName is `on` put `On` into ModeName
+        else if ModeName is `off` put `Off` into ModeName
+        else put `???` into ModeName
+        attach Mode to `mode` cat RoomIndex
+        set the text of Mode to `Mode: ` cat ModeName
+
+        attach RedButton to `red` cat RoomIndex
+        if Sensor has property `relay`
+        begin
+            if property `relay` of Sensor is `on` show RedButton
+            else hide RedButton
+        end
+        else hide RedButton
+        add 1 to RoomIndex
+    end
+    return

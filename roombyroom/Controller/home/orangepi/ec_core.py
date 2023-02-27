@@ -1333,7 +1333,12 @@ class Core(Handler):
                 value['item'] = 'errorReason'
                 return value
 
-        print(f'Unknown token {token}')
+        if token == 'char':
+            value['type'] = 'char'
+            value['content'] = self.nextValue()
+            return value
+
+        # print(f'Unknown token {token}')
         return None
 
     #############################################################################
@@ -1358,6 +1363,13 @@ class Core(Handler):
         value['type'] = 'boolean'
         value['content'] = v['content']
         return value
+
+    def v_char(self, v):
+        content = self.getRuntimeValue(v['content'])
+        return {
+            "type": "int",
+            "content": chr(content)
+        }
 
     def v_cos(self, v):
         angle = self.getRuntimeValue(v['angle'])
@@ -1573,19 +1585,20 @@ class Core(Handler):
     def v_property(self, v):
         name = self.getRuntimeValue(v['name'])
         target = self.getVariable(v['target'])
-        target = self.getSymbolValue(target)
-        content = target['content']
-        try:
-            val = content.get(name)
-        except:
-            RuntimeError(self.program, f'"{name}" does not have any properties')
-            return None
+        targetSymbol = self.getSymbolValue(target)
+        content = targetSymbol['content']
+
         value = {}
-        value['content'] = val
-        if isinstance(v, numbers.Number):
-            value['type'] = 'int'
+        if content != None and name in content:
+            value['content'] = content.get(name)
+            if isinstance(v, numbers.Number):
+                value['type'] = 'int'
+            else:
+                value['type'] = 'text'
         else:
+            tn = target['name']
             value['type'] = 'text'
+            value['content'] = ''
         return value
 
     def v_random(self, v):
@@ -1685,11 +1698,12 @@ class Core(Handler):
     # Compile a condition
     def compileCondition(self):
         condition = {}
-        if self.getToken() == 'not':
+        token = self.getToken()
+        if token == 'not':
             condition['type'] = 'not'
             condition['value'] = self.nextValue()
             return condition
-        if self.getToken() == 'file':
+        elif token == 'file':
             path = self.nextValue()
             if self.peek() == 'exists':
                 condition['type'] = 'exists'
@@ -1706,7 +1720,15 @@ class Core(Handler):
         if token == 'includes':
             condition['value2'] = self.nextValue()
             return condition
-        if token == 'is':
+        elif token == 'has':
+            token = self.nextToken()
+            if self.nextIs('property'):
+                property = self.nextValue()
+                condition['type'] = 'property'
+                condition['property'] = property
+                return condition
+            return None
+        elif token == 'is':
             token = self.nextToken()
             if self.peek() == 'not':
                 self.nextToken()
@@ -1724,7 +1746,7 @@ class Core(Handler):
             condition['type'] = 'is'
             condition['value2'] = self.getValue()
             return condition
-        if condition['value1']:
+        elif condition['value1']:
             # It's a boolean if
             condition['type'] = 'boolean'
             return condition
@@ -1788,3 +1810,9 @@ class Core(Handler):
     def c_exists(self, condition):
         path = self.getRuntimeValue(condition['path'])
         return os.path.exists(path)
+
+    def c_property(self, condition):
+        property = self.getRuntimeValue(condition['property'])
+        value = self.getRuntimeValue(condition['value1'])
+        return property in value
+    

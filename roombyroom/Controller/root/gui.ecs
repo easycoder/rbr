@@ -13,7 +13,7 @@
         fullscreen
         fill `#ffc`
 
-    open File `json/test.json` for reading
+    open File `json/rbr.json` for reading
     read Pyctures from File
     close File
     print Pyctures

@@ -1,0 +1,27 @@
+-> This is the RBR GUI
+Created image, id=2, source 'images/backdrop.jpg'
+Created image, id=4, source 'images/power.png'
+Created rectangle text container, id=5
+Created text, id=6, content 'Profile: Two rooms'
+Created rectangle, id=7
+Created rectangle text container, id=8
+Created text, id=9, content 'Living room'
+Created image, id=11, source 'images/bluebutton.png'
+Created image, id=13, source 'images/redbutton.png'
+Created rectangle text container, id=14
+Created text, id=15, content ''
+Created rectangle text container, id=16
+Created text, id=17, content ''
+Created rectangle text container, id=18
+Created text, id=19, content ''
+Created rectangle, id=20
+Created rectangle text container, id=21
+Created text, id=22, content 'Kitchen'
+Created image, id=24, source 'images/bluebutton.png'
+Created image, id=26, source 'images/redbutton.png'
+Created rectangle text container, id=27
+Created text, id=28, content ''
+Created rectangle text container, id=29
+Created text, id=30, content ''
+Created rectangle text container, id=31
+Created text, id=32, content ''

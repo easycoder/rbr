@@ -16,6 +16,7 @@ class Program:
 		self.onError = 0
 		self.pc = 0
 		self.debugStep = False
+		self.debugHook = None
 		self.script = Script(source)
 		self.stack = []
 		self.compiler = Compiler(self)
@@ -109,17 +110,14 @@ class Program:
 			result['content'] = ''
 			return result
 
-		result = self.doValue(value)
-		if result:
-			return result
-		return None
+		return self.doValue(value)
 
 	def getValue(self, value):
 		return self.evaluate(value).content
 
 	def getRuntimeValue(self, value):
 		v = self.evaluate(value)
-		if v != None:
+		if v != None and v != '':
 			content = v['content']
 			if v['type'] == 'boolean':
 				return True if content else False
@@ -203,7 +201,10 @@ class Program:
 					if self.debugStep and command['debug']:
 						lino = command['lino'] + 1
 						line = self.script.lines[command['lino']].strip()
-						print(f'{self.name}: Line {lino}: PC: {self.pc} {domainName}:{keyword}:  {line}')
+						message = f'{self.name}: Line {lino}: PC: {self.pc} {domainName}:{keyword}:  {line}'
+						print(message)
+						if self.debugHook:
+							self.debugHook(message)
 					domain = self.domainIndex[domainName]
 					handler = domain.runHandler(keyword)
 					if handler:
@@ -213,6 +214,7 @@ class Program:
 						if self.pc == 0 or self.pc >= len(self.code):
 							return 0
 				if self.pc < 0:
+					print('Program aborted')
 					return -1
 
 	def nonNumericValueError(self):
@@ -229,6 +231,8 @@ class Program:
 			return 0
 		v1 = val1['content']
 		v2 = val2['content']
+		if type(v1) == dict or type(v2) == dict:
+			RuntimeError(self, f'Can only compare strings or integers')
 		if v1 == None and v2 != None or v1 != None and v2 == None:
 			return 0
 		if v1 != None and val1['type'] == 'int':
@@ -238,9 +242,9 @@ class Program:
 						v2 = int(v2)
 					except:
 						lino = self.code[self.pc]['lino'] + 1
-						RuntimeError(None, f'Line {lino}: \'{v2}\' is not an integer')
+						RuntimeError(self, f'Line {lino}: \'{v2}\' is not an integer')
 		else:
-			if v2 != None and val2['type'] == 'int':
+			if val2['type'] == str and v2 != None and val2['type'] == 'int':
 				v2 = str(v2)
 			if v1 == None:
 				v1 = ''

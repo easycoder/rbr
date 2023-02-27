@@ -1,10 +1,11 @@
-# Pyctures.py
+# Picson.py
 
 import sys, json
 import tkinter as tk
 from PIL import Image, ImageTk
 
 elements = {}
+left = {}
 zlist = []
 images = {}
 onTick = None
@@ -20,7 +21,7 @@ def getCanvas():
     return canvas
 
 def createScreen(values):
-    global screen, canvas, screenLeft, screenTop, running
+    global screen, canvas, screenLeft, screenTop, running, loglevel
     running = True
     screen = tk.Tk()
     screen.title('RBR Simulator')
@@ -30,8 +31,8 @@ def createScreen(values):
         screen.attributes('-fullscreen', True)
     else:
         # screen.overrideredirect(True)
-        width = values['width']['content'] if 'width' in values else 600
-        height = values['height']['content'] if 'height' in values else 800
+        width = values['width']['content'] if 'width' in values else 800
+        height = values['height']['content'] if 'height' in values else 460
         screenLeft = int((screen.winfo_screenwidth() - width) / 2)
         screenTop = int((screen.winfo_screenheight() - height) / 2)
         if 'left' in values:
@@ -41,6 +42,9 @@ def createScreen(values):
 
         geometry = str(width) + 'x' + str(height) + '+' + str(screenLeft) + '+' + str(screenTop)
         screen.geometry(geometry)
+    loglevel = int(values['loglevel'])
+    file = open('log.txt', 'w')
+    file.close()
 
     # Handle a click in the screen
     def onClick(event):
@@ -99,6 +103,7 @@ def showScreen():
             onTick()
         screen.after(100, lambda: afterCB(screen))
     screen.after(1000, lambda: afterCB(screen))
+    screen.config(cursor="none")
     screen.mainloop()
     sys.exit()
 
@@ -106,6 +111,7 @@ def showScreen():
 def render(spec, parent):
     global elements
 
+    # Get the value of an argument
     def getValue(args, item):
         if item in args:
             if type(item) == int:
@@ -113,7 +119,8 @@ def render(spec, parent):
             return args[item]
         return item
 
-    def renderIntoRectangle(widgetType, values, offset, args):
+    # Render a rectangle or ellipse
+    def renderIntoRectangle(elementType, values, offset, args):
         global zlist
         left = getValue(args, values['left']) if 'left' in values else 10
         top = getValue(args, values['top']) if 'top' in values else 10
@@ -129,41 +136,39 @@ def render(spec, parent):
             outlineWidth = getValue(args, values['outlineWidth']) if 'outlineWidth' in values else 1
         else:
             outlineWidth = 0
-        if widgetType == 'rect':
-            widgetId = getCanvas().create_rectangle(left, top, right, bottom, fill=fill, outline=outline, width=outlineWidth)
-        elif widgetType == 'ellipse':
-            widgetId = getCanvas().create_oval(left, top, right, bottom, fill=fill, outline=outline, width=outlineWidth)
+        if elementType == 'rect':
+            elementId = getCanvas().create_rectangle(left, top, right, bottom, fill=fill, outline=outline, width=outlineWidth)
+            if loglevel > 2:
+                writeLog(f'Created rectangle, id={elementId}')
+        elif elementType == 'ellipse':
+            elementId = getCanvas().create_oval(left, top, right, bottom, fill=fill, outline=outline, width=outlineWidth)
+            if loglevel > 2:
+                writeLog(f'Created ellipse, id={elementId}')
         else:
-            return f'Unknown widget type \'{widgetType}\''
-        if 'id' in values:
-            id = getValue(args, values['id'])
-            widgetSpec = {
-                "id": widgetId,
+            return f'Unknown element type \'{elementType}\''
+
+        if 'name' in values:
+            name = getValue(args, values['name'])
+            elementSpec = {
+                "id": elementId,
+                "containerId": None,
                 "left": left,
                 "top": top,
                 "width": width,
                 "height": height
             }
-            elements[id] = widgetSpec
-            zlist.append({id: widgetSpec})
+            elements[name] = elementSpec
+            zlist.append({name: elementSpec})
+
         if '#' in values:
-            children = values['#']
-            if type(children) == list:
-                for item in children:
-                    if item in values:
-                        child = values[item]
-                        result = renderWidget(child, {'dx': left, 'dy': top}, args)
-                        if result != None:
-                            return result
-                    else:
-                        return f'Unable to render \'{item}\''
-            else:
-                child = values[children]
-                result = renderWidget(child, offset)
+            for item in values['#']:
+                result = renderWidget(item, {'dx': left, 'dy': top}, args)
                 if result != None:
-                    return result
+                    writeLog(f'Error: {result}')
+
         return None
-   
+
+    # Render text into a rectangle or ellipse
     def renderText(values, offset, args):
         left = getValue(args, values['left']) if 'left' in values else 10
         top = getValue(args, values['top']) if 'top' in values else 10
@@ -182,6 +187,8 @@ def render(spec, parent):
         fontFace = getValue(args, values['fontFace']) if 'fontFace' in values else 'Helvetica'
         fontWeight = getValue(args, values['fontWeight']) if 'fontWeight' in values else 'normal'
         fontSize = round(height*2/5) if shape == 'ellipse' else round(height*3/5)
+        scale = getValue(args, values['scale']) if 'scale' in values else 1.0
+        fontSize = round(fontSize * scale)
         fontTop = top + height/2
         if 'fontSize' in values:
             fontSize = getValue(args, values['fontSize'])
@@ -201,12 +208,19 @@ def render(spec, parent):
             xoff = 3
         if shape == 'ellipse':
             containerId = getCanvas().create_oval(left, top, right, bottom, fill=fill, outline=outline, width=outlineWidth)
+            if loglevel > 2:
+                writeLog(f'Created ellipse text container, id={containerId}')
         else:
             containerId = getCanvas().create_rectangle(left, top, right, bottom, fill=fill, outline=outline, width=outlineWidth)
+            if loglevel > 2:
+                writeLog(f'Created rectangle text container, id={containerId}')
         textId = canvas.create_text(left + xoff, fontTop + adjust, fill=color, font=f'"{fontFace}" {fontSize} {fontWeight}', text=text, anchor=anchor)
-        if 'id' in values:
-            id = getValue(args, values['id'])
-            widgetSpec = {
+        if loglevel > 2:
+            writeLog(f'Created text, id={textId}, content \'{text}\'')
+
+        if 'name' in values:
+            name = getValue(args, values['name'])
+            elementSpec = {
                 "id": textId,
                 "containerId": containerId,
                 "left": left,
@@ -214,10 +228,11 @@ def render(spec, parent):
                 "width": width,
                 "height": height
             }
-            elements[id] = widgetSpec
-            zlist.append({id: widgetSpec})
+            elements[name] = elementSpec
+            zlist.append({name: elementSpec})
         return None
-   
+
+    # Render an image
     def renderImage(values, offset, args):
         global images
         left = getValue(args, values['left']) if 'left' in values else 10
@@ -230,53 +245,56 @@ def render(spec, parent):
         bottom = top + height
         src = getValue(args, values['src']) if 'src' in values else None
         containerId = getCanvas().create_rectangle(left, top, right, bottom, width=0)
-        if 'id' in values:
-            id = values['id']
-            widgetSpec = {
-                "id": containerId,
+        img = (Image.open(src))
+        resized_image= img.resize((width, height), Image.ANTIALIAS)
+        new_image= ImageTk.PhotoImage(resized_image)
+        imageId = getCanvas().create_image(left, top, anchor='nw', image=new_image)
+        if loglevel > 2:
+            writeLog(f'Created image, id={imageId}, source \'{src}\'')
+        images[containerId] = {'id': imageId, "image": new_image}
+        if 'name' in values:
+            name = values['name']
+            elementSpec = {
+                "id": imageId,
+                "containerId": containerId,
                 "left": left,
                 "top": top,
                 "width": width,
                 "height": height
             }
-            elements[id] = widgetSpec
-            zlist.append({id: widgetSpec})
+            elements[name] = elementSpec
+            zlist.append({name: elementSpec})
             if src == None:
                 return f'No image source given for \'{id}\''
-        img = (Image.open(src))
-        resized_image= img.resize((width, height), Image.ANTIALIAS)
-        new_image= ImageTk.PhotoImage(resized_image)
-        imageid = getCanvas().create_image(left, top, anchor='nw', image=new_image)
-        images[containerId] = {'id': imageid, "image": new_image}
         return None
 
-    # Create a canvas or render a widget
-    def renderWidget(widget, offset, args):
-        widgetType = widget['type']
-        if widgetType in ['rect', 'ellipse']:
-            return renderIntoRectangle(widgetType,widget, offset, args)
-        elif widgetType == 'text':
-            return renderText(widget, offset, args)
-        elif widgetType == 'image':
-            return renderImage(widget, offset, args)
+    # Create a canvas or render an element
+    def renderWidget(element, offset, args):
+        elementType = element['type']
+        if elementType in ['rect', 'ellipse']:
+            return renderIntoRectangle(elementType,element, offset, args)
+        elif elementType == 'text':
+            return renderText(element, offset, args)
+        elif elementType == 'image':
+            return renderImage(element, offset, args)
 
     # Render a complete specification
     def renderSpec(spec, offset, args):
-        widgets = spec['#']
         # If a list, iterate it
-        if type(widgets) is list:
-            for widget in widgets:
-                result = renderWidget(spec[widget], offset, args)
+        if type(spec) is list:
+            for element in spec:
+                result = renderWidget(element, offset, args)
                 if result != None:
                     return result
-        # Otherwise, process the single widget
+        # Otherwise, process the single element
         else:
-            return renderWidget(spec[widgets], offset, args)
+            return renderWidget(spec, offset, args)
 
     # Main entry point
     offset = {'dx': 0, 'dy': 0}
-    if parent != screen:
-        RuntimeError(None, 'Can\'t yet render into parent widget')
+    if parent != 'screen':
+        writeLog('Can\'t yet render into an existing element')
+        RuntimeError(None, 'Can\'t yet render into an existing element')
 
     # If it'a string, process it
     if type(spec) is str:
@@ -288,7 +306,39 @@ def render(spec, parent):
         spec = json.loads(spec['spec'])
         return renderSpec(spec, offset, args)
 
-# Get the widget whose name is given
+# Clear the screen
+def clearScreen():
+    global left
+    canvas = getCanvas()
+    for element in zlist:
+        values = element.values()
+        for value in values:
+            id = value['id']
+            containerId = value['containerId']
+            canvas.delete(id)
+            if containerId != None:
+                canvas.delete(containerId)
+    left = {}
+    return
+
+# Hide an element
+def hideElement(id):
+    global elements, left
+    element = elements[id]
+    if not id in left:
+        left[id] = element['left']
+    getCanvas().move(element['id'], screen.winfo_screenwidth(), 0)
+    return
+
+# Show an element
+def showElement(id):
+    global elements, left
+    element = elements[id]
+    if id in left:
+        getCanvas().move(element['id'], left[id], 0)
+    return
+
+# Get the element whose name is given
 def getElement(name):
     global elements
     if name in elements:
@@ -296,12 +346,23 @@ def getElement(name):
     else:
         RuntimeError(None, f'Element \'{name}\' does not exist')
 
-# Set the content of a text widget
+# Set the content of a text element
 def setText(name, value):
     getCanvas().itemconfig(getElement(name)['id'], text=value)
 
-# Set the background of a rectangle or ellipse widget
+# Set the background of a rectangle or ellipse element
 def setBackground(name, value):
     id = getElement(name)['id']
     getCanvas().itemconfig(getElement(name)['id'], fill=value)
-    
+
+# Write to the log file
+def writeLog(text):
+    f = open('log.txt', 'a')
+    f.write(f'{text}\n')
+    f.close()
+
+#Define exceptions
+class PicsonError(Exception):
+    def __init__(self, message="Undefined Picson error"):
+        self.message = message
+        super().__init__(self.message)

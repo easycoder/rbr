@@ -1,6 +1,6 @@
 from ec_classes import FatalError, RuntimeError
 from ec_handler import Handler
-from pyctures import *
+from picson import *
 
 class Graphics(Handler):
 
@@ -28,9 +28,21 @@ class Graphics(Handler):
         id = self.getRuntimeValue(command['id'])
         element = getElement(id)
         if element == None:
-            FatalError(self.program.compiler, f'There is no screen element with id \'{id}\'')
+            RuntimeError(self.program, f'There is no screen element with id \'{id}\'')
             return -1
+        target['id'] = [None] * target['elements']
+        target['id'][target['index']] = id
         self.putSymbolValue(target, {'type': 'text', 'content': id})
+        return self.nextPC()
+
+    def k_clear(self, command):
+        if self.nextIs('screen'):
+            self.add(command)
+            return True
+        return False
+
+    def r_clear(self, command):
+        clearScreen()
         return self.nextPC()
 
     def k_close(self, command):
@@ -46,6 +58,7 @@ class Graphics(Handler):
     def k_create(self, command):
         if self.nextIs('screen'):
             command['fullscreen'] = False
+            command['loglevel'] = 0
             while True:
                 token = self.peek()
                 if token == 'at':
@@ -62,6 +75,9 @@ class Graphics(Handler):
                 elif token == 'fullscreen':
                     self.nextToken()
                     command['fullscreen'] = True
+                elif token == 'loglevel':
+                    self.nextToken()
+                    command['loglevel'] = self.nextToken()
                 else:
                     break
             self.add(command)
@@ -69,7 +85,14 @@ class Graphics(Handler):
         return False
 
     def r_create(self, command):
+        command['program'].debugHook = writeLog
         createScreen(command)
+        return self.nextPC()
+
+    def k_element(self, command):
+        return self.compileVariable(command)
+
+    def r_element(self, command):
         return self.nextPC()
 
     def k_ellipse(self, command):
@@ -78,10 +101,38 @@ class Graphics(Handler):
     def r_ellipse(self, command):
         return self.nextPC()
 
+    def k_hide(self, command):
+        if self.nextIsSymbol():
+            command['name'] = self.getToken()
+            self.add(command)
+            return True
+        return False
+
+    def r_hide(self, command):
+        variable = self.getVariable(command['name'])
+        id = variable['id'][variable['index']]
+        hideElement(id)
+        return self.nextPC()
+
     def k_image(self, command):
         return self.compileVariable(command)
 
     def r_image(self, command):
+        return self.nextPC()
+
+    def k_log(self, command):
+        value = self.nextValue()
+        if value != None:
+            command['value'] = value
+            self.add(command)
+            return True
+        FatalError(self.program.compiler, 'I can\'t log this value')
+        return False
+
+    def r_log(self, command):
+        value = self.getRuntimeValue(command['value'])
+        if value != None:
+            writeLog(f'-> {value}')
         return self.nextPC()
 
     def k_on(self, command):
@@ -200,7 +251,10 @@ class Graphics(Handler):
         variable = self.getVariable(command['name'])
         parent = command['parent']
         value = self.getRuntimeValue(variable)
-        result = render(value, parent)
+        try:
+            result = render(value, parent)
+        except PicsonError as err:
+            RuntimeError(command['program'], err)
         if result != None:
             RuntimeError(command['program'], f'Rendering error: {result}')
         return self.nextPC()
@@ -264,10 +318,20 @@ class Graphics(Handler):
             command['name'] = None
             self.add(command)
             return True
+        else:
+            if self.isSymbol():
+                command['name'] = self.getToken()
+                self.add(command)
+                return True
         return False
 
     def r_show(self, command):
-        showScreen()
+        if command['name'] == None:
+            showScreen()
+        else:
+            variable = self.getVariable(command['name'])
+            id = variable['id'][variable['index']]
+            showElement(id)
         return self.nextPC()
 
     def k_spec(self, command):
@@ -281,7 +345,7 @@ class Graphics(Handler):
 
     def r_text(self, command):
         return self.nextPC()
-    
+
     #############################################################################
     # Compile a value in this domain
     def compileValue(self):
@@ -304,8 +368,14 @@ class Graphics(Handler):
         if self.tokenIs('the'):
             self.nextToken()
         token = self.getToken()
-        if token == 'xxxxx':
-            return value
+        if token == 'id':
+            if self.nextIs('of'):
+                if self.nextIsSymbol():
+                    symbolRecord = self.getSymbolRecord()
+                    value['type'] = 'idOf'
+                    value['name'] = symbolRecord['name']
+                    return value
+            return None
 
         return None
 
@@ -331,6 +401,14 @@ class Graphics(Handler):
             return result
         else:
             return ''
+
+    def v_idOf(self, v):
+        variable = self.getVariable(v['name'])
+        symbolValue = self.getSymbolValue(variable)
+        return {
+            "type": "int",
+            "content": getElement(symbolValue['content'])['id']
+        }
 
     #############################################################################
     # Compile a condition

@@ -1,27 +1,24 @@
 #!/bin/sh
 
-# Setup for Orange Pi Zero 2 - Debian Server OS
+# Setup for Orange Pi Zero 2 - Debian Desktop OS
 
 echo "Update the system"
-apt update
-apt -y upgrade
+sudo apt update
+sudo apt -y upgrade
 
 echo "Install Python Pip"
-apt install -y python3-pip
+sudo apt install -y python3-pip
 echo "Install python libraries"
-pip3 install bottle requests pytz PyP100 python-tk
-apt install -y python3-tk
-rm -rf /usr/lib/python3/dist-packages/PIL
-rm -rf /usr/lib/python3/dist-packages/Pillow*
+pip3 install bottle requests pytz PyP100
+sudo apt install -y python-tk
+sudo rm -rf /usr/lib/python3/dist-packages/PIL
+sudo rm -rf /usr/lib/python3/dist-packages/Pillow*
 pip install pillow
 
-wget https://rbrheating.com/resources/dist.tgz
-tar zxf dist.tgz
-cp system/hosts /etc/hosts
+wget https://rbrheating.com/resources/guidist.tgz
+tar zxf guidist.tgz
 crontab crondata.txt
+sudo crontab crondata-root.txt
 
-echo
-echo "Set the user password"
-passwd
 echo "Rebooting now..."
-reboot
+sudo reboot
