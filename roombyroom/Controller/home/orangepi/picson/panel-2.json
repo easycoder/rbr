@@ -59,10 +59,21 @@
         "name": "/MODE/",
         "type": "text",
         "left": 0,
-        "top": 300,
+        "top": 310,
         "width": 392,
         "height": 50,
         "fontWeight": "bold",
         "text": "/MODETEXT/"
+    },
+
+    {
+        "name": "/INFO/",
+        "type": "text",
+        "left": 0,
+        "top": 370,
+        "width": 392,
+        "height": 30,
+        "fontWeight": "bold",
+        "text": "/INFOTEXT/"
     }
 ]

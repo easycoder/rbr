@@ -43,6 +43,7 @@
     variable N
     variable T
     variable FH
+    variable FM
 
 !    debug step
 
@@ -107,6 +108,8 @@ SetupProfiles:
 
 !   Set up the room panels
 SetupRooms:
+    put `-` into Advance
+
     open File `picson/rooms-` cat NRooms cat `.json` for reading
     read Script from File
     close File
@@ -121,6 +124,7 @@ SetupRooms:
         put element RoomIndex of Rooms into Room
         replace `/ROOM/` with `panel` cat RoomIndex in Text
         replace `/ROOMNAME/` with property `name` of Room in Text
+        replace `/BLUE/` with `blue` cat RoomIndex in Text
         replace `/RED/` with `red` cat RoomIndex in Text
         replace `/TEMP/` with `temp` cat RoomIndex in Text
         replace `/TARGET/` with `target` cat RoomIndex in Text
@@ -163,6 +167,70 @@ UpdateScreen:
         replace `/RED/` with `red` cat RoomIndex in Text
         replace `/TEMP/` with `temp` cat RoomIndex in Text
 
+        put property `mode` of Room into ModeName
+        if ModeName is `timed` put `Timed` into ModeName
+        else if ModeName is `boost` put `Boost` into ModeName
+        else if ModeName is `on` put `On` into ModeName
+        else if ModeName is `off` put `Off` into ModeName
+        else put `???` into ModeName
+        attach Mode to `mode` cat RoomIndex
+        set the text of Mode to `Mode: ` cat ModeName
+
+        attach Info to `info` cat RoomIndex
+        if ModeName is `Timed`
+        begin
+            put property `events` of Room into Events
+            divide now by 60 giving N
+            put N modulo 1440 into N
+            divide N by 60 giving H
+            put N modulo 60 into M
+            put 0 into E
+            while E is less than the count of Events
+            begin
+                put element E of Events into Event
+                put property `until` of Event into UntilTime
+                put property `temp` of Event into UntilTemp
+                put UntilTime into Finish
+                split Finish on `:`
+                if Advance is not `-`
+                begin
+                    add 1 to E giving F
+                    if F is not less than the count of Events put 0 into F
+                    put element F of Events into Event2
+                    put property `until` of Event2 into UntilTime
+                    put property `temp` of Event2 into UntilTemp
+                    go to L2
+                end
+                index Finish to 0
+                put the value of Finish into FH
+                if FH is 0 put 24 into FH
+                if H is less than FH go to L2
+                else if H is FH
+                begin
+                    index Finish to 1
+                    put the value of Finish into FM
+                    if M is less than FM go to L2
+                end
+                add 1 to E
+            end
+            put element 0 of Events into Event
+            put property `until` of Event into UntilTime
+            put property `temp` of Event into UntilTemp
+            go to L2
+        end
+        else
+        begin
+            put property `target` of Room into TargetText
+            put empty into InfoText
+            go to L3
+        end
+    L2:
+        put UntilTemp into TargetText
+        put UntilTemp cat char 176 into InfoText
+        put InfoText cat `->` cat UntilTime into InfoText
+    L3:
+        set the text of Info to InfoText
+
         put `--.-` into T
         put property `sensor` of Room into Sensor
         put `/mnt/data/sensorData` into FileName
@@ -179,6 +247,10 @@ UpdateScreen:
                 begin
                     put property `temperature` of Sensor into T
                 end
+                if Sensor has property `advance`
+                begin
+                    put `` cat property `advance` of Sensor into Advance
+                end
             end
         end
         put T cat char 176 into T
@@ -186,75 +258,10 @@ UpdateScreen:
         replace `/TEMPTEXT/` with T in Text
         set the text of Temperature to T
 
-        put property `target` of Room into TargetText
         put `Target: ` cat TargetText cat char 176 into TargetText
         put TargetText cat `C` into TargetText
         attach Target to `target` cat RoomIndex
         set the text of Target to TargetText
-
-        put property `mode` of Room into ModeName
-        if ModeName is `timed` put `Timed` into ModeName
-        else if ModeName is `boost` put `Boost` into ModeName
-        else if ModeName is `on` put `On` into ModeName
-        else if ModeName is `off` put `Off` into ModeName
-        else put `???` into ModeName
-        attach Mode to `mode` cat RoomIndex
-        set the text of Mode to `Mode: ` cat ModeName
-
-        if ModeName is `Timed`
-        begin
-            put property `events` of Room into Events
-            divide now by 60 giving N
-            put N modulo 1440 into N
-            divide N by 60 giving H
-            put N modulo 60 into M
-            put 0 into E
-            debug step
-            while E is less than the count of Events
-            begin
-                put element E of Events into Event
-                put property `until` of Event into UntilTime
-                put property `temp` of Event into UntilTemp
-                put UntilTime into Finish
-                split Finish on `:`
-                if Advance is not `-`
-                begin
-                    add 1 to E giving F
-                    if F is not less than the count of Events put 0 into F
-                    put element F of Events into Event2
-                    put property `until` of Event2 into UntilTime
-                    put property `temp` of Event2 into UntilTemp
-                end
-                index Finish to 0
-                put the value of Finish into FH
-                if FH is 0 put 24 into FH
-                if H is less than FH
-                begin
-                    set the text of Info to UntilTemp
-                        cat `&deg;C->` cat UntilTime
-                    go to HandleClicks
-                end
-                else if H is FH
-                begin
-                    index Finish to 1
-                    put the value of Finish into FM
-                    if M is less than FM
-                    begin
-                        set the text of Info to UntilTemp
-                            cat `&deg;C->` cat UntilTime
-                        go to HandleClicks
-                    end
-                end
-                add 1 to E
-            end
-            put element 0 of Events into Event
-            put property `until` of Event into Finish
-            put property `temp` of Event into Temperature
-            set the content of ModeInfo to Temperature cat `&deg;C->` cat Finish
-        end
-        else put empty into InfoText
-        attach Info to `info` cat RoomIndex
-        set the text of Info to InfoText
 
         attach RedButton to `red` cat RoomIndex
         if Sensor has property `relay`

@@ -31,7 +31,7 @@ class Compiler:
 	# Get the current token
 	def getToken(self):
 		if self.index >= len(self.tokens):
-			CompileError(self, 'Premature end of script')
+			CompileError(self.program, 'Premature end of script')
 		return self.tokens[self.index].token
 
 	# Get the next token
@@ -125,7 +125,7 @@ class Compiler:
 		except:
 			v = None
 		if v:
-			CompileError(self, f'Duplicate symbol name "{name}"')
+			CompileError(self.program, f'Duplicate symbol name "{name}"')
 			return False
 		self.symbols[name] = self.getPC()
 		command['type'] = 'symbol'
@@ -162,7 +162,7 @@ class Compiler:
 					self.rewindTo(mark)
 			else:
 				self.rewindTo(mark)
-		CompileError(self, f'No handler found for "{token}"')
+		CompileError(self.program, f'No handler found for "{token}"')
 		return False
 
 	# Compile a single command

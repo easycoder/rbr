@@ -5,7 +5,8 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 elements = {}
-left = {}
+homeLeft = {}
+homeTop = {}
 zlist = []
 images = {}
 onTick = None
@@ -158,6 +159,8 @@ def render(spec, parent):
                 "height": height
             }
             elements[name] = elementSpec
+            homeLeft[name] = left
+            homeTop[name] = top
             zlist.append({name: elementSpec})
 
         if '#' in values:
@@ -229,12 +232,14 @@ def render(spec, parent):
                 "height": height
             }
             elements[name] = elementSpec
+            homeLeft[name] = left
+            homeTop[name] = top
             zlist.append({name: elementSpec})
         return None
 
     # Render an image
     def renderImage(values, offset, args):
-        global images
+        global images, home
         left = getValue(args, values['left']) if 'left' in values else 10
         top = getValue(args, values['top']) if 'top' in values else 10
         left = offset['dx'] + left
@@ -263,6 +268,8 @@ def render(spec, parent):
                 "height": height
             }
             elements[name] = elementSpec
+            homeLeft[name] = left
+            homeTop[name] = top
             zlist.append({name: elementSpec})
             if src == None:
                 return f'No image source given for \'{id}\''
@@ -322,20 +329,19 @@ def clearScreen():
     return
 
 # Hide an element
-def hideElement(id):
-    global elements, left
-    element = elements[id]
-    if not id in left:
-        left[id] = element['left']
-    getCanvas().move(element['id'], screen.winfo_screenwidth(), 0)
+def hideElement(name):
+    global elements
+    element = elements[name]
+    getCanvas().moveto(element['id'], screen.winfo_screenwidth(), 0)
     return
 
 # Show an element
-def showElement(id):
-    global elements, left
-    element = elements[id]
-    if id in left:
-        getCanvas().move(element['id'], left[id], 0)
+def showElement(name):
+    global elements, homeLeft, homeTop
+    left = homeLeft[name]
+    top = homeTop[name]
+    element = elements[name]
+    getCanvas().moveto(element['id'], left, top)
     return
 
 # Get the element whose name is given
