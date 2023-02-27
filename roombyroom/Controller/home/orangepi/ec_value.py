@@ -1,4 +1,4 @@
-from ec_classes import FatalError
+from ec_classes import CompileError
 
 class Value:
 
@@ -33,7 +33,7 @@ class Value:
 				value['type'] = 'text'
 				value['content'] = token[1 : len(token) - 1]
 				return value
-			FatalError(self.compiler, f'Unterminated string "{token}"')
+			CompileError(self.compiler, f'Unterminated string "{token}"')
 			return None
 
 		# Check for a numeric constant
@@ -43,7 +43,7 @@ class Value:
 				value['type'] = 'int'
 				value['content'] = val
 				return value
-			FatalError(self.compiler, f'{token} is not an integer')
+			CompileError(self.compiler, f'{token} is not an integer')
 
 		# See if any of the domains can handle it
 		mark = self.compiler.getIndex()
@@ -52,14 +52,14 @@ class Value:
 			if item != None:
 				return item
 			self.compiler.rewindTo(mark)
-		FatalError(self.compiler, f'I don\'t understand \'{token}\'')
+		CompileError(self.compiler, f'I don\'t understand \'{token}\'')
 		return None
 
 	def compileValue(self):
 		token = self.getToken()
 		item = self.getItem()
 		if item == None:
-			FatalError(self.compiler, f'Cannot get the value of "{token}"')
+			CompileError(self.compiler, f'Cannot get the value of "{token}"')
 			return None
 
 		value = {}

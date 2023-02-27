@@ -1,4 +1,4 @@
-from ec_classes import FatalError, RuntimeError
+from ec_classes import CompileError
 from ec_handler import Handler
 from PyP100 import PyP100
 
@@ -51,7 +51,7 @@ class P100(Handler):
                 if self.nextIs('to'):
                     command['password'] = self.nextValue()
             else:
-                FatalError(self.compiler, f'I don\'t understand \'rbr {token}\'')
+                CompileError(self.compiler, f'I don\'t understand \'rbr {token}\'')
             self.add(command)
         return True
 

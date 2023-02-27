@@ -1,7 +1,7 @@
 import time, json
 from copy import copy
 from collections import deque
-from ec_classes import Script, Token, FatalError, RuntimeError
+from ec_classes import Script, Token, CompileError, FatalError
 from ec_compiler import Compiler
 
 class Program:
@@ -54,14 +54,14 @@ class Program:
 		try:
 			target = self.code[self.symbols[name]]
 		except:
-			RuntimeError(self.compiler.program, f'Unknown symbol \'{name}\'')
+			FatalError(self.compiler.program, f'Unknown symbol \'{name}\'')
 			return None
 
 		return target
 
 	def doValue(self, value):
 		if value == None:
-			FatalError(self.compiler, f'Undefined value (variable not initialized?)')
+			CompileError(self.compiler, f'Undefined value (variable not initialized?)')
 
 		result = {}
 		valType = value['type']
@@ -84,7 +84,7 @@ class Program:
 			name = value['name']
 			symbolRecord = self.getSymbolRecord(name)
 			if symbolRecord['value'] == [None]:
-				RuntimeError(self.compiler.program, f'Variable "{name}" has no value')
+				FatalError(self.compiler.program, f'Variable "{name}" has no value')
 				return None
 			handler = self.domainIndex[symbolRecord['domain']].valueHandler('symbol')
 			result = handler(symbolRecord)
@@ -218,10 +218,10 @@ class Program:
 					return -1
 
 	def nonNumericValueError(self):
-		FatalError(self.compiler, 'Non-numeric value')
+		CompileError(self.compiler, 'Non-numeric value')
 
 	def variableDoesNotHoldAValueError(self, name):
-		raise FatalError(self.compiler, f'Variable "{name}" does not hold a value')
+		raise CompileError(self.compiler, f'Variable "{name}" does not hold a value')
 
 	def compare(self, value1, value2):
 		# print(f'Compare {value1} with {value2}')
@@ -232,7 +232,7 @@ class Program:
 		v1 = val1['content']
 		v2 = val2['content']
 		if type(v1) == dict or type(v2) == dict:
-			RuntimeError(self, f'Can only compare strings or integers')
+			FatalError(self, f'Can only compare strings or integers')
 		if v1 == None and v2 != None or v1 != None and v2 == None:
 			return 0
 		if v1 != None and val1['type'] == 'int':
@@ -242,7 +242,7 @@ class Program:
 						v2 = int(v2)
 					except:
 						lino = self.code[self.pc]['lino'] + 1
-						RuntimeError(self, f'Line {lino}: \'{v2}\' is not an integer')
+						FatalError(self, f'Line {lino}: \'{v2}\' is not an integer')
 		else:
 			if val2['type'] == str and v2 != None and val2['type'] == 'int':
 				v2 = str(v2)

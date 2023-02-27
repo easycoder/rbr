@@ -1,7 +1,7 @@
 import json, math, hashlib, threading, os, sys, requests, time, numbers
 from datetime import datetime, timezone
 from random import randrange
-from ec_classes import FatalError, RuntimeWarning
+from ec_classes import CompileError, RBRWarning
 from ec_handler import Handler
 from ec_timestamp import getTimestamp
 
@@ -24,12 +24,13 @@ class Core(Handler):
                 symbolRecord = self.getSymbolRecord()
                 if symbolRecord['valueHolder']:
                     if self.peek() == 'giving':
-                        # This variable must be treated as a second value
-                        command['value2'] = self.getValue()
                         self.nextToken()
-                        command['target'] = self.nextToken()
-                        self.add(command)
-                        return True
+                        name = self.nextToken()
+                        if (self.isSymbol()):
+                            command['target'] = self.getToken()
+                            self.add(command)
+                            return True
+                        CompileError(self.program.compiler, f'No such variable: "{name}"')
                     else:
                         # Here the variable is the target
                         command['target'] = self.getToken()
@@ -203,18 +204,19 @@ class Core(Handler):
             command['value2'] = self.nextValue()
             if self.peek() == 'giving':
                 self.nextToken()
-                if (self.nextIsSymbol()):
+                name = self.nextToken()
+                if (self.isSymbol()):
                     command['target'] = self.getToken()
                     self.add(command)
                     return True
-                FatalError(self.program.compiler, 'Symbol expected')
+                CompileError(self.program.compiler, f'No such variable: "{name}"')
             else:
                 # First value must be a variable
                 if command['value1']['type'] == 'symbol':
                     command['target'] = command['value1']['name']
                     self.add(command)
                     return True
-                FatalError(self.compiler, 'First value must be a variable')
+                CompileError(self.compiler, 'First value must be a variable')
         return False
 
     def r_divide(self, command):
@@ -285,7 +287,7 @@ class Core(Handler):
         try:
             label = self.symbols[label + ':']
         except:
-            RuntimeError(self.program, f'There is no label "{label + ":"}"')
+            RBRError(self.program, f'There is no label "{label + ":"}"')
             return None
         self.run(label)
         return next
@@ -297,7 +299,7 @@ class Core(Handler):
             if symbolRecord['valueHolder']:
                 command['target'] = self.getToken()
             else:
-                FatalError(self.compiler, f'Variable "{symbolRecord["name"]}" does not hold a value')
+                CompileError(self.compiler, f'Variable "{symbolRecord["name"]}" does not hold a value')
         if self.nextIs('from'):
             command['url'] = self.nextValue()
         command['or'] = None
@@ -337,13 +339,13 @@ class Core(Handler):
                 if command['or'] != None:
                     return command['or']
                 else:
-                    RuntimeError(self.program, f'Error code {errorCode}: {errorReason}')
+                    RBRError(self.program, f'Error code {errorCode}: {errorReason}')
         except Exception as e:
             errorReason = str(e)
             if command['or'] != None:
                 return command['or']
             else:
-                RuntimeError(self.program, f'Error: {errorReason}')
+                RBRError(self.program, f'Error: {errorReason}')
         retval['content'] = response.text
         self.program.putSymbolValue(target, retval);
         return self.nextPC()
@@ -361,7 +363,7 @@ class Core(Handler):
         if address != None:
             self.stack.append(self.nextPC())
             return address
-        RuntimeError(self.program, f'There is no label "{label + ":"}"')
+        RBRError(self.program, f'There is no label "{label + ":"}"')
         return None
 
     def k_go(self, command):
@@ -379,7 +381,7 @@ class Core(Handler):
         label = f'{command["goto"]}:'
         if self.symbols[label]:
             return self.symbols[label]
-        RuntimeError(self.program, f'There is no label "{label}"')
+        RBRError(self.program, f'There is no label "{label}"')
         return None
 
     def r_gotoPC(self, command):
@@ -492,18 +494,19 @@ class Core(Handler):
             command['value2'] = self.nextValue()
             if self.peek() == 'giving':
                 self.nextToken()
-                if (self.nextIsSymbol()):
+                name = self.nextToken()
+                if (self.isSymbol()):
                     command['target'] = self.getToken()
                     self.add(command)
                     return True
-                FatalError(self.program.compiler, 'Symbol expected')
+                CompileError(self.program.compiler, f'No such variable: "{name}"')
             else:
                 # First value must be a variable
                 if command['value1']['type'] == 'symbol':
                     command['target'] = command['value1']['name']
                     self.add(command)
                     return True
-                FatalError(self.program.compiler, 'First value must be a variable')
+                CompileError(self.program.compiler, 'First value must be a variable')
         return False
 
     def r_multiply(self, command):
@@ -550,13 +553,13 @@ class Core(Handler):
                     elif token == 'writing':
                         mode = 'w'
                     else:
-                        FatalError(self.program.compiler, 'Unknown file open mode {self.getToken()}')
+                        CompileError(self.program.compiler, 'Unknown file open mode {self.getToken()}')
                         return False
                     command['mode'] = mode
                     self.add(command)
                     return True
             else:
-                FatalError(self.compiler, f'Variable "{self.getToken()}" is not a file')
+                CompileError(self.compiler, f'Variable "{self.getToken()}" is not a file')
         else:
             self.warning(f'core.open: Variable "{self.getToken()}" not declared')
         return False
@@ -567,7 +570,7 @@ class Core(Handler):
         if command['mode'] == 'r' and os.path.exists(path) or command['mode'] != 'r':
             symbolRecord['file'] = open(path, command['mode'])
             return self.nextPC()
-        RuntimeError(self.program, f"File {path} does not exist")
+        RBRError(self.program, f"File {path} does not exist")
         return -1
 
     def k_post(self, command):
@@ -621,13 +624,13 @@ class Core(Handler):
                 if command['or'] != None:
                     return command['or']
                 else:
-                    RuntimeError(self.program, f'Error code {errorCode}: {errorReason}')
+                    RBRError(self.program, f'Error code {errorCode}: {errorReason}')
         except Exception as e:
             errorReason = str(e)
             if command['or'] != None:
                 return command['or']
             else:
-                RuntimeError(self.program, f'Error: {errorReason}')
+                RBRError(self.program, f'Error: {errorReason}')
         if command['result'] != None:
             result = self.getVariable(command['result'])
             self.program.putSymbolValue(result, retval);
@@ -639,7 +642,7 @@ class Core(Handler):
             command['value'] = value
             self.add(command)
             return True
-        FatalError(self.program.compiler, 'I can\'t print this value')
+        CompileError(self.program.compiler, 'I can\'t print this value')
         return False
 
     def r_print(self, command):
@@ -665,9 +668,9 @@ class Core(Handler):
                     self.add(command)
                     return True
                 else:
-                    FatalError(self.program.compiler, f'Symbol {symbolRecord["name"]} is not a value holder')
+                    CompileError(self.program, f'Symbol {symbolRecord["name"]} is not a value holder')
             else:
-                FatalError(self.program.compiler, f'No such variable: "{self.getToken()}"')
+                CompileError(self.program, f'No such variable: "{self.getToken()}"')
         return False
 
     def r_put(self, command):
@@ -676,7 +679,7 @@ class Core(Handler):
             return -1
         symbolRecord = self.getVariable(command['target'])
         if not symbolRecord['valueHolder']:
-            RuntimeError(self.program, f'{symbolRecord["name"]} does not hold a value')
+            RBRError(self.program, f'{symbolRecord["name"]} does not hold a value')
             return -1
         self.putSymbolValue(symbolRecord, value)
         return self.nextPC()
@@ -718,9 +721,9 @@ class Core(Handler):
                             command['file'] = fileRecord['name']
                             self.add(command)
                             return True
-            FatalError(self.program.compiler, f'Symbol "{symbolRecord["name"]}" is not a value holder')
+            CompileError(self.program.compiler, f'Symbol "{symbolRecord["name"]}" is not a value holder')
             return False
-        FatalError(self.program.compiler, f'Symbol "{self.getToken()}" has not been declared')
+        CompileError(self.program.compiler, f'Symbol "{self.getToken()}" has not been declared')
         return False
 
     def r_read(self, command):
@@ -851,13 +854,13 @@ class Core(Handler):
             try:
                 content = val['content']
             except:
-                RuntimeError(self.program, f'{target} is not an object')
+                RBRError(self.program, f'{target} is not an object')
             if content == '':
                 content = {}
             try:
                 content[name] = value
             except:
-                RuntimeError(self.program, f'{target} is not an object')
+                RBRError(self.program, f'{target} is not an object')
             val['content'] = content
             self.putSymbolValue(targetVariable, val)
             return self.nextPC()
@@ -920,7 +923,7 @@ class Core(Handler):
             command['value'] = value
             self.add(command)
             return True
-        FatalError(self.program.compiler, 'I can\'t give this command')
+        CompileError(self.program.compiler, 'I can\'t give this command')
         return False
 
     def r_system(self, command):
@@ -937,12 +940,13 @@ class Core(Handler):
                 symbolRecord = self.getSymbolRecord()
                 if symbolRecord['valueHolder']:
                     if self.peek() == 'giving':
-                        # This variable must be treated as a second value
-                        command['value2'] = self.getValue()
                         self.nextToken()
-                        command['target'] = self.nextToken()
-                        self.add(command)
-                        return True
+                        name = self.nextToken()
+                        if (self.isSymbol()):
+                            command['target'] = self.getToken()
+                            self.add(command)
+                            return True
+                        CompileError(self.program.compiler, f'No such variable: "{name}"')
                     else:
                         # Here the variable is the target
                         command['target'] = self.getToken()
@@ -958,7 +962,7 @@ class Core(Handler):
                         self.add(command)
                         return True
                     else:
-                        FatalError(self.program.compiler, f'\'{self.getToken()}\' is not a symbol')
+                        CompileError(self.program.compiler, f'\'{self.getToken()}\' is not a symbol')
                 else:
                     self.warning(f'core.take: Expected "giving"')
         return False
@@ -1112,7 +1116,7 @@ class Core(Handler):
     def incdec(self, command, mode):
         symbolRecord = self.getVariable(command['target'])
         if not symbolRecord['valueHolder']:
-            RuntimeError(self.program, f'{symbolRecord["name"]} does not hold a value')
+            RBRError(self.program, f'{symbolRecord["name"]} does not hold a value')
             return None
         value = self.getSymbolValue(symbolRecord)
         if mode == '+':
@@ -1408,7 +1412,7 @@ class Core(Handler):
             value['content'] = content[index]
             return value
         lino = self.program.code[self.program.pc]['lino']
-        RuntimeError(self.program, 'Item is not an array')
+        RBRError(self.program, 'Item is not an array')
 
     def v_elements(self, v):
         value = {}
@@ -1497,7 +1501,7 @@ class Core(Handler):
         try:
             value['content'] = float(val)
         except:
-            RuntimeWarning(self.program, f'Value cannot be parsed as floating-point')
+            RBRWarning(self.program, f'Value cannot be parsed as floating-point')
             value['content'] = 0.0
         return value
 

@@ -1,14 +1,15 @@
 import sys
 
-class FatalError():
-	def __init__(self, compiler, message):
+class CompileError():
+	def __init__(self, program, message):
+		compiler = program.compiler
 		compiler.showWarnings()
 		lino = compiler.tokens[compiler.index].lino
 		script = compiler.script.lines[lino].strip()
-		print(f'Compile error in {compiler.program.name} at line {lino + 1} ({script}): {message}')
+		print(f'Compile error in {program.name} at line {lino + 1} ({script}): {message}')
 		sys.exit()
 
-class RuntimeError:
+class FatalError:
 	def __init__(self, program, message):
 		if program == None:
 			sys.exit(f'Runtime Error: {message}')
@@ -19,15 +20,15 @@ class RuntimeError:
 			print(f'Runtime Error in {program.name} at line {lino + 1} ({script}): {message}')
 			sys.exit()
 
-class RuntimeWarning:
+class RBRWarning:
 	def __init__(self, program, message):
 		if program == None:
-			print(f'Runtime Warning: {message}')
+			print(f'Warning: {message}')
 		else:
 			code = program.code[program.pc]
 			lino = code['lino']
 			script = program.script.lines[lino].strip()
-			print(f'Runtime Warning in {program.name} at line {lino + 1} ({script}): {message}')
+			print(f'Warning in {program.name} at line {lino + 1} ({script}): {message}')
 
 class Script:
 	def __init__(self, source):

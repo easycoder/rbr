@@ -1,4 +1,4 @@
-from ec_classes import Token, FatalError
+from ec_classes import Token, CompileError
 from ec_value import Value
 from ec_condition import Condition
 
@@ -31,7 +31,7 @@ class Compiler:
 	# Get the current token
 	def getToken(self):
 		if self.index >= len(self.tokens):
-			FatalError(self, 'Premature end of script')
+			CompileError(self, 'Premature end of script')
 		return self.tokens[self.index].token
 
 	# Get the next token
@@ -125,7 +125,7 @@ class Compiler:
 		except:
 			v = None
 		if v:
-			FatalError(self, f'Duplicate symbol name "{name}"')
+			CompileError(self, f'Duplicate symbol name "{name}"')
 			return False
 		self.symbols[name] = self.getPC()
 		command['type'] = 'symbol'
@@ -162,7 +162,7 @@ class Compiler:
 					self.rewindTo(mark)
 			else:
 				self.rewindTo(mark)
-		FatalError(self, f'No handler found for "{token}"')
+		CompileError(self, f'No handler found for "{token}"')
 		return False
 
 	# Compile a single command

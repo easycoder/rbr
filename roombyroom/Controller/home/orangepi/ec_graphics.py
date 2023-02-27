@@ -1,4 +1,4 @@
-from ec_classes import FatalError, RuntimeError
+from ec_classes import CompileError, FatalError
 from ec_handler import Handler
 from picson import *
 
@@ -28,7 +28,7 @@ class Graphics(Handler):
         id = self.getRuntimeValue(command['id'])
         element = getElement(id)
         if element == None:
-            RuntimeError(self.program, f'There is no screen element with id \'{id}\'')
+            FatalError(self.program, f'There is no screen element with id \'{id}\'')
             return -1
         target['id'] = [None] * target['elements']
         target['id'][target['index']] = id
@@ -126,7 +126,7 @@ class Graphics(Handler):
             command['value'] = value
             self.add(command)
             return True
-        FatalError(self.program.compiler, 'I can\'t log this value')
+        CompileError(self.program.compiler, 'I can\'t log this value')
         return False
 
     def r_log(self, command):
@@ -148,7 +148,7 @@ class Graphics(Handler):
                 target = self.getSymbolRecord()
                 command['target'] = target['name']
             else:
-                FatalError(self.program.compiler, f'{self.getToken()} is not a screen element')
+                CompileError(self.program.compiler, f'{self.getToken()} is not a screen element')
                 return False
             command['goto'] = self.getPC() + 2
             self.add(command)
@@ -242,9 +242,9 @@ class Graphics(Handler):
                 command['parent'] = 'screen'
                 self.add(command)
                 return True
-            FatalError(self.program.compiler, f'This variable type cannot be rendered')
+            CompileError(self.program.compiler, f'This variable type cannot be rendered')
             return False
-        FatalError(self.program.compiler, 'Nothing specified to render')
+        CompileError(self.program.compiler, 'Nothing specified to render')
         return False
 
     def r_render(self, command):
@@ -254,9 +254,9 @@ class Graphics(Handler):
         try:
             result = render(value, parent)
         except PicsonError as err:
-            RuntimeError(command['program'], err)
+            FatalError(command['program'], err)
         if result != None:
-            RuntimeError(command['program'], f'Rendering error: {result}')
+            FatalError(command['program'], f'Rendering error: {result}')
         return self.nextPC()
 
     def k_set(self, command):
@@ -272,12 +272,14 @@ class Graphics(Handler):
                 record = self.getSymbolRecord()
                 command['name'] = record['name']
                 if record['keyword'] != 'text':
-                    RuntimeError(command['program'], f'Symbol type is not \'text\'')
+                    CompileError(self.program, f'Symbol type is not \'text\'')
                 if self.peek() == 'to':
                     self.nextToken()
                     command['value'] = self.nextValue()
                     self.add(command)
                     return True
+            name = self.getToken()
+            CompileError(self.program, f'Unknown symbol \'{name}\'')
             return False
         elif token == 'background':
             self.nextToken()
@@ -290,7 +292,7 @@ class Graphics(Handler):
                 record = self.getSymbolRecord()
                 command['name'] = record['name']
                 if not record['keyword'] in ['rectangle', 'ellipse']:
-                    RuntimeError(command['program'], f'Symbol type is not \'rectangle\' or \'ellipse\'')
+                    CompileError(self.program, f'Symbol type is not \'rectangle\' or \'ellipse\'')
                 if self.peek() == 'to':
                     self.nextToken()
                     command['value'] = self.nextValue()
