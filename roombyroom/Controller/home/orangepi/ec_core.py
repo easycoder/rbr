@@ -1,7 +1,8 @@
 import json, math, hashlib, threading, os, sys, requests, time, numbers
 from datetime import datetime, timezone
 from random import randrange
-from ec_classes import CompileError, RBRWarning
+from ec_program import Program
+from ec_classes import CompileError, RBRWarning, FatalError
 from ec_handler import Handler
 from ec_timestamp import getTimestamp
 
@@ -16,6 +17,8 @@ class Core(Handler):
     #############################################################################
     # Keyword handlers
 
+    # add <value> to <variable>
+    # add <value> to <value> giving <variable>
     def k_add(self, command):
         # Get the (first) value
         command['value1'] = self.nextValue()
@@ -75,6 +78,7 @@ class Core(Handler):
         self.putSymbolValue(target, value)
         return self.nextPC()
 
+    # append <value> to <variable>
     def k_append(self, command):
         command['value'] = self.nextValue()
         if self.nextIs('to'):
@@ -99,6 +103,7 @@ class Core(Handler):
         self.putSymbolValue(target, val)
         return self.nextPC()
 
+    # begin
     def k_begin(self, command):
         if self.nextToken() == 'end':
             cmd = {}
@@ -111,6 +116,7 @@ class Core(Handler):
         else:
             return self.compileFromHere(['end'])
 
+    # clear <variable>
     def k_clear(self, command):
         if self.nextIsSymbol():
             target = self.getSymbolRecord()
@@ -129,6 +135,7 @@ class Core(Handler):
         # self.add(command)
         return self.nextPC()
 
+    # close <file>
     def k_close(self, command):
         if self.nextIsSymbol():
             fileRecord = self.getSymbolRecord()
@@ -143,6 +150,7 @@ class Core(Handler):
         fileRecord['file'].close()
         return self.nextPC()
 
+    # create directory <name>
     def k_create(self, command):
         if self.nextIs('directory'):
             command['item'] = 'directory'
@@ -158,6 +166,7 @@ class Core(Handler):
                 os.makedirs(path)
         return self.nextPC()
 
+    # debug start/stop/program
     def k_debug(self, command):
         token = self.peek()
         if token in ['step', 'stop', 'program']:
@@ -178,6 +187,7 @@ class Core(Handler):
                 print(json.dumps(item, indent = 2))
         return self.nextPC()
 
+    # decrement <variable>
     def k_decrement(self, command):
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
@@ -191,12 +201,15 @@ class Core(Handler):
     def r_decrement(self, command):
         return self.incdec(command, '-')
 
+    # declare a 'dictionary' variable
     def k_dictionary(self, command):
         return self.compileVariable(command, False)
 
     def r_dictionary(self, command):
         return self.nextPC()
 
+    # divide <variable> by <value>
+    # divide <value> by <value> giving <variable>
     def k_divide(self, command):
         # Get the (first) value
         command['value1'] = self.nextValue()
@@ -246,6 +259,7 @@ class Core(Handler):
         self.putSymbolValue(target, value)
         return self.nextPC()
 
+    # dummy
     def k_dummy(self, command):
         self.add(command)
         return True
@@ -253,6 +267,7 @@ class Core(Handler):
     def r_dummy(self, command):
         return self.nextPC()
 
+    # end
     def k_end(self, command):
         self.add(command)
         return True
@@ -260,20 +275,24 @@ class Core(Handler):
     def r_end(self, command):
         return self.nextPC()
 
+    # exit
     def k_exit(self, command):
         self.add(command)
         return True
 
     def r_exit(self, command):
-        sys.exit()
+        if self.program.parent == None:
+            sys.exit()
         return 0
 
+    # Declare a 'file' variable
     def k_file(self, command):
         return self.compileVariable(command, False)
 
     def r_file(self, command):
         return self.nextPC()
 
+    # fork [to] <label>
     def k_fork(self, command):
         if self.peek() == 'to':
             self.nextToken()
@@ -287,11 +306,11 @@ class Core(Handler):
         try:
             label = self.symbols[label + ':']
         except:
-            RBRError(self.program, f'There is no label "{label + ":"}"')
-            return None
+            FatalError(self.program, f'There is no label "{label + ":"}"')
         self.run(label)
         return next
 
+    # get <variable from <url> [or <statement>]
     def k_get(self, command):
         self.add(command)
         if self.nextIsSymbol():
@@ -339,17 +358,18 @@ class Core(Handler):
                 if command['or'] != None:
                     return command['or']
                 else:
-                    RBRError(self.program, f'Error code {errorCode}: {errorReason}')
+                    FatalError(self.program, f'Error code {errorCode}: {errorReason}')
         except Exception as e:
             errorReason = str(e)
             if command['or'] != None:
                 return command['or']
             else:
-                RBRError(self.program, f'Error: {errorReason}')
+                FatalError(self.program, f'Error: {errorReason}')
         retval['content'] = response.text
         self.program.putSymbolValue(target, retval);
         return self.nextPC()
 
+    # gosub [to] <label>
     def k_gosub(self, command):
         if self.peek() == 'to':
             self.nextToken()
@@ -363,14 +383,15 @@ class Core(Handler):
         if address != None:
             self.stack.append(self.nextPC())
             return address
-        RBRError(self.program, f'There is no label "{label + ":"}"')
-        return None
+        FatalError(self.program, f'There is no label "{label + ":"}"')
 
+    # go [to] <label>
     def k_go(self, command):
         if self.peek() == 'to':
             self.nextToken()
             return self.k_goto(command)
 
+    # goto <label>
     def k_goto(self, command):
         command['keyword'] = 'goto'
         command['goto'] = self.nextToken()
@@ -381,12 +402,12 @@ class Core(Handler):
         label = f'{command["goto"]}:'
         if self.symbols[label]:
             return self.symbols[label]
-        RBRError(self.program, f'There is no label "{label}"')
-        return None
+        FatalError(self.program, f'There is no label "{label}"')
 
     def r_gotoPC(self, command):
         return command['goto']
 
+    # if <condition> <statement> [else <statement>]
     def k_if(self, command):
         command['condition'] = self.nextCondition()
         self.addCommand(command)
@@ -432,6 +453,7 @@ class Core(Handler):
             self.program.pc += 1
         return self.program.pc
 
+    # increment <variable>
     def k_increment(self, command):
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
@@ -445,6 +467,7 @@ class Core(Handler):
     def r_increment(self, command):
         return self.incdec(command, '+')
 
+    # index <variable> to <value>
     def k_index(self, command):
         # get the variable
         if self.nextIsSymbol():
@@ -461,6 +484,17 @@ class Core(Handler):
         symbolRecord['index'] = self.getRuntimeValue(command['value'])
         return self.nextPC()
 
+    # import <type> <name> [and <type> <name>...]
+    def k_import(self, command):
+        type = self.nextToken()
+        for domain in self.program.domains:
+            pass
+        return False
+
+    def r_import(self, command):
+        return self.nextPC()
+
+    # input <variable> with <prompt>
     def k_input(self, command):
         # get the variable
         if self.nextIsSymbol():
@@ -487,6 +521,15 @@ class Core(Handler):
         self.putSymbolValue(symbolRecord, value)
         return self.nextPC()
 
+    # Declare a "module" variable
+    def k_module(self, command):
+        return self.compileVariable(command, True)
+
+    def r_module(self, command):
+        return self.nextPC()
+
+    # multiply <variable> by <value>
+    # multiply <value> by <value> giving <variable>
     def k_multiply(self, command):
         # Get the (first) value
         command['value1'] = self.nextValue()
@@ -537,6 +580,7 @@ class Core(Handler):
         self.putSymbolValue(target, value)
         return self.nextPC()
 
+    # open <file> <path> for reading/writing/appending
     def k_open(self, command):
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
@@ -570,9 +614,9 @@ class Core(Handler):
         if command['mode'] == 'r' and os.path.exists(path) or command['mode'] != 'r':
             symbolRecord['file'] = open(path, command['mode'])
             return self.nextPC()
-        RBRError(self.program, f"File {path} does not exist")
-        return -1
+        FatalError(self.program, f"File {path} does not exist")
 
+    # post [<content>] to <url> [or <statement>]
     def k_post(self, command):
         if self.nextIs('to'):
             command['value'] = self.getConstant('')
@@ -624,18 +668,19 @@ class Core(Handler):
                 if command['or'] != None:
                     return command['or']
                 else:
-                    RBRError(self.program, f'Error code {errorCode}: {errorReason}')
+                    FatalError(self.program, f'Error code {errorCode}: {errorReason}')
         except Exception as e:
             errorReason = str(e)
             if command['or'] != None:
                 return command['or']
             else:
-                RBRError(self.program, f'Error: {errorReason}')
+                FatalError(self.program, f'Error: {errorReason}')
         if command['result'] != None:
             result = self.getVariable(command['result'])
             self.program.putSymbolValue(result, retval);
         return self.nextPC()
 
+    # print <value>
     def k_print(self, command):
         value = self.nextValue()
         if value != None:
@@ -643,7 +688,6 @@ class Core(Handler):
             self.add(command)
             return True
         CompileError(self.program.compiler, 'I can\'t print this value')
-        return False
 
     def r_print(self, command):
         value = self.getRuntimeValue(command['value'])
@@ -651,6 +695,8 @@ class Core(Handler):
             print(f'-> {value}')
         return self.nextPC()
 
+    # put <value> into <variable>
+    # put <value> into <dictionary> as <key>
     def k_put(self, command):
         command['value'] = self.nextValue()
         if self.nextIs('into'):
@@ -679,8 +725,7 @@ class Core(Handler):
             return -1
         symbolRecord = self.getVariable(command['target'])
         if not symbolRecord['valueHolder']:
-            RBRError(self.program, f'{symbolRecord["name"]} does not hold a value')
-            return -1
+            FatalError(self.program, f'{symbolRecord["name"]} does not hold a value')
         self.putSymbolValue(symbolRecord, value)
         return self.nextPC()
 
@@ -703,6 +748,7 @@ class Core(Handler):
         self.putSymbolValue(symbolRecord, record)
         return self.nextPC()
 
+    # read <variable> from <file>
     def k_read(self, command):
         if self.peek() == 'line':
             self.nextToken()
@@ -722,9 +768,7 @@ class Core(Handler):
                             self.add(command)
                             return True
             CompileError(self.program.compiler, f'Symbol "{symbolRecord["name"]}" is not a value holder')
-            return False
         CompileError(self.program.compiler, f'Symbol "{self.getToken()}" has not been declared')
-        return False
 
     def r_read(self, command):
         symbolRecord = self.getVariable(command['target'])
@@ -740,6 +784,7 @@ class Core(Handler):
             self.putSymbolValue(symbolRecord, value)
         return self.nextPC()
 
+    # replace <value> with <value> in <variable>
     def k_replace(self, command):
         original = self.nextValue()
         if self.peek() == 'with':
@@ -768,6 +813,7 @@ class Core(Handler):
         self.putSymbolValue(templateRecord, value)
         return self.nextPC()
 
+    # return
     def k_return(self, command):
         self.add(command)
         return True
@@ -775,10 +821,58 @@ class Core(Handler):
     def r_return(self, command):
         return self.stack.pop()
 
+    # run <name> with <variables> as <module> then <statement>
+    def k_run(self, command):
+        command['path'] = self.nextValue()
+        if self.nextIs('with'):
+            variables = []
+            while self.nextIsSymbol():
+                variable = self.getSymbolRecord()
+                variables.append(variable['name'])
+                if not self.nextIs('and'):
+                    break
+            command['variables'] = variables
+            if self.tokenIs('as'):
+                if self.nextIsSymbol():
+                    record = self.getSymbolRecord()
+                    if record['keyword'] == 'module':
+                        command['module'] = record['name']
+                        if self.peek() == 'then':
+                            self.nextToken()
+                            command['then'] = self.getPC()
+                        else:
+                            command['then'] = 0
+                        self.add(command)
+                        return True
+        return False
+
+    def r_run(self, command):
+        path = self.getRuntimeValue(command['path'])
+        then = command['then']
+        f = open(path)
+        source = f.read()
+        domains = []
+        for domain in self.program.domains:
+            domains.append(domain.__class__)
+        program = Program(source, domains, self.program, command['variables'])
+        module = self.getVariable(command['module'])
+        if 'runnning' in module and module['running'] == True:
+            moduleName = module['name']
+            FatalError(self.program, f'Module {moduleName} is already running')
+        program.run(0)
+        if then == 0:
+            return self.nextPC()
+        return then
+
+    # script
     def k_script(self, command):
         self.program.name = self.nextToken()
         return True
 
+    # set <variable>
+    # set the elements of <variable> to <value>
+    # set property <value> of <variable> to <value>
+    # set element <value> of <variable> to <value>
     def k_set(self, command):
         if self.nextIsSymbol():
             target = self.getSymbolRecord()
@@ -854,13 +948,13 @@ class Core(Handler):
             try:
                 content = val['content']
             except:
-                RBRError(self.program, f'{target} is not an object')
+                FatalError(self.program, f'{target} is not an object')
             if content == '':
                 content = {}
             try:
                 content[name] = value
             except:
-                RBRError(self.program, f'{target} is not an object')
+                FatalError(self.program, f'{target} is not an object')
             val['content'] = content
             self.putSymbolValue(targetVariable, val)
             return self.nextPC()
@@ -880,6 +974,7 @@ class Core(Handler):
             self.putSymbolValue(target, val)
             return self.nextPC()
 
+    # split <variable> on <value>
     def k_split(self, command):
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
@@ -910,6 +1005,7 @@ class Core(Handler):
 
         return self.nextPC()
 
+    # stop
     def k_stop(self, command):
         self.add(command)
         return True
@@ -917,6 +1013,7 @@ class Core(Handler):
     def r_stop(self, command):
         return 0
 
+    # system <command>
     def k_system(self, command):
         value = self.nextValue()
         if value != None:
@@ -924,7 +1021,6 @@ class Core(Handler):
             self.add(command)
             return True
         CompileError(self.program.compiler, 'I can\'t give this command')
-        return False
 
     def r_system(self, command):
         value = self.getRuntimeValue(command['value'])
@@ -932,6 +1028,8 @@ class Core(Handler):
             os.system(value)
             return self.nextPC()
 
+    # take <value> from <variable>
+    # take <value> from <value> giving <variable>
     def k_take(self, command):
         # Get the (first) value
         command['value1'] = self.nextValue()
@@ -992,6 +1090,7 @@ class Core(Handler):
         self.putSymbolValue(target, value)
         return self.nextPC()
 
+    # toggle <variable>
     def k_toggle(self, command):
         if self.nextIsSymbol():
             target = self.getSymbolRecord()
@@ -1011,12 +1110,14 @@ class Core(Handler):
         self.add(command)
         return self.nextPC()
 
+    # Declare a "variable" variable
     def k_variable(self, command):
         return self.compileVariable(command, True)
 
     def r_variable(self, command):
         return self.nextPC()
 
+    # wait <value> milli/millis/tick/ticks/second/seconds/minute/minutes
     def k_wait(self, command):
         command['value'] = self.nextValue()
         multipliers = {}
@@ -1042,6 +1143,7 @@ class Core(Handler):
         threading.Timer(value/1000.0, lambda: (self.run(next))).start()
         return 0
 
+    # while <condition> <statement>
     def k_while(self, command):
         code = self.nextCondition()
         if code == None:
@@ -1083,6 +1185,7 @@ class Core(Handler):
             self.program.pc += 1
         return self.program.pc
 
+    # write <value> to <file>
     def k_write(self, command):
         if self.peek() == 'line':
             self.nextToken()
@@ -1116,8 +1219,7 @@ class Core(Handler):
     def incdec(self, command, mode):
         symbolRecord = self.getVariable(command['target'])
         if not symbolRecord['valueHolder']:
-            RBRError(self.program, f'{symbolRecord["name"]} does not hold a value')
-            return None
+            FatalError(self.program, f'{symbolRecord["name"]} does not hold a value')
         value = self.getSymbolValue(symbolRecord)
         if mode == '+':
             value['content'] += 1
@@ -1412,7 +1514,7 @@ class Core(Handler):
             value['content'] = content[index]
             return value
         lino = self.program.code[self.program.pc]['lino']
-        RBRError(self.program, 'Item is not an array')
+        FatalError(self.program, 'Variable "{target}" is not an array')
 
     def v_elements(self, v):
         value = {}

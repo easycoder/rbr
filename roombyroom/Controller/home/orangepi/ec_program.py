@@ -6,9 +6,11 @@ from ec_compiler import Compiler
 
 class Program:
 
-	def __init__(self, source, domains):
+	def __init__(self, source, domains, parent = None, variables = None):
 
+		self.parent = parent
 		self.domains = []
+		self.variables = variables
 		self.domainIndex = {}
 		self.name = '<anon>'
 		self.code = []
@@ -30,7 +32,7 @@ class Program:
 
 		startCompile = time.time()
 		self.tokenise(self.script)
-		if self.compiler.compileFrom(0, []):
+		if self.compiler.compileFrom(0, parent, []):
 			finishCompile = time.time()
 			s = len(self.script.lines)
 			t = len(self.script.tokens)
@@ -40,8 +42,9 @@ class Program:
 				record = self.code[self.symbols[name]]
 				if name[-1] != ':' and not record['used']:
 					print(f'Variable "{name}" not used')
-			print(f'Run {self.name}')
-			self.run(0)
+			if parent == None:
+				print(f'Run {self.name}')
+				self.run(0)
 		else:
 			self.compiler.showWarnings()
 			return

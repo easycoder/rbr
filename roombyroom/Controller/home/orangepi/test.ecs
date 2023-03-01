@@ -2,28 +2,15 @@
 
     script Test
 
-    file File
-    text Exit
-    variable Pyctures
+    module MyModule
+    variable One
+    variable Two
+    variable Three
 
     debug step
 
-    create screen
-        size 800 600
-        fill `#ffc`
-
-    open File `json/test.json` for reading
-    read Pyctures from File
-    close File
-    print Pyctures
-    render Pyctures
-
-    attach Exit to `exit`
-    on click Exit
-    begin
-        close screen
-        exit
-    end
-
-    show screen
+    print `Testing`
+    run `test2.ecs` with One and Two and Three as MyModule
+    print `All done`
+    
     exit

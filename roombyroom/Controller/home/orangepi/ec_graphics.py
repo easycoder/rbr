@@ -29,7 +29,6 @@ class Graphics(Handler):
         element = getElement(id)
         if element == None:
             FatalError(self.program, f'There is no screen element with id \'{id}\'')
-            return -1
         target['id'] = [None] * target['elements']
         target['id'][target['index']] = id
         self.putSymbolValue(target, {'type': 'text', 'content': id})
@@ -127,7 +126,6 @@ class Graphics(Handler):
             self.add(command)
             return True
         CompileError(self.program.compiler, 'I can\'t log this value')
-        return False
 
     def r_log(self, command):
         value = self.getRuntimeValue(command['value'])
@@ -149,7 +147,6 @@ class Graphics(Handler):
                 command['target'] = target['name']
             else:
                 CompileError(self.program.compiler, f'{self.getToken()} is not a screen element')
-                return False
             command['goto'] = self.getPC() + 2
             self.add(command)
             self.nextToken()
@@ -245,7 +242,6 @@ class Graphics(Handler):
             CompileError(self.program.compiler, f'This variable type cannot be rendered')
             return False
         CompileError(self.program.compiler, 'Nothing specified to render')
-        return False
 
     def r_render(self, command):
         variable = self.getVariable(command['name'])
@@ -280,7 +276,6 @@ class Graphics(Handler):
                     return True
             name = self.getToken()
             CompileError(self.program, f'Unknown symbol \'{name}\'')
-            return False
         elif token == 'background':
             self.nextToken()
             command['variant'] = 'setBackground'

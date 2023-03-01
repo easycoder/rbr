@@ -180,8 +180,9 @@ class Compiler:
 			return self.compileToken()
 
 	# Compile the script
-	def compileFrom(self, index, stopOn):
+	def compileFrom(self, index, parent, stopOn):
 		self.index = index
+		self.parent = parent
 		while True:
 			token = self.tokens[self.index]
 			keyword = token.token
@@ -198,4 +199,4 @@ class Compiler:
 				return False
 
 	def compileFromHere(self, stopOn):
-		return self.compileFrom(self.getIndex(), stopOn)
+		return self.compileFrom(self.getIndex(), None, stopOn)

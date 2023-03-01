@@ -9,7 +9,7 @@ class EasyCoder:
 	def __init__(self):
 		self.version = 1
 
-	f = open('/home/graham/Dropbox/Code/VisualStudio/EasyCoder/easycoder.github.io/py/simulator.ecs', 'r')
+	f = open('simulator.ecs', 'r')
 	source = f.read()
 	f.close()
 

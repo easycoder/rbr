@@ -48,7 +48,7 @@
 !    debug step
 
     create screen
-        fullscreen
+!        fullscreen
         loglevel 3
 
     log `This is the RBR GUI`
