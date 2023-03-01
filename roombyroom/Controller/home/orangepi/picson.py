@@ -82,6 +82,16 @@ def closeScreen():
     global screen
     screen.destroy()
 
+# Get the screen width
+def getScreenWidth():
+    global screen
+    return screen.winfo_screenwidth()
+
+# Get the screen height
+def getScreenHeight():
+    global screen
+    return screen.winfo_screenheight()
+
 # Set up a click handler in an element
 def setOnClick(id, cb):
     global elements
