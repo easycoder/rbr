@@ -114,7 +114,7 @@ class Core(Handler):
             self.addCommand(cmd)
             return self.nextPC()
         else:
-            return self.compileFromHere(['end'])
+            return self.compileFromCurrentIndex(['end'])
 
     # clear <variable>
     def k_clear(self, command):
@@ -201,6 +201,16 @@ class Core(Handler):
     def r_decrement(self, command):
         return self.incdec(command, '-')
 
+    # detach
+    def k_detach(self, command):
+        self.add(command)
+        return True
+
+    def r_detach(self, command):
+        next = self.nextPC()
+        self.run(next)
+        return next + 1
+
     # declare a 'dictionary' variable
     def k_dictionary(self, command):
         return self.compileVariable(command, False)
@@ -229,7 +239,7 @@ class Core(Handler):
                     command['target'] = command['value1']['name']
                     self.add(command)
                     return True
-                CompileError(self.compiler, 'First value must be a variable')
+                CompileError(self.program.compiler, 'First value must be a variable')
         return False
 
     def r_divide(self, command):
@@ -283,7 +293,8 @@ class Core(Handler):
     def r_exit(self, command):
         if self.program.parent == None:
             sys.exit()
-        return 0
+        else:
+            return 0
 
     # Declare a 'file' variable
     def k_file(self, command):
@@ -304,11 +315,10 @@ class Core(Handler):
         next = self.nextPC()
         label = command['fork']
         try:
-            label = self.symbols[label + ':']
+            self.run(self.symbols[label + ':'])
+            return next
         except:
             FatalError(self.program, f'There is no label "{label + ":"}"')
-        self.run(label)
-        return next
 
     # get <variable from <url> [or <statement>]
     def k_get(self, command):
@@ -318,7 +328,7 @@ class Core(Handler):
             if symbolRecord['valueHolder']:
                 command['target'] = self.getToken()
             else:
-                CompileError(self.compiler, f'Variable "{symbolRecord["name"]}" does not hold a value')
+                CompileError(self.program.compiler, f'Variable "{symbolRecord["name"]}" does not hold a value')
         if self.nextIs('from'):
             command['url'] = self.nextValue()
         command['or'] = None
@@ -378,12 +388,15 @@ class Core(Handler):
         return True
 
     def r_gosub(self, command):
-        label = command['gosub'] + ':'
-        address = self.symbols[label]
-        if address != None:
-            self.stack.append(self.nextPC())
-            return address
-        FatalError(self.program, f'There is no label "{label + ":"}"')
+        try:
+            label = command['gosub'] + ':'
+            address = self.symbols[label]
+            if address != None:
+                self.stack.append(self.nextPC())
+                return address
+        except:
+            pass
+        FatalError(self.program, f'There is no label "{label}"')
 
     # go [to] <label>
     def k_go(self, command):
@@ -399,9 +412,12 @@ class Core(Handler):
         return True
 
     def r_goto(self, command):
-        label = f'{command["goto"]}:'
-        if self.symbols[label]:
-            return self.symbols[label]
+        try:
+            label = f'{command["goto"]}:'
+            if self.symbols[label]:
+                return self.symbols[label]
+        except:
+            pass
         FatalError(self.program, f'There is no label "{label}"')
 
     def r_gotoPC(self, command):
@@ -467,6 +483,31 @@ class Core(Handler):
     def r_increment(self, command):
         return self.incdec(command, '+')
 
+    # import <type> <name> [and <type> <name>...]
+    def k_import(self, command):
+        exports = self.program.exports
+        imports = []
+        while True:
+            variable = {}
+            variable['type'] = self.nextToken()
+            variable['name'] = self.nextToken()
+            imports.append(variable)
+            if self.peek() == 'and':
+                self.nextToken()
+            else:
+                break
+        if len(imports) != len(exports):
+            CompileError(self.program.compiler, 'Imports do not match exports')
+        for index, export in enumerate(exports):
+            variable = imports[index]
+            name = variable['name']
+            if variable['type'] != export['keyword'] or name != export['name']:
+                CompileError(self.program.compiler, f'Import "{name}" does not match export')
+        return True
+
+    def r_import(self, command):
+        return self.nextPC()
+
     # index <variable> to <value>
     def k_index(self, command):
         # get the variable
@@ -482,16 +523,6 @@ class Core(Handler):
     def r_index(self, command):
         symbolRecord = self.getVariable(command['target'])
         symbolRecord['index'] = self.getRuntimeValue(command['value'])
-        return self.nextPC()
-
-    # import <type> <name> [and <type> <name>...]
-    def k_import(self, command):
-        type = self.nextToken()
-        for domain in self.program.domains:
-            pass
-        return False
-
-    def r_import(self, command):
         return self.nextPC()
 
     # input <variable> with <prompt>
@@ -602,8 +633,10 @@ class Core(Handler):
                     command['mode'] = mode
                     self.add(command)
                     return True
+                else:
+                    CompileError(self.program.compiler, f'Missing open mode (for reading/writing/appending)')
             else:
-                CompileError(self.compiler, f'Variable "{self.getToken()}" is not a file')
+                CompileError(self.program.compiler, f'Variable "{self.getToken()}" is not a file')
         else:
             self.warning(f'core.open: Variable "{self.getToken()}" not declared')
         return False
@@ -714,9 +747,9 @@ class Core(Handler):
                     self.add(command)
                     return True
                 else:
-                    CompileError(self.program, f'Symbol {symbolRecord["name"]} is not a value holder')
+                    CompileError(self.program.compiler, f'Symbol {symbolRecord["name"]} is not a value holder')
             else:
-                CompileError(self.program, f'No such variable: "{self.getToken()}"')
+                CompileError(self.program.compiler, f'No such variable: "{self.getToken()}"')
         return False
 
     def r_put(self, command):
@@ -824,27 +857,37 @@ class Core(Handler):
     # run <name> with <variables> as <module> then <statement>
     def k_run(self, command):
         command['path'] = self.nextValue()
-        if self.nextIs('with'):
-            variables = []
-            while self.nextIsSymbol():
-                variable = self.getSymbolRecord()
-                variables.append(variable['name'])
-                if not self.nextIs('and'):
-                    break
-            command['variables'] = variables
-            if self.tokenIs('as'):
-                if self.nextIsSymbol():
+        command['variables'] = []
+        command['module'] = None
+        command['then'] = 0
+        self.nextToken()
+        while True:
+            token = self.getToken()
+            if token == 'with':
+                variables = []
+                while self.nextIsSymbol():
+                    variable = self.getSymbolRecord()
+                    variables.append(variable)
+                    if not self.nextIs('and'):
+                        break
+                command['variables'] = variables
+            elif token == 'as':
+                name = self.nextToken()
+                if self.isSymbol():
                     record = self.getSymbolRecord()
                     if record['keyword'] == 'module':
                         command['module'] = record['name']
-                        if self.peek() == 'then':
-                            self.nextToken()
-                            command['then'] = self.getPC()
-                        else:
-                            command['then'] = 0
-                        self.add(command)
-                        return True
-        return False
+                    else:
+                        CompileError(self.program.compiler, f'"{name}" is not a module variable')
+                else:
+                    CompileError(self.program.compiler, f'"{name}" is not a variable')
+            else:
+                break
+        if self.peek() == 'then':
+            self.nextToken()
+            command['then'] = self.getPC()
+        self.add(command)
+        return True
 
     def r_run(self, command):
         path = self.getRuntimeValue(command['path'])

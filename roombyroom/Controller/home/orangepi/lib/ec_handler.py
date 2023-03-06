@@ -24,7 +24,7 @@ class Handler:
 		self.addCommand = compiler.addCommand
 		self.getCommandAt = compiler.getCommandAt
 		self.compileOne = compiler.compileOne
-		self.compileFromHere = compiler.compileFromHere
+		self.compileFromCurrentIndex = compiler.compileFromCurrentIndex
 
 		self.code = self.program.code
 		self.add = self.program.add

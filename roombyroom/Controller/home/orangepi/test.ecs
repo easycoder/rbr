@@ -7,10 +7,13 @@
     variable Two
     variable Three
 
-    debug step
+!    debug step
 
     print `Testing`
     run `test2.ecs` with One and Two and Three as MyModule
     print `All done`
+    print One
     
+    wait 7
+    print `Test1 finished`
     exit

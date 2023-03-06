@@ -1,0 +1,13 @@
+[
+    {
+        "name": "profilesbg",
+        "type": "rect",
+        "left": 200,
+        "top": 50,
+        "width": 400,
+        "height": /HEIGHT/,
+        "fill": "white",
+        "outline": "black",
+        "#": /PANELS/
+    }
+]

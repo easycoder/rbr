@@ -6,10 +6,13 @@
     text Temperature
     text Target
     text Mode
-    text Info
+    text ProfilesText
+    element BlueMask
+    element RedMask
     element RedButton
     element Exit
     spec Spec
+    module ProfilesModule
     variable Text
     variable Script
     variable Args
@@ -27,7 +30,6 @@
     variable FileName
     variable TargetText
     variable ModeName
-    variable InfoText
     variable TickCount
     variable Events
     variable Event
@@ -98,6 +100,9 @@ SetupProfiles:
     set property `args` of Spec to Args
     render Spec
 
+    attach ProfilesText to `profiles`
+    run `ecs/profiles.ecs` with Map and ProfilesText as ProfilesModule
+ 
     attach Exit to `exit`
     on click Exit
     begin
@@ -124,6 +129,8 @@ SetupRooms:
         put element RoomIndex of Rooms into Room
         replace `/ROOM/` with `panel` cat RoomIndex in Text
         replace `/ROOMNAME/` with property `name` of Room in Text
+        replace `/BLUEMASK/` with `bluemask` cat RoomIndex in Text
+        replace `/REDMASK/` with `redmask` cat RoomIndex in Text
         replace `/BLUE/` with `blue` cat RoomIndex in Text
         replace `/RED/` with `red` cat RoomIndex in Text
         replace `/TEMP/` with `temp` cat RoomIndex in Text
@@ -160,6 +167,9 @@ UpdateScreen:
 
         put element RoomIndex of Rooms into Room
         attach Temperature to `temp` cat RoomIndex
+        attach BlueMask to `bluemask` cat RoomIndex
+        attach RedMask to `redmask` cat RoomIndex
+        attach RedButton to `red` cat RoomIndex
 
         put element RoomIndex of Rooms into Room
         replace `/ROOM/` with `panel` cat RoomIndex in Text
@@ -176,9 +186,12 @@ UpdateScreen:
         attach Mode to `mode` cat RoomIndex
         set the text of Mode to `Mode: ` cat ModeName
 
-        attach Info to `info` cat RoomIndex
+        if ModeName is `Off` gosub to ShowBlueMask
+        else if ModeName is `On` gosub to ShowRedMask
+        else if ModeName is `Boost` gosub to ShowRedMask
         if ModeName is `Timed`
         begin
+            gosub to ShowRedMask
             put property `events` of Room into Events
             divide now by 60 giving N
             put N modulo 1440 into N
@@ -221,16 +234,11 @@ UpdateScreen:
         else
         begin
             put property `target` of Room into TargetText
-            put empty into InfoText
             go to L3
         end
     L2:
         put UntilTemp into TargetText
-        put UntilTemp cat char 176 into InfoText
-        put InfoText cat `->` cat UntilTime into InfoText
     L3:
-        set the text of Info to InfoText
-
         put `--.-` into T
         put property `sensor` of Room into Sensor
         put `/mnt/data/sensorData` into FileName
@@ -258,18 +266,44 @@ UpdateScreen:
         replace `/TEMPTEXT/` with T in Text
         set the text of Temperature to T
 
-        put `Target: ` cat TargetText cat char 176 into TargetText
-        put TargetText cat `C` into TargetText
+        if ModeName is `Off` put empty into TargetText
+        else if ModeName is `Timed`
+        begin
+            put `Target: ` cat UntilTemp cat char 176 into TargetText
+            put TargetText cat ` until ` cat UntilTime into TargetText
+        end
+        else
+        begin
+            put `Target: ` cat TargetText cat char 176 into TargetText
+            put TargetText cat `C` into TargetText
+        end
         attach Target to `target` cat RoomIndex
         set the text of Target to TargetText
 
-        attach RedButton to `red` cat RoomIndex
         if Sensor has property `relay`
         begin
-            if property `relay` of Sensor is `on` show RedButton
-            else hide RedButton
+            if property `relay` of Sensor is `on` gosub to ShowRedButton
+            else gosub to ShowBlueButton
         end
-        else hide RedButton
+        else gosub to ShowBlueButton
         add 1 to RoomIndex
     end
+    return
+
+ShowBlueMask:
+    hide RedMask
+    show BlueMask
+    return
+
+ShowRedMask:
+    hide BlueMask
+    show RedMask
+    return
+
+ShowBlueButton:
+    hide RedButton
+    return
+
+ShowRedButton:
+    show RedButton
     return

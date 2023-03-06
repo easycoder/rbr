@@ -1,0 +1,55 @@
+!   profiles.ecs
+
+    script Profiles
+
+    import variable Map
+        and text ProfilesText
+    
+    file File
+    module KeyboardModule
+    variable Profiles
+    variable Profile
+    variable ProfilesScript
+    variable ProfileTemplate
+    variable ProfileList
+    variable NProfiles
+    variable Top
+    variable Height
+    variable P
+
+!    debug step
+
+    open File `picson/profiles.json` for reading
+    read ProfilesScript from File
+    close File
+    open File `picson/profile.json` for reading
+    read ProfileTemplate from File
+    close File
+
+    put property `profiles` of Map into Profiles
+    put the count of Profiles into NProfiles
+    put empty into ProfileList
+    put 30 into Height
+    put 0 into Top
+    put 0 into P
+    while P is less than NProfiles
+    begin
+        if P is not 0 put ProfileList cat `,` into ProfileList
+        put ProfileTemplate into Profile
+        replace `/TOP/` with `` cat Top in Profile
+        replace `/HEIGHT/` with `` cat Height in Profile
+        put ProfileList cat Profile into ProfileList
+        add 1 to P
+    end
+    replace `/PANELS/` with ProfileList in ProfilesScript
+!    print ProfilesScript
+
+!    put json ProfilesScript into ProfilesObject
+    
+    on click ProfilesText print `Click!`
+
+    print `Profiles ready`
+
+    run `ecs/keyboard.ecs` as KeyboardModule
+
+    exit

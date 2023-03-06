@@ -7,7 +7,7 @@ from ec_graphics import Graphics
 class EasyCoder:
 
 	def __init__(self):
-		self.version = 1
+		return
 
 	f = open('simulator.ecs', 'r')
 	source = f.read()

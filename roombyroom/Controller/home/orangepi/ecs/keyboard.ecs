@@ -1,0 +1,7 @@
+!   keyboard.ecs
+
+    script Keyboard
+
+    print `Keyboard!`
+
+    exit

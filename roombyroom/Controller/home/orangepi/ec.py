@@ -1,6 +1,7 @@
 #! /bin/python
 
 import sys
+sys.path.insert(0, 'lib')
 from ec_program import Program
 from ec_core import Core
 from ec_p100 import P100
@@ -8,7 +9,7 @@ from ec_p100 import P100
 class EasyCoder:
 
 	def __init__(self):
-		self.version = 1
+		return
 
 	if (len(sys.argv) > 1):
 		scriptName = sys.argv[1]

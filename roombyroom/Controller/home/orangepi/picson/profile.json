@@ -1,0 +1,12 @@
+[
+    {
+        "name": /NAME/,
+        "type": "rect",
+        "left": 0,
+        "top": /TOP/,
+        "width": 400,
+        "height": /HEIGHT/,
+        "fill": "yellow",
+        "outline": "black"
+    }
+]

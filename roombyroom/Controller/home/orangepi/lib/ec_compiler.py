@@ -125,7 +125,7 @@ class Compiler:
 		except:
 			v = None
 		if v:
-			CompileError(self.program, f'Duplicate symbol name "{name}"')
+			CompileError(self.program.compiler, f'Duplicate symbol name "{name}"')
 			return False
 		self.symbols[name] = self.getPC()
 		command['type'] = 'symbol'
@@ -162,7 +162,7 @@ class Compiler:
 					self.rewindTo(mark)
 			else:
 				self.rewindTo(mark)
-		CompileError(self.program, f'No handler found for "{token}"')
+		CompileError(self, f'No handler found for "{token}"')
 		return False
 
 	# Compile a single command
@@ -179,16 +179,15 @@ class Compiler:
 		else:
 			return self.compileToken()
 
-	# Compile the script
+	# Compile from a specific PC address
 	def compileFrom(self, index, parent, stopOn):
 		self.index = index
 		self.parent = parent
 		while True:
 			token = self.tokens[self.index]
-			keyword = token.token
+#			keyword = token.token
 #			line = self.script.lines[token.lino]
 #			print(f'{keyword} - {line}')
-#			if keyword != 'else':
 			if self.compileOne() == True:
 				if self.index == len(self.tokens) - 1:
 					return True
@@ -198,5 +197,15 @@ class Compiler:
 			else:
 				return False
 
-	def compileFromHere(self, stopOn):
+	def compileFromCurrentIndex(self, stopOn):
 		return self.compileFrom(self.getIndex(), None, stopOn)
+
+	# Compile the script
+	def compileScript(self, parent):
+		exports = self.program.exports
+		if (exports):
+			for export in exports:
+				name = export['name']
+				self.symbols[name] = self.getPC()
+				self.addCommand(export)
+		return self.compileFrom(0, parent, [])

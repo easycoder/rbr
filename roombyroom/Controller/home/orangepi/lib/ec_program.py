@@ -6,11 +6,11 @@ from ec_compiler import Compiler
 
 class Program:
 
-	def __init__(self, source, domains, parent = None, variables = None):
+	def __init__(self, source, domains, parent = None, exports = None):
 
 		self.parent = parent
 		self.domains = []
-		self.variables = variables
+		self.exports = exports
 		self.domainIndex = {}
 		self.name = '<anon>'
 		self.code = []
@@ -32,7 +32,7 @@ class Program:
 
 		startCompile = time.time()
 		self.tokenise(self.script)
-		if self.compiler.compileFrom(0, parent, []):
+		if self.compiler.compileScript(parent):
 			finishCompile = time.time()
 			s = len(self.script.lines)
 			t = len(self.script.tokens)

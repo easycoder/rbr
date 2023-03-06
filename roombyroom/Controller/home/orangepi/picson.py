@@ -320,8 +320,7 @@ def render(spec, parent):
     # If it's a 'dict', extract the spec and the args
     if type(spec) is dict:
         args = spec['args']
-        spec = json.loads(spec['spec'])
-        return renderSpec(spec, offset, args)
+        return renderSpec(json.loads(spec['spec']), offset, args)
 
 # Clear the screen
 def clearScreen():
@@ -366,8 +365,8 @@ def getElement(name):
 def setText(name, value):
     getCanvas().itemconfig(getElement(name)['id'], text=value)
 
-# Set the background of a rectangle or ellipse element
-def setBackground(name, value):
+# Set the fill of a rectangle or ellipse element
+def setFill(name, value):
     id = getElement(name)['id']
     getCanvas().itemconfig(getElement(name)['id'], fill=value)
 

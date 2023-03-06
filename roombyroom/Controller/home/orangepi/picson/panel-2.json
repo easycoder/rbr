@@ -1,5 +1,25 @@
 [
     {
+        "name": "/BLUEMASK/",
+        "type": "image",
+        "left": 0,
+        "top": 0,
+        "width": 392,
+        "height": 420,
+        "src": "images/bluemask.png"
+    },
+
+    {
+        "name": "/REDMASK/",
+        "type": "image",
+        "left": 0,
+        "top": 0,
+        "width": 392,
+        "height": 420,
+        "src": "images/redmask.png"
+    },
+
+    {
         "name": "/ROOM/",
         "type": "text",
         "left": 0,
@@ -64,16 +84,5 @@
         "height": 50,
         "fontWeight": "bold",
         "text": "/MODETEXT/"
-    },
-
-    {
-        "name": "/INFO/",
-        "type": "text",
-        "left": 0,
-        "top": 370,
-        "width": 392,
-        "height": 30,
-        "fontWeight": "bold",
-        "text": "/INFOTEXT/"
     }
 ]

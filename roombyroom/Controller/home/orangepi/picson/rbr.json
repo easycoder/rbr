@@ -10,16 +10,6 @@
     },
 
     {
-        "name": "exit",
-        "type": "image",
-        "left": 10,
-        "top": 8,
-        "width": 40,
-        "height": 40,
-        "src": "images/power.png"
-    },
-
-    {
         "name": "profiles",
         "type": "text",
         "shape": "rect",
@@ -30,5 +20,15 @@
         "text": "$text",
         "scale": 0.6,
         "fontWeight": "bold"
+    },
+
+    {
+        "name": "exit",
+        "type": "image",
+        "left": 10,
+        "top": 8,
+        "width": 40,
+        "height": 40,
+        "src": "images/power.png"
     }
 ]
