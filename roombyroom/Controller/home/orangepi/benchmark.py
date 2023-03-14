@@ -5,10 +5,9 @@ sys.path.insert(0, 'lib')
 from ec_main import Main
 from ec_program import Program
 from ec_core import Core
-from ec_graphics import Graphics
 
 if __name__ == '__main__':
-	f = open('gui.ecs', 'r')
+	f = open('benchmark.ecs', 'r')
 	source = f.read()
 	f.close()
-	Program(Main(), source, [Core, Graphics])
+	Program(Main(), source, [Core])

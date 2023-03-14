@@ -10,8 +10,6 @@
 	variable Z
 	file File
 	dictionary Dictionary
-
-!	debug step
 	
 	print `FOR loop counting to 100,000`
 	put now into Start
@@ -47,7 +45,7 @@
 	take Start from Finish giving N
 	print N cat ` seconds`
 
-	print `Allocate and initialize a 200x5200 dictionary`
+	print `Allocate and initialize a 200x200 dictionary`
 	put now into Start
 	put 0 into N
 	while N is less than 200
@@ -63,6 +61,8 @@
 	put now into Finish
 	take Start from Finish giving N
 	print N cat ` seconds`
+
+!	debug step
 
 	put 20 into Y
 	put 6 into X

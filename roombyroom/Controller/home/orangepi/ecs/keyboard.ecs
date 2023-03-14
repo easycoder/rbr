@@ -2,6 +2,356 @@
 
     script Keyboard
 
-    print `Keyboard!`
+    import variable Buffer
 
+    element KeyboardLC
+    element KeyboardUC
+    element KeyboardNum
+    element Cancel
+    text Text
+    variable ScreenWidth
+    variable ScreenHeight
+    variable Script
+    variable KeyboardWidth
+    variable KeyboardHeight
+    variable KeyboardLeft
+    variable KeyboardTop
+    variable TopPanelTop
+    variable TopPanelHeight
+    variable Width
+    variable Height
+    variable Left
+    variable Top
+    variable Element
+    variable Elements
+    variable Keys
+    variable NKeys
+    variable KeyIndex
+    variable KeyRow
+    variable Char
+    variable Clicked
+    variable Mode
+    variable K
+    variable W
+
+!    debug step
+
+    put the screen width into ScreenWidth
+    put the screen height into ScreenHeight
+    put 800 into ScreenWidth
+    put 480 into ScreenHeight
+    put 640 into KeyboardWidth
+    put 263 into KeyboardHeight
+    put 50 into TopPanelHeight
+
+    take KeyboardWidth from ScreenWidth giving KeyboardLeft
+    divide KeyboardLeft by 2
+    take KeyboardHeight from ScreenHeight giving KeyboardTop
+    take 20 from KeyboardTop
+    take TopPanelHeight from KeyboardTop giving TopPanelTop
+
+    ! Define the top panel
+    put json `{}` into Script
+    set property `name` of Script to `toppanel`
+    set property `type` of Script to `rect`
+    set property `left` of Script to KeyboardLeft
+    set property `top` of Script to TopPanelTop
+    set property `width` of Script to KeyboardWidth
+    set property `height` of Script to TopPanelHeight
+    set property `fill` of Script to `white`
+    set property `outline` of Script to `black`
+
+    put json `[]` into Elements
+
+    take 50 from KeyboardWidth giving W
+    put json `{}` into Element
+    set property `name` of Element to `textpanel`
+    set property `type` of Element to `text`
+    set property `left` of Element to 10
+    set property `top` of Element to 0
+    set property `width` of Element to W
+    set property `height` of Element to TopPanelHeight
+    set property `align` of Element to `left`
+    set property `scale` of Element to `0.7`
+    append Element to Elements
+
+    add 10 to W
+    put json `{}` into Element
+    set property `name` of Element to `textcancel`
+    set property `type` of Element to `image`
+    set property `left` of Element to W
+    set property `top` of Element to 10
+    set property `width` of Element to 30
+    set property `height` of Element to 30
+    set property `src` of Element to `images/delete.png`
+    append Element to Elements
+
+    set property `#` of Script to Elements
+    render stringify Script
+    attach Text to `textpanel`
+
+    ! Define the keyboard
+    put json `{}` into Script
+    set property `name` of Script to `keyboard`
+    set property `type` of Script to `rect`
+    set property `left` of Script to KeyboardLeft
+    set property `top` of Script to KeyboardTop
+    set property `width` of Script to KeyboardWidth
+    set property `height` of Script to KeyboardHeight
+
+    put json `[]` into Elements
+
+    ! Add the graphic for numbers and symbols
+    put json `{}` into Element
+    set property `name` of Element to `keyboard-num`
+    set property `type` of Element to `image`
+    set property `left` of Element to 0
+    set property `top` of Element to 0
+    set property `width` of Element to KeyboardWidth
+    set property `height` of Element to KeyboardHeight
+    set property `src` of Element to `images/keyboard3.png`
+    append Element to Elements
+
+    ! Add the graphic for upper case
+    put json `{}` into Element
+    set property `name` of Element to `keyboard-uc`
+    set property `type` of Element to `image`
+    set property `left` of Element to 0
+    set property `top` of Element to 0
+    set property `width` of Element to KeyboardWidth
+    set property `height` of Element to KeyboardHeight
+    set property `src` of Element to `images/keyboard2.png`
+    append Element to Elements
+
+    ! Add the graphic for lower case
+    put json `{}` into Element
+    set property `name` of Element to `keyboard-lc`
+    set property `type` of Element to `image`
+    set property `left` of Element to 0
+    set property `top` of Element to 0
+    set property `width` of Element to KeyboardWidth
+    set property `height` of Element to KeyboardHeight
+    set property `src` of Element to `images/keyboard1.png`
+    append Element to Elements
+
+    ! Do the keys. The are transparent rectangular overlays
+    set the elements of Keys to 3
+    index Keys to 0
+    put `qwertyuiopasdfghjklzxcvbnm` into Keys
+    index Keys to 1
+    put `QWERTYUIOPASDFGHJKLZXCVBNM` into Keys
+    index Keys to 2
+    put `1234567890@#_&-+()/*"':;!?` into Keys
+
+    index Keys to 0
+    put 0 into KeyIndex
+
+    put 38 into Width
+    put 38 into Height
+    put `qwertyuiop` into KeyRow
+    put 34 into Left
+    put 26 into Top
+    gosub to AddKeyRow
+    ! Second row
+    put `asdfghjkl` into KeyRow
+    put 64 into Left
+    put 85 into Top
+    gosub to AddKeyRow
+    ! Third row
+    put `zxcvbnm` into KeyRow
+    put 122 into Left
+    put 144 into Top
+    gosub to AddKeyRow
+    ! Special keys
+    put 203 into Top
+    put 134 into Left
+    gosub to AddKey
+    put 467 into Left
+    gosub to AddKey
+    put 67 into Width
+    put 34 into Left
+    put 144 into Top
+    put `Shift` into Char
+    gosub to AddSpecialKey
+    put 70 into Width
+    put 536 into Left
+    put `BS` into Char
+    gosub to AddSpecialKey
+    put 63 into Width
+    put 48 into Left
+    put 203 into Top
+    put `?123` into Char
+    gosub to AddSpecialKey
+    put 63 into Width
+    put 526 into Left
+    put `OK` into Char
+    gosub to AddSpecialKey
+    put 203 into Top
+    put 194 into Left
+    put 250 into Width
+    put `Space` into Char
+    gosub to AddSpecialKey
+
+    set property `#` of Script to Elements
+    render stringify Script
+
+    ! Attach the 3 keyboard images
+    attach KeyboardLC to `keyboard-lc`
+    attach KeyboardUC to `keyboard-uc`
+    attach KeyboardNum to `keyboard-num`
+
+    ! Do the clickable areas
+    put 0 into KeyIndex
+    ! Do the main keys
+    gosub to SetupCallbacks
+    ! Do the , key
+    gosub to SetupCallback
+    ! Do the . key
+    gosub to SetupCallback
+    put `Shift` into Char
+    gosub to SetupSpecialCallback
+    put `BS` into Char
+    gosub to SetupSpecialCallback
+    put `?123` into Char
+    gosub to SetupSpecialCallback
+    put `OK` into Char
+    gosub to SetupSpecialCallback
+    put `Space` into Char
+    gosub to SetupSpecialCallback
+
+    attach Cancel to `textcancel`
+    on click Cancel
+    begin
+        put empty into Buffer
+        go to Exit
+    end
+
+    gosub to ShowLC
+    put Keys cat `,.` into Keys
+    index Keys to 1
+    put Keys cat `,.` into Keys
+    index Keys to 2
+    put Keys cat `,.` into Keys
+    put empty into Buffer
+    index Keys to 0
+
+    stop
+
+Exit:
+    dispose `toppanel`
+    dispose `keyboard`
     exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Add a row of keys
+AddKeyRow:
+    put the length of KeyRow into NKeys
+    put 0 into K
+    while K is less than NKeys
+    begin
+        gosub to AddKey
+        add 1 to K
+        add 59 to Left
+    end
+    return
+
+!   Add a special key
+AddSpecialKey:
+    put json `{}` into Element
+    set property `name` of Element to `key-` cat Char
+    go to AddKey2
+
+!   Add a single key
+AddKey:
+    put json `{}` into Element
+    set property `name` of Element to `key-` cat KeyIndex
+AddKey2:
+    set property `type` of Element to `rect`
+    set property `left` of Element to Left
+    set property `top` of Element to Top
+    set property `width` of Element to Width
+    set property `height` of Element to Height
+!    set property `fill` of Element to `white`
+    append Element to Elements
+    add 1 to KeyIndex
+    return
+
+!   Set up callbacks on a list of keys
+SetupCallbacks:
+    put the length of Keys into NKeys
+    put 0 into K
+    while K is less than NKeys
+    begin
+        put left 1 of Keys into Char
+        gosub to SetupCallback
+        add 1 to K
+    end
+    return
+
+!   Set up a click callback on a special key
+SetupSpecialCallback:
+    attach Element to `key-` cat Char
+    go to SetupCallback2
+
+!   Set up a click callback on a single key
+SetupCallback:
+    attach Element to `key-` cat KeyIndex
+SetupCallback2:
+    on click Element
+    begin
+        put the clicked element into Clicked
+        put from 4 of Clicked into Clicked
+        if Clicked is `Shift`
+        begin
+            if Mode is `UC` gosub to ShowLC
+            else gosub to ShowUC
+        end
+        else if Clicked is `BS`
+        begin
+        end
+        else if Clicked is `?123`
+        begin
+            if Mode is `Num` gosub to ShowLC
+            else gosub to ShowNum
+        end
+        else if Clicked is `OK` go to Exit
+        else if Clicked is `Space`
+        begin
+            put Buffer cat ` ` into Buffer
+            set the text of Text to Buffer
+        end
+        else
+        begin
+            put the value of Clicked into Clicked
+            put from Clicked of Keys into Char
+            put left 1 of Char into Char
+            put Buffer cat Char into Buffer
+            set the text of Text to Buffer
+        end
+    end
+    add 1 to KeyIndex
+    return
+
+ShowLC:
+    show KeyboardLC
+    hide KeyboardUC
+    hide KeyboardNum
+    put `LC` into Mode
+    index Keys to 0
+    return
+
+ShowUC:
+    show KeyboardUC
+    hide KeyboardLC
+    hide KeyboardNum
+    put `UC` into Mode
+    index Keys to 1
+    return
+
+ShowNum:
+    show KeyboardNum
+    hide KeyboardLC
+    hide KeyboardUC
+    put `Num` into Mode
+    index Keys to 2
+    return

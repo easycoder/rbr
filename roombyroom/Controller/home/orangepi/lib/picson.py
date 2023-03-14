@@ -10,6 +10,7 @@ homeTop = {}
 zlist = []
 images = {}
 onTick = None
+first = True
 
 # Get the canvas
 def setCanvas(c):
@@ -31,9 +32,8 @@ def createScreen(values):
         height = screen.winfo_screenheight()
         screen.attributes('-fullscreen', True)
     else:
-        # screen.overrideredirect(True)
         width = values['width']['content'] if 'width' in values else 800
-        height = values['height']['content'] if 'height' in values else 460
+        height = values['height']['content'] if 'height' in values else 480
         screenLeft = int((screen.winfo_screenwidth() - width) / 2)
         screenTop = int((screen.winfo_screenheight() - height) / 2)
         if 'left' in values:
@@ -65,7 +65,7 @@ def createScreen(values):
                 if id in elements:
                     element = elements[id]
                     if 'cb' in element:
-                        element['cb']()
+                        element['cb'](id)
                         break
                 else:
                     RuntimeError(None, f'Element \'{id}\' does not exist')
@@ -101,6 +101,11 @@ def setOnClick(id, cb):
         RuntimeError(None, f'Element \'{id}\' does not exist')
     return
 
+# Set up the init handler
+def setOnInit(cb):
+    global onInit
+    onInit = cb
+
 # Set up the tick handler
 def setOnTick(cb):
     global onTick
@@ -110,13 +115,20 @@ def setOnTick(cb):
 def showScreen():
     global screen, onTick
     def afterCB(screen):
-        if onTick != None:
+        global first
+        if first:
+            onInit()
+            first = False
+        elif onTick:
             onTick()
         screen.after(100, lambda: afterCB(screen))
-    screen.after(1000, lambda: afterCB(screen))
-    screen.config(cursor="none")
+    screen.after(100, lambda: afterCB(screen))
     screen.mainloop()
     sys.exit()
+
+# Hide the cursor
+def hideCursor():
+    screen.config(cursor="none")
 
 # Render a graphic specification
 def render(spec, parent):
@@ -131,7 +143,7 @@ def render(spec, parent):
         return item
 
     # Render a rectangle or ellipse
-    def renderIntoRectangle(elementType, values, offset, args):
+    def renderIntoRectangle(elementType, values, offset, args, family):
         global zlist
         left = getValue(args, values['left']) if 'left' in values else 10
         top = getValue(args, values['top']) if 'top' in values else 10
@@ -157,11 +169,23 @@ def render(spec, parent):
                 writeLog(f'Created ellipse, id={elementId}')
         else:
             return f'Unknown element type \'{elementType}\''
+        family.append(elementId)
+
+        children = []
+        if '#' in values:
+            for item in values['#']:
+                result = renderWidget(item, {'dx': left, 'dy': top}, args, children)
+                if result != None:
+                    writeLog(f'Error: {result}')
+        for child in children:
+            family.append(child)
 
         if 'name' in values:
             name = getValue(args, values['name'])
             elementSpec = {
                 "id": elementId,
+                "children": children,
+                "type": elementType,
                 "containerId": None,
                 "left": left,
                 "top": top,
@@ -173,16 +197,10 @@ def render(spec, parent):
             homeTop[name] = top
             zlist.append({name: elementSpec})
 
-        if '#' in values:
-            for item in values['#']:
-                result = renderWidget(item, {'dx': left, 'dy': top}, args)
-                if result != None:
-                    writeLog(f'Error: {result}')
-
         return None
 
     # Render text into a rectangle or ellipse
-    def renderText(values, offset, args):
+    def renderText(elementType, values, offset, args, family):
         left = getValue(args, values['left']) if 'left' in values else 10
         top = getValue(args, values['top']) if 'top' in values else 10
         left = offset['dx'] + left
@@ -200,7 +218,7 @@ def render(spec, parent):
         fontFace = getValue(args, values['fontFace']) if 'fontFace' in values else 'Helvetica'
         fontWeight = getValue(args, values['fontWeight']) if 'fontWeight' in values else 'normal'
         fontSize = round(height*2/5) if shape == 'ellipse' else round(height*3/5)
-        scale = getValue(args, values['scale']) if 'scale' in values else 1.0
+        scale = float(getValue(args, values['scale'])) if 'scale' in values else 1.0
         fontSize = round(fontSize * scale)
         fontTop = top + height/2
         if 'fontSize' in values:
@@ -230,11 +248,14 @@ def render(spec, parent):
         textId = canvas.create_text(left + xoff, fontTop + adjust, fill=color, font=f'"{fontFace}" {fontSize} {fontWeight}', text=text, anchor=anchor)
         if loglevel > 2:
             writeLog(f'Created text, id={textId}, content \'{text}\'')
+        family.append(textId)
+        family.append(containerId)
 
         if 'name' in values:
             name = getValue(args, values['name'])
             elementSpec = {
                 "id": textId,
+                "type": elementType,
                 "containerId": containerId,
                 "left": left,
                 "top": top,
@@ -248,7 +269,7 @@ def render(spec, parent):
         return None
 
     # Render an image
-    def renderImage(values, offset, args):
+    def renderImage(elementType, values, offset, args, family):
         global images, home
         left = getValue(args, values['left']) if 'left' in values else 10
         top = getValue(args, values['top']) if 'top' in values else 10
@@ -261,16 +282,19 @@ def render(spec, parent):
         src = getValue(args, values['src']) if 'src' in values else None
         containerId = getCanvas().create_rectangle(left, top, right, bottom, width=0)
         img = (Image.open(src))
-        resized_image= img.resize((width, height), Image.ANTIALIAS)
+        resized_image= img.resize((int(width), int(height)), Image.ANTIALIAS)
         new_image= ImageTk.PhotoImage(resized_image)
         imageId = getCanvas().create_image(left, top, anchor='nw', image=new_image)
         if loglevel > 2:
             writeLog(f'Created image, id={imageId}, source \'{src}\'')
         images[containerId] = {'id': imageId, "image": new_image}
+        family.append(imageId)
+        family.append(containerId)
         if 'name' in values:
             name = values['name']
             elementSpec = {
                 "id": imageId,
+                "type": elementType,
                 "containerId": containerId,
                 "left": left,
                 "top": top,
@@ -286,26 +310,28 @@ def render(spec, parent):
         return None
 
     # Create a canvas or render an element
-    def renderWidget(element, offset, args):
+    def renderWidget(element, offset, args, family):
         elementType = element['type']
         if elementType in ['rect', 'ellipse']:
-            return renderIntoRectangle(elementType,element, offset, args)
+            return renderIntoRectangle(elementType, element, offset, args, family)
         elif elementType == 'text':
-            return renderText(element, offset, args)
+            return renderText(elementType, element, offset, args, family)
         elif elementType == 'image':
-            return renderImage(element, offset, args)
+            return renderImage(elementType, element, offset, args, family)
+        else:
+            return f'Type must be rect/ellipse/text/image'
 
     # Render a complete specification
     def renderSpec(spec, offset, args):
         # If a list, iterate it
         if type(spec) is list:
             for element in spec:
-                result = renderWidget(element, offset, args)
+                result = renderWidget(element, offset, args, [])
                 if result != None:
                     return result
         # Otherwise, process the single element
         else:
-            return renderWidget(spec, offset, args)
+            return renderWidget(spec, offset, args, [])
 
     # Main entry point
     offset = {'dx': 0, 'dy': 0}
@@ -365,10 +391,33 @@ def getElement(name):
 def setText(name, value):
     getCanvas().itemconfig(getElement(name)['id'], text=value)
 
-# Set the fill of a rectangle or ellipse element
+# Set the font of a text element
+def setFont(name, value):
+    getCanvas().itemconfig(getElement(name)['id'], font=value)
+
+# Set the fill of a rectangle or ellipse element or text
 def setFill(name, value):
     id = getElement(name)['id']
     getCanvas().itemconfig(getElement(name)['id'], fill=value)
+
+# Dispose of an element
+def dispose(name):
+    element = getElement(name)
+    for child in element['children']:
+        getCanvas().delete(child)
+    getCanvas().delete(element['id'])
+
+# A test function for the "gtest" script command
+def gtest(name):
+    element = getElement(name)
+    print(getCanvas().itemcget(element['id'], 'font'))
+    newfont = '"Helvetica" 40 normal'
+    getCanvas().itemconfig(element['id'], font=newfont)
+
+# Get an attribute of an element
+def getAttribute(name, attribute):
+    element = getElement(name)
+    return getCanvas().itemcget(element['id'], attribute)
 
 # Write to the log file
 def writeLog(text):

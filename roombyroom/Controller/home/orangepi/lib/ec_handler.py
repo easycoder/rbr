@@ -3,6 +3,7 @@ import json
 class Handler:
 
 	def __init__(self, compiler):
+		self.compiler = compiler
 		self.program = compiler.program
 		self.getToken = compiler.getToken
 		self.nextToken = compiler.nextToken
@@ -26,6 +27,7 @@ class Handler:
 		self.compileOne = compiler.compileOne
 		self.compileFromCurrentIndex = compiler.compileFromCurrentIndex
 
+		self.easyCoder = self.program.easyCoder
 		self.code = self.program.code
 		self.add = self.program.add
 		self.evaluate = self.program.evaluate
@@ -36,13 +38,10 @@ class Handler:
 		self.stack = self.program.stack
 		self.getSymbolValue = self.program.getSymbolValue
 		self.putSymbolValue = self.program.putSymbolValue
-		self.run = self.program.run
+		self.nextPC = self.program.nextPC
 
 		self.nonNumericValueError = self.program.nonNumericValueError
 		self.variableDoesNotHoldAValueError = self.program.variableDoesNotHoldAValueError
-
-	def nextPC(self):
-		return self.program.pc + 1
 
 	# Get a compile handler (raises an Exception if none)
 	def keywordHandler(self, name):

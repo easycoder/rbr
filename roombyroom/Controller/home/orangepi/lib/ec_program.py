@@ -1,15 +1,18 @@
-import time, json
+import time, threading
 from copy import copy
 from collections import deque
+from ec_main import Main
 from ec_classes import Script, Token, CompileError, FatalError
 from ec_compiler import Compiler
 
 class Program:
 
-	def __init__(self, source, domains, parent = None, exports = None):
+	def __init__(self, easyCoder, source, domains, parent = None, exports = None):
 
-		self.parent = parent
+		# print(f'Run {source}')
+		self.easyCoder = easyCoder
 		self.domains = []
+		self.parent = parent
 		self.exports = exports
 		self.domainIndex = {}
 		self.name = '<anon>'
@@ -19,6 +22,7 @@ class Program:
 		self.pc = 0
 		self.debugStep = False
 		self.debugHook = None
+		self.timerHook = None
 		self.script = Script(source)
 		self.stack = []
 		self.compiler = Compiler(self)
@@ -29,6 +33,8 @@ class Program:
 			self.domains.append(handler)
 			self.domainIndex[handler.getName()] = handler
 		self.queue = deque()
+		self.enabled = True
+		self.running = True
 
 		startCompile = time.time()
 		self.tokenise(self.script)
@@ -44,7 +50,7 @@ class Program:
 					print(f'Variable "{name}" not used')
 			if parent == None:
 				print(f'Run {self.name}')
-				self.run(0)
+				easyCoder.run(self, 0)
 		else:
 			self.compiler.showWarnings()
 			return
@@ -121,7 +127,10 @@ class Program:
 	def getRuntimeValue(self, value):
 		v = self.evaluate(value)
 		if v != None and v != '':
-			content = v['content']
+			try:
+				content = v['content']
+			except:
+				FatalError(self, 'No content')
 			if v['type'] == 'boolean':
 				return True if content else False
 			if v['type'] in ['int', 'float', 'text', 'object']:
@@ -184,42 +193,6 @@ class Program:
 			lino += 1
 		return
 
-	# Run the script
-	def run(self, pc):
-		# print(f'Run from {pc}')
-		length = len(self.queue)
-		self.queue.append(pc)
-		if length > 0:
-			return
-
-		while len(self.queue):
-			self.pc = self.queue.popleft()
-			while True:
-				command = self.code[self.pc]
-				domainName = command['domain']
-				if domainName == None:
-					self.pc += 1
-				else:
-					keyword = command['keyword']
-					if self.debugStep and command['debug']:
-						lino = command['lino'] + 1
-						line = self.script.lines[command['lino']].strip()
-						message = f'{self.name}: Line {lino}: PC: {self.pc} {domainName}:{keyword}:  {line}'
-						print(message)
-						if self.debugHook:
-							self.debugHook(message)
-					domain = self.domainIndex[domainName]
-					handler = domain.runHandler(keyword)
-					if handler:
-						command = self.code[self.pc]
-						command['program'] = self
-						self.pc = handler(command)
-						if self.pc == 0 or self.pc >= len(self.code):
-							return 0
-				if self.pc < 0:
-					print('Program aborted')
-					return -1
-
 	def nonNumericValueError(self):
 		CompileError(self.compiler, 'Non-numeric value')
 
@@ -258,3 +231,6 @@ class Program:
 		if v1 < v2:
 			return -1
 		return 0
+
+	def nextPC(self):
+		return self.pc + 1

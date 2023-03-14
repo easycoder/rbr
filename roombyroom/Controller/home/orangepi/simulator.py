@@ -13,7 +13,7 @@ class EasyCoder:
 	source = f.read()
 	f.close()
 
-	Program(source, [Core, Graphics])
+	Program(self, source, [Core, Graphics])
 
 if __name__ == '__main__':
     EasyCoder()

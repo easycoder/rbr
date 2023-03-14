@@ -88,6 +88,15 @@ class Graphics(Handler):
         createScreen(command)
         return self.nextPC()
 
+    def k_dispose(self, command):
+        command['name'] = self.nextValue()
+        self.add(command)
+        return True
+
+    def r_dispose(self, command):
+        dispose(self.getRuntimeValue(command['name']))
+        return self.nextPC()
+
     def k_element(self, command):
         return self.compileVariable(command)
 
@@ -100,14 +109,31 @@ class Graphics(Handler):
     def r_ellipse(self, command):
         return self.nextPC()
 
+    def k_gtest(self, command):
+        command['name'] = self.nextValue()
+        self.add(command)
+        return True
+
+    def r_gtest(self, command):
+        gtest(self.getRuntimeValue(command['name']))
+        return self.nextPC()
+
     def k_hide(self, command):
-        if self.nextIsSymbol():
+        self.nextToken()
+        if self.getToken() == 'cursor':
+            command['name'] = 'cursor'
+            self.add(command)
+            return True
+        if self.isSymbol():
             command['name'] = self.getToken()
             self.add(command)
             return True
         return False
 
     def r_hide(self, command):
+        if command['name'] == 'cursor':
+            hideCursor()
+            return self.nextPC()
         variable = self.getVariable(command['name'])
         id = variable['id'][variable['index']]
         hideElement(id)
@@ -125,7 +151,7 @@ class Graphics(Handler):
             command['value'] = value
             self.add(command)
             return True
-        CompileError(self.program.compiler, 'I can\'t log this value')
+        CompileError(self.compiler, 'I can\'t log this value')
 
     def r_log(self, command):
         value = self.getRuntimeValue(command['value'])
@@ -134,10 +160,32 @@ class Graphics(Handler):
         return self.nextPC()
 
     def k_on(self, command):
+        def setupCommand(command):
+            command['goto'] = self.getPC() + 2
+            self.add(command)
+            self.nextToken()
+            pcNext = self.getPC()
+            cmd = {}
+            cmd['domain'] = 'core'
+            cmd['lino'] = command['lino']
+            cmd['keyword'] = 'gotoPC'
+            cmd['goto'] = 0
+            cmd['debug'] = False
+            self.addCommand(cmd)
+            self.compileOne()
+            cmd = {}
+            cmd['domain'] = 'core'
+            cmd['lino'] = command['lino']
+            cmd['keyword'] = 'stop'
+            cmd['debug'] = False
+            self.addCommand(cmd)
+            # Fixup the link
+            self.getCommandAt(pcNext)['goto'] = self.getPC()
+            return
+
         token = self.nextToken()
         command['type'] = token
         if token == 'click':
-            command['event'] = token
             if self.peek() == 'in':
                 self.nextToken()
             if self.nextIs('screen'):
@@ -146,67 +194,36 @@ class Graphics(Handler):
                 target = self.getSymbolRecord()
                 command['target'] = target['name']
             else:
-                CompileError(self.program.compiler, f'{self.getToken()} is not a screen element')
-            command['goto'] = self.getPC() + 2
-            self.add(command)
-            self.nextToken()
-            pcNext = self.getPC()
-            cmd = {}
-            cmd['domain'] = 'core'
-            cmd['lino'] = command['lino']
-            cmd['keyword'] = 'gotoPC'
-            cmd['goto'] = 0
-            cmd['debug'] = False
-            self.addCommand(cmd)
-            self.compileOne()
-            cmd = {}
-            cmd['domain'] = 'core'
-            cmd['lino'] = command['lino']
-            cmd['keyword'] = 'stop'
-            cmd['debug'] = False
-            self.addCommand(cmd)
-            # Fixup the link
-            self.getCommandAt(pcNext)['goto'] = self.getPC()
+                CompileError(self.compiler, f'{self.getToken()} is not a screen element')
+            setupCommand(command)
             return True
-        elif token == 'tick':
-            command['event'] = token
-            command['goto'] = self.getPC() + 2
-            self.add(command)
-            self.nextToken()
-            pcNext = self.getPC()
-            cmd = {}
-            cmd['domain'] = 'core'
-            cmd['lino'] = command['lino']
-            cmd['keyword'] = 'gotoPC'
-            cmd['goto'] = 0
-            cmd['debug'] = False
-            self.addCommand(cmd)
-            self.compileOne()
-            cmd = {}
-            cmd['domain'] = 'core'
-            cmd['lino'] = command['lino']
-            cmd['keyword'] = 'stop'
-            cmd['debug'] = False
-            self.addCommand(cmd)
-            # Fixup the link
-            self.getCommandAt(pcNext)['goto'] = self.getPC()
+        elif token in ['init', 'tick']:
+            setupCommand(command)
             return True
         return False
 
     def r_on(self, command):
+        def click(id, program, pc):
+            # print(f'ID = {id}')
+            program.clicked = id
+            self.easyCoder.run(program, pc)
+            return
+
+        program = command['program']
         pc = command['goto']
         if command['type'] == 'click':
-            event = command['event']
-            if event == 'click':
-                target = command['target']
-                if target == None:
-                    value = 'screen'
-                else:
-                    widget = self.getVariable(target)
-                value = widget['value'][widget['index']]
-                setOnClick(value['content'], lambda: self.run(pc))
+            target = command['target']
+            if target == None:
+                value = 'screen'
+            else:
+                widget = self.getVariable(target)
+            value = widget['value'][widget['index']]
+            l = lambda id:  click(id, program, pc)
+            setOnClick(value['content'], l)
+        elif command['type'] == 'init':
+            setOnInit(lambda: self.easyCoder.run(program, pc))
         elif command['type'] == 'tick':
-            setOnTick(lambda: self.run(pc))
+            setOnTick(lambda: self.easyCoder.run(program, pc))
         return self.nextPC()
 
     def k_rectangle(self, command):
@@ -216,69 +233,58 @@ class Graphics(Handler):
         return self.nextPC()
 
     def k_render(self, command):
-        if self.nextIsSymbol():
-            record = self.getSymbolRecord()
-            name = record['name']
-            type = record['keyword']
-            command['type'] = type
-            if record['valueHolder']:
-                command['name'] = name
-                if self.peek() == 'in':
-                    self.nextToken()
-                    if self.nextIsSymbol():
-                        record = self.getSymbolRecord()
-                        type = record['type']
-                        name = record['name']
-                        if type in ['rectangle', 'ellipse']:
-                            command['parent'] = record['name']
-                            self.add(command)
-                            return True
-                        else:
-                            self.warning(f'{name} cannot be a parent of another element')
-                            return False
-                command['parent'] = 'screen'
-                self.add(command)
-                return True
-            CompileError(self.program.compiler, f'This variable type cannot be rendered')
-            return False
-        CompileError(self.program.compiler, 'Nothing specified to render')
+        command['value'] = self.nextValue()
+        if self.peek() == 'in':
+            self.nextToken()
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                type = record['type']
+                name = record['name']
+                if type in ['rectangle', 'ellipse']:
+                    command['parent'] = record['name']
+                    self.add(command)
+                    return True
+                else:
+                    self.warning(f'{name} cannot be a parent of another element')
+                    return False
+        command['parent'] = 'screen'
+        self.add(command)
+        return True
 
     def r_render(self, command):
-        variable = self.getVariable(command['name'])
+        value = self.getRuntimeValue(command['value'])
         parent = command['parent']
-        value = self.getRuntimeValue(variable)
         try:
             result = render(value, parent)
-        except PicsonError as err:
+        except Exception as err:
             FatalError(command['program'], err)
         if result != None:
             FatalError(command['program'], f'Rendering error: {result}')
-        return self.nextPC()
+        return self.program.nextPC()
 
     def k_set(self, command):
         if self.peek() == 'the':
             self.nextToken()
         token = self.peek()
-        if token == 'text':
+        command['variant'] = token
+        if token in ['text', 'font']:
             self.nextToken()
-            command['variant'] = 'setText'
             if self.peek() == 'of':
                 self.nextToken()
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
                 command['name'] = record['name']
                 if record['keyword'] != 'text':
-                    CompileError(self.program, f'Symbol type is not \'text\'')
+                    CompileError(self.compiler, f'Symbol type is not \'text\'')
                 if self.peek() == 'to':
                     self.nextToken()
                     command['value'] = self.nextValue()
                     self.add(command)
                     return True
             name = self.getToken()
-            CompileError(self.program, f'Unknown symbol \'{name}\'')
-        elif token == 'background':
+            CompileError(self.compiler, f'Unknown symbol \'{name}\'')
+        elif token == 'fill':
             self.nextToken()
-            command['variant'] = 'setBackground'
             if self.peek() == 'color':
                 self.nextToken()
             if self.peek() == 'of':
@@ -286,8 +292,8 @@ class Graphics(Handler):
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
                 command['name'] = record['name']
-                if not record['keyword'] in ['rectangle', 'ellipse']:
-                    CompileError(self.program, f'Symbol type is not \'rectangle\' or \'ellipse\'')
+                if not record['keyword'] in ['rectangle', 'ellipse', 'text']:
+                    CompileError(self.compiler, f'Symbol type is not \'rectangle\' or \'ellipse\'')
                 if self.peek() == 'to':
                     self.nextToken()
                     command['value'] = self.nextValue()
@@ -298,16 +304,15 @@ class Graphics(Handler):
 
     def r_set(self, command):
         variant = command['variant']
-        if variant == 'setText':
-            variable = self.getVariable(command['name'])
-            element = self.getSymbolValue(variable)
-            value = self.getRuntimeValue(command['value'])
+        variable = self.getVariable(command['name'])
+        element = self.getSymbolValue(variable)
+        value = self.getRuntimeValue(command['value'])
+        if variant == 'text':
             setText(element['content'], value)
-        elif variant == 'setBackground':
-            variable = self.getVariable(command['name'])
-            element = self.getSymbolValue(variable)
-            value = self.getRuntimeValue(command['value'])
-            setBackground(element['content'], value)
+        elif variant == 'font':
+            setFont(element['content'], value)
+        elif variant == 'fill':
+            setFill(element['content'], value)
         return self.nextPC()
 
     def k_show(self, command):
@@ -361,6 +366,22 @@ class Graphics(Handler):
                 value['type'] = 'symbol'
                 return value
             return None
+        
+        if self.tokenIs('attribute'):
+            attribute = self.nextValue()
+            if self.nextIs('of'):
+                if self.nextIsSymbol():
+                    symbolRecord = self.getSymbolRecord()
+                    if symbolRecord['keyword'] in ['element', 'text']:
+                        value['name'] = symbolRecord['name']
+                    else:
+                        return None
+                else:
+                    value['id'] = self.nextValue()
+                value['attribute'] = attribute
+                value['type'] = 'attributeOf'
+                return value
+            return None
 
         if self.tokenIs('the'):
             self.nextToken()
@@ -373,6 +394,20 @@ class Graphics(Handler):
                     value['name'] = symbolRecord['name']
                     return value
             return None
+        
+        if token == 'screen':
+            token = self.nextToken()
+            if token == 'width':
+                value['type'] = 'screenWidth'
+                return value
+            if token == 'height':
+                value['type'] = 'screenHeight'
+                return value
+        
+        if token == 'clicked':
+            if self.nextIs('element'):
+                value['type'] = 'clicked'
+                return value
 
         return None
 
@@ -405,6 +440,36 @@ class Graphics(Handler):
         return {
             "type": "int",
             "content": getElement(symbolValue['content'])['id']
+        }
+
+    def v_screenWidth(self, v):
+        return {
+            "type": "int",
+            "content": getScreenWidth()
+        }
+
+    def v_screenHeight(self, v):
+        return {
+            "type": "int",
+            "content": getScreenHeight()
+        }
+    
+    def v_clicked(self, v):
+        return {
+            "type": "text",
+            "content": self.program.clicked
+        }
+    
+    def v_attributeOf(self, v):
+        if 'name' in v:
+            variable = self.getVariable(v['name'])
+            id = variable['id'][variable['index']]
+        else:
+            id = self.getRuntimValue(v['id'])
+        attribute = self.getRuntimeValue(v['attribute'])
+        return {
+            "type": "text",
+            "content": getAttribute(id, attribute)
         }
 
     #############################################################################

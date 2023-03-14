@@ -1,12 +1,13 @@
-[
-    {
-        "name": /NAME/,
-        "type": "rect",
-        "left": 0,
-        "top": /TOP/,
-        "width": 400,
-        "height": /HEIGHT/,
-        "fill": "yellow",
-        "outline": "black"
-    }
-]
+
+{
+    "name": /NAME/,
+    "type": "text",
+    "left": 0,
+    "top": /TOP/,
+    "width": 400,
+    "height": 50,
+    "fill": "yellow",
+    "outline": "black",
+    "scale": 0.6
+}
+

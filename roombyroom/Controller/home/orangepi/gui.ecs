@@ -12,7 +12,9 @@
     element RedButton
     element Exit
     spec Spec
+    module AlertModule
     module ProfilesModule
+    module KeyboardModule
     variable Text
     variable Script
     variable Args
@@ -38,6 +40,11 @@
     variable UntilTemp
     variable Finish
     variable Advance
+    variable DialogTitle
+    variable DialogText
+    variable DialogAlign
+    variable DialogResult
+    variable Buffer
     variable E
     variable F
     variable H
@@ -53,21 +60,27 @@
 !        fullscreen
         loglevel 3
 
-    log `This is the RBR GUI`
-
     gosub to ReadMap
-    gosub to SetupProfiles
+    gosub to SetupScreen
     gosub to SetupRooms
+    gosub to SetupProfiles
 
     put 0 into TickCount
     on tick go to Tick
+
+    on init
+    begin
+!        run `ecs/keyboard.ecs` with Buffer as KeyboardModule
+!        print `Buffer is ` cat Buffer
+    end
 
     show screen
     exit
 
 Tick:
+!    if disabled stop
     add 1 to TickCount
-    if TickCount is greater than 10
+    if TickCount is greater than 5
     begin
         gosub to UpdateScreen
         put 0 into TickCount
@@ -78,8 +91,9 @@ ReadMap:
     open File `map` for reading
     read Map from File
     close File
+
+OpenMap:
     put json Map into Map
-LoadMap:
     put property `profiles` of Map into Profiles
     put property `profile` of Map into CurrentProfile
     put element CurrentProfile of Profiles into Profile
@@ -87,8 +101,8 @@ LoadMap:
     put the count of Rooms into NRooms
     return
 
-!   Set up the Profiles panel
-SetupProfiles:
+!   Set up the screen
+SetupScreen:
     open File `picson/rbr.json` for reading
     read Script from File
     close File
@@ -99,15 +113,25 @@ SetupProfiles:
     set property `$text` of Args to `Profile: ` cat property `name` of Profile
     set property `args` of Spec to Args
     render Spec
+    return
 
+!   Set up the Profiles panel
+SetupProfiles:
     attach ProfilesText to `profiles`
     run `ecs/profiles.ecs` with Map and ProfilesText as ProfilesModule
  
     attach Exit to `exit`
     on click Exit
     begin
-        close screen
-        exit
+        put `Confirm quit` into DialogTitle
+        put `Are you sure you want to quit?` into DialogText
+        put `center` into DialogAlign
+        run `ecs/confirm.ecs` with DialogTitle and DialogText and DialogAlign and DialogResult as AlertModule
+        if DialogResult is `OK`
+        begin
+            close screen
+            exit
+        end
     end
     return
 
@@ -142,8 +166,9 @@ SetupRooms:
         add 1 to RoomIndex
     end
     render Script
+    return
 
-!   Update the screen every second
+!   Update the screen every 5 seconds
 UpdateScreen:
     open File `map` for reading
     read NewMap from File
@@ -151,11 +176,11 @@ UpdateScreen:
     if NewMap is not stringify Map
     begin
         clear screen
-        put json NewMap into Map
-        gosub to LoadMap
-        gosub to SetupProfiles
+        put NewMap into Map
+        gosub to OpenMap
+        gosub to SetupScreen
         gosub to SetupRooms
-        return
+        gosub to SetupProfiles
     end
 
     put 0 into RoomIndex

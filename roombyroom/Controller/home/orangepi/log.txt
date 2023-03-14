@@ -1,4 +1,3 @@
--> This is the RBR GUI
 Created image, id=2, source 'images/backdrop.jpg'
 Created rectangle text container, id=3
 Created text, id=4, content 'Profile: Two rooms'
@@ -29,3 +28,8 @@ Created rectangle text container, id=37
 Created text, id=38, content '/TARGETTEXT/'
 Created rectangle text container, id=39
 Created text, id=40, content '/MODETEXT/'
+Created rectangle, id=41
+Created rectangle text container, id=42
+Created text, id=43, content ''
+Created rectangle text container, id=44
+Created text, id=45, content ''

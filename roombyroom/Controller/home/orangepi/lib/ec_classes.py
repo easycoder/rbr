@@ -2,10 +2,11 @@ import sys
 
 class CompileError():
 	def __init__(self, compiler, message):
+		program = compiler.program
 		compiler.showWarnings()
 		lino = compiler.tokens[compiler.index].lino
-		script = compiler.script.lines[lino].strip()
-		print(f'Compile error in {compiler.program.name} at line {lino + 1} ({script}): {message}')
+		script = program.script.lines[lino].strip()
+		print(f'Compile error in {program.name} at line {lino + 1} ({script}): {message}')
 		sys.exit()
 
 class FatalError:
