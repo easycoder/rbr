@@ -1,13 +1,72 @@
-[
-    {
-        "name": "profilesbg",
+{
+    "name": "profilesPanel",
+    "type": "rect",
+    "left": 200,
+    "top": 50,
+    "#": [{
+        "name": "profiles-BG",
         "type": "rect",
-        "left": 200,
-        "top": 50,
         "width": 400,
         "height": /HEIGHT/,
         "fill": "white",
         "outline": "black",
-        "#": /PANELS/
-    }
-]
+        "#": /PROFILES/
+    },{
+        "name": "profiles-buttons",
+        "type": "rect",
+        "top": /BUTTONS-TOP/,
+        "width": 400,
+        "height": 50,
+        "fill": "white",
+        "outline": "black",
+        "#": [{
+            "name": "profile-/P/-select",
+            "type": "image",
+            "left": 20,
+            "top": 5,
+            "width": 40,
+            "height": 40,
+            "src": "images/tick.png"
+        },{
+            "name": "profile-/P/-edit",
+            "type": "image",
+            "left": 80,
+            "top": 5,
+            "width": 40,
+            "height": 40,
+            "src": "images/edit.png"
+        },{
+            "name": "profile-/P/-up",
+            "type": "image",
+            "left": 140,
+            "top": 5,
+            "width": 40,
+            "height": 40,
+            "src": "images/up.png"
+        },{
+            "name": "profile-/P/-down",
+            "type": "image",
+            "left": 200,
+            "top": 5,
+            "width": 40,
+            "height": 40,
+            "src": "images/down.png"
+        },{
+            "name": "profile-/P/-delete",
+            "type": "image",
+            "left": 280,
+            "top": 5,
+            "width": 40,
+            "height": 40,
+            "src": "images/delete.png"
+        },{
+            "name": "profile-/P/-add",
+            "type": "image",
+            "left": 340,
+            "top": 5,
+            "width": 40,
+            "height": 40,
+            "src": "images/plus.png"
+        }]
+    }]
+}

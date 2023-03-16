@@ -127,11 +127,7 @@ SetupProfiles:
         put `Are you sure you want to quit?` into DialogText
         put `center` into DialogAlign
         run `ecs/confirm.ecs` with DialogTitle and DialogText and DialogAlign and DialogResult as AlertModule
-        if DialogResult is `OK`
-        begin
-            close screen
-            exit
-        end
+        if DialogResult is `OK` exit
     end
     return
 
@@ -151,10 +147,10 @@ SetupRooms:
         close File
 
         put element RoomIndex of Rooms into Room
-        replace `/ROOM/` with `panel` cat RoomIndex in Text
+        replace `/ROOM/` with RoomIndex in Text
         replace `/ROOMNAME/` with property `name` of Room in Text
-        replace `/BLUEMASK/` with `bluemask` cat RoomIndex in Text
-        replace `/REDMASK/` with `redmask` cat RoomIndex in Text
+        replace `/BLUEMASK/` with `bluemask-` cat RoomIndex in Text
+        replace `/REDMASK/` with `redmask-` cat RoomIndex in Text
         replace `/BLUE/` with `blue` cat RoomIndex in Text
         replace `/RED/` with `red` cat RoomIndex in Text
         replace `/TEMP/` with `temp` cat RoomIndex in Text
@@ -192,12 +188,12 @@ UpdateScreen:
 
         put element RoomIndex of Rooms into Room
         attach Temperature to `temp` cat RoomIndex
-        attach BlueMask to `bluemask` cat RoomIndex
-        attach RedMask to `redmask` cat RoomIndex
+        attach BlueMask to `bluemask-` cat RoomIndex
+        attach RedMask to `redmask-` cat RoomIndex
         attach RedButton to `red` cat RoomIndex
 
         put element RoomIndex of Rooms into Room
-        replace `/ROOM/` with `panel` cat RoomIndex in Text
+        replace `/ROOM/` with RoomIndex in Text
         replace `/ROOMNAME/` with property `name` of Room in Text
         replace `/RED/` with `red` cat RoomIndex in Text
         replace `/TEMP/` with `temp` cat RoomIndex in Text

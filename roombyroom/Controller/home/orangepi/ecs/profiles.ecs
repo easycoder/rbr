@@ -27,15 +27,8 @@
     variable P
 
 !    debug step
-
-!    print ProfilesScript
-
-!    put json ProfilesScript into ProfilesObject
     
-    on click ProfilesText 
-    begin
-        gosub to ShowProfiles
-    end
+    on click ProfilesText gosub to ShowProfiles
 
     detach
     stop
@@ -55,7 +48,7 @@ ShowProfiles:
     while P is less than NProfiles
     begin
         put ProfileTemplate into Profile
-        replace `/NAME/` with `"profile-` cat P cat `"` in Profile
+        replace `/P/` with P in Profile
         replace `/TOP/` with `` cat Top in Profile
         append json Profile to ProfileList
         add 50 to Top
@@ -68,7 +61,8 @@ ShowProfiles:
     close File
     multiply P by 50 giving Height
     replace `/HEIGHT/` with Height in ProfilesScript
-    replace `/PANELS/` with stringify ProfileList in ProfilesScript
+    replace `/PROFILES/` with stringify ProfileList in ProfilesScript
+    replace `/BUTTONS-TOP/` with Height in ProfilesScript
     render ProfilesScript
 
     attach ProfileText to `profile-0`
@@ -99,8 +93,6 @@ ShowProfiles:
     add 1 to P
     put from P of Font into FontWeight
 
-    print FontFace cat ` ` cat FontSize cat ` ` cat FontWeight
-
 !   Fill the profiles panel with the names of the profiles
 PopulateProfilesPanel:
     put 0 into P
@@ -123,7 +115,9 @@ PopulateProfilesPanel:
         on click ProfileText
         begin
             put the clicked element into Clicked
-            print Clicked
+            put the value of from 8 of Clicked into CurrentProfile
+            gosub to PopulateProfilesPanel
         end
         add 1 to P
     end
+    return

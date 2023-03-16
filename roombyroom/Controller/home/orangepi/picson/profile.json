@@ -1,13 +1,23 @@
-
 {
-    "name": /NAME/,
-    "type": "text",
+    "name": "profile-/P/-frame",
+    "type": "rect",
     "left": 0,
     "top": /TOP/,
     "width": 400,
     "height": 50,
     "fill": "yellow",
     "outline": "black",
-    "scale": 0.6
+    "align": "left",
+    "scale": 0.6,
+    "#": [{
+        "name": "profile-/P/",
+        "type": "text",
+        "left": 5,
+        "width": 195,
+        "height": 50,
+        "align": "left",
+        "scale": 0.6
+    }]
 }
+
 

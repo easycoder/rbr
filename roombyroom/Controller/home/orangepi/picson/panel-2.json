@@ -1,6 +1,6 @@
 [
     {
-        "name": "/BLUEMASK/",
+        "name": "bluemask-/ROOM/",
         "type": "image",
         "left": 0,
         "top": 0,
@@ -10,7 +10,7 @@
     },
 
     {
-        "name": "/REDMASK/",
+        "name": "redmask-/ROOM/",
         "type": "image",
         "left": 0,
         "top": 0,
@@ -20,7 +20,7 @@
     },
 
     {
-        "name": "/ROOM/",
+        "name": "panel-/ROOM/",
         "type": "text",
         "left": 0,
         "top": 0,

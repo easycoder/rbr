@@ -21,7 +21,9 @@ class Graphics(Handler):
                 value = self.nextValue()
                 command['id'] = value
             self.add(command)
-        return True
+            return True
+        self.compiler.warning('No valid symbol specified')
+        return False
 
     def r_attach(self, command):
         target = self.getVariable(command['name'])
@@ -98,13 +100,13 @@ class Graphics(Handler):
         return self.nextPC()
 
     def k_element(self, command):
-        return self.compileVariable(command)
+        return self.compileVariable(command, 'element')
 
     def r_element(self, command):
         return self.nextPC()
 
     def k_ellipse(self, command):
-        return self.compileVariable(command)
+        return self.compileVariable(command, 'ellipse')
 
     def r_ellipse(self, command):
         return self.nextPC()
@@ -140,23 +142,9 @@ class Graphics(Handler):
         return self.nextPC()
 
     def k_image(self, command):
-        return self.compileVariable(command)
+        return self.compileVariable(command, 'image')
 
     def r_image(self, command):
-        return self.nextPC()
-
-    def k_log(self, command):
-        value = self.nextValue()
-        if value != None:
-            command['value'] = value
-            self.add(command)
-            return True
-        CompileError(self.compiler, 'I can\'t log this value')
-
-    def r_log(self, command):
-        value = self.getRuntimeValue(command['value'])
-        if value != None:
-            writeLog(f'-> {value}')
         return self.nextPC()
 
     def k_on(self, command):
@@ -227,7 +215,7 @@ class Graphics(Handler):
         return self.nextPC()
 
     def k_rectangle(self, command):
-        return self.compileVariable(command)
+        return self.compileVariable(command, 'rectangle')
 
     def r_rectangle(self, command):
         return self.nextPC()
@@ -238,7 +226,7 @@ class Graphics(Handler):
             self.nextToken()
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                type = record['type']
+                type = record['keyword']
                 name = record['name']
                 if type in ['rectangle', 'ellipse']:
                     command['parent'] = record['name']
@@ -255,6 +243,9 @@ class Graphics(Handler):
         value = self.getRuntimeValue(command['value'])
         parent = command['parent']
         try:
+            if parent != 'screen':
+                record = self.getVariable(parent)
+                parent = record['id'][record['index']]
             result = render(value, parent)
         except Exception as err:
             FatalError(command['program'], err)
@@ -267,15 +258,17 @@ class Graphics(Handler):
             self.nextToken()
         token = self.peek()
         command['variant'] = token
-        if token in ['text', 'font']:
+        if token in ['text', 'font', 'source']:
             self.nextToken()
             if self.peek() == 'of':
                 self.nextToken()
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
                 command['name'] = record['name']
-                if record['keyword'] != 'text':
+                if token in ['text', 'font'] and record['keyword'] != 'text':
                     CompileError(self.compiler, f'Symbol type is not \'text\'')
+                if token in ['source'] and record['keyword'] != 'image':
+                    CompileError(self.compiler, f'Symbol type is not \'image\'')
                 if self.peek() == 'to':
                     self.nextToken()
                     command['value'] = self.nextValue()
@@ -313,6 +306,8 @@ class Graphics(Handler):
             setFont(element['content'], value)
         elif variant == 'fill':
             setFill(element['content'], value)
+        elif variant == 'source':
+            setSource(element['content'], value)
         return self.nextPC()
 
     def k_show(self, command):
@@ -337,13 +332,13 @@ class Graphics(Handler):
         return self.nextPC()
 
     def k_spec(self, command):
-        return self.compileVariable(command, True)
+        return self.compileVariable(command, 'spec', True)
 
     def r_spec(self, command):
         return self.nextPC()
 
     def k_text(self, command):
-        return self.compileVariable(command)
+        return self.compileVariable(command, 'text')
 
     def r_text(self, command):
         return self.nextPC()

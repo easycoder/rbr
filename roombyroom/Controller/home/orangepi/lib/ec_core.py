@@ -1,8 +1,8 @@
-import json, math, hashlib, os, sys, requests, time, numbers
+import json, math, hashlib, os, requests, time, numbers
 from datetime import datetime, timezone
 from random import randrange
 from ec_program import Program
-from ec_classes import CompileError, RBRWarning, FatalError
+from ec_classes import CompileError, ECRuntimeWarning, FatalError
 from ec_handler import Handler
 from ec_timestamp import getTimestamp
 
@@ -220,7 +220,7 @@ class Core(Handler):
 
     # declare a 'dictionary' variable
     def k_dictionary(self, command):
-        return self.compileVariable(command, False)
+        return self.compileVariable(command, 'dictionary')
 
     def r_dictionary(self, command):
         return self.nextPC()
@@ -299,12 +299,11 @@ class Core(Handler):
 
     def r_exit(self, command):
         print(f'{self.program.name} has finished')
-        self.program.running = False
         parent= self.program.parent
         if parent == None:
-            self.easyCoder.running = False
-            sys.exit()
+            self.easyCoder.setRunning(False)
         elif parent.running:
+            self.program.running = False
             parent.enabled = True
             if self.program.parentNext:
                 self.easyCoder.run(parent, self.program.parentNext)
@@ -312,7 +311,7 @@ class Core(Handler):
 
     # Declare a 'file' variable
     def k_file(self, command):
-        return self.compileVariable(command, False)
+        return self.compileVariable(command, 'file')
 
     def r_file(self, command):
         return self.nextPC()
@@ -522,6 +521,25 @@ class Core(Handler):
     def r_import(self, command):
         return self.nextPC()
 
+    def k_log(self, command):
+        value = self.nextValue()
+        if value != None:
+            command['value'] = value
+            self.add(command)
+            return True
+        CompileError(self.compiler, 'I can\'t log this value')
+
+    def r_log(self, command):
+        def writeLog(text):
+            f = open('log.txt', 'a')
+            f.write(f'{text}\n')
+            f.close()
+            
+        value = self.getRuntimeValue(command['value'])
+        if value != None:
+            writeLog(f'-> {value}')
+        return self.nextPC()
+
     # index <variable> to <value>
     def k_index(self, command):
         # get the variable
@@ -568,7 +586,7 @@ class Core(Handler):
 
     # Declare a "module" variable
     def k_module(self, command):
-        return self.compileVariable(command, True)
+        return self.compileVariable(command, 'module', True)
 
     def r_module(self, command):
         return self.nextPC()
@@ -1170,7 +1188,7 @@ class Core(Handler):
 
     # Declare a "variable" variable
     def k_variable(self, command):
-        return self.compileVariable(command, True)
+        return self.compileVariable(command, 'variable', True)
 
     def r_variable(self, command):
         return self.nextPC()
@@ -1663,7 +1681,7 @@ class Core(Handler):
         try:
             value['content'] = float(val)
         except:
-            RBRWarning(self.program, f'Value cannot be parsed as floating-point')
+            ECRuntimeWarning(self.program, f'Value cannot be parsed as floating-point')
             value['content'] = 0.0
         return value
 

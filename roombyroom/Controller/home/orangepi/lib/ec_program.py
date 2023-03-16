@@ -51,9 +51,7 @@ class Program:
 			if parent == None:
 				print(f'Run {self.name}')
 				easyCoder.run(self, 0)
-		else:
-			self.compiler.showWarnings()
-			return
+		self.compiler.showWarnings()
 
 	# Add a command to the code list
 	def add(self, command):

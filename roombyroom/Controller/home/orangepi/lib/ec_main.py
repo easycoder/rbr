@@ -15,12 +15,15 @@ class Main:
 			print(f'Program {program.name} queued')
 			return
 
-		while len(self.queue) and self.running:
+		program.running = True
+		while len(self.queue) and program.running:
 			item = self.queue.popleft()
 			program = item['program']
 			program.pc = item['pc']
 			# print(f'Run program {program.name} from {program.pc}')
 			while len(program.code) > program.pc:
+				if not self.running:
+					raise SystemExit
 				command = program.code[program.pc]
 				domainName = command['domain']
 				if domainName == None:
@@ -51,3 +54,7 @@ class Main:
 	# Run a timer
 	def timer(self, value, program, pc):
 		threading.Timer(value, lambda: (self.run(program, pc))).start()
+	
+	# Set the running state
+	def setRunning(self, state):
+		self.running = state

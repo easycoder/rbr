@@ -1,13 +1,11 @@
-import sys
-
 class CompileError():
 	def __init__(self, compiler, message):
 		program = compiler.program
-		compiler.showWarnings()
 		lino = compiler.tokens[compiler.index].lino
 		script = program.script.lines[lino].strip()
+		compiler.showWarnings()
 		print(f'Compile error in {program.name} at line {lino + 1} ({script}): {message}')
-		sys.exit()
+		raise SystemExit
 
 class FatalError:
 	def __init__(self, program, message):
@@ -18,9 +16,9 @@ class FatalError:
 			lino = code['lino']
 			script = program.script.lines[lino].strip()
 			print(f'Runtime Error in {program.name} at line {lino + 1} ({script}): {message}')
-			sys.exit()
+			raise SystemExit
 
-class RBRWarning:
+class ECRuntimeWarning:
 	def __init__(self, program, message):
 		if program == None:
 			print(f'Warning: {message}')
@@ -28,7 +26,7 @@ class RBRWarning:
 			code = program.code[program.pc]
 			lino = code['lino']
 			script = program.script.lines[lino].strip()
-			print(f'Warning in {program.name} at line {lino + 1} ({script}): {message}')
+			print(f'Runtime warning in {program.name} at line {lino + 1} ({script}): {message}')
 
 class Script:
 	def __init__(self, source):

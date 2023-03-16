@@ -98,11 +98,16 @@ class Compiler:
 		return self.tokens[self.index].lino
 
 	def warning(self, message):
-		self.warnings.append(message)
+		program = self.program
+		lino = self.tokens[self.index].lino
+		script = program.script.lines[lino].strip()
+		self.warnings.append(f'Compile warning in {program.name} at line {lino + 1} ({script}): {message}')
 
 	def showWarnings(self):
-		for warning in self.warnings:
-			print(f'Line {self.getLino() + 1}: {warning}')
+		if len(self.warnings) > 0:
+			print('Warnings:')
+			for warning in self.warnings:
+				print(warning)
 
 	def getSymbolRecord(self):
 		token = self.getToken()
@@ -114,12 +119,12 @@ class Compiler:
 		return None
 
 	def compileLabel(self, command):
-		return self.compileSymbol(command, self.getToken(), False)
+		return self.compileSymbol(command, None, self.getToken())
 
-	def compileVariable(self, command, valueHolder=False):
-		return self.compileSymbol(command, self.nextToken(), valueHolder)
+	def compileVariable(self, command, keyword, valueHolder=False):
+		return self.compileSymbol(command, keyword, self.nextToken(), valueHolder)
 
-	def compileSymbol(self, command, name, valueHolder):
+	def compileSymbol(self, command, keyword, name, valueHolder=False):
 		try:
 			v = self.symbols[name]
 		except:
@@ -129,11 +134,12 @@ class Compiler:
 			return False
 		self.symbols[name] = self.getPC()
 		command['type'] = 'symbol'
-		command['valueHolder'] = valueHolder
+		command['keyword'] = keyword
 		command['name'] = name
 		command['elements'] = 1
 		command['index'] = 0
 		command['value'] = [None]
+		command['valueHolder'] = valueHolder
 		command['used'] = False
 		command['debug'] = False
 		self.addCommand(command)

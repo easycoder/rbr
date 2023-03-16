@@ -1,18 +1,22 @@
 # Picson.py
 
-import sys, json
+import json
 import tkinter as tk
+from tkinter import *
 from PIL import Image, ImageTk
 
 elements = {}
 homeLeft = {}
 homeTop = {}
+names = {}
+ids = {}
 zlist = []
 images = {}
 onTick = None
 first = True
+running = True
 
-# Get the canvas
+# Set the canvas
 def setCanvas(c):
     global canvas
     canvas = c
@@ -22,9 +26,9 @@ def getCanvas():
     global canvas
     return canvas
 
+# Create a screen
 def createScreen(values):
-    global screen, canvas, screenLeft, screenTop, running, loglevel
-    running = True
+    global screen, canvas, screenLeft, screenTop, loglevel
     screen = tk.Tk()
     screen.title('RBR Simulator')
     if values['fullscreen']:
@@ -68,8 +72,7 @@ def createScreen(values):
                         element['cb'](id)
                         break
                 else:
-                    RuntimeError(None, f'Element \'{id}\' does not exist')
-
+                    PicsonError(None, f'Element \'{id}\' does not exist')
     screen.bind('<Button-1>', onClick)
 
     fill = values['fill']['content'] if 'fill' in values else 'white'
@@ -98,7 +101,7 @@ def setOnClick(id, cb):
     if id in elements:
         elements[id]['cb'] = cb
     else:
-        RuntimeError(None, f'Element \'{id}\' does not exist')
+        PicsonError(None, f'Element \'{id}\' does not exist')
     return
 
 # Set up the init handler
@@ -111,7 +114,7 @@ def setOnTick(cb):
     global onTick
     onTick = cb
 
-# Show the screen and check every second if it's still running
+# Show the screen and call onTick() every 10ms to allow other programs to run
 def showScreen():
     global screen, onTick
     def afterCB(screen):
@@ -124,13 +127,13 @@ def showScreen():
         screen.after(100, lambda: afterCB(screen))
     screen.after(100, lambda: afterCB(screen))
     screen.mainloop()
-    sys.exit()
+    raise SystemExit
 
 # Hide the cursor
 def hideCursor():
     screen.config(cursor="none")
 
-# Render a graphic specification
+# Render a JSON graphic specification
 def render(spec, parent):
     global elements
 
@@ -144,9 +147,9 @@ def render(spec, parent):
 
     # Render a rectangle or ellipse
     def renderIntoRectangle(elementType, values, offset, args, family):
-        global zlist
-        left = getValue(args, values['left']) if 'left' in values else 10
-        top = getValue(args, values['top']) if 'top' in values else 10
+        global zlist, names
+        left = getValue(args, values['left']) if 'left' in values else 0
+        top = getValue(args, values['top']) if 'top' in values else 0
         left = offset['dx'] + left
         top = offset['dy'] + top
         width = getValue(args, values['width']) if 'width' in values else 100
@@ -174,7 +177,7 @@ def render(spec, parent):
         children = []
         if '#' in values:
             for item in values['#']:
-                result = renderWidget(item, {'dx': left, 'dy': top}, args, children)
+                result = renderElement(item, {'dx': left, 'dy': top}, args, children)
                 if result != None:
                     writeLog(f'Error: {result}')
         for child in children:
@@ -196,13 +199,14 @@ def render(spec, parent):
             homeLeft[name] = left
             homeTop[name] = top
             zlist.append({name: elementSpec})
-
+            saveName(elementId, name)
         return None
 
     # Render text into a rectangle or ellipse
     def renderText(elementType, values, offset, args, family):
-        left = getValue(args, values['left']) if 'left' in values else 10
-        top = getValue(args, values['top']) if 'top' in values else 10
+        global names
+        left = getValue(args, values['left']) if 'left' in values else 0
+        top = getValue(args, values['top']) if 'top' in values else 0
         left = offset['dx'] + left
         top = offset['dy'] + top
         width = getValue(args, values['width']) if 'width' in values else 100
@@ -260,19 +264,21 @@ def render(spec, parent):
                 "left": left,
                 "top": top,
                 "width": width,
-                "height": height
+                "height": height,
+                "children": []
             }
             elements[name] = elementSpec
             homeLeft[name] = left
             homeTop[name] = top
             zlist.append({name: elementSpec})
+            saveName(textId, name)
         return None
 
     # Render an image
     def renderImage(elementType, values, offset, args, family):
-        global images, home
-        left = getValue(args, values['left']) if 'left' in values else 10
-        top = getValue(args, values['top']) if 'top' in values else 10
+        global names, images, home
+        left = getValue(args, values['left']) if 'left' in values else 0
+        top = getValue(args, values['top']) if 'top' in values else 0
         left = offset['dx'] + left
         top = offset['dy'] + top
         width = getValue(args, values['width']) if 'width' in values else 100
@@ -299,7 +305,8 @@ def render(spec, parent):
                 "left": left,
                 "top": top,
                 "width": width,
-                "height": height
+                "height": height,
+                "children": []
             }
             elements[name] = elementSpec
             homeLeft[name] = left
@@ -307,10 +314,11 @@ def render(spec, parent):
             zlist.append({name: elementSpec})
             if src == None:
                 return f'No image source given for \'{id}\''
+            saveName(imageId, name)
         return None
 
-    # Create a canvas or render an element
-    def renderWidget(element, offset, args, family):
+    # Render a graphic element
+    def renderElement(element, offset, args, family):
         elementType = element['type']
         if elementType in ['rect', 'ellipse']:
             return renderIntoRectangle(elementType, element, offset, args, family)
@@ -326,18 +334,19 @@ def render(spec, parent):
         # If a list, iterate it
         if type(spec) is list:
             for element in spec:
-                result = renderWidget(element, offset, args, [])
+                result = renderElement(element, offset, args, [])
                 if result != None:
                     return result
         # Otherwise, process the single element
         else:
-            return renderWidget(spec, offset, args, [])
+            return renderElement(spec, offset, args, [])
 
     # Main entry point
     offset = {'dx': 0, 'dy': 0}
     if parent != 'screen':
-        writeLog('Can\'t yet render into an existing element')
-        RuntimeError(None, 'Can\'t yet render into an existing element')
+        element = getElement(parent)
+        offset['dx'] = element['left']
+        offset['dy'] = element['top']
 
     # If it'a string, process it
     if type(spec) is str:
@@ -385,7 +394,20 @@ def getElement(name):
     if name in elements:
         return elements[name]
     else:
-        RuntimeError(None, f'Element \'{name}\' does not exist')
+        PicsonError(None, f'Element \'{name}\' does not exist')
+
+# Save the name of an element against its id and vice versa
+def saveName(id, name):
+    global names, ids
+    if name in ids:
+        raise PicsonError(f'Name {name} has already been used')
+    names[id]= name
+    ids[name] = id
+
+# Get an attribute of an element
+def getAttribute(name, attribute):
+    element = getElement(name)
+    return getCanvas().itemcget(element['id'], attribute)
 
 # Set the content of a text element
 def setText(name, value):
@@ -395,16 +417,24 @@ def setText(name, value):
 def setFont(name, value):
     getCanvas().itemconfig(getElement(name)['id'], font=value)
 
-# Set the fill of a rectangle or ellipse element or text
+# Set the fill of a rectangle, ellipse or text
 def setFill(name, value):
     id = getElement(name)['id']
     getCanvas().itemconfig(getElement(name)['id'], fill=value)
 
-# Dispose of an element
+# Set the source of an image
+def setSource(name, value):
+    raise PicsonError('Changing image not yet implemented')
+
+# Dispose of an element and all its children (recursively)
 def dispose(name):
+    global names
     element = getElement(name)
     for child in element['children']:
-        getCanvas().delete(child)
+        if child in names:
+            dispose(names[child])
+    if element['containerId']:
+        getCanvas().delete(element['containerId'])
     getCanvas().delete(element['id'])
 
 # A test function for the "gtest" script command
@@ -414,11 +444,6 @@ def gtest(name):
     newfont = '"Helvetica" 40 normal'
     getCanvas().itemconfig(element['id'], font=newfont)
 
-# Get an attribute of an element
-def getAttribute(name, attribute):
-    element = getElement(name)
-    return getCanvas().itemcget(element['id'], attribute)
-
 # Write to the log file
 def writeLog(text):
     f = open('log.txt', 'a')
@@ -427,6 +452,4 @@ def writeLog(text):
 
 #Define exceptions
 class PicsonError(Exception):
-    def __init__(self, message="Undefined Picson error"):
-        self.message = message
-        super().__init__(self.message)
+    pass
