@@ -15,6 +15,7 @@ images = {}
 onTick = None
 first = True
 running = True
+loglevel = 0
 
 # Set the canvas
 def setCanvas(c):
@@ -31,7 +32,8 @@ def createScreen(values):
     global screen, canvas, screenLeft, screenTop, loglevel
     screen = tk.Tk()
     screen.title('RBR Simulator')
-    if values['fullscreen']:
+    fullscreen = values['fullscreen'] if 'fullscreen' in values else False
+    if fullscreen:
         width = screen.winfo_screenwidth()
         height = screen.winfo_screenheight()
         screen.attributes('-fullscreen', True)
@@ -47,7 +49,7 @@ def createScreen(values):
 
         geometry = str(width) + 'x' + str(height) + '+' + str(screenLeft) + '+' + str(screenTop)
         screen.geometry(geometry)
-    loglevel = int(values['loglevel'])
+    loglevel = int(values['loglevel']) if 'loglevel' in values else 0
     file = open('log.txt', 'w')
     file.close()
 
@@ -134,7 +136,7 @@ def hideCursor():
     screen.config(cursor="none")
 
 # Render a JSON graphic specification
-def render(spec, parent):
+def render(spec, parent = 'screen'):
     global elements
 
     # Get the value of an argument
@@ -433,6 +435,9 @@ def dispose(name):
     for child in element['children']:
         if child in names:
             dispose(names[child])
+    del names[element['id']]
+    del ids[name]
+
     if element['containerId']:
         getCanvas().delete(element['containerId'])
     getCanvas().delete(element['id'])

@@ -112,6 +112,7 @@ SetupScreen:
     put json `{}` into Args
     set property `$text` of Args to `Profile: ` cat property `name` of Profile
     set property `args` of Spec to Args
+    print Spec
     render Spec
     return
 

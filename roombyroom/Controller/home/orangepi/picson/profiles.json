@@ -22,7 +22,7 @@
         "#": [{
             "name": "profile-/P/-select",
             "type": "image",
-            "left": 20,
+            "left": 30,
             "top": 5,
             "width": 40,
             "height": 40,
@@ -30,7 +30,7 @@
         },{
             "name": "profile-/P/-edit",
             "type": "image",
-            "left": 80,
+            "left": 90,
             "top": 5,
             "width": 40,
             "height": 40,
@@ -38,7 +38,7 @@
         },{
             "name": "profile-/P/-up",
             "type": "image",
-            "left": 140,
+            "left": 150,
             "top": 5,
             "width": 40,
             "height": 40,
@@ -46,7 +46,7 @@
         },{
             "name": "profile-/P/-down",
             "type": "image",
-            "left": 200,
+            "left": 210,
             "top": 5,
             "width": 40,
             "height": 40,
@@ -54,7 +54,7 @@
         },{
             "name": "profile-/P/-delete",
             "type": "image",
-            "left": 280,
+            "left": 270,
             "top": 5,
             "width": 40,
             "height": 40,
@@ -62,7 +62,7 @@
         },{
             "name": "profile-/P/-add",
             "type": "image",
-            "left": 340,
+            "left": 330,
             "top": 5,
             "width": 40,
             "height": 40,

@@ -14,6 +14,7 @@ Third-party tools are kept to a minimum. The project relies mainly on other prod
 
   - A high level scripting language coded in Python for the system controller
   - A similar high-level scripting language coded in JavaScript for the user interface
+  - A Python engine for rendering graphics expressed as JSON
   - A JavaScript engine for rendering DOM structures expressed as JSON
   - An extended MarkDown processor for documentation, based on the third-party _Showdown_ markdown library
 
