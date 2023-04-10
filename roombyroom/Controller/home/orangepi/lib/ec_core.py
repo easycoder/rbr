@@ -299,11 +299,12 @@ class Core(Handler):
 
     def r_exit(self, command):
         print(f'{self.program.name} has finished')
+        self.program.running = False
         parent= self.program.parent
         if parent == None:
             self.easyCoder.setRunning(False)
+            raise SystemExit
         elif parent.running:
-            self.program.running = False
             parent.enabled = True
             if self.program.parentNext:
                 self.easyCoder.run(parent, self.program.parentNext)

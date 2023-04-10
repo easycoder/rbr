@@ -367,7 +367,7 @@ class Graphics(Handler):
             if self.nextIs('of'):
                 if self.nextIsSymbol():
                     symbolRecord = self.getSymbolRecord()
-                    if symbolRecord['keyword'] in ['element', 'text']:
+                    if symbolRecord['keyword'] in ['element', 'text', 'image']:
                         value['name'] = symbolRecord['name']
                     else:
                         return None

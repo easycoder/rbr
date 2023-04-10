@@ -377,8 +377,11 @@ class Core(Handler):
 
     def r_goto(self, command):
         label = f'{command["goto"]}:'
-        if self.symbols[label]:
-            return self.symbols[label]
+        try:
+            if self.symbols[label]:
+                return self.symbols[label]
+        except:
+            pass
         RuntimeError(self.program, f'There is no label "{label}"')
         return None
 

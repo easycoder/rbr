@@ -70,7 +70,7 @@
     variable R
     variable W
 
-!    debug step
+    debug step
 
     open File `server.txt` for reading
     read RBRServer from File
@@ -169,10 +169,38 @@ Start:
         write Map to File
         close File
     end
+!    print Map
 
     put json Map into MapObject
     put property `profiles` of MapObject into Profiles
     put property `profile` of MapObject into CurrentProfile
+
+    ! If the Calendar is on, find which profile is active
+    if property `calendar` of MapObject is `on`
+    begin
+        put property `calendar-data` of MapObject into Calendar
+        if Calendar is empty put property `profile` of MapObject into CurrentProfile
+        else
+        begin
+            ! Examine the data for today
+            put the weekday into W
+            put element W of Calendar into Day
+            if stringify Day is not `{}` put property `day` cat W cat `-profile` of Day into ProfileName
+            put 0 into P
+            while P is less than the count of Profiles
+            begin
+                put element P of Profiles into Profile
+                if property `name` of Profile is ProfileName
+                begin
+                    put P into CurrentProfile
+                    go to S2
+                end
+                add 1 to P
+            end
+        end
+    end
+
+S2:
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
     print `Profile: ` cat property `name` of Profile
@@ -297,30 +325,7 @@ SkipRequests:
     end
     else put `{}` into Sensors
 
-    ! If the Calendar is on, find which profile is active
-    if property `calendar` of MapObject is `off` go to PM2
-    put property `calendar-data` of MapObject into Calendar
-    if Calendar is empty go to PM2
-    ! Examine the data for today
-    put the weekday into W
-    put element W of Calendar into Day
-    if stringify Day is not `{}` put property `day` cat W cat `-profile` of Day into ProfileName
-    put 0 into P
-    while P is less than the count of Profiles
-    begin
-        put element P of Profiles into Profile
-        if property `name` of Profile is ProfileName
-        begin
-            put P into CurrentProfile
-            go to DoRooms
-        end
-        add 1 to P
-    end
-PM2:
-    put property `profile` of MapObject into CurrentProfile
-
 !   Process all the rooms
-DoRooms:
     put json `{}` into SensorData
     set property `actual` of SensorData to CurrentProfile
     set property `status` of SensorData to ``
@@ -485,7 +490,7 @@ PR2:
         ! Use the target setting for 'on' mode
         put property `target` of Room into Target
         print `Target: ` cat Target
-        if Target is not empty
+        if `` cat Target is not empty
         begin
             put float Target into Target
             if Temperature is less than Target go to TurnOn
@@ -629,7 +634,7 @@ SetRelays:
                 post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
                 or begin
                     set property `status` of SensorValues to `Fail`
-                    set property `status` of SensorData to `No response from ` cat RoomName
+                    set property `status` of SensorData to `No response from relay in ` cat RoomName
                 end
             end
             else if RelayType is `TP-Link P100`

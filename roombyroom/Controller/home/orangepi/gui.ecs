@@ -7,8 +7,7 @@
     text Target
     text Mode
     text ProfilesText
-    element BlueMask
-    element RedMask
+    image Mask
     element RedButton
     element Exit
     spec Spec
@@ -45,6 +44,8 @@
     variable DialogAlign
     variable DialogResult
     variable Buffer
+    variable CurrentMask
+    variable NewMask
     variable E
     variable F
     variable H
@@ -112,7 +113,6 @@ SetupScreen:
     put json `{}` into Args
     set property `$text` of Args to `Profile: ` cat property `name` of Profile
     set property `args` of Spec to Args
-    print Spec
     render Spec
     return
 
@@ -140,6 +140,7 @@ SetupRooms:
     read Script from File
     close File
 
+    set the elements of CurrentMask to NRooms
     put 0 into RoomIndex
     while RoomIndex is less than NRooms
     begin
@@ -147,11 +148,13 @@ SetupRooms:
         read Text from File
         close File
 
+        index CurrentMask to RoomIndex
+        put empty into CurrentMask
+
         put element RoomIndex of Rooms into Room
         replace `/ROOM/` with RoomIndex in Text
         replace `/ROOMNAME/` with property `name` of Room in Text
-        replace `/BLUEMASK/` with `bluemask-` cat RoomIndex in Text
-        replace `/REDMASK/` with `redmask-` cat RoomIndex in Text
+        replace `/MASK/` with `mask-` cat RoomIndex in Text
         replace `/BLUE/` with `blue` cat RoomIndex in Text
         replace `/RED/` with `red` cat RoomIndex in Text
         replace `/TEMP/` with `temp` cat RoomIndex in Text
@@ -187,10 +190,10 @@ UpdateScreen:
         read Text from File
         close File
 
+        index CurrentMask to RoomIndex
         put element RoomIndex of Rooms into Room
         attach Temperature to `temp` cat RoomIndex
-        attach BlueMask to `bluemask-` cat RoomIndex
-        attach RedMask to `redmask-` cat RoomIndex
+        attach Mask to `mask-` cat RoomIndex
         attach RedButton to `red` cat RoomIndex
 
         put element RoomIndex of Rooms into Room
@@ -313,13 +316,19 @@ UpdateScreen:
     return
 
 ShowBlueMask:
-    hide RedMask
-    show BlueMask
-    return
+    put `images/bluemask.png` into NewMask
+    go to ShowMask
 
 ShowRedMask:
-    hide BlueMask
-    show RedMask
+    put `images/redmask.png` into NewMask
+
+ShowMask:
+    if CurrentMask is not NewMask
+    begin
+        set the source of Mask to NewMask
+        put NewMask into CurrentMask
+        print `Mask updated`
+    end
     return
 
 ShowBlueButton:

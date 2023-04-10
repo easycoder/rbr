@@ -1,7 +1,6 @@
 # Picson.py
 
 import json
-import tkinter as tk
 from tkinter import *
 from PIL import Image, ImageTk
 
@@ -12,6 +11,7 @@ names = {}
 ids = {}
 zlist = []
 images = {}
+onInit = None
 onTick = None
 first = True
 running = True
@@ -28,9 +28,9 @@ def getCanvas():
     return canvas
 
 # Create a screen
-def createScreen(values):
+def createScreen(values = {}):
     global screen, canvas, screenLeft, screenTop, loglevel
-    screen = tk.Tk()
+    screen = Tk()
     screen.title('RBR Simulator')
     fullscreen = values['fullscreen'] if 'fullscreen' in values else False
     if fullscreen:
@@ -78,8 +78,8 @@ def createScreen(values):
     screen.bind('<Button-1>', onClick)
 
     fill = values['fill']['content'] if 'fill' in values else 'white'
-    canvas = tk.Canvas(master=screen, width=width, height=height, bg=fill)
-    canvas.place(x=0, y=0)
+    canvas = Canvas(screen, width=width, height=height, bg=fill)
+    canvas.pack()
     setCanvas(canvas)
 
 # Close the screen
@@ -98,12 +98,12 @@ def getScreenHeight():
     return screen.winfo_screenheight()
 
 # Set up a click handler in an element
-def setOnClick(id, cb):
+def setOnClick(name, cb):
     global elements
-    if id in elements:
-        elements[id]['cb'] = cb
+    if name in elements:
+        elements[name]['cb'] = cb
     else:
-        PicsonError(None, f'Element \'{id}\' does not exist')
+        PicsonError(None, f'Element \'{name}\' does not exist')
     return
 
 # Set up the init handler
@@ -118,12 +118,12 @@ def setOnTick(cb):
 
 # Show the screen and call onTick() every 10ms to allow other programs to run
 def showScreen():
-    global screen, onTick
+    global screen
     def afterCB(screen):
-        global first
-        if first:
+        global onInit, onTick
+        if onInit:
             onInit()
-            first = False
+            onInit = None
         elif onTick:
             onTick()
         screen.after(100, lambda: afterCB(screen))
@@ -149,7 +149,7 @@ def render(spec, parent = 'screen'):
 
     # Render a rectangle or ellipse
     def renderIntoRectangle(elementType, values, offset, args, family):
-        global zlist, names
+        global zlist, names, loglevel
         left = getValue(args, values['left']) if 'left' in values else 0
         top = getValue(args, values['top']) if 'top' in values else 0
         left = offset['dx'] + left
@@ -206,7 +206,7 @@ def render(spec, parent = 'screen'):
 
     # Render text into a rectangle or ellipse
     def renderText(elementType, values, offset, args, family):
-        global names
+        global names, loglevel
         left = getValue(args, values['left']) if 'left' in values else 0
         top = getValue(args, values['top']) if 'top' in values else 0
         left = offset['dx'] + left
@@ -278,32 +278,28 @@ def render(spec, parent = 'screen'):
 
     # Render an image
     def renderImage(elementType, values, offset, args, family):
-        global names, images, home
+        global names, images, home, loglevel
         left = getValue(args, values['left']) if 'left' in values else 0
         top = getValue(args, values['top']) if 'top' in values else 0
         left = offset['dx'] + left
         top = offset['dy'] + top
         width = getValue(args, values['width']) if 'width' in values else 100
         height = getValue(args, values['height']) if 'height' in values else 100
-        right = left + width
-        bottom = top + height
         src = getValue(args, values['src']) if 'src' in values else None
-        containerId = getCanvas().create_rectangle(left, top, right, bottom, width=0)
         img = (Image.open(src))
         resized_image= img.resize((int(width), int(height)), Image.ANTIALIAS)
         new_image= ImageTk.PhotoImage(resized_image)
         imageId = getCanvas().create_image(left, top, anchor='nw', image=new_image)
         if loglevel > 2:
             writeLog(f'Created image, id={imageId}, source \'{src}\'')
-        images[containerId] = {'id': imageId, "image": new_image}
+        images[imageId] = new_image
         family.append(imageId)
-        family.append(containerId)
         if 'name' in values:
             name = values['name']
             elementSpec = {
                 "id": imageId,
                 "type": elementType,
-                "containerId": containerId,
+                "containerId": None,
                 "left": left,
                 "top": top,
                 "width": width,
@@ -426,7 +422,11 @@ def setFill(name, value):
 
 # Set the source of an image
 def setSource(name, value):
-    raise PicsonError('Changing image not yet implemented')
+    global images
+    img=ImageTk.PhotoImage(file=value)
+    id = elements[name]['id']
+    images[id] = img
+    getCanvas().itemconfig(id, image=img)
 
 # Dispose of an element and all its children (recursively)
 def dispose(name):

@@ -10,7 +10,8 @@ class CompileError():
 class FatalError:
 	def __init__(self, program, message):
 		if program == None:
-			sys.exit(f'Runtime Error: {message}')
+			print(f'Runtime Error: {message}')
+			raise SystemExit
 		else:
 			code = program.code[program.pc]
 			lino = code['lino']

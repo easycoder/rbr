@@ -4,7 +4,7 @@
     // This small REST server gives you the ability to manage tables
     // in your site database.
 
-    require_once "statistics.php";
+    // require_once "statistics.php";
 
     date_default_timezone_set('Europe/London');
 //      logger(substr($_SERVER['PATH_INFO'], 1));
@@ -110,7 +110,7 @@
                     exit;
                 case '_test':
                     // Endpoint: {site root}/easycoder/rest.php/_test/
-                    print_r($_SERVER[SERVER_NAME]);
+                    print_r($_SERVER);
                     exit;
             }
             break;
@@ -379,7 +379,7 @@
                 // Endpoint: {site root}/resources/php/rest.php/request/{mac}/{password}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password=$password");
                 if ($row = mysqli_fetch_object($result)) {
                     $data = file_get_contents("php://input");
                     logger($data);
@@ -537,5 +537,4 @@
         fwrite($fp, "$date: $message\n");
         fclose($fp);
     }
-
 ?>

@@ -1,0 +1,10 @@
+## System Parameters Menu
+
+~img:sysparamsmenu.jpg:50% center~
+This is the system parameters menu. Here you can set the system name and the request relay IP.
+
+~tid:Name:Set the system name~
+
+~tid:Request:Set the IP address of the request relay~
+
+~sid:Index:Index of pages~

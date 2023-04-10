@@ -210,7 +210,10 @@ class Program:
 						command = self.code[self.pc]
 						command['program'] = self
 						self.pc = handler(command)
-						if self.pc == 0 or self.pc >= len(self.code):
+						try:
+							if self.pc == 0 or self.pc >= len(self.code):
+								return 0
+						except:
 							return 0
 				if self.pc < 0:
 					return -1

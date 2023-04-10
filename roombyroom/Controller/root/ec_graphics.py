@@ -45,7 +45,6 @@ class Graphics(Handler):
 
     def k_create(self, command):
         if self.nextIs('screen'):
-            command['fullscreen'] = False
             while True:
                 token = self.peek()
                 if token == 'at':
@@ -59,9 +58,6 @@ class Graphics(Handler):
                 elif token == 'fill':
                     self.nextToken()
                     command['fill'] = self.nextValue()
-                elif token == 'fullscreen':
-                    self.nextToken()
-                    command['fullscreen'] = True
                 else:
                     break
             self.add(command)
