@@ -4,7 +4,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$GetName", "$GetRequest", "$Restart", "$Help", "$Cancel"],
+    "#": ["$GetName", "$GetRequest", "$Help", "$Cancel"],
 
     "$GetName": {
         "$ID": "button-getname",
@@ -15,12 +15,6 @@
     "$GetRequest": {
         "$ID": "button-getrequest",
         "$Label": "Set the request relay IP",
-        "#": "$Button"
-    },
-
-    "$Restart": {
-        "$ID": "button-restart",
-        "$Label": "Restart the controller",
         "#": "$Button"
     },
 

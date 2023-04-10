@@ -37,6 +37,7 @@
     variable System
     variable SelectedSystem
     variable SystemName
+    variable Version
     variable Keys
     variable Text
     variable K
@@ -64,6 +65,8 @@
     if Sensors is not empty
         if property `version` of Sensors is not empty
             set the content of SystemVersion to `System version ` cat property `version` of Sensors
+    if Version is empty put 0 into Version
+    set the content of SystemVersion to `System version ` cat Version
 
     get Systems from storage as `Systems`
     if Systems is empty put `{}` into Systems

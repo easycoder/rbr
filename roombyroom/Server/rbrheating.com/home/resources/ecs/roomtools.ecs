@@ -36,7 +36,6 @@
     variable Sensor
     variable Timestamp
     variable DateFormat
-    variable RequestData
     variable Item
     variable N
 
@@ -73,10 +72,9 @@ Editor:
         set element ClickIndex of Rooms to ThisRoom
         add 1 to ClickIndex
         set element ClickIndex of Rooms to ThatRoom
-        set property `action` of RequestData to `rooms`
-        set property `rooms` of RequestData to Rooms
-        set Changed
-        go to Exit
+    	set property `rooms` of Map to Rooms
+    	gosub to CopyRoomsToMap
+        go to ExitWithChanges
     end
     
     on click RoomDownButton
@@ -87,10 +85,9 @@ Editor:
         set element ClickIndex of Rooms to ThisRoom
         take 1 from ClickIndex
         set element ClickIndex of Rooms to ThatRoom
-        set property `action` of RequestData to `rooms`
-        set property `rooms` of RequestData to Rooms
-        set Changed
-        go to Exit
+    	set property `rooms` of Map to Rooms
+    	gosub to CopyRoomsToMap
+        go to ExitWithChanges
     end
     
     on click RoomEditButton
@@ -101,7 +98,8 @@ Editor:
         put empty into Result
     	rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
         run Script with MainPanel and Map and CurrentProfile and ClickIndex and Result
-        exit
+        if left 4 of Result is `Help` exit
+        if Result is `Changed` go to ExitWithChanges else go to ExitWithoutChanges
     end
     
     on click RoomDeleteButton
@@ -133,16 +131,14 @@ Editor:
                 append element N of Rooms to NewRooms
                 add 1 to N
             end
-        	set property `action` of RequestData to `rooms`
-       		set property `rooms` of RequestData to NewRooms
-            set Changed
-            go to Exit
+            put NewRooms into Rooms
+    		gosub to CopyRoomsToMap
+            go to ExitWithChanges
         end
         on click DialogButton2
         begin
         	clear DialogPanel
-            set property `request` of Result to `Redraw`
-            go to ExitWithoutChanges
+        	go to ExitWithoutChanges
         end
     end
     
@@ -186,17 +182,20 @@ Editor:
 
     on click HelpButton
     begin
-    	set property `request` of Result to `Help`
-        set property `data` of Result to `home RoomTools`
+    	put `Help home RoomTools` into Result
     	exit
     end
 
-    on click CancelButton go to ExitWithoutChanges
-    
-    put `{}` into Result
-    put `{}` into RequestData
-    set property `action` of RequestData to empty
-    set property `roomnumber` of RequestData to ClickIndex
+    on click CancelButton
+    begin
+    	if Changed
+    	begin
+    		set element ClickIndex of Rooms to RoomSpec
+    		set property `rooms` of Map to Rooms
+    		go to ExitWithChanges
+    	end
+    	go to ExitWithoutChanges
+    end
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -209,22 +208,21 @@ GetCurrentRooms:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Exit without changes
-ExitWithoutChanges:
-	set property `request` of Result to `Redraw`
-    clear Changed
-    go to Exit
+!	Copy the current room set to the map
+CopyRoomsToMap:
+	put property `actual` of Sensors into CurrentProfile
+   	put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element CurrentProfile of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Exit to the main script
-Exit:
-	if Changed
-    begin
-    	set property `request` of Result to `Update`
-        set property `data` of Result to RequestData
-    end
-    else
-    begin
-    	set property `request` of Result to `Redraw`
-    end
+ExitWithoutChanges:
+    put `Redraw` into Result
+    exit
+
+
+ExitWithChanges:
+    put `Changed` into Result
     exit

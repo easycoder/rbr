@@ -32,15 +32,12 @@
     variable Profiles
     variable Profile
     variable Rooms
-    variable Room
+    variable RoomSpec
     variable Webson
     variable Relays
     variable Item
-    variable Items
     variable Name
     variable PeriodEditScript
-    variable RequestData
-    variable Changed
     variable List
     variable R
 
@@ -57,8 +54,8 @@ Editor:
     attach CancelButton to `button-cancel`
     
     gosub to GetCurrentRooms
-    put element ClickIndex of Rooms into Room
-    set the content of RoomName to property `name` of Room
+    put element ClickIndex of Rooms into RoomSpec
+    set the content of RoomName to property `name` of RoomSpec
     
     on click EditNameButton go to NameButtonCB
     
@@ -74,10 +71,6 @@ Editor:
         exit
     end
     
-    put `{}` into Result
-    put `{}` into RequestData
-    set property `action` of RequestData to empty
-    set property `roomnumber` of RequestData to ClickIndex
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -100,13 +93,12 @@ NameButtonCB:
     on click DialogButton1
     begin
     	put the content of DialogInput into Name
-        set property `name` of Room to Name
+        set property `name` of RoomSpec to Name
     	set the content of RoomName to Name
         clear DialogPanel
-        set property `action` of RequestData to `roomname`
-        set property `name` of RequestData to Name
-        set Changed
-        go to Exit
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        go to ExitWithChanges
     end
     
     on click DialogButton2
@@ -139,33 +131,33 @@ DevicesButtonCB:
     attach ProtectTemp to `dialog-winter-temp`
     attach Protect to `dialog-winter-protect`
     
-    if property `protect` of Room is `yes` set attribute `checked` of Protect to `checked`
-    set the content of ProtectTemp to  property `ptemp` of Room
+    if property `protect` of RoomSpec is `yes` set attribute `checked` of Protect to `checked`
+    set the content of ProtectTemp to  property `ptemp` of RoomSpec
     
     put `[]` into List
     json add `TP-Link P100` to List
     json add `Shelly One` to List
     json add `Simulator` to List
-    set RelayTypes from List as property `relayType` of Room
-    if property `relayType` of Room is `TP-Link P100`
+    set RelayTypes from List as property `relayType` of RoomSpec
+    if property `relayType` of RoomSpec is `TP-Link P100`
     begin
-        set the content of P100Email to property `p100Email` of Room
-        set the content of P100Password to property `p100Password` of Room
+        set the content of P100Email to property `p100Email` of RoomSpec
+        set the content of P100Password to property `p100Password` of RoomSpec
     	set style `display` of P100Login to `block`
     end
-    if property `relayType` of Room is `Simulator`
+    if property `relayType` of RoomSpec is `Simulator`
     begin
         set style `display` of DialogText2 to `none`
         set style `display` of TextArea to `none`
     end
     on change RelayTypes
     begin
-        set property `relayType` of Room to attribute `value` of RelayTypes
+        set property `relayType` of RoomSpec to attribute `value` of RelayTypes
         if attribute `value` of RelayTypes is `TP-Link P100`
         begin
         	set style `display` of P100Login to `block`
-            set the content of P100Email to property `p100Email` of Room
-            set the content of P100Password to property `p100Password` of Room
+            set the content of P100Email to property `p100Email` of RoomSpec
+            set the content of P100Password to property `p100Password` of RoomSpec
         end
         else set style `display` of P100Login to `none`
         if attribute `value` of RelayTypes is `Simulator`
@@ -180,14 +172,14 @@ DevicesButtonCB:
         end
     end
     
-    set the content of DialogTitle to `Sensor and relays for '` cat property `name` of Room cat `'`
+    set the content of DialogTitle to `Sensor and relays for '` cat property `name` of RoomSpec cat `'`
     set the content of DialogText to `Type the IP address of the temperature sensor`
     set the content of DialogText2 to `Type the IP addresses of the relays, 1 per line`
     set the content of DialogButton1 to `Save`
     set the content of DialogButton2 to `Help`
     set the content of DialogButton3 to `Cancel`
-    set the content of DialogInput to property `sensor` of Room
-    put property `relays` of Room into Relays
+    set the content of DialogInput to property `sensor` of RoomSpec
+    put property `relays` of RoomSpec into Relays
     put empty into Item
     put 0 into R
     while R is less than the json count of Relays
@@ -200,19 +192,17 @@ DevicesButtonCB:
     
     on click DialogButton1
     begin
-    	put `{}` into Items
-        set property `sensor` of Items to the content of DialogInput
+        set property `sensor` of RoomSpec to the content of DialogInput
         if attribute `checked` of Protect
         begin
-        	if the content of ProtectTemp is empty set the content of ProtectTemp to `0.0`
-        	set property `protect` of Items to `yes`
-            set property `ptemp` of Items to the content of ProtectTemp
+        	set property `protect` of RoomSpec to `yes`
+            set property `ptemp` of RoomSpec to the content of ProtectTemp
         end
-        else set property `protect` of Items to `no`
-        if property `relayType` of Items is `TP-Link P100`
+        else set property `protect` of RoomSpec to `no`
+        if property `relayType` of RoomSpec is `TP-Link P100`
         begin
-            set property `p100Email` of Items to the content of P100Email
-            set property `p100Password` of Items to the content of P100Password
+            set property `p100Email` of RoomSpec to the content of P100Email
+            set property `p100Password` of RoomSpec to the content of P100Password
         end
         put `[]` into Relays
         split the content of TextArea on newline giving Item
@@ -223,21 +213,18 @@ DevicesButtonCB:
             append Item to Relays
             add 1 to R
         end
-        set property `relays` of Items to Relays
+        set property `relays` of RoomSpec to Relays
         clear DialogPanel
-        set property `action` of RequestData to `roomdata`
-        set property `items` of RequestData to Items
-        set Changed
-        go to Exit
+        set element ClickIndex of Rooms to RoomSpec
+        gosub to CopyRoomsToMap
+        go to ExitWithChanges
     end
     
     on click DialogButton2
     begin
     	clear DialogPanel
-    	put `{}` into Result
-        set property `request` of Result to `Help`
-        set property `data` of Result to `home Devices`
-		exit
+        put `Help home Devices` into Result
+    	exit
     end
     
     on click DialogButton3
@@ -255,6 +242,16 @@ GetCurrentRooms:
     put property `rooms` of Profile into Rooms        
 	return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Copy the current room set to the map
+CopyRoomsToMap:
+   	put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    set property `rooms` of Profile to Rooms  
+    set element CurrentProfile of Profiles to Profile
+    set property `profiles` of Map to Profiles
+	return
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the times
 TimesButtonCB:
@@ -262,23 +259,10 @@ TimesButtonCB:
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
 	exit
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Exit without changes
 ExitWithoutChanges:
-	set property `request` of Result to `Redraw`
-    clear Changed
-    go to Exit
+    put `Redraw` into Result
+    exit
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Exit to the main script
-Exit:
-	if Changed
-    begin
-    	set property `request` of Result to `Update`
-        set property `data` of Result to RequestData
-    end
-    else
-    begin
-    	set property `request` of Result to `Redraw`
-    end
+ExitWithChanges:
+    put `Changed` into Result
     exit
