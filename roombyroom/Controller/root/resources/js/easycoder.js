@@ -346,15 +346,18 @@ const EasyCoder_Core = {
 					name
 				});
 				return true;
-			} else if (compiler.tokenIs(`step`)) {
-				compiler.next();
-				compiler.addCommand({
-					domain: `core`,
-					keyword: `debug`,
-					lino,
-					item: `step`
-				});
-				return true;
+			} else {
+				const item = compiler.getToken();
+				if ([`step`, `stop`].includes(item)) {
+					compiler.next();
+					compiler.addCommand({
+						domain: `core`,
+						keyword: `debug`,
+						lino,
+						item
+					});
+					return true;
+				}
 			}
 			return false;
 		},
@@ -375,6 +378,9 @@ const EasyCoder_Core = {
 				break;
 			case `step`:
 				program.debugStep = true;
+				break;
+			case `stop`:
+				program.debugStep = false;
 				break;
 			case `program`:
 				console.log(`Debug program: ${JSON.stringify(program, null, 2)}`);
@@ -2407,6 +2413,10 @@ const EasyCoder_Core = {
 				}
 				return null;
 			}
+			
+			if (compiler.tokenIs(`the`)) {
+				compiler.next();
+			}
 
 			var token = compiler.getToken();
 			if (token === `true`) {
@@ -2470,7 +2480,7 @@ const EasyCoder_Core = {
 					radius_t
 				};
 			}
-			if ([`now`, `today`, `newline`, `backtick`, `break`, `empty`, `uuid`].includes(token)) {
+			if ([`now`, `timestamp`, `today`, `newline`, `backtick`, `break`, `empty`, `uuid`].includes(token)) {
 				compiler.next();
 				return {
 					domain: `core`,
@@ -2556,9 +2566,6 @@ const EasyCoder_Core = {
 						value
 					};
 				}
-			}
-			if (compiler.tokenIs(`the`)) {
-				compiler.next();
 			}
 			const type = compiler.getToken();
 			switch (type) {
@@ -2899,6 +2906,20 @@ const EasyCoder_Core = {
 					content: ``
 				};
 			case `now`:
+                const d = new Date();
+                const jan = new Date(d.getFullYear(), 0, 1).getTimezoneOffset();
+                const jul = new Date(d.getFullYear(), 6, 1).getTimezoneOffset();
+                const isDST = Math.max(jan, jul) !== d.getTimezoneOffset();  
+                let now = Math.floor(Date.now() / 1000)
+				if (isDST) {
+					now += 3600
+				}
+				return {
+					type: `constant`,
+					numeric: true,
+					content: now
+				};
+			case `timestamp`:
 				return {
 					type: `constant`,
 					numeric: true,

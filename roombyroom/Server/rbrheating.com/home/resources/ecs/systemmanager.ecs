@@ -22,22 +22,26 @@
     div DialogPanel
     div DialogTitle
     div DialogText
-    div DialogButton1
-    div DialogButton2
+    div Waiting
+    input DialogInput
     input MACInput
     input PWDInput
+    button DialogButton1
+    button DialogButton2
     button OKButton
     button AddButton
     button RemoveButton
     button HelpButton
     button CancelButton
     button AddThisButton
+    variable Email
+    variable UserPassword
+    variable UserData
     variable Webson
     variable Systems
     variable System
     variable SelectedSystem
     variable SystemName
-    variable Version
     variable Keys
     variable Text
     variable K
@@ -45,11 +49,80 @@
 
 !	debug step
 
-	attach SystemManager to `dialog-panel`
+Start:
+!	put empty into storage as `email`
+!	put empty into storage as `userpassword`
+
+	attach SystemManager to `mode-panel`
+!	First make sure we have a user
+	get Email from storage as `email`
+    if Email is empty go to GetEmail
+ResumeAfterEmail:
+	put Email into storage as `email`
+    get UserPassword from storage as `userpassword`
+    if UserPassword is empty go to GetPassword
+ResumeAfterPassword:
+	put UserPassword into storage as `userpassword`
+
+!	Get the user data. This informs if the system is creating a new user record
+GetUserData:
+    rest get UserData from Server cat `/user/` cat Email cat `/` cat UserPassword cat `?v=` cat now
+    or begin
+    	print `Server not responding`
+    	exit
+    end
+    put property `message` of UserData into UserData
+    if UserData is `found`
+    begin
+		clear SystemManager
+    	go to Continue
+    end
+    else if UserData is `badpassword`
+    begin
+    	alert `Incorrect user name or password`
+        go to Start
+    end
+    else
+    begin
+    	put from 1 of UserData into UserPassword
+		put UserPassword into storage as `userpassword`
+    end
+
+	! New user, so wait for the user to confirm their email
+    rest get Webson from `/resources/webson/waiting.json?v=` cat now
+    render Webson in SystemManager
+    attach Waiting to `waiting...`
+    attach CancelButton to `wait-cancel`
+    set the content of Waiting to `Waiting for confirmation<br>(check your emails)`
+    on click CancelButton
+    begin
+    	put empty into Result
+    	clear SystemManager
+    	exit
+    end
+    while true
+    begin
+    	wait 5
+		rest get UserData from Server cat `/user/` cat Email cat `/` cat UserPassword cat `?v=` cat now
+		or begin
+       		print `Server not responding`
+			exit
+        end
+    	put property `message` of UserData into UserData
+        if UserData is `found`
+        begin
+        	clear SystemManager
+            go to Continue
+        end
+    end
+
+Continue:
+    attach SystemManager to `dialog-panel`
     set style `width` of SystemManager to `80%`
     set style `left` of SystemManager to `10%`
-    rest get Webson from `/resources/webson/systemmanager.json?v=` cat now
+   	rest get Webson from `/resources/webson/systemman.json?v=` cat now
     render Webson in SystemManager
+
     attach SystemVersion to `system-version`
     attach SystemSelect to `system-select`
     attach SystemNames to `system-names`
@@ -65,10 +138,10 @@
     if Sensors is not empty
         if property `version` of Sensors is not empty
             set the content of SystemVersion to `System version ` cat property `version` of Sensors
-    if Version is empty put 0 into Version
-    set the content of SystemVersion to `System version ` cat Version
 
-    get Systems from storage as `Systems`
+	! Get the systems managed by this user
+!    get Systems from storage as `Systems`
+    rest get Systems from Server cat `/managed/` cat Email cat `/` cat UserPassword cat `?v=` cat now
     if Systems is empty put `{}` into Systems
     if Map is empty put `New system` into SystemName
     else put property `name` of Map into SystemName
@@ -82,7 +155,8 @@
 
     on click OKButton
     begin
-    	put Systems into storage as `Systems`
+!    	put Systems into storage as `Systems`
+        rest post Systems to Server cat `/managed/` cat Email cat `/` cat UserPassword
         put property SystemName of Systems into System
         put property `mac` of System into MAC
         put MAC into storage as `MAC`
@@ -216,3 +290,64 @@ SetupAdd:
 MissingInput:
 	alert `The MAC address and password are required.`
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the user's email adress
+GetEmail:
+    attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `Email`
+    set the content of DialogText to `Type your email address`
+    set the content of DialogButton1 to `OK`
+    set the content of DialogButton2 to `Cancel`
+    
+    on click DialogButton1
+    begin
+    	put the content of DialogInput into Email
+        if Email is empty stop
+        clear DialogPanel
+        go to ResumeAfterEmail
+    end
+    
+    on click DialogButton2
+    begin
+        clear DialogPanel
+        exit
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the user's password
+GetPassword:
+    attach DialogPanel to `dialog-panel`
+    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+    render Webson in DialogPanel
+    attach DialogTitle to `dialog-title`
+    attach DialogText to `dialog-text`
+    attach DialogButton1 to `dialog-button1`
+    attach DialogButton2 to `dialog-button2`
+    attach DialogInput to `dialog-input`
+    set the content of DialogTitle to `User Password`
+    set the content of DialogText to `Type your password, or leave blank if you are a new user`
+    set the content of DialogButton1 to `OK`
+    set the content of DialogButton2 to `Cancel`
+    
+    on click DialogButton1
+    begin
+    	put the content of DialogInput into UserPassword
+        clear DialogPanel
+        go to ResumeAfterPassword
+    end
+    
+    on click DialogButton2
+    begin
+        clear DialogPanel
+        exit
+    end
+	stop

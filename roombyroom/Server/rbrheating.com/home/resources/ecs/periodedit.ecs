@@ -57,6 +57,7 @@
     variable Editing
     variable Unsorted
     variable Changed
+    variable RequestData
     variable HV
     variable MV
     variable P
@@ -158,13 +159,14 @@
         set element ClickIndex of Rooms to RoomSpec
         gosub to CopyRoomsToMap
         clear MainPanel
-        go to ExitWithChanges
+        go to Exit
     end
     
     on click TimesCancelButton
     begin
        	clear MainPanel
-       	go to ExitWithoutChanges
+        clear Changed
+       	go to Exit
     end
     
     on click TimesHelpButton
@@ -173,6 +175,11 @@
         put `Help home PeriodEdit` into Result
         exit
     end
+    
+    put `{}` into RequestData
+    set property `action` of RequestData to empty
+    set property `roomnumber` of RequestData to ClickIndex
+
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -294,6 +301,7 @@ ShowEditor:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Cancel editing and sort the periods
 CancelEditing:
+	set Changed
     clear Editing
 	gosub to ShowValues
     gosub to SortPeriods
@@ -324,7 +332,6 @@ ShowValues:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Sort the periods
 SortPeriods:
-    clear Changed
     put the json count of Periods into NPeriods
     if NPeriods is less than 2 return
     push P
@@ -365,7 +372,6 @@ SortPeriods:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Rotate all the periods to adjust between 'from' and 'until'.
 RotatePeriods:
-print `RotatePeriods: ` cat Periods
 	push P
     push Q
     put the json count of Periods into NPeriods
@@ -469,11 +475,18 @@ CopyRoomsToMap:
     set element CurrentProfile of Profiles to Profile
     set property `profiles` of Map to Profiles
 	return
-        
-ExitWithoutChanges:
-    put `Redraw` into Result
-    exit
 
-ExitWithChanges:
-    put `Changed` into Result
+Exit:
+	put `{}` into Result
+	if Changed
+    begin
+    	set property `request` of Result to `Update`
+       	set property `action` of RequestData to `periods`
+        set property `periods` of RequestData to Periods
+        set property `data` of Result to RequestData
+    end
+    else
+    begin
+    	set property `request` of Result to `Redraw`
+    end
     exit

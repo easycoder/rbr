@@ -367,26 +367,14 @@
                 // Endpoint: {site root}/resources/php/rest.php/managed/<email>/<password>
                 $email = $request[0];
                 $password = $request[1];
-                $result = query($conn, "SELECT null FROM user WHERE email='$email' AND password='$password'");
+                $result = query($conn, "SELECT systems FROM users WHERE email='$email' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    mysqli_free_result($result);
-                    $data = array();
-                    $result = query($conn, "SELECT mac FROM managed WHERE email='$email'");
-                    $mac = $row->mac;
-                    while ($row = mysqli_fetch_object($result)) {
-                        $result2 = query($conn, "SELECT password FROM systems WHERE email='$email' AND password='$password'");
-                        if ($row = mysqli_fetch_object($result)) {
-                            $item = new stdClass();
-                            $item->mac = $mac;
-                            $item->password = $row->password;
-                            $data.push($row->$item);
-                        }
-                    }
-                    mysqli_free_result($result);
-                    print json_encode($data);
-                 }
-
-               break;
+                    print base64_decode($row->systems);
+                } else {
+                    print '';
+                }
+                mysqli_free_result($result);
+                break;
 
             case 'sensors':
                 // Get the systems sensor values, given its MAC.
@@ -582,33 +570,21 @@
                 }
                 break;
 
-            case 'systems':
-                // Save the list of systems for a given user
-                // Endpoint: {site root}/resources/php/rest.php/systems/{email}/{password}
-                $mac = trim($request[0]);
+            case 'managed':
+                // Save the list of systems managed by this user
+                // Endpoint: {site root}/resources/php/rest.php/managed/{email}/{password}
+                $email = trim($request[0]);
                 $password = trim($request[1]);
-                $currentProfile = intval(trim($request[2]));
-                $roomIndex = intval(trim($request[3]));
-                $target = intval(trim($request[4]));
-                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT null FROM users WHERE email='$email' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $map = $row->map;
-                    $map = base64_decode($map);
-                    $map = json_decode($map);
-                    $profile = $map->profiles[$currentProfile];
-                    $profile->rooms[$roomIndex]->boost = $target;
-                    // Deal with boost end
-                    if ($target == 0) {
-                        $profile->rooms[$roomIndex]->mode = $profile->rooms[$roomIndex]->prevmode;
-                    }
-                    $map = json_encode($map);
-                    $map = base64_encode($map);
-                    logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
-                    query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");
+                    mysqli_free_result($result);
+                    $systems = file_get_contents("php://input");
+                    $systems = base64_encode($systems);
+                    query($conn, "UPDATE users SET systems='$systems' WHERE email='$email'");
                 } else {
                     http_response_code(404);
-                    logger("Boost request failed: MAC $mac and password $password do not match any record.\n");
-                    print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
+                    logger("'Managed' failed: Email $email and password $password do not match any record.\n");
+                    print "{\"message\":\"Email $email and password $password do not match any record.\"}";
                 }
                 break;
 

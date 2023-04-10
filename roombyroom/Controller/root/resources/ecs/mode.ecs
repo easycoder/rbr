@@ -332,13 +332,15 @@ SelectMode:
     end
 	if Mode is CurrentMode exit
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Change the mode
 ModeChange:
 	set property `mode` of RoomSpec to Mode
     set element ClickIndex of Rooms to RoomSpec
     gosub to CopyRoomsToMap
     go to PostMap
 
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the current room set from the map
 GetCurrentRooms:
 	put property `actual` of Sensors into CurrentProfile

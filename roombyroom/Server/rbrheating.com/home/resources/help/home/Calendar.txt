@@ -2,16 +2,12 @@
 
 **RBR** allows you to set up any number of different ~tid:Profiles:Profiles~ where you can adjust times and temperatures to suit your needs, but the Calendar takes things one stage further.
 
-~img:calendar.jpg:center 50%~
+~img:calendar.png:center 50%~
 
-The Calendar operates on a weekly cycle. To take a simple example, as shown above, let's assume you need one profile for Monday through Friday afternoon, then at 5pm on Friday you want to change to a weekend profile where the heating is on all day. You will already have these profiles set up.
+The Calendar operates on a weekly cycle. For each day of the week you can choose which Profile should operate on that day. So you might have a weekday profile and a weekend profile; the former will be set for Monday through Friday and the latter for Saturday and Sunday.
 
-In the picture, the weekday profile starts at 00:00am on Monday morning, so we have this time showing in the middle column. The associated Profile is showing in the third column. Nothing changes until Friday afternoon, so the next 3 rows are empty. Then at 17:00 on Friday we change to the weekend Profile. which runs until Monday morning when the table starts over.
+To choose a Profile, tap the right-hand column at the row for that day. A dialog will pop up with a list of all your Profiles; just tap to select one.
 
-The up and down arrows let you choose a time, in steps of 30 minutes. You can modify an existing time or create a new one by tapping one of the arrows. To delete the time just tap its text.
-
-To choose a Profile, tap in the third column at the row for that day. A dialog will pop up with a list of all your Profiles; just tap to select one. To remove a previously-selected Profile, tap `-none-` at the bottom of the list.
-
-When the Calendar is enabled you cannot change Profiles manually. If you need to do so, disable the Calendar first.
+When the Calendar is active it displays a small icon next to the Profiles button on the main screen, showing the current date. While it is active you cannot change Profiles manually. If you need to do so, disable the Calendar first. The Calendar is completely optional; if it is not set you change Profiles as and when you wish.
 
 ~sid:Index:Index of pages~

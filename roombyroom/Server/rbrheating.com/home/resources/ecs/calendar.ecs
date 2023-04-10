@@ -55,6 +55,7 @@
         begin
         	index ProfileRowText to the index of ProfileRow
             set the content of ProfileRowText to DialogResult
+            set Changed
         end
     end
     
@@ -67,7 +68,7 @@
         while D is less than 7
         begin
             index ProfileRowText to D
-            set the content of ProfileRowText to Name
+            set the content of ProfileRowText to empty
             add 1 to D
         end
     end
@@ -94,6 +95,11 @@
     on click OKButton
     begin
     	if DialogOpen stop
+        if not Changed
+        begin
+        	set property `request` of Result to `Redraw`
+    		exit
+        end
         put `[]` into Calendar
         put 0 into D
         while D is less than 7
@@ -104,35 +110,28 @@
         	set element D of Calendar to Day
         	add 1 to D
         end
-        print Calendar
-        set property `calendar-data` of Map to Calendar
-        set Changed
-    	go to Exit
+    	set property `request` of Result to `Update`
+        set property `data` of Result to Calendar
+    	exit
     end
     
     on click HelpButton
     begin
-    	if DialogOpen stop
-        put `Help home Calendar` into Result
-        exit
+    	set property `request` of Result to `Help`
+        set property `data` of Result to `home Calendar`
+    	exit
     end
 
 	on click CancelButton
     begin
     	if DialogOpen stop
-    	clear Changed
-        go to Exit
+    	set property `request` of Result to empty
+    	exit
     end
+    
+    put `{}` into Result
 
 	stop
-
-Exit:
-	if Changed put `Changed` into Result
-    exit
-
-ExitWithError:
-    put `Error` into Result
-    exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Choose a profile
@@ -159,7 +158,6 @@ GetProfile:
     on click DialogRow
     begin
         put the index of DialogRow into P
-!    	index Name to P
 		put element P of Profiles into Profile
         put property `name` of Profile into DialogResult
     	set style `display` of Dialog to `none`
@@ -170,8 +168,6 @@ GetProfile:
     begin
 		put empty into DialogResult
     	set style `display` of Dialog to `none`
-!        index Name to 0
-!        put empty into Name
     	clear DialogOpen
     end
     set DialogOpen

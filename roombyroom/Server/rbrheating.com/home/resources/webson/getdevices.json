@@ -77,7 +77,8 @@
         "$Temp": {
             "#element": "input",
             "@id": "dialog-winter-temp",
-            "width": "3em"
+            "width": "3em",
+            "#content": "0.0"
         },
 
         "$Check": {

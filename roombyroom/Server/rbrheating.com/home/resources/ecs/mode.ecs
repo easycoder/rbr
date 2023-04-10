@@ -35,6 +35,7 @@
     div TitleMask
     div MaskLayer
 	img TimedEditIcon
+    variable Host
     variable CurrentProfile
     variable Profiles
     variable Profile
@@ -43,7 +44,6 @@
     variable SensorIP
     variable Sensor
     variable Target
-    variable TargetFlag
     variable RoomName
     variable CurrentMode
     variable PeriodEditScript
@@ -56,13 +56,15 @@
     variable Dot
     variable OnUD
     variable Boost
-    variable BoostFlag
-    variable Changed
+    variable BoostIsOn
+    variable RequestData
     variable L
     variable T
     variable X
     
 !    debug step
+
+	get Host from storage as `host`
 
 	put empty into PeriodEditScript
     get Server from storage as `server`
@@ -77,7 +79,6 @@
     gosub to GetCurrentRooms
     put element ClickIndex of Rooms into RoomSpec
     put property `name` of RoomSpec into RoomName
-    put property `mode` of RoomSpec into Mode
     rest get ModeWebson from `/resources/webson/mode.json?v=` cat now
     replace `/ROOM/` with RoomName in ModeWebson
 	render ModeWebson in ModePanel
@@ -107,9 +108,8 @@
 
     put property `target` of RoomSpec into Target
 	set the content of OnTarget to Target cat `&deg;C`
-    clear TargetFlag
 
-    clear BoostFlag
+    clear BoostIsOn
     put 0 into Boost
 	set style `color` of Boost1Text to `green`
 
@@ -117,6 +117,7 @@
     put property `sensor` of RoomSpec into SensorIP
     put property SensorIP of Sensors into Sensor
     put `` cat property `advance` of Sensor into Advance
+    if Advance is empty put `-` into Advance
     if Advance is `-`
     begin
         set style `color` of AdvanceText to `black`
@@ -138,6 +139,11 @@
     on click Boost4Button go to Boost4
     on click TimedEditIcon go to ShowTimes
     on click AdvanceButton go to DoAdvance
+    
+    put `{}` into Result
+    put `{}` into RequestData
+    set property `action` of RequestData to empty
+    set property `roomnumber` of RequestData to ClickIndex
 
 	stop
 
@@ -170,7 +176,6 @@ OnUpDown:
     put X cat `.` into X
     put X cat from L of T into Target
     set the content of OnTarget to Target cat `&deg;C`
-    set TargetFlag
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -181,7 +186,6 @@ ShowTimes:
     set style `display` of TitleMask to `block`
     set style `display` of MaskLayer to `block`
     set style `visibility` of ModePanel to `hidden`
-    put empty into Result
     if PeriodEditScript is empty
     	rest get PeriodEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
@@ -191,18 +195,17 @@ ShowTimes:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Send an advance or cancel request
 DoAdvance:
-	if Advance is `-` put `A` into Advance
-    else put `C` into Advance
+	if Advance is `-` put `A` into Advance else put `C` into Advance
     set property `advance` of RoomSpec to Advance
-    set Changed
-    go to SelectTimed
+    set property `advance` of RequestData to Advance
+   	put `timed` into Mode
+    go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select timed mode
 SelectTimed:
-    if Mode is not `timed` set Changed
    	put `timed` into Mode
-    clear BoostFlag
+    set property `advance` of RequestData to `-`
     go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -246,13 +249,9 @@ SelectBoost:
         if Boost is 0
         begin
         	put property `prevmode` of RoomSpec into Mode
-        	clear BoostFlag
+        	clear BoostIsOn
         end
-        else
-        begin
-            set property `advance` of RoomSpec to `-`
-            set BoostFlag
-        end
+        else set BoostIsOn
         go to SelectMode
     end
    	if Boost is 0 go to SelectCancel
@@ -260,7 +259,7 @@ SelectBoost:
     begin
     	if CurrentMode is not `boost` set property `prevmode` of RoomSpec to CurrentMode
         put `boost` into Mode
-        set BoostFlag
+        set BoostIsOn
        	go to SelectMode
     end
 
@@ -268,7 +267,7 @@ SelectBoost:
 !	Select 'on' mode
 SelectOn:
     put `on` into Mode
-    clear BoostFlag
+    clear BoostIsOn
     set property `advance` of RoomSpec to `-`
     go to SelectMode
 
@@ -276,7 +275,7 @@ SelectOn:
 !	Select off mode
 SelectOff:
     put `off` into Mode
-    clear BoostFlag
+    clear BoostIsOn
     set property `advance` of RoomSpec to `-`
     go to SelectMode
 
@@ -284,69 +283,58 @@ SelectOff:
 !	Select cancel
 SelectCancel:
     put CurrentMode into Mode
-    clear TargetFlag
-    clear BoostFlag
+    clear BoostIsOn
     go to SelectMode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select help
 SelectHelp:
     set style `visibility` of ModePanel to `hidden`
-    put `Help home Mode` into Result
+    set property `request` of Result to `Help`
+    set property `data` of Result to `home Mode`
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select the mode and exit
 SelectMode:
+	set property `action` of RequestData to `mode`
+	set property `mode` of RequestData to Mode
     set style `visibility` of ModePanel to `hidden`
     if Mode is `timed`
     begin
         set property `boost` of RoomSpec to 0
-        if Changed go to ModeChange
+    	clear BoostIsOn
     end
     else if Mode is `on`
     begin
-    	if TargetFlag
-        begin
-			set property `target` of RoomSpec to Target
-			set property `boost` of RoomSpec to 0
-            go to ModeChange
-        end
+    	set property `advance` of RoomSpec to `none`
+    	set property `target` of RequestData to Target
     end
     else if Mode is `boost`
     begin
-    	clear Changed
-    	if TargetFlag
+    	set property `advance` of RoomSpec to `none`
+    	if BoostIsOn
         begin
-			set property `target` of RoomSpec to Target
-			set property `boost` of RoomSpec to 0
-            set Changed
+			set property `boost` of RequestData to `B` cat Boost
         end
-    	if BoostFlag
-        begin
-			set property `boost` of RoomSpec to `B` cat Boost
-    		set property `advance` of RoomSpec to ``
-            set Changed
-        end
-        if Changed go to ModeChange
+        else set property `boost` of RequestData to empty
     end
-	if Mode is CurrentMode exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Change the mode
-ModeChange:
-	set property `mode` of RoomSpec to Mode
-    set element ClickIndex of Rooms to RoomSpec
-    gosub to CopyRoomsToMap
-    go to PostMap
+!	Exit
+Exit:
+    set property `request` of Result to `Update`
+	set property `data` of Result to RequestData
+	exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the current room set from the map
 GetCurrentRooms:
 	put property `actual` of Sensors into CurrentProfile
+    if CurrentProfile is empty put 0 into CurrentProfile
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms
+    put property `rooms` of Profile into Rooms        
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -359,18 +347,3 @@ CopyRoomsToMap:
     set element CurrentProfile of Profiles to Profile
     set property `profiles` of Map to Profiles
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Post the map to the server
-PostMap:
-	if Demo put Map into storage as `map`
-    else
-	begin
-   		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
-        or begin
-        	alert `Unable to save changes.` cat newline
-            	cat `A common cause is having the wrong system password.`
-        	continue
-        end
-	end
-	exit

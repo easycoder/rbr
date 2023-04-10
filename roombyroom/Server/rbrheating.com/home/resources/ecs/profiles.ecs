@@ -8,7 +8,7 @@
 
 	div ProfilesPanel
     div CalendarPanel
-	div UserProfileDiv
+	div ProfilesDiv
     div ProfilesMask
     div PageHeader
     button SelectButton
@@ -32,14 +32,16 @@
     variable Profile
     variable Rooms
     variable Name
+    variable Request
+    variable RequestData
     variable CurrentProfile
     variable EditingProfile
+    variable CalendarOnOff
     variable CalendarData
     variable Calendar
     variable Changed
     variable Temp
     variable Script
-    variable Count
     variable Day
     variable D
     variable D2
@@ -75,7 +77,7 @@
 	attach ProfilesPanel to `profiles-panel`
     attach ProfilesMask to `profiles-mask`
 	attach CalendarPanel to `calendar-panel`
-	attach UserProfileDiv to `profiles`
+	attach ProfilesDiv to `profiles`
     attach CalendarOff to `calendar-off`
     attach CalendarOn to `calendar-on`
     attach CalendarButton to `calendar-edit`
@@ -83,9 +85,17 @@
     attach OKButton to `profiles-ok-button`
     attach HelpButton to `profiles-help-button`
     attach CancelButton to `profiles-cancel-button`
+    
+    put `{}` into Result
+    put `{}` into RequestData
+    set property `action` of RequestData to empty
+    put property `profiles` of Map into Profiles
+    put property `profile` of Map into CurrentProfile
+    set property `profiles` of RequestData to Profiles
+	set property `profile` of RequestData to CurrentProfile
 
-	put property `profile` of Map into CurrentProfile
     put property `calendar` of Map into Calendar
+    set property `calendar` of RequestData to Calendar
     if Calendar is `on`
     begin
         set style `display` of CalendarOff to `none`
@@ -101,24 +111,20 @@
     
     on click CalendarOff
     begin
-    	put property `calendar-data` of Map into CalendarData
         if CalendarData is empty go to ShowErrorMessage
-        put 0 into Count
+        ! Make sure every day has a profile
         put 0 into D
         while D is less than 7
         begin
         	put element D of CalendarData into Day
-            if Day is not `{}`
-            begin
-            	if property `day` cat D cat `-profile` of Day is not empty add 1 to Count
-            end
+            if Day is `{}` go to ShowErrorMessage
         	add 1 to D
         end
-        if Count is 0 go to ShowErrorMessage
         set style `display` of CalendarOff to `none`
         set style `display` of CalendarOn to `flex`
         set style `display` of ProfilesMask to `block`
         set property `calendar` of Map to `on`
+        set Changed
     end
 
     on click CalendarOn
@@ -127,6 +133,7 @@
         set style `display` of CalendarOff to `flex`
         set style `display` of ProfilesMask to `none`
         set property `calendar` of Map to `off`
+        set Changed
     end
     
     on click ProfilesMask
@@ -144,8 +151,14 @@
         set style `margin-bottom` of PageHeader to `0.5em`
         set style `display` of ProfilesPanel to `block`
         set style `display` of CalendarPanel to `none`
-        if Result is `Changed` set Changed
-        if left 4 of Result is `Help` exit
+        put property `request` of Result into Request
+        if Request is `Update`
+        begin
+        	put property `data` of Result into CalendarData
+            set property `calendar-data` of Map to CalendarData
+            set Changed
+        end
+        if Request is `Help` exit
     end
     
     on click AddButton
@@ -162,14 +175,14 @@
     
     on click OKButton
     begin
-        set Changed
-    	go to Exit
+        go to Exit
     end
     
     on click HelpButton
     begin
-        put `Help home Profiles` into Result
-        exit
+    	set property `request` of Result to `Help`
+        set property `data` of Result to `home Profiles`
+    	exit
     end
 
 	on click CancelButton
@@ -179,19 +192,18 @@
     end
 
 !	Set up the profiles
-	put property `profile` of Map into CurrentProfile
-    put property `profiles` of Map into Profiles
+	put property `calendar-data` of Map into CalendarData
     gosub to RenderProfiles
 
 	stop
 
 ShowErrorMessage:
-	alert `The calendar must specify at least one day`
+	alert `The calendar must specify a profile for each day`
     stop
 
-!	Render the user profiles. The base profile remains separate.
+!	Render the profiles.
 RenderProfiles:
-	clear UserProfileDiv
+	clear ProfilesDiv
     put the json count of Profiles into P
     set the elements of SelectButton to P
     set the elements of EditButton to P
@@ -207,7 +219,7 @@ RenderProfiles:
 		put ProfileWebson into Webson
         replace `!ID!` with P in Webson
         replace `!TITLE!` with Name in Webson
-        render Webson in UserProfileDiv
+        render Webson in ProfilesDiv
         index SelectButton to P
         index EditButton to P
         index UpButton to P
@@ -238,6 +250,7 @@ RenderProfiles:
             if index of SelectButton is not CurrentProfile
             begin
 	        	put the index of SelectButton into CurrentProfile
+                set Changed
             	go to RenderProfiles
             end
         end
@@ -297,6 +310,8 @@ RenderProfiles:
     if property `calendar` of Map is `on` set style `display` of ProfilesMask to `block`
 	return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the name of a profile
 GetName:
     attach DialogPanel to `dialog-panel`
     rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
@@ -314,13 +329,13 @@ GetName:
     
     on click DialogButton1
     begin
-        set property `profile` of Map to CurrentProfile
+!        set property `profile` of Map to CurrentProfile
     	put the text of DialogInput into Name
         set property `name` of Profile to Name
         index SelectButton to EditingProfile
         set the text of SelectButton to Name
     	set element EditingProfile of Profiles to Profile
-     	set property `profiles` of Map to Profiles
+!     	set property `profiles` of Map to Profiles
         clear DialogPanel
         set Changed
     end
@@ -331,19 +346,36 @@ GetName:
     end
 	stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Exit without changes
+ExitWithoutChanges:
+	set property `request` of Result to `Redraw`
+    clear Changed
+    go to Exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Exit to the main script
 Exit:
 	if Changed
     begin
-        set property `profile` of Map to CurrentProfile
-        set property `profiles` of Map to Profiles
-        put `Changed` into Result
+    	set property `request` of Result to `Update`
+        set property `action` of RequestData to `profiles`
+        set property `profiles` of RequestData to Profiles
+        set property `profile` of RequestData to CurrentProfile
+        set property `calendar-data` of RequestData to CalendarData
+        put property `calendar` of Map into CalendarOnOff
+        if CalendarOnOff is empty put `off` into CalendarOnOff
+        set property `calendar` of RequestData to CalendarOnOff
+        set property `data` of Result to RequestData
     end
     else
     begin
-    	put `Redraw` into Result
+    	set property `request` of Result to `Redraw`
     end
     exit
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Exit with an error
 ExitWithError:
-    put `Error` into Result
+    set property `request` of Result to `Error`
     exit

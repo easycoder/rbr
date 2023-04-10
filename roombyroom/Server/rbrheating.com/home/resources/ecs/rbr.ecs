@@ -36,21 +36,24 @@
     img Hamburger
     img ModeIcon
     button ProfilesButton
+    button LocalServerButton
+    button SystemManagerButton
     button AddButton
     button GetSysParamsButton
     button GetSystemNameButton
     button GetRequestButton
+    button RestartButton
     button OKButton
     button CancelButton
     button BackupButton
     button RestoreButton
     button WelcomeButton
-    button EvaluateButton
     button HelpButton
     button DialogButton1
     button DialogButton2
     module ProfileModule
     module Storyteller
+    module DemoModule
     module DebugModule
     variable Mobile
     variable Systems
@@ -103,6 +106,9 @@
     variable SID
     variable TID
     variable Result
+    variable Request
+    variable RequestData
+    variable Confirm
     variable Finish
     variable Name
     variable DateFormat
@@ -119,6 +125,9 @@
     variable Now
     variable UntilTime
     variable UntilTemp
+    variable Waiting
+    variable Flashing
+    variable Count
     variable Keys
     variable Key
     variable FH
@@ -350,10 +359,28 @@ Start:
 	put 0 into RestErrorCount
     send `Count` to DebugModule
 
-    put `MAC` into MAC
-    put `Password` into Password
-    put `MAC` into storage as `MAC`
-    put `Password` into storage as `password`
+    !	Make sure we have a MAC address; if not, go ask for one
+    clear Flag
+    get MAC from storage as `MAC`
+    if MAC is empty go to SystemManager ! GetLogin
+    if MAC is `DEMO`
+    begin
+    set Demo
+    if DemoModule is not running
+    begin
+    rest get Script from `/resources/ecs/demo.ecs?v=` cat now
+    or go to HandleRestError
+    get Map from storage as `map`
+    put empty into DemoSensors
+    run Script with Map and DemoSensors and Demo as DemoModule
+    send `run` to DemoModule
+    end
+    end
+    else clear Demo
+
+    !	Make sure we have the password; if not, ask for it
+    get Password from storage as `password`
+    if Password is empty go to GetLogin
 
 	if not Redraw go to GetMap
     clear MainPanel
@@ -387,7 +414,10 @@ GetMap:
         else
         begin
             set property `name` of Map to SystemName
-            fork to PostMap
+            put `{}` into RequestData
+            set property `action` of RequestData to `SystemName`
+            set property `data` of RequestData to SystemName
+            fork to PostRequest
             set Redraw
         end
     end
@@ -412,10 +442,13 @@ GetMap:
 	if Demo put DemoSensors into Sensors
     else rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
         or go to HandleRestError
+!print Sensors
 
-   	put property `profiles` of Map into Profiles
+!   	print Map
+    put property `profiles` of Map into Profiles
 	put property `actual` of Sensors into CurrentProfile
     if `` cat CurrentProfile is empty put property `profile` of Map into CurrentProfile
+    if CurrentProfile is empty put 0 into CurrentProfile
     put element CurrentProfile of Profiles into Profile
     put property `name` of Profile into Name
     set the text of ProfilesButton to `Profile: ` cat Name
@@ -535,6 +568,7 @@ GetMap:
             if Timestamp is not empty
             begin
             	take Timestamp from Now giving Elapsed
+!      print `Elapsed: ` cat Elapsed
 				if Elapsed is greater than 3600
                 begin
                 	if property `alive` of RoomData is `true`
@@ -706,11 +740,11 @@ GetMap:
             else if Mode is `boost`
             begin
                 attach BoostName to `room-` cat RoomIndex cat `-mode-info`
-                put the timestamp into Now
+                put now into Now
                 put property `boost` of RoomSpec into Boost
                 if char 0 of Boost is not `B`
                 begin
-                    take Now from Boost
+                    take the timestamp from Boost
                     divide Boost by 60
                     add 1 to Boost
                     if Boost is 1 set the content of BoostName to Boost cat ` min`
@@ -750,6 +784,7 @@ GetMap:
                 if ModeScript is empty
                     rest get ModeScript from `/resources/ecs/mode.ecs?v=` cat now
             			or go to HandleRestError
+    			put `{}` into Result
                 run ModeScript with MainPanel
                     and ModePanel
                     and ModeIcon
@@ -784,30 +819,6 @@ GetMap:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Process the result of running another module
-ProcessResult:
-    if left 4 of Result is `Help`
-    begin
-        split Result on ` ` giving Result
-        index Result to 1
-        put Result into SID
-        index Result to 2
-        put Result into TID
-        go to RunHelp
-    end
-    if Result is `Changed`
-    begin
-    	clear MainPanel
-        fork to PostMap
-        set Redraw
-        clear Blocked
-        stop
-    end
-    if Result is `Redraw` set Redraw
-    clear Blocked
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Reset the MAC address and password
 Reset:
 	put empty into storage as `MAC`
@@ -826,14 +837,28 @@ ShowMenu:
     	rest get MainMenuWebson from `/resources/webson/mainmenu.json?v=` cat now
             or go to HandleRestError
     render MainMenuWebson in MainPanel
+    attach LocalServerButton to `button-local`
+    attach SystemManagerButton to `button-systemmanager`
     attach AddButton to `button-add`
     attach GetSysParamsButton to `button-getsysparams`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
     attach WelcomeButton to `button-welcome`
-    attach EvaluateButton to `button-evaluate`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
+    
+    on click LocalServerButton
+    begin
+!    	rest get Item from `https://192.168.1.1/index.html`
+!        or begin
+!        	alert `The local server is not accessible from this network connection`
+!        	stop
+!        end
+		alert `Transferring to local controller`
+    	location `http://192.168.1.10`
+    end
+    
+    on click SystemManagerButton go to SystemManager
 
     on click GetSysParamsButton go to GetSystemParameters
 
@@ -843,11 +868,13 @@ ShowMenu:
             or go to HandleRestError
         if MAC is `DEMO` set property `sensor` of RoomSpec to the json count of Rooms
         append RoomSpec to Rooms
-		gosub to CopyRoomsToMap
-        fork to PostMap
     	clear MainPanel
         clear Blocked
         set Redraw
+        put `{}` into RequestData
+        set property `action` of RequestData to `addroom`
+        set property `spec` of RequestData to RoomSpec
+        gosub to PostAndConfirm
     	stop
     end
 
@@ -859,13 +886,6 @@ ShowMenu:
     begin
         put `home` into SID
         put `Welcome` into TID
-      	go to RunHelp
-    end
-
-    on click EvaluateButton
-    begin
-        put `home` into SID
-        put `Evaluate` into TID
       	go to RunHelp
     end
 
@@ -887,6 +907,54 @@ ShowMenu:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	The system manager
+SystemManager:
+	set Blocked
+    clear MainPanel
+    rest get Script from `/resources/ecs/systemmanager.ecs?v=` cat now
+    	or go to HandleRestError
+    run Script with MainPanel and MAC and Password and Map and Sensors and Server and Flag and Result
+    if Result is `OK`
+    begin
+        put MAC into storage as `MAC`
+        if MAC is `DEMO` set Demo else clear Demo
+        if Demo put `password` into Password
+        put Password into storage as `password`
+    	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
+        	or begin
+        		print `Server not responding`
+                put empty into Map
+            	continue
+        	end
+        if Map is empty
+        begin
+            set Redraw
+            clear Blocked
+            stop
+        end
+        put Map into storage as `map`
+        put property `name` of Map into SystemName
+        if SystemName is empty put `New` into SystemName
+        ! Update the system list
+        get Systems from storage as `Systems`
+        if Systems is empty put `{}` into Systems
+        put `{}` into System
+        set property `mac` of System to MAC
+        set property `password` of System to Password
+        set property SystemName of Systems to System
+        put Systems into storage as `Systems`
+    end
+    else if Result is `Help`
+    begin
+        put `home` into SID
+        put `SystemManager` into TID
+      	go to RunHelp
+    end
+    set Redraw
+    clear Blocked
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Get system parameters
 GetSystemParameters:
 	set Blocked
@@ -898,6 +966,7 @@ GetSystemParameters:
 
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
+    attach RestartButton to `button-restart`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
 
@@ -911,6 +980,16 @@ GetSystemParameters:
     begin
     	set Flag
         go to GetRequestRelay
+    end
+
+    on click RestartButton
+    begin
+    	set Flag
+        put `{}` into RequestData
+        set property `action` of RequestData to `restart`
+        fork to PostRequest
+        set Redraw
+        clear Blocked
     end
 
     on click HelpButton
@@ -958,7 +1037,10 @@ GetSystemName:
             set Redraw
             clear Blocked
             set property `name` of Map to SystemName
-            go to PostMap
+            put `{}` into RequestData
+            set property `action` of RequestData to `SystemName`
+            set property `SystemName` of RequestData to SystemName
+            gosub to PostAndConfirm
         end
     end
     on click CancelButton
@@ -998,12 +1080,12 @@ GetRequestRelay:
     else set style `display` of CancelButton to `none`
     on click OKButton
     begin
-    	put the content of Input into RequestIP
-        clear MainPanel
-        set Redraw
+    	clear MainPanel
         clear Blocked
-        set property `request` of Map to RequestIP
-        go to PostMap
+        set Redraw
+        put `{}` into RequestData
+        set property `action` of RequestData to `request`
+        go to PostRequest
     end
     on click CancelButton
     begin
@@ -1039,8 +1121,7 @@ DoProfiles:
 	if ProfileModule is running stop
 	set Blocked
     gosub to MaskMainPanel
-!    wait 20 ticks
-    put empty into Result
+    put `{}` into Result
     rest get Script from `/resources/ecs/profiles.ecs?v=` cat now
     run Script with MainPanel and Map and Result as ProfileModule
     go to ProcessResult
@@ -1056,7 +1137,7 @@ RoomTools:
     	rest get RoomToolsMenuWebson from `/resources/webson/roomtoolsmenu.json?v=` cat now
             or go to HandleRestError
     render RoomToolsMenuWebson in MainPanel
-    put empty into Result
+    put `{}` into Result
     rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
     run Script with MainPanel and Map and Sensors and ClickIndex and Result
     go to ProcessResult
@@ -1084,8 +1165,9 @@ Backup:
     	clear DialogPanel
     	if not Demo
         begin
-        	rest post Map to Server cat `/backup/` cat MAC cat `/` cat Password
-            	or go to HandleRestError
+        	put `{}` into RequestData
+            set property `action` of RequestData to `backup`
+            fork to PostRequest
         end
         set Redraw
         clear Blocked
@@ -1121,8 +1203,9 @@ Restore:
     	clear DialogPanel
         if not Demo
         begin
-        	rest post to Server cat `/restore/` cat MAC cat `/` cat Password
-            	or go to HandleRestError
+        	put `{}` into RequestData
+            set property `action` of RequestData to `restore`
+            fork to PostAndConfirm
         end
         set Redraw
         clear Blocked
@@ -1134,22 +1217,6 @@ Restore:
         clear Blocked
     end
     stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Post the map to the server
-PostMap:
-   	rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
-   	or begin
-        add 1 to MapErrorCount
-        if MapErrorCount is greater than 5
-        begin
-         	alert `A series of network errors have occurred.`
-           		cat newline cat `Some functionality may not be available.`
-            put 0 into MapErrorCount
-        end
-        continue
-	end
-	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Show a help page
@@ -1197,6 +1264,101 @@ Unmask:
 	set style `display` of BannerMask to `none`
     set style `display` of TitleMask to `none`
     return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Process the result of running another module
+ProcessResult:
+!print Result
+	put property `request` of Result into Request
+    put property `data` of Result into RequestData
+    if Request is `Update`
+    begin
+    	gosub to PostAndConfirm
+    	clear MainPanel
+        clear Blocked
+        set Redraw
+        stop
+    end
+    if Request is `Help`
+    begin
+        split RequestData on ` ` giving Result
+        index Result to 0
+        put Result into SID
+        index Result to 1
+        put Result into TID
+        go to RunHelp
+    end
+    if Request is `Redraw` set Redraw
+    clear Blocked
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Post data and wait for the server to confirm
+PostAndConfirm:
+    fork to PostRequest
+    fork to FlashModeIndicator
+    ! Wait for a response from the server
+    if Demo wait 5 seconds
+    else
+    begin
+        put 10 into Count
+        while Count is greater than 0
+        begin
+            wait 5 seconds
+            rest get Confirm from Server cat `/confirm/` cat MAC cat `?v=` cat now
+            if Confirm is `Y` go to SM2
+            take 1 from Count
+        end
+        alert `System is not responding"
+        return
+    end
+SM2:
+	clear Waiting
+    put 0 into Count
+    while Count is less than 10
+    begin
+    	if not Flashing go to SM3
+        wait 10 ticks
+    	add 1 to Count
+    end
+SM3:
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Flash the mode indicator button while waiting
+FlashModeIndicator:
+    set Waiting
+    set Flashing
+	while Waiting
+    begin
+    	set style `display` of Mask to `block`
+    	wait 50 ticks
+        set style `display` of Mask to `none`
+        wait 50 ticks
+    end
+    clear Flashing
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Post a request to the server
+PostRequest:
+!print `Request: ` cat RequestData cat `: ` cat Server cat `/request/` cat MAC cat `/` cat Password
+    rest post RequestData to Server cat `/request/` cat MAC cat `/` cat Password
+   	or go to HandlePostError
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Handle a POST error
+HandlePostError:
+	print `POST error`
+    add 1 to MapErrorCount
+    if MapErrorCount is greater than 5
+    begin
+        alert `A series of network errors have occurred.`
+        	cat newline cat `Some functionality may not be available.`
+        put 0 into MapErrorCount
+    end
+	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Handle a REST error

@@ -157,7 +157,7 @@ Continue:
     on click OKButton
     begin
 !    	put Systems into storage as `Systems`
-        rest post Systems to Server cat `/systems/` cat Email cat `/` cat UserPassword
+        rest post Systems to Server cat `/managed/` cat Email cat `/` cat UserPassword
         put property SystemName of Systems into System
         put property `mac` of System into MAC
         put MAC into storage as `MAC`

@@ -5,12 +5,24 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Welcome", "$Pad", "$GetSysParams", "$Add", "$Pad", "$Backup", "$Restore",
-        "$Pad", "$Evaluate", "$Pad", "$Help", "$Cancel"],
+    "#": ["$Welcome", "$Pad", "$Local", "$Pad", "$SystemManager", "$GetSysParams", "$Add", "$Pad",
+        "$Backup", "$Restore", "$Pad", "$Help", "$Cancel"],
 
     "$Welcome": {
         "$ID": "button-welcome",
         "$Label": "Welcome to RBR!",
+        "#": "$Button"
+    },
+
+    "$Local": {
+        "$ID": "button-local",
+        "$Label": "Local server",
+        "#": "$Button"
+    },
+
+    "$SystemManager": {
+        "$ID": "button-systemmanager",
+        "$Label": "System Manager",
         "#": "$Button"
     },
 
@@ -35,12 +47,6 @@
     "$Restore": {
         "$ID": "button-restore",
         "$Label": "Restore the system",
-        "#": "$Button"
-    },
-
-    "$Evaluate": {
-        "$ID": "button-evaluate",
-        "$Label": "Evaluate RBR",
         "#": "$Button"
     },
 

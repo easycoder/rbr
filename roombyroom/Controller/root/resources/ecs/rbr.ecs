@@ -531,7 +531,7 @@ GetMap:
         begin
             put property SensorIP of Sensors into SensorSpec
             put property `timestamp` of SensorSpec into Timestamp
-            put now into Now
+            put the timestamp into Now
             if Timestamp is not empty
             begin
             	take Timestamp from Now giving Elapsed
@@ -706,7 +706,7 @@ GetMap:
             else if Mode is `boost`
             begin
                 attach BoostName to `room-` cat RoomIndex cat `-mode-info`
-                put now into Now
+                put the timestamp into Now
                 put property `boost` of RoomSpec into Boost
                 if char 0 of Boost is not `B`
                 begin
