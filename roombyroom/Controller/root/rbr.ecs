@@ -49,7 +49,6 @@
     variable RequestCount
     variable RequestIP
     variable Action
-    variable Operation
     variable Items
     variable Key
     variable Keys
@@ -70,7 +69,7 @@
     variable R
     variable W
 
-    debug step
+!    debug step
 
     open File `server.txt` for reading
     read RBRServer from File
@@ -211,7 +210,7 @@ S2:
     get Request from RBRServer cat `/request/` cat MAC cat `?v=` cat now or stop
     if Request is not empty
     begin
-!print Request
+!print `Request ` cat Request
         set Changed
         set Confirm
         put json Request into Request
@@ -262,19 +261,20 @@ S2:
             put element RoomNumber of Rooms into Room
             put property `name` of Room into RoomName
             put property `mode` of Request into Mode
-            set property `mode` of Room to Mode
             if Mode is `timed`
                 set property `advance` of Room to property `advance` of Request
+            else if Mode is `on`
+            begin
+                set property `target` of Room to property `target` of Request
+            end
             else if Mode is `boost`
             begin
-                put property `operation` of Request into Operation
-                if Operation is `target`
-                    set property `target` of Room to property `target` of Request
-                else if Operation is `boost`
-                begin
-                    set property `boost` of Room to property `boost` of Request
-                end
+                set property `target` of Room to property `target` of Request
+                if property `mode` of Room is not `boost`
+                    set property `prevmode` of Room to property `mode` of Room
+                set property `boost` of Room to property `boost` of Request
             end
+            set property `mode` of Room to Mode
             gosub to UpdateRoom
         end
         else if Action is `profiles`
@@ -313,8 +313,13 @@ S2:
         begin
             set property `request` of MapObject to property `request` of Request
         end
+        else if Action is `restart`
+        begin
+            system `reboot`
+        end
     end
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process the map
 SkipRequests:
     if file RamDisk cat `/sensorData` exists
@@ -360,6 +365,7 @@ SkipRequests:
         put stringify SimulatorData into SD
         if SD is not `{}` post to LocalServer cat `/simdata/` cat SD
     end
+    set property `version` of SensorData to Version
     put stringify SensorData into Sensors
     open File RamDisk cat `/sensorData` for writing
     write Sensors to File
@@ -393,6 +399,8 @@ SkipRequests:
             clear Changed
         end
     end
+
+    print `Memory used: ` cat memory cat ` MB`
 
     ! Do all the above 6 times
     add 1 to RepeatCount
@@ -465,19 +473,24 @@ PR2:
             multiply Target by 60
             add the timestamp to Target
             set property `boost` of Room to Target
-            set property `prevmode` of Room to `timed`
             set property `message` of MapObject to `confirm`
             gosub to UpdateRoom
             set property `advance` of Room to `-`
             put `-` into Advance
             gosub to WriteAdvance
         end
+        else if Boost is empty
+        begin
+            set property `boost` of Room to 0
+            set property `mode` of Room to property `prevmode` of Room
+            gosub to UpdateRoom
+        end
         else if Boost is not 0
         begin
             ! Boost contains the timestamp of the target (the end of the boost period).
-            put now into N
-            take integer Boost from N
-            if N is greater than 0
+            put integer Boost into Boost
+            take the timestamp from Boost
+            if Boost is less than 0
             begin
                 ! Deal with the end of the boost period
                 print `Boost finished`
@@ -485,11 +498,9 @@ PR2:
                 set property `mode` of Room to property `prevmode` of Room
                 gosub to UpdateRoom
             end
-            else print `Boost at ` cat N
         end
         ! Use the target setting for 'on' mode
         put property `target` of Room into Target
-        print `Target: ` cat Target
         if `` cat Target is not empty
         begin
             put float Target into Target
@@ -599,6 +610,8 @@ SaveMap:
     close File
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Turn a relay on or off
 TurnOnOrOff:
     if Advance is not `-`
     begin
@@ -617,6 +630,8 @@ TurnOn:
     if RelayType is not `Simulator` add 1 to RequestCount
     put `on` into Turn
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set the relays in a room
 SetRelays:
     print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat Turn
     if RelayType is empty put `Shelly One` into RelayType

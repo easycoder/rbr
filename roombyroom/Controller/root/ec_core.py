@@ -1,4 +1,5 @@
 import json, math, hashlib, threading, os, sys, requests, time, numbers
+from psutil import Process
 from datetime import datetime, timezone
 from random import randrange
 from ec_classes import FatalError, RuntimeWarning
@@ -1326,6 +1327,10 @@ class Core(Handler):
             value['type'] = 'weekday'
             return value
 
+        if token == 'mem' or token == 'memory':
+            value['type'] = 'memory'
+            return value
+
         if token == 'error':
             if self.peek() == 'code':
                 self.nextToken()
@@ -1674,6 +1679,14 @@ class Core(Handler):
         value = {}
         value['type'] = 'int'
         value['content'] = datetime.today().weekday()
+        return value
+
+    def v_memory(self, v):
+        process: Process = Process(os.getpid())
+        megabytes: float = process.memory_info().rss / (1024 * 1024)
+        value = {}
+        value['type'] = 'float'
+        value['content'] = megabytes
         return value
 
     #############################################################################
