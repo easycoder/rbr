@@ -29,6 +29,7 @@
     div AdvanceIndicator
     div StatusPanel
     div Snowflake
+    div BatteryIndicator
     div Date
     input Input
     img StatisticsIcon
@@ -90,6 +91,7 @@
     variable RelayState
     variable RelayType
     variable Temperature
+    variable Battery
     variable StaticData
     variable RoomData
     variable RoomName
@@ -481,6 +483,7 @@ GetMap:
     set the elements of ModeText to RoomCount
     set the elements of AdvanceIndicator to RoomCount
     set the elements of Snowflake to RoomCount
+    set the elements of BatteryIndicator to RoomCount
 
 	! Draw a row for each room
     put 0 into RoomIndex
@@ -498,6 +501,7 @@ GetMap:
         index ModeText to RoomIndex
         index AdvanceIndicator to RoomIndex
         index Snowflake to RoomIndex
+        index BatteryIndicator to RoomIndex
 
         put property `room-` cat RoomIndex of StaticData into RoomData
         if RoomData is empty
@@ -543,16 +547,16 @@ GetMap:
         	print `Can't find room-snowflake-` cat RoomIndex
         	stop
         end
+        attach BatteryIndicator to `room-battery-` cat RoomIndex or
+        begin
+        	print `Can't find room-battery-` cat RoomIndex
+        	stop
+        end
 
 		! Set the room name
 		put element RoomIndex of Rooms into RoomSpec
         put property `name` of RoomSpec into RoomName
         set the content of RoomNamePanel to RoomName
-        
-		if property `protect` of Sensors is SensorIP
-        	set style `display` of Snowflake to `block`
-        else
-        	set style `display` of Snowflake to `none`
         
         put property `relayType` of RoomSpec into RelayType
         if RelayType is `Simulator` set IsSimulator
@@ -586,10 +590,22 @@ GetMap:
             if IsAlive is `true`
             begin
                 put property `temperature` of SensorSpec into Temperature
+                put property `battery` of SensorSpec into Battery
             	set the content of RoomTempPanel to Temperature cat `&deg;C`
             	put property `relay` of SensorSpec into RelayState
             	if RelayState is `on` set style `background` of RoomTempPanel to `red`
             	else set style `background` of RoomTempPanel to `blue`
+                if Battery is less than 15
+                begin
+                	set attribute `src` of BatteryIndicator to `resources/icon/battery-empty.png`
+                    set style `visibility` of BatteryIndicator to `visible`
+                end
+                else if Battery is less than 20
+                begin
+                	set attribute `src` of BatteryIndicator to `resources/icon/battery-low.png`
+                    set style `visibility` of BatteryIndicator to `visible`
+                end
+                else set style `visibility` of BatteryIndicator to `hidden`
             end
             else
             begin

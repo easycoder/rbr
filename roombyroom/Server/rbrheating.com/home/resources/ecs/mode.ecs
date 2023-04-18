@@ -282,9 +282,9 @@ SelectOff:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select cancel
 SelectCancel:
-    put CurrentMode into Mode
-    clear BoostIsOn
-    go to SelectMode
+    set style `visibility` of ModePanel to `hidden`
+    set property `request` of Result to `Redraw`
+    exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Select help
@@ -299,7 +299,6 @@ SelectHelp:
 SelectMode:
 	set property `action` of RequestData to `mode`
 	set property `mode` of RequestData to Mode
-    set style `visibility` of ModePanel to `hidden`
     if Mode is `timed`
     begin
         set property `boost` of RoomSpec to 0
@@ -316,13 +315,11 @@ SelectMode:
     	if BoostIsOn
         begin
 			set property `boost` of RequestData to `B` cat Boost
+    		set property `target` of RequestData to Target
         end
         else set property `boost` of RequestData to empty
     end
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Exit
-Exit:
+    set style `visibility` of ModePanel to `hidden`
     set property `request` of Result to `Update`
 	set property `data` of Result to RequestData
 	exit
