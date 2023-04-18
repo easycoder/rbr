@@ -12,7 +12,8 @@ apt install -y python3-pip
 echo "Install python libraries"
 pip3 install bottle requests pytz PyP100 psutils
 
-wget https://rbrheating.com/resources/dist.tgz
+rm dist.*
+wget https://rbrheating.com/home/resources/dist.tgz
 tar zxf dist.tgz
 cp system/hosts /etc/hosts
 crontab crondata.txt

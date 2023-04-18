@@ -2,9 +2,9 @@
 
 crontab crondata-empty.txt
 rm *.*
-wget https://rbrheating.com/resources/rbr2.tgz
-tar zxf rbr2.tgz
-rm -f rbr2.tgz
-apt update
-upgrade
+wget https://rbrheating.com/home/resources/dist.tgz
+tar zxf dist.tgz
+rm -f dist.tgz
 crontab crondata.txt
+apt update
+apt -y upgrade

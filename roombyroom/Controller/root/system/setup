@@ -3,7 +3,8 @@
 # Setup for Orange Pi Zero 2 - Debian Server OS
 
 echo "Update the system"
-apt --allow-releaseinfo-change update
+apt install -y dnsmasq
+apt update
 apt -y upgrade
 
 echo "Install Python Pip"

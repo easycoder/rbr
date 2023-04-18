@@ -210,7 +210,7 @@ S2:
     get Request from RBRServer cat `/request/` cat MAC cat `?v=` cat now or stop
     if Request is not empty
     begin
-!print `Request ` cat Request
+print `Request ` cat Request
         set Changed
         set Confirm
         put json Request into Request

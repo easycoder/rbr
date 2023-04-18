@@ -6,7 +6,7 @@ from bluepy.btle import Scanner, Peripheral, Characteristic, ScanEntry, UUID
 
 class BLELS:
 
-    SCAN_TIMEOUT = 20
+    SCAN_TIMEOUT = 10
     scanner = None
     publicdevices = []
 
@@ -26,7 +26,7 @@ class BLELS:
 
                 # for (adtype, desc, value) in dev.getScanData():
                 #    print("  %s = %s" % (desc, value))
-                
+
                 if dev.addrType == btle.ADDR_TYPE_PUBLIC:
                     foundDevices = foundDevices + 1
                     self.publicdevices.append(dev)
@@ -56,10 +56,10 @@ class BLELS:
             print("Listing descriptors...")
             descriptors = peri.getDescriptors()
             for desc in descriptors:
-                print("   --  DESCRIPTORS: {}, [{}], Handle: {} (0x{:04x})".format(desc.uuid, 
+                print("   --  DESCRIPTORS: {}, [{}], Handle: {} (0x{:04x})".format(desc.uuid,
                                                                                     UUID(desc.uuid).getCommonName(),
                                                                                     desc.handle, desc.handle))
-            
+
             print("Reading characteristics...")
             chars = peri.getCharacteristics()
             for c in chars:
@@ -83,14 +83,14 @@ if __name__ == '__main__':
     while True:
         choice = input("> ")
         choice = choice.lower()
-        
-        
+
+
         if choice.startswith('q'):
             print("exiting...")
             break
         elif choice.startswith('scan'):
             duration = 10
-            if len(choice) > 2: 
+            if len(choice) > 2:
                 args = choice.split(' ', 2)
                 if len(args) == 2 and 0 < int(args[1]) < 60:
                     duration = int(args[1])
@@ -98,7 +98,7 @@ if __name__ == '__main__':
             continue
         elif choice.startswith('ls'):
             addr = ''
-            if len(choice) > 2: 
+            if len(choice) > 2:
                 args = choice.split(' ', 2)
                 if len(args) == 2:
                     addr = args[1]
@@ -113,11 +113,12 @@ if __name__ == '__main__':
         else:
             print("Unknown option:", choice)
             continue
-        
+
     print("--------------------")
     print("Goodbye!")
 
-    
+
+
 
 
 

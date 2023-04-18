@@ -197,7 +197,7 @@ def ms(message):
     print(message)
     return
 
-# Endpoint: GET <server-ip>/?hum=hhh&temp=ttt&id=id
+# Endpoint: GET <server-ip>/notify/?hum=hhh&temp=ttt&id=id
 # Called when temperature changes
 @app.get('/notify')
 def notify():
@@ -214,7 +214,7 @@ def notify():
             if not os.path.exists(f'{dir}'):
                 os.makedirs(f'{dir}')
             file = open(f'{dir}/{source}.txt', 'w')
-            message = '{"temperature": "' + str(temp) + '", "timestamp": "' + str(ts) + '"}'
+            message = '{"temperature": "' + str(temp) + '", "timestamp": "' + str(ts) + '", "battery": "100"}'
             file.write(message)
             file.close()
     except:
