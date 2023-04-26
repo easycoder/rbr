@@ -225,6 +225,7 @@ def postMap(map):
     # Check if we have communication with the web server
     f = open('/mnt/data/password', 'r')
     password = f.read().strip()
+
     f.close()
     if password:
         f = open('server.txt', 'r')
@@ -245,6 +246,8 @@ def postMap(map):
 
 if __name__ == '__main__':
     ip = subprocess.getoutput("hostname -I").strip()
-    # ip = '192.168.1.10'
+    if ip.rfind(' ') > 0:
+        ip = '172.24.1.1'
+    print(f'IP address: {ip}')
     app.run(host=ip, port=80, debug=False)
 

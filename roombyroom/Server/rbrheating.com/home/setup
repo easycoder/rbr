@@ -9,8 +9,9 @@ apt -y upgrade
 echo "Install Python Pip"
 apt install -y python3-dev
 apt install -y python3-pip
+apt install -y psutils
 echo "Install python libraries"
-pip3 install bottle requests pytz PyP100 psutils
+pip3 install bottle requests pytz PyP100 psutil
 
 wget https://rbrheating.com/home/resources/dist.tgz
 tar zxf dist.tgz
@@ -20,5 +21,10 @@ crontab crondata.txt
 echo
 echo "Set the user password"
 passwd
-echo "Rebooting now..."
-reboot
+
+cp system/dnsmasq.conf /etc/dnsmasq.conf
+cp system/hostapd.conf /etc/hostapd.conf
+echo
+echo "MAC addresses:"
+ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'
+echo "Now set up the wifi access point with 'nano /etc/hostapd.conf' then type 'reboot'"

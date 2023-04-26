@@ -3,10 +3,4 @@
 
 127.0.1.1     orangepi
 127.0.1.1     rbr
-192.168.1.10  rbr.home
-#172.24.1.100 bed1-therm.home
-#172.24.1.101 bed1-relay.home
-#172.24.1.102 bed2-therm.home
-#172.24.1.103 bed2-relay.home
-#172.24.1.104 bed3-therm.home
-#172.24.1.105 bed3-relay.home
+172.24.1.1    rbr.home
