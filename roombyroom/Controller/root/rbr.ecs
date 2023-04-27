@@ -126,7 +126,7 @@
     if Value is not Version
     begin
         print `Installing update from ` cat Version cat ` to ` cat Value
-!        system `sh update.sh`
+        system `sh update.sh`
         open File `version` for writing
         write Value to File
         close File
@@ -160,11 +160,12 @@ Start:
     if Map is empty
     begin
         ! Try to get the map from the RBR server
-        if Password is not empty
-        begin
-        end
-        put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
+        get Map from RBRServer cat `/map/` cat MAC cat `?v=` cat now
+        or put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
         open File `map` for writing
+        write Map to File
+        close File
+        open File `backup` for writing
         write Map to File
         close File
     end

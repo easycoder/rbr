@@ -15,6 +15,7 @@ pip3 install bottle requests pytz PyP100 psutil
 
 wget https://rbrheating.com/home/resources/dist.tgz
 tar zxf dist.tgz
+rm backup mac map
 cp system/hosts /etc/hosts
 crontab crondata.txt
 
