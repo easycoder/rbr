@@ -197,6 +197,21 @@ def ms(message):
     print(message)
     return
 
+# Endpoint: GET <server-ip>/relay/version
+# Called to get the current relay version
+@app.get('/relay/version')
+def relayversion():
+    f = open('esp8266/relay/version', 'r');
+    version = f.read()
+    f.close()
+    return version
+
+# Endpoint: GET <server-ip>/relay/binary
+# Called to get the current relay binary
+@app.get('/relay/binary')
+def relaybinary():
+    return static_file('esp8266/relay/relay.ino.bin', root='.')
+
 # Endpoint: GET <server-ip>/notify/?hum=hhh&temp=ttt&id=id
 # Called when temperature changes
 @app.get('/notify')
