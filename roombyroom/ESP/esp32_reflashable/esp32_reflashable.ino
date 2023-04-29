@@ -15,8 +15,7 @@ const IPAddress subnet(255,255,255,0);
 // Serial baud rate
 const int baudRate = 115200;
 
-uint8_t ledPin = 2;
-bool checkVersion = false;
+bool checkForUpdate = false;
 int eepromPointer = 0;
 String name = "";
 IPAddress ipaddr;
@@ -29,14 +28,6 @@ WebServer localServer(80);
 
 void notFound(){
   localServer.send(404, "text/plain", "Not found");
-}
-
-void ledOn() {
-  digitalWrite(ledPin, LOW);
-}
-
-void ledOff() {
-  digitalWrite(ledPin, HIGH);
 }
 
 // Write a string to EEPROM
@@ -66,25 +57,13 @@ String readFromEEPROM() {
   return word;
 }
 
-void blink()
-{
-  ledOn();
-  delay(1000);
-  ledOff();
-  delay(1000);
-  ledOn();
-  delay(1000);
-  ledOff();
-}
-
-// Checks eevery 60 minutes if an update is available
-void check() {
-  checkVersion = true;
+// Checks if an update is available
+void updateCheck() {
+  checkForUpdate = true;
 }
 
 // Connect to the controller network and accept relay commands
 void connectToHost(String name_s, String ssid, String password, String ipaddr_s, String gateway_s, String server_s) {
-  Serial.println("");
   Serial.println("Connection parameters:");
   Serial.println(name_s + "\n" + ssid + "\n" + password + "\n" + ipaddr_s + "\n" + gateway_s + "\n" + server_s);
 
@@ -102,10 +81,10 @@ void connectToHost(String name_s, String ssid, String password, String ipaddr_s,
   }
 
   //connect to the controller's wi-fi network
+  WiFi.mode(WIFI_STA);
   if (!WiFi.config(ipaddr, gateway, subnet)) {
     Serial.println("STA Failed to configure");
   }
-  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid.c_str(), password.c_str());
 
   //check wi-fi is connected to wi-fi network
@@ -116,7 +95,8 @@ void connectToHost(String name_s, String ssid, String password, String ipaddr_s,
 
   Serial.println("");
   Serial.println("WiFi connected");
-  Serial.print("Got IP: "); Serial.println(WiFi.localIP());
+  Serial.print("IP: "); Serial.println(WiFi.localIP());
+  Serial.print("RSSI: "); Serial.println(WiFi.RSSI());
   delay(100);
 
   localServer.on("/reset", reset);
@@ -125,7 +105,8 @@ void connectToHost(String name_s, String ssid, String password, String ipaddr_s,
   localServer.begin();
   localServer.send(200, "text/plain", "Connected");
 
-  ticker.attach(60, check);
+  //Check for updates every 10 minutes
+  ticker.attach(600, updateCheck);
 }
 
 // Reset the system
@@ -193,10 +174,7 @@ String httpGETRequest(const char* serverName) {
 void setup() {
   Serial.begin(baudRate);
   delay(500);
-  Serial.printf("Version: %d\n",currentVersion);
-
-  pinMode(ledPin, OUTPUT);
-  ledOff();
+  Serial.printf("\nVersion: %d\n",currentVersion);
 
   // Check if there's anything stored in EEPROM
   eepromPointer = 0;
@@ -231,8 +209,6 @@ void setup() {
     localServer.onNotFound(notFound);
 
     localServer.begin();
-
-    ticker.attach(2, blink);
   }
 }
 
@@ -240,10 +216,9 @@ void setup() {
 // Main loop
 void loop() {
   localServer.handleClient();
-
-  if (checkVersion) {
+  if (checkForUpdate) {
     Serial.println("Check for update");
-    checkVersion = false;
+    checkForUpdate = false;
     String serverPath = "http://" + server + "/reflashable/version";
     Serial.println(serverPath);
     String response = httpGETRequest(serverPath.c_str());
