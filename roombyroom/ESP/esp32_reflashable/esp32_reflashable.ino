@@ -1,3 +1,13 @@
+/* This sketch is a basic reflashable component.
+  It starts by setting up a local subnet and waiting for a connection.
+  This should be a list of parameters that define networking.
+  It then goes into station mode using the supplied parameters
+  and sets up an HTTP server on the same IP address.
+  Every 10 minutes it checks to see if updated code is available
+  from the server it is connected to.
+  If a "reset" request is received it reverts to its initial mode.
+*/
+
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
@@ -57,12 +67,12 @@ String readFromEEPROM() {
   return word;
 }
 
-// Checks if an update is available
+// Check if an update is available
 void updateCheck() {
   checkForUpdate = true;
 }
 
-// Connect to the controller network and accept relay commands
+// Connect to the controller network and accept commands
 void connectToHost(String name_s, String ssid, String password, String ipaddr_s, String gateway_s, String server_s) {
   Serial.println("Connection parameters:");
   Serial.println(name_s + "\n" + ssid + "\n" + password + "\n" + ipaddr_s + "\n" + gateway_s + "\n" + server_s);
