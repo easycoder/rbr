@@ -70,7 +70,7 @@ void updateCheck() {
   }
 }
 
-// Endpoint: GET http://(ipaddr)/
+// Endpoint: GET http://{ipaddr}/
 void handle_root(AsyncWebServerRequest *request) {
     int paramsNr = request->params();
     Serial.println(paramsNr);
@@ -88,7 +88,7 @@ void handle_root(AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "Message received");
 }
 
-// Endpoint: GET http://(ipaddr)/info
+// Endpoint: GET http://{ipaddr}/info
 void handle_info(AsyncWebServerRequest *request) {
   Serial.println("Endpoint: info");
   if (connected) {
@@ -104,15 +104,20 @@ void reset() {
   delay(10000); // Forces the watchdog to trigger
 }
 
-// Endpoint: GET http://(ipaddr)/reset
+// Endpoint: GET http://{ipaddr}/reset
 void handle_reset(AsyncWebServerRequest *request) {
-  writeToEEPROM("");
-  request->send(200, "text/plain", "reset");
-  delay(100);
-  reset();
+  if (connected) {
+    Serial.println("Endpoint: reset");
+    writeToEEPROM("");
+    request->send(200, "text/plain", "reset");
+    delay(100);
+    reset();
+  } else {
+    request->send(200, "text/plain", "Not connected");
+  }
 }
 
-// Endpoint: GET http://(ipaddr)/setup?(params)
+// Endpoint: GET http://{ipaddr}/setup?(params)
 void handle_setup(AsyncWebServerRequest *request) {
   if (!connected) {
     Serial.println("setup");
@@ -156,6 +161,26 @@ void handle_setup(AsyncWebServerRequest *request) {
   }
 }
 
+// Endpoint: GET http://{ipaddr}/on?id={id}
+void handle_on(AsyncWebServerRequest *request, String id) {
+  Serial.println("Endpoint: on?id={id}");
+  if (connected) {
+    request->send(200, "text/plain", "Turn on relay " + id);
+  } else {
+    request->send(200, "text/plain", "Not connected");
+  }
+}
+
+// Endpoint: GET http://{ipaddr}/off?id={id}
+void handle_off(AsyncWebServerRequest *request, String id) {
+  Serial.println("Endpoint: off?id={id}");
+  if (connected) {
+    request->send(200, "text/plain", "Turn off relay " + id);
+  } else {
+    request->send(200, "text/plain", "Not connected");
+  }
+}
+
 // Set up endpoints and start the local server
 void setupLocalServer() {
   Serial.println("Set up the local server");
@@ -174,6 +199,18 @@ void setupLocalServer() {
 
   localServer.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
     handle_reset(request);
+  });
+
+  localServer.on("/on", HTTP_GET, [](AsyncWebServerRequest *request){
+      AsyncWebParameter* p = request->getParam("id");
+      String id = p->value();
+    handle_on(request, id);
+  });
+
+  localServer.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
+      AsyncWebParameter* p = request->getParam("id");
+      String id = p->value();
+    handle_off(request, id);
   });
 
   localServer.onNotFound([](AsyncWebServerRequest *request){
