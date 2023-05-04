@@ -100,72 +100,20 @@ void check() {
 }
 
 // Reset the system
-void reset() {
-  localServer.send(200, "text/plain", "Reset");
-  WiFi.softAPdisconnect(true);
+void factoryReset() {
+  localServer.send(200, "text/plain", "Factory Reset");
   writeToEEPROM("");
-  delay(100);
-  setup();
-}
-
-// Connect to the controller network and accept relay commands
-void connectToHost(String name_s, String ssid, String password, String ipaddr_s, String gateway_s, String server_s) {
-  Serial.println("");
-  Serial.println("Connection parameters:");
-  Serial.println(name_s + "\n" + ssid + "\n" + password + "\n" + ipaddr_s + "\n" + gateway_s);
-
-  name = name_s;
-
-  if (!ipaddr.fromString(ipaddr_s)) {
-    Serial.println("UnParsable IP '" + ipaddr_s + "'");
-    reset();
-  }
-
-  if (!gateway.fromString(gateway_s)) {
-    Serial.println("UnParsable IP '" + gateway_s + "'");
-    reset();
-  }
-
-  server = server_s;
-
-  //connect to the controller's wi-fi network
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAPConfig(localIP, localIP, subnet);
-  WiFi.softAP(ssid);
-  if (!WiFi.config(ipaddr, gateway, subnet)) {
-    Serial.println("STA failed to configure");
-  }
-  WiFi.begin(ssid, password);
-
-  //check wi-fi is connected to wi-fi network
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.print(".");
-  }
-
-  Serial.print("\nWiFi connected with ipaddr "); Serial.println(WiFi.localIP());
-  delay(100);
-
-  localServer.on("/", relayOff);
-  localServer.on("/on", relayOn);
-  localServer.on("/off", relayOff);
-  localServer.on("/reset", reset);
-  localServer.onNotFound(notFound);
-
-  localServer.begin();
-  localServer.send(200, "text/plain", "Connected");
-  connected = true;
-
-  ticker.attach(60, check);
+  delay(10000);
+  ESP.reset();
 }
 
 // Perform a GET
-String httpGETRequest(const char* serverName) {
+String httpGETRequest(const char* requestURL) {
   WiFiClient client;
   HTTPClient http;
     
   // Your IP address with path or Domain name with URL path 
-  http.begin(client, serverName);
+  http.begin(client, requestURL);
   
   // Send HTTP POST request
   int httpResponseCode = http.GET();
@@ -187,7 +135,53 @@ String httpGETRequest(const char* serverName) {
   return payload;
 }
 
-// Here when the configurator sends the ssid and password of the controller network
+// Connect to the controller network and accept relay commands
+void connectToHost(String name_s, String ssid, String password, String ipaddr_s, String gateway_s, String server_s) {
+  Serial.println("");
+  Serial.println("Connection parameters:");
+  Serial.println(name_s + "\n" + ssid + "\n" + password + "\n" + ipaddr_s + "\n" + gateway_s);
+
+  name = name_s;
+
+  if (!ipaddr.fromString(ipaddr_s)) {
+    Serial.println("UnParsable IP '" + ipaddr_s + "'");
+    factoryReset();
+  }
+
+  if (!gateway.fromString(gateway_s)) {
+    Serial.println("UnParsable IP '" + gateway_s + "'");
+    factoryReset();
+  }
+
+  server = server_s;
+
+  // Connect to the controller's wifi network
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password);
+
+  // Check we are connected to wifi network
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+
+  Serial.print("\nWiFi connected with ipaddr "); Serial.println(WiFi.localIP());
+  delay(100);
+
+  localServer.on("/", relayOff);
+  localServer.on("/on", relayOn);
+  localServer.on("/off", relayOff);
+  localServer.on("/reset", factoryReset);
+  localServer.onNotFound(notFound);
+
+  localServer.begin();
+  localServer.send(200, "text/plain", "Connected");
+  connected = true;
+
+  ticker.attach(60, check);
+}
+
+// Here when a setup request containing configuration data is received
 void onAPConnect() {
   Serial.println("onAPConnect");
   String name = localServer.arg("name");
@@ -201,6 +195,7 @@ void onAPConnect() {
     localServer.send(200, "text/plain", "OK");
     writeToEEPROM(name + "\n" + ssid + "\n" + password + "\n" + ipaddr + "\n" + gateway + "\n" + server);
     delay(10000);  // Force a restart
+    ESP.reset(); // Just in case it failed
   }
   else {
     localServer.send(200, "text/plain", "Not connected");
@@ -222,7 +217,7 @@ void setup() {
   // Check if there's anything stored in EEPROM
   eepromPointer = 0;
   EEPROM.begin(512);
-  writeToEEPROM("");
+//  writeToEEPROM("");
   String name = readFromEEPROM();
   if (name != "") {
     Serial.println("Client mode");
@@ -272,9 +267,9 @@ void loop() {
   if (checkVersion) {
     checkVersion = false;
     return;
-    String serverPath = "Check for update at http://" + server + "/relay/version";
-    Serial.println(serverPath);
-    String response = httpGETRequest(serverPath.c_str());
+    String requestURL = "Check for update at http://" + server + "/relay/version";
+    Serial.println(requestURL);
+    String response = httpGETRequest(requestURL.c_str());
     response.trim();
     int newVersion = response.toInt();
     if (newVersion > currentVersion) {
