@@ -76,7 +76,7 @@ void blink()
   ledOff();
 }
 
-// Checks eevery 60 minutes if an update is available
+// Checks every 60 minutes if an update is available
 void check() {
   if (connected) {
     checkVersion = true;
@@ -100,7 +100,7 @@ String httpGETRequest(const char* requestURL) {
   // Your IP address with path or Domain name with URL path 
   http.begin(client, requestURL);
   
-  // Send HTTP POST request
+  // Send HTTP GET request
   int httpResponseCode = http.GET();
   
   String payload = "{}"; 
