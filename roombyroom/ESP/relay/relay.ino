@@ -4,10 +4,10 @@
 #include <EEPROM.h>
 #include <Ticker.h>
 
-const uint currentVersion = 2;
+const uint currentVersion = 0;
 
 // Local IP Address
-const IPAddress localIP(192,168,4,1);
+const IPAddress localIP(192,168,23,1);
 const IPAddress subnet(255,255,255,0);
 
 // Serial baud rate
@@ -17,18 +17,16 @@ uint8_t relayPin = 0;
 uint8_t ledPin = 2;
 bool relayPinStatus = LOW;
 bool checkVersion = false;
+bool connected = false;
 int eepromPointer = 0;
 String name = "";
 IPAddress ipaddr;
 IPAddress gateway;
+String server;
 
 Ticker ticker;
 
-ESP8266WebServer server(80);
-
-void notFound(){
-  server.send(404, "text/plain", "Not found");
-}
+ESP8266WebServer localServer(80);
 
 void ledOn() {
   if (ledPin != relayPin) {
@@ -44,12 +42,16 @@ void ledOff() {
 
 void relayOn() {
   relayPinStatus = HIGH;
-  server.send(200, "text/plain", "Relay ON");
+  localServer.send(200, "text/plain", "Relay ON");
 }
 
 void relayOff() {
   relayPinStatus = LOW;
-  server.send(200, "text/plain", "Relay Off");
+  localServer.send(200, "text/plain", "Relay Off");
+}
+
+void notFound(){
+  localServer.send(404, "text/plain", "Not found");
 }
 
 // Write a string to EEPROM
@@ -92,11 +94,22 @@ void blink()
 
 // Checks eevery 60 minutes if an update is available
 void check() {
-  checkVersion = true;
+  if (connected) {
+    checkVersion = true;
+  }
+}
+
+// Reset the system
+void reset() {
+  localServer.send(200, "text/plain", "Reset");
+  WiFi.softAPdisconnect(true);
+  writeToEEPROM("");
+  delay(100);
+  setup();
 }
 
 // Connect to the controller network and accept relay commands
-void connectToHost(String name_s, String ssid, String password, String ipaddr_s, String gateway_s) {
+void connectToHost(String name_s, String ssid, String password, String ipaddr_s, String gateway_s, String server_s) {
   Serial.println("");
   Serial.println("Connection parameters:");
   Serial.println(name_s + "\n" + ssid + "\n" + password + "\n" + ipaddr_s + "\n" + gateway_s);
@@ -113,9 +126,14 @@ void connectToHost(String name_s, String ssid, String password, String ipaddr_s,
     reset();
   }
 
+  server = server_s;
+
   //connect to the controller's wi-fi network
+  WiFi.mode(WIFI_AP_STA);
+  WiFi.softAPConfig(localIP, localIP, subnet);
+  WiFi.softAP(ssid);
   if (!WiFi.config(ipaddr, gateway, subnet)) {
-    Serial.println("STA Failed to configure");
+    Serial.println("STA failed to configure");
   }
   WiFi.begin(ssid, password);
 
@@ -125,51 +143,20 @@ void connectToHost(String name_s, String ssid, String password, String ipaddr_s,
     Serial.print(".");
   }
 
-  Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.print("Got IP: "); Serial.println(WiFi.localIP());
+  Serial.print("\nWiFi connected with ipaddr "); Serial.println(WiFi.localIP());
   delay(100);
 
-  server.on("/", relayOff);
-  server.on("/on", relayOn);
-  server.on("/off", relayOff);
-  server.on("/reset", reset);
-  server.onNotFound(notFound);
+  localServer.on("/", relayOff);
+  localServer.on("/on", relayOn);
+  localServer.on("/off", relayOff);
+  localServer.on("/reset", reset);
+  localServer.onNotFound(notFound);
 
-  server.begin();
-  server.send(200, "text/plain", "Connected");
+  localServer.begin();
+  localServer.send(200, "text/plain", "Connected");
+  connected = true;
 
-  ticker.attach(3600, check);
-}
-
-// Reset the system
-void reset() {
-  WiFi.softAPdisconnect(true);
-  writeToEEPROM("");
-  delay(100);
-  setup();
-}
-
-// Here when the configurator sends the ssid and password of the controller network
-void onAPConnect() {
-  String name = server.arg("name");
-  String ssid = server.arg("ssid");
-  String password = server.arg("password");
-  String ipaddr = server.arg("ipaddr");
-  String gateway = server.arg("gateway");
-  String configData = name + "\n" + ssid + "\n" + password + "\n" + ipaddr + "\n" + gateway;
-  writeToEEPROM(configData);
-
-  if (name != "" && ssid != "" && password != "" && ipaddr != "" && gateway != "") {
-    Serial.println("Disconnecting AP");
-    ticker.detach();
-    WiFi.softAPdisconnect(true);
-    delay(100);
-    connectToHost(name, ssid, password, ipaddr, gateway);
-  }
-  else {
-    server.send(200, "text/plain", "Not connected");
-  }
+  ticker.attach(60, check);
 }
 
 // Perform a GET
@@ -200,6 +187,26 @@ String httpGETRequest(const char* serverName) {
   return payload;
 }
 
+// Here when the configurator sends the ssid and password of the controller network
+void onAPConnect() {
+  Serial.println("onAPConnect");
+  String name = localServer.arg("name");
+  String ssid = localServer.arg("ssid");
+  String password = localServer.arg("password");
+  String ipaddr = localServer.arg("ipaddr");
+  String gateway = localServer.arg("gateway");
+  String server = localServer.arg("server");
+
+  if (name != "" && ssid != "" && password != "" && ipaddr != "" && gateway != "" && server != "") {
+    localServer.send(200, "text/plain", "OK");
+    writeToEEPROM(name + "\n" + ssid + "\n" + password + "\n" + ipaddr + "\n" + gateway + "\n" + server);
+    delay(10000);  // Force a restart
+  }
+  else {
+    localServer.send(200, "text/plain", "Not connected");
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Start here
 void setup() {
@@ -215,7 +222,7 @@ void setup() {
   // Check if there's anything stored in EEPROM
   eepromPointer = 0;
   EEPROM.begin(512);
-//  writeToEEPROM("");
+  writeToEEPROM("");
   String name = readFromEEPROM();
   if (name != "") {
     Serial.println("Client mode");
@@ -223,27 +230,28 @@ void setup() {
     String password = readFromEEPROM();
     String ipaddr = readFromEEPROM();
     String gateway = readFromEEPROM();
-    connectToHost(name, ssid, password, ipaddr, gateway);
+    String server = readFromEEPROM();
+    connectToHost(name, ssid, password, ipaddr, gateway, server);
   }
   else {
     // Set up the soft AP
     Serial.println("Soft AP mode");
     String mac = WiFi.macAddress();
-    String ssid = "RBR-000000";
-    ssid[4] = mac[6];
-    ssid[5] = mac[7];
-    ssid[6] = mac[9];
-    ssid[7] = mac[10];
-    ssid[8] = mac[12];
-    ssid[9] = mac[13];
+    String ssid = "RBR-R1-000000";
+    ssid[7] = mac[6];
+    ssid[8] = mac[7];
+    ssid[9] = mac[9];
+    ssid[10] = mac[10];
+    ssid[11] = mac[12];
+    ssid[12] = mac[13];
+    WiFi.mode(WIFI_AP);
     WiFi.softAPConfig(localIP, localIP, subnet);
     WiFi.softAP(ssid);
     delay(100);
 
-    server.on("/", onAPConnect);
-    server.onNotFound(notFound);
-
-    server.begin();
+    localServer.on("/setup", onAPConnect);
+    localServer.onNotFound(notFound);
+    localServer.begin();
 
     ticker.attach(2, blink);
   }
@@ -252,7 +260,7 @@ void setup() {
 ///////////////////////////////////////////////////////////////////////////////
 // Main loop
 void loop() {
-  server.handleClient();
+  localServer.handleClient();
 
   if (relayPinStatus) {
     digitalWrite(relayPin, LOW);
@@ -263,7 +271,8 @@ void loop() {
 
   if (checkVersion) {
     checkVersion = false;
-    String serverPath = "http://" + gateway.toString() + "/relay/version";
+    return;
+    String serverPath = "Check for update at http://" + server + "/relay/version";
     Serial.println(serverPath);
     String response = httpGETRequest(serverPath.c_str());
     response.trim();
@@ -271,7 +280,7 @@ void loop() {
     if (newVersion > currentVersion) {
       Serial.printf("Installing version %d\n", newVersion);
       WiFiClient client;
-      ESPhttpUpdate.update(client, gateway.toString(), 80, "/relay/binary");
+      ESPhttpUpdate.update(client, server, 80, "/relay/binary");
     }
   }
 }

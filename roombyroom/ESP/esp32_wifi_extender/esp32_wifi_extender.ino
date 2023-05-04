@@ -13,6 +13,7 @@ const uint currentVersion = 1;
 // Local IP Address
 const IPAddress localIP(192,168,23,1);
 const IPAddress subnet(255,255,255,0);
+const String deviceRoot("http://192.168.23.");
 String network_ssid;
 String network_password;
 String softap_ssid;
@@ -21,6 +22,9 @@ String host_ipaddr;
 String host_gateway;
 String host_server;
 bool connected = false;
+int relayId;
+String relayType;
+bool relayState;
 
 // Serial baud rate
 const int baudRate = 115200;
@@ -102,6 +106,7 @@ void handle_info(AsyncWebServerRequest *request) {
 void reset() {
   Serial.println("Reset");
   delay(10000); // Forces the watchdog to trigger
+  ESP.restart();
 }
 
 // Endpoint: GET http://{ipaddr}/reset
@@ -162,22 +167,24 @@ void handle_setup(AsyncWebServerRequest *request) {
 }
 
 // Endpoint: GET http://{ipaddr}/on?id={id}
-void handle_on(AsyncWebServerRequest *request, String id) {
-  Serial.println("Endpoint: on?id={id}");
+void handle_on(AsyncWebServerRequest *request, String type, int id) {
   if (connected) {
+    relayId = id;
+    relayType = type;
+    relayState = true;
+    Serial.println("Relay " + type + " " + id + " on");
     request->send(200, "text/plain", "Turn on relay " + id);
-  } else {
-    request->send(200, "text/plain", "Not connected");
   }
 }
 
 // Endpoint: GET http://{ipaddr}/off?id={id}
-void handle_off(AsyncWebServerRequest *request, String id) {
-  Serial.println("Endpoint: off?id={id}");
+void handle_off(AsyncWebServerRequest *request, String type, int id) {
   if (connected) {
+    relayId = id;
+    relayType = type;
+    relayState = false;
+    Serial.println("Relay " + type + " " + id + " off");
     request->send(200, "text/plain", "Turn off relay " + id);
-  } else {
-    request->send(200, "text/plain", "Not connected");
   }
 }
 
@@ -202,15 +209,19 @@ void setupLocalServer() {
   });
 
   localServer.on("/on", HTTP_GET, [](AsyncWebServerRequest *request){
-      AsyncWebParameter* p = request->getParam("id");
-      String id = p->value();
-    handle_on(request, id);
+      AsyncWebParameter* p = request->getParam("type");
+      String type = p->value();
+      p = request->getParam("id");
+      int id = p->value().toInt();
+    handle_on(request, type, id);
   });
 
   localServer.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
-      AsyncWebParameter* p = request->getParam("id");
-      String id = p->value();
-    handle_off(request, id);
+      AsyncWebParameter* p = request->getParam("type");
+      String type = p->value();
+      p = request->getParam("id");
+      int id = p->value().toInt();
+    handle_off(request, type, id);
   });
 
   localServer.onNotFound([](AsyncWebServerRequest *request){
@@ -313,14 +324,14 @@ void setup() {
   EEPROM.begin(512);
 //  clearEEPROM();
   // Set up the soft AP
-  softap_ssid = "RBR-000000";
+  softap_ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
-  softap_ssid[4] = mac[6];
-  softap_ssid[5] = mac[7];
-  softap_ssid[6] = mac[9];
-  softap_ssid[7] = mac[10];
-  softap_ssid[8] = mac[12];
-  softap_ssid[9] = mac[13];
+  softap_ssid[7] = mac[6];
+  softap_ssid[8] = mac[7];
+  softap_ssid[9] = mac[9];
+  softap_ssid[10] = mac[10];
+  softap_ssid[11] = mac[12];
+  softap_ssid[12] = mac[13];
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(localIP, localIP, subnet);
   delay(100);
@@ -346,14 +357,35 @@ void setup() {
 ///////////////////////////////////////////////////////////////////////////////
 // Main loop
 void loop() {
+  if (relayId > 0) {
+    String deviceURL = deviceRoot + relayId;
+    if (relayType == "shelly") {
+      deviceURL += "/relay/0?turn=";
+    } else {
+      deviceURL += "/";
+    }
+    if (relayState) {
+      deviceURL += "on";
+    } else {
+      deviceURL += "off";
+    }
+    relayId = 0;
+    Serial.println("GET " + deviceURL);
+    String response = httpGETRequest(deviceURL.c_str());
+  }
+
   if (checkForUpdate) {
-    Serial.println("Check for update");
     checkForUpdate = false;
-    String serverPath = "http://" + host_server + "/extender/version";
-    Serial.println(serverPath);
-    String response = httpGETRequest(serverPath.c_str());
+    String serverURL = "http://" + host_server + "/extender/version";
+    Serial.println("Check for update at " + serverURL);
+    String response = httpGETRequest(serverURL.c_str());
     response.trim();
     int newVersion = response.toInt();
+    if (newVersion == 0) {
+      Serial.println("Bad response from host, so restarting");
+      delay(10000);  // Bad response so restart
+      ESP.restart();
+    }
     Serial.printf("Installed version is %d, current version is %d\n", currentVersion, newVersion);
     if (newVersion > currentVersion) {
       Serial.printf("Installing version %d\n", newVersion);
