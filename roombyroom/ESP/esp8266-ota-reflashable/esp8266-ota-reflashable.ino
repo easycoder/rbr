@@ -86,10 +86,9 @@ void check() {
 // Reset the system
 void reset() {
   localServer.send(200, "text/plain", "Reset");
-  WiFi.softAPdisconnect(true);
   writeToEEPROM("");
-  delay(100);
-  setup();
+  delay(10000);
+  ESP.reset();
 }
 
 // Perform a GET
@@ -120,7 +119,7 @@ String httpGETRequest(const char* requestURL) {
   return payload;
 }
 
-// Connect to the controller network and accept relay commands
+// Connect to the controller network and accept requests with known endpoint formats
 void connectToHost(String name_s, String ssid, String password, String ipaddr_s, String gateway_s, String server_s) {
   Serial.println("");
   Serial.println("Connection parameters:");
@@ -141,12 +140,7 @@ void connectToHost(String name_s, String ssid, String password, String ipaddr_s,
   server = server_s;
 
   // Connect to the controller's wi-fi network
-  WiFi.mode(WIFI_AP_STA);
-  WiFi.softAPConfig(localIP, localIP, subnet);
-  WiFi.softAP(ssid);
-  if (!WiFi.config(ipaddr, gateway, subnet)) {
-    Serial.println("STA failed to configure");
-  }
+  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
   // Check we're connected to wi-fi network
@@ -184,6 +178,7 @@ void onAPConnect() {
     localServer.send(200, "text/plain", "OK");
     writeToEEPROM(name + "\n" + ssid + "\n" + password + "\n" + ipaddr + "\n" + gateway + "\n" + server);
     delay(10000);  // Force a restart
+    ESP.reset(); // Just in case it failed
   }
   else {
     localServer.send(200, "text/plain", "Not connected");
@@ -219,7 +214,7 @@ void setup() {
     // Set up the soft AP
     Serial.println("Soft AP mode");
     String mac = WiFi.macAddress();
-    String ssid = "RBR-R1-000000";
+    String ssid = "RBR-XX-000000";
     ssid[7] = mac[6];
     ssid[8] = mac[7];
     ssid[9] = mac[9];
