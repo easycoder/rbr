@@ -199,7 +199,7 @@ void setup() {
   // Check if there's anything stored in EEPROM
   eepromPointer = 0;
   EEPROM.begin(512);
-  writeToEEPROM("");
+//  writeToEEPROM("");     // Enable this to erase the EEPROM
   String name = readFromEEPROM();
   if (name != "") {
     Serial.println("Client mode");
