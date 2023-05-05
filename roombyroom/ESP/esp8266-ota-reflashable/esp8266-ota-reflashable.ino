@@ -21,7 +21,6 @@ bool connected = false;
 int eepromPointer = 0;
 String name = "";
 String softap_ssid;
-String softap_password;
 String host_ssid;
 String host_password;
 String host_ipaddr;
@@ -130,7 +129,7 @@ String httpGETRequest(const char* requestURL) {
 void connectToHost() {
   Serial.println("");
   Serial.println("Connection parameters:");
-  Serial.println(name + "\n" + softap_ssid + "\n" + softap_password
+  Serial.println(name + "\n" + softap_ssid
   + "\n" + host_ssid + "\n" + host_password
   + "\n" + host_ipaddr + "\n" + host_gateway + "\n" + host_server);
 
@@ -177,17 +176,16 @@ void connectToHost() {
 void onAPConnect() {
   Serial.println("onAPConnect");
   name = localServer.arg("name");
-  softap_password = localServer.arg("softap_password");
   host_ssid = localServer.arg("ssid");
   host_password = localServer.arg("password");
   host_ipaddr = localServer.arg("ipaddr");
   host_gateway = localServer.arg("gateway");
   host_server = localServer.arg("server");
 
-  if (name != "" && softap_password != "" && host_ssid != "" && host_password != ""
+  if (name != "" && host_ssid != "" && host_password != ""
   && host_ipaddr != "" && host_gateway != "" && host_server != "") {
     localServer.send(200, "text/plain", "OK");
-    writeToEEPROM(name + "\n" + softap_password + "\n" + host_ssid + "\n" + host_password
+    writeToEEPROM(name + "\n" + host_ssid + "\n" + host_password
     + "\n" + host_ipaddr + "\n" + host_gateway + "\n" + host_server);
     delay(10000);  // Force a restart
     ESP.reset(); // Just in case it failed
@@ -228,13 +226,12 @@ void setup() {
   name = readFromEEPROM();
   if (name != "") {
     Serial.println("Client mode");
-    softap_password = readFromEEPROM();
     host_ssid = readFromEEPROM();
     host_password = readFromEEPROM();
     host_ipaddr = readFromEEPROM();
     host_gateway = readFromEEPROM();
     host_server = readFromEEPROM();
-    if (softap_password != "" && host_password != "" && host_ipaddr != "" && host_gateway != "" && host_server != "") {
+    if (host_password != "" && host_ipaddr != "" && host_gateway != "" && host_server != "") {
       connectToHost();
     } else {
       Serial.println("Bad EEPROM data - resetting");
@@ -246,7 +243,7 @@ void setup() {
   else {
     // Set up the soft AP
     Serial.println("Soft AP mode");
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_AP);
     WiFi.softAPConfig(localIP, localIP, subnet);
     WiFi.softAP(softap_ssid);
     delay(100);
