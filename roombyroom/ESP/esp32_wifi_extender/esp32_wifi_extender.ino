@@ -319,19 +319,21 @@ void setup() {
   delay(500);
   Serial.printf("\nVersion: %d\n",currentVersion);
 
+  softap_ssid = "RBR-EX-000000";
+  String mac = WiFi.macAddress();
+  softap_ssid[7] = mac[9];
+  softap_ssid[8] = mac[10];
+  softap_ssid[9] = mac[12];
+  softap_ssid[10] = mac[13];
+  softap_ssid[11] = mac[15];
+  softap_ssid[12] = mac[16];
+  Serial.printf("SSID: %s\n", softap_ssid.c_str());
+
   // Check if there's anything stored in EEPROM
   eepromPointer = 0;
   EEPROM.begin(512);
 //  clearEEPROM();
   // Set up the soft AP
-  softap_ssid = "RBR-EX-000000";
-  String mac = WiFi.macAddress();
-  softap_ssid[7] = mac[6];
-  softap_ssid[8] = mac[7];
-  softap_ssid[9] = mac[9];
-  softap_ssid[10] = mac[10];
-  softap_ssid[11] = mac[12];
-  softap_ssid[12] = mac[13];
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(localIP, localIP, subnet);
   delay(100);
