@@ -101,6 +101,7 @@ void check() {
 
 // Reset the system
 void factoryReset() {
+  Serial.print("Factory Reset");
   localServer.send(200, "text/plain", "Factory Reset");
   writeToEEPROM("");
   delay(10000);
@@ -157,6 +158,9 @@ void connectToHost(String name_s, String ssid, String password, String ipaddr_s,
 
   // Connect to the controller's wifi network
   WiFi.mode(WIFI_STA);
+  if (!WiFi.config(ipaddr, gateway, subnet)) {
+    Serial.println("STA failed to configure");
+  }
   WiFi.begin(ssid, password);
 
   // Check we are connected to wifi network
