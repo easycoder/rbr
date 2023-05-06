@@ -54,6 +54,21 @@ def extenderversion():
 def extenderbinary():
     return static_file('esp32_wifi_extender/build/esp32.esp32.esp32da/esp32_wifi_extender.ino.bin', root='.')
 
+# Endpoint: GET <server-ip>/relay/version
+# Called to get the current relay version
+@app.get('/relay/version')
+def relayversion():
+    f = open('relay/version', 'r');
+    version = f.read()
+    f.close()
+    return version
+
+# Endpoint: GET <server-ip>/relay/binary
+# Called to get the current relay binary
+@app.get('/relay/binary')
+def relaybinary():
+    return static_file('relay/build/esp8266.esp8266.generic/relay.ino.bin', root='.')
+
 # Initialization
 
 if __name__ == '__main__':

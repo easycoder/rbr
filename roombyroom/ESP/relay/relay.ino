@@ -16,7 +16,7 @@ const int baudRate = 115200;
 uint8_t relayPin = 0;
 uint8_t ledPin = 2;
 bool relayPinStatus = LOW;
-bool checkVersion = false;
+bool checkForUpdate = false;
 bool connected = false;
 int eepromPointer = 0;
 String name = "";
@@ -30,6 +30,13 @@ String host_server;
 Ticker ticker;
 
 ESP8266WebServer localServer(80);
+
+// Checks if an update is available
+void updateCheck() {
+  if (connected) {
+    checkForUpdate = true;
+  }
+}
 
 void ledOn() {
   if (ledPin != relayPin) {
@@ -98,8 +105,14 @@ void blink()
 // Checks eevery 60 minutes if an update is available
 void check() {
   if (connected) {
-    checkVersion = true;
+    checkForUpdate = true;
   }
+}
+
+// Restart the system
+void restart() {
+  delay(10000);
+  ESP.reset();
 }
 
 // Reset the system
@@ -107,24 +120,22 @@ void factoryReset() {
   Serial.print("Factory Reset");
   localServer.send(200, "text/plain", "Factory Reset");
   writeToEEPROM("");
-  delay(10000);
-  ESP.reset();
+  restart();
 }
 
 // Perform a GET
-String httpGETRequest(const char* requestURL) {
+String httpGETRequest(const char* serverName) {
   WiFiClient client;
   HTTPClient http;
     
-  // Your IP address with path or Domain name with URL path 
-  http.begin(client, requestURL);
+  http.begin(client, serverName);
   
-  // Send HTTP POST request
+  // Send HTTP GET request
   int httpResponseCode = http.GET();
   
   String payload = "{}"; 
   
-  if (httpResponseCode>0) {
+  if (httpResponseCode >= 200 && httpResponseCode < 400) {
     Serial.print("HTTP Response code: ");
     Serial.println(httpResponseCode);
     payload = http.getString();
@@ -132,6 +143,7 @@ String httpGETRequest(const char* requestURL) {
   else {
     Serial.print("Error code: ");
     Serial.println(httpResponseCode);
+    restart();
   }
   // Free resources
   http.end();
@@ -146,6 +158,8 @@ void connectToHost() {
   Serial.println(name + "\n" + softap_ssid
   + "\n" + host_ssid + "\n" + host_password
   + "\n" + host_ipaddr + "\n" + host_gateway + "\n" + host_server);
+
+  // Check IP addresses are well-formed
 
   IPAddress ipaddr;
   IPAddress gateway;
@@ -173,7 +187,7 @@ void connectToHost() {
     Serial.print(".");
   }
 
-  Serial.print("\nWiFi connected with ipaddr "); Serial.println(WiFi.localIP());
+  Serial.printf("\nWiFi connected to %s with ipaddr %s\n", host_ssid.c_str(), WiFi.localIP().toString().c_str());
   delay(100);
 
   localServer.on("/", relayOff);
@@ -186,12 +200,19 @@ void connectToHost() {
   localServer.send(200, "text/plain", "Connected");
   connected = true;
 
-  ticker.attach(60, check);
+  // Check for updates every 10 minutes
+  ticker.attach(60, updateCheck);
+}
+
+// The default page for the AP
+void onAPDefault() {
+  Serial.println("onAPDefault");
+  localServer.send(200, "text/plain", softap_ssid + " in unconfigured mode");
 }
 
 // Here when a setup request containing configuration data is received
-void onAPConnect() {
-  Serial.println("onAPConnect");
+void onAPSetup() {
+  Serial.println("onAPSetup");
   name = localServer.arg("name");
   host_ssid = localServer.arg("ssid");
   host_password = localServer.arg("password");
@@ -204,8 +225,7 @@ void onAPConnect() {
     localServer.send(200, "text/plain", "OK");
     writeToEEPROM(name + "\n" + host_ssid + "\n" + host_password
     + "\n" + host_ipaddr + "\n" + host_gateway + "\n" + host_server);
-    delay(10000);  // Force a restart
-    ESP.reset(); // Just in case it failed
+    restart();
   }
   else {
     localServer.send(200, "text/plain", "Not connected");
@@ -239,7 +259,7 @@ void setup() {
   // Check if there's anything stored in EEPROM
   eepromPointer = 0;
   EEPROM.begin(512);
-  writeToEEPROM("");
+//  writeToEEPROM("");
   name = readFromEEPROM();
   if (name != "") {
     Serial.println("Client mode");
@@ -252,9 +272,7 @@ void setup() {
       connectToHost();
     } else {
       Serial.println("Bad EEPROM data - resetting");
-      writeToEEPROM("");
-      delay(10000);
-      ESP.reset();
+      factoryReset();
     }
   }
   else {
@@ -265,7 +283,8 @@ void setup() {
     WiFi.softAP(softap_ssid);
     delay(100);
 
-    localServer.on("/setup", onAPConnect);
+    localServer.on("/", onAPDefault);
+    localServer.on("/setup", onAPSetup);
     localServer.onNotFound(notFound);
     localServer.begin();
 
@@ -285,17 +304,28 @@ void loop() {
     digitalWrite(relayPin, HIGH);
   }
 
-  if (checkVersion) {
-    checkVersion = false;
-    String requestURL = "Check for update at http://" + host_server + "/relay/version";
-    Serial.println(requestURL);
+  if (checkForUpdate) {
+    checkForUpdate = false;
+    String requestURL = "http://" + host_server + "/relay/version";
+    Serial.println("Check for update at " + requestURL);
     String response = httpGETRequest(requestURL.c_str());
     response.trim();
     int newVersion = response.toInt();
     if (newVersion > currentVersion) {
       Serial.printf("Installing version %d\n", newVersion);
       WiFiClient client;
-      ESPhttpUpdate.update(client, host_server, 80, "/relay/binary");
+      requestURL = "http://" + host_server + "/relay/binary";
+      t_httpUpdate_return ret = ESPhttpUpdate.update(client, requestURL.c_str());
+      switch (ret) {
+          case HTTP_UPDATE_FAILED:
+              Serial.println("Update failed");
+              break;
+          case HTTP_UPDATE_NO_UPDATES:
+              Serial.println("No Update took place");
+              break;
+      }
+    } else {
+      Serial.println("No update available");
     }
   }
 }
