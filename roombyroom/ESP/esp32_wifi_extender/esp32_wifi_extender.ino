@@ -7,8 +7,12 @@
 #include <ESP32httpUpdate.h>
 #include <Preferences.h>
 #include <Ticker.h>
+#include "SPIFFS.h"
+
+static const char *TAG = "example";
 
 const uint currentVersion = 1;
+uint relayVersion = 0;
 
 // Local IP Address
 const IPAddress localIP(192,168,23,1);
@@ -23,13 +27,13 @@ String host_password;
 String host_ipaddr;
 String host_gateway;
 String host_server;
-bool connected = false;
 int relayId;
 String relayType;
+bool busy = false;
 bool relayState;
-bool checkForUpdate = false;
+bool updateCheck = false;
 AsyncWebServerRequest *relayVersionRequest;
-AsyncWebServerRequest *relayBinaryRequest;
+AsyncWebServerRequest *relayUpdateRequest;
 
 // Serial baud rate
 const int baudRate = 115200;
@@ -38,11 +42,9 @@ Ticker ticker;
 
 AsyncWebServer localServer(80);
 
-// Checks if an update is available
-void updateCheck() {
-  if (connected) {
-    checkForUpdate = true;
-  }
+// Schedule an update check
+void scheduleUpdateCheck() {
+  updateCheck = true;
 }
 
 // Endpoint: GET http://{ipaddr}/
@@ -66,11 +68,7 @@ void handle_root(AsyncWebServerRequest *request) {
 // Endpoint: GET http://{ipaddr}/info
 void handle_info(AsyncWebServerRequest *request) {
   Serial.println("Endpoint: info");
-  if (connected) {
-    request->send(200, "text/plain", "Extender up and running");
-  } else {
-    request->send(200, "text/plain", "Not connected");
-  }
+  request->send(200, "text/plain", "Extender up and running");
 }
 
 // Do the reset
@@ -82,51 +80,49 @@ void reset() {
 
 // Endpoint: GET http://{ipaddr}/reset
 void handle_reset(AsyncWebServerRequest *request) {
-  if (connected) {
-    Serial.println("Endpoint: reset");
-    preferences.putString("softap_ssid", "");
-    request->send(200, "text/plain", "reset");
-    delay(100);
-    reset();
-  } else {
-    request->send(200, "text/plain", "Not connected");
-  }
+  Serial.println("Endpoint: reset");
+  preferences.putString("softap_ssid", "");
+  request->send(200, "text/plain", "reset");
+  delay(100);
+  reset();
 }
 
 // Endpoint: GET http://{ipaddr}/on?id={id}
 void handle_on(AsyncWebServerRequest *request, String type, int id) {
-  if (connected) {
-    relayId = id;
-    relayType = type;
-    relayState = true;
+  relayId = id;
+  relayType = type;
+  relayState = true;
 //    Serial.println("Relay " + type + " " + id + " on");
-    request->send(200, "text/plain", "Turn on relay " + id);
-  }
+  request->send(200, "text/plain", "Turn on relay " + id);
 }
 
 // Endpoint: GET http://{ipaddr}/off?id={id}
 void handle_off(AsyncWebServerRequest *request, String type, int id) {
-  if (connected) {
-    relayId = id;
-    relayType = type;
-    relayState = false;
+  relayId = id;
+  relayType = type;
+  relayState = false;
 //    Serial.println("Relay " + type + " " + id + " off");
-    request->send(200, "text/plain", "Turn off relay " + id);
-  }
+  request->send(200, "text/plain", "Turn off relay " + id);
 }
 
 // Endpoint: GET http://{ipaddr}/relay/version
 void handle_relay_version(AsyncWebServerRequest *request) {
-  if (connected) {
-    relayVersionRequest = request;
+  if (relayVersionRequest) {
+    return;
   }
+  Serial.print("Received version request from ");
+  Serial.println(request->client()->remoteIP());
+  relayVersionRequest = request;
 }
 
-// Endpoint: GET http://{ipaddr}/relay/binary
-void handle_relay_binary(AsyncWebServerRequest *request) {
-  if (connected) {
-    relayBinaryRequest = request;
+// Endpoint: GET http://{ipaddr}/relay/update
+void handle_relay_update(AsyncWebServerRequest *request) {
+  if (relayUpdateRequest) {
+    return;
   }
+  Serial.print("Received update request from ");
+  Serial.println(request->client()->remoteIP());
+  relayUpdateRequest = request;
 }
 
 // Set up endpoints and start the local server
@@ -137,15 +133,15 @@ void setupLocalServer() {
     handle_root(request);
   });
 
-  localServer.on("/info", HTTP_GET, [](AsyncWebServerRequest *request){
+  localServer.on("/info", HTTP_GET, [](AsyncWebServerRequest *request) {
     handle_info(request);
   });
 
-  localServer.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request){
+  localServer.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request) {
     handle_reset(request);
   });
 
-  localServer.on("/on", HTTP_GET, [](AsyncWebServerRequest *request){
+  localServer.on("/on", HTTP_GET, [](AsyncWebServerRequest *request) {
       AsyncWebParameter* p = request->getParam("type");
       String type = p->value();
       p = request->getParam("id");
@@ -153,7 +149,7 @@ void setupLocalServer() {
     handle_on(request, type, id);
   });
 
-  localServer.on("/off", HTTP_GET, [](AsyncWebServerRequest *request){
+  localServer.on("/off", HTTP_GET, [](AsyncWebServerRequest *request) {
       AsyncWebParameter* p = request->getParam("type");
       String type = p->value();
       p = request->getParam("id");
@@ -161,12 +157,12 @@ void setupLocalServer() {
     handle_off(request, type, id);
   });
 
-  localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request){
+  localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request) {
     handle_relay_version(request);
   });
 
-  localServer.on("/relay/binary", HTTP_GET, [](AsyncWebServerRequest *request){
-    handle_relay_binary(request);
+  localServer.on("/relay/update", HTTP_GET, [](AsyncWebServerRequest *request) {
+    handle_relay_update(request);
   });
 
   localServer.onNotFound([](AsyncWebServerRequest *request){
@@ -175,7 +171,7 @@ void setupLocalServer() {
 
   localServer.begin();
   // Check for updates every 10 minutes
-  ticker.attach(60, updateCheck);
+  ticker.attach(60, scheduleUpdateCheck);
 }
 
 // Set up the network
@@ -223,10 +219,8 @@ void setupNetwork() {
   Serial.printf("\nConnected to %s as %s with RSSI %d\n", host_ssid.c_str(), WiFi.localIP().toString().c_str(), WiFi.RSSI());
   delay(100);
 
-  connected = true;
-
   // Check for updates every 10 minutes
-  ticker.attach(600, updateCheck);
+  ticker.attach(600, scheduleUpdateCheck);
 
   // Set up the local HTTP server
   setupLocalServer();
@@ -259,20 +253,6 @@ String httpGET(const char* serverName) {
   http.end();
 
   return payload;
-}
-
-// Perform a GET with a binary return value
-size_t* httpGETbinary(const char* serverName) {
-  WiFiClient client;
-  HTTPClient http;
-    
-  http.begin(client, serverName);
-  
-  // Send HTTP GET request
-  int httpResponseCode = http.GET();
-  int len = http.getSize();
-  Serial.printf("Length: %d\n", len);
-  return 0;
 }
 
 // Endpoint: GET http://{ipaddr}/setup?(params)
@@ -319,6 +299,107 @@ void handle_setup(AsyncWebServerRequest *request) {
   reset();
 }
 
+// Check for updated relay firmware
+void checkRelayUpdate() {
+  bool error = false;
+  String serverURL = "http://" + host_server + "/relay/version";
+  Serial.println("Check for relay update at " + serverURL);
+  String response = httpGET(serverURL.c_str());
+  response.trim();
+  int newVersion = response.toInt();
+  if (newVersion == 0) {
+    Serial.println("Bad response from host, so restarting");
+    delay(10000);  // Bad response so restart
+    ESP.restart();
+  }
+  Serial.printf("Current version is %d, new version is %d\n", relayVersion, newVersion);
+  if (newVersion > relayVersion) {
+    String serverURL = "http://" + host_server + "/relay/binary";
+    Serial.println("Get relay binary from " + serverURL);
+    // Download the binary
+    WiFiClient wifi;
+    HTTPClient client;
+    client.begin(wifi, serverURL.c_str());
+    // Send HTTP GET request
+    int httpResponseCode = client.GET();
+    int len = client.getSize();
+    Serial.printf("Length: %d\n", len);
+    Serial.println("Writing to SPIFFS");
+    File file = SPIFFS.open("/relay.bin", FILE_WRITE);
+    if (!file) {
+      Serial.println("There was an error opening /relay.bin for writing");
+    } else {
+      // create buffer for read
+      uint8_t buff[128] = { 0 };
+      // get tcp stream
+      WiFiClient * stream = client.getStreamPtr();
+      // read all data from server
+      while (client.connected() && (len > 0 || len == -1)) {
+        // get available data size
+        size_t size = stream->available();
+        if (size) {
+            // read up to 128 byte
+            int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+            // write it to SPIFFS
+            if (!file.write(buff, c)) {
+                error = true;
+            }
+            if (len > 0) {
+              len -= c;
+            }
+        }
+      }
+      Serial.println("Download complete");
+      file.close();
+      client.end();
+      if (error) {
+        Serial.println("An error occurred while downloading the relay binary");
+      } else {
+        relayVersion = newVersion;
+      }
+    }
+  }
+}
+
+// Check for updated extender and relay firmware
+void checkForUpdates() {
+  busy = true;
+  if (updateCheck) {
+    updateCheck = false;
+    String serverURL = "http://" + host_server + "/extender/version";
+    Serial.println("Check for update at " + serverURL);
+    String response = httpGET(serverURL.c_str());
+    response.trim();
+    int newVersion = response.toInt();
+    if (newVersion == 0) {
+      Serial.println("Bad response from host, so restarting");
+      delay(10000);  // Bad response so restart
+      ESP.restart();
+    }
+    Serial.printf("Installed version is %d, new version is %d\n", currentVersion, newVersion);
+    if (newVersion > currentVersion) {
+      Serial.printf("Installing version %d\n", newVersion);
+      WiFiClient client;
+      ESPhttpUpdate.update("http://" + host_server + "/extender/binary");
+    } else {
+      checkRelayUpdate();
+//      listAllFiles();
+    }
+  }
+  busy = false;
+}
+
+// List all the SPIFFS files
+void listAllFiles(){
+ 
+  File root = SPIFFS.open("/");
+  File file = root.openNextFile();
+  while (file) {
+      Serial.printf("FILE: %s %s\n", file.name(), file.size());
+      file = root.openNextFile();
+  }
+}
+ 
 ///////////////////////////////////////////////////////////////////////////////
 // Start here
 void setup(void) {
@@ -326,8 +407,27 @@ void setup(void) {
   delay(500);
   Serial.printf("\nVersion: %d\n",currentVersion);
 
+  if (SPIFFS.begin(true)){
+    Serial.println("SPIFFS mounted");
+  } else {
+    Serial.println("Formatting SPIFFS");
+    if (SPIFFS.format()) {
+      Serial.println("Success formatting");
+      if (SPIFFS.begin(true)) {
+        Serial.println("SPIFFS mounted");
+      } else {
+        Serial.println("An Error has occurred while mounting SPIFFS");
+      }
+    } else {
+      Serial.println("\n\nError formatting");
+    }
+  }
+
   preferences.begin("RBR-EX", false);
 //  preferences.putString("softap_ssid", "");
+//  SPIFFS.format();
+
+//  listAllFiles();
 
   softap_ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
@@ -386,7 +486,9 @@ void setup(void) {
 ///////////////////////////////////////////////////////////////////////////////
 // Main loop
 void loop(void) {
-  relayId = 0;
+  if (busy) {
+    return;
+  }
   if (relayId > 0) {
     String deviceURL = deviceRoot + relayId;
     if (relayType == "shelly") {
@@ -406,46 +508,16 @@ void loop(void) {
   }
 
   if (relayVersionRequest) {
-    String serverURL = "http://" + host_server + "/relay/version";
-    Serial.println("Check for relay update at " + serverURL);
-    String response = httpGET(serverURL.c_str());
-    response.trim();
-    Serial.printf("Latest version is %s\n", response);
-    relayVersionRequest->send(200, "text/plain", response);
+    relayVersionRequest->send(200, "text/plain", ((String)relayVersion).c_str());
     relayVersionRequest = 0;
   }
 
-  if (relayBinaryRequest) {
-    String serverURL = "http://" + host_server + "/relay/binary";
-    Serial.println("Free memory (before): " + String(esp_get_free_heap_size()) + " bytes");
-    Serial.println("Get relay binary from " + serverURL);
-    size_t* content = httpGETbinary(serverURL.c_str());
-//    Serial.println(content);
-    Serial.println("Binary downloaded");
-    Serial.println("Free memory (after): " + String(esp_get_free_heap_size()) + " bytes");
-//    relayBinaryRequest->send(200, "text/plain", "0");
-    relayBinaryRequest = 0;
+  if (relayUpdateRequest) {
+    relayUpdateRequest->send(SPIFFS, "/relay.bin", "application/octet");
+    Serial.print("Relay code sent to ");
+    Serial.println(relayUpdateRequest->client()->remoteIP());
+    relayUpdateRequest = 0;
   }
 
-  if (checkForUpdate) {
-    checkForUpdate = false;
-    String serverURL = "http://" + host_server + "/extender/version";
-    Serial.println("Check for update at " + serverURL);
-    String response = httpGET(serverURL.c_str());
-    response.trim();
-    int newVersion = response.toInt();
-    if (newVersion == 0) {
-      Serial.println("Bad response from host, so restarting");
-      delay(10000);  // Bad response so restart
-      ESP.restart();
-    }
-    Serial.printf("Installed version is %d, current version is %d\n", currentVersion, newVersion);
-    if (newVersion > currentVersion) {
-      Serial.printf("Installing version %d\n", newVersion);
-      WiFiClient client;
-      ESPhttpUpdate.update("http://" + host_server + "/extender/binary");
-    } else {
-      Serial.println("No update needed");
-    }
-  }
+  checkForUpdates();
 }

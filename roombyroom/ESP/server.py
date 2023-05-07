@@ -24,10 +24,25 @@ def getIndex():
     # print('getIndex')
     return 'Nothing'
 
+# Endpoint: GET <server-ip>/relay/version
+# Called to get the current relay version
+@app.get('/relay/version')
+def relayversion():
+    f = open('esp32_relay/version', 'r');
+    version = f.read()
+    f.close()
+    return version
+
+# Endpoint: GET <server-ip>/relay/binary
+# Called to get the current relay binary
+@app.get('/relay/binary')
+def relaybinary():
+    return static_file('esp32_reflashable/build/esp8266.esp8266.generic/esp32_relay.ino.bin', root='.')
+
 # Endpoint: GET <server-ip>/reflashable/version
 # Called to get the current reflashable version
 @app.get('/reflashable/version')
-def relayversion():
+def reflashableversion():
     f = open('esp32_reflashable/version', 'r');
     version = f.read()
     f.close()
@@ -36,8 +51,8 @@ def relayversion():
 # Endpoint: GET <server-ip>/reflashable/binary
 # Called to get the current reflashable binary
 @app.get('/reflashable/binary')
-def relaybinary():
-    return static_file('esp32_reflashable/build/esp32.esp32.esp32da/esp32_reflashable.ino.bin', root='.')
+def reflashablebinary():
+    return static_file('esp32_reflashable/build/esp8266.esp8266.generic/esp32_reflashable.ino.bin', root='.')
 
 # Endpoint: GET <server-ip>/extender/version
 # Called to get the current extender version

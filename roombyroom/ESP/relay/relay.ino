@@ -136,13 +136,10 @@ String httpGETRequest(const char* serverName) {
   String payload = "{}"; 
   
   if (httpResponseCode >= 200 && httpResponseCode < 400) {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
     payload = http.getString();
   }
   else {
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
+    Serial.printf("Error code: %d\n", httpResponseCode);
     restart();
   }
   // Free resources
@@ -153,7 +150,6 @@ String httpGETRequest(const char* serverName) {
 
 // Connect to the controller network and accept relay commands
 void connectToHost() {
-  Serial.println("");
   Serial.println("Connection parameters:");
   Serial.println(name + "\n" + softap_ssid
   + "\n" + host_ssid + "\n" + host_password
@@ -312,20 +308,20 @@ void loop() {
     response.trim();
     int newVersion = response.toInt();
     if (newVersion > currentVersion) {
-      Serial.printf("Installing version %d\n", newVersion);
       WiFiClient client;
-      requestURL = "http://" + host_server + "/relay/binary";
+      requestURL = "http://" + host_server + "/relay/update";
+      Serial.printf("Installing version %d from %s\n", newVersion, requestURL.c_str());
       t_httpUpdate_return ret = ESPhttpUpdate.update(client, requestURL.c_str());
       switch (ret) {
-          case HTTP_UPDATE_FAILED:
-              Serial.println("Update failed");
-              break;
-          case HTTP_UPDATE_NO_UPDATES:
-              Serial.println("No Update took place");
-              break;
+        case HTTP_UPDATE_FAILED:
+           Serial.println("Update failed");
+           break;
+        case HTTP_UPDATE_NO_UPDATES:
+           Serial.println("No update took place");
+           break;
       }
     } else {
-      Serial.println("No update available");
+      Serial.println("Firmware is up to date");
     }
   }
 }
