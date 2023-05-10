@@ -132,7 +132,7 @@ void factoryReset() {
 }
 
 // Perform a GET
-void httpGETRequest(char* serverName, char* response) {
+void httpGET(char* serverName, char* response) {
   WiFiClient client;
   HTTPClient http;
     
@@ -343,7 +343,7 @@ void loop() {
   if (checkForUpdate) {
     checkForUpdate = false;
     Serial.printf("Check for update at %s\n", requestVersionURL);
-    httpGETRequest(requestVersionURL, response);
+    httpGET(requestVersionURL, response);
     int newVersion = atoi(response);
     Serial.printf("Version %d is available\n", newVersion);
     if (newVersion > CURRENT_VERSION) {
