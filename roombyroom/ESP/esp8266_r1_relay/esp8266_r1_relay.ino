@@ -9,7 +9,7 @@
 
 #define CURRENT_VERSION 2
 #define BAUDRATE 115200
-#define UPDATE_CHECK_INTERVAL 60
+#define UPDATE_CHECK_INTERVAL 3600
 
 // Constants
 const IPAddress localIP(192,168,23,1);
@@ -212,7 +212,6 @@ void connectToHost() {
   localServer.begin();
   localServer.send(200, "text/plain", "Connected");
 
-  // Check for updates every 10 minutes
   strcat(requestVersionURL, "http://");
   strcat(requestVersionURL, host_server);
   strcat(requestVersionURL, "/relay/version");
@@ -220,8 +219,10 @@ void connectToHost() {
   strcat(requestUpdateURL, host_server);
   strcat(requestUpdateURL, "/relay/update");
 
+  // Check periodically for updates
   ticker.attach(UPDATE_CHECK_INTERVAL, updateCheck);
   delay(1000);
+  // Do an update check now
   updateCheck();
 }
 
@@ -360,7 +361,6 @@ void loop() {
       }
     } else {
       Serial.println("Firmware is up to date");
-      Serial.println(ESP.getFreeHeap());
     }
   }
 }
