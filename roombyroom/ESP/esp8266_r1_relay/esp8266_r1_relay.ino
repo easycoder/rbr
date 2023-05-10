@@ -3,18 +3,17 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266httpUpdate.h>
-#include <EEPROM.h>
+#include <LittleFS.h>
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-const uint currentVersion = 1;
+#define CURRENT_VERSION 2
+#define BAUDRATE 115200
+#define UPDATE_CHECK_INTERVAL 60
 
 // Constants
 const IPAddress localIP(192,168,23,1);
 const IPAddress subnet(255,255,255,0);
-const int BAUDRATE = 115200;
-const uint EEPROM_SIZE = 512;
-const uint UPDATE_CHECK_INTERVAL = 60;
 
 Ticker ticker;
 ESP8266WebServer localServer(80);
@@ -24,21 +23,33 @@ uint8_t relayPin = 0;
 uint8_t ledPin = 2;
 bool relayPinStatus = LOW;
 bool checkForUpdate = false;
-int eepromPointer = 0;
-const char* name;
-char* softap_ssid = new char[20];
-const char* host_ssid;
-const char* host_password = new char[20];
-const char* host_ipaddr = new char[20];
-const char* host_gateway = new char[20];
-const char* host_server = new char[20];
+char name[40];
+char softap_ssid[40];
+char host_ssid[40];
+char host_password[20];
+char host_ipaddr[20];
+char host_gateway[20];
+char host_server[20];
 char requestVersionURL[40];
 char requestUpdateURL[40];
 
 // The default page when configured
 void onDefault() {
   Serial.println("onDefault");
-  localServer.send(200, "text/plain", "RBR R1 relay " + String(name) + " (" + String(host_ssid) + "/" + String(host_ipaddr) + ")");
+  char info[80];
+  char ver[8];
+  sprintf(ver, "%d", CURRENT_VERSION);
+  strcpy(info, "RBR R1 relay V");
+  strcat(info, ver);
+  strcat(info, " ");
+  strcat(info, name);
+  strcat(info, " (");
+  strcat(info, host_ssid);
+  strcat(info, "/");
+  strcat(info, host_ipaddr);
+  strcat(info, ")");
+  Serial.println(info);
+  localServer.send(200, "text/plain", info);
 }
 
 // Check if an update is available
@@ -72,39 +83,27 @@ void notFound(){
   localServer.send(404, "text/plain", "Not found");
 }
 
-// Write a string to EEPROM
-void writeToEEPROM(String word) {
+// Write text to a LittleFS file
+void writeTextToFile(const char* filename, const char* text) {
+  auto file = LittleFS.open(filename, "w");
+  file.print(text);
   delay(10);
-
-  for (int i = 0; i < word.length(); ++i) {
-    EEPROM.write(i, word[i]);
-  }
-
-  EEPROM.write(word.length(), '\0');
-  EEPROM.commit();
+  file.close();
 }
 
-// Read a word (space delimited) from EEPROM
-String readFromEEPROM() {
-  String word = "";
-
-  while (true) {
-    char readChar = char(EEPROM.read(eepromPointer++));
-    delay(10);
-    if (readChar == '\n' || readChar == '\0') {
-      break;
-    }
-    word += readChar;
+// Read a LittleFS file into text
+const char* readFileToText(const char* filename) {
+  auto file = LittleFS.open(filename, "r");
+  if (!file) {
+    Serial.println("file open failed");
+    return "";
   }
-  return word;
-}
-
-// Erase the EEPROM
-void eraseEEPROM() {
-  for (int i = 0; i < EEPROM_SIZE; i++) {
-       EEPROM.write(i, 0);
-     }
-     EEPROM.commit();
+  size_t filesize = file.size();
+  char* text = new char[filesize + 1];
+  String data = file.readString();
+  file.close();
+  strcpy(text, data.c_str());
+  return text;
 }
 
 void blink()
@@ -128,7 +127,7 @@ void restart() {
 void factoryReset() {
   Serial.print("Factory Reset");
   localServer.send(200, "text/plain", "Factory Reset");
-  eraseEEPROM();
+  writeTextToFile("/config", "");
   restart();
 }
 
@@ -239,7 +238,7 @@ void onAPSetup() {
   if (config != "") {
     Serial.printf("Config: %s\n", config.c_str());
     localServer.send(200, "text/plain", config.c_str());
-    writeToEEPROM(config);
+    writeTextToFile("/config", config.c_str());
     delay(1000);
     restart();
   }
@@ -270,7 +269,14 @@ void setup() {
   Serial.begin(BAUDRATE);
   delay(500);
   Serial.printf("\nFlash size: %d\n",ESP.getFlashChipRealSize());
-  Serial.printf("Version: %d\n",currentVersion);
+  Serial.printf("Version: %d\n",CURRENT_VERSION);
+
+  if (!LittleFS.begin()){
+    LittleFS.format();
+    return;
+  }
+
+//  writeTextToFile("/config", "");
 
   pinMode(ledPin, OUTPUT);
   pinMode(relayPin, OUTPUT);
@@ -289,27 +295,25 @@ void setup() {
   strcpy(softap_ssid, ssid.c_str());
   Serial.printf("SoftAP SSID: %s\n", softap_ssid);
 
-  // Check if there's anything stored in EEPROM
-  EEPROM.begin(EEPROM_SIZE);
-//  eraseEEPROM();
-  Serial.println("Read config from EEPROM");
-  eepromPointer = 0;
-  String config_p = readFromEEPROM();
-  const char* config_s = config_p.c_str();
-  Serial.printf("Config: %s\n", config_s);
-  if (strlen(config_s) > 0) {
+  Serial.println("Read config from LittleFS/config");
+  String config_p = readFileToText("/config");
+  Serial.println("Config = " + config_p);
+  if (config_p != "") {
+    const char* config_s = config_p.c_str();
+    StaticJsonDocument<400> config;
     DeserializationError error = deserializeJson(config, config_s);
     if (error) {
-      Serial.print("Bad config data: "); Serial.println(error.f_str());
-      factoryReset();
+      Serial.println("LittleFS/config is not valid JSON");
+      writeTextToFile("/config", "");
+      restart();
     } else {
       Serial.println("Client mode");
-      name = config["name"];
-      host_ssid = config["ssid"];
-      host_password = config["password"];
-      host_ipaddr = config["ipaddr"];
-      host_gateway = config["gateway"];
-      host_server = config["server"];
+      strcpy(name, config["name"]);
+      strcpy(host_ssid, config["ssid"]);
+      strcpy(host_password, config["password"]);
+      strcpy(host_ipaddr, config["ipaddr"]);
+      strcpy(host_gateway, config["gateway"]);
+      strcpy(host_server, config["server"]);
       if (name[0] == '\0' || host_ssid[0] == '\0' || host_password[0] == '\0'
       || host_ipaddr[0] == '\0' || host_gateway[0] == '\0' || host_server[0] == '\0') {
         Serial.println("Bad config data - resetting");
@@ -342,7 +346,7 @@ void loop() {
     httpGETRequest(requestVersionURL, response);
     int newVersion = atoi(response);
     Serial.printf("Version %d is available\n", newVersion);
-    if (newVersion > currentVersion) {
+    if (newVersion > CURRENT_VERSION) {
       WiFiClient client;
       Serial.printf("Installing version %d from %s\n", newVersion, requestUpdateURL);
       t_httpUpdate_return ret = ESPhttpUpdate.update(client, requestUpdateURL);
