@@ -22,6 +22,8 @@
     div DialogPanel
     div DialogTitle
     div DialogText
+    div SystemMAC
+    div SystemPassword
     div ModeText
     div ModeInfo
     div Alive
@@ -917,10 +919,17 @@ GetSystemParameters:
             or go to HandleRestError
     render GetSysParamsWebson in MainPanel
 
+    attach SystemMAC to `system-mac`
+    attach SystemPassword to `system-password`
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
+
+    set the content of SystemMAC to `MAC: ` cat MAC
+    set the content of SystemPassword to `Password: ` cat Password
+    set style `display` of SystemMAC to `none`
+    set style `display` of SystemPassword to `none`
 
     on click GetSystemNameButton
     begin

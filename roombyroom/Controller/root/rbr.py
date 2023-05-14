@@ -197,20 +197,35 @@ def ms(message):
     print(message)
     return
 
-# Endpoint: GET <server-ip>/relay/version
-# Called to get the current relay version
-@app.get('/relay/version')
-def relayversion():
-    f = open('esp8266/relay/version', 'r');
+# Endpoint: GET <server-ip>/extender/version
+# Called to get the current extender version
+@app.get('/extender/version')
+def extenderversion():
+    f = open('esp/esp32_wifi_extender/version', 'r');
     version = f.read()
     f.close()
     return version
 
-# Endpoint: GET <server-ip>/relay/binary
+# Endpoint: GET <server-ip>/extender/update
+# Called to get the current extender binary
+@app.get('/extender/update')
+def extenderupdate():
+    return static_file('esp/esp32_wifi_extender/esp32_wifi_extender.ino.bin', root='.')
+
+# Endpoint: GET <server-ip>/relay/version
+# Called to get the current relay version
+@app.get('/relay/version')
+def relayversion():
+    f = open('esp/esp8266_r1_relay/version', 'r');
+    version = f.read()
+    f.close()
+    return version
+
+# Endpoint: GET <server-ip>/relay/update
 # Called to get the current relay binary
-@app.get('/relay/binary')
-def relaybinary():
-    return static_file('esp8266/relay/relay.ino.bin', root='.')
+@app.get('/relay/update')
+def relayupdate():
+    return static_file('esp/esp8266_r1_relay/esp8266_r1_relay.ino.bin', root='.')
 
 # Endpoint: GET <server-ip>/notify/?hum=hhh&temp=ttt&id=id
 # Called when temperature changes

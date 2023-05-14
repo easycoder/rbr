@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 2
+#define CURRENT_VERSION 3
 #define BAUDRATE 115200
 #define UPDATE_CHECK_INTERVAL 3600
 #define ERROR_MAX 10
@@ -26,9 +26,9 @@ char host_password[40];
 char host_ipaddr[40];
 char host_gateway[40];
 char host_server[40];
-char relayType[10];
-char relayId[5];
-bool relayState;
+char relayType[10][10];
+bool relayState[10];
+bool relayFlag[10];
 uint relayVersion = 0;
 bool busyStartingUp = true;
 bool busyGettingUpdates = false;
@@ -48,14 +48,6 @@ char deviceURL[40];
 Ticker ticker;
 
 AsyncWebServer localServer(80);
-
-// Clear all pending requests
-void clearPendingRequests() {
-  relayId[0] = '\0';
-  updateCheck = false;
-  relayVersionRequest = 0;
-  relayUpdateRequest = 0;
-}
 
 // Perform a GET
 void httpGET(char* requestURL, bool restartOnError) {
@@ -171,31 +163,32 @@ void handle_root(AsyncWebServerRequest *request) {
   strcat(info, "/");
   strcat(info, host_ipaddr);
   strcat(info, ")");
-  Serial.println(info);
   request->send(200, "text/plain", info);
 }
 
 // Endpoint: GET http://{ipaddr}/on?id={id}
-void handle_on(AsyncWebServerRequest *request, const char* type, const char* id) {
-  strcpy(relayType, type);
-  strcpy(relayId, id);
-  relayState = true;
+void handle_on(AsyncWebServerRequest *request, const char* type, const char* id_s) {
+  uint id = atoi(id_s) - 100;
+  strcpy(relayType[id], type);
+  relayState[id] = true;
+  relayFlag[id] = true;
   char response[20];
   strcpy(response, "Turn on relay ");
-  strcat(response, id);
-//  Serial.println(response);
+  strcat(response, id_s);
+//  Serial.printf("%s\n", response);
   request->send(200, "text/plain", response);
 }
 
 // Endpoint: GET http://{ipaddr}/off?id={id}
-void handle_off(AsyncWebServerRequest *request, const char* type, const char* id) {
-  strcpy(relayType, type);
-  strcpy(relayId, id);
-  relayState = false;
+void handle_off(AsyncWebServerRequest *request, const char* type, const char* id_s) {
+  uint id = atoi(id_s) - 100;
+  strcpy(relayType[id], type);
+  relayState[id] = false;
+  relayFlag[id] = true;
   char response[20];
   strcpy(response, "Turn off relay ");
-  strcat(response, id);
-//  Serial.println(response);
+  strcat(response, id_s);
+//  Serial.printf("%s\n", response);
   request->send(200, "text/plain", response);
 }
 
@@ -244,7 +237,9 @@ void setupNetwork() {
     Serial.println("UnParsable IP '" + String(host_server) + "'");
     restart();
   }
-  WiFi.softAP(softap_ssid, softap_password);
+  
+  // Set up the soft AP with up to 10 connections
+  WiFi.softAP(softap_ssid, softap_password, 1, 0, 10);
   Serial.printf("Soft AP %s/%s created with IP ", softap_ssid, softap_password); Serial.println(WiFi.softAPIP());
 
   //connect to the controller's wi-fi network
@@ -272,19 +267,20 @@ void setupNetwork() {
   });
 
   localServer.on("/on", HTTP_GET, [](AsyncWebServerRequest *request) {
-      AsyncWebParameter* p = request->getParam("type");
-      const char* type = p->value().c_str();
-      p = request->getParam("id");
-      const char* id = p->value().c_str();
+    AsyncWebParameter* p = request->getParam("type");
+    const char* type = p->value().c_str();
+    p = request->getParam("id");
+    const char* id = p->value().c_str();
     handle_on(request, type, id);
   });
 
   localServer.on("/off", HTTP_GET, [](AsyncWebServerRequest *request) {
-      AsyncWebParameter* p = request->getParam("type");
-      const char* type = p->value().c_str();
-      p = request->getParam("id");
-      const char* id = p->value().c_str();
+    AsyncWebParameter* p = request->getParam("type");
+    const char* type = p->value().c_str();
+    p = request->getParam("id");
+    const char* id = p->value().c_str();
     handle_off(request, type, id);
+    delay(100);
   });
 
   localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -408,7 +404,6 @@ void checkForUpdates() {
   busyStartingUp = false;
   busyUpdatingClient = false;
   busyDoingGET = false;
-  clearPendingRequests();
 }
  
 ///////////////////////////////////////////////////////////////////////////////
@@ -424,8 +419,8 @@ void setup(void) {
   }
 
 //  writeTextToFile("/config", "");
-  relayType[0] = '\0';
-  relayId[0] = '\0';
+//  relayType[qIn][0] = '\0';
+//  relayId[qIn][0] = '\0';
 
   String ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
@@ -498,25 +493,27 @@ void loop(void) {
   }
 
   if (!busyStartingUp) {
-//    relayId[0] = '\0';
-    if (relayId[0]) {
-      strcpy(deviceURL, deviceRoot);
-      strcat(deviceURL, relayId);
-      if (strcmp(relayType, "shelly") == 0) {
-        strcat(deviceURL, "/relay/0?turn=");
-      } else {
-        strcat(deviceURL, "/");
+    for (uint n = 0; n < 10; n++) {
+      if (relayFlag[n]) {
+        uint id = n + 100;
+        strcpy(deviceURL, deviceRoot);
+        char idbuf[5];
+        sprintf(idbuf, "%d", id);
+        strcat(deviceURL, idbuf);
+        if (strcmp(relayType[n], "shelly") == 0) {
+          strcat(deviceURL, "/relay/0?turn=");
+        } else {
+          strcat(deviceURL, "/");
+        }
+        if (relayState[n]) {
+          strcat(deviceURL, "on");
+        } else {
+          strcat(deviceURL, "off");
+        }
+//        Serial.printf("%s\n", deviceURL);
+        httpGET(deviceURL, false);
+        relayFlag[n] = false;
       }
-      if (relayState) {
-        strcat(deviceURL, "on");
-      } else {
-        strcat(deviceURL, "off");
-      }
-      relayId[0] = '\0';
-      Serial.printf("%s\n", deviceURL);
-      httpGET(deviceURL, false);
-//      Serial.println(httpPayload);
-      delay(100);
     }
 
     if (relayVersionRequest) {
