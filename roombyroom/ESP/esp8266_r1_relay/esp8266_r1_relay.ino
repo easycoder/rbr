@@ -37,17 +37,19 @@ char requestUpdateURL[40];
 void onDefault() {
   Serial.println("onDefault");
   char info[80];
-  char ver[8];
-  sprintf(ver, "%d", CURRENT_VERSION);
+  char buf[8];
+  sprintf(buf, "%d", CURRENT_VERSION);
   strcpy(info, "RBR R1 relay V");
-  strcat(info, ver);
+  strcat(info, buf);
   strcat(info, " ");
   strcat(info, name);
   strcat(info, " (");
   strcat(info, host_ssid);
   strcat(info, "/");
   strcat(info, host_ipaddr);
-  strcat(info, ")");
+  strcat(info, ") RSSI: ");
+  sprintf(buf, "%d", WiFi.RSSI());
+  strcat(info, buf);
   Serial.println(info);
   localServer.send(200, "text/plain", info);
 }
