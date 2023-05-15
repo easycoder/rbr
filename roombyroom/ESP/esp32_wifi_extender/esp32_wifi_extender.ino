@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 3
+#define CURRENT_VERSION 4
 #define BAUDRATE 115200
 #define UPDATE_CHECK_INTERVAL 3600
 #define ERROR_MAX 10
@@ -258,6 +258,10 @@ void setupNetwork() {
   // Set up the local HTTP server
   Serial.println("Set up the local server");
 
+  localServer.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "C");
+  });
+
   localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     handle_root(request);
   });
@@ -466,6 +470,10 @@ void setup(void) {
     localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
       Serial.println("onAPDefault");
       request->send(200, "text/plain", String(softap_ssid) + " in unconfigured mode");
+    });
+
+    localServer.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+      request->send(200, "text/plain", "U");
     });
 
     localServer.on("/setup", HTTP_GET, [](AsyncWebServerRequest *request) {

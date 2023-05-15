@@ -36,6 +36,7 @@
     img CalendarIcon
     img Hamburger
     img ModeIcon
+    img Hourglass
     button ProfilesButton
     button LocalServerButton
     button SystemManagerButton
@@ -270,6 +271,7 @@ Main:
     rest get MainScreenWebson from `/resources/webson/rbr.json?v=` cat now
     	or go to AbandonShip
 	render MainScreenWebson in Body
+    attach Hourglass to `hourglass`
     attach Mask to `top-level-mask`
     attach BannerMask to `banner-mask`
     attach TitleMask to `title-mask`
@@ -441,10 +443,11 @@ GetMap:
     on click ProfilesButton go to DoProfiles
 
 	! Get the current sensor values
-	if Demo put DemoSensors into Sensors
-    else rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
+!	if Demo put DemoSensors into Sensors
+!    else
+		rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
         or go to HandleRestError
-!print Sensors
+! print Sensors
 
 !   	print Map
     put property `profiles` of Map into Profiles
@@ -573,7 +576,7 @@ GetMap:
             begin
             	take Timestamp from Now giving Elapsed
 !      print `Elapsed: ` cat Elapsed
-				if Elapsed is greater than 3600
+				if Elapsed is greater than 3660
                 begin
                 	if property `alive` of RoomData is `true`
                     begin
@@ -606,11 +609,13 @@ GetMap:
                     set style `visibility` of BatteryIndicator to `visible`
                 end
                 else set style `visibility` of BatteryIndicator to `hidden`
+                if Temperature is empty set style `visibility` of BatteryIndicator to `hidden`
             end
             else
             begin
             	set the content of RoomTempPanel to `--.-&deg;C`
                 set style `background` of RoomTempPanel to `blue`
+                set style `visibility` of BatteryIndicator to `hidden`
             end
         end
 
@@ -871,7 +876,7 @@ ShowMenu:
 !        	stop
 !        end
 		alert `Transferring to local controller`
-    	location `http://192.168.1.10`
+    	location `http://172.24.1.1`
     end
     
     on click SystemManagerButton go to SystemManager
@@ -927,7 +932,7 @@ ShowMenu:
 SystemManager:
 	set Blocked
     clear MainPanel
-    rest get Script from `/resources/ecs/systemmanager.ecs?v=` cat now
+    rest get Script from `/resources/ecs/systemman.ecs?v=` cat now
     	or go to HandleRestError
     run Script with MainPanel and MAC and Password and Map and Sensors and Server and Flag and Result
     if Result is `OK`
@@ -1101,6 +1106,7 @@ GetRequestRelay:
         set Redraw
         put `{}` into RequestData
         set property `action` of RequestData to `request`
+        set property `request` of RequestData to the content of Input
         go to PostRequest
     end
     on click CancelButton
@@ -1312,7 +1318,7 @@ ProcessResult:
 !	Post data and wait for the server to confirm
 PostAndConfirm:
     fork to PostRequest
-    fork to FlashModeIndicator
+    fork to FlashHourglass
     ! Wait for a response from the server
     if Demo wait 5 seconds
     else
@@ -1341,15 +1347,15 @@ SM3:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Flash the mode indicator button while waiting
-FlashModeIndicator:
+!	Flash the hourglass while waiting
+FlashHourglass:
     set Waiting
     set Flashing
 	while Waiting
     begin
-    	set style `display` of Mask to `block`
+    	set style `display` of Hourglass to `block`
     	wait 50 ticks
-        set style `display` of Mask to `none`
+        set style `display` of Hourglass to `none`
         wait 50 ticks
     end
     clear Flashing

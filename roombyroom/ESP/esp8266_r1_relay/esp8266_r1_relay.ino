@@ -54,6 +54,12 @@ void onDefault() {
   localServer.send(200, "text/plain", info);
 }
 
+// The status page when configured
+void onStatus() {
+  Serial.println("onStatus");
+  localServer.send(200, "text/plain", "C");
+}
+
 // Check if an update is available
 void updateCheck() {
   checkForUpdate = true;
@@ -206,6 +212,7 @@ void connectToHost() {
   delay(100);
 
   localServer.on("/", onDefault);
+  localServer.on("/status", onStatus);
   localServer.on("/on", relayOn);
   localServer.on("/off", relayOff);
   localServer.on("/reset", factoryReset);
@@ -234,6 +241,12 @@ void onAPDefault() {
   localServer.send(200, "text/plain", "R1 relay " + String(softap_ssid) + " unconfigured");
 }
 
+// The status page for the AP
+void onAPStatus() {
+  Serial.println("onAPStatus");
+  localServer.send(200, "text/plain", "U");
+}
+
 // Here when a setup request containing configuration data is received
 void onAPSetup() {
   Serial.println("onAPSetup");
@@ -259,6 +272,7 @@ void softAPMode() {
   delay(100);
 
   localServer.on("/", onAPDefault);
+  localServer.on("/status", onAPStatus);
   localServer.on("/setup", onAPSetup);
   localServer.onNotFound(notFound);
   localServer.begin();

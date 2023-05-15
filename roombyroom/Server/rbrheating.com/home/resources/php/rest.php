@@ -506,9 +506,10 @@
                 $password = $request[1];
                 $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $sensors = file_get_contents("php://input");
-                    $sensors = base64_encode($sensors);
+                    $data = file_get_contents("php://input");
+                    $sensors = base64_encode($data);
                     query($conn, "UPDATE systems SET sensors='$sensors' WHERE mac='$mac'");
+                    logger("UPDATE systems SET sensors='$data' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
