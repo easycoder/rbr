@@ -42,6 +42,8 @@
     variable System
     variable SelectedSystem
     variable SystemName
+    variable Map2
+    variable MAC2
     variable Keys
     variable Text
     variable K
@@ -142,6 +144,7 @@ Continue:
 	! Get the systems managed by this user
 !    get Systems from storage as `Systems`
     rest get Systems from Server cat `/managed/` cat Email cat `/` cat UserPassword cat `?v=` cat now
+    gosub to GetSystemNames
     print Systems
     if Systems is empty put `{}` into Systems
     if Map is empty put `New system` into SystemName
@@ -210,6 +213,30 @@ Continue:
     end
 	stop
 
+!	Update the names of the systems
+GetSystemNames:
+	put the json keys of Systems into Keys
+    put 0 into K
+    while K is less than the json count of Keys
+    begin
+    	put element K of Keys into SystemName
+        put property SystemName of Systems into System
+        put property `mac` of System into MAC2
+        json delete property SystemName of Systems
+        rest get Map2 from Server cat `/map/` cat MAC2 cat `?v=` cat now
+        if Map is empty
+        begin
+        	alert `Unable to identify system: ` cat MAC2
+        	return
+        end
+        put property `name` of Map2 into SystemName
+        if SystemName is empty put `New` into SystemName
+        set property SystemName of Systems to System
+    	add 1 to K
+    end
+	return
+
+!	Create the list of systems
 CreateList:
     put the json keys of Systems into Keys
     set the elements of SystemNameButton to the json count of Keys
