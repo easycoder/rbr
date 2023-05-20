@@ -358,13 +358,36 @@ SkipRequests:
 
         ! Deal with the request relay
         put property `request` of MapObject into RequestIP
+!print `Request IP: ` cat RequestIP
         if RequestIP is not empty
         begin
             if RequestCount is 0 put `off` into Turn
             else put `on` into Turn
             print `Request relay is ` cat Turn
-            post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
-            or set property `status` of SensorData to `Request relay did not respond`
+            put RequestIP into Extender
+            split Extender on `/`
+            if the elements of Extender is 2
+            begin
+                index Extender to 1
+                put Extender into RelayIp
+                index Extender to 0
+                if RelayType is `RBR R1` put `r1` into RelayType
+                else if RelayType is `Shelly One` put `shelly` into RelayType
+                else if RelayType is `TP-Link P100` put `p100` into RelayType
+                else if RelayType is `Simulator` put `sim` into RelayType
+                put `http://172.24.1.` cat Extender cat `/` cat Turn
+                    cat `?type=` cat RelayType cat `&id=` cat RelayIp into Request
+!print `Request: ` cat Request
+                get Result from Request
+                or set property `status` of SensorData to `Request relay did not respond`
+                if Result is empty
+                    set property `status` of SensorData to `Request relay did not respond`
+            end
+            else
+            begin
+                post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
+                or set property `status` of SensorData to `Request relay did not respond`
+            end
         end
         put stringify SimulatorData into SD
         if SD is not `{}` post to LocalServer cat `/simdata/` cat SD
@@ -648,22 +671,27 @@ SetRelays:
         if Relay is not empty
         begin
             print `Relay: ` cat Relay
-            split Relay on `/`
-            if the elements of Relay is 2
+            put Relay into Extender
+            split Extender on `/`
+            if the elements of Extender is 2
             begin
-                index Relay to 0
-                put Relay into Extender
-                index Relay to 1
-                put Relay into RelayIp
+                index Extender to 1
+                put Extender into RelayIp
+                index Extender to 0
                 if RelayType is `RBR R1` put `r1` into RelayType
                 else if RelayType is `Shelly One` put `shelly` into RelayType
                 else if RelayType is `TP-Link P100` put `p100` into RelayType
                 else if RelayType is `Simulator` put `sim` into RelayType
                 put `http://172.24.1.` cat Extender cat `/` cat Turn
                     cat `?type=` cat RelayType cat `&id=` cat RelayIp into Request
-                print Request
+!                print Request
                 get Result from Request
                 or begin
+                    set property `status` of SensorValues to `Fail`
+                    set property `status` of SensorData to `No response from relay in ` cat RoomName
+                end
+                if Result is empty
+                begin
                     set property `status` of SensorValues to `Fail`
                     set property `status` of SensorData to `No response from relay in ` cat RoomName
                 end

@@ -23,8 +23,8 @@ def scan(duration):
                 if not os.path.exists(f'{dir}'):
                     os.makedirs(f'{dir}')
                 file = open(f'{dir}/{dev.addr}.txt', 'w')
-                message = '{"temperature": "' + str(temp) + '", "timestamp": "' + str(ts) + '", "battery": "' + str(batt) + '"}'
-                #print(message)
+                message = '{"temperature": "' + str(temp) + '", "timestamp": "' + str(ts) + '", "battery": "' + str(batt) + '", "RSSI": "' + str(dev.rssi) + '"}'
+                #print(f'Message: {message}')
                 file.write(message)
                 file.close()
 

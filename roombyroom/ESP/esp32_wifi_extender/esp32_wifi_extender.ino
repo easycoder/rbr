@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 4
+#define CURRENT_VERSION 5
 #define BAUDRATE 115200
 #define UPDATE_CHECK_INTERVAL 3600
 #define ERROR_MAX 10
@@ -26,6 +26,7 @@ char host_password[40];
 char host_ipaddr[40];
 char host_gateway[40];
 char host_server[40];
+char relayResponse[10][200];
 char relayType[10][10];
 bool relayState[10];
 bool relayFlag[10];
@@ -82,6 +83,7 @@ void httpGET(char* requestURL, bool restartOnError) {
   // Free resources
   http.end();
 
+  // Strip trailing white space
   int len = strlen(httpPayload);
   for (int n = 0; n < len; n++) {
     if (httpPayload[n] < ' ') {
@@ -116,20 +118,6 @@ const char* readFileToText(const char* filename) {
   return text;
 }
 
-// Endpoint: GET http://{ipaddr}/setup?(params)
-void handle_setup(AsyncWebServerRequest *request) {
-  Serial.println("handle_setup");
-  request->send(200, "text/plain", "OK");
-
-  if(request->hasParam("config")) {
-    AsyncWebParameter* p = request->getParam("config");
-    String config = p->value();
-    Serial.print(config);
-    writeTextToFile("/config", config.c_str());
-    restart();
-  }
-}
-
 // Request an update check
 void requestUpdateCheck() {
   updateCheck = true;
@@ -145,9 +133,15 @@ void restart() {
 // Endpoint: GET http://{ipaddr}/reset
 void handle_reset(AsyncWebServerRequest *request) {
   Serial.println("Endpoint: reset");
+  request->send(200, "text/plain", "Reset");
+  restart();
+}
+
+// Endpoint: GET http://{ipaddr}/factory-reset
+void handle_factory_reset(AsyncWebServerRequest *request) {
+  Serial.println("Endpoint: factory-reset");
   writeTextToFile("/config", "");
-  request->send(200, "text/plain", "reset");
-  delay(100);
+  request->send(200, "text/plain", "Factory reset");
   restart();
 }
 
@@ -166,17 +160,27 @@ void handle_root(AsyncWebServerRequest *request) {
   request->send(200, "text/plain", info);
 }
 
+// Endpoint: GET http://{ipaddr}/setup?(params)
+void handle_setup(AsyncWebServerRequest *request) {
+  Serial.println("handle_setup");
+  request->send(200, "text/plain", "OK");
+
+  if(request->hasParam("config")) {
+    AsyncWebParameter* p = request->getParam("config");
+    String config = p->value();
+    Serial.print(config);
+    writeTextToFile("/config", config.c_str());
+    restart();
+  }
+}
+
 // Endpoint: GET http://{ipaddr}/on?id={id}
 void handle_on(AsyncWebServerRequest *request, const char* type, const char* id_s) {
   uint id = atoi(id_s) - 100;
   strcpy(relayType[id], type);
   relayState[id] = true;
   relayFlag[id] = true;
-  char response[20];
-  strcpy(response, "Turn on relay ");
-  strcat(response, id_s);
-//  Serial.printf("%s\n", response);
-  request->send(200, "text/plain", response);
+  request->send(200, "text/plain", relayResponse[id]);
 }
 
 // Endpoint: GET http://{ipaddr}/off?id={id}
@@ -185,11 +189,7 @@ void handle_off(AsyncWebServerRequest *request, const char* type, const char* id
   strcpy(relayType[id], type);
   relayState[id] = false;
   relayFlag[id] = true;
-  char response[20];
-  strcpy(response, "Turn off relay ");
-  strcat(response, id_s);
-//  Serial.printf("%s\n", response);
-  request->send(200, "text/plain", response);
+  request->send(200, "text/plain", relayResponse[id]);
 }
 
 // Endpoint: GET http://{ipaddr}/relay/version
@@ -270,6 +270,10 @@ void setupNetwork() {
     handle_reset(request);
   });
 
+  localServer.on("/factory-reset", HTTP_GET, [](AsyncWebServerRequest *request) {
+    handle_factory_reset(request);
+  });
+
   localServer.on("/on", HTTP_GET, [](AsyncWebServerRequest *request) {
     AsyncWebParameter* p = request->getParam("type");
     const char* type = p->value().c_str();
@@ -329,8 +333,7 @@ void checkRelayUpdate() {
   int newVersion = atoi(httpPayload);
   if (newVersion == 0) {
     Serial.println("Bad response from host, so restarting");
-    delay(10000);  // Bad response so restart
-    ESP.restart();
+    restart();
   }
   Serial.printf("Current version is %d, new version is %d\n", relayVersion, newVersion);
   if (newVersion > relayVersion) {
@@ -423,8 +426,6 @@ void setup(void) {
   }
 
 //  writeTextToFile("/config", "");
-//  relayType[qIn][0] = '\0';
-//  relayId[qIn][0] = '\0';
 
   String ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
@@ -518,8 +519,9 @@ void loop(void) {
         } else {
           strcat(deviceURL, "off");
         }
-//        Serial.printf("%s\n", deviceURL);
         httpGET(deviceURL, false);
+        strcpy(relayResponse[n], httpPayload);
+//        Serial.printf("%s %s\n", deviceURL, httpPayload);
         relayFlag[n] = false;
       }
     }
