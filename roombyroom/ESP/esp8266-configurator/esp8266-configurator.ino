@@ -28,9 +28,12 @@ char host_password[20];
 char host_ipaddr[20];
 char host_gateway[20];
 char host_server[20];
-char requestVersionURL[40];
-char requestUpdateURL[40];
 char httpResponse[40];
+char requestVersionURL[40];  // the URL of the request for the firmware version number
+char requestUpdateURL[40];   // the URL of the update firmware binary
+
+///////////////////////////////////////////////////////////////////////////////
+// Standard stuff here.
 
 // Check if an update is available
 void updateCheck() {
@@ -89,45 +92,6 @@ void doFactoryReset() {
   restart();
 }
 
-// Scan networks
-void doScan() {
-  Serial.print("Scan");
-  Serial.println("Scan start");
-  // WiFi.scanNetworks will return the number of networks found
-  int n = WiFi.scanNetworks();
-  Serial.println("Scan done");
-  
-  if (n == 0)
-  {
-    Serial.println("no networks found");
-  }
-  else
-  {
-    Serial.print(n);
-    Serial.println(" networks found");
-    for (int i = 0; i < n; ++i)
-    {
-      // Print SSID and RSSI for each network found
-      Serial.print(i + 1);
-      Serial.print(": ");
-      Serial.print(WiFi.SSID(i));
-      Serial.print(" (");
-      Serial.print(WiFi.RSSI(i));
-      Serial.print(")");
-      Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*");
-      delay(10);
-    }
-  }
-  Serial.println("");
-  localServer.send(200, "text/plain", "OK");
-}
-
-// The default page
-void onDefault() {
-  Serial.println("onAPDefault");
-  localServer.send(200, "text/plain", "RBR configurator " + String(softap_ssid));
-}
-
 // Perform a GET
 void httpGET(char* serverName) {
   WiFiClient client;
@@ -172,31 +136,21 @@ void setup() {
   pinMode(ledPin, OUTPUT);
   digitalWrite(ledPin, HIGH);
 
-  // Build the SoftAp SSID
-  String mac = WiFi.macAddress();
-  Serial.println("MAC: " + mac);
-  String ssid = "RBR-CF-XXXXXX";
-  ssid[7] = mac[9];
-  ssid[8] = mac[10];
-  ssid[9] = mac[12];
-  ssid[10] = mac[13];
-  ssid[11] = mac[15];
-  ssid[12] = mac[16];
-  strcpy(softap_ssid, ssid.c_str());
-  Serial.printf("SoftAP SSID: %s\n", softap_ssid);
+  buildSSID();
 
-  WiFi.mode(WIFI_AP);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(localIP, localIP, subnet);
   WiFi.softAP(softap_ssid);
   delay(100);
 
-  localServer.on("/", onDefault);
+  appSpecificSetup();
+
   localServer.on("/reset", doFactoryReset);
-  localServer.on("/scan", doScan);
   localServer.onNotFound(notFound);
   localServer.begin();
 
   ticker.attach(2, blink);
+  completeSetup();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -226,4 +180,85 @@ void loop() {
       Serial.println("Firmware is up to date");
     }
   }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// This is the application-specific code.
+
+// Build the SoftAp SSID
+void buildSSID() {
+  String mac = WiFi.macAddress();
+  Serial.println("MAC: " + mac);
+  String ssid = "RBR-CF-XXXXXX";
+  ssid[7] = mac[9];
+  ssid[8] = mac[10];
+  ssid[9] = mac[12];
+  ssid[10] = mac[13];
+  ssid[11] = mac[15];
+  ssid[12] = mac[16];
+  strcpy(softap_ssid, ssid.c_str());
+  Serial.printf("SoftAP SSID: %s\n", softap_ssid);
+}
+
+// Complete the setup
+void completeSetup() {
+  doScan();
+}
+
+// Scan networks
+void doScan() {
+  Serial.println("Scan start");
+  // WiFi.scanNetworks will return the number of networks found
+  int n = WiFi.scanNetworks();
+  Serial.println("Scan done");
+  
+  if (n == 0)
+  {
+    Serial.println("no networks found");
+  }
+  else
+  {
+    int rlen = 20;
+    char* networks = (char*)malloc((n * rlen) * sizeof(char));
+      int count = 0;
+      for (int i = 0; i < n; ++i) {
+        if (strstr(WiFi.SSID(i).c_str(), "RBR-EX-")) {
+          strcpy(&networks[i * rlen], WiFi.SSID(i).c_str());
+          count = count + 1;
+        } else {
+          networks[i * rlen] = '\0';
+        }
+      }
+    Serial.printf("%d extender(s) found\n", count);
+    delay(10);
+    if (count > 0) {
+      int* indices = (int*)malloc(count * sizeof(int));
+      count = 0;
+      for (int i = 0; i < n; i++) {
+        if (networks[i * rlen] != '\0') {
+          indices[count] = i;
+          count = count + 1;
+        }
+      }
+      for (int i = 0; i < count; i++) {
+        printf("%s\n", &networks[indices[i] * rlen]);
+      }
+      free(indices);
+      delay(10);
+    }
+    free(networks);
+  }
+  localServer.send(200, "text/plain", "OK");
+}
+
+// The default page
+void onDefault() {
+  Serial.println("onAPDefault");
+  localServer.send(200, "text/plain", "RBR configurator " + String(softap_ssid));
+}
+
+// Set up endpoints for this application and do any other special initialization that's needed.
+void appSpecificSetup() {
+  localServer.on("/", onDefault);
+  localServer.on("/scan", doScan);
 }

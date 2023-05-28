@@ -688,12 +688,14 @@ SetRelays:
                 get Result from Request
                 or begin
                     set property `status` of SensorValues to `Fail`
-                    set property `status` of SensorData to `No response from relay in ` cat RoomName
+                    set property `status` of SensorData to `Relay request failed in ` cat RoomName
+!                    print `Relay request failed in ` cat RoomName
                 end
                 if Result is empty
                 begin
                     set property `status` of SensorValues to `Fail`
                     set property `status` of SensorData to `No response from relay in ` cat RoomName
+!                    print `No response from relay in ` cat RoomName
                 end
             end
             else
@@ -701,10 +703,18 @@ SetRelays:
                 if RelayType is `Shelly One`
                 begin
 !                    print `http://` cat Relay cat `/relay/0?turn=` cat Turn
-                    post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
+                    put `http://` cat Relay cat `/relay/0?turn=` cat Turn into Request
+                    get Result from Request
                     or begin
                         set property `status` of SensorValues to `Fail`
+                        set property `status` of SensorData to `Relay request failed in ` cat RoomName
+!                        print `Relay request failed in ` cat RoomName
+                    end
+                    if Result is empty
+                    begin
+                        set property `status` of SensorValues to `Fail`
                         set property `status` of SensorData to `No response from relay in ` cat RoomName
+!                        print `No response from relay in ` cat RoomName
                     end
                 end
                 else if RelayType is `TP-Link P100`

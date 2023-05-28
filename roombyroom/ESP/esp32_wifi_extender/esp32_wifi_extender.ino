@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 5
+#define CURRENT_VERSION 6
 #define BAUDRATE 115200
 #define UPDATE_CHECK_INTERVAL 3600
 #define ERROR_MAX 10
@@ -45,6 +45,7 @@ char requestRelayVersionURL[40];
 char requestRelayUpdateURL[40];
 char httpPayload[200];
 char deviceURL[40];
+char restarts[10];
 
 Ticker ticker;
 
@@ -108,10 +109,12 @@ const char* readFileToText(const char* filename) {
   auto file = LittleFS.open(filename, "r");
   if (!file) {
     Serial.println("file open failed");
-    return "";
+    char* empty = (char*)malloc(1);
+    empty[0] = '\0';
+    return empty;
   }
   size_t filesize = file.size();
-  char* text = new char[filesize + 1];
+  char* text = (char*)malloc(filesize + 1);
   String data = file.readString();
   file.close();
   strcpy(text, data.c_str());
@@ -147,7 +150,7 @@ void handle_factory_reset(AsyncWebServerRequest *request) {
 
 // Endpoint: GET http://{ipaddr}/
 void handle_root(AsyncWebServerRequest *request) {
-  char info[80];
+  char info[500];
   char ver[8];
   sprintf(ver, "%d", CURRENT_VERSION);
   strcpy(info, "RBR WiFi extender V");
@@ -156,7 +159,15 @@ void handle_root(AsyncWebServerRequest *request) {
   strcat(info, host_ssid);
   strcat(info, "/");
   strcat(info, host_ipaddr);
-  strcat(info, ")");
+  strcat(info, ")\nEndpoints:\n");
+  strcat(info, "status: U or C\n");
+  strcat(info, "reset: Restart the device\n");
+  strcat(info, "restarts: Return the number of restarts\n");
+  strcat(info, "clear: Clear the restart counter\n");
+  strcat(info, "on/{n}: Turn on relay {n}\n");
+  strcat(info, "off/{n}: Turn off relay {n}\n");
+  strcat(info, "relay/version: Get the current relay firmware version\n");
+  strcat(info, "relay/update: Get the current relay firmware");
   request->send(200, "text/plain", info);
 }
 
@@ -258,12 +269,22 @@ void setupNetwork() {
   // Set up the local HTTP server
   Serial.println("Set up the local server");
 
+  localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    handle_root(request);
+  });
+
   localServer.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", "C");
   });
 
-  localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    handle_root(request);
+  localServer.on("/restarts", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", String(restarts));
+  });
+
+  localServer.on("/clear", HTTP_GET, [](AsyncWebServerRequest *request) {
+    strcpy(restarts, "0");
+    writeTextToFile("/restarts", restarts);
+    request->send(200, "text/plain", String(restarts));
   });
 
   localServer.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -425,7 +446,18 @@ void setup(void) {
     return;
   }
 
-//  writeTextToFile("/config", "");
+  // Count restarts
+  int nRestarts = 0;
+  const char* rs = readFileToText("/restarts");
+  if (rs != NULL && rs[0] != '\0') {
+    nRestarts = atoi(rs) + 1;
+    free((void*)rs);
+  }
+  sprintf(restarts, "%d", nRestarts);
+  writeTextToFile("/restarts", restarts);
+  Serial.printf("Restarts: %d\n", nRestarts);
+
+  // writeTextToFile("/config", "");
 
   String ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
@@ -444,10 +476,9 @@ void setup(void) {
   WiFi.softAPConfig(localIP, localIP, subnet);
   delay(100);
   Serial.println("Read config from LittleFS/config");
-  String config_p = readFileToText("/config");
-  Serial.println("Config = " + config_p);
-  if (config_p != "") {
-    const char* config_s = config_p.c_str();
+  const char* config_s = readFileToText("/config");
+  Serial.printf("Config = %s\n", config_s);
+  if (config_s[0] != '\0') {
     StaticJsonDocument<400> config;
     DeserializationError error = deserializeJson(config, config_s);
     if (error) {
@@ -462,6 +493,8 @@ void setup(void) {
     strcpy(host_gateway, config["host_gateway"]);
     strcpy(host_server, config["host_server"]);
   }
+  free((void*)config_s);
+  Serial.println("Check the parameters");
   if (host_ssid[0] == '\0' || host_password[0] == '\0' || softap_password[0] == '\0'
     || host_ipaddr[0] == '\0' || host_gateway[0] == '\0' || host_server[0] == '\0') {
     Serial.println("Missing config data");

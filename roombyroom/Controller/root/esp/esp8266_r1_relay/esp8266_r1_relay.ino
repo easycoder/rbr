@@ -7,7 +7,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 2
+#define CURRENT_VERSION 3
 #define BAUDRATE 115200
 #define UPDATE_CHECK_INTERVAL 3600
 
@@ -32,11 +32,12 @@ char host_gateway[20];
 char host_server[20];
 char requestVersionURL[40];
 char requestUpdateURL[40];
+char restarts[10];
 
 // The default page when configured
 void onDefault() {
   Serial.println("onDefault");
-  char info[80];
+  char info[500];
   char buf[8];
   sprintf(buf, "%d", CURRENT_VERSION);
   strcpy(info, "RBR R1 relay V");
@@ -50,8 +51,20 @@ void onDefault() {
   strcat(info, ") RSSI: ");
   sprintf(buf, "%d", WiFi.RSSI());
   strcat(info, buf);
+  strcat(info, ")\nEndpoints:\n");
+  strcat(info, "reset: Restart the device\n");
+  strcat(info, "restarts: Return the number of restarts\n");
+  strcat(info, "clear: Clear the restart counter\n");
+  strcat(info, "on: Turn on relay\n");
+  strcat(info, "off: Turn off relay\n");
   Serial.println(info);
   localServer.send(200, "text/plain", info);
+}
+
+// The status page when configured
+void onStatus() {
+  Serial.println("onStatus");
+  localServer.send(200, "text/plain", "C");
 }
 
 // Check if an update is available
@@ -126,11 +139,32 @@ void restart() {
 }
 
 // Reset the system
+void onReset() {
+  Serial.println("Reset");
+  localServer.send(200, "text/plain", "Reset");
+  restart();
+}
+
+// Do a factory reset
 void factoryReset() {
-  Serial.print("Factory Reset");
+  Serial.println("Factory Reset");
   localServer.send(200, "text/plain", "Factory Reset");
   writeTextToFile("/config", "");
   restart();
+}
+
+// Report the number of restarts
+void onRestarts() {
+  Serial.println("Restarts");
+  localServer.send(200, "text/plain", String(restarts));
+}
+
+// Clear the restart counter
+void onClear() {
+  Serial.print("Clear");
+  strcpy(restarts, "0");
+  writeTextToFile("/restarts", restarts);
+  localServer.send(200, "text/plain", String(restarts));
 }
 
 // Perform a GET
@@ -206,9 +240,13 @@ void connectToHost() {
   delay(100);
 
   localServer.on("/", onDefault);
+  localServer.on("/status", onStatus);
+  localServer.on("/restarts", onRestarts);
+  localServer.on("/clear", onClear);
   localServer.on("/on", relayOn);
   localServer.on("/off", relayOff);
-  localServer.on("/reset", factoryReset);
+  localServer.on("/reset", onReset);
+  localServer.on("/factoryreset", factoryReset);
   localServer.onNotFound(notFound);
 
   localServer.begin();
@@ -232,6 +270,12 @@ void connectToHost() {
 void onAPDefault() {
   Serial.println("onAPDefault");
   localServer.send(200, "text/plain", "R1 relay " + String(softap_ssid) + " unconfigured");
+}
+
+// The status page for the AP
+void onAPStatus() {
+  Serial.println("onAPStatus");
+  localServer.send(200, "text/plain", "U");
 }
 
 // Here when a setup request containing configuration data is received
@@ -259,6 +303,7 @@ void softAPMode() {
   delay(100);
 
   localServer.on("/", onAPDefault);
+  localServer.on("/status", onAPStatus);
   localServer.on("/setup", onAPSetup);
   localServer.onNotFound(notFound);
   localServer.begin();
@@ -278,6 +323,17 @@ void setup() {
     LittleFS.format();
     return;
   }
+
+  // Count restarts
+  int nRestarts = 0;
+  const char* rs = readFileToText("/restarts");
+  if (rs != NULL && rs[0] != '\0') {
+    nRestarts = atoi(rs) + 1;
+    free((void*)rs);
+  }
+  sprintf(restarts, "%d", nRestarts);
+  writeTextToFile("/restarts", restarts);
+  Serial.printf("Restarts: %d\n", nRestarts);
 
 //  writeTextToFile("/config", "");
 
