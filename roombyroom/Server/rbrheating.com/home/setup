@@ -9,9 +9,9 @@ apt -y upgrade
 echo "Install Python Pip"
 apt install -y python3-dev
 apt install -y python3-pip
-apt install -y psutils
+apt install -y libglib2.0-dev
 echo "Install python libraries"
-pip3 install bottle requests pytz PyP100 psutil
+pip3 install bottle requests pytz PyP100 psutil bluepy
 
 wget https://rbrheating.com/home/resources/dist.tgz
 tar zxf dist.tgz
@@ -26,6 +26,10 @@ passwd
 cp system/dnsmasq.conf /etc/dnsmasq.conf
 cp system/hostapd.conf /etc/hostapd.conf
 echo
-echo "MAC addresses:"
-ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'
+echo "If you're using a 'proper' router you can ignore the rest of this as it only applies to a built-in hotspot."
+echo "The following MAC address(es) are of your network interfaces."
+echo "Use the one that belongs to the USB wifi key to form the SSID of your access point."
+ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'>interfaces
+cat interfaces
+python3 getmac.py >mac
 echo "Now set up the wifi access point with 'nano /etc/hostapd.conf' then type 'reboot'"

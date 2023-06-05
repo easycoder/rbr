@@ -55,7 +55,7 @@
 
         "$MACTitle": {
             "#element": "div",
-            "#content": "Controller MAC address",
+            "#content": "Controller MAC address<br>(cat mac)",
             "margin-top": "0.5em",
             "font-size": "80%",
             "font-weight": "bold"
@@ -70,7 +70,7 @@
 
         "$PWDTitle": {
             "#element": "div",
-            "#content": "Controller password",
+            "#content": "Controller password<br>(cat /mnt/data/password)",
             "margin-top": "0.5em",
             "font-size": "80%",
             "font-weight": "bold"

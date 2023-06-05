@@ -4,7 +4,13 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$GetName", "$GetRequest", "$Restart", "$Help", "$Cancel"],
+    "#": ["$Config", "$GetName", "$GetRequest", "$Restart", "$Help", "$Cancel"],
+
+    "$Config": {
+        "$ID": "button-config",
+        "$Label": "Configuration",
+        "#": "$Button"
+    },
 
     "$GetName": {
         "$ID": "button-getname",

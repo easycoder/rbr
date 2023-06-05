@@ -1,0 +1,29 @@
+!   Step 5
+
+	script Step05
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    input EmailInput
+
+    attach EmailInput to `cf-email`
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    set the content of EmailInput to property `email` of Map
+
+    on click LeftButton
+    begin
+        put `Previous` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        set property `email` of Map to the content of EmailInput
+        put `Next` into Result
+        exit
+    end
+
+    stop

@@ -23,12 +23,7 @@ uint8_t ledPin = 2;
 bool checkForUpdate = false;
 char name[40];
 char softap_ssid[40];
-char host_ssid[40];
-char host_password[20];
-char host_ipaddr[20];
-char host_gateway[20];
-char host_server[20];
-char httpResponse[40];
+char httpResponse[10240];
 char requestVersionURL[40];  // the URL of the request for the firmware version number
 char requestUpdateURL[40];   // the URL of the update firmware binary
 
@@ -57,7 +52,9 @@ const char* readFileToText(const char* filename) {
   auto file = LittleFS.open(filename, "r");
   if (!file) {
     Serial.println("file open failed");
-    return "";
+    char* empty = (char*)malloc(1);
+    empty[0] = '\0';
+    return empty;
   }
   size_t filesize = file.size();
   char* text = new char[filesize + 1];
@@ -93,7 +90,7 @@ void doFactoryReset() {
 }
 
 // Perform a GET
-void httpGET(char* serverName) {
+void httpGET(const char* serverName) {
   WiFiClient client;
   HTTPClient http;
     
@@ -103,13 +100,17 @@ void httpGET(char* serverName) {
   
   // Send HTTP GET request
   int httpResponseCode = http.GET();
-  
-  if (httpResponseCode >= 200 && httpResponseCode < 400) {
-    payload = http.getString();
-  }
-  else {
-    Serial.printf("Error code: %d\n", httpResponseCode);
-    restart();
+  Serial.printf("URL: %s, Response: %d\n", serverName, httpResponseCode);
+  if (httpResponseCode < 0) {
+    Serial.printf("Error: %s\n", http.errorToString(httpResponseCode).c_str());
+  } else {
+    if (httpResponseCode >= 200 && httpResponseCode < 400) {
+      payload = http.getString();
+    }
+    else {
+      Serial.printf("Error code: %d\n", httpResponseCode);
+      //restart();
+    }
   }
   // Free resources
   http.end();
@@ -185,6 +186,11 @@ void loop() {
 ///////////////////////////////////////////////////////////////////////////////
 // This is the application-specific code.
 
+const char* host_ssid = "VM7203527";
+const char* host_password = "5sftqwRWvwwv";
+const IPAddress ipaddr(192,168,0,80);
+const IPAddress gateway(192,168,0,1);
+
 // Build the SoftAp SSID
 void buildSSID() {
   String mac = WiFi.macAddress();
@@ -200,13 +206,36 @@ void buildSSID() {
   Serial.printf("SoftAP SSID: %s\n", softap_ssid);
 }
 
+// Set up endpoints for this application and do any other special setup that's needed.
+void appSpecificSetup() {
+  if (!WiFi.config(ipaddr, gateway, subnet)) {
+    Serial.println("STA failed to configure");
+  }
+  WiFi.begin(host_ssid, host_password);
+
+  // Check we are connected to wifi network
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.print(".");
+  }
+
+  Serial.printf("\nConnected to %s as %s\n", host_ssid, WiFi.localIP().toString().c_str());
+  delay(100);
+
+  // Set up endpoints
+  localServer.on("/", onDefault);
+  localServer.on("/info", onInfo);
+  localServer.on("/scan", onScan);
+  localServer.on("/get", onGet);
+}
+
 // Complete the setup
 void completeSetup() {
-  doScan();
+//  doScan();
 }
 
 // Scan networks
-void doScan() {
+void onScan() {
   Serial.println("Scan start");
   // WiFi.scanNetworks will return the number of networks found
   int n = WiFi.scanNetworks();
@@ -254,11 +283,27 @@ void doScan() {
 // The default page
 void onDefault() {
   Serial.println("onAPDefault");
+  String homePage = "<html><head></head>";
+  homePage += "<body>";
+  homePage += "<p>Hello, world!</p>";
+  homePage += "</body></html>";
+//String request = String("http://192.168.0.201/config.html");
+//  httpGET(request.c_str());
+  Serial.println(homePage);
+  localServer.send(200, "text/html", homePage);
+}
+
+// The info page
+void onInfo() {
+  Serial.println("onInfo");
   localServer.send(200, "text/plain", "RBR configurator " + String(softap_ssid));
 }
 
-// Set up endpoints for this application and do any other special initialization that's needed.
-void appSpecificSetup() {
-  localServer.on("/", onDefault);
-  localServer.on("/scan", doScan);
+// The get page
+void onGet() {
+  String url = localServer.arg("url"); 
+  Serial.printf("onGet %s\n", url.c_str());
+  httpGET(url.c_str());
+  Serial.println(httpResponse);
+  localServer.send(200, "text/plain", httpResponse);
 }

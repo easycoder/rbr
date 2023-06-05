@@ -1,0 +1,29 @@
+!   Step 4
+
+	script Step04
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    input AddressInput
+
+    attach AddressInput to `cf-address`
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    set the content of AddressInput to property `address` of Map
+
+    on click LeftButton
+    begin
+        put `Previous` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        set property `address` of Map to the content of AddressInput
+        put `Next` into Result
+        exit
+    end
+
+    stop

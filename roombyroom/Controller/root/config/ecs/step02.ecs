@@ -1,0 +1,63 @@
+!   Step 2
+
+	script Step02
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    input PasswordInput
+    variable SSID
+    variable Password
+    variable Response
+    variable Map2
+    variable Count
+
+    attach PasswordInput to `cf-password`
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    set the content of PasswordInput to property `password` of Map
+
+    on click LeftButton
+    begin
+        put `Previous` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        put the content of PasswordInput into Password
+        set property `password` of Map to Password
+        put property `ssid` of Map into SSID
+        put 0 into Count
+        go to GetMap
+    end
+
+    stop
+
+!   Get the system map for the selected controller
+GetMap:
+    rest get Response from `/config/connect?ssid=` cat SSID cat `&password=` cat Password
+    while Response is empty
+    begin
+        set the content of PasswordInput to `Getting system map... ` cat Count
+        add 1 to Count
+        wait 1 second
+        rest get Response from `/config/connected`
+    end
+    print `Connected to ` cat SSID
+    put empty into Map2
+    put 0 into Count
+GM1:
+    rest get Response from `/config/request?req=http://172.24.1.1/resources/php/rest.php/map`
+GM2:
+    wait 1 second
+    add 1 to Count
+    if Count is 30 go to GM1
+    rest get Map2 from `/config/response`
+    if Map2 is empty go to GM2
+    set property `ssid` of Map2 to SSID
+    set property `password` of Map2 to Password
+    put Map2 into Map
+    put `Next` into Result
+    exit

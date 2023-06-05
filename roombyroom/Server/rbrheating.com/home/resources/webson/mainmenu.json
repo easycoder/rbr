@@ -5,18 +5,12 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Welcome", "$Pad", "$Local", "$Pad", "$SystemManager", "$GetSysParams", "$Add", "$Pad",
+    "#": ["$Welcome", "$Pad", "$SystemManager", "$GetSysParams", "$Add", "$Pad",
         "$Backup", "$Restore", "$Pad", "$Help", "$Cancel"],
 
     "$Welcome": {
         "$ID": "button-welcome",
         "$Label": "Welcome to RBR!",
-        "#": "$Button"
-    },
-
-    "$Local": {
-        "$ID": "button-local",
-        "$Label": "Local server",
         "#": "$Button"
     },
 

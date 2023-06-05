@@ -258,7 +258,7 @@ GetCurrentRooms:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the times
 TimesButtonCB:
-    rest get PeriodEditScript from `/resources/ecs/periodedit-dev.ecs?v=` cat now
+    rest get PeriodEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
 	exit
 

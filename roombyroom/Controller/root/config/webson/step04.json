@@ -1,0 +1,52 @@
+{
+    "#doc": "Step 4 - get the address",
+    "#element": "div",
+    "position": "absolute",
+    "left": 0,
+    "top": 0,
+    "width": "100%",
+    "height": "100%",
+    "#": ["$Text1", "$Text2", "$Address", "$Text3"],
+
+    "$Text1": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "green",
+        "font-size": "2em",
+        "#content": "Configuration - step 2"
+    },
+
+    "$Text2": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "normal",
+        "font-size": "1.4em",
+        "text-align": "left",
+        "#content": "Next, please give the street address of this installation."
+    },
+
+    "$Address": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "text-align": "center",
+        "#": "$Text",
+
+        "$Text": {
+            "#element": "input",
+            "@id": "cf-address",
+            "width": "calc(100% - 4em)",
+            "font-size": "1.2em"
+        }
+    },
+
+    "$Text3": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "normal",
+        "font-size": "1.4em",
+        "text-align": "left",
+        "#content": "Then tap the Next button below."
+    }
+}

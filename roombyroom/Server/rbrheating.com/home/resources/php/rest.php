@@ -229,6 +229,19 @@
                 }
                 break;
 
+            case 'config':
+                // Get the system config file, given its MAC.
+                // Endpoint: {site root}/resources/php/rest.php/config/<mac>
+                $mac = $request[0];
+                $result = query($conn, "SELECT config FROM systems WHERE mac='$mac'");
+                if ($row = mysqli_fetch_object($result)) {
+                    print base64_decode($row->config);
+                } else {
+                    print '';
+                }
+                mysqli_free_result($result);
+                break;
+
             case 'map':
                 // Get the system map, given its MAC.
                 // Endpoint: {site root}/resources/php/rest.php/map/<mac>
@@ -444,6 +457,24 @@
     function post($conn, $action, $request, $smtpusername, $smtppassword) {
         $ts = time();
         switch ($action) {
+
+            case 'config':
+                // Save the system config file
+                // Endpoint: {site root}/resources/php/rest.php/config/{mac}/{password}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $config = file_get_contents("php://input");
+                    $config = base64_encode($config);
+//                    print "$config\n";
+                    query($conn, "UPDATE systems SET config='$config', last=$ts WHERE mac='$mac'");
+                    logger("UPDATE systems SET config='$config' WHERE mac='$mac'");
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC and password do not match any record.\"}";
+                }
+                break;
 
             case 'map':
                 // Save the system map

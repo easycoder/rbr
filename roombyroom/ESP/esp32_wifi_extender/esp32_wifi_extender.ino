@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 6
+#define CURRENT_VERSION 7
 #define BAUDRATE 115200
 #define UPDATE_CHECK_INTERVAL 3600
 #define ERROR_MAX 10
@@ -309,7 +309,6 @@ void setupNetwork() {
     p = request->getParam("id");
     const char* id = p->value().c_str();
     handle_off(request, type, id);
-    delay(100);
   });
 
   localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -352,10 +351,6 @@ void checkRelayUpdate() {
   Serial.printf("Check for relay update at %s\n", requestRelayVersionURL);
   httpGET(requestRelayVersionURL, true);
   int newVersion = atoi(httpPayload);
-  if (newVersion == 0) {
-    Serial.println("Bad response from host, so restarting");
-    restart();
-  }
   Serial.printf("Current version is %d, new version is %d\n", relayVersion, newVersion);
   if (newVersion > relayVersion) {
     Serial.printf("Get relay binary from %s\n",requestRelayUpdateURL);
@@ -401,6 +396,7 @@ void checkRelayUpdate() {
     }
   }
   relayVersion = newVersion;
+  writeTextToFile("/relay.version", httpPayload);
 }
 
 // Check for updated extender and relay firmware
@@ -456,6 +452,8 @@ void setup(void) {
   sprintf(restarts, "%d", nRestarts);
   writeTextToFile("/restarts", restarts);
   Serial.printf("Restarts: %d\n", nRestarts);
+  const char* ver = readFileToText("/relay.version");
+  relayVersion = atoi(ver);
 
   // writeTextToFile("/config", "");
 
@@ -552,6 +550,7 @@ void loop(void) {
         } else {
           strcat(deviceURL, "off");
         }
+        Serial.println(deviceURL);
         httpGET(deviceURL, false);
         strcpy(relayResponse[n], httpPayload);
 //        Serial.printf("%s %s\n", deviceURL, httpPayload);

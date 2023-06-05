@@ -1,0 +1,31 @@
+!   Step 3
+
+	script Step03
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    input NameInput
+
+    print Map
+
+    attach NameInput to `cf-name`
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    set the content of NameInput to property `name` of Map
+
+    on click LeftButton
+    begin
+        put `Previous` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        set property `name` of Map to the content of NameInput
+        put `Next` into Result
+        exit
+    end
+
+    stop

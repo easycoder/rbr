@@ -9,7 +9,6 @@
         and variable Map
     	and variable ClickIndex
         and variable Sensors
-        and variable Demo
         and variable Result
     
     div ButtonM

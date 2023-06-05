@@ -38,8 +38,8 @@
     img ModeIcon
     img Hourglass
     button ProfilesButton
-    button LocalServerButton
     button SystemManagerButton
+    button ConfigButton
     button AddButton
     button GetSysParamsButton
     button GetSystemNameButton
@@ -55,14 +55,14 @@
     button DialogButton2
     module ProfileModule
     module Storyteller
-    module DemoModule
+!    module DemoModule
     module DebugModule
     variable Mobile
     variable Systems
     variable System
     variable Server
     variable Revisit
-    variable Demo
+!    variable Demo
     variable Webson
     variable HelpScript
     variable ModeScript
@@ -87,7 +87,7 @@
     variable Sensors
     variable SensorIP
     variable SensorSpec
-    variable DemoSensors
+!    variable DemoSensors
     variable Relays
     variable RelayState
     variable RelayType
@@ -130,6 +130,7 @@
     variable UntilTemp
     variable Waiting
     variable Flashing
+    variable Value
     variable Count
     variable Keys
     variable Key
@@ -367,20 +368,20 @@ Start:
     clear Flag
     get MAC from storage as `MAC`
     if MAC is empty go to SystemManager ! GetLogin
-    if MAC is `DEMO`
-    begin
-    set Demo
-    if DemoModule is not running
-    begin
-    rest get Script from `/resources/ecs/demo.ecs?v=` cat now
-    or go to HandleRestError
-    get Map from storage as `map`
-    put empty into DemoSensors
-    run Script with Map and DemoSensors and Demo as DemoModule
-    send `run` to DemoModule
-    end
-    end
-    else clear Demo
+!    if MAC is `DEMO`
+!    begin
+!        set Demo
+!        if DemoModule is not running
+!        begin
+!            rest get Script from `/resources/ecs/demo.ecs?v=` cat now
+!            or go to HandleRestError
+!            get Map from storage as `map`
+!            put empty into DemoSensors
+!            run Script with Map and DemoSensors and Demo as DemoModule
+!            send `run` to DemoModule
+!        end
+!    end
+!    else clear Demo
 
     !	Make sure we have the password; if not, ask for it
     get Password from storage as `password`
@@ -395,9 +396,9 @@ Start:
 !	Get the map
 GetMap:
 	set Blocked
-    if Demo get Map from storage as `map`
-    else
-    begin
+!    if Demo get Map from storage as `map`
+!    else
+!    begin
     	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
         	or begin
         		print `Server not responding; using local data`
@@ -406,7 +407,7 @@ GetMap:
         	end
         if Map is empty stop
         put Map into storage as `map`
-    end
+!    end
     if Map is not Map2 set Redraw
     put Map into Map2
 
@@ -589,7 +590,7 @@ GetMap:
             end
             set property `room-` cat RoomIndex of StaticData to RoomData
             put property `alive` of RoomData into IsAlive
-            if Demo put `true` into IsAlive
+!            if Demo put `true` into IsAlive
             if IsAlive is `true`
             begin
                 put property `temperature` of SensorSpec into Temperature
@@ -634,7 +635,7 @@ GetMap:
         ! Show the mode indicator
         put property `relays` of RoomSpec into Relays
         put the json count of Relays into Relays
-        if Demo put 1 into Relays
+!        if Demo put 1 into Relays
         if Relays is 0
         begin
             clear ModeHolder
@@ -813,7 +814,6 @@ GetMap:
                     and Map
                     and ClickIndex
                     and Sensors
-                    and Demo
                     and Result
                 go to ProcessResult
             end
@@ -858,7 +858,6 @@ ShowMenu:
     	rest get MainMenuWebson from `/resources/webson/mainmenu.json?v=` cat now
             or go to HandleRestError
     render MainMenuWebson in MainPanel
-    attach LocalServerButton to `button-local`
     attach SystemManagerButton to `button-systemmanager`
     attach AddButton to `button-add`
     attach GetSysParamsButton to `button-getsysparams`
@@ -868,19 +867,7 @@ ShowMenu:
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
     
-    on click LocalServerButton
-    begin
-!    	rest get Item from `https://192.168.1.1/index.html`
-!        or begin
-!        	alert `The local server is not accessible from this network connection`
-!        	stop
-!        end
-		alert `Transferring to local controller`
-    	location `http://172.24.1.1`
-    end
-    
     on click SystemManagerButton go to SystemManager
-
     on click GetSysParamsButton go to GetSystemParameters
 
     on click AddButton
@@ -938,8 +925,8 @@ SystemManager:
     if Result is `OK`
     begin
         put MAC into storage as `MAC`
-        if MAC is `DEMO` set Demo else clear Demo
-        if Demo put `password` into Password
+!        if MAC is `DEMO` set Demo else clear Demo
+!        if Demo put `password` into Password
         put Password into storage as `password`
     	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
         	or begin
@@ -984,7 +971,20 @@ GetSystemParameters:
         rest get GetSysParamsWebson from `/resources/webson/getsysparams.json?v=` cat now
             or go to HandleRestError
     render GetSysParamsWebson in MainPanel
-
+    
+    attach ConfigButton to `button-config`
+	get Value from storage as `email`
+    if Value is not empty
+    begin
+    	get Value from storage as `userpassword`
+    	if Value is not empty
+        begin
+	    	on click ConfigButton go to Configuration
+            go to GSP2
+        end
+    end
+    set style `display` of ConfigButton to `none`
+GSP2:
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
     attach RestartButton to `button-restart`
@@ -1028,6 +1028,15 @@ GetSystemParameters:
         stop
     end
 	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Configuration
+Configuration:
+	set Blocked
+    rest get Script from `/resources/ecs/config.ecs?v=` cat now
+    	or go to HandleRestError
+    run Script with MAC and Password and Map and Result
+    go to ProcessResult
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Ask the user for the system name
@@ -1185,12 +1194,12 @@ Backup:
     on click DialogButton1
     begin
     	clear DialogPanel
-    	if not Demo
-        begin
+!    	if not Demo
+!        begin
         	put `{}` into RequestData
             set property `action` of RequestData to `backup`
             fork to PostRequest
-        end
+!        end
         set Redraw
         clear Blocked
     end
@@ -1223,12 +1232,12 @@ Restore:
     on click DialogButton1
     begin
     	clear DialogPanel
-        if not Demo
-        begin
+!        if not Demo
+!        begin
         	put `{}` into RequestData
             set property `action` of RequestData to `restore`
             fork to PostAndConfirm
-        end
+!        end
         set Redraw
         clear Blocked
     end
@@ -1320,30 +1329,30 @@ PostAndConfirm:
     fork to PostRequest
     fork to FlashHourglass
     ! Wait for a response from the server
-    if Demo wait 5 seconds
-    else
-    begin
+!    if Demo wait 5 seconds
+!    else
+!    begin
         put 10 into Count
         while Count is greater than 0
         begin
             wait 5 seconds
             rest get Confirm from Server cat `/confirm/` cat MAC cat `?v=` cat now
-            if Confirm is `Y` go to SM2
+            if Confirm is `Y` go to PAC2
             take 1 from Count
         end
         alert `System is not responding"
         return
-    end
-SM2:
+!    end
+PAC2:
 	clear Waiting
     put 0 into Count
     while Count is less than 10
     begin
-    	if not Flashing go to SM3
+    	if not Flashing go to PAC3
         wait 10 ticks
     	add 1 to Count
     end
-SM3:
+PAC3:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
