@@ -7,19 +7,17 @@ from bottle import Bottle, run, request, static_file
 
 app = Bottle()
 
-esp32 = 'http://192.168.23.1'
-
 ###############################################################################
 # This is the RBR local website at http://rbr.home
 
-# Endpoint: GET <server-ip>/register
+# Endpoint: GET <server-ip>/register/<mac>
 # Called to register
-@app.get('/register')
-def register():
+@app.get('/register/<mac>')
+def register(mac):
     # print('Register')
     return static_file('map', root='.')
 
-# Endpoint: GET <server-ip>/resources/php/rest.php/map
+# Endpoint: GET <server-ip>/resources/php/rest.php/map/<mac>
 # Called to return the map
 @app.get('/resources/php/rest.php/map')
 def getMap():
@@ -30,10 +28,10 @@ def getMap():
         f.close()
     return static_file('map', root='')
 
-# Endpoint: GET <server-ip>/resources/php/rest.php/sensors
+# Endpoint: GET <server-ip>/resources/php/rest.php/sensors/<mac>
 # Called to return the sensors
-@app.get('/resources/php/rest.php/sensors')
-def getSensors():
+@app.get('/resources/php/rest.php/sensors/<mac>')
+def getSensors(mac):
     # print('getSensors')
     if not isfile('/mnt/data/sensorData'):
         f = open('/mnt/data/sensorData', 'w')
@@ -108,134 +106,6 @@ def getJS(name):
     # print(f'getJS {name}')
     return static_file(name, root='./resources/js')
 
-# Endpoint: GET <server-ip>/resources/ecs/<name>
-# Called to return a config ecs script
-@app.get('/config/ecs/<name>')
-def getConfigScript(name):
-    # print(f'getConfigScript {name}')
-    return static_file(name, root='./config/ecs')
-
-# Endpoint: GET <server-ip>/resources/webson/<name>
-# Called to return a config webson script
-@app.get('/config/webson/<name>')
-def getConfigWebson(name):
-    # print(f'getConfigWebson {name}')
-    return static_file(name, root='./config/webson')
-
-# Endpoint: GET <server-ip>/resources/config/img/<name>
-# Called to return a config image
-@app.get('/config/img/<name>')
-def getConfigImage(name):
-    # print(f'geConfigImage {name}')
-    return static_file(name, root='./config/img')
-
-# Endpoint: GET <server-ip>/resources/config/scan
-# Called to return a config scan
-@app.get('/config/scan')
-def getConfigScan():
-    # print(f'getConfigScan')
-    try:
-        response = requests.get(f'{esp32}/scan', timeout=10)
-        if response.status_code < 400:
-            print(response.text)
-            return response.text
-        errorCode = response.status_code
-        errorReason = response.reason
-        print(f'Error code {errorCode}: {errorReason}')
-    except Exception as e:
-        errorReason = str(e)
-        print(f'Error: {errorReason}')
-
-# Endpoint: GET <server-ip>/resources/config/connect?ssid={ssid}&password={password}
-# Called to connect to a server
-@app.get('/config/connect')
-def getConfigConnect():
-    # print(f'getConfigConnect')
-    try:
-        ssid = request.query.ssid
-        password = request.query.password
-        response = requests.get(f'{esp32}/connect?ssid={ssid}&password={password}', timeout=5)
-        if response.status_code < 400:
-            print(response.text)
-            return response.text
-        errorCode = response.status_code
-        errorReason = response.reason
-        print(f'Error code {errorCode}: {errorReason}')
-    except Exception as e:
-        errorReason = str(e)
-        print(f'Error: {errorReason}')
-
-# Endpoint: GET <server-ip>/resources/config/connected
-# Called to check if connected
-@app.get('/config/connected')
-def getConfigConnected():
-    # print(f'getConfigConnected')
-    try:
-        ssid = request.query.ssid
-        password = request.query.password
-        response = requests.get(f'{esp32}/connected', timeout=5)
-        if response.status_code < 400:
-            print(response.text)
-            return response.text
-        errorCode = response.status_code
-        errorReason = response.reason
-        print(f'Error code {errorCode}: {errorReason}')
-    except Exception as e:
-        errorReason = str(e)
-        print(f'Error: {errorReason}')
-
-# Endpoint: GET <server-ip>/resources/config/request
-# Called to issue a GET request
-@app.get('/config/request')
-def getConfigRequest():
-    # print(f'getConfigRequest')
-    try:
-        req = request.query.req
-        response = requests.get(f'{esp32}/request?req={req}', timeout=5)
-        if response.status_code < 400:
-            print(response.text)
-            return response.text
-        errorCode = response.status_code
-        errorReason = response.reason
-        print(f'Error code {errorCode}: {errorReason}')
-    except Exception as e:
-        errorReason = str(e)
-        print(f'Error: {errorReason}')
-
-# Endpoint: GET <server-ip>/resources/config/response
-# Called to get the result of a GET request
-@app.get('/config/response')
-def getConfigResponse():
-    # print(f'getConfigResponse')
-    try:
-        response = requests.get(f'{esp32}/response', timeout=5)
-        if response.status_code < 400:
-            print(response.text)
-            return response.text
-        errorCode = response.status_code
-        errorReason = response.reason
-        print(f'Error code {errorCode}: {errorReason}')
-    except Exception as e:
-        errorReason = str(e)
-        print(f'Error: {errorReason}')
-
-# Endpoint: GET <server-ip>/resources/config
-# Called to return the esp32 home page
-@app.get('/config')
-def getConfig():
-    # print(f'geConfig')
-    try:
-        response = requests.get(esp32, timeout=5)
-        if response.status_code < 400:
-            print(response.text)
-            return response.text
-        errorCode = response.status_code
-        errorReason = response.reason
-        print(f'Error code {errorCode}: {errorReason}')
-    except Exception as e:
-        errorReason = str(e)
-        print(f'Error: {errorReason}')
-
 # Endpoint: POST <server-ip>/resources/php/rest.php/map/<mac><password>
 # Called to post the map. This always comes from the local UI
 @app.post('/resources/php/rest.php/map/<mac>/<password>')
@@ -286,9 +156,9 @@ def save(path):
     f.close()
 
 # Endpoint: GET <server-ip>/
-# Called to return a top-level file
+# Called to return an HTML file
 @app.get('/<name>')
-def getTopLevel(name):
+def getHTML(name):
     # print('getHTML')
     return static_file(name, root='.')
 
@@ -341,6 +211,18 @@ def extenderversion():
 @app.get('/extender/update')
 def extenderupdate():
     return static_file('esp/esp32_wifi_extender/esp32_wifi_extender.ino.bin', root='.')
+
+# Endpoint: GET <server-ip>/extender/restarted/<ipaddr>
+# Called to notify of an extender restart
+@app.get('/extender/restarted<ipaddr>')
+def extenderrestarted(ipaddr):
+    dir = '/mnt/data/restarts'
+    if not os.path.exists(f'{dir}'):
+        os.makedirs(f'{dir}')
+    file = open(f'{dir}/{ipaddr}.txt', 'w')
+    message = '{"restart": 1}'
+    file.write(message)
+    file.close()
 
 # Endpoint: GET <server-ip>/relay/version
 # Called to get the current relay version
@@ -407,7 +289,7 @@ def postMap(map):
 if __name__ == '__main__':
     ip = subprocess.getoutput("hostname -I").strip()
     if ip.rfind(' ') > 0:
-        ip = '192.168.0.201'
+        ip = '172.24.1.1'
     print(f'IP address: {ip}')
     app.run(host=ip, port=80, debug=False)
 

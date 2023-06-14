@@ -1,6 +1,6 @@
 #!/bin/sh
 
-crontab crondata-empty.txt
+crontab empty.txt
 rm *.*
 wget https://rbrheating.com/home/resources/dist.tgz
 tar zxf dist.tgz

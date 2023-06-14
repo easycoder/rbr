@@ -269,7 +269,7 @@ void connectToHost() {
 // The default page for the AP
 void onAPDefault() {
   Serial.println("onAPDefault");
-  localServer.send(200, "text/plain", "R1 relay " + String(softap_ssid) + " unconfigured");
+  localServer.send(200, "text/plain", "R1 relay v" + String(CURRENT_VERSION) + ", " + String(softap_ssid) + " unconfigured");
 }
 
 // The status page for the AP

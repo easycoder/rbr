@@ -5,7 +5,6 @@
     div Body
     div MainPanel
     div Mask
-    div ConfigPanel
     div BannerMask
     div TitleMask
     div SystemTitlePanel
@@ -23,6 +22,8 @@
     div DialogPanel
     div DialogTitle
     div DialogText
+    div SystemMAC
+    div SystemPassword
     div ModeText
     div ModeInfo
     div Alive
@@ -39,7 +40,6 @@
     img ModeIcon
     button ProfilesButton
     button AddButton
-    button ConfigButton
     button GetSysParamsButton
     button GetSystemNameButton
     button GetRequestButton
@@ -371,7 +371,7 @@ GetMap:
     if Demo get Map from storage as `map`
     else
     begin
-    	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
+    	rest get Map from Server cat `/map?v=` cat now
         	or begin
         		print `Server not responding; using local data`
         		get Map from storage as `map`
@@ -919,17 +919,17 @@ GetSystemParameters:
             or go to HandleRestError
     render GetSysParamsWebson in MainPanel
 
-    attach ConfigButton to `button-config`
+    attach SystemMAC to `system-mac`
+    attach SystemPassword to `system-password`
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
 
-    on click ConfigButton
-    begin
-    	set Flag
-        go to Configurator
-    end
+    set the content of SystemMAC to `MAC: ` cat MAC
+    set the content of SystemPassword to `Password: ` cat Password
+    set style `display` of SystemMAC to `none`
+    set style `display` of SystemPassword to `none`
 
     on click GetSystemNameButton
     begin
@@ -958,21 +958,6 @@ GetSystemParameters:
         stop
     end
 	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Run the configurator
-Configurator:
-	set Blocked
-	attach ConfigPanel to `config-panel`
-	set style `display` of ConfigPanel to `block`
-    rest get Script from `/resources/config/ecs/config.ecs?v=` cat now
-    run Script with ConfigPanel
-	clear ConfigPanel
-	set style `display` of ConfigPanel to `none`
-    clear MainPanel
-    clear Blocked
-    set Redraw
-    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Ask the user for the system name

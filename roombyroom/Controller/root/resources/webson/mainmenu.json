@@ -16,7 +16,7 @@
 
     "$GetSysParams": {
         "$ID": "button-getsysparams",
-        "$Label": "System Parameters",
+        "$Label": "Set System Parameters",
         "#": "$Button"
     },
 

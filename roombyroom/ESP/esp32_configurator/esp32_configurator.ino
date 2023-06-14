@@ -23,7 +23,6 @@ char softap_password[40];
 bool busyStartingUp = true;
 bool busyDoingGET = false;
 bool errorCount = false;
-char httpPayload[200];
 char restarts[10];
 
 AsyncWebServer localServer(80);
@@ -37,8 +36,6 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
   char* response = "";
     
   http.begin(client, requestURL);
-
-  httpPayload[0] = '\0';
   
   // Send HTTP GET request
   int httpResponseCode = http.GET();

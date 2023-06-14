@@ -16,6 +16,7 @@
     variable Profiles
     variable Profile
     variable ProfileName
+    variable SystemName
     variable Map
     variable MapObject
     variable Rooms
@@ -32,6 +33,8 @@
     variable Temperature
     variable SensorData
     variable RoomCount
+    variable RoomNames
+    variable RoomSSIDs
     variable NPeriods
     variable Events
     variable Event
@@ -45,6 +48,7 @@
     variable Password
     variable Advance
     variable Boost
+    variable NetworkErrors
     variable Request
     variable RequestCount
     variable RequestIP
@@ -83,6 +87,24 @@
     put `/mnt/data` into RamDisk
     put `http://rbr.home` into LocalServer
 
+    if file `/mnt/data/network-errors` exists
+    begin
+        open File `/mnt/data/network-errors` for reading
+        read NetworkErrors from File
+        close File
+    end
+    else
+    begin
+        put -1 into NetworkErrors
+        gosub to NetworkError
+    end
+    if NetworkErrors is greater than 20
+    begin
+        put -1 into NetworkErrors
+        gosub to NetworkError
+        system `reboot`
+    end
+
     put 0 into RepeatCount
     open File `mac` for reading
     read MAC from File
@@ -97,7 +119,9 @@
     get RegData from RBRServer cat `/register/` cat MAC cat `?v=` cat now
     or begin
         print `Server did not respond`
+        gosub to NetworkError
         put empty into Password
+        put 1 into Version
         go to SkipServerInteraction
     end
 
@@ -124,6 +148,7 @@
         close File
     end
     else put 1 into Version
+! print RegData
     put property `version` of RegData into Value
     print `Current version: ` cat Version
     if Value is not Version
@@ -163,8 +188,12 @@ Start:
     if Map is empty
     begin
         ! Try to get the map from the RBR server
+        print `Get the map from the server`
         get Map from RBRServer cat `/map/` cat MAC cat `?v=` cat now
-        or put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
+        or begin
+            put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
+            gosub to NetworkError
+        end
         open File `map` for writing
         write Map to File
         close File
@@ -177,6 +206,10 @@ Start:
     put json Map into MapObject
     put property `profiles` of MapObject into Profiles
     put property `profile` of MapObject into CurrentProfile
+    if `` cat CurrentProfile is empty put 0 into CurrentProfile
+
+    put property `name` of MapObject into SystemName
+    print SystemName
 
     ! If the Calendar is on, find which profile is active
     if property `calendar` of MapObject is `on`
@@ -208,10 +241,13 @@ S2:
     put property `rooms` of Profile into Rooms
     print `Profile: ` cat property `name` of Profile
 
-    !   Get the request, if any
     if Password is empty go to SkipRequests
 
-    get Request from RBRServer cat `/request/` cat MAC cat `?v=` cat now or stop
+    ! Get the request, if any, from the user.
+    get Request from RBRServer cat `/request/` cat MAC cat `?v=` cat now or begin
+        gosub to NetworkError
+        stop
+    end
     if Request is not empty
     begin
 print `Request ` cat Request
@@ -306,6 +342,33 @@ print `Request ` cat Request
             end
             gosub to UpdateRoom
         end
+        else if Action is `config`
+        begin
+            set property `name` of MapObject to property `name` of Request
+            set property `address` of MapObject to property `address` of Request
+            set property `ssid` of MapObject to property `ssid` of Request
+            set property `password` of MapObject to property `password` of Request
+            set property `extenders` of MapObject to property `extenders` of Request
+            put property `names` of Request into RoomNames
+            put property `ssids` of Request into RoomSSIDs
+            put element 0 of Profiles into Profile
+            put property `rooms` of Profile into Rooms
+            put 0 into R
+            while R is less than the count of Rooms
+            begin
+                put element R of Rooms into Room
+                set property `name` of Room to element R of RoomNames
+                set property `ssid` of Room to element R of RoomSSIDs
+                set element R of Rooms to Room
+                add 1 to R
+            end
+            set property `rooms` of Profile to Rooms
+            set element 0 of Profiles to Profile
+            set property `profiles` of MapObject to Profiles
+            put stringify MapObject into Map
+            put element CurrentProfile of Profiles into Profile
+            put property `rooms` of Profile into Rooms
+        end
         else if Action is `periods`
         begin
             put property `roomnumber` of Request into RoomNumber
@@ -363,7 +426,7 @@ SkipRequests:
         begin
             if RequestCount is 0 put `off` into Turn
             else put `on` into Turn
-            print `Request relay is ` cat Turn
+!            print `Request relay is ` cat Turn
             put RequestIP into Extender
             split Extender on `/`
             if the elements of Extender is 2
@@ -371,27 +434,43 @@ SkipRequests:
                 index Extender to 1
                 put Extender into RelayIp
                 index Extender to 0
+                put `r1` into RelayType     ! May need to allow a different type - 11/6/23
                 if RelayType is `RBR R1` put `r1` into RelayType
                 else if RelayType is `Shelly One` put `shelly` into RelayType
                 else if RelayType is `TP-Link P100` put `p100` into RelayType
-                else if RelayType is `Simulator` put `sim` into RelayType
                 put `http://172.24.1.` cat Extender cat `/` cat Turn
                     cat `?type=` cat RelayType cat `&id=` cat RelayIp into Request
 !print `Request: ` cat Request
                 get Result from Request
-                or set property `status` of SensorData to `Request relay did not respond`
-                if Result is empty
+                or begin
                     set property `status` of SensorData to `Request relay did not respond`
+                    print `Request relay did not respond`
+                    gosub to NetworkError
+                    go to PostSensorData
+                end
+!print `Result: ` cat Result
+                if Result is empty
+                begin
+                    set property `status` of SensorData to `Request relay did not respond`
+                    print `Request relay did not respond`
+                end
             end
             else
             begin
                 post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
-                or set property `status` of SensorData to `Request relay did not respond`
+                or begin
+                    set property `status` of SensorData to `Request relay did not respond`
+                    print `Request relay did not respond`
+                    gosub to NetworkError
+                    go to PostSensorData
+                end
             end
         end
         put stringify SimulatorData into SD
         if SD is not `{}` post to LocalServer cat `/simdata/` cat SD
     end
+
+PostSensorData:
     set property `version` of SensorData to Version
     put stringify SensorData into Sensors
     open File RamDisk cat `/sensorData` for writing
@@ -430,6 +509,7 @@ SkipRequests:
     print `Memory used: ` cat memory cat ` MB`
 
     ! Do all the above 6 times
+Repeat:
     add 1 to RepeatCount
     print `Repeat ` cat RepeatCount cat ` done`
     if RepeatCount is less than 6
@@ -670,7 +750,7 @@ SetRelays:
         else put element R of Relays into Relay
         if Relay is not empty
         begin
-            print `Relay: ` cat Relay
+!            print `Relay: ` cat Relay
             put Relay into Extender
             split Extender on `/`
             if the elements of Extender is 2
@@ -678,33 +758,68 @@ SetRelays:
                 index Extender to 1
                 put Extender into RelayIp
                 index Extender to 0
-                if RelayType is `RBR R1` put `r1` into RelayType
+                if RelayType is `Tasmota` put `tasmota` into RelayType
+                else if RelayType is `RBR R1` put `r1` into RelayType
                 else if RelayType is `Shelly One` put `shelly` into RelayType
                 else if RelayType is `TP-Link P100` put `p100` into RelayType
                 else if RelayType is `Simulator` put `sim` into RelayType
+!                print `Relay type: ` cat RelayType
                 put `http://172.24.1.` cat Extender cat `/` cat Turn
                     cat `?type=` cat RelayType cat `&id=` cat RelayIp into Request
 !                print Request
                 get Result from Request
                 or begin
                     set property `status` of SensorValues to `Fail`
-                    set property `status` of SensorData to `No response from relay in ` cat RoomName
+                    set property `status` of SensorData to `Relay request failed in ` cat RoomName
+                    print `Relay request failed in ` cat RoomName
+                    gosub to NetworkError
+                    go to SR2
                 end
                 if Result is empty
                 begin
                     set property `status` of SensorValues to `Fail`
                     set property `status` of SensorData to `No response from relay in ` cat RoomName
+                    print `No response from relay in ` cat RoomName
                 end
             end
             else
             begin
-                if RelayType is `Shelly One`
+                if RelayType is `Tasmota`
                 begin
-!                    print `http://` cat Relay cat `/relay/0?turn=` cat Turn
-                    post to `http://` cat Relay cat `/relay/0?turn=` cat Turn
+!                    print `http://` cat Relay cat `/cm?cmnd=power%20` cat Turn
+                    put `http://` cat Relay cat `/cm?cmnd=power%20` cat Turn into Request
+                    get Result from Request
                     or begin
                         set property `status` of SensorValues to `Fail`
+                        set property `status` of SensorData to `Relay request failed in ` cat RoomName
+                        print `Relay request failed in ` cat RoomName
+                        gosub to NetworkError
+                        go to SR2
+                    end
+                    if Result is empty
+                    begin
+                        set property `status` of SensorValues to `Fail`
                         set property `status` of SensorData to `No response from relay in ` cat RoomName
+                        print `No response from relay in ` cat RoomName
+                    end
+                end
+                else if RelayType is `Shelly One`
+                begin
+!                    print `http://` cat Relay cat `/relay/0?turn=` cat Turn
+                    put `http://` cat Relay cat `/relay/0?turn=` cat Turn into Request
+                    get Result from Request
+                    or begin
+                        set property `status` of SensorValues to `Fail`
+                        set property `status` of SensorData to `Relay request failed in ` cat RoomName
+                        print `Relay request failed in ` cat RoomName
+                        gosub to NetworkError
+                        go to SR2
+                    end
+                    if Result is empty
+                    begin
+                        set property `status` of SensorValues to `Fail`
+                        set property `status` of SensorData to `No response from relay in ` cat RoomName
+                        print `No response from relay in ` cat RoomName
                     end
                 end
                 else if RelayType is `TP-Link P100`
@@ -719,9 +834,18 @@ SetRelays:
                 end
             end
         end
+SR2:
         add 1 to R
     end
     set property `relay` of SensorValues to Turn
     set property `advance` of SensorValues to Advance
     set property Sensor of SensorData to SensorValues
+    return
+
+!   Bump the network error counter
+NetworkError:
+    add 1 to NetworkErrors
+    open File `/mnt/data/network-errors` for writing
+    write `` cat NetworkErrors to File
+    close File
     return

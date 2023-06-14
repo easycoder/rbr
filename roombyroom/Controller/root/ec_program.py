@@ -83,7 +83,7 @@ class Program:
 			name = value['name']
 			symbolRecord = self.getSymbolRecord(name)
 			if symbolRecord['value'] == [None]:
-				RuntimeError(self.compiler.program, f'Variable "{name}" has no value')
+				RuntimeWarning(self.compiler.program, f'Variable "{name}" has no value')
 				return None
 			handler = self.domainIndex[symbolRecord['domain']].valueHandler('symbol')
 			result = handler(symbolRecord)
@@ -118,6 +118,8 @@ class Program:
 		return self.evaluate(value).content
 
 	def getRuntimeValue(self, value):
+		if value is None:
+			return None
 		v = self.evaluate(value)
 		if v != None:
 			content = v['content']

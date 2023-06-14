@@ -1,0 +1,72 @@
+{
+    "#element": "div",
+    "position": "absolute",
+    "left": 0,
+    "top": 0,
+    "width": "100%",
+    "height": "100%",
+    "#": ["$Title", "$Text1", "$Text2", "$Text3", "$Text4", "$Text5", "$Text6"],
+
+    "$Title": {
+        "#element": "div",
+        "margin": "1em 1em 1em 1em",
+        "color": "green",
+        "font-weight": "bold",
+        "font-size": "2em",
+        "#content": "Key features"
+    },
+
+    "$Text1": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "bold",
+        "font-size": "1.4em",
+        "#content": "Save up to 30% on fuel bills"
+    },
+
+    "$Text2": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "bold",
+        "font-size": "1.4em",
+        "#content": "Independent control of each room's heating times and temperature"
+    },
+
+    "$Text3": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "bold",
+        "font-size": "1.4em",
+        "#content": "No plumbing or electrical skill needed"
+    },
+
+    "$Text4": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "bold",
+        "font-size": "1.4em",
+        "#content": "Full control from inside or outside your house"
+    },
+
+    "$Text5": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "bold",
+        "font-size": "1.4em",
+        "#content": "Friendly user interface on any smartphone"
+    },
+
+    "$Text6": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "bold",
+        "font-size": "1.4em",
+        "#content": "From £50 per room, installed"
+    }
+}

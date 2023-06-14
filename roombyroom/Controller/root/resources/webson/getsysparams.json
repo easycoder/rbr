@@ -4,12 +4,26 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$Configurator", "$GetName", "$GetRequest", "$Help", "$Cancel"],
+    "#": ["$MAC", "$Password", "$GetName", "$GetRequest", "$Help", "$Cancel"],
 
-    "$Configurator": {
-        "$ID": "button-config",
-        "$Label": "Configurator",
-        "#": "$Button"
+    "$MAC": {
+        "#element": "div",
+        "@id": "system-mac",
+        "display": "block",
+        "width": "60%",
+        "margin": "0 auto 0.5em auto",
+        "border-radius": "0.25em",
+        "#content": "MAC: "
+    },
+
+    "$Password": {
+        "#element": "div",
+        "@id": "system-password",
+        "display": "block",
+        "width": "60%",
+        "margin": "0 auto 0.5em auto",
+        "border-radius": "0.25em",
+        "#content": "Password: "
     },
 
     "$GetName": {

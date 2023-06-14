@@ -537,14 +537,52 @@
                 $password = $request[1];
                 $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $data = file_get_contents("php://input");
-                    $sensors = base64_encode($data);
-                    query($conn, "UPDATE systems SET sensors='$sensors' WHERE mac='$mac'");
-                    logger("UPDATE systems SET sensors='$data' WHERE mac='$mac'");
+                    $sensors = file_get_contents("php://input");
+                    $encoded = base64_encode($sensors);
+                    query($conn, "UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
+                    logger("UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
                     break;
+                }
+
+                // Do the statistics
+                $data = json_decode($sensors);
+                foreach ($data as $sensor=>$value) {
+                    if (!in_array($sensor, array('actual', 'status', 'version', 'protect'))) {
+                        $relay = $value->relay;
+                        $previous = "off";
+                        // Update the relay states table
+                        $res = query($conn, "SELECT relay from relays WHERE mac='$mac' AND sensor='$sensor'");
+                        if ($r = mysqli_fetch_object($res)) {
+                            $previous = $r->relay;
+                            //print("UPDATE relays SET relay='$relay' WHERE mac='$mac' AND sensor='$sensor'\n");
+                            query($conn, "UPDATE relays SET relay='$relay' WHERE mac='$mac' AND sensor='$sensor'");
+                        } else {
+                            query($conn, "INSERT INTO relays (mac,sensor,relay) VALUES ('$mac','$sensor','$relay')");
+                        }
+                        mysqli_free_result($res);
+                    }
+                    // Update the stats table
+                    if ($previous == "off" && $relay =="on") {
+                        // Mark the start of a timing period
+                        $res = query($conn, "SELECT null FROM stats WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
+                        if ($r = mysqli_fetch_object($res)) {
+                            query($conn, "UPDATE stats SET start='$ts' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
+                        } else {
+                            // logger("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
+                            query($conn, "INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
+                        }
+                    }
+                    else if ($previous == "on" && $relay =="off") {
+                        // Add the period to the total duration for this day
+                        $res = query($conn, "SELECT start, duration FROM stats WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
+                        if ($r = mysqli_fetch_object($res)) {
+                            $duration = ($ts - $r->start + ($r->duration * 60)) / 60;
+                            query($conn, "UPDATE stats SET duration='$duration' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
+                        }
+                    }
                 }
                 break;
 
@@ -617,43 +655,6 @@
                     http_response_code(404);
                     logger("'Managed' failed: Email $email and password $password do not match any record.\n");
                     print "{\"message\":\"Email $email and password $password do not match any record.\"}";
-                }
-                break;
-
-                // Do the statistics
-                $data = json_decode($sensors);
-                foreach($data as $sensor=>$value) {
-                    $relay = $value->relay;
-                    $previous = "off";
-                    // Update the relay states table
-                    $res = query($conn, "SELECT relay from relays WHERE mac='$mac' AND sensor='$sensor'");
-                    if ($r = mysqli_fetch_object($res)) {
-                        $previous = $r->relay;
-                        //print("UPDATE relays SET relay='$relay' WHERE mac='$mac' AND sensor='$sensor'\n");
-                        query($conn, "UPDATE relays SET relay='$relay' WHERE mac='$mac' AND sensor='$sensor'");
-                    } else {
-                        query($conn, "INSERT INTO relays (mac,sensor,relay) VALUES ('$mac','$sensor','$relay')");
-                    }
-                    mysqli_free_result($res);
-                    // Update the stats table
-                    if ($previous == "off" && $relay =="on") {
-                        // Mark the start of a timing period
-                        $res = query($conn, "SELECT null FROM stats WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
-                        if ($r = mysqli_fetch_object($res)) {
-                            query($conn, "UPDATE stats SET start='$ts' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
-                        } else {
-                            // logger("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
-                            query($conn, "INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
-                        }
-                    }
-                    else if ($previous == "on" && $relay =="off") {
-                        // Add the period to the total duration for this day
-                        $res = query($conn, "SELECT start, duration FROM stats WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
-                        if ($r = mysqli_fetch_object($res)) {
-                            $duration = ($ts - $r->start + ($r->duration * 60)) / 60;
-                            query($conn, "UPDATE stats SET duration='$duration' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
-                        }
-                    }
                 }
                 break;
 
