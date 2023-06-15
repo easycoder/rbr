@@ -10,6 +10,7 @@
 
 #define CURRENT_VERSION 9
 #define BAUDRATE 115200
+#define WATCHDOG_INTERVAL 60
 #define UPDATE_CHECK_INTERVAL 3600
 #define ERROR_MAX 10
 #define FORMAT_LITTLEFS_IF_FAILED true
@@ -37,7 +38,7 @@ bool relayState[10];
 bool relayFlag[10];
 uint relayVersion = 0;
 uint logLevel = LOG_LEVEL_NONE;
-uint watchdog = 1;
+uint watchdog = 0;
 bool busyStartingUp = true;
 bool busyGettingUpdates = false;
 bool busyUpdatingClient = false;
@@ -45,7 +46,6 @@ bool busyDoingGET = false;
 bool updateCheck = false;
 bool errorCount = false;
 bool restarted = false;
-AsyncWebServerRequest *relayVersionRequest;
 AsyncWebServerRequest *relayUpdateRequest;
 char restartedURL[60];
 char requestVersionURL[40];
@@ -55,7 +55,8 @@ char requestRelayUpdateURL[40];
 char deviceURL[40];
 char restarts[10];
 
-Ticker ticker;
+Ticker watchdogTicker;
+Ticker updateTicker;
 
 AsyncWebServer localServer(80);
 
@@ -157,6 +158,22 @@ const char* readFileToText(const char* filename) {
   return text;
 }
 
+// Request a watchdog check
+void requestWatchdogCheck() {
+    // First check if we've had any requests since the last update. If not, restart.
+    if (logLevel >= LOG_LEVEL_LOW) {
+      Serial.printf("Watchdog count is %d", watchdog);
+    }
+    if (watchdog == 0) {
+      Serial.println(": No relay requests have arrived in the past minute, so restart");
+      restart();
+    }
+    if (logLevel >= LOG_LEVEL_LOW) {
+      Serial.println();
+    }
+    watchdog = 0;
+}
+
 // Request an update check
 void requestUpdateCheck() {
   updateCheck = true;
@@ -198,6 +215,7 @@ void handle_root(AsyncWebServerRequest *request) {
   strcat(info, ")\nEndpoints:\n");
   strcat(info, "status: U or C\n");
   strcat(info, "reset: Restart the device\n");
+  strcat(info, "watchdog: Return the watchdog count\n");
   strcat(info, "restarts: Return the number of restarts\n");
   strcat(info, "clear: Clear the restart counter\n");
   strcat(info, "log/{n}: Set the log level\n");
@@ -242,14 +260,6 @@ void handle_off(AsyncWebServerRequest *request, const char* type, const char* id
   watchdog++;
 }
 
-// Endpoint: GET http://{ipaddr}/relay/version
-void handle_relay_version(AsyncWebServerRequest *request) {
-  if (relayVersionRequest) {
-    return;
-  }
-  relayVersionRequest = request;
-}
-
 // Endpoint: GET http://{ipaddr}/relay/update
 void handle_relay_update(AsyncWebServerRequest *request) {
   if (relayUpdateRequest) {
@@ -265,7 +275,7 @@ void setLogLevel(AsyncWebServerRequest *request, int level) {
   char buf[10];
   sprintf(buf, "%d", logLevel);
   writeTextToFile("/logLevel", buf);
-  request->send(200, "text/plain", "Set the log level");
+  request->send(200, "text/plain", String(logLevel));
 }
 
 // Set up the network and the local server
@@ -326,6 +336,10 @@ void setupNetwork() {
     request->send(200, "text/plain", "C");
   });
 
+  localServer.on("/watchdog", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", String(watchdog));
+  });
+
   localServer.on("/restarts", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", String(restarts));
   });
@@ -377,7 +391,10 @@ void setupNetwork() {
   });
 
   localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request) {
-    handle_relay_version(request);
+    if (logLevel >= LOG_LEVEL_NONE) {
+      Serial.printf("Received version request from %s\n", request->client()->remoteIP().toString().c_str());
+    }
+    request->send(200, "text/plain", ((String)relayVersion).c_str());
   });
 
   localServer.on("/relay/update", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -407,8 +424,11 @@ void setupNetwork() {
   strcat(requestRelayUpdateURL, host_server);
   strcat(requestRelayUpdateURL, "/relay/update");
 
+  // Call the watchdog regularly
+  watchdogTicker.attach(WATCHDOG_INTERVAL, requestWatchdogCheck);
+
   // Check for updates periodically
-  ticker.attach(UPDATE_CHECK_INTERVAL, requestUpdateCheck);
+  updateTicker.attach(UPDATE_CHECK_INTERVAL, requestUpdateCheck);
   delay(1000);
   requestUpdateCheck();
 }
@@ -493,13 +513,6 @@ void checkForUpdates() {
     updateCheck = false;
     busyGettingUpdates = true;
 
-    // First check if we've had any requests since the last update. If not, restart.
-    if (watchdog == 0) {
-      Serial.println("No requests, so restart");
-      restart();
-    }
-    watchdog = 0;
-
     // Now check for firmware update
     if (logLevel >= LOG_LEVEL_LOW) {
       Serial.printf("Check for update at %s\n", requestVersionURL);
@@ -529,7 +542,6 @@ void checkForUpdates() {
     }
   }
   busyGettingUpdates = false;
-  busyStartingUp = false;
   busyUpdatingClient = false;
   busyDoingGET = false;
 }
@@ -580,7 +592,7 @@ void setup(void) {
   const char* ver = readFileToText("/relay.version");
   relayVersion = atoi(ver);
 
-  // writeTextToFile("/config", "");
+//   writeTextToFile("/config", "");
 
   String ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
@@ -647,13 +659,14 @@ void setup(void) {
     Serial.println(String(softap_ssid) + " not configured");
 
     pinMode(LED_PIN, OUTPUT);
-    ticker.attach(2, blink);
+    updateTicker.attach(2, blink);
   } else {
     // Here if we are already configured
     Serial.println("Good to go");
     setupNetwork();
     Serial.println(String(softap_ssid) + " configured and running");
     restarted = true;
+    busyStartingUp = false;
   }
 }
 
@@ -697,22 +710,13 @@ void loop(void) {
       }
     }
 
-    if (relayVersionRequest) {
-      if (logLevel >= LOG_LEVEL_LOW) {
-        Serial.printf("Received version request from %s\n", relayVersionRequest->client()->remoteIP().toString().c_str());
-      }
-      relayVersionRequest->send(200, "text/plain", ((String)relayVersion).c_str());
-      relayVersionRequest = 0;
-      delay(100);
-    }
-
     if (relayUpdateRequest) {
       Serial.printf("Received update request from %s\n", relayUpdateRequest->client()->remoteIP().toString().c_str());
       busyUpdatingClient = true;
       relayUpdateRequest->send(LittleFS, "/relay.bin", "application/octet");
       Serial.print("Relay code sent to ");
       Serial.println(relayUpdateRequest->client()->remoteIP());
-      relayUpdateRequest = 0;
+      relayUpdateRequest = NULL;
       busyUpdatingClient = false;
       delay(100);
     }

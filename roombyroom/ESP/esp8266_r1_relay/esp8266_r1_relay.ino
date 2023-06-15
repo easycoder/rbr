@@ -7,24 +7,28 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 3
+#define CURRENT_VERSION 4
 #define BAUDRATE 115200
+#define WATCHDOG_CHECK_INTERVAL 60
 #define UPDATE_CHECK_INTERVAL 3600
 
 // Constants
-const IPAddress localIP(192,168,23,1);
+const IPAddress localIP(192,168,66,1);
 const IPAddress subnet(255,255,255,0);
 
-Ticker ticker;
+Ticker watchdogTicker;
+Ticker updateTicker;
 ESP8266WebServer localServer(80);
 DynamicJsonDocument config(256);
 
 uint8_t relayPin = 0;
 uint8_t ledPin = 2;
+uint watchdog = 0;
 bool relayPinStatus = LOW;
 bool checkForUpdate = false;
 char name[40];
-char softap_ssid[40];
+char my_ssid[40];
+char my_password[40];
 char host_ssid[40];
 char host_password[20];
 char host_ipaddr[20];
@@ -52,6 +56,7 @@ void onDefault() {
   sprintf(buf, "%d", WiFi.RSSI());
   strcat(info, buf);
   strcat(info, ")\nEndpoints:\n");
+  strcat(info, "watchdog: Return the number of relay requests in the past minute\n");
   strcat(info, "reset: Restart the device\n");
   strcat(info, "restarts: Return the number of restarts\n");
   strcat(info, "clear: Clear the restart counter\n");
@@ -65,6 +70,18 @@ void onDefault() {
 void onStatus() {
   Serial.println("onStatus");
   localServer.send(200, "text/plain", "C");
+}
+
+// Check the watchdog
+void watchdogCheck() {
+    // First check if we've had any requests since the last update. If not, restart.
+    Serial.printf("Watchdog count is %d", watchdog);
+    if (watchdog == 0) {
+      Serial.println(": No requests have arrived in the past minute, so restart");
+      restart();
+    }
+    Serial.println();
+    watchdog = 0;
 }
 
 // Check if an update is available
@@ -86,11 +103,13 @@ void ledOff() {
 
 void relayOn() {
   relayPinStatus = HIGH;
+  watchdog++;
   localServer.send(200, "text/plain", "Relay ON");
 }
 
 void relayOff() {
   relayPinStatus = LOW;
+  watchdog++;
   localServer.send(200, "text/plain", "Relay Off");
 }
 
@@ -138,6 +157,12 @@ void restart() {
   ESP.reset();
 }
 
+// Get the watchdog count
+void onWatchdog() {
+  Serial.println("Watchdog");
+  localServer.send(200, "text/plain", String(watchdog));
+}
+
 // Reset the system
 void onReset() {
   Serial.println("Reset");
@@ -161,29 +186,33 @@ void onRestarts() {
 
 // Clear the restart counter
 void onClear() {
-  Serial.print("Clear");
+  Serial.println("Clear");
   strcpy(restarts, "0");
   writeTextToFile("/restarts", restarts);
   localServer.send(200, "text/plain", String(restarts));
 }
 
 // Perform a GET
-void httpGET(char* serverName, char* response) {
+void httpGET(char* requestURL, char* response) {
   WiFiClient client;
   HTTPClient http;
-    
-  http.begin(client, serverName);
+
+  http.begin(client, requestURL);
 
   String payload = "";
-  
+
   // Send HTTP GET request
   int httpResponseCode = http.GET();
-  
+
   if (httpResponseCode >= 200 && httpResponseCode < 400) {
     payload = http.getString();
   }
   else {
-    Serial.printf("Error code: %d\n", httpResponseCode);
+    if (httpResponseCode < 0) {
+      Serial.printf("GET %s: Error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
+    } else {
+      Serial.printf("Error code: %d\n", httpResponseCode);
+    }
     restart();
   }
   // Free resources
@@ -223,14 +252,17 @@ void connectToHost() {
     factoryReset();
   }
 
-  // Connect to the controller's wifi network
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_AP_STA);
+  // Set up our AP
+  WiFi.softAPConfig(localIP, localIP, subnet);
+  WiFi.softAP(my_ssid, my_password);
+
+  // Connect to the host
   if (!WiFi.config(ipaddr, gateway, subnet)) {
     Serial.println("STA failed to configure");
   }
   WiFi.begin(host_ssid, host_password);
-
-  // Check we are connected to wifi network
+  Serial.print("Connecting ");
   while (WiFi.status() != WL_CONNECTED) {
     delay(1000);
     Serial.print(".");
@@ -245,6 +277,7 @@ void connectToHost() {
   localServer.on("/clear", onClear);
   localServer.on("/on", relayOn);
   localServer.on("/off", relayOff);
+  localServer.on("/watchdog", onWatchdog);
   localServer.on("/reset", onReset);
   localServer.on("/factoryreset", factoryReset);
   localServer.onNotFound(notFound);
@@ -259,28 +292,31 @@ void connectToHost() {
   strcat(requestUpdateURL, host_server);
   strcat(requestUpdateURL, "/relay/update");
 
+  // Check the watchdog
+  watchdogTicker.attach(WATCHDOG_CHECK_INTERVAL, watchdogCheck);
+
   // Check periodically for updates
-  ticker.attach(UPDATE_CHECK_INTERVAL, updateCheck);
+  updateTicker.attach(UPDATE_CHECK_INTERVAL, updateCheck);
   delay(1000);
   // Do an update check now
   updateCheck();
 }
 
-// The default page for the AP
-void onAPDefault() {
+// The default page for the unconfigured AP
+void onUnconfiguredAPDefault() {
   Serial.println("onAPDefault");
-  localServer.send(200, "text/plain", "R1 relay v" + String(CURRENT_VERSION) + ", " + String(softap_ssid) + " unconfigured");
+  localServer.send(200, "text/plain", "R1 relay v" + String(CURRENT_VERSION) + ", " + String(my_ssid) + " unconfigured");
 }
 
-// The status page for the AP
-void onAPStatus() {
+// The status page for the unconfigured AP
+void onUnconfiguredAPStatus() {
   Serial.println("onAPStatus");
   localServer.send(200, "text/plain", "U");
 }
 
 // Here when a setup request containing configuration data is received
-void onAPSetup() {
-  Serial.println("onAPSetup");
+void onConfigure() {
+  Serial.println("Configure the relay");
   String config = localServer.arg("config");
   if (config != "") {
     Serial.printf("Config: %s\n", config.c_str());
@@ -294,21 +330,24 @@ void onAPSetup() {
   }
 }
 
-// Go into SoftAP mode
-void softAPMode() {
-  Serial.println("Soft AP mode");
+// Go into Unconfigured AP mode
+void UnconfiguredAPMode() {
+  Serial.println("Unconfigured AP mode");
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(localIP, localIP, subnet);
-  WiFi.softAP(softap_ssid);
+  char ssid[40];
+  strcpy(ssid, my_ssid);
+  ssid[4] = 'r';
+  WiFi.softAP(ssid);
   delay(100);
 
-  localServer.on("/", onAPDefault);
-  localServer.on("/status", onAPStatus);
-  localServer.on("/setup", onAPSetup);
+  localServer.on("/", onUnconfiguredAPDefault);
+  localServer.on("/status", onUnconfiguredAPStatus);
+  localServer.on("/setup", onConfigure);
   localServer.onNotFound(notFound);
   localServer.begin();
 
-  ticker.attach(2, blink);
+  updateTicker.attach(2, blink);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -351,8 +390,8 @@ void setup() {
   ssid[10] = mac[13];
   ssid[11] = mac[15];
   ssid[12] = mac[16];
-  strcpy(softap_ssid, ssid.c_str());
-  Serial.printf("SoftAP SSID: %s\n", softap_ssid);
+  strcpy(my_ssid, ssid.c_str());
+  Serial.printf("SoftAP SSID: %s\n", my_ssid);
 
   Serial.println("Read config from LittleFS/config");
   String config_p = readFileToText("/config");
@@ -367,13 +406,42 @@ void setup() {
       restart();
     } else {
       Serial.println("Client mode");
-      strcpy(name, config["name"]);
-      strcpy(host_ssid, config["ssid"]);
-      strcpy(host_password, config["password"]);
-      strcpy(host_ipaddr, config["ipaddr"]);
-      strcpy(host_gateway, config["gateway"]);
-      strcpy(host_server, config["server"]);
-      if (name[0] == '\0' || host_ssid[0] == '\0' || host_password[0] == '\0'
+      if (config.containsKey("name")) {
+        strcpy(name, config["name"]);
+      } else {
+        name[0] = '\0';
+      }
+      if (config.containsKey("my_password")) {
+        strcpy(my_password, config["my_password"]);
+      } else {
+        my_password[0] = '\0';
+      }
+      if (config.containsKey("ssid")) {
+        strcpy(host_ssid, config["ssid"]);
+      } else {
+        host_ssid[0] = '\0';
+      }
+      if (config.containsKey("password")) {
+        strcpy(host_password, config["password"]);
+      } else {
+        host_password[0] = '\0';
+      }
+      if (config.containsKey("ipaddr")) {
+        strcpy(host_ipaddr, config["ipaddr"]);
+      } else {
+        host_ipaddr[0] = '\0';
+      }
+      if (config.containsKey("gateway")) {
+        strcpy(host_gateway, config["gateway"]);
+      } else {
+        host_gateway[0] = '\0';
+      }
+      if (config.containsKey("server")) {
+        strcpy(host_server, config["server"]);
+      } else {
+        host_server[0] = '\0';
+      }
+      if (name[0] == '\0' || my_password[0] == '\0' || host_ssid[0] == '\0' || host_password[0] == '\0'
       || host_ipaddr[0] == '\0' || host_gateway[0] == '\0' || host_server[0] == '\0') {
         Serial.println("Bad config data - resetting");
         factoryReset();
@@ -382,7 +450,7 @@ void setup() {
       }
     }
   } else {
-    softAPMode();
+    UnconfiguredAPMode();
   }
 }
 
