@@ -84,7 +84,6 @@
     
     put -1 into CurrentSlide
 
-!    rest get Map from `/map?v=` cat now
     put `{}` into Map
 
     stop
@@ -154,8 +153,11 @@ OnPreviousButton:
     begin
     	set style `display` of PreviousButton to `none`
     	set style `display` of NextButton to `none`
-    	rest post Map to `/resources/php/rest.php/map/mac/password`
-    	print Map
+    	if Map is not empty
+    	begin
+            print Map
+            rest post Map to `/resources/php/rest.php/map/mac/password`
+        end
         stop
     end
     gosub to GetSlideScript

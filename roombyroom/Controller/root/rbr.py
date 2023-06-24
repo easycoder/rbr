@@ -106,10 +106,11 @@ def getJS(name):
     # print(f'getJS {name}')
     return static_file(name, root='./resources/js')
 
-# Endpoint: POST <server-ip>/resources/php/rest.php/map/<mac><password>
+# Endpoint: POST <server-ip>/resources/php/rest.php/map
 # Called to post the map. This always comes from the local UI
-@app.post('/resources/php/rest.php/map/<mac>/<password>')
-def postMap(mac, password):
+@app.post('/resources/php/rest.php/map')
+def postMap():
+    # print('PostMap')
     map = request.body.getvalue().decode("ascii")
     f = open('map', 'w')
     f.write(map)
@@ -118,8 +119,8 @@ def postMap(mac, password):
 
 # Endpoint: POST <server-ip>/resources/php/rest.php/backup/<mac><password>
 # Called to post the backup
-@app.post('/resources/php/rest.php/backup/<mac>/<password>')
-def postBackup(mac, password):
+@app.post('/resources/php/rest.php/backup')
+def postBackup():
     # print('postBackup')
     f = open('map', 'r')
     map = f.read()
@@ -130,8 +131,8 @@ def postBackup(mac, password):
 
 # Endpoint: POST <server-ip>/resources/php/rest.php/restore/<mac>/<password>
 # Called to restore the backup if it exists
-@app.post('/resources/php/rest.php/restore/<mac>/<password>')
-def restoreBackup(mac, password):
+@app.post('/resources/php/rest.php/restore')
+def restoreBackup():
     # print('restoreBackup')
     if isfile('backup'):
         f = open('backup', 'r')
@@ -292,4 +293,3 @@ if __name__ == '__main__':
         ip = '172.24.1.1'
     print(f'IP address: {ip}')
     app.run(host=ip, port=80, debug=False)
-

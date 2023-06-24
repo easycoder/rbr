@@ -21,9 +21,9 @@
 #define LOG_LEVEL_HIGH 3
 
 // Local IP Address
-const IPAddress localIP(192,168,23,1);
+const IPAddress localIP(192,168,32,1);
 const IPAddress subnet(255,255,255,0);
-const char* deviceRoot("http://192.168.23.");
+const char* deviceRoot("http://192.168.32.");
 
 char softap_ssid[40];
 char softap_password[40];
@@ -46,7 +46,6 @@ bool busyDoingGET = false;
 bool updateCheck = false;
 bool errorCount = false;
 bool restarted = false;
-AsyncWebServerRequest *relayUpdateRequest;
 char restartedURL[60];
 char requestVersionURL[40];
 char requestUpdateURL[40];
@@ -69,7 +68,7 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
   WiFiClient client;
   HTTPClient http;
   char* response = (char*)malloc(1);  // Provide something to 'free'
-  response[0] = NULL;
+  response[0] = '\0';
     
   http.begin(client, requestURL);
   
@@ -262,10 +261,16 @@ void handle_off(AsyncWebServerRequest *request, const char* type, const char* id
 
 // Endpoint: GET http://{ipaddr}/relay/update
 void handle_relay_update(AsyncWebServerRequest *request) {
-  if (relayUpdateRequest) {
+  if (busyUpdatingClient) {
     return;
   }
-  relayUpdateRequest = request;
+  busyUpdatingClient = true;
+  Serial.printf("Received update request from %s\n", request->client()->remoteIP().toString().c_str());
+  request->send(LittleFS, "/relay.bin", "application/octet");
+  Serial.print("Relay code sent to ");
+  Serial.println(request->client()->remoteIP());
+  busyUpdatingClient = false;
+  delay(100);
 }
 
 // Set the log level
@@ -430,6 +435,7 @@ void setupNetwork() {
   // Check for updates periodically
   updateTicker.attach(UPDATE_CHECK_INTERVAL, requestUpdateCheck);
   delay(1000);
+  Serial.println("Run update check");
   requestUpdateCheck();
 }
 
@@ -445,8 +451,9 @@ void checkRelayUpdate() {
   char* httpPayload = httpGET(requestRelayVersionURL, true);
   int newVersion = atoi(httpPayload);
   free(httpPayload);
-  if (logLevel >= LOG_LEVEL_MEDIUM) {
-    Serial.printf("Current version is %d, new version is %d\n", relayVersion, newVersion);
+//  if (logLevel >= LOG_LEVEL_MEDIUM) {
+  if (logLevel >= LOG_LEVEL_NONE) {
+    Serial.printf("Current relay version is %d, new version is %d\n", relayVersion, newVersion);
   }
   if (newVersion > relayVersion) {
     if (logLevel >= LOG_LEVEL_MEDIUM) {
@@ -459,6 +466,11 @@ void checkRelayUpdate() {
     // Send HTTP GET request
     int httpResponseCode = client.GET();
     int len = client.getSize();
+    if (len <= 0) {
+      Serial.println("Relay binary is empty");
+      updateVersionFile(0);
+      restart();
+    }
     Serial.printf("Writing %d bytes to LittleFS\n", len);
     File file = LittleFS.open("/relay.bin", FILE_WRITE);
     if (!file) {
@@ -484,7 +496,7 @@ void checkRelayUpdate() {
             if (len > 0) {
               len -= c;
             }
-        }
+        } 
         yield();
       }
       if (logLevel == LOG_LEVEL_HIGH) {
@@ -500,11 +512,15 @@ void checkRelayUpdate() {
     }
   }
   if (newVersion > relayVersion) {
-    relayVersion = newVersion;
-    char buf[10];
-    sprintf(buf, "%d", relayVersion);
-    writeTextToFile("/relay.version", buf);
+    updateVersionFile(newVersion);
   }
+}
+
+void updateVersionFile(int newVersion) {
+  relayVersion = newVersion;
+  char buf[10];
+  sprintf(buf, "%d", relayVersion);
+  writeTextToFile("/relay.version", buf);
 }
 
 // Check for updated extender and relay firmware
@@ -523,8 +539,7 @@ void checkForUpdates() {
     if (newVersion == 0) {
       if (errorCount > 10) {
         Serial.println("Update check: bad response from host, so restarting");
-        delay(10000);  // Bad response so restart
-        ESP.restart();
+        restart();
       }
     } else {
       if (logLevel >= LOG_LEVEL_MEDIUM) {
@@ -536,10 +551,9 @@ void checkForUpdates() {
         }
         WiFiClient client;
         ESPhttpUpdate.update(requestUpdateURL);
-      } else {
-        checkRelayUpdate();
       }
     }
+    checkRelayUpdate();
   }
   busyGettingUpdates = false;
   busyUpdatingClient = false;
@@ -592,7 +606,8 @@ void setup(void) {
   const char* ver = readFileToText("/relay.version");
   relayVersion = atoi(ver);
 
-//   writeTextToFile("/config", "");
+//  writeTextToFile("/config", "");
+//  updateVersionFile(0);
 
   String ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
@@ -664,7 +679,6 @@ void setup(void) {
     // Here if we are already configured
     Serial.println("Good to go");
     setupNetwork();
-    Serial.println(String(softap_ssid) + " configured and running");
     restarted = true;
     busyStartingUp = false;
   }
@@ -709,25 +723,14 @@ void loop(void) {
         relayFlag[n] = false;
       }
     }
-
-    if (relayUpdateRequest) {
-      Serial.printf("Received update request from %s\n", relayUpdateRequest->client()->remoteIP().toString().c_str());
-      busyUpdatingClient = true;
-      relayUpdateRequest->send(LittleFS, "/relay.bin", "application/octet");
-      Serial.print("Relay code sent to ");
-      Serial.println(relayUpdateRequest->client()->remoteIP());
-      relayUpdateRequest = NULL;
-      busyUpdatingClient = false;
-      delay(100);
-    }
   }
 
   checkForUpdates();
 
   if (restarted) {
     restarted = false;
-    Serial.println("Notify host of restart");
     char* httpPayload = httpGET(restartedURL, false);
     free(httpPayload);
+    Serial.println(String(softap_ssid) + " configured and running");
   }
 }

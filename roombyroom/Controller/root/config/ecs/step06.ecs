@@ -1,4 +1,4 @@
-!   Step 6
+!   Step 6 - Get an extender
 
     script Step06
 
@@ -13,12 +13,14 @@
     variable Scan
     variable Values
     variable Value
-    variable ID
     variable Controllers
     variable Controller
     variable SSIDTemplate
     variable CurrentSSID
     variable Webson
+    variable Extenders
+    variable Extender
+    variable EX
     variable N
     variable S
     variable NC
@@ -33,30 +35,27 @@
     on click LeftButton stop
     on click RightButton stop
 
-   set the content of SSID to property `ssid` of Map
-
+    set the content of SSID to `Scanning for extenders...`
 Rescan:
-    set the content of SSID to `Scanning...`
     rest get Scan from `/config/scan`
-    set the content of SSID to empty
-!    print `Scan: ` cat Scan
+    print `Scan: ` cat Scan
     if Scan is empty
     begin
         wait 1 second
         go to Rescan
     end
     split Scan on newline into Values
-!    print the elements of Values
+    print the elements of Values
     put `[]` into Controllers
     put 0 into S
     while S is less than the elements of Values
     begin
         index Values to S
         put Values into Value
-        if left 7 of Value is `RBR-EX-` append Value to Controllers
+        if left 7 of Value is `RBR-ex-` append Value to Controllers
         add 1 to S
     end
-!    print Controllers
+    print Controllers
 
     put the json count of Controllers into NC
     if NC is 0 go to Rescan
@@ -111,7 +110,14 @@ Rescan:
     end
     on click RightButton
     begin
-        set property `ssid` of Map to Controller
+        put property `extenders` of Map into Extenders
+        if Extenders is empty put `[{},{},{},{}]` into Extenders
+        get EX from storage as `extender`
+        put element EX of Extenders into Extender
+        set property `ssid` of Extender to Controller
+        set element EX of Extenders to Extender
+print Extenders
+        set property `extenders` of Map to Extenders
         put `Next` into Result
         exit
     end

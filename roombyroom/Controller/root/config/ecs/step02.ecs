@@ -1,4 +1,4 @@
-!   Step 2
+!   Step 2 - Get the controller AP password
 
 	script Step02
 
@@ -12,12 +12,17 @@
     variable Response
     variable Map2
     variable Count
+    variable Data
 
     attach PasswordInput to `cf-password`
     attach LeftButton to `left-button`
     attach RightButton to `right-button`
 
-    set the content of PasswordInput to property `password` of Map
+    put property `ssid` of Map into SSID
+    put property `password` of Map into Password
+    if Password is empty get Password from storage as SSID cat `-password`
+
+    set the content of PasswordInput to Password
 
     on click LeftButton
     begin
@@ -28,36 +33,37 @@
     begin
         put the content of PasswordInput into Password
         set property `password` of Map to Password
-        put property `ssid` of Map into SSID
-        put 0 into Count
-        go to GetMap
+        set the content of PasswordInput to `Connecting... ` cat Count
+        go to Connect
     end
 
     stop
 
-!   Get the system map for the selected controller
-GetMap:
+!   Connect to the selected controller
+Connect:
     rest get Response from `/config/connect?ssid=` cat SSID cat `&password=` cat Password
-    while Response is empty
+    if Response is not `connected`
     begin
-        set the content of PasswordInput to `Getting system map... ` cat Count
-        add 1 to Count
         wait 1 second
-        rest get Response from `/config/connected`
+        go to Connect
     end
-    print `Connected to ` cat SSID
-    put empty into Map2
+!    print `Connected to ` cat SSID
+
+!   Get the system map for the selected controller
+    set the content of PasswordInput to `Getting the system map...`
+GetMap:
+    rest get Map2 from `/config/request?req=http://172.24.1.1/resources/php/rest.php/map`
+    if Map2 is empty
+    begin
+        wait 1 second
+        go to GetMap
+    end
     put 0 into Count
-GM1:
-    rest get Response from `/config/request?req=http://172.24.1.1/resources/php/rest.php/map`
-GM2:
-    wait 1 second
-    add 1 to Count
-    if Count is 30 go to GM1
-    rest get Map2 from `/config/response`
-    if Map2 is empty go to GM2
-    set property `ssid` of Map2 to SSID
-    set property `password` of Map2 to Password
+    put Password into storage as SSID cat `-password`
     put Map2 into Map
+    set property `ssid` of Map to SSID
+    set property `password` of Map to Password
+    put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+    rest post Data to `/config/post`
     put `Next` into Result
     exit

@@ -7,10 +7,11 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 4
+#define CURRENT_VERSION 5
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 60
 #define UPDATE_CHECK_INTERVAL 3600
+#define ERROR_MAX 10
 
 // Constants
 const IPAddress localIP(192,168,66,1);
@@ -24,8 +25,10 @@ DynamicJsonDocument config(256);
 uint8_t relayPin = 0;
 uint8_t ledPin = 2;
 uint watchdog = 0;
+uint errorCount = 0;
 bool relayPinStatus = LOW;
 bool checkForUpdate = false;
+bool updating = false;
 char name[40];
 char my_ssid[40];
 char my_password[40];
@@ -102,12 +105,18 @@ void ledOff() {
 }
 
 void relayOn() {
+  if (updating) {
+    return;
+  }
   relayPinStatus = HIGH;
   watchdog++;
   localServer.send(200, "text/plain", "Relay ON");
 }
 
 void relayOff() {
+  if (updating) {
+    return;
+  }
   relayPinStatus = LOW;
   watchdog++;
   localServer.send(200, "text/plain", "Relay Off");
@@ -193,33 +202,49 @@ void onClear() {
 }
 
 // Perform a GET
-void httpGET(char* requestURL, char* response) {
+char* httpGET(char* requestURL, bool restartOnError = false) {
+  Serial.printf("GET %s\n", requestURL);
   WiFiClient client;
   HTTPClient http;
-
+  char* response = (char*)malloc(1);  // Provide something to 'free'
+  response[0] = '\0';
+    
   http.begin(client, requestURL);
-
-  String payload = "";
-
+  
   // Send HTTP GET request
   int httpResponseCode = http.GET();
-
-  if (httpResponseCode >= 200 && httpResponseCode < 400) {
-    payload = http.getString();
-  }
-  else {
-    if (httpResponseCode < 0) {
-      Serial.printf("GET %s: Error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
-    } else {
-      Serial.printf("Error code: %d\n", httpResponseCode);
+//  Serial.printf("Response code %d, %d errors\n", httpResponseCode, errorCount);
+  if (httpResponseCode < 0) {
+    Serial.printf("GET %s: Error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
+    http.end();
+    client.stop();
+    return response;
+  } else {
+    if (httpResponseCode >= 200 && httpResponseCode < 400) {
+      String httpPayload = http.getString();
+//      Serial.printf("Payload length: %d\n", httpPayload.length());
+      response = (char*)malloc(httpPayload.length() + 1);
+      strcpy(response, httpPayload.c_str());
+      errorCount = 0;
     }
-    restart();
+    else {
+      if (restartOnError) {
+//        Serial.printf("Network error %d; restarting...\n", httpResponseCode);
+        restart();
+      } else {
+        errorCount = errorCount + 1;
+//        Serial.printf("Error %d (%d)\n", httpResponseCode, errorCount);
+        if (errorCount == ERROR_MAX) {
+          restart();
+        }
+      }
+    }
   }
   // Free resources
   http.end();
-
-  payload.trim();
-  strcpy(response, payload.c_str());
+  client.stop();
+//  Serial.printf("Response: %s\n", response);
+  return response;
 }
 
 // Connect to the controller network and accept relay commands
@@ -374,7 +399,7 @@ void setup() {
   writeTextToFile("/restarts", restarts);
   Serial.printf("Restarts: %d\n", nRestarts);
 
-//  writeTextToFile("/config", "");
+//  writeTextToFile("/config", ""); Force unconfigured mord
 
   pinMode(ledPin, OUTPUT);
   pinMode(relayPin, OUTPUT);
@@ -466,16 +491,17 @@ void loop() {
     digitalWrite(relayPin, HIGH);
   }
 
-  char response[4];
   if (checkForUpdate) {
     checkForUpdate = false;
     Serial.printf("Check for update at %s\n", requestVersionURL);
-    httpGET(requestVersionURL, response);
+    char* response = httpGET(requestVersionURL);
     int newVersion = atoi(response);
+    free(response);
     Serial.printf("Version %d is available\n", newVersion);
     if (newVersion > CURRENT_VERSION) {
+      updating = true;
       WiFiClient client;
-      Serial.printf("Installing version %d from %s\n", newVersion, requestUpdateURL);
+      Serial.printf("Downloading version %d from %s\n", newVersion, requestUpdateURL);
       t_httpUpdate_return ret = ESPhttpUpdate.update(client, requestUpdateURL);
       switch (ret) {
         case HTTP_UPDATE_FAILED:
@@ -484,7 +510,11 @@ void loop() {
         case HTTP_UPDATE_NO_UPDATES:
            Serial.println("No update took place");
            break;
+        default:
+          // This will never be reached as the device has restarted
+          break;
       }
+      updating = false;
     } else {
       Serial.println("Firmware is up to date");
     }

@@ -14,11 +14,10 @@
 #define FORMAT_LITTLEFS_IF_FAILED true
 
 // Local IP Address
-const IPAddress localIP(192,168,23,1);
+const IPAddress localIP(192,168,32,1);
 const IPAddress subnet(255,255,255,0);
-const char* deviceRoot("http://192.168.23.");
+const char* deviceRoot("http://192.168.32.");
 
-char softap_ssid[40];
 char softap_password[40];
 bool busyStartingUp = true;
 bool busyDoingGET = false;
@@ -29,30 +28,35 @@ AsyncWebServer localServer(80);
 
 // Perform a GET
 char* httpGET(char* requestURL, bool restartOnError = false) {
-  Serial.printf("%s\n", requestURL);
+//  Serial.printf("GET %s\n", requestURL);
   busyDoingGET = true;
   WiFiClient client;
   HTTPClient http;
-  char* response = "";
+  char* response = (char*)malloc(1);  // Provide something to 'free'
+  response[0] = '\0';
     
   http.begin(client, requestURL);
   
   // Send HTTP GET request
   int httpResponseCode = http.GET();
-  Serial.printf("%d, %d\n", httpResponseCode, errorCount);
+//  Serial.printf("Response code %d, %d errors\n", httpResponseCode, errorCount);
   if (httpResponseCode < 0) {
-    Serial.printf("Error: %s\n", http.errorToString(httpResponseCode).c_str());
+    Serial.printf("GET %s: Error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
+    http.end();
+    client.stop();
+    busyDoingGET = false;
+    return response;
   } else {
     if (httpResponseCode >= 200 && httpResponseCode < 400) {
       String httpPayload = http.getString();
-      Serial.printf("Length: %d\n", httpPayload.length());
+//      Serial.printf("Payload length: %d\n", httpPayload.length());
       response = (char*)malloc(httpPayload.length() + 1);
       strcpy(response, httpPayload.c_str());
       errorCount = 0;
     }
     else {
       if (restartOnError) {
-        Serial.printf("Network error %d\n", httpResponseCode);
+        Serial.printf("Network error %d; restarting...\n", httpResponseCode);
         restart();
       } else {
         errorCount = errorCount + 1;
@@ -65,7 +69,8 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
   }
   // Free resources
   http.end();
-//  Serial.println(response);
+  client.stop();
+//  Serial.printf("Response: %s\n", response);
   busyDoingGET = false;
   return response;
 }
@@ -112,7 +117,6 @@ void handle_reset(AsyncWebServerRequest *request) {
 // Endpoint: GET http://{ipaddr}/factory-reset
 void handle_factory_reset(AsyncWebServerRequest *request) {
   Serial.println("Endpoint: factory-reset");
-  writeTextToFile("/config", "");
   request->send(200, "text/plain", "Factory reset");
   restart();
 }
@@ -126,7 +130,7 @@ void addStandardEndpoints() {
   localServer.on("/clear", HTTP_GET, [](AsyncWebServerRequest *request) {
     strcpy(restarts, "0");
     writeTextToFile("/restarts", restarts);
-    request->send(200, "text/plain", String(restarts));
+    request->send(200, "text/plain", "OK");
   });
 
   localServer.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -165,8 +169,6 @@ void setup(void) {
   writeTextToFile("/restarts", restarts);
   Serial.printf("Restarts: %d\n", nRestarts);
 
-  // writeTextToFile("/config", "");
-
   doApplicationSetup();
   addStandardEndpoints();
   localServer.begin();
@@ -192,19 +194,24 @@ void loop(void) {
 #define STATE_DONE 3
 
 int scanState;
-String scanResult;
+int connectState;
+int requestState;
+int postState;
+char* scanResult;
+char* connectResult;
+char* requestResult;
+char* postURL;
+char* postData;
 char connect_ssid[20];
 char connect_password[20];
-char request[80];
+char requestURL[80];
 char* response = NULL;
-bool connect;
 bool connected;
 
 void doApplicationSetup() {
-  buildSSID();
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(localIP, localIP, subnet);
-  WiFi.softAP(softap_ssid);
+  WiFi.softAP("RBR-Config");
   delay(100);
 
   localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *req) {
@@ -219,68 +226,15 @@ void doApplicationSetup() {
     handle_connect(req);
   });
 
-  localServer.on("/connected", HTTP_GET, [](AsyncWebServerRequest *req) {
-    handle_connected(req);
-  });
-
   localServer.on("/request", HTTP_GET, [](AsyncWebServerRequest *req) {
     handle_request(req);
   });
 
-  localServer.on("/response", HTTP_GET, [](AsyncWebServerRequest *req) {
-    handle_response(req);
+  localServer.on("/post", HTTP_POST, [](AsyncWebServerRequest *req) {
+    handle_post(req);
   });
-  request[0] = NULL;
-}
 
-void doApplicationLoop() {
-  if (getScanState() == STATE_REQUEST) {
-    setScanState(STATE_RUNNING);
-    doScan();
-    setScanState(STATE_DONE);
-  }
-  if (connect) {
-    connect = false;
-    if (connected) {
-      WiFi.disconnect();
-    }
-    //connect to the requested wi-fi network
-    WiFi.begin(connect_ssid, connect_password);
-    Serial.printf("Connecting to %s", connect_ssid);
-    int count = 0;
-    while (WiFi.status() != WL_CONNECTED) {
-        Serial.print(".");
-        delay(100);
-        count = count + 1;
-        if (count > 40) {
-          return;
-        }
-    }
-    Serial.printf("\nConnected to %s as %s with RSSI %d\n", connect_ssid, WiFi.localIP().toString().c_str(), WiFi.RSSI());
-    connected = true;
-  }
-  if (request[0]) {
-    char req[80];
-    strcpy(req, request);
-    request[0] = NULL;
-    char* resp = httpGET(req);
-    free(response);
-    response = resp;
-  }
-}
-
-void buildSSID() {
-  String ssid = "RBR-CF-000000";
-  String mac = WiFi.macAddress();
-  Serial.println("MAC: " + mac);
-  ssid[7] = mac[9];
-  ssid[8] = mac[10];
-  ssid[9] = mac[12];
-  ssid[10] = mac[13];
-  ssid[11] = mac[15];
-  ssid[12] = mac[16];
-  strcpy(softap_ssid, ssid.c_str());
-  Serial.printf("SSID: %s\n", String(softap_ssid));
+  requestURL[0] = NULL;
 }
 
 // Endpoint: GET http://{ipaddr}/reset
@@ -294,25 +248,26 @@ void handle_default(AsyncWebServerRequest *req) {
   req->send(200, "text/html", homePage);
 }
 
-// Scan networks
+// Handle a scan
 void handle_scan(AsyncWebServerRequest *req) {
   Serial.println("Endpoint: scan");
 
-  switch (getScanState()) {
+  switch (scanState) {
     case STATE_NONE:
-      setScanState(STATE_REQUEST);
+      scanState = STATE_REQUEST;
     case STATE_REQUEST:
     case STATE_RUNNING:
       req->send(200, "text/plain", "");
       break;
     case STATE_DONE:
-      setScanState(STATE_NONE);
+      scanState = STATE_NONE;
       req->send(200, "text/plain", scanResult);
+      free(scanResult);
       break;
   }
 }
 
-// Connect to a server
+// Handle a connection
 void handle_connect(AsyncWebServerRequest *req) {
   Serial.println("Endpoint: connect");
 
@@ -320,41 +275,112 @@ void handle_connect(AsyncWebServerRequest *req) {
   strcpy(connect_ssid, p->value().c_str());
   p = req->getParam("password");
   strcpy(connect_password, p->value().c_str());
-  req->send(200, "text/plain", "");
-  connect = true;
+  switch (connectState) {
+    case STATE_NONE:
+      connectState = STATE_REQUEST;
+    case STATE_REQUEST:
+    case STATE_RUNNING:
+      req->send(200, "text/plain", "");
+      break;
+    case STATE_DONE:
+      connectState = STATE_NONE;
+      req->send(200, "text/plain", connectResult);
+      free(connectResult);
+      break;
+  }
 }
 
-// Return true if connected
-void handle_connected(AsyncWebServerRequest *req) {
-  Serial.println("Endpoint: connected");
-
-  req->send(200, "text/plain", connected ? "connected" : "");
-}
-
-// Make a request
+// Handle a request
 void handle_request(AsyncWebServerRequest *req) {
   Serial.println("Endpoint: request");
 
   if (connected) {
     AsyncWebParameter* p = req->getParam("req");
-    strcpy(request, p->value().c_str());
-    response = NULL;
-    req->send(200, "text/plain", "OK");
+    strcpy(requestURL, p->value().c_str());
+    if (response) {
+      free(response);
+      response = NULL;
+    }
+    switch (requestState) {
+      case STATE_NONE:
+        requestState = STATE_REQUEST;
+      case STATE_REQUEST:
+      case STATE_RUNNING:
+        req->send(200, "text/plain", "");
+        break;
+      case STATE_DONE:
+        requestState = STATE_NONE;
+        req->send(200, "text/plain", requestResult);
+        free(requestResult);
+        break;
+    }
   } else {
     req->send(400, "text/plain", "Not connected");
   }
 }
 
-// Get the response from the last request
-void handle_response(AsyncWebServerRequest *req) {
-  Serial.println("Endpoint: response");
+// Handle a post
+void handle_post(AsyncWebServerRequest *req) {
+  Serial.println("Endpoint: post");
 
-  if (response != NULL) {
-    req->send(200, "text/plain", response);
-    free(response);
-    response = NULL;
+  if (connected) {
+    // int headers = req->headers();
+    // for (int i = 0; i < headers; i++) {
+    //   AsyncWebHeader* h = req->getHeader(i);
+    //   Serial.printf("_HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
+    // }
+
+    int params = req->params();
+    for (int i = 0; i < params; i++) {
+      AsyncWebParameter* p = req->getParam(i);
+      int namelen = p->name().length();
+      int valuelen = p->value().length();
+      const char* name = p->name().c_str();
+      const char* value = p->value().c_str();
+//      Serial.printf("POST[%s]: %s\n", name, value);
+      if (strcmp(name, "url") == 0) {
+        postURL = (char*)malloc(namelen + 1);
+        strcpy(postURL, value);
+      } else if (strcmp(name, "data") == 0) {
+        postData = (char*)malloc(valuelen + 1);
+        strcpy(postData, value);
+      }
+      delay(10);
+    }
+    postState = STATE_REQUEST;
+    req->send_P(200, "text/plain", "OK");
   } else {
-    req->send(200, "text/plain", "");
+    req->send(400, "text/plain", "Not connected");
+  }
+}
+
+void doApplicationLoop() {
+  // Handle a scan
+  if (scanState == STATE_REQUEST) {
+    scanState = STATE_RUNNING;
+    doScan();
+    scanState = STATE_DONE;
+  }
+
+  // Handle a connect
+  if (connectState == STATE_REQUEST) {
+    connectState = STATE_RUNNING;
+    doConnect();
+    connectState = STATE_DONE;
+  }
+
+  // Handle a request
+  if (requestState == STATE_REQUEST) {
+    requestState = STATE_RUNNING;
+    doRequest();
+    requestState = STATE_DONE;
+  }
+
+  // Handle a post
+  if (postState == STATE_REQUEST) {
+    postState = STATE_RUNNING;
+    doPost();
+    postState = STATE_NONE;
   }
 }
 
@@ -364,8 +390,7 @@ void doScan() {
     WiFi.disconnect();
     delay(10);
   }
-//  Serial.println("Scan running ");
-  scanResult = "";
+  Serial.println("Scan running ");
   // WiFi.scanNetworks will return the number of networks found
   int n = WiFi.scanNetworks();
   
@@ -377,14 +402,46 @@ void doScan() {
       // Get SSID for each network found
       result = result + WiFi.SSID(i) + "\n";
     }
-    scanResult = result;
+    scanResult = (char*)malloc(result.length() + 1);
+    strcpy(scanResult, result.c_str());
+    Serial.print(scanResult);
+  } else {
+    Serial.println("No networks");
+    restart();
   }
 }
 
-void setScanState(int state) {
-  scanState = state;
+// Connect to a network
+void doConnect() {
+  if (connected) {
+    WiFi.disconnect();
+    connectState = STATE_NONE;
+    connected = false;
+  }
+  WiFi.begin(connect_ssid, connect_password);
+  Serial.printf("Connecting to %s %s", connect_ssid, connect_password);
+  int count = 0;
+  while (WiFi.status() != WL_CONNECTED) {
+      Serial.print(".");
+      delay(1000);
+      if (++count > 30) {
+        Serial.println("Can't connect");
+        return;
+      }
+  }
+  Serial.printf("\nConnected to %s as %s with RSSI %d\n", connect_ssid, WiFi.localIP().toString().c_str(), WiFi.RSSI());
+  connectResult = (char*)malloc(10);
+  strcpy(connectResult, "connected");
+  connected = true;
 }
 
-int getScanState() {
-  return scanState;
+// Perform a GET request
+void doRequest() {
+  Serial.printf("Issuing request to %s\n", requestURL);
+  requestResult = httpGET(requestURL);
+}
+
+// POST data to a URL
+void doPost() {
+  Serial.printf("Posting %s to %s\n", postData, postURL);
 }

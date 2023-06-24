@@ -1114,7 +1114,7 @@ Backup:
     	clear DialogPanel
     	if not Demo
         begin
-        	rest post Map to Server cat `/backup/` cat MAC cat `/` cat Password
+        	rest post Map to Server cat `/backup`
             	or go to HandleRestError
         end
         set Redraw
@@ -1151,7 +1151,7 @@ Restore:
     	clear DialogPanel
         if not Demo
         begin
-        	rest post to Server cat `/restore/` cat MAC cat `/` cat Password
+        	rest post to Server cat `/restore`
             	or go to HandleRestError
         end
         set Redraw
@@ -1168,7 +1168,7 @@ Restore:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Post the map to the server
 PostMap:
-   	rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
+   	rest post Map to Server cat `/map`
    	or begin
         add 1 to MapErrorCount
         if MapErrorCount is greater than 5

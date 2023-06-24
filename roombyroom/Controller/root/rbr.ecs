@@ -124,6 +124,7 @@
         put 1 into Version
         go to SkipServerInteraction
     end
+    print `Server ` cat RBRServer cat ` connected successfully`
 
     put json RegData into RegData
     put property `password` of RegData into Password

@@ -1,0 +1,38 @@
+!   Step 7 - Get an extender AP password
+
+	script Step07
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    input PasswordInput
+    variable SSID
+    variable Password
+    variable Response
+    variable Map2
+    variable Count
+    variable Extenders
+    variable Extender
+    variable EX
+
+    attach PasswordInput to `cf-password`
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    get EX from storage as `extender`
+    put property `extenders` of Map into Extenders
+    put element EX of Extenders into Extender
+    set the content of PasswordInput to property `password` of Extender
+
+    on click LeftButton
+    begin
+        put `Previous` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        put the content of PasswordInput into Password
+    end
+
+    stop

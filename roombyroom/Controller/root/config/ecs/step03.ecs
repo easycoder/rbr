@@ -1,4 +1,4 @@
-!   Step 3
+!   Step 3 - Get the name of the system
 
 	script Step03
 
@@ -7,8 +7,6 @@
     div LeftButton
     div RightButton
     input NameInput
-
-    print Map
 
     attach NameInput to `cf-name`
     attach LeftButton to `left-button`

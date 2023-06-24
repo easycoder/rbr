@@ -366,7 +366,7 @@ PostMap:
 	if Demo put Map into storage as `map`
     else
 	begin
-   		rest post Map to Server cat `/map/` cat MAC cat `/` cat Password
+   		rest post Map to Server cat `/map`
         or begin
         	alert `Unable to save changes.` cat newline
             	cat `A common cause is having the wrong system password.`

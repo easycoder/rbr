@@ -1,4 +1,4 @@
-!   Step 1
+!   Step 1 - Get the controller AP SSID
 
     script Step01
 
@@ -28,17 +28,15 @@
     attach LeftButton to `left-button`
     attach RightButton to `right-button`
 
-    put property `ssid` of Map into CurrentSSID
+    put empty into CurrentSSID
+    put 0 into storage as `extender`
 
     on click LeftButton stop
     on click RightButton stop
 
-   set the content of SSID to property `ssid` of Map
-
+    set the content of SSID to `Scanning for system controllers...`
 Rescan:
-    set the content of SSID to `Scanning...`
     rest get Scan from `/config/scan`
-    set the content of SSID to empty
 !    print `Scan: ` cat Scan
     if Scan is empty
     begin
