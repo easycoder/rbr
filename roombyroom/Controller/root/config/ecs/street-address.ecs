@@ -1,12 +1,13 @@
-!   Step 4 - Get the user's street address
+!   Get the user's street address
 
-	script Step04
+	script StreetAddress
 
     import variable Map and variable Result
 
     div LeftButton
     div RightButton
     input AddressInput
+    variable Data
 
     attach AddressInput to `cf-address`
     attach LeftButton to `left-button`
@@ -16,13 +17,15 @@
 
     on click LeftButton
     begin
-        put `Previous` into Result
+        put `back` into Result
         exit
     end
     on click RightButton
     begin
         set property `address` of Map to the content of AddressInput
-        put `Next` into Result
+        put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+        rest post Data to `/config/post`
+        put `email-address` into Result
         exit
     end
 

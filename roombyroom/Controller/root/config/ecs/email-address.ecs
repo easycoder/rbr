@@ -1,12 +1,13 @@
 !   Step 5 - Get the user's email address
 
-	script Step05
+	script EmailAddress
 
     import variable Map and variable Result
 
     div LeftButton
     div RightButton
     input EmailInput
+    variable Data
 
     attach EmailInput to `cf-email`
     attach LeftButton to `left-button`
@@ -16,13 +17,17 @@
 
     on click LeftButton
     begin
-        put `Previous` into Result
+        put `back` into Result
         exit
     end
     on click RightButton
     begin
+        set style `display` of LeftButton to `none`
+        set style `display` of RightButton to `none`
         set property `email` of Map to the content of EmailInput
-        put `Next` into Result
+        put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+        rest post Data to `/config/post`
+        put `extender` into Result
         exit
     end
 

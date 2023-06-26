@@ -200,8 +200,8 @@ int postState;
 char* scanResult;
 char* connectResult;
 char* requestResult;
-char* postURL;
 char* postData;
+char* postURL;
 char connect_ssid[20];
 char connect_password[20];
 char requestURL[80];
@@ -321,7 +321,7 @@ void handle_request(AsyncWebServerRequest *req) {
 
 // Handle a post
 void handle_post(AsyncWebServerRequest *req) {
-  Serial.println("Endpoint: post");
+  // Serial.println("Endpoint: post");
 
   if (connected) {
     // int headers = req->headers();
@@ -333,23 +333,24 @@ void handle_post(AsyncWebServerRequest *req) {
     int params = req->params();
     for (int i = 0; i < params; i++) {
       AsyncWebParameter* p = req->getParam(i);
-      int namelen = p->name().length();
-      int valuelen = p->value().length();
+      int length = p->value().length();
       const char* name = p->name().c_str();
       const char* value = p->value().c_str();
-//      Serial.printf("POST[%s]: %s\n", name, value);
+      // Serial.printf("POST[%s]: %s\n", name, value);
       if (strcmp(name, "url") == 0) {
-        postURL = (char*)malloc(namelen + 1);
+        postURL = (char*)malloc(length + 1);
         strcpy(postURL, value);
       } else if (strcmp(name, "data") == 0) {
-        postData = (char*)malloc(valuelen + 1);
+        postData = (char*)malloc(length + 1);
         strcpy(postData, value);
       }
       delay(10);
     }
     postState = STATE_REQUEST;
+    Serial.println("POST requested");
     req->send_P(200, "text/plain", "OK");
   } else {
+    Serial.println("Can't POST - not connected");
     req->send(400, "text/plain", "Not connected");
   }
 }
@@ -437,11 +438,25 @@ void doConnect() {
 
 // Perform a GET request
 void doRequest() {
-  Serial.printf("Issuing request to %s\n", requestURL);
+  Serial.printf("GET from %s\n", requestURL);
   requestResult = httpGET(requestURL);
 }
 
 // POST data to a URL
 void doPost() {
-  Serial.printf("Posting %s to %s\n", postData, postURL);
+  Serial.printf("Posting to %s\n", postURL);
+  WiFiClient client;
+  HTTPClient http;
+  http.begin(client, String(postURL));
+  http.addHeader("Content-Type", "text/plain");
+  int httpResponseCode = http.POST(String(postData));
+  if (httpResponseCode >= 0) {
+    Serial.printf("POST to %s completed with success\n", requestURL);
+  } else {
+    Serial.printf("GET %s: POST error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
+  }
+  http.end();
+  client.stop();
+  free(postURL);
+  free(postData);
 }

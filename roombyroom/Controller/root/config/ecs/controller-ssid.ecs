@@ -1,6 +1,6 @@
-!   Step 1 - Get the controller AP SSID
+!   Get the controller AP SSID
 
-    script Step01
+    script Controller-SSID
 
     import variable Map and variable Result
 
@@ -106,15 +106,11 @@ Rescan:
         end
     end
 
-    on click LeftButton
-    begin
-        put `Previous` into Result
-        exit
-    end
+    set style `display` of RightButton to `block`
     on click RightButton
     begin
         set property `ssid` of Map to Controller
-        put `Next` into Result
+        put `controller-password` into Result
         exit
     end
 

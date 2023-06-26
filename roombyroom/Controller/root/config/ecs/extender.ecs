@@ -1,6 +1,6 @@
-!   Step 6 - Get an extender
+!   Get an extender
 
-    script Step06
+    script Extender
 
     import variable Map and variable Result
 
@@ -13,13 +13,12 @@
     variable Scan
     variable Values
     variable Value
-    variable Controllers
-    variable Controller
+    variable Extenders
+    variable Extender
     variable SSIDTemplate
     variable CurrentSSID
     variable Webson
-    variable Extenders
-    variable Extender
+    variable Data
     variable EX
     variable N
     variable S
@@ -38,31 +37,31 @@
     set the content of SSID to `Scanning for extenders...`
 Rescan:
     rest get Scan from `/config/scan`
-    print `Scan: ` cat Scan
+!    print `Scan: ` cat Scan
     if Scan is empty
     begin
         wait 1 second
         go to Rescan
     end
     split Scan on newline into Values
-    print the elements of Values
-    put `[]` into Controllers
+    put `[]` into Extenders
     put 0 into S
     while S is less than the elements of Values
     begin
         index Values to S
         put Values into Value
-        if left 7 of Value is `RBR-ex-` append Value to Controllers
+        if left 7 of Value is `RBR-ex-` append Value to Extenders
         add 1 to S
     end
-    print Controllers
 
-    put the json count of Controllers into NC
+    put the json count of Extenders into NC
     if NC is 0 go to Rescan
     else if NC is 1
     begin
-        put element 0 of Controllers into Controller
-        set the content of SSID to Controller
+        put element 0 of Extenders into Extender
+        set the content of SSID to Extender
+        set style `display` of LeftButton to `block`
+        set style `display` of RightButton to `block`
     end
     else
     begin
@@ -80,10 +79,10 @@ Rescan:
             replace `/ID/` with N in Webson
             render Webson in SSIDs
             attach SSIDChoice to `cf-ssid-` cat N
-            set the content of SSIDChoice to element N of Controllers
-            if element N of Controllers is CurrentSSID
+            set the content of SSIDChoice to element N of Extenders
+            if element N of Extenders is CurrentSSID
             begin
-                put CurrentSSID into Controller
+                put CurrentSSID into Extender
                 set style `background` of SSIDChoice to `lightgreen`
             end
             add 1 to N
@@ -91,7 +90,7 @@ Rescan:
         on click SSIDChoice
         begin
             put the index of SSIDChoice into S
-            put the content of SSIDChoice into Controller
+            put the content of SSIDChoice into Extender
             put 0 into N
             while N is less than NC
             begin
@@ -100,12 +99,14 @@ Rescan:
                 else set style `background` of SSIDChoice to `pink`
                 add 1 to N
             end
+            set style `display` of LeftButton to `block`
+            set style `display` of RightButton to `block`
         end
     end
 
     on click LeftButton
     begin
-        put `Previous` into Result
+        put `back` into Result
         exit
     end
     on click RightButton
@@ -114,11 +115,12 @@ Rescan:
         if Extenders is empty put `[{},{},{},{}]` into Extenders
         get EX from storage as `extender`
         put element EX of Extenders into Extender
-        set property `ssid` of Extender to Controller
+        set property `ssid` of Extender to Extender
         set element EX of Extenders to Extender
-print Extenders
         set property `extenders` of Map to Extenders
-        put `Next` into Result
+        put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+        rest post Data to `/config/post`
+        put `extender-password` into Result
         exit
     end
 

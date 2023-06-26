@@ -16,10 +16,10 @@
     variable Result
     variable Map
     variable CurrentSlide
+    variable NextSlide
+    variable History
     variable SlideScript
-    variable TempScript
     variable SlideWebson
-    variable NN
     variable H
     variable L
     variable N
@@ -46,6 +46,7 @@
     end
 
 !	Render the main screen layout
+Start:
     rest get MainScreenWebson from `/config/webson/config.json?v=` cat now
     	or go to AbandonShip
 	render MainScreenWebson in Body
@@ -69,20 +70,27 @@
     attach NextButton to `right-button`
     on click Logo
     begin
-    	if CurrentSlide is -1 stop
-    	put 0 into CurrentSlide
-        go to OnPreviousButton
+    	clear Body
+        go to Start
     end
-    on click Hamburger exit
+    on click Hamburger
+    begin
+    	clear Body
+        go to Start
+    end
     on click More
     begin
-    	set style `display` of NextButton to `block`
+!    	set style `display` of NextButton to `block`
     	go to OnNextButton
     end
-    on click NextButton go to OnNextButton
-    on click PreviousButton go to OnPreviousButton
-    
-    put -1 into CurrentSlide
+!    on click PreviousButton go to OnPreviousButton
+!    on click NextButton go to OnNextButton
+    set style `display` of PreviousButton to `none`
+    set style `display` of NextButton to `none`
+
+    put empty into CurrentSlide
+    put `controller-ssid` into NextSlide
+    put empty into History
 
     put `{}` into Map
 
@@ -92,9 +100,15 @@
 ! 	Bring in a slide from the right
 
 OnNextButton:
-    add 1 to CurrentSlide
-    add 1 to CurrentSlide giving N
-    gosub to GetSlideWebson
+    ! Create a new History element
+    add 1 to the elements of History giving N
+    set the elements of History to N
+    take 1 from N
+    index History to N
+    put NextSlide into CurrentSlide
+    put CurrentSlide into History
+    ! Render PanelB and bring it in from the right
+    rest get SlideWebson from `/config/webson/` cat CurrentSlide cat `.json?v=` cat now
     clear PanelB
     render SlideWebson in PanelB
     put the width of OuterPanel into L
@@ -104,42 +118,39 @@ OnNextButton:
     	wait 1 tick
     	take 20 from L
     end
+    ! Render PanelA with the same slide
     clear PanelA
     render SlideWebson in PanelA
     set style `left` of PanelA to 0
+    ! Move PanelB out of view
     set style `left` of PanelB to the width of OuterPanel
-    clear PanelB
-    set style `display` of PreviousButton to `block`
-    if CurrentSlide is 0 set style `display` of NextButton to `block`
-    gosub to GetSlideScript
-    put SlideScript into TempScript
-    add 1 to N
-    gosub to GetSlideScript
-    if SlideScript is empty set style `display` of NextButton to `none`
-    run TempScript with Map and Result
+    ! Run the new current script
+    rest get SlideScript from `/config/ecs/` cat CurrentSlide cat `.ecs?v=` cat now
+    run SlideScript with Map and Result
     go to ProcessResult
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Banish the current slide to the right
     
 OnPreviousButton:
-    add 1 to CurrentSlide giving N
-    gosub to GetSlideWebson
+    ! Render the current slide in PanelB (the moving panel)
     clear PanelB
+    rest get SlideWebson from `/config/webson/` cat CurrentSlide cat `.json?v=` cat now
     render SlideWebson in PanelB
-	take 1 from CurrentSlide
-    if CurrentSlide is less than 0
+    ! Get the previous slide from History and render it in PanelA
+    put the elements of History into N
+    take 1 from N
+    set the elements of History to N
+    take 1 from N
+    index History to N
+    if History is not empty
     begin
-    	set style `left` of PanelA to the width of OuterPanel
+        put History into CurrentSlide
+        clear PanelA
+        rest get SlideWebson from `/config/webson/` cat CurrentSlide cat `.json?v=` cat now
+        render SlideWebson in PanelA
     end
-    else
-    begin
-        add 1 to CurrentSlide giving N
-        gosub to GetSlideWebson
-    	clear PanelA
-    	render SlideWebson in PanelA
-    	set style `left` of PanelA to 0
-    end
+    ! Slide PanelB to the right
     put 0 into L
     while L is less than the width of OuterPanel
     begin
@@ -148,47 +159,21 @@ OnPreviousButton:
         add 20 to L
     end
     set style `left` of PanelB to the width of OuterPanel
-    set style `display` of NextButton to `block`
-    if CurrentSlide is -1
-    begin
-    	set style `display` of PreviousButton to `none`
-    	set style `display` of NextButton to `none`
-    	if Map is not empty
-    	begin
-            print Map
-            rest post Map to `/resources/php/rest.php/map/mac/password`
-        end
-        stop
-    end
-    gosub to GetSlideScript
+    rest get SlideScript from `/config/ecs/` cat CurrentSlide cat `.ecs?v=` cat now
     run SlideScript with Map and Result
     go to ProcessResult
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Get a slide script
-GetSlideScript:
-    put `` cat N into NN
-    while the length of NN is less than 2 put `0` cat NN into NN
-    rest get SlideScript from `/config/ecs/step` cat NN cat `.ecs?v=` cat now
-    or begin
-        put empty into SlideScript
-        return
-    end
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Get a slide webson
-GetSlideWebson:
-    put `` cat N into NN
-    while the length of NN is less than 2 put `0` cat NN into NN
-    rest get SlideWebson from `/config/webson/step` cat NN cat `.json?v=` cat now
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Process the result from a step
 ProcessResult:
-    if Result is `Next` go to OnNextButton
-    else if Result is `Previous` go to OnPreviousButton
+    if Result is `end` stop
+    else if Result is `back` go to OnPreviousButton
+    else
+    begin
+    print `Go to ` cat NextSlide
+        put Result into NextSlide
+        go to OnNextButton
+    end
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

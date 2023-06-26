@@ -1,5 +1,5 @@
 {
-    "#doc": "Step 1 - get the SSID",
+    "#doc": "Get an extender",
     "#element": "div",
     "position": "absolute",
     "left": 0,
@@ -13,7 +13,7 @@
         "margin": "1em 1em 0 1em",
         "color": "green",
         "font-size": "2em",
-        "#content": "Configuration - step 1"
+        "#content": "Select an extender"
     },
 
     "$Text2": {
@@ -23,7 +23,7 @@
         "font-weight": "normal",
         "font-size": "1.4em",
         "text-align": "left",
-        "#content": "First we need to confirm the SSID of your system controller."
+        "#content": "Select an extender.<br>If none appear you will need to power one up."
     },
 
     "$SSID": {
@@ -66,7 +66,7 @@
         "font-weight": "normal",
         "font-size": "1.4em",
         "text-align": "left",
-        "#content": "Select the SSID of your system controller."
+        "#content": "Select the extender you wish to configure."
     },
 
     "$Text4": {
