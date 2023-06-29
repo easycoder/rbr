@@ -17,6 +17,9 @@
     variable Extender
     variable SSIDTemplate
     variable CurrentSSID
+    variable ControllerSSID
+    variable ControllerPassword
+    variable Response
     variable Webson
     variable Data
     variable EX
@@ -112,14 +115,31 @@ Rescan:
     on click RightButton
     begin
         put property `extenders` of Map into Extenders
-        if Extenders is empty put `[{},{},{},{}]` into Extenders
-        get EX from storage as `extender`
+        if Extenders is empty
+        begin
+            put `[{},{},{},{}]` into Extenders
+            put 0 into EX
+            put 0 into storage as `extender`
+        end
+        else get EX from storage as `extender`
         put element EX of Extenders into Extender
         set property `ssid` of Extender to Extender
         set element EX of Extenders to Extender
         set property `extenders` of Map to Extenders
+
+        put property `controller-ssid` of Map into ControllerSSID
+        put property `controller-password` of Map into ControllerPassword
+
+Connect:
+        rest get Response from `/config/connect?ssid=` cat ControllerSSID cat `&password=` cat ControllerPassword
+        if Response is not `connected`
+        begin
+            wait 1 second
+            go to Connect
+        end
+
         put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
-        rest post Data to `/config/post`
+        rest post Data to `/config/post` or alert `POST refused`
         put `extender-password` into Result
         exit
     end

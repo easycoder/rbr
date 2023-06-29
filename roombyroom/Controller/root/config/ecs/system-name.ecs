@@ -27,7 +27,7 @@
     begin
         set property `name` of Map to the content of NameInput
         put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
-        rest post Data to `/config/post`
+        rest post Data to `/config/post` or alert `POST refused`
         put `street-address` into Result
         exit
     end

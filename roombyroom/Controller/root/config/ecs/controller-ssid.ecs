@@ -109,7 +109,7 @@ Rescan:
     set style `display` of RightButton to `block`
     on click RightButton
     begin
-        set property `ssid` of Map to Controller
+        set property `controller-ssid` of Map to Controller
         put `controller-password` into Result
         exit
     end

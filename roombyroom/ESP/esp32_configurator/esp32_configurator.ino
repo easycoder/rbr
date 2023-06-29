@@ -453,7 +453,8 @@ void doPost() {
   if (httpResponseCode >= 0) {
     Serial.printf("POST to %s completed with success\n", requestURL);
   } else {
-    Serial.printf("GET %s: POST error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
+    Serial.println(postData);
+    Serial.printf("POST to %s: Error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
   }
   http.end();
   client.stop();

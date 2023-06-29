@@ -16,7 +16,6 @@
     variable Result
     variable Map
     variable CurrentSlide
-    variable NextSlide
     variable History
     variable SlideScript
     variable SlideWebson
@@ -89,7 +88,7 @@ Start:
     set style `display` of NextButton to `none`
 
     put empty into CurrentSlide
-    put `controller-ssid` into NextSlide
+    put `controller-ssid` into CurrentSlide
     put empty into History
 
     put `{}` into Map
@@ -105,7 +104,6 @@ OnNextButton:
     set the elements of History to N
     take 1 from N
     index History to N
-    put NextSlide into CurrentSlide
     put CurrentSlide into History
     ! Render PanelB and bring it in from the right
     rest get SlideWebson from `/config/webson/` cat CurrentSlide cat `.json?v=` cat now
@@ -170,8 +168,8 @@ ProcessResult:
     else if Result is `back` go to OnPreviousButton
     else
     begin
-    print `Go to ` cat NextSlide
-        put Result into NextSlide
+print `Go to ` cat CurrentSlide
+        put Result into CurrentSlide
         go to OnNextButton
     end
 	stop

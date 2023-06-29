@@ -1,5 +1,5 @@
 {
-    "#doc": "Get the email address",
+    "#doc": "Get the user's email address",
     "#element": "div",
     "position": "absolute",
     "left": 0,

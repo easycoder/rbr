@@ -1,12 +1,12 @@
 {
-    "#doc": "Get the extender AP password",
+    "#doc": "Get the relay count",
     "#element": "div",
     "position": "absolute",
     "left": 0,
     "top": 0,
     "width": "100%",
     "height": "100%",
-    "#": ["$Text1", "$Text2", "$Password", "$Text3"],
+    "#": ["$Text1", "$Text2", "$Count", "$Text3"],
 
     "$Text1": {
         "#element": "div",
@@ -23,10 +23,10 @@
         "font-weight": "normal",
         "font-size": "1.4em",
         "text-align": "left",
-        "#content": "Please give the password for the extender's access point."
+        "#content": "Please give the number of relays handled by this extender."
     },
 
-    "$Password": {
+    "$Count": {
         "#element": "div",
         "margin": "1em 1em 0 1em",
         "text-align": "center",
@@ -34,7 +34,7 @@
 
         "$Text": {
             "#element": "input",
-            "@id": "cf-password",
+            "@id": "cf-count",
             "width": "calc(100% - 4em)",
             "font-size": "1.2em"
         }
