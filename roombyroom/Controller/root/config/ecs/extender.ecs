@@ -16,6 +16,7 @@
     variable Extenders
     variable Extender
     variable SSIDTemplate
+    variable ExtenderSSID
     variable CurrentSSID
     variable ControllerSSID
     variable ControllerPassword
@@ -61,8 +62,8 @@ Rescan:
     if NC is 0 go to Rescan
     else if NC is 1
     begin
-        put element 0 of Extenders into Extender
-        set the content of SSID to Extender
+        put element 0 of Extenders into ExtenderSSID
+        set the content of SSID to ExtenderSSID
         set style `display` of LeftButton to `block`
         set style `display` of RightButton to `block`
     end
@@ -85,7 +86,7 @@ Rescan:
             set the content of SSIDChoice to element N of Extenders
             if element N of Extenders is CurrentSSID
             begin
-                put CurrentSSID into Extender
+                put CurrentSSID into ExtenderSSID
                 set style `background` of SSIDChoice to `lightgreen`
             end
             add 1 to N
@@ -93,7 +94,7 @@ Rescan:
         on click SSIDChoice
         begin
             put the index of SSIDChoice into S
-            put the content of SSIDChoice into Extender
+            put the content of SSIDChoice into ExtenderSSID
             put 0 into N
             while N is less than NC
             begin
@@ -114,23 +115,33 @@ Rescan:
     end
     on click RightButton
     begin
+        set style `display` of LeftButton to `none`
+        set style `display` of RightButton to `none`
         put property `extenders` of Map into Extenders
         if Extenders is empty
         begin
             put `[{},{},{},{}]` into Extenders
             put 0 into EX
-            put 0 into storage as `extender`
+            put 0 into storage as `extender-index`
         end
-        else get EX from storage as `extender`
+        else
+        begin
+            get EX from storage as `extender-index`
+            if EX is empty
+            begin
+                put 0 into EX
+                put 0 into storage as `extender-index`
+            end
+        end
         put element EX of Extenders into Extender
-        set property `ssid` of Extender to Extender
+        set property `ssid` of Extender to ExtenderSSID
         set element EX of Extenders to Extender
         set property `extenders` of Map to Extenders
 
         put property `controller-ssid` of Map into ControllerSSID
         put property `controller-password` of Map into ControllerPassword
 
-Connect:
+    Connect:
         rest get Response from `/config/connect?ssid=` cat ControllerSSID cat `&password=` cat ControllerPassword
         if Response is not `connected`
         begin
@@ -139,7 +150,7 @@ Connect:
         end
 
         put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
-        rest post Data to `/config/post` or alert `POST refused`
+        rest post Data to `/config/post` or alert `POST error`
         put `extender-password` into Result
         exit
     end

@@ -1,19 +1,20 @@
 {
-    "#doc": "Get the relay count",
+    "#doc": "Get the relay type",
     "#element": "div",
     "position": "absolute",
     "left": 0,
     "top": 0,
     "width": "100%",
     "height": "100%",
-    "#": ["$Text1", "$Text2", "$Count", "$Text3"],
+    "#": ["$Text1", "$Text2", "$R1", "$Tasmota", "$Shelly", "$Text3"],
 
     "$Text1": {
         "#element": "div",
+        "@id": "relay-type",
         "margin": "1em 1em 0 1em",
         "color": "green",
         "font-size": "2em",
-        "#content": "Relay count"
+        "#content": "Relay type"
     },
 
     "$Text2": {
@@ -26,18 +27,22 @@
         "#content": "Please give the number of relays handled by this extender."
     },
 
-    "$Count": {
-        "#element": "div",
-        "margin": "1em 1em 0 1em",
-        "text-align": "center",
-        "#": "$Text",
+    "$R1": {
+        "#element": "button",
+        "@id": "type-r1",
+        "#content": "R1"
+    },
 
-        "$Text": {
-            "#element": "input",
-            "@id": "cf-count",
-            "width": "calc(100% - 4em)",
-            "font-size": "1.2em"
-        }
+    "$Tasmota": {
+        "#element": "button",
+        "@id": "type-tasmota",
+        "#content": "Tasmota"
+    },
+
+    "$Shelly": {
+        "#element": "button",
+        "@id": "type-shelly",
+        "#content": "Shelly"
     },
 
     "$Text3": {

@@ -99,6 +99,8 @@ Start:
 ! 	Bring in a slide from the right
 
 OnNextButton:
+    set style `display` of PreviousButton to `none`
+    set style `display` of NextButton to `none`
     ! Create a new History element
     add 1 to the elements of History giving N
     set the elements of History to N
@@ -165,10 +167,15 @@ OnPreviousButton:
 ! 	Process the result from a step
 ProcessResult:
     if Result is `end` stop
-    else if Result is `back` go to OnPreviousButton
+    else if Result is `back`
+    begin
+        print `Go back`
+        go to OnPreviousButton
+    end
     else
     begin
-print `Go to ` cat CurrentSlide
+        put Result into CurrentSlide
+        print `Go to ` cat CurrentSlide
         put Result into CurrentSlide
         go to OnNextButton
     end

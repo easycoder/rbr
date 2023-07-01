@@ -1,26 +1,29 @@
-!   Get an extender AP password
+!   Get th relay type
 
-	script ExtenderPassword
+	script RelayType
 
     import variable Map and variable Result
 
     div LeftButton
     div RightButton
-    input PasswordInput
     variable Extenders
     variable Extender
-    variable Password
+    variable Relays
+    variable Relay
     variable Data
     variable EX
+    variable RX
+    variable N
 
-    attach PasswordInput to `cf-password`
     attach LeftButton to `left-button`
     attach RightButton to `right-button`
 
     get EX from storage as `extender-index`
+    get RX from storage as `relay-index`
     put property `extenders` of Map into Extenders
     put element EX of Extenders into Extender
-    set the content of PasswordInput to property `password` of Extender
+    put property `relays` of Extender into Relays
+    put element RX of Relays into Relay
 
     on click LeftButton
     begin
@@ -29,13 +32,12 @@
     end
     on click RightButton
     begin
-        put the content of PasswordInput into Password
-        set property `password` of Extender to Password
+        set property `relays` of Extender to Relays
         set element EX of Extenders to Extender
         set property `extenders` of Map to Extenders
         put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
         rest post Data to `/config/post` or alert `POST error`
-        put `relay-count` into Result
+        put `end` into Result
         exit
     end
     set style `display` of LeftButton to `block`

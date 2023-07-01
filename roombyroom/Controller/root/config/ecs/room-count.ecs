@@ -1,0 +1,63 @@
+!   Get the number of rooms in this system
+
+	script RoomCount
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    input CountInput
+    variable Profiles
+    variable Profile
+    variable Rooms
+    variable Count
+    variable Data
+    variable N
+
+    attach CountInput to `cf-count`
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    put property `profiles` of Map into Profiles
+    put element 0 of Profiles into Profile
+    put property `rooms` of Profile into Rooms
+    if Rooms is empty
+    begin
+        put `[]` into Rooms
+        put 0 into storage as `room-index`
+    end
+    put the json count of Rooms into Count
+    set the content of CountInput to Count
+
+    on click LeftButton
+    begin
+        put `back` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        put the content of CountInput into Count
+        while Count is greater than the json count of Rooms
+        begin
+            append `{}` to Rooms
+        end
+        while Count is less than the json count of Rooms
+        begin
+            put the json count of Rooms into N
+            take 1 from N
+            json delete element N of Rooms
+        end
+        set property `rooms` of Profile to Rooms
+
+        set element 0 of Profiles to Profile
+        set property `profiles` of Map to Profiles
+
+        put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+        rest post Data to `/config/post` or alert `POST error`
+        put `extender` into Result
+        exit
+    end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
+
+    stop

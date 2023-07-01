@@ -14,8 +14,6 @@
     attach RightButton to `right-button`
 
     set the content of NameInput to property `name` of Map
-    set style `display` of LeftButton to `block`
-    set style `display` of RightButton to `block`
 
     on click LeftButton
     begin
@@ -27,9 +25,11 @@
     begin
         set property `name` of Map to the content of NameInput
         put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
-        rest post Data to `/config/post` or alert `POST refused`
+        rest post Data to `/config/post` or alert `POST error`
         put `street-address` into Result
         exit
     end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
 
     stop

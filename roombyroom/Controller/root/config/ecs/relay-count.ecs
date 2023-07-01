@@ -1,4 +1,4 @@
-!   Get the number of relays
+!   Get the number of relays handled by this extender
 
 	script RelayCount
 
@@ -19,14 +19,14 @@
     attach LeftButton to `left-button`
     attach RightButton to `right-button`
 
-    get EX from storage as `extender`
+    get EX from storage as `extender-index`
     put property `extenders` of Map into Extenders
     put element EX of Extenders into Extender
     put property `relays` of Extender into Relays
     if Relays is empty
     begin
         put `[]` into Relays
-        put `ex-` cat EX cat `-0` into storage as `relay-index`
+        put 0 into storage as `relay-index`
     end
     put the json count of Relays into Count
     set the content of CountInput to Count
@@ -54,8 +54,11 @@
         set element EX of Extenders to Extender
         set property `extenders` of Map to Extenders
         put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
-        rest post Data to `/config/post` or alert `POST refused`
-        put `end` into Result
+        rest post Data to `/config/post` or alert `POST error`
+        put `relay-type` into Result
+        exit
     end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
 
     stop

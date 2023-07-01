@@ -346,9 +346,10 @@ void handle_post(AsyncWebServerRequest *req) {
       }
       delay(10);
     }
-    postState = STATE_REQUEST;
     Serial.println("POST requested");
     req->send_P(200, "text/plain", "OK");
+    delay(10);
+    postState = STATE_REQUEST;
   } else {
     Serial.println("Can't POST - not connected");
     req->send(400, "text/plain", "Not connected");
@@ -444,17 +445,17 @@ void doRequest() {
 
 // POST data to a URL
 void doPost() {
-  Serial.printf("Posting to %s\n", postURL);
+  // Serial.printf("Posting to %s\n", postURL);
   WiFiClient client;
   HTTPClient http;
   http.begin(client, String(postURL));
   http.addHeader("Content-Type", "text/plain");
   int httpResponseCode = http.POST(String(postData));
   if (httpResponseCode >= 0) {
-    Serial.printf("POST to %s completed with success\n", requestURL);
+    Serial.printf("POST to %s completed with success\n", postURL);
   } else {
     Serial.println(postData);
-    Serial.printf("POST to %s: Error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
+    Serial.printf("POST to %s: Error: %s\n", postURL, http.errorToString(httpResponseCode).c_str());
   }
   http.end();
   client.stop();
