@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 9
+#define CURRENT_VERSION 10
 #define BAUDRATE 115200
 #define WATCHDOG_INTERVAL 60
 #define UPDATE_CHECK_INTERVAL 3600
@@ -32,7 +32,7 @@ char host_password[40];
 char host_ipaddr[40];
 char host_gateway[40];
 char host_server[40];
-char relayResponse[10][200];
+char relayResponse[20][200];
 char relayType[10][10];
 bool relayState[10];
 bool relayFlag[10];
@@ -50,6 +50,7 @@ char restartedURL[60];
 char requestVersionURL[40];
 char requestUpdateURL[40];
 char requestRelayVersionURL[40];
+char requestRelayUpdaterURL[40];
 char requestRelayUpdateURL[40];
 char deviceURL[40];
 char restarts[10];
@@ -203,25 +204,19 @@ void handle_factory_reset(AsyncWebServerRequest *request) {
 // Endpoint: GET http://{ipaddr}/
 void handle_root(AsyncWebServerRequest *request) {
   char info[500];
-  char ver[8];
-  sprintf(ver, "%d", CURRENT_VERSION);
+  char buf[8];
+  sprintf(buf, "%d", CURRENT_VERSION);
   strcpy(info, "RBR WiFi extender v");
-  strcat(info, ver);
+  strcat(info, buf);
   strcat(info, " (");
   strcat(info, host_ssid);
   strcat(info, "/");
   strcat(info, host_ipaddr);
-  strcat(info, ")\nEndpoints:\n");
-  strcat(info, "status: U or C\n");
-  strcat(info, "reset: Restart the device\n");
-  strcat(info, "watchdog: Return the watchdog count\n");
-  strcat(info, "restarts: Return the number of restarts\n");
-  strcat(info, "clear: Clear the restart counter\n");
-  strcat(info, "log/{n}: Set the log level\n");
-  strcat(info, "on/{n}: Turn on relay {n}\n");
-  strcat(info, "off/{n}: Turn off relay {n}\n");
-  strcat(info, "relay/version: Get the current relay firmware version\n");
-  strcat(info, "relay/update: Get the current relay firmware");
+  strcat(info,"), ");
+  sprintf(buf, "%s", String(restarts));
+  strcat(info, buf);
+  strcat(info, " restarts");
+  Serial.println(info);
   request->send(200, "text/plain", info);
 }
 
@@ -260,6 +255,20 @@ void handle_off(AsyncWebServerRequest *request, const char* type, const char* id
 }
 
 // Endpoint: GET http://{ipaddr}/relay/update
+void handle_relay_updater(AsyncWebServerRequest *request) {
+  if (busyUpdatingClient) {
+    return;
+  }
+  busyUpdatingClient = true;
+  Serial.printf("Received updater request from %s\n", request->client()->remoteIP().toString().c_str());
+  request->send(LittleFS, "/updater.bin", "application/octet");
+  Serial.print("Relay updater code sent to ");
+  Serial.println(request->client()->remoteIP());
+  busyUpdatingClient = false;
+  delay(100);
+}
+
+// Endpoint: GET http://{ipaddr}/relay/current
 void handle_relay_update(AsyncWebServerRequest *request) {
   if (busyUpdatingClient) {
     return;
@@ -337,16 +346,8 @@ void setupNetwork() {
     handle_root(request);
   });
 
-  localServer.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", "C");
-  });
-
   localServer.on("/watchdog", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/plain", String(watchdog));
-  });
-
-  localServer.on("/restarts", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", String(restarts));
   });
 
   localServer.on("/clear", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -396,13 +397,15 @@ void setupNetwork() {
   });
 
   localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (logLevel >= LOG_LEVEL_NONE) {
-      Serial.printf("Received version request from %s\n", request->client()->remoteIP().toString().c_str());
-    }
+    Serial.printf("Received version request from %s\n", request->client()->remoteIP().toString().c_str());
     request->send(200, "text/plain", ((String)relayVersion).c_str());
   });
 
   localServer.on("/relay/update", HTTP_GET, [](AsyncWebServerRequest *request) {
+    handle_relay_updater(request);
+  });
+
+  localServer.on("/relay/current", HTTP_GET, [](AsyncWebServerRequest *request) {
     handle_relay_update(request);
   });
 
@@ -425,9 +428,12 @@ void setupNetwork() {
   strcat(requestRelayVersionURL, "http://");
   strcat(requestRelayVersionURL, host_server);
   strcat(requestRelayVersionURL, "/relay/version");
+  strcat(requestRelayUpdaterURL, "http://");
+  strcat(requestRelayUpdaterURL, host_server);
+  strcat(requestRelayUpdaterURL, "/relay/update");
   strcat(requestRelayUpdateURL, "http://");
   strcat(requestRelayUpdateURL, host_server);
-  strcat(requestRelayUpdateURL, "/relay/update");
+  strcat(requestRelayUpdateURL, "/relay/current");
 
   // Call the watchdog regularly
   watchdogTicker.attach(WATCHDOG_INTERVAL, requestWatchdogCheck);
@@ -449,74 +455,91 @@ void checkRelayUpdate() {
     Serial.printf("Check for relay update at %s\n", requestRelayVersionURL);
   }
   char* httpPayload = httpGET(requestRelayVersionURL, true);
-  int newVersion = atoi(httpPayload);
+  int newRelayVersion = atoi(httpPayload);
   free(httpPayload);
 //  if (logLevel >= LOG_LEVEL_MEDIUM) {
   if (logLevel >= LOG_LEVEL_NONE) {
-    Serial.printf("Current relay version is %d, new version is %d\n", relayVersion, newVersion);
+    Serial.printf("Current relay version is %d, new version is %d\n", relayVersion, newRelayVersion);
   }
-  if (newVersion > relayVersion) {
+  if (newRelayVersion > relayVersion) {
     if (logLevel >= LOG_LEVEL_MEDIUM) {
-      Serial.printf("Get relay binary from %s\n",requestRelayUpdateURL);
+      Serial.printf("Get relay updater from %s\n",requestRelayUpdaterURL);
+    }
+    // Download the loader
+    error = downloadFile(requestRelayUpdaterURL, "/updater.bin");
+    if (error) {
+      if (logLevel >= LOG_LEVEL_LOW) {
+        Serial.println("An error occurred while downloading the relay updater");
+      }
+    }
+    if (logLevel >= LOG_LEVEL_MEDIUM) {
+      Serial.printf("Get relay update from %s\n",requestRelayUpdateURL);
     }
     // Download the binary
-    WiFiClient wifi;
-    HTTPClient client;
-    client.begin(wifi, requestRelayUpdateURL);
-    // Send HTTP GET request
-    int httpResponseCode = client.GET();
-    int len = client.getSize();
-    if (len <= 0) {
-      Serial.println("Relay binary is empty");
-      updateVersionFile(0);
-      restart();
-    }
-    Serial.printf("Writing %d bytes to LittleFS\n", len);
-    File file = LittleFS.open("/relay.bin", FILE_WRITE);
-    if (!file) {
+    error = downloadFile(requestRelayUpdateURL, "/relay.bin");
+    if (error) {
       if (logLevel >= LOG_LEVEL_LOW) {
-        Serial.println("There was an error opening /relay.bin for writing");
-      }
-    } else {
-      // create buffer for read
-      uint8_t buff[128] = { 0 };
-      // get tcp stream
-      WiFiClient * stream = client.getStreamPtr();
-      // read all data from server
-      while (client.connected() && (len > 0 || len == -1)) {
-        // get available data size
-        size_t size = stream->available();
-        if (size) {
-            // read up to 128 byte
-            int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
-            // write it to LitleFS
-            if (!file.write(buff, c)) {
-                error = true;
-            }
-            if (len > 0) {
-              len -= c;
-            }
-        } 
-        yield();
-      }
-      if (logLevel == LOG_LEVEL_HIGH) {
-        Serial.println("Writing complete");
-      }
-      file.close();
-      client.end();
-      if (error) {
-        if (logLevel >= LOG_LEVEL_LOW) {
-          Serial.println("An error occurred while downloading the relay binary");
-        }
+        Serial.println("An error occurred while downloading the relay binary");
       }
     }
   }
-  if (newVersion > relayVersion) {
-    updateVersionFile(newVersion);
+  if (newRelayVersion > relayVersion) {
+    updateRelayVersion(newRelayVersion);
   }
 }
 
-void updateVersionFile(int newVersion) {
+// Download a file from the server
+bool downloadFile(char* url, char* fileName) {
+  bool error = false;
+  WiFiClient wifi;
+  HTTPClient client;
+  client.begin(wifi, url);
+  // Send HTTP GET request
+  int httpResponseCode = client.GET();
+  int len = client.getSize();
+  if (len <= 0) {
+    Serial.println("Download is empty");
+    updateRelayVersion(0);
+    restart();
+  }
+  Serial.printf("Writing %d bytes to LittleFS\n", len);
+  File file = LittleFS.open(fileName, FILE_WRITE);
+  if (!file) {
+    if (logLevel >= LOG_LEVEL_LOW) {
+      Serial.printf("There was an error opening %s for writing\n, fileName");
+    }
+  } else {
+    // create buffer for read
+    uint8_t buff[128] = { 0 };
+    // get tcp stream
+    WiFiClient * stream = client.getStreamPtr();
+    // read all data from server
+    while (client.connected() && (len > 0 || len == -1)) {
+      // get available data size
+      size_t size = stream->available();
+      if (size) {
+          // read up to 128 byte
+          int c = stream->readBytes(buff, ((size > sizeof(buff)) ? sizeof(buff) : size));
+          // write it to LitleFS
+          if (!file.write(buff, c)) {
+              error = true;
+          }
+          if (len > 0) {
+            len -= c;
+          }
+      } 
+      yield();
+    }
+    if (logLevel == LOG_LEVEL_HIGH) {
+      Serial.println("Writing complete");
+    }
+    file.close();
+    client.end();
+  }
+  return error;
+}
+
+void updateRelayVersion(int newVersion) {
   relayVersion = newVersion;
   char buf[10];
   sprintf(buf, "%d", relayVersion);
@@ -542,13 +565,11 @@ void checkForUpdates() {
         restart();
       }
     } else {
-      if (logLevel >= LOG_LEVEL_MEDIUM) {
+      if (logLevel >= LOG_LEVEL_LOW) {
         Serial.printf("Installed version is %d, new version is %d\n", CURRENT_VERSION, newVersion);
       }
       if (newVersion > CURRENT_VERSION) {
-        if (logLevel >= LOG_LEVEL_MEDIUM) {
-          Serial.printf("Installing version %d\n", newVersion);
-        }
+        Serial.printf("Installing version %d\n", newVersion);
         WiFiClient client;
         ESPhttpUpdate.update(requestUpdateURL);
       }
@@ -607,7 +628,7 @@ void setup(void) {
   relayVersion = atoi(ver);
 
 //  writeTextToFile("/config", "");
-//  updateVersionFile(0);
+// updateRelayVersion(0);
 
   String ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
@@ -656,10 +677,6 @@ void setup(void) {
     localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
       Serial.println("onAPDefault");
       request->send(200, "text/plain", String(softap_ssid) + " in unconfigured mode");
-    });
-
-    localServer.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
-      request->send(200, "text/plain", "U");
     });
 
     localServer.on("/setup", HTTP_GET, [](AsyncWebServerRequest *request) {

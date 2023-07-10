@@ -7,9 +7,9 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 4
+#define CURRENT_VERSION 6
 #define BAUDRATE 115200
-#define WATCHDOG_CHECK_INTERVAL 60
+#define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 3600
 #define ERROR_MAX 10
 
@@ -29,6 +29,7 @@ uint errorCount = 0;
 bool relayPinStatus = LOW;
 bool checkForUpdate = false;
 bool updating = false;
+bool relayState;
 char name[40];
 char my_ssid[40];
 char my_password[40];
@@ -45,34 +46,26 @@ char restarts[10];
 void onDefault() {
   Serial.println("onDefault");
   char info[500];
-  char buf[8];
+  char buf[10];
   sprintf(buf, "%d", CURRENT_VERSION);
-  strcpy(info, "RBR R1 relay V");
+  strcpy(info, "RBR R1 V");
   strcat(info, buf);
   strcat(info, " ");
   strcat(info, name);
+  strcat(info, relayState ? " ON" : " OFF");
   strcat(info, " (");
   strcat(info, host_ssid);
   strcat(info, "/");
   strcat(info, host_ipaddr);
-  strcat(info, ") RSSI: ");
+  strcat(info, ") RSSI=");
   sprintf(buf, "%d", WiFi.RSSI());
   strcat(info, buf);
-  strcat(info, ")\nEndpoints:\n");
-  strcat(info, "watchdog: Return the number of relay requests in the past minute\n");
-  strcat(info, "reset: Restart the device\n");
-  strcat(info, "restarts: Return the number of restarts\n");
-  strcat(info, "clear: Clear the restart counter\n");
-  strcat(info, "on: Turn on relay\n");
-  strcat(info, "off: Turn off relay\n");
+  strcat(info,", ");
+  sprintf(buf, "%s", String(restarts));
+  strcat(info, buf);
+  strcat(info, " restarts");
   Serial.println(info);
   localServer.send(200, "text/plain", info);
-}
-
-// The status page when configured
-void onStatus() {
-  Serial.println("onStatus");
-  localServer.send(200, "text/plain", "C");
 }
 
 // Check the watchdog
@@ -80,7 +73,7 @@ void watchdogCheck() {
     // First check if we've had any requests since the last update. If not, restart.
     Serial.printf("Watchdog count is %d", watchdog);
     if (watchdog == 0) {
-      Serial.println(": No requests have arrived in the past minute, so restart");
+      Serial.println(": No recent requests");
       restart();
     }
     Serial.println();
@@ -104,22 +97,32 @@ void ledOff() {
   }
 }
 
-void relayOn() {
+void relayOnOff(bool state) {
   if (updating) {
     return;
   }
-  relayPinStatus = HIGH;
+  relayState = state;
+  relayPinStatus = state ? HIGH : LOW;
   watchdog++;
-  localServer.send(200, "text/plain", "Relay ON");
+  char info[40];
+  char buf[10];
+  strcpy(info, "Relay ");
+  strcat(info, state ? "ON" : "OFF");
+  strcat(info, ", RSSI=");
+  sprintf(buf, "%d", WiFi.RSSI());
+  strcat(info, buf);
+  strcat(info, ", restarts: ");
+  sprintf(buf, "%s", String(restarts));
+  strcat(info, buf);
+  localServer.send(200, "text/plain", info);
+}
+
+void relayOn() {
+  relayOnOff(true);
 }
 
 void relayOff() {
-  if (updating) {
-    return;
-  }
-  relayPinStatus = LOW;
-  watchdog++;
-  localServer.send(200, "text/plain", "Relay Off");
+  relayOnOff(false);
 }
 
 void notFound(){
@@ -166,12 +169,6 @@ void restart() {
   ESP.reset();
 }
 
-// Get the watchdog count
-void onWatchdog() {
-  Serial.println("Watchdog");
-  localServer.send(200, "text/plain", String(watchdog));
-}
-
 // Reset the system
 void onReset() {
   Serial.println("Reset");
@@ -181,16 +178,10 @@ void onReset() {
 
 // Do a factory reset
 void factoryReset() {
-  Serial.println("Factory Reset");
+  Serial.println("FR");
   localServer.send(200, "text/plain", "Factory Reset");
   writeTextToFile("/config", "");
   restart();
-}
-
-// Report the number of restarts
-void onRestarts() {
-  Serial.println("Restarts");
-  localServer.send(200, "text/plain", String(restarts));
 }
 
 // Clear the restart counter
@@ -263,17 +254,17 @@ void connectToHost() {
   IPAddress server;
 
   if (!ipaddr.fromString(host_ipaddr)) {
-    Serial.println("UnParsable IP '" + String(host_ipaddr) + "'");
+    Serial.println("Bad IP '" + String(host_ipaddr) + "'");
     factoryReset();
   }
 
   if (!gateway.fromString(host_gateway)) {
-    Serial.println("UnParsable IP '" + String(host_gateway) + "'");
+    Serial.println("Bad IP '" + String(host_gateway) + "'");
     factoryReset();
   }
 
   if (!server.fromString(host_server)) {
-    Serial.println("UnParsable IP '" + String(host_server) + "'");
+    Serial.println("Bad IP '" + String(host_server) + "'");
     factoryReset();
   }
 
@@ -297,12 +288,9 @@ void connectToHost() {
   delay(100);
 
   localServer.on("/", onDefault);
-  localServer.on("/status", onStatus);
-  localServer.on("/restarts", onRestarts);
   localServer.on("/clear", onClear);
   localServer.on("/on", relayOn);
   localServer.on("/off", relayOff);
-  localServer.on("/watchdog", onWatchdog);
   localServer.on("/reset", onReset);
   localServer.on("/factoryreset", factoryReset);
   localServer.onNotFound(notFound);
@@ -333,12 +321,6 @@ void onUnconfiguredAPDefault() {
   localServer.send(200, "text/plain", "R1 relay v" + String(CURRENT_VERSION) + ", " + String(my_ssid) + " unconfigured");
 }
 
-// The status page for the unconfigured AP
-void onUnconfiguredAPStatus() {
-  Serial.println("onAPStatus");
-  localServer.send(200, "text/plain", "U");
-}
-
 // Here when a setup request containing configuration data is received
 void onConfigure() {
   Serial.println("Configure the relay");
@@ -367,7 +349,6 @@ void UnconfiguredAPMode() {
   delay(100);
 
   localServer.on("/", onUnconfiguredAPDefault);
-  localServer.on("/status", onUnconfiguredAPStatus);
   localServer.on("/setup", onConfigure);
   localServer.onNotFound(notFound);
   localServer.begin();
@@ -399,7 +380,7 @@ void setup() {
   writeTextToFile("/restarts", restarts);
   Serial.printf("Restarts: %d\n", nRestarts);
 
-//  writeTextToFile("/config", ""); Force unconfigured mord
+  // writeTextToFile("/config", ""); // Force unconfigured mode
 
   pinMode(ledPin, OUTPUT);
   pinMode(relayPin, OUTPUT);
@@ -418,7 +399,7 @@ void setup() {
   strcpy(my_ssid, ssid.c_str());
   Serial.printf("SoftAP SSID: %s\n", my_ssid);
 
-  Serial.println("Read config from LittleFS/config");
+  Serial.println("Read config");
   String config_p = readFileToText("/config");
   Serial.println("Config = " + config_p);
   if (config_p != "") {
@@ -468,7 +449,7 @@ void setup() {
       }
       if (name[0] == '\0' || my_password[0] == '\0' || host_ssid[0] == '\0' || host_password[0] == '\0'
       || host_ipaddr[0] == '\0' || host_gateway[0] == '\0' || host_server[0] == '\0') {
-        Serial.println("Bad config data - resetting");
+        Serial.println("Bad config data");
         factoryReset();
       } else {
         connectToHost();
@@ -482,6 +463,9 @@ void setup() {
 ///////////////////////////////////////////////////////////////////////////////
 // Main loop
 void loop() {
+  if (updating) {
+    return;
+  }
   localServer.handleClient();
 
   if (relayPinStatus) {

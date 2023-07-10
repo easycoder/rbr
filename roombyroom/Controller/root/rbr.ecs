@@ -553,10 +553,9 @@ PR2:
     put property `temperature` of SensorValues into Temperature
     put property `relays` of Room into Relays
     put float Temperature into Temperature
-    put property `events` of Room into Events
-    take 1 from the length of Events giving NPeriods
 
     ! See if this room is set for winter protection
+    if property `protect` of Room is empty set property `protect` of Room to `no`
     if property `protect` of Room is `yes`
     begin
         put float property `ptemp` of Room into Target
@@ -571,6 +570,7 @@ PR2:
 
     ! Deal with mode requests
     put property `mode` of Room into Mode
+    if Mode is empty put `off` into Mode
 
     if Mode is `boost`
     begin
@@ -632,6 +632,9 @@ PR2:
     end
 
     ! Timed mode. Check each of the events
+    put property `events` of Room into Events
+    if Events is empty return
+    take 1 from the length of Events giving NPeriods
     put `timed` into Mode
     put 0 into E
     while E is less than the length of Events
@@ -743,6 +746,7 @@ TurnOn:
 SetRelays:
     print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat Turn
     if RelayType is empty put `Shelly One` into RelayType
+    if Relays is empty put json `[]` into Relays
     put 0 into R
     while R is less than the count of Relays
     begin

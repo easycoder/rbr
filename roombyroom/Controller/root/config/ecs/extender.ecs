@@ -117,6 +117,8 @@ Rescan:
     begin
         set style `display` of LeftButton to `none`
         set style `display` of RightButton to `none`
+        set style `display` of LeftButton to `none`
+        set style `display` of RightButton to `none`
         put property `extenders` of Map into Extenders
         if Extenders is empty
         begin
@@ -154,5 +156,8 @@ Rescan:
         put `extender-password` into Result
         exit
     end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
+
 
     stop
