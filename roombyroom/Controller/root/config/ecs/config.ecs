@@ -162,12 +162,13 @@ OnPreviousButton:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Process the result from a step
 ProcessResult:
-    if Result is `end` stop
-    else if Result is `back`
+    if Result is `back`
     begin
+debug step
         print `Go back`
         go to OnPreviousButton
     end
+    else if Result is `end` stop
     else
     begin
         put Result into CurrentSlide

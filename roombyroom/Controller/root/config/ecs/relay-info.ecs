@@ -29,6 +29,8 @@
     variable Item
     variable Name
     variable Keys
+    variable Count
+    variable Extenders
     variable N
     variable M
     variable K
@@ -138,13 +140,31 @@
             add 1 to N
         end
 
+        ! Calculate how many extenders are needed
+        put property `extenders` of Map into Extenders
+        if Extenders is empty put `[]` into Extenders
+        put the json count of Data into Count
+        divide Count by 8
+        add 1 to Count
+        while Count is greater than the json count of Extenders
+        begin
+            append `{}` to Extenders
+        end
+        while Count is less than the json count of Extenders
+        begin
+            put the json count of Extenders into N
+            take 1 from N
+            json delete element N of Extenders
+        end
+        set property `extenders` of Map to Extenders
+
         set property `rooms` of Profile to Rooms
         set element 0 of Profiles to Profile
         set property `profiles` of Map to Profiles
 
         put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
         rest post Data to `/config/post` or alert `POST error`
-        put `extender-count` into Result
+        put `extender` into Result
         exit
     end
     set style `display` of LeftButton to `block`

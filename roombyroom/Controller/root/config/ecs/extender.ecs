@@ -117,8 +117,6 @@ Rescan:
     begin
         set style `display` of LeftButton to `none`
         set style `display` of RightButton to `none`
-        set style `display` of LeftButton to `none`
-        set style `display` of RightButton to `none`
         put property `extenders` of Map into Extenders
         if Extenders is empty
         begin
