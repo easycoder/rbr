@@ -82,6 +82,8 @@ GetUserData:
     else if UserData is `badpassword`
     begin
     	alert `Incorrect user name or password`
+		put empty into storage as `email`
+		put empty into storage as `userpassword`
         go to Start
     end
     else
@@ -145,7 +147,6 @@ Continue:
 !    get Systems from storage as `Systems`
     rest get Systems from Server cat `/managed/` cat Email cat `/` cat UserPassword cat `?v=` cat now
     gosub to GetSystemNames
-    print Systems
     if Systems is empty put `{}` into Systems
     if Map is empty put `New system` into SystemName
     else put property `name` of Map into SystemName
@@ -213,7 +214,11 @@ Continue:
     end
 	stop
 
-!	Update the names of the systems
+!	Update the list of systems:
+!	1 Copy each system record
+!	2 Delete it from the list
+!	3 Get the system's map from the database
+!	4 Resave it in the list with its current name
 GetSystemNames:
 	put the json keys of Systems into Keys
     put 0 into K
@@ -224,9 +229,9 @@ GetSystemNames:
         put property `mac` of System into MAC2
         json delete property SystemName of Systems
         rest get Map2 from Server cat `/map/` cat MAC2 cat `?v=` cat now
-        if Map is empty
+        if Map2 is empty
         begin
-        	alert `Unable to identify system: ` cat MAC2
+        	alert `No data available for system: ` cat MAC2
         	return
         end
         put property `name` of Map2 into SystemName
@@ -252,6 +257,7 @@ CreateList:
         set style `cursor` of SystemNameButton to `pointer`
         put element K of Keys into Text
         set the content of SystemNameButton to Text
+        ! Highlight the currently-selected system
         if Text is SystemName
         begin
         	put K into SelectedSystem

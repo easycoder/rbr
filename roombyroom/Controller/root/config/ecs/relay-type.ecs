@@ -1,0 +1,46 @@
+!   Get th relay type
+
+	script RelayType
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    variable Extenders
+    variable Extender
+    variable Relays
+    variable Relay
+    variable Data
+    variable EX
+    variable RX
+    variable N
+
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    get EX from storage as `extender-index`
+    get RX from storage as `relay-index`
+    put property `extenders` of Map into Extenders
+    put element EX of Extenders into Extender
+    put property `relays` of Extender into Relays
+    put element RX of Relays into Relay
+
+    on click LeftButton
+    begin
+        put `back` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        set property `relays` of Extender to Relays
+        set element EX of Extenders to Extender
+        set property `extenders` of Map to Extenders
+        put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+        rest post Data to `/config/post` or alert `POST error`
+        put `end` into Result
+        exit
+    end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
+
+    stop

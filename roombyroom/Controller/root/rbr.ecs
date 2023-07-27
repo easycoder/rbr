@@ -44,6 +44,7 @@
     variable Now
     variable Boundary
     variable Turn
+    variable IsOn
     variable MAC
     variable Password
     variable Advance
@@ -55,6 +56,7 @@
     variable Result
     variable Action
     variable Items
+    variable Item
     variable Key
     variable Keys
     variable Email
@@ -62,18 +64,22 @@
     variable RelayIp
     variable TPPassword
     variable SimulatorData
+    variable LogData
     variable SD
     variable Value
     variable Changed
     variable Confirm
     variable Calendar
     variable Day
+    variable LoggerFlag
+    variable WarningMessage
     variable RA
     variable E
     variable EE
     variable N
     variable P
     variable R
+    variable T
     variable W
 
 !    debug step
@@ -176,6 +182,8 @@ SkipServerInteraction:
     if file Advance exists begin end
     else create directory Advance
 
+    clear LoggerFlag
+
 Start:
     add 9 to now giving Timestamp
     ! Load the map
@@ -198,9 +206,9 @@ Start:
         open File `map` for writing
         write Map to File
         close File
-        open File `backup` for writing
-        write Map to File
-        close File
+!        open File `backup` for writing
+!        write Map to File
+!        close File
     end
 !    print Map
 
@@ -239,8 +247,9 @@ Start:
 
 S2:
     put element CurrentProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms
     print `Profile: ` cat property `name` of Profile
+
+    put property `rooms` of Profile into Rooms
 
     if Password is empty go to SkipRequests
 
@@ -409,7 +418,7 @@ SkipRequests:
     end
     else
     begin
-        print `Processing ` cat RoomCount cat ` rooms`
+        print RoomCount cat ` rooms`
         put json `{}` into SimulatorData
         put 0 into RequestCount
         put 0 into RoomNumber
@@ -436,11 +445,18 @@ SkipRequests:
                 put Extender into RelayIp
                 index Extender to 0
                 put `r1` into RelayType     ! May need to allow a different type - 11/6/23
-                if RelayType is `RBR R1` put `r1` into RelayType
+                if RelayType is `Tasmota` put `tasmota` into RelayType
+                else if RelayType is `RBR R1` put `r1` into RelayType
                 else if RelayType is `Shelly One` put `shelly` into RelayType
                 else if RelayType is `TP-Link P100` put `p100` into RelayType
-                put `http://172.24.1.` cat Extender cat `/` cat Turn
-                    cat `?type=` cat RelayType cat `&id=` cat RelayIp into Request
+                else if RelayType is `Simulator` put `sim` into RelayType
+! print `Relay type: ` cat RelayType
+
+                if RelayType is `tasmota` put `/cm?cmnd=power ` into Request
+                else if RelayType is `r1` put `/` into Request
+                else if RelayType is `shelly` put `/relay/0?turn=` into Request
+                put `http://172.24.1.` cat Extender cat `/onoff?command=` cat Request cat Turn
+                    cat `&id=` cat RelayIp into Request
 !print `Request: ` cat Request
                 get Result from Request
                 or begin
@@ -518,6 +534,8 @@ Repeat:
         while now is less than Timestamp wait 50 ticks
         go to Start
     end
+
+    if LoggerFlag post stringify LogData to RBRServer cat `/logdata/` cat MAC
 
     exit
 
@@ -734,16 +752,55 @@ TurnOnOrOff:
     if float Temperature is less than Target go to TurnOn
 
 TurnOff:
+    set IsOn
     put `off` into Turn
     go to SetRelays
 
 TurnOn:
+    clear IsOn
     if RelayType is not `Simulator` add 1 to RequestCount
     put `on` into Turn
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set the relays in a room
 SetRelays:
+!   Check if anything has changed
+    if file `/mnt/data/logdata` exists
+    begin
+        open File `/mnt/data/logdata` for reading
+        read LogData from File
+        close File
+        put json LogData into LogData
+    end
+    else put json `{}` into LogData
+    put property RoomName of LogData into Item
+    if Item is empty
+    begin
+        put json `{"timestamp":` cat now cat `}` into Item
+        set property RoomName of LogData to Item
+        go to SR0
+    end
+
+!   Skip if less than 10 minutes from the last change
+    put property `timestamp` of Item into T
+    add 600 to T
+    if now is less than T go to SR1
+
+!   Skip if the temperature hasn't changed
+    put property `temperature` of Item into T
+    if T is Temperature go to SR1
+
+    set property `temperature` of Item to Temperature
+    set property `relay` of Item to Turn
+
+SR0:
+    open File `/mnt/data/logdata` for writing
+    write stringify LogData to File
+    close File
+    set LoggerFlag
+
+!   Continue with setting the relays
+SR1:
     print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat Turn
     if RelayType is empty put `Shelly One` into RelayType
     if Relays is empty put json `[]` into Relays
@@ -755,7 +812,7 @@ SetRelays:
         else put element R of Relays into Relay
         if Relay is not empty
         begin
-!            print `Relay: ` cat Relay
+! print `Relay: ` cat Relay
             put Relay into Extender
             split Extender on `/`
             if the elements of Extender is 2
@@ -768,63 +825,101 @@ SetRelays:
                 else if RelayType is `Shelly One` put `shelly` into RelayType
                 else if RelayType is `TP-Link P100` put `p100` into RelayType
                 else if RelayType is `Simulator` put `sim` into RelayType
-!                print `Relay type: ` cat RelayType
-                put `http://172.24.1.` cat Extender cat `/` cat Turn
-                    cat `?type=` cat RelayType cat `&id=` cat RelayIp into Request
-!                print Request
+! print `Relay type: ` cat RelayType
+
+                if RelayType is `tasmota` put `/cm?cmnd=power ` into Request
+                else if RelayType is `r1` put `/` into Request
+                else if RelayType is `shelly` put `/relay/0?turn=` into Request
+                put `http://172.24.1.` cat Extender cat `/onoff?command=` cat Request cat Turn
+                    cat `&id=` cat RelayIp into Request
+! print Request
                 get Result from Request
                 or begin
-                    set property `status` of SensorValues to `Fail`
-                    set property `status` of SensorData to `Relay request failed in ` cat RoomName
-                    print `Relay request failed in ` cat RoomName
+                    put `Relay request failed in ` cat RoomName into WarningMessage
+                    gosub to ShowWarning
                     gosub to NetworkError
                     go to SR2
                 end
+! print `Result: ` cat Result
                 if Result is empty
                 begin
-                    set property `status` of SensorValues to `Fail`
-                    set property `status` of SensorData to `No response from relay in ` cat RoomName
-                    print `No response from relay in ` cat RoomName
+                    put `No response from relay in ` cat RoomName into WarningMessage
+                    gosub to ShowWarning
+                end
+                else
+                begin
+                    if RelayType is `r1`
+                    begin
+                        put left 2 of Turn into Value
+                        put from 6 of Result into Result
+                        put lowercase left 2 of Result into Result
+                        if Result is not Value
+                        begin
+                            put `Bad response from relay in ` cat RoomName into WarningMessage
+                            gosub to ShowWarning
+                        end
+                    end
+                    else if RelayType is `tasmota`
+                    begin
+                        put left 2 of Turn into Value
+                        put from 10 of Result into Result
+                        put lowercase left 2 of Result into Result
+                        if Result is not Value
+                        begin
+                            put `Bad response from relay in ` cat RoomName into WarningMessage
+                            gosub to ShowWarning
+                        end
+                    end
+                    else if RelayType is `shelly`
+                    begin
+                        put from 8 of Result into Result
+                        if Turn is `on`
+                        begin
+                            if left 4 of Result is `true` go to SR2
+                        end
+                        else if Turn is `off`
+                        begin
+                            if left 5 of Result is `false` go to SR2
+                        end
+                        put `Bad response from relay in ` cat RoomName into WarningMessage
+                        gosub to ShowWarning
+                    end
                 end
             end
             else
             begin
                 if RelayType is `Tasmota`
                 begin
-!                    print `http://` cat Relay cat `/cm?cmnd=power%20` cat Turn
-                    put `http://` cat Relay cat `/cm?cmnd=power%20` cat Turn into Request
+!                    print `http://` cat Relay cat `/cm?cmnd=power ` cat Turn
+                    put `http://` cat Relay cat `/cm?cmnd=power ` cat Turn into Request
                     get Result from Request
                     or begin
-                        set property `status` of SensorValues to `Fail`
-                        set property `status` of SensorData to `Relay request failed in ` cat RoomName
-                        print `Relay request failed in ` cat RoomName
+                        put `Relay request failed in ` cat RoomName into WarningMessage
+                        gosub to ShowWarning
                         gosub to NetworkError
                         go to SR2
                     end
                     if Result is empty
                     begin
-                        set property `status` of SensorValues to `Fail`
-                        set property `status` of SensorData to `No response from relay in ` cat RoomName
-                        print `No response from relay in ` cat RoomName
+                        put `No response from relay in ` cat RoomName into WarningMessage
+                        gosub to ShowWarning
                     end
                 end
                 else if RelayType is `Shelly One`
                 begin
-!                    print `http://` cat Relay cat `/relay/0?turn=` cat Turn
+!                   print `http://` cat Relay cat `/relay/0?turn=` cat Turn
                     put `http://` cat Relay cat `/relay/0?turn=` cat Turn into Request
                     get Result from Request
                     or begin
-                        set property `status` of SensorValues to `Fail`
-                        set property `status` of SensorData to `Relay request failed in ` cat RoomName
-                        print `Relay request failed in ` cat RoomName
+                        put `Relay request failed in ` cat RoomName into WarningMessage
+                        gosub to ShowWarning
                         gosub to NetworkError
                         go to SR2
                     end
                     if Result is empty
                     begin
-                        set property `status` of SensorValues to `Fail`
-                        set property `status` of SensorData to `No response from relay in ` cat RoomName
-                        print `No response from relay in ` cat RoomName
+                        put `No response from relay in ` cat RoomName into WarningMessage
+                        gosub to ShowWarning
                     end
                 end
                 else if RelayType is `TP-Link P100`
@@ -845,6 +940,13 @@ SR2:
     set property `relay` of SensorValues to Turn
     set property `advance` of SensorValues to Advance
     set property Sensor of SensorData to SensorValues
+    return
+
+!   Show a warning message
+ShowWarning:
+    set property `status` of SensorValues to `Fail`
+    set property `status` of SensorData to WarningMessage
+    print WarningMessage
     return
 
 !   Bump the network error counter

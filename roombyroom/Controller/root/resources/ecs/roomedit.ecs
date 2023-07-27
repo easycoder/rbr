@@ -135,10 +135,10 @@ DevicesButtonCB:
     set the content of ProtectTemp to  property `ptemp` of RoomSpec
     
     put `[]` into List
+    json add `Tasmota` to List
     json add `RBR R1` to List
     json add `TP-Link P100` to List
     json add `Shelly One` to List
-    json add `Simulator` to List
     set RelayTypes from List as property `relayType` of RoomSpec
     if property `relayType` of RoomSpec is `TP-Link P100`
     begin

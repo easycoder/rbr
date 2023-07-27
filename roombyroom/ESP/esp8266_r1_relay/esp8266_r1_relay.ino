@@ -7,7 +7,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 6
+#define CURRENT_VERSION 7
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 3600
@@ -26,6 +26,7 @@ uint8_t relayPin = 0;
 uint8_t ledPin = 2;
 uint watchdog = 0;
 uint errorCount = 0;
+uint watchdogCheckInterval;
 bool relayPinStatus = LOW;
 bool checkForUpdate = false;
 bool updating = false;
@@ -74,10 +75,22 @@ void watchdogCheck() {
     Serial.printf("Watchdog count is %d", watchdog);
     if (watchdog == 0) {
       Serial.println(": No recent requests");
+      watchdogCheckInterval += WATCHDOG_CHECK_INTERVAL;
+      writeWatchdogCheckInterval();
       restart();
+    }
+    if (watchdogCheckInterval > WATCHDOG_CHECK_INTERVAL) {
+      watchdogCheckInterval = WATCHDOG_CHECK_INTERVAL;
+      writeWatchdogCheckInterval();
     }
     Serial.println();
     watchdog = 0;
+}
+
+void writeWatchdogCheckInterval() {
+  char buf[10];
+  sprintf(buf, "%d", watchdogCheckInterval);
+  writeTextToFile("/watchdog", buf);
 }
 
 // Check if an update is available
@@ -104,10 +117,14 @@ void relayOnOff(bool state) {
   relayState = state;
   relayPinStatus = state ? HIGH : LOW;
   watchdog++;
+  relayStatus();
+}
+
+void relayStatus() {
   char info[40];
   char buf[10];
   strcpy(info, "Relay ");
-  strcat(info, state ? "ON" : "OFF");
+  strcat(info, relayState ? "ON" : "OFF");
   strcat(info, ", RSSI=");
   sprintf(buf, "%d", WiFi.RSSI());
   strcat(info, buf);
@@ -187,9 +204,9 @@ void factoryReset() {
 // Clear the restart counter
 void onClear() {
   Serial.println("Clear");
+  localServer.send(200, "text/plain", String(restarts));
   strcpy(restarts, "0");
   writeTextToFile("/restarts", restarts);
-  localServer.send(200, "text/plain", String(restarts));
 }
 
 // Perform a GET
@@ -246,6 +263,7 @@ void connectToHost() {
   Serial.printf("host_ipaddr: %s\n", host_ipaddr);
   Serial.printf("host_gateway: %s\n", host_gateway);
   Serial.printf("host_server: %s\n", host_server);
+  Serial.printf("SoftAP SSID: %s\n", my_ssid);
 
   // Check IP addresses are well-formed
 
@@ -291,6 +309,7 @@ void connectToHost() {
   localServer.on("/clear", onClear);
   localServer.on("/on", relayOn);
   localServer.on("/off", relayOff);
+  localServer.on("/status", relayStatus);
   localServer.on("/reset", onReset);
   localServer.on("/factoryreset", factoryReset);
   localServer.onNotFound(notFound);
@@ -342,9 +361,10 @@ void UnconfiguredAPMode() {
   Serial.println("Unconfigured AP mode");
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(localIP, localIP, subnet);
-  char ssid[40];
+  char ssid[20];
   strcpy(ssid, my_ssid);
   ssid[4] = 'r';
+  Serial.printf("SoftAP SSID: %s\n", ssid);
   WiFi.softAP(ssid);
   delay(100);
 
@@ -380,6 +400,15 @@ void setup() {
   writeTextToFile("/restarts", restarts);
   Serial.printf("Restarts: %d\n", nRestarts);
 
+  // Deal with the watchdog check interval
+  watchdogCheckInterval = WATCHDOG_CHECK_INTERVAL;
+  const char* wf = readFileToText("/watchdog");
+  if (wf != NULL && wf[0] != '\0') {
+    watchdogCheckInterval = atoi(wf);
+    free((void*)wf);
+  }
+  Serial.printf("Watchdog: %d\n", watchdogCheckInterval);
+
   // writeTextToFile("/config", ""); // Force unconfigured mode
 
   pinMode(ledPin, OUTPUT);
@@ -397,7 +426,6 @@ void setup() {
   ssid[11] = mac[15];
   ssid[12] = mac[16];
   strcpy(my_ssid, ssid.c_str());
-  Serial.printf("SoftAP SSID: %s\n", my_ssid);
 
   Serial.println("Read config");
   String config_p = readFileToText("/config");

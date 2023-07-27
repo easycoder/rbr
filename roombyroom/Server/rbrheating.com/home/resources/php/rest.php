@@ -42,7 +42,7 @@
         exit;
     }
 
-    // First, the commands that don't require a database connection.
+    // First, the commands that don't require a database table name.
     switch ($method) {
         case 'GET':
             switch ($action) {
@@ -342,9 +342,9 @@
                 // Endpoint: {site root}/resources/php/rest.php/confirmuser/<email>/<password>
                 $email = $request[0];
                 $password = $request[1];
-                $xpassword = "x$password";
-                $result = query($conn, "SELECT null FROM users WHERE email='$email' AND password='$xpassword'");
-                logger("SELECT null FROM user WHERE email='$email' AND password='$xpassword'");
+                $xpassword = "$password";
+                $result = query($conn, "SELECT null FROM users WHERE email='$email' AND password='$password'");
+                logger("SELECT null FROM user WHERE email='$email' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $message = "You are now registered with RBR Heating with the following credentials:<br><br>"
                         . "User name: $email<br>"
@@ -371,12 +371,15 @@
                         . "Password: $password<br><br>"
                         . "Please save these details. You should only need them if you change to a different browser "
                         . "or use a different device to access RBR Heating.";
+                } else {
+                    print "No record found";
+                    http_response_code(404);
                 }
                 mysqli_free_result($result);
                 break;
 
             case 'managed':
-                // Get the systems managed by this user.
+                // Get the systems managed by this user
                 // Endpoint: {site root}/resources/php/rest.php/managed/<email>/<password>
                 $email = $request[0];
                 $password = $request[1];
@@ -389,11 +392,25 @@
                 mysqli_free_result($result);
                 break;
 
+            case 'logdata':
+                // Get log values for a given MAC and a range of times
+                // Endpoint: {site root}/resources/php/rest.php/sensors/<mac>/ts1/ts2
+                $mac = $request[0];
+                $ts1 = $request[1];
+                $ts2 = $request[2];
+                print $mac;
+                $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac' AND ts>=$ts1 AND ts<$ts2");
+                while ($row = mysqli_fetch_object($result)) {
+                    $sensors = base64_decode($row->sensors);
+                    print "$sensors\n";
+                }
+                mysqli_free_result($result);
+                break;
+
             case 'sensors':
-                // Get the systems sensor values, given its MAC.
+                // Get the systems sensor values, given its MAC
                 // Endpoint: {site root}/resources/php/rest.php/sensors/<mac>
                 $mac = $request[0];
-//                print $mac;
                 $result = query($conn, "SELECT sensors FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
                     $sensors = base64_decode($row->sensors);
@@ -422,6 +439,37 @@
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
+                }
+                break;
+
+            case 'testread':
+                // A test endpoint that reads fro the 'test' field
+                // Endpoint: {site root}/resources/php/rest.php/testread/{mac}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = query($conn, "SELECT test FROM systems WHERE mac='$mac'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $test = $row->test;
+                    print $test;
+                } else {
+                    http_response_code(404);
+                    print "System with MAC '$mac' not found.";
+                }
+                break;
+
+            case 'testwrite':
+                // A test endpoint that writes to the 'test' field
+                // Endpoint: {site root}/resources/php/rest.php/testwrite/{mac}/{password}/{message}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $message = trim($request[2]);
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    query($conn, "UPDATE systems SET test='$message' WHERE mac='$mac'");
+                    print $message;
+                } else {
+                    http_response_code(404);
+                    print "MAC '$mac' and password '$password' do not match any record.";
                 }
                 break;
 
@@ -528,6 +576,17 @@
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
                 }
+                break;
+
+            case 'logdata':
+                // Record a set of sensor data.
+                // Endpoint: {site root}/resources/php/rest.php/_sensors/<mac>
+                $mac = $request[0];
+                $sensors = file_get_contents("php://input");
+                $encoded = base64_encode($sensors);
+                $timestamp = time();
+                query($conn, "INSERT INTO sensors (mac,ts,sensors) VALUES ('$mac','$timestamp','$encoded')");
+                logger("INSERT INTO sensors (mac,ts,sensors) VALUES ('$mac','$timestamp','$encoded')");
                 break;
 
             case 'sensors':

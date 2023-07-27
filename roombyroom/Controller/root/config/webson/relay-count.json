@@ -1,0 +1,52 @@
+{
+    "#doc": "Get the relay count",
+    "#element": "div",
+    "position": "absolute",
+    "left": 0,
+    "top": 0,
+    "width": "100%",
+    "height": "100%",
+    "#": ["$Text1", "$Text2", "$Count", "$Text3"],
+
+    "$Text1": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "green",
+        "font-size": "2em",
+        "#content": "Relay count"
+    },
+
+    "$Text2": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "normal",
+        "font-size": "1.4em",
+        "text-align": "left",
+        "#content": "Please give the number of relays handled by this extender."
+    },
+
+    "$Count": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "text-align": "center",
+        "#": "$Text",
+
+        "$Text": {
+            "#element": "input",
+            "@id": "cf-count",
+            "width": "calc(100% - 4em)",
+            "font-size": "1.2em"
+        }
+    },
+
+    "$Text3": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "normal",
+        "font-size": "1.4em",
+        "text-align": "left",
+        "#content": "Then tap the Next button below."
+    }
+}

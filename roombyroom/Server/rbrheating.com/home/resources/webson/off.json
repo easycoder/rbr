@@ -4,13 +4,13 @@
     "@id" : "room-/ROOM/-mode-icon",
     "display": "flex",
     "flex-direction": "row",
-    "width": "10em",
+    "width": "8em",
     "pointer-events": "a",
     "#": ["$Button", "$Padding", "$Text"],
 
     "$Button": {
         "#element": "div",
-        "margin-right": "0.5em",
+        "margin-right": "0.2em",
         "pointer-events": "none",
         "#": "$Icon",
 
@@ -18,13 +18,13 @@
             "#element": "img",
             "@src": "resources/icon/off.png?v=2",
             "height": "2em",
-            "padding": "0.5em"
+            "padding": "0.3em 0 0 0"
         }
     },
 
     "$Padding": {
         "#element": "div",
-        "width": "0.2em",
+        "width": "0.1em",
         "pointer-events": "none"
     },
 
@@ -50,7 +50,7 @@
                 "#element": "div",
                 "#content": "Off",
                 "@id": "room-/ROOM/-mode-text",
-                "font-size": "1.4em",
+                "font-size": "1.2em",
                 "font-weight": "bold",
                 "padding-top": "0.4em"
             },

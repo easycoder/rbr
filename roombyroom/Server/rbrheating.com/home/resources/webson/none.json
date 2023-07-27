@@ -4,12 +4,12 @@
     "@id" : "room-/ROOM/-mode-icon",
     "display": "flex",
     "flex-direction": "row",
-    "width": "10em",
+    "width": "8em",
     "#": ["$Button", "$Padding"],
 
     "$Button": {
         "#element": "div",
-        "margin-right": "0.5em",
+        "margin-right": "0.2em",
         "pointer-events": "none",
         "height": "3em"
     },

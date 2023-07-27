@@ -8,10 +8,11 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 10
+#define CURRENT_VERSION 12
 #define BAUDRATE 115200
-#define WATCHDOG_INTERVAL 60
+#define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 3600
+#define RELAY_DELAY 300
 #define ERROR_MAX 10
 #define FORMAT_LITTLEFS_IF_FAILED true
 #define LED_PIN 2
@@ -33,12 +34,14 @@ char host_ipaddr[40];
 char host_gateway[40];
 char host_server[40];
 char relayResponse[20][200];
+char relayCommand[10][20];
 char relayType[10][10];
 bool relayState[10];
 bool relayFlag[10];
 uint relayVersion = 0;
 uint logLevel = LOG_LEVEL_NONE;
 uint watchdog = 0;
+uint watchdogCheckInterval;
 bool busyStartingUp = true;
 bool busyGettingUpdates = false;
 bool busyUpdatingClient = false;
@@ -165,13 +168,26 @@ void requestWatchdogCheck() {
       Serial.printf("Watchdog count is %d", watchdog);
     }
     if (watchdog == 0) {
-      Serial.println(": No relay requests have arrived in the past minute, so restart");
+      Serial.println(": No recent requests");
+      watchdogCheckInterval += WATCHDOG_CHECK_INTERVAL;
+      delay(10);
+      writeWatchdogCheckInterval();
       restart();
+    }
+    if (watchdogCheckInterval > WATCHDOG_CHECK_INTERVAL) {
+      watchdogCheckInterval = WATCHDOG_CHECK_INTERVAL;
+      writeWatchdogCheckInterval();
     }
     if (logLevel >= LOG_LEVEL_LOW) {
       Serial.println();
     }
     watchdog = 0;
+}
+
+void writeWatchdogCheckInterval() {
+  char buf[10];
+  sprintf(buf, "%d", watchdogCheckInterval);
+  writeTextToFile("/watchdog", buf);
 }
 
 // Request an update check
@@ -234,26 +250,6 @@ void handle_setup(AsyncWebServerRequest *request) {
   }
 }
 
-// Endpoint: GET http://{ipaddr}/on?id={id}
-void handle_on(AsyncWebServerRequest *request, const char* type, const char* id_s) {
-  uint id = atoi(id_s) - 100;
-  strcpy(relayType[id], type);
-  relayState[id] = true;
-  relayFlag[id] = true;
-  request->send(200, "text/plain", relayResponse[id]);
-  watchdog++;
-}
-
-// Endpoint: GET http://{ipaddr}/off?id={id}
-void handle_off(AsyncWebServerRequest *request, const char* type, const char* id_s) {
-  uint id = atoi(id_s) - 100;
-  strcpy(relayType[id], type);
-  relayState[id] = false;
-  relayFlag[id] = true;
-  request->send(200, "text/plain", relayResponse[id]);
-  watchdog++;
-}
-
 // Endpoint: GET http://{ipaddr}/relay/update
 void handle_relay_updater(AsyncWebServerRequest *request) {
   if (busyUpdatingClient) {
@@ -290,6 +286,14 @@ void setLogLevel(AsyncWebServerRequest *request, int level) {
   sprintf(buf, "%d", logLevel);
   writeTextToFile("/logLevel", buf);
   request->send(200, "text/plain", String(logLevel));
+}
+
+// Show the status of a relay
+void showStatus(AsyncWebServerRequest *request, uint id) {
+  if (logLevel >= LOG_LEVEL_MEDIUM) {
+    Serial.printf("Relay %d response: %s\n", id, relayResponse[id]);
+  }
+  request->send(200, "text/plain", relayResponse[id]);
 }
 
 // Set up the network and the local server
@@ -351,9 +355,9 @@ void setupNetwork() {
   });
 
   localServer.on("/clear", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", String(restarts));
     strcpy(restarts, "0");
     writeTextToFile("/restarts", restarts);
-    request->send(200, "text/plain", String(restarts));
   });
 
   localServer.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -380,25 +384,39 @@ void setupNetwork() {
     setLogLevel(request, 3);
   });
 
-  localServer.on("/on", HTTP_GET, [](AsyncWebServerRequest *request) {
-    AsyncWebParameter* p = request->getParam("type");
-    const char* type = p->value().c_str();
-    p = request->getParam("id");
-    const char* id = p->value().c_str();
-    handle_on(request, type, id);
-  });
-
-  localServer.on("/off", HTTP_GET, [](AsyncWebServerRequest *request) {
-    AsyncWebParameter* p = request->getParam("type");
-    const char* type = p->value().c_str();
-    p = request->getParam("id");
-    const char* id = p->value().c_str();
-    handle_off(request, type, id);
+  localServer.on("/onoff", HTTP_GET, [](AsyncWebServerRequest *request) {
+    AsyncWebParameter* p = request->getParam("id");
+    const char* id_s = p->value().c_str();
+    uint id = atoi(id_s) - 100;
+    p = request->getParam("command");
+    String str = p->value();
+    str.replace(" ", "%20");
+    const char* command = str.c_str();
+    relayResponse[id][0] = '\0';
+    strcpy(relayCommand[id], command);
+    relayFlag[id] = true;
+    watchdog++;
+    int n = RELAY_DELAY;
+    while (--n > 0) {
+      delay(10);
+      if (!relayFlag[id]) {
+        break;
+      }
+    }
+    if (logLevel >= LOG_LEVEL_MEDIUM) {
+      Serial.printf("%dms: ", n * 10);
+    }
+    if (n > 0) {
+      showStatus(request, id);
+    } else {
+      request->send(404, "text/plain", "Timeout");
+    }
   });
 
   localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request) {
     Serial.printf("Received version request from %s\n", request->client()->remoteIP().toString().c_str());
     request->send(200, "text/plain", ((String)relayVersion).c_str());
+    watchdog++;
   });
 
   localServer.on("/relay/update", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -436,7 +454,7 @@ void setupNetwork() {
   strcat(requestRelayUpdateURL, "/relay/current");
 
   // Call the watchdog regularly
-  watchdogTicker.attach(WATCHDOG_INTERVAL, requestWatchdogCheck);
+  watchdogTicker.attach(watchdogCheckInterval, requestWatchdogCheck);
 
   // Check for updates periodically
   updateTicker.attach(UPDATE_CHECK_INTERVAL, requestUpdateCheck);
@@ -624,6 +642,16 @@ void setup(void) {
   sprintf(restarts, "%d", nRestarts);
   writeTextToFile("/restarts", restarts);
   Serial.printf("Restarts: %d\n", nRestarts);
+
+  // Deal with the watchdog check interval
+  watchdogCheckInterval = WATCHDOG_CHECK_INTERVAL;
+  const char* wf = readFileToText("/watchdog");
+  if (wf != NULL && wf[0] != '\0') {
+    watchdogCheckInterval = atoi(wf);
+    free((void*)wf);
+  }
+  Serial.printf("Watchdog: %d\n", watchdogCheckInterval);
+
   const char* ver = readFileToText("/relay.version");
   relayVersion = atoi(ver);
 
@@ -716,24 +744,13 @@ void loop(void) {
         char idbuf[5];
         sprintf(idbuf, "%d", id);
         strcat(deviceURL, idbuf);
-        if (strcmp(relayType[n], "tasmota") == 0) {
-          strcat(deviceURL, "/cm?cmnd=power%20");
-        } else if (strcmp(relayType[n], "shelly") == 0) {
-          strcat(deviceURL, "/relay/0?turn=");
-        } else {
-          strcat(deviceURL, "/");
-        }
-        if (relayState[n]) {
-          strcat(deviceURL, "on");
-        } else {
-          strcat(deviceURL, "off");
-        }
+        strcat(deviceURL, relayCommand[n]);
         if (logLevel >= LOG_LEVEL_MEDIUM) {
           Serial.printf("Relay %d: %s - ", n, deviceURL);
         }
         char* httpPayload = httpGET(deviceURL, false);
         if (logLevel >= LOG_LEVEL_MEDIUM) {
-          Serial.printf("%s\n", httpPayload);
+          Serial.printf("Status: %s\n", httpPayload);
         }
         strcpy(relayResponse[n], httpPayload);
         free(httpPayload);

@@ -23,8 +23,6 @@
     end
     on click RightButton
     begin
-        set style `display` of LeftButton to `none`
-        set style `display` of RightButton to `none`
         set property `name` of Map to the content of NameInput
         put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
         rest post Data to `/config/post` or alert `POST error`

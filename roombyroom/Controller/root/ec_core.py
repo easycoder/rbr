@@ -1162,7 +1162,7 @@ class Core(Handler):
         if token in ['now', 'today', 'newline', 'break', 'empty']:
             return value
 
-        if token in ['date', 'encode', 'decode', 'stringify', 'json', 'lowercase', 'hash', 'float', 'integer']:
+        if token in ['date', 'encode', 'decode', 'stringify', 'json', 'lowercase', 'uppercase', 'hash', 'float', 'integer']:
             value['content'] = self.nextValue()
             return value
 
@@ -1536,9 +1536,17 @@ class Core(Handler):
         return value
 
     def v_lowercase(self, v):
+        content = self.getRuntimeValue(v['content'])
         value = {}
         value['type'] = 'text'
-        value['content'] = v['content']['content'].lower()
+        value['content'] = content.lower()
+        return value
+
+    def v_uppercase(self, v):
+        content = self.getRuntimeValue(v['content'])
+        value = {}
+        value['type'] = 'text'
+        value['content'] = content.upper()
         return value
 
     def v_modulo(self, v):
