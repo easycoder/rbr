@@ -205,7 +205,7 @@ class Program:
 					if self.debugStep and command['debug']:
 						lino = command['lino'] + 1
 						line = self.script.lines[command['lino']].strip()
-						print(f'{self.name}: Line {lino}: PC: {self.pc} {domainName}:{keyword}:  {line}')
+						print(f'{self.name}: Line {lino}: {domainName}:{keyword}:  {line}')
 					domain = self.domainIndex[domainName]
 					handler = domain.runHandler(keyword)
 					if handler:

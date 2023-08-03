@@ -40,17 +40,16 @@ void restart() {
   ESP.reset();
 }
 
+void badIP(String ipaddr) {
+  Serial.println("Bad IP '" + ipaddr + "'");
+  restart();
+}
+
 // Connect to the controller network and launch the updater
 void connectToHost() {
-  Serial.printf("host_ssid: %s\n", host_ssid);
-  Serial.printf("host_password: %s\n", host_password);
-  Serial.printf("host_ipaddr: %s\n", host_ipaddr);
-  Serial.printf("host_gateway: %s\n", host_gateway);
-  Serial.printf("host_server: %s\n", host_server);
+  Serial.printf("%s %s %s\n", host_ssid, host_password, host_ipaddr);
 
-  strcat(requestUpdateURL, "http://");
-  strcat(requestUpdateURL, host_server);
-  strcat(requestUpdateURL, "/relay/current");
+  sprintf(requestUpdateURL, "http://%s/relay/current", host_server);
 
   // Check IP addresses are well-formed
 
@@ -59,18 +58,15 @@ void connectToHost() {
   IPAddress server;
 
   if (!ipaddr.fromString(host_ipaddr)) {
-    Serial.println("Bad IP '" + String(host_ipaddr) + "'");
-    restart();
+    badIP(host_ipaddr);
   }
 
   if (!gateway.fromString(host_gateway)) {
-    Serial.println("Bad IP '" + String(host_gateway) + "'");
-    restart();
+    badIP(host_gateway);
   }
 
   if (!server.fromString(host_server)) {
-    Serial.println("Bad IP '" + String(host_server) + "'");
-    restart();
+    badIP(host_server);
   }
 
   WiFi.mode(WIFI_STA);
@@ -110,31 +106,11 @@ void setup() {
       Serial.println("LittleFS/config is not valid JSON");
       restart();
     } else {
-      if (config.containsKey("ssid")) {
-        strcpy(host_ssid, config["ssid"]);
-      } else {
-        host_ssid[0] = '\0';
-      }
-      if (config.containsKey("password")) {
-        strcpy(host_password, config["password"]);
-      } else {
-        host_password[0] = '\0';
-      }
-      if (config.containsKey("ipaddr")) {
-        strcpy(host_ipaddr, config["ipaddr"]);
-      } else {
-        host_ipaddr[0] = '\0';
-      }
-      if (config.containsKey("gateway")) {
-        strcpy(host_gateway, config["gateway"]);
-      } else {
-        host_gateway[0] = '\0';
-      }
-      if (config.containsKey("server")) {
-        strcpy(host_server, config["server"]);
-      } else {
-        host_server[0] = '\0';
-      }
+      getConfigValue(config, "ssid", host_ssid);
+      getConfigValue(config, "password", host_password);
+      getConfigValue(config, "ipaddr", host_ipaddr);
+      getConfigValue(config, "gateway", host_gateway);
+      getConfigValue(config, "server", host_server);
       if (host_ssid[0] == '\0' || host_password[0] == '\0'
       || host_ipaddr[0] == '\0' || host_gateway[0] == '\0' || host_server[0] == '\0') {
         Serial.println("Bad config data");
@@ -149,6 +125,14 @@ void setup() {
   }
 }
 
+void getConfigValue(StaticJsonDocument<400> config, String name, char* value) {
+  if (config.containsKey(name)) {
+    strcpy(value, config[name]);
+  } else {
+    value[0] = '\0';
+  }
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // Main loop
 void loop() {
@@ -159,7 +143,8 @@ void loop() {
     t_httpUpdate_return ret = ESPhttpUpdate.update(client, requestUpdateURL);
     switch (ret) {
       case HTTP_UPDATE_FAILED:
-          Serial.println("Update failed");
+          Serial.println(ESPhttpUpdate.getLastErrorString().c_str());
+          restart();
           break;
       case HTTP_UPDATE_NO_UPDATES:
           Serial.println("No update took place");

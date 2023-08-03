@@ -39,7 +39,7 @@
         put the height of the window into N
         multiply N by 9
         divide N by 16
-        set style `width` of Body to N
+        set style `width` of Body to N cat `px`
         set style `margin` of Body to `0 auto`
         set style `border` of Body to `1px solid lightgray`
     end
@@ -82,8 +82,6 @@ Start:
 !    	set style `display` of NextButton to `block`
     	go to OnNextButton
     end
-!    on click PreviousButton go to OnPreviousButton
-!    on click NextButton go to OnNextButton
     set style `display` of PreviousButton to `none`
     set style `display` of NextButton to `none`
 
@@ -99,8 +97,6 @@ Start:
 ! 	Bring in a slide from the right
 
 OnNextButton:
-    set style `display` of PreviousButton to `none`
-    set style `display` of NextButton to `none`
     ! Create a new History element
     add 1 to the elements of History giving N
     set the elements of History to N
@@ -166,16 +162,17 @@ OnPreviousButton:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Process the result from a step
 ProcessResult:
-    if Result is `end` stop
-    else if Result is `back`
+    if Result is `back`
     begin
+debug step
         print `Go back`
         go to OnPreviousButton
     end
+    else if Result is `end` stop
     else
     begin
         put Result into CurrentSlide
-        print `Go to ` cat CurrentSlide
+!        print `Go to ` cat CurrentSlide
         put Result into CurrentSlide
         go to OnNextButton
     end

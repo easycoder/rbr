@@ -235,9 +235,15 @@ def relayversion():
     return version
 
 # Endpoint: GET <server-ip>/relay/update
-# Called to get the current relay binary
+# Called to get the updater binary
 @app.get('/relay/update')
 def relayupdate():
+    return static_file('esp/esp8266_r1_relay_updater/esp8266_r1_relay_updater.ino.bin', root='.')
+
+# Endpoint: GET <server-ip>/relay/current
+# Called to get the current relay binary
+@app.get('/relay/current')
+def relaycurrent():
     return static_file('esp/esp8266_r1_relay/esp8266_r1_relay.ino.bin', root='.')
 
 # Endpoint: GET <server-ip>/notify/?hum=hhh&temp=ttt&id=id

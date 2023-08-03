@@ -154,5 +154,8 @@ Rescan:
         put `extender-password` into Result
         exit
     end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
+
 
     stop

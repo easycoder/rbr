@@ -30,9 +30,9 @@ cp system/dnsmasq.conf /etc/dnsmasq.conf
 cp system/hostapd.conf /etc/hostapd.conf
 echo
 echo "If you're using a 'proper' router you can ignore the rest of this as it only applies to a built-in hotspot."
-echo "The following MAC address is of the interface connecting to the Internet."
-echo "You can use it in the SSID of your access point."
 ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'>interfaces
 python3 getmac.py >mac
-cat mac
-echo "Now set up the wifi access point with 'nano /etc/hostapd.conf' then type 'reboot'"
+echo
+echo "Type 'cat mac' to get the MAC address of the interface connecting to the Internet."
+echo "Use this to construct a unique SSID for your local access point (hotspot)."
+echo "Run 'nano /etc/hostapd.conf', edit the fields containing 'XXXXXXXXXX' then type 'reboot'"
