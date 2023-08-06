@@ -8,7 +8,7 @@
     "display": "flex",
     "flex-direction": "column",
     "font-size": "<#parent_width/27>",
-    "#": ["$Titles", "$OuterPanel", "$HelpPanel", "$StatisticsPanel", "$Mask", "$StatusPanel"],
+    "#": ["$Titles", "$OuterPanel", "$StatisticsPanel", "$Mask", "$StatusPanel"],
 
     "$Titles": {
         "#element": "div",
@@ -237,13 +237,6 @@
     "$ButtonsPanel": {
         "#element": "div",
         "@id": "buttonspanel",
-        "flex": 1,
-        "display": "none"
-    },
-
-    "$HelpPanel": {
-        "#element": "div",
-        "@id": "helppanel",
         "flex": 1,
         "display": "none"
     },

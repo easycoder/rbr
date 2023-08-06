@@ -5,7 +5,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "#": ["$Title", "$Name", "$Devices",
-        "$Times", "$Pad", "$Save", "$Cancel", "$Pad", "$Help"],
+        "$Times", "$Pad", "$Save", "$Cancel", "$Pad"],
 
     "$Title": {
         "#element": "div",
@@ -45,12 +45,6 @@
     "$Cancel": {
         "$ID": "button-cancel",
         "$Label": "Cancel",
-        "#": "$Button"
-    },
-
-    "$Help": {
-        "$ID": "button-help",
-        "$Label": "Help",
         "#": "$Button"
     },
 

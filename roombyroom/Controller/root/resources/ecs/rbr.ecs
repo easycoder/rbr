@@ -10,7 +10,6 @@
     div SystemTitlePanel
     div SystemNamePanel
     div OuterPanel
-    div HelpPanel
     div StatisticsPanel
     div RoomNamePanel
     div RoomTempPanel
@@ -47,9 +46,6 @@
     button CancelButton
     button BackupButton
     button RestoreButton
-    button WelcomeButton
-    button EvaluateButton
-    button HelpButton
     button DialogButton1
     button DialogButton2
     module ProfileModule
@@ -62,7 +58,6 @@
     variable Revisit
     variable Demo
     variable Webson
-    variable HelpScript
     variable ModeScript
     variable Script
     variable MAC
@@ -243,9 +238,7 @@ Main:
 !    put empty into storage as `Systems`
 !    put empty into storage as `MAC`
 
-!	First get EasyCoder scripts and the various layout scripts
-    rest get HelpScript from `/resources/ecs/storyteller.ecs?v=` cat now
-    	or go to AbandonShip
+!	First get the various layout scripts
 
     put empty into MainMenuWebson
     put empty into RoomWebson
@@ -271,7 +264,6 @@ Main:
     attach SystemNamePanel to `system-name`
     attach MainPanel to `mainpanel`
     attach OuterPanel to `outerpanel`
-    attach HelpPanel to `helppanel`
     attach StatisticsPanel to `statisticspanel`
     attach Alive to `alive`
     attach ModePanel to `mode-panel`
@@ -317,7 +309,6 @@ Main:
         begin
         	close Storyteller
             set style `display` of OuterPanel to `block`
-            set style `display` of HelpPanel to `none`
             clear MainPanel
             clear Blocked
             set Redraw
@@ -330,21 +321,11 @@ Main:
         begin
         	close Storyteller
             set style `display` of OuterPanel to `block`
-            set style `display` of HelpPanel to `none`
             clear MainPanel
             clear Blocked
             set Redraw
         end
         else if not Blocked go to ShowMenu
-    end
-
-    get Revisit from storage as `revisit`
-    if Revisit is empty
-    begin
-    	put `yes` into storage as `revisit`
-        put `home` into SID
-        put `Welcome` into TID
-      	go to RunHelp
     end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -809,15 +790,6 @@ GetMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Process the result of running another module
 ProcessResult:
-    if left 4 of Result is `Help`
-    begin
-        split Result on ` ` giving Result
-        index Result to 1
-        put Result into SID
-        index Result to 2
-        put Result into TID
-        go to RunHelp
-    end
     if Result is `Changed`
     begin
     	clear MainPanel
@@ -853,9 +825,6 @@ ShowMenu:
     attach GetSysParamsButton to `button-getsysparams`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
-    attach WelcomeButton to `button-welcome`
-    attach EvaluateButton to `button-evaluate`
-    attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
 
     on click GetSysParamsButton go to GetSystemParameters
@@ -877,27 +846,6 @@ ShowMenu:
     on click BackupButton go to Backup
 
     on click RestoreButton go to Restore
-
-    on click WelcomeButton
-    begin
-        put `home` into SID
-        put `Welcome` into TID
-      	go to RunHelp
-    end
-
-    on click EvaluateButton
-    begin
-        put `home` into SID
-        put `Evaluate` into TID
-      	go to RunHelp
-    end
-
-    on click HelpButton
-    begin
-        put `home` into SID
-        put `content` into TID
-      	go to RunHelp
-    end
 
     on click CancelButton
     begin
@@ -924,7 +872,6 @@ GetSystemParameters:
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
     attach CancelButton to `button-cancel`
-    attach HelpButton to `button-help`
 
     set the content of SystemMAC to `MAC: ` cat MAC
     set the content of SystemPassword to `Password: ` cat Password
@@ -941,13 +888,6 @@ GetSystemParameters:
     begin
     	set Flag
         go to GetRequestRelay
-    end
-
-    on click HelpButton
-    begin
-        put `home` into SID
-        put `SysParamsMenu` into TID
-      	go to RunHelp
     end
 
     on click CancelButton
@@ -971,7 +911,6 @@ GetSystemName:
     attach Input to `getname-input`
     attach OKButton to `getname-ok`
     attach CancelButton to `getname-cancel`
-    attach HelpButton to `getname-help`
     if Flag set the content of Input to SystemName
     else set style `display` of CancelButton to `none`
     on click OKButton
@@ -998,15 +937,6 @@ GetSystemName:
         set Redraw
         stop
     end
-    on click HelpButton
-    begin
-        clear MainPanel
-    	set style `display` of OuterPanel to `none`
-      	set style `display` of HelpPanel to `block`
-    	put `home` into SID
-        put `Name` into TID
-        go to RunHelp
-    end
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1021,7 +951,6 @@ GetRequestRelay:
     attach Input to `getrequest-input`
     attach OKButton to `getrequest-ok`
     attach CancelButton to `getrequest-cancel`
-    attach HelpButton to `getrequest-help`
     put property `request` of Map into RequestIP
     if RequestIP is `undefined` put empty into RequestIP
     if Flag set the content of Input to RequestIP
@@ -1041,15 +970,6 @@ GetRequestRelay:
         clear Blocked
         set Redraw
         stop
-    end
-    on click HelpButton
-    begin
-        clear MainPanel
-    	set style `display` of OuterPanel to `none`
-      	set style `display` of HelpPanel to `block`
-    	put `home` into SID
-        put `Request` into TID
-        go to RunHelp
     end
 	stop
 
@@ -1179,16 +1099,6 @@ PostMap:
         end
         continue
 	end
-	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Show a help page
-RunHelp:
-	set Blocked
-    gosub to Unmask
-    set style `display` of OuterPanel to `none`
-    set style `display` of HelpPanel to `block`
-    run HelpScript with HelpPanel and SID and TID as Storyteller
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -17,7 +17,6 @@
     button RoomEditButton
     button RoomDeleteButton
     button RoomInfoButton
-    button HelpButton
     button CancelButton
     button DialogButton1
     button DialogButton2
@@ -51,7 +50,6 @@ Editor:
     attach RoomEditButton to `button-edit`
     attach RoomDeleteButton to `button-delete`
     attach RoomInfoButton to `button-info`
-    attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
 
     put element ClickIndex of Rooms into RoomSpec
@@ -98,7 +96,6 @@ Editor:
         put empty into Result
     	rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
         run Script with MainPanel and Map and CurrentProfile and ClickIndex and Result
-        if left 4 of Result is `Help` exit
         if Result is `Changed` go to ExitWithChanges else go to ExitWithoutChanges
     end
     
@@ -178,12 +175,6 @@ Editor:
             go to ExitWithoutChanges
         end
         stop
-    end
-
-    on click HelpButton
-    begin
-    	put `Help home RoomTools` into Result
-    	exit
     end
 
     on click CancelButton

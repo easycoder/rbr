@@ -8,10 +8,10 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 9
+#define CURRENT_VERSION 13
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 120
-#define UPDATE_CHECK_INTERVAL 3600
+#define UPDATE_CHECK_INTERVAL 600
 
 // Constants
 const IPAddress localIP(192,168,66,1);
@@ -51,7 +51,7 @@ void onDefault() {
 
 void showRelayState(char* info) {
   char buf[20];
-  sprintf(buf, "%s Restarts:%s", relayState ? "ON" : "OFF", restarts);
+  sprintf(buf, "%s %d %s", relayState ? "ON" : "OFF", CURRENT_VERSION, restarts);
   strcat(info, buf);
   Serial.println(info);
   sendPlain(info);
@@ -154,7 +154,7 @@ void blink()
 
 // Restart the system
 void restart() {
-  delay(10000);
+  // delay(10000);
   ESP.reset();
 }
 
@@ -388,13 +388,14 @@ void setup() {
     return;
   }
 
+  Serial.println("\n\n");
   doUpdate();
 
   // Count restarts
   int nRestarts = 0;
   const char* rs = readFileToText("/restarts");
   if (rs != NULL && rs[0] != '\0') {
-    nRestarts = atoi(rs) + 1;
+    nRestarts = (atoi(rs) + 1) % 1000;
     free((void*)rs);
   }
   sprintf(restarts, "%d", nRestarts);

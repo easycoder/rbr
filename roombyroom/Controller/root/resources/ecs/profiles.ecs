@@ -19,7 +19,6 @@
     button CalendarButton
     button AddButton
     button OKButton
-    button HelpButton
     button CancelButton
     img CalendarOff
     img CalendarOn
@@ -81,7 +80,6 @@
     attach CalendarButton to `calendar-edit`
     attach AddButton to `profiles-add-button`
     attach OKButton to `profiles-ok-button`
-    attach HelpButton to `profiles-help-button`
     attach CancelButton to `profiles-cancel-button`
 
 	put property `profile` of Map into CurrentProfile
@@ -145,7 +143,6 @@
         set style `display` of ProfilesPanel to `block`
         set style `display` of CalendarPanel to `none`
         if Result is `Changed` set Changed
-        if left 4 of Result is `Help` exit
     end
     
     on click AddButton
@@ -164,12 +161,6 @@
     begin
         set Changed
     	go to Exit
-    end
-    
-    on click HelpButton
-    begin
-        put `Help home Profiles` into Result
-        exit
     end
 
 	on click CancelButton

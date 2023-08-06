@@ -12,7 +12,6 @@
     div List
     div DialogRow
     button OKButton
-    button HelpButton
     button CancelButton
     button DialogCancelButton
     variable Mobile
@@ -85,7 +84,6 @@
     end
 
     attach OKButton to `calendar-ok-button`
-    attach HelpButton to `calendar-help-button`
     attach CancelButton to `calendar-cancel-button`
 	attach Dialog to `calendar-dialog`
     attach List to `profile-list`
@@ -108,13 +106,6 @@
         set property `calendar-data` of Map to Calendar
         set Changed
     	go to Exit
-    end
-    
-    on click HelpButton
-    begin
-    	if DialogOpen stop
-        put `Help home Calendar` into Result
-        exit
     end
 
 	on click CancelButton

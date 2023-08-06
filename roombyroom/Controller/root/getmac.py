@@ -9,4 +9,3 @@ for id, line in enumerate(lines):
 
 len = len(lines)
 print(lines[len - 1])
-

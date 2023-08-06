@@ -1,4 +1,4 @@
-import json, math, hashlib, threading, os, sys, requests, time, numbers
+import json, math, hashlib, threading, os, subprocess, sys, requests, time, numbers
 from psutil import Process
 from datetime import datetime, timezone
 from random import randrange
@@ -292,7 +292,6 @@ class Core(Handler):
         return next
 
     def k_get(self, command):
-        self.add(command)
         if self.nextIsSymbol():
             symbolRecord = self.getSymbolRecord()
             if symbolRecord['valueHolder']:
@@ -919,9 +918,15 @@ class Core(Handler):
         return 0
 
     def k_system(self, command):
-        value = self.nextValue()
+        background = False
+        token = self.nextToken()
+        if token == 'background':
+            self.nextToken()
+            background = True
+        value = self.getValue()
         if value != None:
             command['value'] = value
+            command['background'] = background
             self.add(command)
             return True
         FatalError(self.program.compiler, 'I can\'t give this command')
@@ -929,8 +934,12 @@ class Core(Handler):
 
     def r_system(self, command):
         value = self.getRuntimeValue(command['value'])
+        background = command['background']
         if value != None:
-            os.system(value)
+            if command['background']:
+                subprocess.Popen(["sh",value,"&"])
+            else:
+                os.system(value)
             return self.nextPC()
 
     def k_take(self, command):
@@ -1768,7 +1777,7 @@ class Core(Handler):
         return isinstance(self.getRuntimeValue(condition['value1']), int)
 
     def c_not(self, condition):
-        return not self.getRuntimeValue(condition['value1'])
+        return not self.getRuntimeValue(condition['value'])
 
     def c_even(self, condition):
         return self.getRuntimeValue(condition['value1']) % 2 == 0

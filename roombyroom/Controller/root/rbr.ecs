@@ -75,6 +75,7 @@
     variable LoggerFlag
     variable WarningMessage
     variable FileName
+    variable ExtenderFail
     variable RA
     variable E
     variable EE
@@ -100,6 +101,8 @@
         open File `/mnt/data/network-errors` for reading
         read NetworkErrors from File
         close File
+        put the value of NetworkErrors into NetworkErrors
+        print NetworkErrors cat ` network errors`
     end
     else
     begin
@@ -108,8 +111,8 @@
     end
     if NetworkErrors is greater than 100
     begin
+        print `Too many errors (` cat NetworkErrors cat `) - rebooting`
         gosub to ClearNetworkErrors
-        print `Too many errors - rebooting`
         system `reboot`
     end
 
@@ -121,6 +124,13 @@
 
     clear Changed
     clear Confirm
+    clear ExtenderFail
+
+    ! Test if the local server is running. If not restart it.
+    get Result from `http://172.24.1.1/ping`
+    or go to RestartLocalServer
+    if Result is not `OK` go to RestartLocalServer
+    print `Local server is running`
 
     ! Ask the server for our password and other data
     put empty into RegData
@@ -135,6 +145,22 @@
     gosub to ClearNetworkErrors
     print `Server ` cat RBRServer cat ` connected successfully`
 
+    ! Check if the extender is running (only checks the first one)
+    get Result from `http://172.24.1.90/ping`
+    or begin
+        print `Extender not responding`
+        set ExtenderFail
+        go to CheckIfReboot
+    end
+    gosub to ClearNetworkErrors
+
+CheckIfReboot:
+    if Result is not empty
+    begin
+        split Result on ` `
+        print `Extender restarts: ` cat Result
+    end
+    set the elements of Result to 1
     put json RegData into RegData
     put property `password` of RegData into Password
     print `Password: ` cat Password
@@ -481,7 +507,7 @@ SkipRequests:
                     open File FileName for writing
                     write `` cat RelayErrors to File
                     close File
- print `Relay did not respond: ` cat RelayErrors cat ` errors`
+ print `Request relay did not respond: ` cat RelayErrors cat ` errors`
                     if RelayErrors is greater than 5
                     begin
                         set property `status` of SensorData to `Request relay did not respond`
@@ -565,6 +591,10 @@ Repeat:
     end
 
     if LoggerFlag post stringify LogData to RBRServer cat `/logdata/` cat MAC
+    if ExtenderFail
+    begin
+        get Result from `http://172.24.1.` cat Extender cat `/reset`
+    end
 
     exit
 
@@ -870,6 +900,7 @@ SR1:
                         open File FileName for reading
                         read RelayErrors from File
                         close File
+                        if RelayErrors is empty put 0 into RelayErrors
                         put the value of RelayErrors into RelayErrors
                         add 1 to RelayErrors
                     end
@@ -877,11 +908,15 @@ SR1:
                     open File FileName for writing
                     write `` cat RelayErrors to File
                     close File
- print `Relay did not respond: ` cat RelayErrors cat ` errors`
-                    if RelayErrors is greater than 5
+ print RoomName cat ` relay did not respond: ` cat RelayErrors cat ` errors`
+                    if RelayErrors is 100 set ExtenderFail
+                    else if RelayErrors is greater than 5
                     begin
                         put `Relay request failed in ` cat RoomName into WarningMessage
-                        gosub to ShowWarning
+                        if not ExtenderFail
+                        begin
+                            gosub to ShowWarning
+                        end
                         gosub to NetworkError
                     end
                     go to SR2
@@ -890,14 +925,14 @@ SR1:
                 write `0` to File
                 close File
                 gosub to ClearNetworkErrors
-! print `Result: ` cat Result
+ print `Result: ` cat Result
                 if Result is empty
                 begin
                     put `No response from relay in ` cat RoomName into WarningMessage
                     print WarningMessage
                     gosub to ShowWarning
                 end
-                else
+                else ! Check the return value for each relay type
                 begin
                     if RelayType is `r1`
                     begin
@@ -937,7 +972,7 @@ SR1:
                     end
                 end
             end
-            else
+            else ! Here if we are on a TP-Link router
             begin
                 if RelayType is `Tasmota`
                 begin
@@ -1011,3 +1046,9 @@ NetworkError:
     write `` cat NetworkErrors to File
     close File
     return
+
+! Set a flag to restart the local server
+RestartLocalServer:
+    print `Restart the local server`
+    system `touch /mnt/data/restart`
+    exit

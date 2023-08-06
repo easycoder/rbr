@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 15
+#define CURRENT_VERSION 19
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 3600
@@ -102,14 +102,14 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
         if (logLevel == LOG_LEVEL_HIGH) {
           Serial.printf("Network error %d; restarting...\n", httpResponseCode);
         }
-        restart();
+        ESP.restart();
       } else {
         errorCount = errorCount + 1;
         if (logLevel == LOG_LEVEL_HIGH) {
           Serial.printf("Error %d (%d)\n", httpResponseCode, errorCount);
         }
         if (errorCount == ERROR_MAX) {
-          restart();
+          reset();
         }
       }
     }
@@ -170,8 +170,7 @@ void watchdogCheck() {
       watchdogCheckInterval += WATCHDOG_CHECK_INTERVAL;
       writeWatchdogCheckInterval();
       if ((WiFi.status() == WL_CONNECTED))  {
-        Serial.println("Reconnecting to WiFi...");
-        restart();
+        reset();
       } else {
         Serial.println("Reconnecting to WiFi...");
         WiFi.disconnect();
@@ -198,18 +197,17 @@ void requestUpdateCheck() {
   updateCheck = true;
 }
 
-// Restart the system
-void restart() {
-  Serial.println("Forcing a restart...");
-  delay(10000); // Forces the watchdog to trigger
-  ESP.restart();  // ESP.reset();
+// Reset the system
+void reset() {
+  Serial.println("Forcing a reset...");
+  ESP.restart();
 }
 
 // Endpoint: GET http://{ipaddr}/reset
 void handle_reset(AsyncWebServerRequest *request) {
   Serial.println("Endpoint: reset");
   request->send(200, "text/plain", "Reset");
-  restart();
+  reset();
 }
 
 // Endpoint: GET http://{ipaddr}/factory-reset
@@ -217,11 +215,11 @@ void handle_factory_reset(AsyncWebServerRequest *request) {
   Serial.println("Endpoint: factory-reset");
   writeTextToFile("/config", "");
   request->send(200, "text/plain", "Factory reset");
-  restart();
+  reset();
 }
 
 // Endpoint: GET http://{ipaddr}/
-void handle_root(AsyncWebServerRequest *request) {
+void handle_default(AsyncWebServerRequest *request) {
   char info[200];
   sprintf(info, "RBR WiFi extender v%d %s/%s Restarts:%s", CURRENT_VERSION, host_ssid, host_ipaddr, restarts);
   Serial.println(info);
@@ -238,7 +236,7 @@ void handle_setup(AsyncWebServerRequest *request) {
     String config = p->value();
     Serial.print(config);
     writeTextToFile("/config", config.c_str());
-    restart();
+    ESP.restart();
   }
 }
 
@@ -254,7 +252,7 @@ void setLogLevel(AsyncWebServerRequest *request, int level) {
 
 // Show the status of a relay
 void showStatus(AsyncWebServerRequest *request, uint id) {
-  if (logLevel >= LOG_LEVEL_MEDIUM) {
+  if (logLevel >= LOG_LEVEL_HIGH) {
     Serial.printf("Relay %d response: %s\n", id, relayResponse[id]);
   }
   request->send(200, "text/plain", relayResponse[id]);
@@ -272,17 +270,17 @@ void setupNetwork() {
   ipaddr.fromString(host_ipaddr);
   if (!ipaddr) {
     Serial.println("UnParsable IP '" + String(host_ipaddr) + "'");
-    restart();
+    ESP.restart();
   }
   gateway.fromString(host_gateway);
   if (!gateway) {
     Serial.println("UnParsable IP '" + String(host_gateway) + "'");
-    restart();
+    ESP.restart();
   }
   server.fromString(host_server);
   if (!server) {
     Serial.println("UnParsable IP '" + String(host_server) + "'");
-    restart();
+    ESP.restart();
   }
 
   // Set up the soft AP with up to 10 connections
@@ -306,7 +304,7 @@ void setupNetwork() {
   Serial.println("Set up the local server");
 
   localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    handle_root(request);
+    handle_default(request);
   });
 
   localServer.on("/ping", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -371,7 +369,12 @@ void setupNetwork() {
         }
       }
       if (logLevel >= LOG_LEVEL_MEDIUM) {
-        Serial.printf("%dms: ", n * 10);
+        Serial.printf("Relay %d: ", id);
+        if (n == 0) {
+          Serial.println("Timeout");
+        } else {
+          Serial.printf("%d (%dms): %s\n", n, (RELAY_DELAY - n) * 10, relayResponse[id]);
+        }
       }
       if (n > 0) {
         showStatus(request, id);
@@ -427,21 +430,23 @@ void checkForUpdates() {
     busyGettingUpdates = true;
 
     if (logLevel >= LOG_LEVEL_LOW) {
-      Serial.println("Check for updates");
+      Serial.println("Check for update");
     }
     char* httpPayload = httpGET(requestVersionURL, true);
     int newVersion = atoi(httpPayload);
     free(httpPayload);
     if (newVersion == 0) {
       if (errorCount > 10) {
-        Serial.println("Bad version number from host, so restarting");
-        restart();
+        Serial.println("Bad version number from host, so resetting");
+        reset();
       }
     } else {
-     if (newVersion > CURRENT_VERSION) {
-        Serial.printf("Updating from %d to %d\n", CURRENT_VERSION, newVersion);
+      if (newVersion > CURRENT_VERSION) {
+        Serial.printf("Updating from %d to %d\n\n\n", CURRENT_VERSION, newVersion);
+        writeTextToFile("/restarts", "0");
         WiFiClient client;
         ESPhttpUpdate.update(requestUpdateURL);
+        // This is never reached
       } else {
         Serial.printf("Firmware version %d\n", CURRENT_VERSION);
       }
@@ -453,6 +458,9 @@ void checkForUpdates() {
     relayVersion = atoi(httpPayload);
     free(httpPayload);
     Serial.printf("Relay version %d\n", relayVersion);
+    if (relayVersion == 0) {
+      reset();
+    }
   }
   busyGettingUpdates = false;
   busyUpdatingClient = false;
@@ -496,12 +504,11 @@ void setup(void) {
   int nRestarts = 0;
   const char* rs = readFileToText("/restarts");
   if (rs != NULL && rs[0] != '\0') {
-    nRestarts = atoi(rs) + 1;
+    nRestarts = (atoi(rs) + 1) % 1000;
     free((void*)rs);
   }
   sprintf(restarts, "%d", nRestarts);
   writeTextToFile("/restarts", restarts);
-  Serial.printf("Restarts: %d\n", nRestarts);
 
   // Deal with the watchdog check interval
   watchdogCheckInterval = WATCHDOG_CHECK_INTERVAL;
@@ -515,7 +522,6 @@ void setup(void) {
 
   String ssid = "RBR-EX-000000";
   String mac = WiFi.macAddress();
-  Serial.println("MAC: " + mac);
   ssid[7] = mac[9];
   ssid[8] = mac[10];
   ssid[9] = mac[12];
@@ -523,8 +529,8 @@ void setup(void) {
   ssid[11] = mac[15];
   ssid[12] = mac[16];
   strcpy(softap_ssid, ssid.c_str());
-  Serial.printf("\n\n\nSSID: %s\n", String(softap_ssid));
-  Serial.printf("Watchdog: %d\n", watchdogCheckInterval);
+  Serial.printf("\n\n\nMAC: %s, SSID: %s\n", mac.c_str(), String(softap_ssid));
+  Serial.printf("Version %d Watchdog: %d, restarts: %d\n", CURRENT_VERSION, watchdogCheckInterval, nRestarts);
 
   // Set up the soft AP
   WiFi.mode(WIFI_AP_STA);
@@ -532,14 +538,14 @@ void setup(void) {
   delay(100);
   Serial.println("Read config from LittleFS/config");
   const char* config_s = readFileToText("/config");
-  Serial.printf("Config = %s\n", config_s);
   if (config_s[0] != '\0') {
     StaticJsonDocument<400> config;
     DeserializationError error = deserializeJson(config, config_s);
     if (error) {
-      Serial.println("LittleFS/config is not valid JSON");
+      Serial.printf("Config = %s\n", config_s);
+      Serial.println("Not valid JSON");
       writeTextToFile("/config", "");
-      restart();
+      ESP.restart();
     }
     strcpy(host_ssid, config["host_ssid"]);
     strcpy(host_password, config["host_password"]);
@@ -549,7 +555,6 @@ void setup(void) {
     strcpy(host_server, config["host_server"]);
   }
   free((void*)config_s);
-  Serial.println("Check the parameters");
   if (host_ssid[0] == '\0' || host_password[0] == '\0' || softap_password[0] == '\0'
     || host_ipaddr[0] == '\0' || host_gateway[0] == '\0' || host_server[0] == '\0') {
     Serial.println("Missing config data");
@@ -596,12 +601,9 @@ void loop(void) {
         uint id = n + 100;
         strcpy(deviceURL, deviceRoot);
         sprintf(deviceURL, "%s%d%s", deviceRoot, id, relayCommand[n]);
-        if (logLevel >= LOG_LEVEL_MEDIUM) {
-          Serial.printf("Relay %d: %s - ", n, deviceURL);
-        }
         char* httpPayload = httpGET(deviceURL, false);
-        if (logLevel >= LOG_LEVEL_MEDIUM) {
-          Serial.printf("Status: %s\n", httpPayload);
+        if (logLevel >= LOG_LEVEL_HIGH) {
+          Serial.printf("Relay %d: %s - Status: %s\n", n, deviceURL, deviceURL, httpPayload);
         }
         strcpy(relayResponse[n], httpPayload);
         free(httpPayload);

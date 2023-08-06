@@ -10,6 +10,13 @@ app = Bottle()
 ###############################################################################
 # This is the RBR local website at http://rbr.home
 
+# Endpoint: GET <server-ip>/ping
+# Called to register
+@app.get('/ping')
+def ping():
+    # print('Ping')
+    return 'OK'
+
 # Endpoint: GET <server-ip>/register/<mac>
 # Called to register
 @app.get('/register/<mac>')

@@ -1,6 +1,12 @@
 #!/bin/sh
 
 # This script runs every minute as a cron task
+
+# Test if a server restart is requested
+if [ -f "/mnt/data/restart" ]; then
+   sh server.sh
+fi
+
 # Make sure we have the MAC address
 if ! [ -s mac ]
 then

@@ -153,7 +153,7 @@
             "height": "2em",
             "margin-bottom": "0.5em",
             "display": "flex",
-            "#": ["$Add", "$Pad", "$OK", "$Pad", "$Help", "$Pad", "$Cancel"],
+            "#": ["$Add", "$Pad", "$OK", "$Pad", "$Pad", "$Cancel"],
 
             "$Add": {
                 "#element": "button",
@@ -180,12 +180,6 @@
             "$OK": {
                 "$ID": "profiles-ok-button",
                 "$Label": "OK",
-                "#": "$Button"
-            },
-
-            "$Help": {
-                "$ID": "profiles-help-button",
-                "$Label": "Help",
                 "#": "$Button"
             },
 
@@ -355,17 +349,11 @@
             "height": "2em",
             "margin-bottom": "0.5em",
             "display": "flex",
-            "#": ["$OK", "$Pad", "$Help", "$Pad", "$Cancel"],
+            "#": ["$OK", "$Pad", "$Pad", "$Cancel"],
 
             "$OK": {
                 "$ID": "calendar-ok-button",
                 "$Label": "OK",
-                "#": "$Button"
-            },
-
-            "$Help": {
-                "$ID": "calendar-help-button",
-                "$Label": "Help",
                 "#": "$Button"
             },
 

@@ -4,7 +4,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$Name", "$Up", "$Down", "$Pad", "$Edit", "$Delete", "$Pad", "$Info", "$Pad", "$Help", "$Cancel"],
+    "#": ["$Name", "$Up", "$Down", "$Pad", "$Edit", "$Delete", "$Pad", "$Info", "$Pad", "$Cancel"],
 
     "$Name": {
         "#element": "div",
@@ -43,12 +43,6 @@
     "$Info": {
         "$ID": "button-info",
         "$Label": "Show room info",
-        "#": "$Button"
-    },
-
-    "$Help": {
-        "$ID": "button-help",
-        "$Label": "Help",
         "#": "$Button"
     },
 

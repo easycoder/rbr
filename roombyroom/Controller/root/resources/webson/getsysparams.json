@@ -4,7 +4,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$MAC", "$Password", "$GetName", "$GetRequest", "$Help", "$Cancel"],
+    "#": ["$MAC", "$Password", "$GetName", "$GetRequest", "$Cancel"],
 
     "$MAC": {
         "#element": "div",
@@ -35,12 +35,6 @@
     "$GetRequest": {
         "$ID": "button-getrequest",
         "$Label": "Set the request relay IP",
-        "#": "$Button"
-    },
-
-    "$Help": {
-        "$ID": "button-help",
-        "$Label": "Help",
         "#": "$Button"
     },
 

@@ -23,7 +23,6 @@
     button TimesAddButton
     button TimesSaveButton
     button TimesCancelButton
-    button TimesHelpButton
     button PeriodSave
     button PeriodDelete
     img HourUpButton
@@ -87,7 +86,6 @@
 	attach TimesAddButton to `edit-add-button`
     attach TimesSaveButton to `edit-save-button`
     attach TimesCancelButton to `edit-cancel-button`
-    attach TimesHelpButton to `edit-help-button`
     
     ! Convert 'until' to 'from' for all periods
     put the json count of Periods into NPeriods
@@ -166,13 +164,7 @@
        	clear MainPanel
        	go to ExitWithoutChanges
     end
-    
-    on click TimesHelpButton
-    begin
-        clear MainPanel
-        put `Help home PeriodEdit` into Result
-        exit
-    end
+
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
