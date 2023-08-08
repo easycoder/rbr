@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 13
+#define CURRENT_VERSION 14
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 600
@@ -51,7 +51,7 @@ void onDefault() {
 
 void showRelayState(char* info) {
   char buf[20];
-  sprintf(buf, "%s %d %s", relayState ? "ON" : "OFF", CURRENT_VERSION, restarts);
+  sprintf(buf, "%s %d %d %s", relayState ? "ON" : "OFF", CURRENT_VERSION, WiFi.RSSI(), restarts);
   strcat(info, buf);
   Serial.println(info);
   sendPlain(info);

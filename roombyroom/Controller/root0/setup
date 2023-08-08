@@ -1,0 +1,38 @@
+#!/bin/sh
+
+# Setup for Orange Pi Zero 2 - Debian Server OS
+
+touch empty.txt
+crontab empty.txt
+
+echo "Update the system"
+apt update
+apt -y upgrade
+
+echo "Install Python Pip"
+apt install -y python3-dev
+apt install -y python3-pip
+apt install -y libglib2.0-dev
+echo "Install python libraries"
+pip3 install bottle requests pytz PyP100 psutil bluepy
+
+wget https://rbrheating.com/home/resources/dist.tgz
+tar zxf dist.tgz
+rm backup mac map dist.tgz
+cp system/hosts /etc/hosts
+crontab crondata.txt
+
+echo
+echo "Set the user password"
+passwd
+
+cp system/dnsmasq.conf /etc/dnsmasq.conf
+cp system/hostapd.conf /etc/hostapd.conf
+echo
+echo "If you're using a 'proper' router you can ignore the rest of this as it only applies to a built-in hotspot."
+ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'>interfaces
+python3 getmac.py >mac
+echo
+echo "Type 'cat mac' to get the MAC address of the interface connecting to the Internet."
+echo "Use this to construct a unique SSID for your local access point (hotspot)."
+echo "Run 'nano /etc/hostapd.conf', edit the fields containing 'XXXXXXXXXX' then type 'reboot'"

@@ -12,7 +12,7 @@
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 3600
-#define RELAY_DELAY 300
+#define RELAY_DELAY 30
 #define ERROR_MAX 10
 #define FORMAT_LITTLEFS_IF_FAILED true
 #define LED_PIN 2
@@ -20,6 +20,9 @@
 #define LOG_LEVEL_LOW 1
 #define LOG_LEVEL_MEDIUM 2
 #define LOG_LEVEL_HIGH 3
+#define RELAY_REQ_IDLE 0
+#define RELAY_REQ_REQ 1
+#define RELAY_REQ_ACTIVE 2
 
 // Local IP Address
 const IPAddress localIP(192,168,32,1);
@@ -37,16 +40,18 @@ char relayResponse[20][200];
 char relayCommand[10][20];
 char relayType[10][10];
 bool relayState[10];
-bool relayFlag[10];
+uint relayFlag[10];
 uint relayVersion = 0;
 uint logLevel = LOG_LEVEL_NONE;
 uint onoffCount = 0;
 uint pingCount = 0;
+uint rid = 0;
 uint watchdogCheckInterval;
 bool busyStartingUp = true;
 bool busyGettingUpdates = false;
 bool busyUpdatingClient = false;
 bool busyDoingGET = false;
+bool busyDoingRelay = false;
 bool updateCheck = false;
 bool errorCount = false;
 bool restarted = false;
@@ -359,11 +364,11 @@ void setupNetwork() {
       const char* command = str.c_str();
       relayResponse[id][0] = '\0';
       strcpy(relayCommand[id], command);
-      relayFlag[id] = true;
+      relayFlag[id] = RELAY_REQ_REQ;
       int n = RELAY_DELAY;
       while (--n > 0) {
-        delay(10);
-        if (!relayFlag[id]) {
+        delay(100);
+        if (relayFlag[id] == RELAY_REQ_IDLE) {
           onoffCount++;
           break;
         }
@@ -373,7 +378,7 @@ void setupNetwork() {
         if (n == 0) {
           Serial.println("Timeout");
         } else {
-          Serial.printf("%d (%dms): %s\n", n, (RELAY_DELAY - n) * 10, relayResponse[id]);
+          Serial.printf("%d (%dms): %s\n", n, (RELAY_DELAY - n) * 100, relayResponse[id]);
         }
       }
       if (n > 0) {
@@ -381,6 +386,8 @@ void setupNetwork() {
       } else {
         request->send(404, "text/plain", "Timeout");
       }
+    } else {
+      request->send(404, "text/plain", "-none-");
     }
   });
 
@@ -518,6 +525,12 @@ void setup(void) {
     free((void*)wf);
   }
 
+  // Init the relay flags
+  for (uint n = 0; n < 10; n++) {
+    relayFlag[n] == RELAY_REQ_IDLE;
+  }
+
+
 //  writeTextToFile("/config", "");
 
   String ssid = "RBR-EX-000000";
@@ -595,21 +608,24 @@ void loop(void) {
     return;
   }
 
-  if (!busyStartingUp && !busyUpdatingClient) {
-    for (uint n = 0; n < 10; n++) {
-      if (relayFlag[n]) {
-        uint id = n + 100;
-        strcpy(deviceURL, deviceRoot);
-        sprintf(deviceURL, "%s%d%s", deviceRoot, id, relayCommand[n]);
-        char* httpPayload = httpGET(deviceURL, false);
-        if (logLevel >= LOG_LEVEL_HIGH) {
-          Serial.printf("Relay %d: %s - Status: %s\n", n, deviceURL, deviceURL, httpPayload);
-        }
-        strcpy(relayResponse[n], httpPayload);
-        free(httpPayload);
-        relayFlag[n] = false;
+  if (!busyStartingUp && !busyUpdatingClient && !busyDoingRelay) {
+    busyDoingRelay = true;
+    if (relayFlag[rid] == RELAY_REQ_REQ) {
+      relayFlag[rid] = RELAY_REQ_ACTIVE;
+      uint id = rid + 100;
+      strcpy(deviceURL, deviceRoot);
+      sprintf(deviceURL, "%s%d%s", deviceRoot, id, relayCommand[rid]);
+      char* httpPayload = httpGET(deviceURL, false);
+      delay(10);
+      if (logLevel >= LOG_LEVEL_HIGH) {
+        Serial.printf("Relay %d: %s - Status: %s\n", rid, deviceURL, deviceURL, httpPayload);
       }
+      strcpy(relayResponse[rid], httpPayload);
+      free(httpPayload);
+      relayFlag[rid] = RELAY_REQ_IDLE;
     }
+    rid = ++rid % 10;
+    busyDoingRelay = false;
   }
 
   checkForUpdates();

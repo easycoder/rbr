@@ -56,7 +56,6 @@
     variable System
     variable Server
     variable Revisit
-    variable Demo
     variable Webson
     variable ModeScript
     variable Script
@@ -80,7 +79,6 @@
     variable Sensors
     variable SensorIP
     variable SensorSpec
-    variable DemoSensors
     variable Relays
     variable RelayState
     variable RelayType
@@ -99,8 +97,6 @@
     variable Mode
     variable Flag
     variable Error
-    variable SID
-    variable TID
     variable Result
     variable Finish
     variable Name
@@ -349,21 +345,19 @@ Start:
 !	Get the map
 GetMap:
 	set Blocked
-    if Demo get Map from storage as `map`
-    else
-    begin
-    	rest get Map from Server cat `/map?v=` cat now
-        	or begin
-        		print `Server not responding; using local data`
-        		get Map from storage as `map`
-            	continue
-        	end
-        if Map is empty stop
-        put Map into storage as `map`
-    end
+!    print Server cat `/map?v=` cat now
+    rest get Map from Server cat `/map?v=` cat now
+        or begin
+            print `Server not responding; using local data`
+            get Map from storage as `map`
+            continue
+        end
+    if Map is empty stop
+    put Map into storage as `map`
     if Map is not Map2 set Redraw
     put Map into Map2
 
+!print Map
     put property `name` of Map into SystemName
     if SystemName is empty
     begin
@@ -394,8 +388,8 @@ GetMap:
     on click ProfilesButton go to DoProfiles
 
 	! Get the current sensor values
-	if Demo put DemoSensors into Sensors
-    else rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
+	put empty into Sensors
+	rest get Sensors from Server cat `/sensors/` cat `?v=` cat now
         or go to HandleRestError
 
    	put property `profiles` of Map into Profiles
@@ -540,7 +534,6 @@ GetMap:
             end
             set property `room-` cat RoomIndex of StaticData to RoomData
             put property `alive` of RoomData into IsAlive
-            if Demo put `true` into IsAlive
             if IsAlive is `true`
             begin
                 put property `temperature` of SensorSpec into Temperature
@@ -583,7 +576,6 @@ GetMap:
         ! Show the mode indicator
         put property `relays` of RoomSpec into Relays
         put the json count of Relays into Relays
-        if Demo put 1 into Relays
         if Relays is 0
         begin
             clear ModeHolder
@@ -747,6 +739,7 @@ GetMap:
             on click ModeIcon
             begin
                 if Blocked stop
+                if Sensors is empty stop
                 set Blocked
                 gosub to MaskScreen
                 on click ProfilesButton begin end
@@ -761,7 +754,6 @@ GetMap:
                     and Map
                     and ClickIndex
                     and Sensors
-                    and Demo
                     and Result
                 go to ProcessResult
             end
@@ -1032,11 +1024,7 @@ Backup:
     on click DialogButton1
     begin
     	clear DialogPanel
-    	if not Demo
-        begin
-        	rest post Map to Server cat `/backup`
-            	or go to HandleRestError
-        end
+        rest post Map to Server cat `/backup` or go to HandleRestError
         set Redraw
         clear Blocked
     end
@@ -1069,11 +1057,7 @@ Restore:
     on click DialogButton1
     begin
     	clear DialogPanel
-        if not Demo
-        begin
-        	rest post to Server cat `/restore`
-            	or go to HandleRestError
-        end
+        rest post to Server cat `/restore` or go to HandleRestError
         set Redraw
         clear Blocked
     end

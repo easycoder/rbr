@@ -1,0 +1,36 @@
+!   Get the user's street address
+
+	script StreetAddress
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    input AddressInput
+    variable Data
+
+    attach AddressInput to `cf-address`
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    set the content of AddressInput to property `address` of Map
+
+    on click LeftButton
+    begin
+        put `back` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        set style `display` of LeftButton to `none`
+        set style `display` of RightButton to `none`
+        set property `address` of Map to the content of AddressInput
+        put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+        rest post Data to `/config/post` or alert `POST error`
+        put `user-email` into Result
+        exit
+    end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
+
+    stop

@@ -9,7 +9,6 @@
         and variable Map
     	and variable ClickIndex
         and variable Sensors
-        and variable Demo
         and variable Result
     
     div ButtonM
@@ -75,6 +74,7 @@
 
 	clear ModePanel
     gosub to GetCurrentRooms
+    print `Sensors: '` cat Sensors cat `'`
     put element ClickIndex of Rooms into RoomSpec
     put property `name` of RoomSpec into RoomName
     put property `mode` of RoomSpec into Mode
@@ -363,14 +363,10 @@ CopyRoomsToMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Post the map to the server
 PostMap:
-	if Demo put Map into storage as `map`
-    else
-	begin
-   		rest post Map to Server cat `/map`
-        or begin
-        	alert `Unable to save changes.` cat newline
-            	cat `A common cause is having the wrong system password.`
-        	continue
-        end
-	end
+    rest post Map to Server cat `/map`
+    or begin
+        alert `Unable to save changes.` cat newline
+            cat `A common cause is having the wrong system password.`
+        continue
+    end
 	exit
