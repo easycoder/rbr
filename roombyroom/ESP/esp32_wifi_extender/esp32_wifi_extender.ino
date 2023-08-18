@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 19
+#define CURRENT_VERSION 20
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 3600
@@ -49,15 +49,12 @@ uint rid = 0;
 uint watchdogCheckInterval;
 bool busyStartingUp = true;
 bool busyGettingUpdates = false;
-bool busyUpdatingClient = false;
 bool busyDoingGET = false;
 bool busyDoingRelay = false;
 bool updateCheck = false;
 bool errorCount = false;
 bool restarted = false;
 char restartedURL[60];
-char requestVersionURL[40];
-char requestUpdateURL[40];
 char deviceURL[40];
 char restarts[10];
 
@@ -88,10 +85,6 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
     if (logLevel > LOG_LEVEL_LOW && logLevel < LOG_LEVEL_HIGH) {
       Serial.printf("GET %s: Error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
     }
-    http.end();
-    client.stop();
-    busyDoingGET = false;
-    return response;
   } else {
     if (httpResponseCode >= 200 && httpResponseCode < 400) {
       String httpPayload = http.getString();
@@ -119,12 +112,12 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
       }
     }
   }
-  // Free resources
-  http.end();
-  client.stop();
   if (logLevel == LOG_LEVEL_HIGH) {
     Serial.printf("Response: %s\n", response);
   }
+  // Free resources
+  http.end();
+  client.stop();
   busyDoingGET = false;
   return response;
 }
@@ -290,7 +283,7 @@ void setupNetwork() {
 
   // Set up the soft AP with up to 10 connections
   WiFi.softAP(softap_ssid, softap_password, 1, 0, 10);
-  Serial.printf("Soft AP %s/%s created with IP ", softap_ssid, softap_password); Serial.println(WiFi.softAPIP());
+  Serial.printf("Soft AP %s/%s created with IP %s\n", softap_ssid, softap_password, WiFi.softAPIP().toString().c_str());
 
   //connect to the controller's wi-fi network
   if (!WiFi.config(ipaddr, gateway, subnet)) {
@@ -300,7 +293,7 @@ void setupNetwork() {
   Serial.printf("Connecting to %s", host_ssid);
   while (WiFi.status() != WL_CONNECTED) {
       Serial.print(".");
-      delay(100);
+      delay(1000);
   }
   Serial.printf("\nConnected as %s with RSSI %d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
   delay(100);
@@ -417,15 +410,13 @@ void setupNetwork() {
   localServer.begin();
 
   sprintf(restartedURL, "http://%s/extender/restarted/%s", host_server, host_ipaddr);
-  sprintf(requestVersionURL, "http://%s/extender/version", host_server);
-  sprintf(requestUpdateURL, "http://%s/extender/update", host_server);
 
   // Call the watchdog regularly
   watchdogTicker.attach(watchdogCheckInterval, watchdogCheck);
 
   // Check for updates periodically
   updateTicker.attach(UPDATE_CHECK_INTERVAL, requestUpdateCheck);
-  delay(1000);
+  // delay(1000);
   // Check now
   updateCheck = true;
 }
@@ -439,7 +430,11 @@ void checkForUpdates() {
     if (logLevel >= LOG_LEVEL_LOW) {
       Serial.println("Check for update");
     }
-    char* httpPayload = httpGET(requestVersionURL, true);
+    WiFiClient client;
+    char request[40];
+    sprintf(request, "http://%s/extender/version", host_server);
+  delay(10);
+    char* httpPayload = httpGET(request, true);
     int newVersion = atoi(httpPayload);
     free(httpPayload);
     if (newVersion == 0) {
@@ -452,7 +447,8 @@ void checkForUpdates() {
         Serial.printf("Updating from %d to %d\n\n\n", CURRENT_VERSION, newVersion);
         writeTextToFile("/restarts", "0");
         WiFiClient client;
-        ESPhttpUpdate.update(requestUpdateURL);
+        sprintf(request, "http://%s/extender/current", host_server);
+        ESPhttpUpdate.update(request);
         // This is never reached
       } else {
         Serial.printf("Firmware version %d\n", CURRENT_VERSION);
@@ -470,7 +466,6 @@ void checkForUpdates() {
     }
   }
   busyGettingUpdates = false;
-  busyUpdatingClient = false;
   busyDoingGET = false;
 }
 
@@ -530,7 +525,7 @@ void setup(void) {
     relayFlag[n] == RELAY_REQ_IDLE;
   }
 
-
+//  Uncoment the next line to force a return to unconfigured mode
 //  writeTextToFile("/config", "");
 
   String ssid = "RBR-EX-000000";
@@ -604,11 +599,11 @@ void setup(void) {
 ///////////////////////////////////////////////////////////////////////////////
 // Main loop
 void loop(void) {
-  if (busyGettingUpdates || busyUpdatingClient || busyDoingGET) {
+  if (busyStartingUp || busyGettingUpdates || busyDoingGET) {
     return;
   }
 
-  if (!busyStartingUp && !busyUpdatingClient && !busyDoingRelay) {
+  if (!busyStartingUp && !busyDoingRelay) {
     busyDoingRelay = true;
     if (relayFlag[rid] == RELAY_REQ_REQ) {
       relayFlag[rid] = RELAY_REQ_ACTIVE;

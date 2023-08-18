@@ -1,0 +1,52 @@
+{
+    "#doc": "Get the user's email address",
+    "#element": "div",
+    "position": "absolute",
+    "left": 0,
+    "top": 0,
+    "width": "100%",
+    "height": "100%",
+    "#": ["$Text1", "$Text2", "$Email", "$Text3"],
+
+    "$Text1": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "green",
+        "font-size": "2em",
+        "#content": "User email address"
+    },
+
+    "$Text2": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "normal",
+        "font-size": "1.4em",
+        "text-align": "left",
+        "#content": "Next, please give the email address of the person who manages this installation."
+    },
+
+    "$Email": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "text-align": "center",
+        "#": "$Text",
+
+        "$Text": {
+            "#element": "input",
+            "@id": "cf-email",
+            "width": "calc(100% - 4em)",
+            "font-size": "1.2em"
+        }
+    },
+
+    "$Text3": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "normal",
+        "font-size": "1.4em",
+        "text-align": "left",
+        "#content": "Then tap the Next button below."
+    }
+}

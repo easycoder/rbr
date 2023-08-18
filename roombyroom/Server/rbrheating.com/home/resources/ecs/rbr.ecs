@@ -218,14 +218,14 @@ Main:
     clear Mobile
     if mobile
     begin
-    	print `Mobile browser detected`
+!    	print `Mobile browser detected`
         if portrait
         begin
-        	print `In portrait mode`
+!        	print `In portrait mode`
         	set Mobile
         end
     end
-    else print `PC browser detected`
+!    else print `PC browser detected`
 
     get StaticData from storage as `StaticData`
     if StaticData is empty put `{}` into StaticData
@@ -433,6 +433,7 @@ GetMap:
 	! Get the current sensor values
 	rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
     or go to HandleRestError
+!print Sensors
 
 !   print Map
     put property `profiles` of Map into Profiles
@@ -805,12 +806,11 @@ GetMap:
         add 1 to RoomIndex
     end
     
-    if property `status` of Sensors
-    begin
+    if property `status` of Sensors is empty set style `display` of StatusPanel to `none`
+    else begin
     	set the content of StatusPanel to property `status` of Sensors
         set style `display` of StatusPanel to `block`
     end
-    else set style `display` of StatusPanel to `none`
 
     put StaticData into storage as `StaticData`
 

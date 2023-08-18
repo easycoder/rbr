@@ -2,7 +2,7 @@
 
 The System Manager is where you provide the basic information that identifies your system. It allows you to manage one or more systems and to add or remove them at will.
 
-Each system is identified by the MAC address of its system controller - the small computer that runs the system locally. ~img:systemmanager5.png:50% left~ When you first set up a system on your PC or smartphone it will ask you for the MAC address and the password assigned by the RBR webserver. These will have been given to you by the system installer, or you can find them yourself by connecting to the controller using SSH and giving one of these commands:
+Each system is identified by the MAC address of its system controller - the small computer that runs the system locally. ~img:systemmanager5.png:50% left~ When you first set up a system on your PC or smartphone it will ask you for the MAC address and the password assigned by the RBR webserver. These will have been given to you on a laminated card by the system installer, or you are technicall minded you can find them yourself by connecting your computer to the controller using SSH and giving one of these commands:
 ```
 cat mac
 cat /mnt/data/password

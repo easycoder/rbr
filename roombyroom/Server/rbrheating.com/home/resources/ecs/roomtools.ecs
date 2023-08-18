@@ -155,6 +155,7 @@ Editor:
         attach DialogButton1 to `dialog-okbutton`
         put property `sensor` of RoomSpec into SensorIP
         put property SensorIP of Sensors into Sensor
+        if property `rdata` of Sensor is empty set property `rdata` of Sensor to `-no information-`
         put property `timestamp` of Sensor into Timestamp
         set DateFormat to object
         set property `mode` of DateFormat to `date`

@@ -1,0 +1,10 @@
+!   test.ecs
+
+    script Test
+
+!    debug step
+
+    variable Request
+    get Request from `https://rbrheating.org/resources/php/rest.php/request/60:08:c4:63:88:20`
+    print Request
+    exit

@@ -222,7 +222,7 @@
                         query($conn, "INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
                         logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
                     }
-                    $file = fopen('resources/version', 'r');
+                    $file = fopen('version', 'r');
                     $version = trim(fgets($file));
                     fclose($file);
                     print '{"password":"'.$password.'","version":"'.$version.'"}';
@@ -742,7 +742,7 @@
     // Log a message.
     function logger($message)
     {
-        return;
+        // return;
         // print("$message\n");
         $timestamp = time();
         $date = date("Y/m/d H:i", $timestamp);

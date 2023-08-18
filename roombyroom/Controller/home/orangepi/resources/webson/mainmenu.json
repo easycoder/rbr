@@ -1,0 +1,56 @@
+{
+    "#doc": "The main menu, accessed from the title bar hamburger",
+    "#element": "div",
+    "width": "100%",
+    "text-align": "center",
+    "padding": "1em 0",
+    "background": "#ffc",
+    "#": ["$GetSysParams", "$Add", "$Pad", "$Backup", "$Restore",
+        "$Pad", "$Cancel"],
+
+    "$GetSysParams": {
+        "$ID": "button-getsysparams",
+        "$Label": "Set System Parameters",
+        "#": "$Button"
+    },
+
+    "$Add": {
+        "$ID": "button-add",
+        "$Label": "Add a room",
+        "#": "$Button"
+    },
+
+    "$Backup": {
+        "$ID": "button-backup",
+        "$Label": "Backup the system",
+        "#": "$Button"
+    },
+
+    "$Restore": {
+        "$ID": "button-restore",
+        "$Label": "Restore the system",
+        "#": "$Button"
+    },
+
+    "$Cancel": {
+        "$ID": "button-cancel",
+        "$Label": "Cancel",
+        "#": "$Button"
+    },
+
+    "$Pad": {
+        "#element": "div",
+        "height": "1em"
+    },
+
+    "$Button": {
+        "#element": "button",
+        "@id": "$ID",
+        "display": "block",
+        "width": "60%",
+        "font-size": "1.2em",
+        "margin": "0 auto 0.5em auto",
+        "border-radius": "0.25em",
+        "#content": "$Label"
+    }
+}

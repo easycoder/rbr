@@ -1,0 +1,58 @@
+{
+    "#doc": "Get room information",
+    "#element": "div",
+    "position": "absolute",
+    "left": 0,
+    "top": 0,
+    "width": "100%",
+    "height": "100%",
+    "#": ["$Text1", "$Text2", "$Rooms", "$AddRoom", "$Text3"],
+
+    "$Text1": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "green",
+        "font-size": "2em",
+        "#content": "Room Information"
+    },
+
+    "$Text2": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "normal",
+        "font-size": "1.4em",
+        "text-align": "left",
+        "#content": "Provide room names and sensor addresses."
+    },
+
+    "$Rooms": {
+        "#element": "div",
+        "@id": "cf-rooms",
+        "width": "calc(100% - 4em)",
+        "height": "20em",
+        "overflow-y": "scroll",
+        "font-size": "1.2em",
+        "border": "1px solid black",
+        "margin": "0 auto",
+        "padding": "1px"
+    },
+
+    "$AddRoom": {
+        "#element": "button",
+        "@id": "cf-add-room",
+        "margin": "0.5em 0 1em",
+        "font-size": "1.2em",
+        "#content": "Add a room"
+    },
+
+    "$Text3": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "indigo",
+        "font-weight": "normal",
+        "font-size": "1.4em",
+        "text-align": "left",
+        "#content": "To continue, tap the Next button below."
+    }
+}
