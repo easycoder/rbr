@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 20
+#define CURRENT_VERSION 21
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 3600
@@ -27,6 +27,9 @@
 // Local IP Address
 const IPAddress localIP(192,168,32,1);
 const IPAddress subnet(255,255,255,0);
+IPAddress ipaddr;
+IPAddress gateway;
+IPAddress server;
 const char* deviceRoot("http://192.168.32.");
 
 char softap_ssid[40];
@@ -62,6 +65,16 @@ Ticker watchdogTicker;
 Ticker updateTicker;
 
 AsyncWebServer localServer(80);
+
+ #ifdef __cplusplus
+  extern "C" {
+ #endif
+
+  uint8_t temprature_sens_read();
+
+#ifdef __cplusplus
+}
+#endif
 
 // Perform a GET
 char* httpGET(char* requestURL, bool restartOnError = false) {
@@ -172,7 +185,10 @@ void watchdogCheck() {
       } else {
         Serial.println("Reconnecting to WiFi...");
         WiFi.disconnect();
-        WiFi.reconnect();
+        WiFi.mode(WIFI_AP_STA);
+        WiFi.softAPConfig(localIP, localIP, subnet);
+        // WiFi.reconnect();
+        setupHotspot();
       }
     }
     if (watchdogCheckInterval > WATCHDOG_CHECK_INTERVAL) {
@@ -198,6 +214,7 @@ void requestUpdateCheck() {
 // Reset the system
 void reset() {
   Serial.println("Forcing a reset...");
+  delay(10);
   ESP.restart();
 }
 
@@ -205,7 +222,8 @@ void reset() {
 void handle_reset(AsyncWebServerRequest *request) {
   Serial.println("Endpoint: reset");
   request->send(200, "text/plain", "Reset");
-  reset();
+  delay(10);
+  ESP.restart();
 }
 
 // Endpoint: GET http://{ipaddr}/factory-reset
@@ -219,7 +237,8 @@ void handle_factory_reset(AsyncWebServerRequest *request) {
 // Endpoint: GET http://{ipaddr}/
 void handle_default(AsyncWebServerRequest *request) {
   char info[200];
-  sprintf(info, "RBR WiFi extender v%d %s/%s Restarts:%s", CURRENT_VERSION, host_ssid, host_ipaddr, restarts);
+  int temperature = (int)round((temprature_sens_read() - 32) / 1.8);
+  sprintf(info, "RBR WiFi extender v%d %s/%s Temp:%d Restarts:%s", CURRENT_VERSION, host_ssid, host_ipaddr, temperature, restarts);
   Serial.println(info);
   request->send(200, "text/plain", info);
 }
@@ -261,26 +280,27 @@ void setupNetwork() {
   Serial.printf("Network SSID: %s\nNetwork password: %s\nSoft AP SSID: %s\nSoft AP password: %s\nHost ipaddr: %s\nHost gateway: %s\nHost server: %s\n",
     host_ssid, host_password, softap_ssid, softap_password, host_ipaddr, host_gateway, host_server);
 
-  IPAddress ipaddr;
-  IPAddress gateway;
-  IPAddress server;
-
   ipaddr.fromString(host_ipaddr);
   if (!ipaddr) {
     Serial.println("UnParsable IP '" + String(host_ipaddr) + "'");
-    ESP.restart();
+    reset();
   }
   gateway.fromString(host_gateway);
   if (!gateway) {
     Serial.println("UnParsable IP '" + String(host_gateway) + "'");
-    ESP.restart();
+    reset();
   }
   server.fromString(host_server);
   if (!server) {
     Serial.println("UnParsable IP '" + String(host_server) + "'");
-    ESP.restart();
+    reset();
   }
 
+  setupHotspot();
+}
+
+// Set up the local hotspot and connect to the host
+void setupHotspot() {
   // Set up the soft AP with up to 10 connections
   WiFi.softAP(softap_ssid, softap_password, 1, 0, 10);
   Serial.printf("Soft AP %s/%s created with IP %s\n", softap_ssid, softap_password, WiFi.softAPIP().toString().c_str());
@@ -291,9 +311,13 @@ void setupNetwork() {
   }
   WiFi.begin(host_ssid, host_password);
   Serial.printf("Connecting to %s", host_ssid);
+  int counter = 0;
   while (WiFi.status() != WL_CONNECTED) {
-      Serial.print(".");
-      delay(1000);
+    if (++counter > 60) {
+      reset();
+    }
+    Serial.print(".");
+    delay(1000);
   }
   Serial.printf("\nConnected as %s with RSSI %d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
   delay(100);
@@ -433,7 +457,7 @@ void checkForUpdates() {
     WiFiClient client;
     char request[40];
     sprintf(request, "http://%s/extender/version", host_server);
-  delay(10);
+    delay(10);
     char* httpPayload = httpGET(request, true);
     int newVersion = atoi(httpPayload);
     free(httpPayload);
