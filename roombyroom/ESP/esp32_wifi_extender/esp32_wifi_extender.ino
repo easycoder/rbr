@@ -651,8 +651,10 @@ void loop(void) {
 
   if (restarted) {
     restarted = false;
-//    char* httpPayload = httpGET(restartedURL, false);
-//    free(httpPayload);
+    char request[40];
+    sprintf(request, "http://%s/extender/version", host_server);
+    char* httpPayload = httpGET(restartedURL, false);
+    free(httpPayload);
     Serial.println(String(softap_ssid) + " configured and running");
   }
 }
