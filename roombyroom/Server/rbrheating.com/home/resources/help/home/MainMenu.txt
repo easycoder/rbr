@@ -13,6 +13,4 @@ This is the main system menu. Here you can set up a new system, add rooms, backu
 
 ~tid:Restore:Restore your configuration to the backed-up version~
 
-~tid:Evaluate:Evaluate RBR (no hardware required)~
-
 ~sid:Index:Index of pages~

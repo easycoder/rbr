@@ -37,7 +37,7 @@ python3 getmac.py >mac
 echo
 echo "After the reboot, type 'cat mac' to get the MAC address of the interface connecting to the Internet."
 echo "Use this to construct a unique SSID for your local access point (hotspot)."
-echo "Run 'sudo nano /etc/hostapd.conf', edit the fields containing 'XXXXXXXXXX' then type 'reboot'"
+echo "Run 'sudo nano /etc/hostapd.conf', edit the fields containing 'XXXXXXXXXX' then type 'sudo reboot'"
 
 echo
 echo "Rebooting now"

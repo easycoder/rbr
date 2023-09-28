@@ -109,6 +109,15 @@
                     print "OK";
                     exit;
 
+                case 'ex-restarts':
+                    $restarts = array_shift($request);
+                    // print "Restarts: $restarts\n";
+                    $fp = fopen("/mnt/data/ex-restarts", "a") or die("Can't open /mnt/data/ex-restarts");
+                    fwrite($fp, date('r', time()) . ": $restarts\n");
+                    fclose($fp);
+                    // chmod("/mnt/data/request", 0777);
+                    exit;
+
             }
             break;
         case 'POST':
@@ -120,6 +129,10 @@
                     fclose($fp);
                     chmod("/mnt/data/request", 0777);
                     // postMap($map);
+                    exit;
+
+                case 'delreq':
+                    unlink("/mnt/data/request");
                     exit;
 
                 case 'backup':

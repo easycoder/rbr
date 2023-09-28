@@ -171,10 +171,13 @@ Editor:
         put Timestamp cat `<br>(` cat Timestamp format DateFormat into Timestamp
         put Timestamp cat `)` into Timestamp
         set property `timestamp` of Sensor to Timestamp
-        replace `{"` with `"` in Sensor
-        replace `"}` with `"` in Sensor
         replace `":"` with `": "` in Sensor
         replace `",` with `"<br>` in Sensor
+        replace `,\` with `, &nbsp;&nbsp;&nbsp;\` in Sensor
+        replace `\` with `` in Sensor
+        replace `{"` with `"` in Sensor
+        replace `"}` with `"` in Sensor
+        replace `""` with `"` in Sensor
         set the content of DialogText to `Information about this room:<br><br>` cat Sensor
 
         on click DialogButton1

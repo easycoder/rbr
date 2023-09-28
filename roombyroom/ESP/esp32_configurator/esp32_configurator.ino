@@ -22,7 +22,6 @@ char softap_password[40];
 bool busyStartingUp = true;
 bool busyDoingGET = false;
 bool errorCount = false;
-char restarts[10];
 
 AsyncWebServer localServer(80);
 
@@ -114,31 +113,10 @@ void handle_reset(AsyncWebServerRequest *request) {
   restart();
 }
 
-// Endpoint: GET http://{ipaddr}/factory-reset
-void handle_factory_reset(AsyncWebServerRequest *request) {
-  Serial.println("Endpoint: factory-reset");
-  request->send(200, "text/plain", "Factory reset");
-  restart();
-}
-
 // Add the standard endpoints used by all applications
 void addStandardEndpoints() {
-  localServer.on("/restarts", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", String(restarts));
-  });
-
-  localServer.on("/clear", HTTP_GET, [](AsyncWebServerRequest *request) {
-    strcpy(restarts, "0");
-    writeTextToFile("/restarts", restarts);
-    request->send(200, "text/plain", "OK");
-  });
-
   localServer.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request) {
     handle_reset(request);
-  });
-
-  localServer.on("/factory-reset", HTTP_GET, [](AsyncWebServerRequest *request) {
-    handle_factory_reset(request);
   });
 
   localServer.onNotFound([](AsyncWebServerRequest *request){
@@ -151,23 +129,12 @@ void addStandardEndpoints() {
 void setup(void) {
   Serial.begin(BAUDRATE);
   delay(500);
-  Serial.printf("\nVersion: %d\n",CURRENT_VERSION);
+  Serial.printf("\nSystem configurator, version: %d\n",CURRENT_VERSION);
 
   if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
     Serial.println("LITTLEFS begin Failed");
     restart();
   }
-
-  // Count restarts
-  int nRestarts = 0;
-  const char* rs = readFileToText("/restarts");
-  if (rs != NULL && rs[0] != '\0') {
-    nRestarts = atoi(rs) + 1;
-    free((void*)rs);
-  }
-  sprintf(restarts, "%d", nRestarts);
-  writeTextToFile("/restarts", restarts);
-  Serial.printf("Restarts: %d\n", nRestarts);
 
   doApplicationSetup();
   addStandardEndpoints();
@@ -242,7 +209,7 @@ void handle_default(AsyncWebServerRequest *req) {
   Serial.println("Endpoint: default");
   String homePage = "<html><head></head>";
   homePage += "<body>";
-  homePage += "<p>Hello, world!</p>";
+  homePage += "<h1>RBR system configurator</h1>";
   homePage += "</body></html>";
   Serial.println(homePage);
   req->send(200, "text/html", homePage);

@@ -196,12 +196,14 @@ CheckIfReboot:
     begin
         print `Installing update from ` cat Version cat ` to ` cat Value
         open File `/mnt/data/version` for writing
-        write Value to File
+        write `` cat Value to File
         close File
-        open File `/mnt/data/map` for writing
-        write Map to File
-        close File
-        exit
+        if Map is not empty
+        begin
+            open File `/mnt/data/map` for writing
+            write Map to File
+            close File
+        end
     end
 
 !   Continue here if we are not connected to the RBR web server
@@ -293,7 +295,8 @@ S2:
         open File `/mnt/data/request` for reading
         read Request from File
         close File
-        delete `/mnt/data/request`
+        ! Delete the request file
+        post to `http://172.24.1.1/resources/php/rest.php/delreq`
     end
     else
     begin
@@ -306,7 +309,7 @@ S2:
     gosub to ClearNetworkErrors
     if Request is not empty
     begin
-! print `Request ` cat Request
+ print `Request ` cat Request
         set Changed
         set Confirm
         put json Request into Request
@@ -928,11 +931,20 @@ SR1:
                     write `` cat RelayErrors to File
                     close File
  print RoomName cat ` relay did not respond: ` cat RelayErrors cat ` errors`
-                    if RelayErrors is 100 set ExtenderFail
-                    else if RelayErrors is greater than 5
+                    if RelayErrors is greater than 100 set ExtenderFail
+                    if RelayErrors is greater than 5
                     begin
                         put `Relay request failed in ` cat RoomName into WarningMessage
-                        if not ExtenderFail
+                        if ExtenderFail
+                        begin
+                            print `Too many errors - rebooting`
+                            put 0 into RelayErrors
+                            open File FileName for writing
+                            write `0` to File
+                            close File
+                            system `touch /mnt/data/reboot`
+                        end
+                        else
                         begin
                             gosub to ShowWarning
                         end
@@ -944,7 +956,7 @@ SR1:
                 write `0` to File
                 close File
                 gosub to ClearNetworkErrors
- print `Result: ` cat Result
+! print `Result: ` cat Result
                 if Result is empty
                 begin
                     put `No response from relay in ` cat RoomName into WarningMessage

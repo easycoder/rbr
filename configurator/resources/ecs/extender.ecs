@@ -1,0 +1,161 @@
+!   Get an extender
+
+    script Extender
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    div SSID
+    div SSIDs
+    div TempDiv
+    div SSIDChoice
+    variable Scan
+    variable Values
+    variable Value
+    variable Extenders
+    variable Extender
+    variable SSIDTemplate
+    variable ExtenderSSID
+    variable CurrentSSID
+    variable ControllerSSID
+    variable ControllerPassword
+    variable Response
+    variable Webson
+    variable Data
+    variable EX
+    variable N
+    variable S
+    variable NC
+
+    attach SSID to `cf-ssid`
+    attach SSIDs to `cf-ssids`
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+
+    put property `ssid` of Map into CurrentSSID
+
+    on click LeftButton stop
+    on click RightButton stop
+
+    set the content of SSID to `Scanning for extenders...`
+Rescan:
+    rest get Scan from `/resources/scan`
+!    print `Scan: ` cat Scan
+    if Scan is empty
+    begin
+        wait 1 second
+        go to Rescan
+    end
+    split Scan on newline into Values
+    put `[]` into Extenders
+    put 0 into S
+    while S is less than the elements of Values
+    begin
+        index Values to S
+        put Values into Value
+        if left 7 of Value is `RBR-ex-` append Value to Extenders
+        add 1 to S
+    end
+
+    put the json count of Extenders into NC
+    if NC is 0 go to Rescan
+    else if NC is 1
+    begin
+        put element 0 of Extenders into ExtenderSSID
+        set the content of SSID to ExtenderSSID
+        set style `display` of LeftButton to `block`
+        set style `display` of RightButton to `block`
+    end
+    else
+    begin
+        set the elements of SSIDChoice to NC
+        set style `display` of SSID to `none`
+        set style `display` of SSIDs to `block`
+        attach TempDiv to `cf-text3`
+        set  style `display` of TempDiv to `block`
+        rest get SSIDTemplate from `/resources/webson/ssidTemplate.json?v=` cat now
+        put 0 into N
+        while N is less than NC
+        begin
+            index SSIDChoice to N
+            put SSIDTemplate into Webson
+            replace `/ID/` with N in Webson
+            render Webson in SSIDs
+            attach SSIDChoice to `cf-ssid-` cat N
+            set the content of SSIDChoice to element N of Extenders
+            if element N of Extenders is CurrentSSID
+            begin
+                put CurrentSSID into ExtenderSSID
+                set style `background` of SSIDChoice to `lightgreen`
+            end
+            add 1 to N
+        end
+        on click SSIDChoice
+        begin
+            put the index of SSIDChoice into S
+            put the content of SSIDChoice into ExtenderSSID
+            put 0 into N
+            while N is less than NC
+            begin
+                index SSIDChoice to N
+                if N is S set style `background` of SSIDChoice to `lightgreen`
+                else set style `background` of SSIDChoice to `pink`
+                add 1 to N
+            end
+            set style `display` of LeftButton to `block`
+            set style `display` of RightButton to `block`
+        end
+    end
+
+    on click LeftButton
+    begin
+        put `back` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        set style `display` of LeftButton to `none`
+        set style `display` of RightButton to `none`
+        put property `extenders` of Map into Extenders
+        if Extenders is empty
+        begin
+            put `[{},{},{},{}]` into Extenders
+            put 0 into EX
+            put 0 into storage as `extender-index`
+        end
+        else
+        begin
+            get EX from storage as `extender-index`
+            if EX is empty
+            begin
+                put 0 into EX
+                put 0 into storage as `extender-index`
+            end
+        end
+        put element EX of Extenders into Extender
+        set property `ssid` of Extender to ExtenderSSID
+        set element EX of Extenders to Extender
+        set property `extenders` of Map to Extenders
+
+        put property `controller-ssid` of Map into ControllerSSID
+        put property `controller-password` of Map into ControllerPassword
+
+    Connect:
+        rest get Response from `/resources/connect?ssid=` cat ControllerSSID cat `&password=` cat ControllerPassword
+        if Response is not `connected`
+        begin
+            wait 1 second
+            go to Connect
+        end
+
+        put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+        rest post Data to `/post` or alert `POST error`
+        put `extender-password` into Result
+        exit
+    end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
+
+
+    stop

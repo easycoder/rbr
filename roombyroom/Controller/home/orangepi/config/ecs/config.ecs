@@ -85,7 +85,6 @@ Start:
     set style `display` of PreviousButton to `none`
     set style `display` of NextButton to `none`
 
-    put empty into CurrentSlide
     put `controller-ssid` into CurrentSlide
     put empty into History
 
