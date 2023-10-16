@@ -1310,6 +1310,7 @@ PostAndConfirm:
         begin
             wait 5 seconds
             rest get Confirm from Server cat `/confirm/` cat MAC cat `?v=` cat now
+print `Request confirmation: ` cat Confirm
             if Confirm is `Y` go to PAC2
             take 1 from Count
         end
@@ -1351,7 +1352,7 @@ FlashHourglass:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Post a request to the server
 PostRequest:
-!print `Request: ` cat RequestData cat `: ` cat Server cat `/request/` cat MAC cat `/` cat Password
+! print `Request: ` cat RequestData cat `: ` cat Server cat `/request/` cat MAC cat `/` cat Password
     rest post RequestData to Server cat `/request/` cat MAC cat `/` cat Password
    	or go to HandlePostError
     stop

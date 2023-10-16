@@ -122,17 +122,28 @@
             break;
         case 'POST':
             switch ($action) {
+                case 'map':
+                    // Set the system map
+                    $map = file_get_contents("php://input");
+                    $fp = fopen("/mnt/data/map", "w") or die("Can't open map");
+                    fwrite($fp, $map);
+                    fclose($fp);
+                    break;
+
                 case 'request':
                     $request = stripslashes(file_get_contents("php://input"));
                     $fp = fopen("/mnt/data/request", "w") or die("Can't open /mnt/data/request");
                     fwrite($fp, $request);
                     fclose($fp);
                     chmod("/mnt/data/request", 0777);
-                    // postMap($map);
                     exit;
 
                 case 'delreq':
                     unlink("/mnt/data/request");
+                    exit;
+
+                case 'delTempMap':
+                    unlink("/mnt/data/map");
                     exit;
 
                 case 'backup':
@@ -145,10 +156,9 @@
                 case 'restore':
                     if (!file_exists("backup")) {
                         $map = file_get_contents("backup");
-                        $fp = fopen("map", "w") or die("Can't open map");
+                        $fp = fopen("/mnt/data/map", "w") or die("Can't open map");
                         fwrite($fp, $map);
                         fclose($fp);
-                        postMap($map);
                     }
                     exit;
 

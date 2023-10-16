@@ -27,8 +27,8 @@
         "#element": "img",
         "@id": "hour-up",
         "@src": "resources/icon/up.png",
-        "width": "1.5em",
-        "height": "1.5em",
+        "width": "1.3em",
+        "height": "1.3em",
         "padding": "0 0.25em",
         "cursor": "pointer"
     },
@@ -37,8 +37,8 @@
         "#element": "img",
         "@id": "hour-down",
         "@src": "resources/icon/down.png",
-        "width": "1.5em",
-        "height": "1.5em",
+        "width": "1.3em",
+        "height": "1.3em",
         "padding": "0 0.25em",
         "cursor": "pointer"
     },
@@ -64,8 +64,8 @@
         "#element": "img",
         "@id": "minute-up",
         "@src": "resources/icon/up.png",
-        "width": "1.5em",
-        "height": "1.5em",
+        "width": "1.3em",
+        "height": "1.3em",
         "padding": "0 0.25em",
         "cursor": "pointer"
     },
@@ -74,8 +74,8 @@
         "#element": "img",
         "@id": "minute-down",
         "@src": "resources/icon/down.png",
-        "width": "1.5em",
-        "height": "1.5em",
+        "width": "1.3em",
+        "height": "1.3em",
         "padding": "0 0.25em",
         "cursor": "pointer"
     },
@@ -89,8 +89,8 @@
         "#element": "img",
         "@id": "temp-up",
         "@src": "resources/icon/up.png",
-        "width": "1.5em",
-        "height": "1.5em",
+        "width": "1.3em",
+        "height": "1.3em",
         "padding": "0 0.25em",
         "cursor": "pointer"
     },
@@ -105,8 +105,8 @@
         "#element": "img",
         "@id": "temp-down",
         "@src": "resources/icon/down.png",
-        "width": "1.5em",
-        "height": "1.5em",
+        "width": "1.3em",
+        "height": "1.3em",
         "padding": "0 0.25em",
         "cursor": "pointer"
     },
@@ -115,8 +115,8 @@
         "#element": "img",
         "@id": "period-save",
         "@src": "resources/icon/save.png",
-        "width": "1.5em",
-        "height": "1.5em",
+        "width": "1.2em",
+        "height": "1.2em",
         "padding": "0 1em",
         "cursor": "pointer"
     },
@@ -125,8 +125,8 @@
         "#element": "img",
         "@id": "period-delete",
         "@src": "resources/icon/delete.png",
-        "width": "1.5em",
-        "height": "1.5em",
+        "width": "1.2em",
+        "height": "1.2em",
         "cursor": "pointer"
     }
 }

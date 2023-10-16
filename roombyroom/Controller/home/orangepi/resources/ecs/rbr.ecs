@@ -344,6 +344,7 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the map
 GetMap:
+print `Get the map`
 	set Blocked
 !    print Server cat `/map?v=` cat now
     rest get Map from Server cat `/map?v=` cat now
@@ -357,7 +358,7 @@ GetMap:
     if Map is not Map2 set Redraw
     put Map into Map2
 
-!print Map
+print `Map: ` cat Map
     put property `name` of Map into SystemName
     if SystemName is empty
     begin
@@ -391,7 +392,7 @@ GetMap:
 	put empty into Sensors
     rest get Sensors from Server cat `/sensors?v=` cat now
         or go to HandleRestError
-! print `Sensors: ` cat Sensors
+ print `Sensors: ` cat Sensors
 
    	put property `profiles` of Map into Profiles
 	put property `actual` of Sensors into CurrentProfile
@@ -431,6 +432,7 @@ GetMap:
     set the elements of BatteryIndicator to RoomCount
 
 	! Draw a row for each room
+print `Draw the UI`
     put 0 into RoomIndex
     while RoomIndex is less than RoomCount
     begin

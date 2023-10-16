@@ -598,6 +598,20 @@ print `Post the sensor data`
             end
             clear Changed
         end
+
+        if file `/mnt/data/map` exists
+        begin
+            open File `/mnt/data/map` for reading
+            read Map from File
+            close File
+            open File `map` for writing
+            write Map to File
+            close File
+print `Post the updated map`
+            post stringify MapObject to RBRServer cat `/confirm/` cat MAC cat `/` cat Password
+            ! Delete the temporary map file
+            post to `http://172.24.1.1/resources/php/rest.php/delTempMap`
+        end
     end
 
     print `Memory used: ` cat memory cat ` MB`
