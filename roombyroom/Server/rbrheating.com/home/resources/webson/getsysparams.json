@@ -4,7 +4,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$Config", "$GetName", "$GetRequest", "$Restart", "$Help", "$Cancel"],
+    "#": ["$Config", "$GetName", "$GetRequest", "$Start", "$Halt", "$Restart", "$Help", "$Cancel"],
 
     "$Config": {
         "$ID": "button-config",
@@ -24,9 +24,21 @@
         "#": "$Button"
     },
 
+    "$Start": {
+        "$ID": "button-start",
+        "$Label": "Start the controller",
+        "#": "$Button"
+    },
+
+    "$Halt": {
+        "$ID": "button-halt",
+        "$Label": "Halt the controller",
+        "#": "$Button"
+    },
+
     "$Restart": {
         "$ID": "button-restart",
-        "$Label": "Restart the controller",
+        "$Label": "Halt then restart",
         "#": "$Button"
     },
 

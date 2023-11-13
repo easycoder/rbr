@@ -426,6 +426,30 @@
                 doStatistics($conn, $request);
                 break;
 
+            case 'psu':
+                // Get the psu request, if any.
+                // Endpoint: {site root}/resources/php/rest.php/psu/<mac>/{password}
+                $mac = trim($request[0]);
+                if ($mac == "v") {
+                    $file = fopen('psu/version', 'r');
+                    $version = trim(fgets($file));
+                    fclose($file);
+                    print $version;
+                } else if ($mac == "d") {
+                    print file_get_contents("psu/download");
+                } else {
+                    $password = trim($request[1]);
+                    $result = query($conn, "SELECT psu FROM systems WHERE mac='$mac' AND password='$password'");
+                    if ($row = mysqli_fetch_object($result)) {
+                        query($conn, "UPDATE systems SET psu='' WHERE mac='$mac'");
+                        print $row->psu;
+                    } else {
+                        http_response_code(404);
+                        print "MAC '$mac' and password '$password' do not match any record.";
+                    }
+                }
+                break;
+
                 // Test endpoints
 
             case 'test':
@@ -443,7 +467,7 @@
                 break;
 
             case 'testread':
-                // A test endpoint that reads fro the 'test' field
+                // A test endpoint that reads from the 'test' field
                 // Endpoint: {site root}/resources/php/rest.php/testread/{mac}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
@@ -553,6 +577,9 @@
                     $map = base64_encode($map);
                     query($conn, "UPDATE systems SET map='$map', request='', confirm='Y', last=$ts WHERE mac='$mac'");
                     logger("UPDATE systems SET map='$map', request='', confirm='Y', last=$ts WHERE mac='$mac'");
+                    // Write to the requests log
+                    $data = base64_encode('{}');
+                    query($conn, "INSERT INTO requests (ts, mac,request) VALUES ('$ts','$mac','$data')");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
@@ -572,6 +599,8 @@
                     print("UPDATE systems SET request='$data', confirm='', last=$ts WHERE mac='$mac'\n");
                     query($conn, "UPDATE systems SET request='$data', confirm='', last=$ts WHERE mac='$mac'");
                     logger("UPDATE systems SET request='$data', last=$ts WHERE mac='$mac'");
+                    // Write to the requests log
+                    query($conn, "INSERT INTO requests (ts, mac,request) VALUES ('$ts','$mac','$data')");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
@@ -584,9 +613,8 @@
                 $mac = $request[0];
                 $sensors = file_get_contents("php://input");
                 $encoded = base64_encode($sensors);
-                $timestamp = time();
                 query($conn, "INSERT INTO sensors (mac,ts,sensors) VALUES ('$mac','$timestamp','$encoded')");
-                logger("INSERT INTO sensors (mac,ts,sensors) VALUES ('$mac','$timestamp','$encoded')");
+                logger("INSERT INTO sensors (mac,ts,sensors) VALUES ('$mac','$ts','$encoded')");
                 break;
 
             case 'sensors':
@@ -715,6 +743,29 @@
                     logger("'Managed' failed: Email $email and password $password do not match any record.\n");
                     print "{\"message\":\"Email $email and password $password do not match any record.\"}";
                 }
+                break;
+
+            case 'psu':
+                // Set a flag for the PSU to reboot (R) or halt (H).
+                // Endpoint: {site root}/resources/php/rest.php/psu/<mac>/{password}/{flag}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $flag = trim($request[2]);
+                $result = query($conn, "SELECT psu FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    mysqli_free_result($result);
+                    query($conn, "UPDATE systems SET psu='$flag' WHERE mac='$mac'");
+                } else {
+                    http_response_code(404);
+                    print "MAC '$mac' and password '$password' do not match any record.";
+                }
+                break;
+
+            case 'psuversion':
+                $file = fopen('version', 'r');
+                $version = trim(fgets($file));
+                fclose($file);
+                print '{"password":"'.$password.'","version":"'.$version.'"}';
                 break;
 
             default:

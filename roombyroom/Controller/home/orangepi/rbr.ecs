@@ -74,6 +74,7 @@
     variable WarningMessage
     variable FileName
     variable ExtenderFail
+    variable HaltRequested
     variable RA
     variable E
     variable EE
@@ -123,6 +124,7 @@
     clear Changed
     clear Confirm
     clear ExtenderFail
+    clear HaltRequested
 
     ! Test if the local server is running. If not restart it.
     get Result from `http://172.24.1.1/resources/php/rest.php/ping`
@@ -445,9 +447,10 @@ S2:
         begin
             set property `request` of MapObject to property `request` of Request
         end
-        else if Action is `restart`
+        else if Action is `halt`
         begin
-            system `reboot`
+            print `Request to halt the system`
+            set HaltRequested
         end
     end
 
@@ -572,14 +575,14 @@ PostSensorData:
 
     if Password is not empty
     begin
-print `Post the sensor data`
+print `Post the sensor data. Changed is ` cat Changed
         post Sensors to RBRServer cat `/sensors/` cat MAC cat `/` cat Password
 
         ! If the map has changed, write it back to the RBR server.
         if Changed
         begin
             put stringify MapObject into Map
-            open File `map` for writing
+            open File `/mnt/data/map` for writing
             write Map to File
             close File
             if Password is not empty
@@ -607,17 +610,23 @@ print `Post the sensor data`
             open File `map` for writing
             write Map to File
             close File
-print `Post the updated map`
-            post stringify MapObject to RBRServer cat `/confirm/` cat MAC cat `/` cat Password
+            post stringify MapObject to RBRServer cat `/map/` cat MAC cat `/` cat Password
             ! Delete the temporary map file
             post to `http://172.24.1.1/resources/php/rest.php/delTempMap`
         end
     end
 
+Repeat:
+    if HaltRequested
+    begin
+        open File `/mnt/data/halt` for writing
+        write ` ` to File
+        close File
+    end
+
     print `Memory used: ` cat memory cat ` MB`
 
     ! Do all the above 6 times
-Repeat:
     add 1 to RepeatCount
     print `Repeat ` cat RepeatCount cat ` done`
     if RepeatCount is less than 6
@@ -629,6 +638,7 @@ Repeat:
     if LoggerFlag post stringify LogData to RBRServer cat `/logdata/` cat MAC
     if ExtenderFail
     begin
+        print `Request extender to restart`
         get Result from `http://172.24.1.` cat Extender cat `/reset`
     end
 

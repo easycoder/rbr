@@ -12,7 +12,7 @@
 #define BAUDRATE 115200
 #define WATCHDOG_CHECK_INTERVAL 120
 #define UPDATE_CHECK_INTERVAL 3600
-#define RELAY_DELAY 30
+#define RELAY_DELAY 50
 #define RELAY_ERROR_LIMIT 100
 #define ERROR_MAX 10
 #define FORMAT_LITTLEFS_IF_FAILED true
@@ -421,7 +421,7 @@ void setupHotspot() {
     request->send(200, "text/plain", String(restarts));
     strcpy(restarts, "0");
     writeTextToFile("/restarts", restarts);
-    Serial.println("Clear");
+    handle_default(request);
   });
 
   localServer.on("/blink", HTTP_GET, [](AsyncWebServerRequest *request) {

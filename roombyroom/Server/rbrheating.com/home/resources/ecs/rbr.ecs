@@ -44,6 +44,8 @@
     button GetSysParamsButton
     button GetSystemNameButton
     button GetRequestButton
+    button StartButton
+    button HaltButton
     button RestartButton
     button OKButton
     button CancelButton
@@ -117,6 +119,7 @@
     variable MapErrorCount
     variable RestErrorCount
     variable IsSimulator
+    variable Debugging
     variable Item
     variable Status
     variable Elapsed
@@ -160,9 +163,19 @@
 	on key
     begin
     	if the key is `m` print MAC
-    	if the key is `p` print Password
-    	if the key is `M` print Map
-    	if the key is `S`
+    	else if the key is `p` print Password
+    	else if the key is `M` print Map
+    	else if the key is `D`
+        begin
+        	set Debugging
+            debug step
+        end
+    	else if the key is `d`
+        begin
+        	clear Debugging
+            debug stop
+        end
+    	else if the key is `S`
         begin
         	put the json keys of Sensors into Keys
             print Keys
@@ -190,6 +203,8 @@
         	print Sensors
         end
     end
+    
+    clear Debugging
 
 	fork to Main
     wait 5 seconds
@@ -585,12 +600,12 @@ GetMap:
             	put property `relay` of SensorSpec into RelayState
             	if RelayState is `on` set style `background` of RoomTempPanel to `red`
             	else set style `background` of RoomTempPanel to `blue`
-                if Battery is less than 15
+                if Battery is less than 25
                 begin
                 	set attribute `src` of BatteryIndicator to `resources/icon/battery-empty.png`
                     set style `visibility` of BatteryIndicator to `visible`
                 end
-                else if Battery is less than 20
+                else if Battery is less than 40
                 begin
                 	set attribute `src` of BatteryIndicator to `resources/icon/battery-low.png`
                     set style `visibility` of BatteryIndicator to `visible`
@@ -969,6 +984,8 @@ GetSystemParameters:
 GSP2:
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
+    attach StartButton to `button-start`
+    attach HaltButton to `button-halt`
     attach RestartButton to `button-restart`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
@@ -985,12 +1002,32 @@ GSP2:
         go to GetRequestRelay
     end
 
+    on click StartButton
+    begin
+        set style `color` of StartButton to `lightgray`
+    	rest post to Server cat `/psu/` cat MAC cat `/` cat Password cat `/S`
+        set Redraw
+        clear Blocked
+    end
+
+    on click HaltButton
+    begin
+        set style `color` of HaltButton to `lightgray`
+        put `{}` into RequestData
+        set property `action` of RequestData to `halt`
+        fork to PostRequest
+    	rest post to Server cat `/psu/` cat MAC cat `/` cat Password cat `/H`
+        set Redraw
+        clear Blocked
+    end
+
     on click RestartButton
     begin
-    	set Flag
+        set style `color` of RestartButton to `lightgray`
         put `{}` into RequestData
-        set property `action` of RequestData to `restart`
+        set property `action` of RequestData to `halt`
         fork to PostRequest
+    	rest post to Server cat `/psu/` cat MAC cat `/` cat Password cat `/R`
         set Redraw
         clear Blocked
     end
@@ -1310,6 +1347,7 @@ PostAndConfirm:
         begin
             wait 5 seconds
             rest get Confirm from Server cat `/confirm/` cat MAC cat `?v=` cat now
+            or goto HandleRestError
 print `Request confirmation: ` cat Confirm
             if Confirm is `Y` go to PAC2
             take 1 from Count
@@ -1352,7 +1390,7 @@ FlashHourglass:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Post a request to the server
 PostRequest:
-! print `Request: ` cat RequestData cat `: ` cat Server cat `/request/` cat MAC cat `/` cat Password
+ print `Request: ` cat RequestData cat newline cat Server cat `/request/` cat MAC cat `/` cat Password
     rest post RequestData to Server cat `/request/` cat MAC cat `/` cat Password
    	or go to HandlePostError
     stop

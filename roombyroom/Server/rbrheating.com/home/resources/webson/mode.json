@@ -164,6 +164,7 @@
 
                 "$Title": {
                     "#element": "div",
+                    "@id": "timed-text",
                     "#content": "Timed",
                     "flex": 1,
                     "font-weight": "bold",
