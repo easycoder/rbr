@@ -7,6 +7,7 @@
 
     file File
     variable RamDisk
+    variable LocalServer
     variable RBRServer
     variable RegData
     variable Version
@@ -28,12 +29,16 @@
     variable Relays
     variable Relay
     variable RelayType
+    variable RelayData
+    variable Responses
+    variable Response
     variable Timestamp
     variable Temperature
     variable SensorData
     variable RoomCount
     variable RoomNames
     variable RoomSSIDs
+    variable RoomStatus
     variable NPeriods
     variable Events
     variable Event
@@ -42,38 +47,33 @@
     variable SensorValues
     variable Now
     variable Boundary
-    variable Turn
-    variable IsOn
+    variable OnOff
     variable MAC
     variable Password
     variable Advance
     variable Boost
     variable NetworkErrors
-    variable RelayErrors
     variable Request
     variable RequestCount
     variable RequestIP
+    variable IPAddresses
+    variable RoomStatusFileName
     variable Result
     variable Action
     variable Items
     variable Item
     variable Key
     variable Keys
-    variable Email
     variable Extender
+    variable ExtenderRunning
     variable RelayIp
-    variable TPPassword
-    variable SimulatorData
     variable LogData
     variable Value
     variable Changed
     variable Confirm
     variable Calendar
     variable Day
-    variable LoggerFlag
     variable WarningMessage
-    variable FileName
-    variable ExtenderFail
     variable HaltRequested
     variable RA
     variable E
@@ -83,8 +83,24 @@
     variable R
     variable T
     variable W
+    variable P1
+    variable T1
+    variable T2
+    variable TS
 
 !    debug step
+
+    if file `/mnt/data/halt` exists
+    begin
+        print `Waiting for halt`
+        exit
+    end
+
+    put the timestamp into Timestamp
+    multiply Timestamp by 1000 giving T
+    print datime T format `%b %d %H:%M:%S`
+
+    put `http://172.24.1` into LocalServer
 
     open File `server.txt` for reading
     read RBRServer from File
@@ -112,7 +128,7 @@
     begin
         print `Too many errors (` cat NetworkErrors cat `) - rebooting`
         gosub to ClearNetworkErrors
-        system `reboot`
+        go to RestartSystemController
     end
 
     put 0 into RepeatCount
@@ -120,17 +136,39 @@
     read MAC from File
     close File
     put trim MAC into MAC
+    print `MAC: ` cat MAC
 
     clear Changed
     clear Confirm
-    clear ExtenderFail
     clear HaltRequested
 
     ! Test if the local server is running. If not restart it.
-    get Result from `http://172.24.1.1/resources/php/rest.php/ping`
-    or go to RestartLocalServer
-    if Result is not `OK` go to RestartLocalServer
+    get Result from LocalServer cat `.1/resources/php/rest.php/ping`
+    or go to RestartSystemController
+    if Result is not `OK` go to RestartSystemController
     print `Local server is running`
+
+    ! Check if we've had a recent poll from the extender
+    if file `/mnt/data/response-ts` exists
+    begin
+        open File `/mnt/data/response-ts` for reading
+        read T from File
+        close File
+        put the value of T into T
+        take T from Timestamp giving T
+        if T is greater than 600
+        begin
+            print `No recent response from extender`
+            clear ExtenderRunning
+            post Map to LocalServer cat `.1/resources/php/rest.php/delresponse`
+        end
+        else
+        begin
+            print `Extender running`
+            set ExtenderRunning
+        end
+    end
+    else clear ExtenderRunning
 
     ! Ask the server for our password and other data
     put empty into RegData
@@ -145,31 +183,10 @@
     gosub to ClearNetworkErrors
     print `Server ` cat RBRServer cat ` connected successfully`
 
-    ! Check if the extender is running (only checks the first one)
-    get Result from `http://172.24.1.90/ping`
-    or begin
-        print `Extender not responding`
-        set ExtenderFail
-        go to CheckIfReboot
-    end
-    print `Extender running`
-    gosub to ClearNetworkErrors
-
-CheckIfReboot:
-    if Result is not empty
-    begin
-        split Result on ` `
-        print `Extender restarts: ` cat Result
-    end
-    set the elements of Result to 1
     put json RegData into RegData
     put property `password` of RegData into Password
     print `Password: ` cat Password
-    if property `reboot` of RegData is not empty
-    begin
-        system `reboot`
-        exit
-    end
+    if property `reboot` of RegData is not empty go to RestartSystemController
     if property `update` of RegData is not empty
     begin
         system `sh update.sh`
@@ -194,7 +211,7 @@ CheckIfReboot:
 ! print RegData
     put property `version` of RegData into Value
     print `Current version: ` cat Version
-    if Value is not Version
+    if the value of Value is greater than the value of Version
     begin
         print `Installing update from ` cat Version cat ` to ` cat Value
         open File `/mnt/data/version` for writing
@@ -219,14 +236,14 @@ SkipServerInteraction:
     if file Advance exists begin end
     else create directory Advance
 
-    clear LoggerFlag
+    put json `{}` into IPAddresses
 
 Start:
     add 9 to now giving Timestamp
     ! Load the map
-    if file `map` exists
+    if file `/mnt/data/map` exists
     begin
-        open File `map` for reading
+        open File `/mnt/data/map` for reading
         read Map from File
         close File
     end
@@ -241,7 +258,7 @@ Start:
             gosub to NetworkError
         end
         gosub to ClearNetworkErrors
-        open File `map` for writing
+        open File `/mnt/data/map` for writing
         write Map to File
         close File
 !        open File `backup` for writing
@@ -288,7 +305,6 @@ S2:
     print `Profile: ` cat property `name` of Profile
 
     put property `rooms` of Profile into Rooms
-
     if Password is empty go to SkipRequests
 
     ! Get the request, if any, from the user.
@@ -298,7 +314,7 @@ S2:
         read Request from File
         close File
         ! Delete the request file
-        post to `http://172.24.1.1/resources/php/rest.php/delreq`
+        post to LocalServer cat `.1/resources/php/rest.php/delreq`
     end
     else
     begin
@@ -324,7 +340,6 @@ S2:
         begin
             put property `map` of Request into MapObject
             put stringify MapObject into Map
-            set Changed
         end
         else if Action is `addroom`
         begin
@@ -466,6 +481,7 @@ SkipRequests:
     else put `{}` into Sensors
 
 !   Process all the rooms
+    put json `[]` into RelayData
     put json `{}` into SensorData
     set property `actual` of SensorData to CurrentProfile
     set property `status` of SensorData to ``
@@ -477,12 +493,37 @@ SkipRequests:
     else
     begin
         print RoomCount cat ` rooms`
-        put json `{}` into SimulatorData
         put 0 into RequestCount
         put 0 into RoomNumber
         while RoomNumber is less than RoomCount
         begin
             put element RoomNumber of Rooms into Room
+            put property `name` of Room into RoomName
+            put property `sensor` of Room into Sensor
+            put property `relayType` of Room into RelayType
+            if RelayType is empty put `` into RelayType
+
+            put `/mnt/data/rs` cat RoomNumber into RoomStatusFileName
+            if file RoomStatusFileName exists
+            begin
+                open File RoomStatusFileName for reading
+                read RoomStatus from File
+                close File
+                put json RoomStatus into RoomStatus
+            end
+            else
+            begin
+                put json `{}` into RoomStatus
+                set property `ts` of RoomStatus to now
+                set property `name` of RoomStatus to RoomName
+                set property `sensor` of RoomStatus to Sensor
+                set property `temp` of RoomStatus to 0
+                open File RoomStatusFileName for writing
+                write stringify RoomStatus to File
+                write newline to File
+                close File
+            end
+
             gosub to ProcessRoom
             add 1 to RoomNumber
         end
@@ -492,81 +533,58 @@ SkipRequests:
 !print `Request IP: ` cat RequestIP
         if RequestIP is not empty
         begin
-            if RequestCount is 0 put `off` into Turn
-            else put `on` into Turn
-!            print `Request relay is ` cat Turn
+            if RequestCount is 0 put `off` into OnOff
+            else put `on` into OnOff
+!            print `Request relay is ` cat OnOff
             put RequestIP into Extender
             split Extender on `/`
             if the elements of Extender is 2
             begin
                 index Extender to 1
                 put Extender into RelayIp
+                set property RelayIp of IPAddresses to `Y`
                 index Extender to 0
                 put `r1` into RelayType     ! May need to allow a different type - 11/6/23
                 if RelayType is `Tasmota` put `tasmota` into RelayType
                 else if RelayType is `RBR R1` put `r1` into RelayType
                 else if RelayType is `Shelly One` put `shelly` into RelayType
                 else if RelayType is `TP-Link P100` put `p100` into RelayType
-                else if RelayType is `Simulator` put `sim` into RelayType
 ! print `Relay type: ` cat RelayType
-
-                if RelayType is `tasmota` put `/cm?cmnd=power ` into Request
-                else if RelayType is `r1` put `/` into Request
-                else if RelayType is `shelly` put `/relay/0?turn=` into Request
-                put `http://172.24.1.` cat Extender cat `/onoff?command=` cat Request cat Turn
-                    cat `&id=` cat RelayIp into Request
-! print `Request: ` cat Request
-                put `/mnt/data/errors-` into FileName
-                get Result from Request
-                or begin
-                    if file FileName exists
-                    begin
-                        open File FileName for reading
-                        read RelayErrors from File
-                        close File
-                        put the value of RelayErrors into RelayErrors
-                        add 1 to RelayErrors
-                    end
-                    else put 1 into RelayErrors
-                    add 1 to RelayErrors
-                    open File FileName for writing
-                    write `` cat RelayErrors to File
-                    close File
- print `Request relay did not respond: ` cat RelayErrors cat ` errors`
-                    if RelayErrors is greater than 5
-                    begin
-                        set property `status` of SensorData to `Request relay did not respond`
-                        gosub to NetworkError
-                    end
-                    go to PostSensorData
-                end
-                open File FileName for writing
-                write `0` to File
-                close File
-                gosub to ClearNetworkErrors
-! print `Result: ` cat Result
-                if Result is empty
-                begin
-                    set property `status` of SensorData to `Request relay did not respond`
-                    print `Request relay did not respond`
-                end
-            end
-            else
-            begin
-                post to `http://` cat RequestIP cat `/relay/0?turn=` cat Turn
-                or begin
-                    set property `status` of SensorData to `Request relay did not respond`
-                    print `Request relay did not respond`
-                    gosub to NetworkError
-                    go to PostSensorData
-                end
-                gosub to ClearNetworkErrors
+                put json `{}` into Item
+                set property `extender` of Item to Extender
+                set property `ip` of Item to RelayIp
+                set property `type` of Item to RelayType
+                set property `onoff` of Item to OnOff
+                append Item to RelayData
             end
         end
     end
 
+    open File `/mnt/data/relayData` for writing
+    write stringify RelayData to File
+    close File
+
 !   Post the sensor data to the RBR server
 PostSensorData:
+    if file `/mnt/data/response` exists
+    begin
+        open File `/mnt/data/response` for reading
+        read Responses from File
+        close File
+!        set property `responses` of SensorData to Responses
+        put json Responses into Responses
+        put 0 into N
+        while N is less than the count of Responses
+        begin
+            put element N of Responses into Response
+            put stringify Response into Response
+            put json Response into Response
+            put property `ip` of Response into RelayIp
+            if property `` cat RelayIp of IPAddresses is not empty print Response
+            add 1 to N
+        end
+    end
+
     set property `version` of SensorData to Version
     put stringify SensorData into Sensors
     open File RamDisk cat `/sensorData` for writing
@@ -575,13 +593,19 @@ PostSensorData:
 
     if Password is not empty
     begin
-print `Post the sensor data. Changed is ` cat Changed
+!        print `Post the sensor data: ` cat Sensors
         post Sensors to RBRServer cat `/sensors/` cat MAC cat `/` cat Password
+        or begin
+            print `Unable to post sensor data`
+            go to PSD2
+        end
 
         ! If the map has changed, write it back to the RBR server.
+    PSD2:
         if Changed
         begin
             put stringify MapObject into Map
+!            post Map to LocalServer cat `.1/resources/php/rest.php/map`
             open File `/mnt/data/map` for writing
             write Map to File
             close File
@@ -589,42 +613,35 @@ print `Post the sensor data. Changed is ` cat Changed
             begin
                 if Confirm
                 begin
-                    print `Post map + confirm`
-                    post stringify MapObject to RBRServer cat `/confirm/` cat MAC cat `/` cat Password
+                    print `Post the map & confirm`
+                    post Map to RBRServer cat `/confirm/` cat MAC cat `/` cat Password
                     clear Confirm
                 end
                 else
                 begin
-                    print `Post map`
-                    post stringify MapObject to RBRServer cat `/map/` cat MAC cat `/` cat Password
+                    print `Post the map`
+                    post Map to RBRServer cat `/map/` cat MAC cat `/` cat Password
                 end
             end
             clear Changed
-        end
-
-        if file `/mnt/data/map` exists
-        begin
-            open File `/mnt/data/map` for reading
-            read Map from File
-            close File
-            open File `map` for writing
-            write Map to File
-            close File
-            post stringify MapObject to RBRServer cat `/map/` cat MAC cat `/` cat Password
-            ! Delete the temporary map file
-            post to `http://172.24.1.1/resources/php/rest.php/delTempMap`
         end
     end
 
 Repeat:
     if HaltRequested
     begin
-        open File `/mnt/data/halt` for writing
-        write ` ` to File
-        close File
+        system `touch /mnt/data/halt`
+        exit
     end
 
-    print `Memory used: ` cat memory cat ` MB`
+    put 0 into N
+    if file `/mnt/data/espmem` exists
+    begin
+        open File `/mnt/data/espmem` for reading
+        read N from File
+        close File
+    end
+    print `Memory used: ` cat memory cat ` MB; Extender free memory: ` cat N cat ` bytes`
 
     ! Do all the above 6 times
     add 1 to RepeatCount
@@ -635,22 +652,11 @@ Repeat:
         go to Start
     end
 
-    if LoggerFlag post stringify LogData to RBRServer cat `/logdata/` cat MAC
-    if ExtenderFail
-    begin
-        print `Request extender to restart`
-        get Result from `http://172.24.1.` cat Extender cat `/reset`
-    end
-
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
 ProcessRoom:
-    put property `name` of Room into RoomName
-    put property `sensor` of Room into Sensor
-    put property `relayType` of Room into RelayType
-    if RelayType is empty put `` into RelayType
     if Sensor is empty return
     if file RamDisk cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
     return
@@ -672,7 +678,6 @@ PR2:
     read SensorValues from File
     close File
     put json SensorValues into SensorValues
-
     put property `temperature` of SensorValues into Temperature
     put property `relays` of Room into Relays
     put float Temperature into Temperature
@@ -734,7 +739,7 @@ PR2:
         put property `target` of Room into Target
         if `` cat Target is not empty
         begin
-            put float Target into Target
+            gosub to MultiplyTT
             if Temperature is less than Target go to TurnOn
         end
         go to TurnOff
@@ -742,21 +747,25 @@ PR2:
 
     if Mode is `off`
     begin
-        put `off` into Mode
+        gosub to MultiplyTT
         go to TurnOff
     end
 
     if Mode is `on`
     begin
-        put `on` into Mode
-        put float property `target` of Room into Target
+        put property `target` of Room into Target
+        gosub to MultiplyTT
         if Temperature is less than Target go to TurnOn
         go to TurnOff
     end
 
-    ! Timed mode. Check each of the events
+    ! Default: timed mode. Check each of the events
     put property `events` of Room into Events
-    if Events is empty return
+    if Events is empty
+    begin
+        gosub to MultiplyTT
+        if Temperature is less than Target go to TurnOn else go to TurnOff
+    end
     take 1 from the length of Events giving NPeriods
     put `timed` into Mode
     put 0 into E
@@ -783,6 +792,41 @@ PR2:
         end
         add 1 to E
     end
+    return
+
+!   Multiply Target and Temperature each by 10 so they can be compared
+MultiplyTT:
+    if `` cat Target is empty put `16` into Target
+    else put `` cat Target into Target
+    put the position of `.` in Target into P1
+    if P1 is less than 0
+    begin
+        multiply Target by 10
+    end
+    else
+    begin
+        put left P1 of Target into T1
+        multiply T1 by 10
+        add 1 to P1
+        put from P1 of Target into T2
+        add T2 to T1 giving Target
+    end
+    put `` cat Temperature into Temperature
+    if Temperature is empty put `0` into Temperature
+    put the position of `.` in Temperature into P1
+    if P1 is less than 0
+    begin
+        multiply Temperature by 10
+    end
+    else
+    begin
+        put left P1 of Temperature into T1
+        multiply T1 by 10
+        add 1 to P1
+        put from P1 of Temperature into T2
+        add T2 to T1 giving Temperature
+    end
+    print `Target: ` cat Target cat `, Temperature: ` cat Temperature
     return
 
 !   This is called in 'timed' mode to deal with the Advance setting
@@ -839,7 +883,7 @@ AcknowlegeAdvance:
     gosub to UpdateAdvance
 
 SaveMap:
-    open File `map` for writing
+    open File `/mnt/data/map` for writing
     write Map to File
     close File
     return
@@ -854,67 +898,58 @@ TurnOnOrOff:
     end
     put element E of Events into Event
     put float property `temp` of Event into Target
-    if float Temperature is less than Target go to TurnOn
+    gosub to MultiplyTT
+    if Temperature is less than Target go to TurnOn
 
 TurnOff:
-    set IsOn
-    put `off` into Turn
+    put `off` into OnOff
     go to SetRelays
 
 TurnOn:
-    clear IsOn
-    if RelayType is not `Simulator` add 1 to RequestCount
-    put `on` into Turn
+    add 1 to RequestCount
+    put `on` into OnOff
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set the relays in a room
 SetRelays:
-!   Check if anything has changed
-    if file `/mnt/data/logdata` exists
-    begin
-        open File `/mnt/data/logdata` for reading
-        read LogData from File
-        close File
-        put json LogData into LogData
-    end
-    else put json `{}` into LogData
-    put property RoomName of LogData into Item
-    if Item is empty
-    begin
-        put json `{"timestamp":` cat now cat `}` into Item
-        set property RoomName of LogData to Item
-        go to SR0
-    end
-
 !   Skip if less than 10 minutes from the last change
-    put property `timestamp` of Item into T
-    add 600 to T
-    if now is less than T go to SR1
+    put property `ts` of RoomStatus into TS
+    print `TS: ` cat TS
+    add 600 to TS
+    if now is less than TS go to SR1 else print `Time change to ` cat TS cat ` in ` cat RoomName
 
-!   Skip if the temperature hasn't changed
-    put property `temperature` of Item into T
-    if T is Temperature go to SR1
+!   Test if the temperature has changed
+    put property `temp` of RoomStatus into T
+    if T is Temperature go to SR1 else print `Temperature change in ` cat RoomName
 
-    set property `temperature` of Item to Temperature
-    set property `relay` of Item to Turn
-
+!   Write this room's data to the log file
 SR0:
-    open File `/mnt/data/logdata` for writing
-    write stringify LogData to File
+    set property `ts` of RoomStatus to TS
+    set property `temp` of RoomStatus to Temperature
+    set property `relay` of RoomStatus to OnOff
+    print RoomStatus
+    open File RoomStatusFileName for writing
+    write stringify RoomStatus to File
+    write newline to File
     close File
-    set LoggerFlag
+    open File `/mnt/data/logdata` for appending
+    write stringify RoomStatus to File
+    write newline to File
+    close File
+
+    if Password is not empty post stringify RoomStatus to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password
 
 !   Continue with setting the relays
 SR1:
-    print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat Turn
+
+    print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat OnOff
     if RelayType is empty put `Shelly One` into RelayType
     if Relays is empty put json `[]` into Relays
     put 0 into R
     while R is less than the count of Relays
     begin
         set property `status` of SensorValues to `Good`
-        if RelayType is `Simulator` put `-` into Relay
-        else put element R of Relays into Relay
+        put element R of Relays into Relay
         if Relay is not empty
         begin
 ! print `Relay: ` cat Relay
@@ -924,166 +959,29 @@ SR1:
             begin
                 index Extender to 1
                 put Extender into RelayIp
+                set property RelayIp of IPAddresses to `Y`
                 index Extender to 0
-                if RelayType is `Tasmota` put `tasmota` into RelayType
-                else if RelayType is `RBR R1` put `r1` into RelayType
+                if RelayType is `RBR R1` put `r1` into RelayType
+                else if RelayType is `Tasmota` put `tasmota` into RelayType
                 else if RelayType is `Shelly One` put `shelly` into RelayType
                 else if RelayType is `TP-Link P100` put `p100` into RelayType
-                else if RelayType is `Simulator` put `sim` into RelayType
-! print `Relay type: ` cat RelayType
-
-                if RelayType is `tasmota` put `/cm?cmnd=power ` into Request
-                else if RelayType is `r1` put `/` into Request
-                else if RelayType is `shelly` put `/relay/0?turn=` into Request
-                put `http://172.24.1.` cat Extender cat `/onoff?command=` cat Request cat Turn
-                    cat `&id=` cat RelayIp into Request
-! print `Request: ` cat Request
-                put `/mnt/data/errors` cat RoomNumber into FileName
-                get Result from Request
-                or begin
-                    if file FileName exists
-                    begin
-                        open File FileName for reading
-                        read RelayErrors from File
-                        close File
-                        if RelayErrors is empty put 0 into RelayErrors
-                        put the value of RelayErrors into RelayErrors
-                        add 1 to RelayErrors
-                    end
-                    else put 1 into RelayErrors
-                    open File FileName for writing
-                    write `` cat RelayErrors to File
-                    close File
- print RoomName cat ` relay did not respond: ` cat RelayErrors cat ` errors`
-                    if RelayErrors is greater than 100 set ExtenderFail
-                    if RelayErrors is greater than 5
-                    begin
-                        put `Relay request failed in ` cat RoomName into WarningMessage
-                        if ExtenderFail
-                        begin
-                            print `Too many errors - rebooting`
-                            put 0 into RelayErrors
-                            open File FileName for writing
-                            write `0` to File
-                            close File
-                            system `touch /mnt/data/reboot`
-                        end
-                        else
-                        begin
-                            gosub to ShowWarning
-                        end
-                        gosub to NetworkError
-                    end
-                    go to SR2
-                end
-                open File FileName for writing
-                write `0` to File
-                close File
-                gosub to ClearNetworkErrors
-! print `Result: ` cat Result
-                if Result is empty
-                begin
-                    put `No response from relay in ` cat RoomName into WarningMessage
-                    print WarningMessage
-                    gosub to ShowWarning
-                end
-                else ! Check the return value for each relay type
-                begin
-                    set property `rdata` of SensorValues to Result
-                    if RelayType is `r1`
-                    begin
-                        put left 2 of Turn into Value
-                        put left 2 of Result into Result
-                        put lowercase left 2 of Result into Result
-                        if Result is not Value
-                        begin
-                            put `Bad response from relay in ` cat RoomName into WarningMessage
-                            gosub to ShowWarning
-                        end
-                    end
-                    else if RelayType is `tasmota`
-                    begin
-                        put left 2 of Turn into Value
-                        put from 10 of Result into Result
-                        put lowercase left 2 of Result into Result
-                        if Result is not Value
-                        begin
-                            put `Bad response from relay in ` cat RoomName into WarningMessage
-                            gosub to ShowWarning
-                        end
-                    end
-                    else if RelayType is `shelly`
-                    begin
-                        put from 8 of Result into Result
-                        if Turn is `on`
-                        begin
-                            if left 4 of Result is `true` go to SR2
-                        end
-                        else if Turn is `off`
-                        begin
-                            if left 5 of Result is `false` go to SR2
-                        end
-                        put `Bad response from relay in ` cat RoomName into WarningMessage
-                        gosub to ShowWarning
-                    end
-                end
-            end
-            else ! Here if we are on a TP-Link router
-            begin
-                if RelayType is `Tasmota`
-                begin
-!                    print `http://` cat Relay cat `/cm?cmnd=power%20` cat Turn
-                    put `http://` cat Relay cat `/cm?cmnd=power%20` cat Turn into Request
-                    get Result from Request
-                    or begin
-                        put `Relay request failed in ` cat RoomName into WarningMessage
-                        gosub to ShowWarning
-                        gosub to NetworkError
-                        go to SR2
-                    end
-                    gosub to ClearNetworkErrors
-                    if Result is empty
-                    begin
-                        put `No response from relay in ` cat RoomName into WarningMessage
-                        gosub to ShowWarning
-                    end
-                end
-                else if RelayType is `Shelly One`
-                begin
-!                   print `http://` cat Relay cat `/relay/0?turn=` cat Turn
-                    put `http://` cat Relay cat `/relay/0?turn=` cat Turn into Request
-                    get Result from Request
-                    or begin
-                        put `Relay request failed in ` cat RoomName into WarningMessage
-                        gosub to ShowWarning
-                        gosub to NetworkError
-                        go to SR2
-                    end
-                    gosub to ClearNetworkErrors
-                    if Result is empty
-                    begin
-                        put `No response from relay in ` cat RoomName into WarningMessage
-                        gosub to ShowWarning
-                    end
-                end
-                else if RelayType is `TP-Link P100`
-                begin
-                    put property `p100Email` of Room into Email
-                    put property `p100Password` of Room into TPPassword
-                    relay Relay Email TPPassword Turn
-                end
-                else if RelayType is `Simulator`
-                begin
-                    set property Sensor of SimulatorData to Turn
-                end
+! print `Relay type: ` cat RelayType cat ` ` cat RelayIp
+                put json `{}` into Item
+                set property `extender` of Item to Extender
+                set property `ip` of Item to RelayIp
+                set property `type` of Item to RelayType
+                set property `onoff` of Item to OnOff
+                append Item to RelayData
             end
         end
 SR2:
         add 1 to R
     end
-    set property `relay` of SensorValues to Turn
+    set property `relay` of SensorValues to OnOff
     set property `advance` of SensorValues to Advance
     set property Sensor of SensorData to SensorValues
+    if ExtenderRunning set property `extender` of SensorData to `running`
+    else set property `extender` of SensorData to `fail`
     return
 
 !   Show a warning message
@@ -1103,8 +1001,8 @@ NetworkError:
     close File
     return
 
-! Set a flag to restart the local server
-RestartLocalServer:
-    print `Restart the local server`
-    system `touch /mnt/data/restart`
+! Set a flag to restart the system controller
+RestartSystemController:
+    print `Restart the system controller`
+    system `touch /mnt/data/reboot`
     exit

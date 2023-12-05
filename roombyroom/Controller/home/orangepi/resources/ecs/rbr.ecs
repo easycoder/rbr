@@ -545,12 +545,12 @@ print `Draw the UI`
             	put property `relay` of SensorSpec into RelayState
             	if RelayState is `on` set style `background` of RoomTempPanel to `red`
             	else set style `background` of RoomTempPanel to `blue`
-                if Battery is less than 15
+                if Battery is less than 25
                 begin
                 	set attribute `src` of BatteryIndicator to `resources/icon/battery-empty.png`
                     set style `visibility` of BatteryIndicator to `visible`
                 end
-                else if Battery is less than 20
+                else if Battery is less than 40
                 begin
                 	set attribute `src` of BatteryIndicator to `resources/icon/battery-low.png`
                     set style `visibility` of BatteryIndicator to `visible`

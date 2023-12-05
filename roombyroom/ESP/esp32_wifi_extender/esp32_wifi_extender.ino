@@ -8,22 +8,48 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 25
+#define CURRENT_VERSION 40
+#define DEBUG 0    // set to 1 to debug
+
+#if DEBUG
+#define serial_begin(...)   Serial.begin(__VA_ARGS__);
+#define serial_available()  Serial.available()
+#define serial_readString() Serial.readString()
+#define debug(...)          Serial.print(__VA_ARGS__)
+#define debugf(...)         Serial.printf(__VA_ARGS__)
+#define debugln(...)        Serial.println(__VA_ARGS__)
+#else
+#define serial_begin(...)
+#define serial_available()  false
+#define serial_readString() ""
+#define debug(...)
+#define debugf(...)
+#define debugln(...)
+#endif
+
 #define BAUDRATE 115200
-#define WATCHDOG_CHECK_INTERVAL 120
+#define POLL_INTERVAL 10
 #define UPDATE_CHECK_INTERVAL 3600
+#define RELAY_COUNT 10
 #define RELAY_DELAY 50
 #define RELAY_ERROR_LIMIT 100
+#define HOST_ERROR_LIMIT 10
+#define POLL_BUSY_LIMIT 10
 #define ERROR_MAX 10
 #define FORMAT_LITTLEFS_IF_FAILED true
 #define LED_PIN 2
-#define LOG_LEVEL_NONE 0
-#define LOG_LEVEL_LOW 1
-#define LOG_LEVEL_MEDIUM 2
-#define LOG_LEVEL_HIGH 3
 #define RELAY_REQ_IDLE 0
 #define RELAY_REQ_REQ 1
 #define RELAY_REQ_ACTIVE 2
+
+struct rdata {
+    char type[8];
+    bool onoff;
+    uint errors;
+    uint state;
+    bool ok;
+    char response[256];
+};
 
 // Local IP Address
 const IPAddress localIP(192,168,32,1);
@@ -40,31 +66,31 @@ char host_password[40];
 char host_ipaddr[40];
 char host_gateway[40];
 char host_server[40];
-char relayResponse[20][200];
-char relayCommand[10][20];
-char relayType[10][10];
-bool relayState[10];
-uint relayErrors[10];
-uint relayFlag[10];
+struct rdata relayData[RELAY_COUNT];
 uint totalErrors;
+uint errorCount = 0;
 uint relayVersion = 0;
-uint logLevel = LOG_LEVEL_NONE;
-uint onoffCount = 0;
-uint pingCount = 0;
+uint logLevel = 0;
 uint rid = 0;
-uint watchdogCheckInterval;
 bool busyStartingUp = true;
 bool busyGettingUpdates = false;
 bool busyDoingGET = false;
+bool busyPolling = false;
 bool busyDoingRelay = false;
 bool updateCheck = false;
-bool errorCount = false;
 bool running = false;
+bool relayFlag = false;
 char info[80];
 char deviceURL[40];
 char restarts[10];
+int pollCount = 0;
+int pollBusyCount = 0;
+int httpResponseCode;
+char results[1000];
+String commandString;
+String httpPayload;
 
-Ticker watchdogTicker;
+Ticker pollTicker;
 Ticker updateTicker;
 
 AsyncWebServer localServer(80);
@@ -79,10 +105,11 @@ AsyncWebServer localServer(80);
 }
 #endif
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Perform a GET
 char* httpGET(char* requestURL, bool restartOnError = false) {
-  if (logLevel == LOG_LEVEL_HIGH) {
-    Serial.printf("GET %s\n", requestURL);
+  if (logLevel == 3) {
+    debugf("GET %s\n", requestURL);
   }
   busyDoingGET = true;
   WiFiClient client;
@@ -92,47 +119,36 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
   http.begin(client, requestURL);
 
   // Send HTTP GET request
-  int httpResponseCode = http.GET();
-  if (logLevel == LOG_LEVEL_HIGH) {
-    Serial.printf("Response code %d, %d errors\n", httpResponseCode, errorCount);
+  httpResponseCode = http.GET();
+  if (logLevel >= 3) {
+    debugf("Response code %d, %d errors\n", httpResponseCode, errorCount);
   }
-  if (httpResponseCode < 0) {
+  if (httpResponseCode >= 200 && httpResponseCode < 400) {  // Happy flow
+    httpPayload = http.getString();
+    if (logLevel == 3) {
+      debugf("Payload length: %d\n", httpPayload.length());
+    }
+    response = (char*)malloc(httpPayload.length() + 1);
+    strcpy(response, httpPayload.c_str());
+    errorCount = 0;
+  }
+  else {  // Here if an error occurred
+    if (restartOnError) {
+      debugf("Network error %d\n", httpResponseCode);
+        reset();
+    } else {
+      if (logLevel > 1) {
+        debugf("Error %d (%d)\n", httpResponseCode, errorCount);
+      }
+      if (++errorCount > ERROR_MAX) {
+        reset();
+      }
+    }
     response = (char*)malloc(1);  // Provide something to 'free'
     response[0] = '\0';
-    if (logLevel > LOG_LEVEL_LOW && logLevel < LOG_LEVEL_HIGH) {
-      Serial.printf("GET %s: Error: %s\n", requestURL, http.errorToString(httpResponseCode).c_str());
-    }
-  } else {  // Happy flow
-    if (httpResponseCode >= 200 && httpResponseCode < 400) {
-      String httpPayload = http.getString();
-      if (logLevel == LOG_LEVEL_HIGH) {
-        Serial.printf("Payload length: %d\n", httpPayload.length());
-      }
-      response = (char*)malloc(httpPayload.length() + 1);
-      strcpy(response, httpPayload.c_str());
-      errorCount = 0;
-    }
-    else {  // Here if an error occurred
-      response = (char*)malloc(1);  // Provide something to 'free'
-      response[0] = '\0';
-      if (restartOnError) {
-        if (logLevel == LOG_LEVEL_HIGH) {
-          Serial.printf("Network error %d; restarting...\n", httpResponseCode);
-        }
-        ESP.restart();
-      } else {
-        errorCount = errorCount + 1;
-        if (logLevel == LOG_LEVEL_HIGH) {
-          Serial.printf("Error %d (%d)\n", httpResponseCode, errorCount);
-        }
-        if (errorCount == ERROR_MAX) {
-          reset();
-        }
-      }
-    }
   }
-  if (logLevel == LOG_LEVEL_HIGH) {
-    Serial.printf("Response: %s\n", response);
+  if (logLevel == 3) {
+    debugf("Response: %s\n", response);
   }
   // Free resources
   http.end();
@@ -141,14 +157,40 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
   return response;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+int httpPost(char* requestURL, char* requestData) {
+  if(WiFi.status()== WL_CONNECTED){
+    WiFiClient client;
+    HTTPClient http;
+  
+    // Your Domain name with URL path or IP address with path
+    http.begin(client, requestURL);
+    
+    // Specify content-type header
+    http.addHeader("Content-Type", "application/json");        
+    // Send HTTP POST request
+    int httpResponseCode = http.POST(requestData);
+    
+       // Free resources
+    http.end();
+  }
+  else {
+    debugln("WiFi Disconnected");
+  }
+  return httpResponseCode;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 void ledOn() {
   digitalWrite(LED_PIN, HIGH);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 void ledOff() {
   digitalWrite(LED_PIN, LOW);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Write text to a LittleFS file
 void writeTextToFile(const char* filename, const char* text) {
   auto file = LittleFS.open(filename, "w");
@@ -157,12 +199,13 @@ void writeTextToFile(const char* filename, const char* text) {
   file.close();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Read a LittleFS file into text
 const char* readFileToText(const char* filename) {
   auto file = LittleFS.open(filename, "r");
   if (!file) {
-    if (logLevel >= LOG_LEVEL_MEDIUM) {
-      Serial.println("file open failed");
+    if (logLevel >= 2) {
+      debugln("file open failed");
     }
     char* empty = (char*)malloc(1);
     empty[0] = '\0';
@@ -176,245 +219,230 @@ const char* readFileToText(const char* filename) {
   return text;
 }
 
-// Do a watchdog check
-void watchdogCheck() {
-  // Ping the system controller. Reset if no reply
-  char request[80];
-  sprintf(request, "http://%s/resources/php/rest.php/ping", host_server);
-  char* httpPayload = httpGET(request, false);
-  httpPayload[2] = '\0';
-  if (strcmp(httpPayload, "OK") != 0) {
-    Serial.println("Server ping failed");
-    reset();
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Do a regular poll to get relay data
+void poll() {
+  if (busyPolling) {
+    ++pollBusyCount;
+    if (pollBusyCount == POLL_BUSY_LIMIT) {
+      reset();
+    }
+    return;
   }
-  free(httpPayload);
-  totalErrors = 0;
+  pollBusyCount = 0;
+  busyPolling = true;
   // Count the number of relay errors. If more than the limit, reset.
-  for (int n = 0; n < 10; n++) {
-    totalErrors += relayErrors[n];
+  totalErrors = errorCount;
+  for (int n = 0; n < RELAY_COUNT; n++) {
+    totalErrors += relayData[n].errors;
   }
   if (totalErrors > RELAY_ERROR_LIMIT) {
-    Serial.println("Too many relay errors");
+    debugln("Too many relay errors");
     reset();
   }
-  // Check if we've had any requests since the last update. If not, restart.
-  if (logLevel >= LOG_LEVEL_LOW) {
-    Serial.printf("Onoff %d, ping %d, mem %d, errors %d\n", onoffCount, pingCount, esp_get_free_heap_size(), totalErrors);
+  int mem = esp_get_free_heap_size();
+  if (mem < 10000) {
+    reset();
   }
-  if (onoffCount == 0 || pingCount == 0) {
-    Serial.println("No recent requests");
-    watchdogCheckInterval += WATCHDOG_CHECK_INTERVAL;
-    writeWatchdogCheckInterval();
-    if ((WiFi.status() == WL_CONNECTED))  {
-      reset();
-    } else {
-      Serial.println("Reconnecting to WiFi...");
-      WiFi.disconnect();
-      WiFi.mode(WIFI_AP_STA);
-      WiFi.softAPConfig(localIP, localIP, subnet);
-      // WiFi.reconnect();
-      setupHotspot();
+  debugf("\nPoll %d: Mem %d, errors %d\n", ++pollCount, mem, totalErrors);
+
+  // Poll the system controller. Reset if no reply
+  char request[80];
+  sprintf(request, "http://%s/resources/php/rest.php/relaydata/%d", host_server, mem);
+  char* response = httpGET(request, false);
+  debugf("%s\n", response);
+  const int capacity = JSON_OBJECT_SIZE(RELAY_COUNT) + RELAY_COUNT*JSON_OBJECT_SIZE(6);
+  StaticJsonDocument<capacity> relaySpec;
+  DeserializationError error = deserializeJson(relaySpec, response);
+  if (error) {
+    // debugf("Invalid relay data: %s\n", response);
+    busyPolling = false;
+    return;
+  }
+  free(response);
+
+  // debugln("Iterate the relays");
+  JsonArray array = relaySpec.as<JsonArray>();
+  for (JsonVariant v : array) {
+    JsonObject obj = v.as<JsonObject>();
+    const char* extender = obj["extender"];
+    if (strcmp(extender, &host_ipaddr[9]) == 0) {
+      const char* ip = obj["ip"];
+      int id = atoi(ip) - 100;
+      if (id < RELAY_COUNT) {
+        const char* type = obj["type"];
+        strcpy(relayData[id].type, type);
+        const char* onoff = obj["onoff"];
+        relayData[id].onoff = strcmp(onoff, "on") == 0;
+        if (logLevel >= 3) {
+            debugf("%s %d %s ", (const char*)obj["type"], id, onoff);
+        }
+        relayData[id].state = RELAY_REQ_REQ;
+      }
     }
   }
-  if (watchdogCheckInterval > WATCHDOG_CHECK_INTERVAL) {
-    Serial.println("Reset watchdog interval");
-    watchdogCheckInterval = WATCHDOG_CHECK_INTERVAL;
-    writeWatchdogCheckInterval();
-  }
-  onoffCount = 0;
-  pingCount = 0;
+  relaySpec.clear();
+  busyPolling = false;
 }
 
-void writeWatchdogCheckInterval() {
-  char buf[10];
-  sprintf(buf, "%d", watchdogCheckInterval);
-  writeTextToFile("/watchdog", buf);
-}
-
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Request an update check
 void requestUpdateCheck() {
   updateCheck = true;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 char* getUnconfiguredStatus() {
   int temperature = (int)round((temprature_sens_read() - 32) / 1.8);
   strcpy(info, (String(softap_ssid) + " unconfigured; temp=" + temperature).c_str());
   return info;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 char* getConfiguredStatus() {
   int temperature = (int)round((temprature_sens_read() - 32) / 1.8);
   sprintf(info, "RBR WiFi extender v%d %s/%s Temp:%d Restarts:%s", CURRENT_VERSION, host_ssid, host_ipaddr, temperature, restarts);
   return info;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Endpoint: GET http://{ipaddr}/reset
 void handle_reset(AsyncWebServerRequest *request) {
-  Serial.println("Endpoint: reset");
+  debugln("Endpoint: reset");
   reset();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Reset the system
 void reset() {
-  Serial.println("Forcing a reset...");
+  debugln("Forcing a reset...");
   delay(10);
-  writeTextToFile("/restart", "Y");
+  // writeTextToFile("/restart", "Y"); // What's this for (3/12/23)?
   ESP.restart();
+  // while (1) {} // force watchdog timer reboot
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Endpoint: GET http://{ipaddr}/factory-reset
 void handle_factory_reset(AsyncWebServerRequest *request) {
-  Serial.println("Endpoint: factory-reset");
+  debugln("Endpoint: factory-reset");
   writeTextToFile("/config", "");
   request->send(200, "text/plain", "Factory reset");
   reset();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Print the current status
+void printStatus(char* info) {
+  int temperature = (int)round((temprature_sens_read() - 32) / 1.8);
+  sprintf(info, "RBR WiFi extender v%d %s/%s Temp:%d Restarts:%s", CURRENT_VERSION, host_ssid, host_ipaddr, temperature, restarts);
+  debugln(info);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Endpoint: GET http://{ipaddr}/
 void handle_default(AsyncWebServerRequest *request) {
   char info[200];
-  int temperature = (int)round((temprature_sens_read() - 32) / 1.8);
-  sprintf(info, "RBR WiFi extender v%d %s/%s Temp:%d Restarts:%s", CURRENT_VERSION, host_ssid, host_ipaddr, temperature, restarts);
-  Serial.println(info);
+  printStatus(info);
   request->send(200, "text/plain", info);
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Endpoint: GET http://{ipaddr}/setup?(params)
 void handle_setup(AsyncWebServerRequest *request) {
-  Serial.println("handle_setup");
+  debugln("handle_setup");
   request->send(200, "text/plain", "OK");
 
   if(request->hasParam("config")) {
     AsyncWebParameter* p = request->getParam("config");
     String config = p->value();
-    Serial.print(config);
+    debug(config);
     writeTextToFile("/config", config.c_str());
     ESP.restart();
   }
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Set the log level
 void setLogLevel(AsyncWebServerRequest *request, int level) {
   setTheLogLevel(level);
   request->send(200, "text/plain", String(logLevel));
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Set the log level
 void setTheLogLevel(int level) {
-  Serial.printf("Set the log level to %d\n", level);
+  debugf("Set the log level to %d\n", level);
   logLevel = level;
   char buf[10];
   sprintf(buf, "%d", logLevel);
   writeTextToFile("/logLevel", buf);
 }
 
-// Do a relay on or off request
-void doOnOff(AsyncWebServerRequest *request) {
-  if (!busyGettingUpdates) {
-    AsyncWebParameter* p = request->getParam("id");
-    const char* id_s = p->value().c_str();
-    uint id = atoi(id_s) - 100;
-    p = request->getParam("command");
-    String str = p->value();
-    str.replace(" ", "%20");
-    const char* command = str.c_str();
-    relayResponse[id][0] = '\0';
-    strcpy(relayCommand[id], command);
-    relayFlag[id] = RELAY_REQ_REQ;
-    int n = RELAY_DELAY;
-    while (--n > 0) {
-      delay(100);
-      if (relayFlag[id] == RELAY_REQ_IDLE) {
-        onoffCount++;
-        break;
-      }
-    }
-    if (logLevel >= LOG_LEVEL_MEDIUM) {
-      Serial.printf("Relay %d: ", id);
-      if (n == 0) {
-        Serial.println("Timeout");
-      } else {
-        Serial.printf("%d (%dms): %s\n", n, (RELAY_DELAY - n) * 100, relayResponse[id]);
-      }
-    }
-    if (n > 0) {
-      showStatus(request, id);
-    } else {
-      request->send(404, "text/plain", "Timeout");
-    }
-  } else {
-    request->send(404, "text/plain", "-none-");
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Show the on-off state of a relay
+void showState(AsyncWebServerRequest *request, uint id) {
+  const char* onoff = relayData[id].onoff ? "OK" : "FAIL";
+  if (logLevel >= 3) {
+    debugf("Relay %d status: %s\n", id, onoff);
   }
+  request->send(200, "text/plain", onoff);
 }
 
-// Show the status of a relay
-void showStatus(AsyncWebServerRequest *request, uint id) {
-  if (logLevel >= LOG_LEVEL_HIGH) {
-    Serial.printf("Relay %d response: %s\n", id, relayResponse[id]);
-  }
-  request->send(200, "text/plain", relayResponse[id]);
-}
-
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Set up the network and the local server
 void setupNetwork() {
-  Serial.printf("Network SSID: %s\nNetwork password: %s\nSoft AP SSID: %s\nSoft AP password: %s\nHost ipaddr: %s\nHost gateway: %s\nHost server: %s\n",
+  debugf("Network SSID: %s\nNetwork password: %s\nSoft AP SSID: %s\nSoft AP password: %s\nHost ipaddr: %s\nHost gateway: %s\nHost server: %s\n",
     host_ssid, host_password, softap_ssid, softap_password, host_ipaddr, host_gateway, host_server);
 
   ipaddr.fromString(host_ipaddr);
   if (!ipaddr) {
-    Serial.println("UnParsable IP '" + String(host_ipaddr) + "'");
+    debugln("UnParsable IP '" + String(host_ipaddr) + "'");
     reset();
   }
   gateway.fromString(host_gateway);
   if (!gateway) {
-    Serial.println("UnParsable IP '" + String(host_gateway) + "'");
+    debugln("UnParsable IP '" + String(host_gateway) + "'");
     reset();
   }
   server.fromString(host_server);
   if (!server) {
-    Serial.println("UnParsable IP '" + String(host_server) + "'");
+    debugln("UnParsable IP '" + String(host_server) + "'");
     reset();
   }
 
   setupHotspot();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Set up the local hotspot and connect to the host
 void setupHotspot() {
   // Set up the soft AP with up to 10 connections
   WiFi.softAP(softap_ssid, softap_password, 1, 0, 10);
-  Serial.printf("Soft AP %s/%s created with IP %s\n", softap_ssid, softap_password, WiFi.softAPIP().toString().c_str());
+  debugf("Soft AP %s/%s created with IP %s\n", softap_ssid, softap_password, WiFi.softAPIP().toString().c_str());
 
   //connect to the controller's wi-fi network
   if (!WiFi.config(ipaddr, gateway, subnet)) {
-    Serial.println("STA failed to configure");
+    debugln("STA failed to configure");
   }
   WiFi.begin(host_ssid, host_password);
-  Serial.printf("Connecting to %s", host_ssid);
+  debugf("Connecting to %s", host_ssid);
   int counter = 0;
   while (WiFi.status() != WL_CONNECTED) {
     if (++counter > 60) {
       reset();
     }
-    Serial.print(".");
+    debug(".");
     delay(1000);
   }
-  Serial.printf("\nConnected as %s with RSSI %d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
+  debugf("\nConnected as %s with RSSI %d\n", WiFi.localIP().toString().c_str(), WiFi.RSSI());
   delay(100);
 
   // Set up the local HTTP server
-  Serial.println("Set up the local server");
+  debugln("Set up the local server");
 
   localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     handle_default(request);
-  });
-
-  localServer.on("/ping", HTTP_GET, [](AsyncWebServerRequest *request) {
-    pingCount++;
-    request->send(200, "text/plain", String(pingCount));
-    if (logLevel >= LOG_LEVEL_MEDIUM) {
-      Serial.printf("Ping %d\n", pingCount);
-    }
   });
 
   localServer.on("/clear", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -455,20 +483,17 @@ void setupHotspot() {
     setLogLevel(request, 3);
   });
 
-  localServer.on("/onoff", HTTP_GET, [](AsyncWebServerRequest *request) {
-    doOnOff(request);
-  });
-
   localServer.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
      AsyncWebParameter* p = request->getParam("id");
       const char* id_s = p->value().c_str();
       uint id = atoi(id_s) - 100;
-      showStatus(request, id);
+      showState(request, id);
   });
 
   localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request) {
-    Serial.printf("Version request from %s\n", request->client()->remoteIP().toString().c_str());
+    debugf("Version request from %s\n", request->client()->remoteIP().toString().c_str());
     request->send(200, "text/plain", ((String)relayVersion).c_str());
+    debugf("Version %d sent\n", relayVersion);
     // watchdog++;
   });
 
@@ -484,8 +509,8 @@ void setupHotspot() {
 
   localServer.begin();
 
-  // Call the watchdog regularly
-  watchdogTicker.attach(watchdogCheckInterval, watchdogCheck);
+  // Poll the controller regularly
+  pollTicker.attach(POLL_INTERVAL, poll);
 
   // Check for updates periodically
   updateTicker.attach(UPDATE_CHECK_INTERVAL, requestUpdateCheck);
@@ -494,37 +519,38 @@ void setupHotspot() {
   updateCheck = true;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Check for updated extender and relay firmware
 void checkForUpdates() {
   if (updateCheck) {
     updateCheck = false;
     busyGettingUpdates = true;
 
-    if (logLevel >= LOG_LEVEL_LOW) {
-      Serial.println("Check for update");
+    if (logLevel >= 1) {
+      debugln("Check for update");
     }
     WiFiClient client;
-    char request[40];
+    char request[80];
     sprintf(request, "http://%s/extender/version", host_server);
     delay(10);
     char* httpPayload = httpGET(request, true);
     int newVersion = atoi(httpPayload);
     free(httpPayload);
     if (newVersion == 0) {
-      if (errorCount > 10) {
-        Serial.println("Bad version number from host, so resetting");
+      if (errorCount > HOST_ERROR_LIMIT) {
+        debugln("Too many host comms errors, so resetting");
         reset();
       }
     } else {
       if (newVersion > CURRENT_VERSION) {
-        Serial.printf("Updating from %d to %d\n\n\n", CURRENT_VERSION, newVersion);
+        debugf("Updating from %d to %d\n\n\n", CURRENT_VERSION, newVersion);
         writeTextToFile("/restarts", "0");
         WiFiClient client;
-        sprintf(request, "http://%s/extender/current", host_server);
+        sprintf(request, "http://%s/extender/esp32_wifi_extender.ino.bin", host_server);
         ESPhttpUpdate.update(request);
         // This is never reached
       } else {
-        Serial.printf("Firmware version %d\n", CURRENT_VERSION);
+        debugf("Firmware version %d\n", CURRENT_VERSION);
       }
     }
     // Get the relay version number
@@ -533,7 +559,7 @@ void checkForUpdates() {
     httpPayload = httpGET(url, true);
     relayVersion = atoi(httpPayload);
     free(httpPayload);
-    Serial.printf("Relay version %d\n", relayVersion);
+    debugf("Relay version %d\n", relayVersion);
     if (relayVersion == 0) {
       reset();
     }
@@ -542,6 +568,7 @@ void checkForUpdates() {
   busyDoingGET = false;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 void blink()
 {
   ledOn();
@@ -553,41 +580,48 @@ void blink()
   ledOff();
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Process a message from the serial port (development only)
 void processMessage(const char* msg) {
   char* message = (char*)malloc(strlen(msg) + 1);
   strcpy(message, msg);
-  char* ptr = strchr(message, '=');
-  if (ptr == NULL) {
-    if (busyStartingUp) {
-      Serial.printf("%s\n", getUnconfiguredStatus());
-    } else {
-      Serial.printf("%s\n", getConfiguredStatus());
+  if (strcmp(message, "ping") == 0) {
+    debugln("ping OK");
+  }
+  else if (strcmp(message, "clear") == 0) {
+    debugln("clear");
+    strcpy(restarts, "0");
+    writeTextToFile("/restarts", restarts);
+    char info[200];
+    printStatus(info);
+  }
+  else if (strcmp(message, "blink") == 0) {
+    debugln("blink");
+    blink();
+  }
+  else if (strcmp(message, "reset") == 0) {
+    reset();
+  }
+  else if (strcmp(message, "factory-reset") == 0) {
+    writeTextToFile("/config", "");
+    reset();
+  }
+  else {
+    char* ptr = strchr(message, '=');
+    if (ptr == NULL) {
+      if (busyStartingUp) {
+        debugf("%s\n", getUnconfiguredStatus());
+      } else {
+        debugf("%s\n", getConfiguredStatus());
+      }
     }
-  } else {
-    *ptr = '\0';
-    ptr++;
-    // Serial.printf("%s %s\n", message, ptr);
-    if (strcmp(message, "ping") == 0) {
-      Serial.println("ping OK");
-    }
-    else if (strcmp(message, "clear") == 0) {
-      Serial.println("clear");
-      strcpy(restarts, "0");
-      writeTextToFile("/restarts", restarts);
-    }
-    else if (strcmp(message, "blink") == 0) {
-      blink();
-    }
-    else if (strcmp(message, "log") == 0) {
-      setTheLogLevel(atoi(ptr));
-    }
-    else if (strcmp(message, "reset") == 0) {
-      reset();
-    }
-    else if (strcmp(message, "factory-reset") == 0) {
-      writeTextToFile("/config", "");
-      reset();
+    else {
+      *ptr = '\0';
+      ptr++;
+      // debugf("%s %s\n", message, ptr);
+      if (strcmp(message, "log") == 0) {
+        setTheLogLevel(atoi(ptr));
+      }
     }
   }
   free(message);
@@ -598,7 +632,7 @@ void processMessage(const char* msg) {
   });
 
   localServer.on("/relay/version", HTTP_GET, [](AsyncWebServerRequest *request) {
-    Serial.printf("Version request from %s\n", request->client()->remoteIP().toString().c_str());
+    debugf("Version request from %s\n", request->client()->remoteIP().toString().c_str());
     request->send(200, "text/plain", ((String)relayVersion).c_str());
     // watchdog++;
   });
@@ -611,15 +645,19 @@ void processMessage(const char* msg) {
 */
 }
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Start here
 void setup(void) {
-  Serial.begin(BAUDRATE);
+  busyStartingUp = true;
+
+  debugln("setup");
+  serial_begin(BAUDRATE);
   delay(500);
   pinMode(LED_PIN, OUTPUT);
+  ledOff();
 
   if (!LittleFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    Serial.println("LITTLEFS begin Failed");
+    debugln("LITTLEFS begin Failed");
     return;
   }
 
@@ -641,7 +679,7 @@ void setup(void) {
     free((void*)rb);
   }
   if (reboot == 'Y') {
-    Serial.println("Reboot requested");
+    debugln("Reboot requested");
     delay(10000);
   }
   writeTextToFile("/reboot", "N");
@@ -656,21 +694,14 @@ void setup(void) {
   sprintf(restarts, "%d", nRestarts);
   writeTextToFile("/restarts", restarts);
 
-  // Deal with the watchdog check interval
-  watchdogCheckInterval = WATCHDOG_CHECK_INTERVAL;
-  const char* wf = readFileToText("/watchdog");
-  if (wf != NULL && wf[0] != '\0') {
-    watchdogCheckInterval = atoi(wf);
-    free((void*)wf);
-  }
-
   // Init the relay flags
-  for (uint n = 0; n < 10; n++) {
-    relayFlag[n] == RELAY_REQ_IDLE;
-    relayErrors[n] = 0;
+  debugln("Init relays");
+  for (uint n = 0; n < RELAY_COUNT; n++) {
+    relayData[n].state = RELAY_REQ_IDLE;
+    relayData[n].errors = 0;
   }
 
-//  Uncoment the next line to force a return to unconfigured mode
+//  Uncomment the next line to force a return to unconfigured mode
 //  writeTextToFile("/config", "");
 
   String ssid = "RBR-EX-000000";
@@ -682,21 +713,21 @@ void setup(void) {
   ssid[11] = mac[15];
   ssid[12] = mac[16];
   strcpy(softap_ssid, ssid.c_str());
-  Serial.printf("\n\n\nMAC: %s, SSID: %s\n", mac.c_str(), String(softap_ssid));
-  Serial.printf("Version %d Watchdog: %d, restarts: %d\n", CURRENT_VERSION, watchdogCheckInterval, nRestarts);
+  debugf("\n\n\nMAC: %s, SSID: %s\n", mac.c_str(), String(softap_ssid));
+  debugf("Version %d: Restarts: %d\n", CURRENT_VERSION, nRestarts);
 
   // Set up the soft AP
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAPConfig(localIP, localIP, subnet);
   delay(100);
-  Serial.println("Read config from LittleFS/config");
+  debugln("Read config from LittleFS/config");
   const char* config_s = readFileToText("/config");
   if (config_s[0] != '\0') {
     StaticJsonDocument<400> config;
     DeserializationError error = deserializeJson(config, config_s);
     if (error) {
-      Serial.printf("Config = %s\n", config_s);
-      Serial.println("Not valid JSON");
+      debugf("Config = %s\n", config_s);
+      debugln("Not valid JSON");
       writeTextToFile("/config", "");
       ESP.restart();
     }
@@ -710,14 +741,14 @@ void setup(void) {
   free((void*)config_s);
   if (host_ssid[0] == '\0' || host_password[0] == '\0' || softap_password[0] == '\0'
     || host_ipaddr[0] == '\0' || host_gateway[0] == '\0' || host_server[0] == '\0') {
-    Serial.println("Missing config data");
+    debugln("Missing config data");
     softap_ssid[4] = 'e';
     softap_ssid[5] = 'x';
     WiFi.softAP(softap_ssid);
-    Serial.printf("Soft AP %s created with IP ", softap_ssid); Serial.println(WiFi.softAPIP());
+    debugf("Soft AP %s created with IP ", softap_ssid); debugln(WiFi.softAPIP());
 
     localServer.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-      Serial.println("onAPDefault");
+      debugln("onAPDefault");
       request->send(200, "text/plain", getUnconfiguredStatus());
     });
 
@@ -730,7 +761,7 @@ void setup(void) {
     });
 
     localServer.begin();
-    Serial.println(getUnconfiguredStatus());
+    debugln(getUnconfiguredStatus());
 
     updateTicker.attach(2, blink);
   } else {
@@ -740,55 +771,145 @@ void setup(void) {
   }
 }
 
-///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////
 // Main loop
 void loop(void) {
-  if (Serial.available()) {     //wait for data available
-    String teststr = Serial.readString();  //read until timeout
-    teststr.trim();                        // remove any \r \n whitespace at the end of the String
-    processMessage(teststr.c_str());
-  }
 
-  if (busyStartingUp || busyGettingUpdates || busyDoingGET) {
+  if (busyStartingUp || busyGettingUpdates || busyDoingGET || busyPolling || busyDoingRelay) {
     return;
   }
 
-  if (!busyStartingUp && !busyDoingRelay) {
-    busyDoingRelay = true;
-    if (relayFlag[rid] == RELAY_REQ_REQ) {
-      relayFlag[rid] = RELAY_REQ_ACTIVE;
-      uint id = rid + 100;
-      strcpy(deviceURL, deviceRoot);
-      sprintf(deviceURL, "%s%d%s", deviceRoot, id, relayCommand[rid]);
-      char* httpPayload = httpGET(deviceURL, false);
-      if (httpPayload[0] == '\0') {
-        relayErrors[rid]++;
-        if (logLevel >= LOG_LEVEL_LOW) {
-          Serial.printf("No response from relay %d (%d)\n", rid, relayErrors[rid]);
-        }
-      } else {
-        relayErrors[rid] = 0;
-      }
-      delay(10);
-      if (logLevel >= LOG_LEVEL_HIGH) {
-        Serial.printf("Relay %d: %s - Status: %s\n", rid, deviceURL, deviceURL, httpPayload);
-      }
-      strcpy(relayResponse[rid], httpPayload);
-      free(httpPayload);
-      relayFlag[rid] = RELAY_REQ_IDLE;
+  busyDoingRelay = true;
+  // Examine the info for the next relay and send a command if its request flag is set
+  if (relayData[rid].state == RELAY_REQ_REQ) {
+    // debugf("Process relay %d\n", rid);
+    relayData[rid].state = RELAY_REQ_ACTIVE;
+    uint id = rid + 100;
+    strcpy(deviceURL, deviceRoot);
+    char command[30];
+    char onoff[4];
+    strcpy(onoff, relayData[rid].onoff ? "on" : "off");
+    if (strcmp(relayData[rid].type, "r1") == 0) {
+      sprintf(command, "/%s", onoff);
+    } else if (strcmp(relayData[rid].type, "tasmota") == 0) {
+      sprintf(command, "/cm?cmnd=power%%20%s", onoff);
+    } else if (strcmp(relayData[rid].type, "shelly") == 0) {
+      sprintf(command, "/relay/0?turn=%s", onoff);
     }
-    rid = ++rid % 10;
-    busyDoingRelay = false;
+    sprintf(deviceURL, "%s%d%s", deviceRoot, id, command);
+    if (logLevel >= 3) {
+      debugln(deviceURL);
+    }
+    char* httpResponse = httpGET(deviceURL, false);
+    char response[256];
+    strncpy(response, httpResponse, 255);
+    response[255] = '\0';
+    free(httpResponse);
+
+    // If no response, bump the error count
+    if (strlen(response) == 0) {
+      relayData[rid].ok = false;
+      relayData[rid].errors++;
+      if (logLevel >= 1) {
+        debugf("No response from relay %d (%d)\n", rid, relayData[rid].errors);
+      }
+    } else {
+      relayData[rid].errors = 0;
+      // Check the return value for each relay type
+      // debugf("Response: %s\n", response);
+      if (strcmp(relayData[rid].type, "r1") == 0) {
+        char buf[3];
+        strncpy(buf, response, 2);
+        buf[2] = '\0';
+        relayData[rid].ok =  (relayData[rid].onoff && strcmp(buf, "ON") == 0)
+          || (!relayData[rid].onoff && strcmp(buf, "OF") == 0);
+      }
+      else if (strcmp(relayData[rid].type, "tasmota") == 0) {
+        char buf[3];
+        buf[0] = tolower(response[10]);
+        buf[1] = tolower(response[11]);
+        buf[2] = '\0';
+        // debugf("RID=%d state=%s buf='%s'\n", rid, relayData[rid].state ? "on" : "off", buf);
+        relayData[rid].ok = (relayData[rid].onoff && strcmp(buf, "on") == 0)
+          || (!relayData[rid].onoff && strcmp(buf, "of") == 0);
+      }
+      else if (strcmp(relayData[rid].type, "shelly") == 0) {
+        char buf[5];
+        buf[0] = response[8];
+        buf[1] = response[9];
+        buf[2] = response[10];
+        buf[3] = response[11];
+        buf[4] = '\0';
+        relayData[rid].ok = (relayData[rid].onoff && strcmp(buf, "true") == 0)
+          || (!relayData[rid].onoff && strcmp(buf, "fals") == 0);
+        // strcpy(response, buf);
+      }
+      else {
+        relayData[rid].ok = false;
+        relayData[rid].errors++;
+        sprintf(response, "Unknown relay type '%s'", relayData[rid].type);
+      }
+      debugf("Relay %d: %s %s\n", rid, response, relayData[rid].ok ? "OK" : "FAIL");
+    }
+    for (int n = 0; n < strlen(response); n++) {
+      if (response[n] == '"') {
+        response[n] = '\'';
+      }
+    }
+    strcpy(relayData[rid].response, response);
+    delay(10);
+    if (logLevel >= 3) {
+      debugf("Relay %d: %s - Status: %s\n", rid, deviceURL, deviceURL, response);
+    }
+    relayData[rid].state = RELAY_REQ_IDLE;
+    relayFlag = true; // A relay has been processed
   }
+  // After all relays, if any have been processed send a response back
+  if (++rid == RELAY_COUNT) {
+    if (relayFlag) {
+      // char* response = httpGET(deviceURL, false);
+      // debugf("%s\n", response);
+      const int capacity = JSON_OBJECT_SIZE(RELAY_COUNT) + JSON_OBJECT_SIZE(4) * RELAY_COUNT + 1024;
+      StaticJsonDocument<capacity> jsonDoc;
+      for (int n = 0; n < RELAY_COUNT; n++) {
+        // jsonDoc[n]["type"] = relayData[n].type;
+        // jsonDoc[n]["onoff"] = relayData[n].onoff;
+        jsonDoc[n]["ip"] = n + 100;
+        jsonDoc[n]["errors"] = relayData[n].errors;
+        jsonDoc[n]["ok"] = relayData[n].ok;
+        jsonDoc[n]["response"] = relayData[n].response;
+      }
+      char results[1000];
+      serializeJson(jsonDoc, results);
+      // debugln(results);
+      char request[80];
+      sprintf(request, "http://%s/resources/php/rest.php/response", host_server);
+      int httpResponseCode = httpPost(request, results);
+      if (logLevel >= 3) {
+        debugf("POST response: %d\n", httpResponseCode);
+      }
+      relayFlag = false;
+    }
+    rid = 0;
+  }
+  busyDoingRelay = false;
 
   checkForUpdates();
 
+  // Handle command input
+  if (serial_available()) {     //wait for data available
+    commandString = serial_readString();  //read until timeout
+    commandString.trim();                        // remove any \r \n whitespace at the end of the String
+    processMessage(commandString.c_str());
+  }
+
+  // Tell the server I've restarted. Do this just once.
   if (!running) {
     running = true;
     char request[80];
     sprintf(request, "http://%s/resources/php/rest.php/ex-restarts/%s", host_server, restarts);
     char* httpPayload = httpGET(request, false);
     free(httpPayload);
-    Serial.println(String(softap_ssid) + " configured and running");
+    debugf("%s configured and running\n", softap_ssid);
   }
 }

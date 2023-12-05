@@ -1,0 +1,45 @@
+!	Requests.ecs
+
+	script Requests
+
+	file File
+	variable MAC
+	variable Requests
+	variable Request
+	variable Pending
+	variable TS
+	variable N
+
+	open File `mac` for reading
+	read MAC from File
+	close File
+	put trim MAC into MAC
+
+	get Requests from `https://rbrheating.com/home/resources/php/rest.php/requests/` cat MAC cat `/50`
+	put json Requests into Requests
+
+	clear Pending
+
+	put 0 into N
+	while N is less than the count of Requests
+	begin
+		put element N of Requests into Request
+		put property `ts` of Request into TS
+		put the value of TS into TS
+		multiply TS by 1000
+        put datime TS format `%b %d %H:%M:%S` into TS
+		put property `request` of Request into Request
+		if Request is `{}` clear Pending
+		else
+		begin
+			if Pending print `Request was not acknowledged`
+			if the length of Request is greater than 77
+			begin
+				put left 77 of Request into Request
+				put Request cat `...` into Request
+			end
+			print TS cat `: ` cat Request
+			set Pending
+		end
+		add 1 to N
+	end

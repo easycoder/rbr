@@ -4,8 +4,8 @@ with open('interfaces') as f:
     lines = list(f)
 
 for id, line in enumerate(lines):
-    n = line.rfind(' ')
-    lines[id] = line.strip()[n:].strip()
-
-len = len(lines)
-print(lines[len - 1])
+    n = line.find(' ')
+    mac = line.strip()[n:].strip()
+    if line[0:n] == 'wlan0:':
+        print(mac)
+        exit

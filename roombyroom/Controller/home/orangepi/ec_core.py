@@ -2,7 +2,7 @@ import json, math, hashlib, threading, os, subprocess, sys, requests, time, numb
 from psutil import Process
 from datetime import datetime, timezone
 from random import randrange
-from ec_classes import FatalError, RuntimeWarning
+from ec_classes import FatalError, RuntimeWarning, RuntimeError
 from ec_handler import Handler
 from ec_timestamp import getTimestamp
 
@@ -339,6 +339,7 @@ class Core(Handler):
         retval['numeric'] = False
         url = self.getRuntimeValue(command['url'])
         target = self.getVariable(command['target'])
+        response = json.loads('{}')
         try:
             response = requests.get(url, auth = ('user', 'pass'), timeout=5)
             if response.status_code >= 400:
@@ -632,12 +633,14 @@ class Core(Handler):
                 errorCode = response.status_code
                 errorReason = response.reason
                 if command['or'] != None:
+                    print(f'Error {errorCode} {errorReason}: Running the "or" clause')
                     return command['or']
                 else:
                     RuntimeError(self.program, f'Error code {errorCode}: {errorReason}')
         except Exception as e:
             errorReason = str(e)
             if command['or'] != None:
+                print(f'Exception "{errorReason}": Running the "or" clause')
                 return command['or']
             else:
                 RuntimeError(self.program, f'Error: {errorReason}')
@@ -1420,9 +1423,12 @@ class Core(Handler):
         value = {}
         value['type'] = 'int' if isinstance(content, int) else 'text'
         if type(content) == list:
-            value['content'] = content[index]
-            return value
-        lino = self.program.code[self.program.pc]['lino']
+            try:
+                value['content'] = content[index]
+                return value
+            except:
+                RuntimeError(self.program, 'Index out of range')
+        # lino = self.program.code[self.program.pc]['lino']
         RuntimeError(self.program, 'Item is not an array')
 
     def v_elements(self, v):

@@ -71,13 +71,13 @@
 
                 case 'register':
                     // Is this needed?
-                    print file_get_contents("map");
+                    print file_get_contents("/mnt/data/map");
                     exit;
 
                 case 'map':
                     // Return the map. Create a default map if necessary.
-                    if (!file_exists("map")) {
-                        $fp = fopen("map", "w") or die("Can't open $file");
+                    if (!file_exists("/mnt/data/map")) {
+                        $fp = fopen("/mnt/data/map", "w") or die("Can't open $file");
                         fwrite($fp, '{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0,"name":"New system"}');
                         fclose($fp);
                     }
@@ -86,6 +86,14 @@
 
                 case 'sensors':
                     print file_get_contents("/mnt/data/sensorData");
+                    exit;
+
+                case 'relaydata':
+                    $mem = array_shift($request);
+                    $fp = fopen("/mnt/data/espmem", "w") or die("Can't open '$file'");
+                    fwrite($fp, $mem);
+                    fclose($fp);
+                    print file_get_contents("/mnt/data/relayData");
                     exit;
 
                 case 'notify':
@@ -138,8 +146,24 @@
                     chmod("/mnt/data/request", 0777);
                     exit;
 
+                case 'response':
+                    $response = stripslashes(file_get_contents("php://input"));
+                    $fp = fopen("/mnt/data/response", "w") or die("Can't open /mnt/data/response");
+                    fwrite($fp, $response);
+                    fclose($fp);
+                    chmod("/mnt/data/response", 0777);
+                    $fp = fopen("/mnt/data/response-ts", "w") or die("Can't open /mnt/data/response-ts");
+                    fwrite($fp, time());
+                    fclose($fp);
+                    chmod("/mnt/data/response-ts", 0777);
+                    exit;
+
                 case 'delreq':
                     unlink("/mnt/data/request");
+                    exit;
+
+                case 'delresponse':
+                    unlink("/mnt/data/response");
                     exit;
 
                 case 'delTempMap':

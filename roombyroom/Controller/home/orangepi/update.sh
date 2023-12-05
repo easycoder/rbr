@@ -7,6 +7,8 @@ apt -y upgrade
 cd /home/orangepi
 echo `date` -- sudo -u orangepi cp map /mnt/data/map >> /root/updatelog
 sudo -u orangepi cp map /mnt/data/map
+echo `date` -- rm dist*.tgz >> /root/updatelog
+rm dist*.tgz
 echo `date` -- sudo -u orangepi wget https://rbrheating.com/home/dist.tgz >> /root/updatelog
 sudo -u orangepi wget https://rbrheating.com/home/dist.tgz
 if test -f "dist.tgz"; then
