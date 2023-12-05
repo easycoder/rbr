@@ -20,8 +20,7 @@ Third-party tools are kept to a minimum. The project relies mainly on other prod
 
 The system requires no software framework, nor any build tools beyond a text editor. This improves maintainability and offers ease of access to programmers of all levels of experience.
 
-This ReadMe does not attempt to fully describe the system. Instead, all documentation is online and accessed from the webapp. The best way to get an introduction to RBR is to visit the webapp at
+The webapp is designed to work on a smartphone but can also be viewed in a PC browser. It can be found at
 
 [https://rbrheating.com/home](https://rbrheating.com/home)
 
-The webapp is designed to work on a smartphone but can also be viewed in a PC browser.
