@@ -1,8 +1,8 @@
 # Room By Room Control
 
-An Open Source project to build a smart central heating system with control over the Internet.
+This is an Open Source project to build a smart central heating system with control over the Internet. It's designed to be a "distributed appliance"; that is, something that can be set up before delivery and just plugged in, with none of the usual messing about with IP addresses that plagues the "smart home" world. No techncal knowledge on the part of the end user is required; just the ability (and willingness) to program a central heating controller.
 
-This project uses commercially-available WiFi-connected modules - a temperature sensor and a relay module - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis. The cost of the system is typically one fifth of the annual running cost of a domestic heating system, and since it can save 10% or more of the annual heating cost by making better use of heating it can pay for itself in the first couple of years.
+This project uses commercially-available BLE and WiFi-connected modules - a temperature sensor and a relay module - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis. The cost of the system is typically about a fifth of the annual running cost of a domestic heating system, and since it can save 10% or more of the annual heating cost by making better use of heating it can pay for itself in the first couple of years.
 
 The repository software is in 3 parts:
 
@@ -24,3 +24,6 @@ The webapp is designed to work on a smartphone but can also be viewed in a PC br
 
 [https://rbrheating.com/home](https://rbrheating.com/home)
 
+## Call for collaborators
+
+This project has been developed by one person - me. It controls my central heating and that of a friend, but we'd like to spread the knowledge. I'm getting on in years so I won't be able to support it for very much longer. Anyone who is interested in joiningwill be most welcome. No strings are attached and I'll give as much help as I can to get you up the learning curve. The project uses some unusual programming techniques designed to help casual programmers get familiar with the product. but underneath it's all pure JavaScript, Python and C++.
