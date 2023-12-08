@@ -158,6 +158,14 @@
                     chmod("/mnt/data/response-ts", 0777);
                     exit;
 
+                case 'error':
+                    $message = stripslashes(file_get_contents("php://input"));
+                    $fp = fopen("/mnt/data/errorLog", "a") or die("Can't open /mnt/data/errorLog");
+                    $time = time();
+                    fwrite($fp, date('r', time()) . ": $message\n");
+                    fclose($fp);
+                    exit;
+
                 case 'delreq':
                     unlink("/mnt/data/request");
                     exit;

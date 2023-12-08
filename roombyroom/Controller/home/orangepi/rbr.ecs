@@ -31,6 +31,8 @@
     variable RelayType
     variable RelayData
     variable Responses
+    variable BadResponses
+    variable ExtenderSuspect
     variable Response
     variable Timestamp
     variable Temperature
@@ -149,8 +151,10 @@
     print `Local server is running`
 
     ! Check if we've had a recent poll from the extender
+    clear ExtenderRunning
     if file `/mnt/data/response-ts` exists
     begin
+        set ExtenderRunning
         open File `/mnt/data/response-ts` for reading
         read T from File
         close File
@@ -158,17 +162,10 @@
         take T from Timestamp giving T
         if T is greater than 600
         begin
-            print `No recent response from extender`
-            clear ExtenderRunning
+            print `No recent requests from extender`
             post Map to LocalServer cat `.1/resources/php/rest.php/delresponse`
         end
-        else
-        begin
-            print `Extender running`
-            set ExtenderRunning
-        end
     end
-    else clear ExtenderRunning
 
     ! Ask the server for our password and other data
     put empty into RegData
@@ -560,19 +557,22 @@ SkipRequests:
         end
     end
 
+! print RelayData
     open File `/mnt/data/relayData` for writing
     write stringify RelayData to File
     close File
 
-!   Post the sensor data to the RBR server
-PostSensorData:
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Deal with the status flag
+    clear ExtenderSuspect
     if file `/mnt/data/response` exists
     begin
         open File `/mnt/data/response` for reading
         read Responses from File
         close File
-!        set property `responses` of SensorData to Responses
+        set property `responses` of SensorData to Responses
         put json Responses into Responses
+        put 0 into BadResponses
         put 0 into N
         while N is less than the count of Responses
         begin
@@ -580,10 +580,25 @@ PostSensorData:
             put stringify Response into Response
             put json Response into Response
             put property `ip` of Response into RelayIp
-            if property `` cat RelayIp of IPAddresses is not empty print Response
+            if property `` cat RelayIp of IPAddresses is not empty
+            begin
+                print Response
+                if `` cat property `ok` of Response is `False` add 1 to BadResponses
+            end
             add 1 to N
         end
+        if BadResponses is greater than 0
+            if BadResponses is less than the count of Responses set ExtenderSuspect
     end
+    else set ExtenderSuspect
+
+!    print `Extender: ` cat ExtenderRunning cat ` ` cat ExtenderSuspect
+    if ExtenderRunning
+    begin
+        if ExtenderSuspect set property `extender` of SensorData to `suspect`
+        else set property `extender` of SensorData to `running`
+    end
+    else set property `extender` of SensorData to `fail`
 
     set property `version` of SensorData to Version
     put stringify SensorData into Sensors
@@ -591,6 +606,8 @@ PostSensorData:
     write Sensors to File
     close File
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Post the sensor data to the RBR server
     if Password is not empty
     begin
 !        print `Post the sensor data: ` cat Sensors
@@ -826,7 +843,7 @@ MultiplyTT:
         put from P1 of Temperature into T2
         add T2 to T1 giving Temperature
     end
-    print `Target: ` cat Target cat `, Temperature: ` cat Temperature
+!    print `Target: ` cat Target cat `, Temperature: ` cat Temperature
     return
 
 !   This is called in 'timed' mode to deal with the Advance setting
@@ -903,24 +920,25 @@ TurnOnOrOff:
 
 TurnOff:
     put `off` into OnOff
-    go to SetRelays
+    go to UpdateLog
 
 TurnOn:
     add 1 to RequestCount
     put `on` into OnOff
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Set the relays in a room
-SetRelays:
+!   Update the log if the temperature has changed outside a 10-minute window
+UpdateLog:
+
 !   Skip if less than 10 minutes from the last change
     put property `ts` of RoomStatus into TS
-    print `TS: ` cat TS
+!    print `TS: ` cat TS
     add 600 to TS
-    if now is less than TS go to SR1 else print `Time change to ` cat TS cat ` in ` cat RoomName
+    if now is less than TS go to SetRelays ! else print `Time change to ` cat TS cat ` in ` cat RoomName
 
 !   Test if the temperature has changed
     put property `temp` of RoomStatus into T
-    if T is Temperature go to SR1 else print `Temperature change in ` cat RoomName
+    if T is Temperature go to SetRelays ! else print `Temperature change in ` cat RoomName
 
 !   Write this room's data to the log file
 SR0:
@@ -939,12 +957,13 @@ SR0:
 
     if Password is not empty post stringify RoomStatus to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password
 
-!   Continue with setting the relays
-SR1:
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set the relays
+SetRelays:
     print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat OnOff
     if RelayType is empty put `Shelly One` into RelayType
     if Relays is empty put json `[]` into Relays
+! print RoomName cat ` Relays: ` cat Relays
     put 0 into R
     while R is less than the count of Relays
     begin
@@ -974,14 +993,11 @@ SR1:
                 append Item to RelayData
             end
         end
-SR2:
         add 1 to R
     end
     set property `relay` of SensorValues to OnOff
     set property `advance` of SensorValues to Advance
     set property Sensor of SensorData to SensorValues
-    if ExtenderRunning set property `extender` of SensorData to `running`
-    else set property `extender` of SensorData to `fail`
     return
 
 !   Show a warning message

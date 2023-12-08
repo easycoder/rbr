@@ -1,12 +1,14 @@
 #!/bin/sh
 
+rm /root/updatelog
+echo `date` -- Start the update >> /root/updatelog
+echo `date` -- crontab empty.txt >> /root/updatelog
+crontab empty.txt
 echo `date` -- apt update >> /root/updatelog
 apt update
 echo `date` -- apt upgrade >> /root/updatelog
 apt -y upgrade
 cd /home/orangepi
-echo `date` -- sudo -u orangepi cp map /mnt/data/map >> /root/updatelog
-sudo -u orangepi cp map /mnt/data/map
 echo `date` -- rm dist*.tgz >> /root/updatelog
 rm dist*.tgz
 echo `date` -- sudo -u orangepi wget https://rbrheating.com/home/dist.tgz >> /root/updatelog
@@ -31,11 +33,9 @@ if test -f "dist.tgz"; then
     echo "Finish the update"
     echo `date` -- sudo -u orangepi crontab crondata.txt >> /root/updatelog
     sudo -u orangepi crontab crondata.txt
-    echo `date` -- -u orangepi cp /mnt/data/map map >> /root/updatelog
-    sudo -u orangepi cp /mnt/data/map map
     rm /mnt/data/version
     echo "Reboot"
-    echo `date` -- -u reboot >> /root/updatelog
+    echo `date` -- reboot >> /root/updatelog
     reboot
 fi
 echo `date` -- Unable to download the update pack >> /root/updatelog

@@ -8,8 +8,8 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 40
-#define DEBUG 1    // set to 1 to debug
+#define CURRENT_VERSION 42
+#define DEBUG 0    // set to 1 to debug
 
 #if DEBUG
 #define serial_begin(...)   Serial.begin(__VA_ARGS__);
@@ -29,7 +29,8 @@
 
 #define BAUDRATE 115200
 #define POLL_INTERVAL 10
-#define UPDATE_CHECK_INTERVAL 3600
+#define ReBOOT_INTERVAL 
+#define RESET_INTERVAL 3600
 #define RELAY_COUNT 10
 #define RELAY_DELAY 50
 #define RELAY_ERROR_LIMIT 100
@@ -77,7 +78,6 @@ bool busyGettingUpdates = false;
 bool busyDoingGET = false;
 bool busyPolling = false;
 bool busyDoingRelay = false;
-bool updateCheck = false;
 bool running = false;
 bool relayFlag = false;
 char info[80];
@@ -91,7 +91,7 @@ String commandString;
 String httpPayload;
 
 Ticker pollTicker;
-Ticker updateTicker;
+Ticker resetTicker;
 
 AsyncWebServer localServer(80);
 
@@ -181,6 +181,13 @@ int httpPost(char* requestURL, char* requestData) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+void reportError(const char* message) {
+  char request[80];
+  sprintf(request, "http://%s/resources/php/rest.php/error/%s", host_server, message);
+  int httpResponseCode = httpPost(request, results);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 void ledOn() {
   digitalWrite(LED_PIN, HIGH);
 }
@@ -225,6 +232,7 @@ void poll() {
   if (busyPolling) {
     ++pollBusyCount;
     if (pollBusyCount == POLL_BUSY_LIMIT) {
+      reportError("Poll busy limit reached");
       reset();
     }
     return;
@@ -238,10 +246,12 @@ void poll() {
   }
   if (totalErrors > RELAY_ERROR_LIMIT) {
     debugln("Too many relay errors");
+    reportError("Too many relay errors");
     reset();
   }
   int mem = esp_get_free_heap_size();
   if (mem < 10000) {
+    reportError("Heap space too low");
     reset();
   }
   debugf("\nPoll %d: Mem %d, errors %d\n", ++pollCount, mem, totalErrors);
@@ -250,7 +260,7 @@ void poll() {
   char request[80];
   sprintf(request, "http://%s/resources/php/rest.php/relaydata/%d", host_server, mem);
   char* response = httpGET(request, false);
-  debugf("%s\n", response);
+  // debugf("%s\n", response);
   const int capacity = JSON_OBJECT_SIZE(RELAY_COUNT) + RELAY_COUNT*JSON_OBJECT_SIZE(6);
   StaticJsonDocument<capacity> relaySpec;
   DeserializationError error = deserializeJson(relaySpec, response);
@@ -286,12 +296,6 @@ void poll() {
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-// Request an update check
-void requestUpdateCheck() {
-  updateCheck = true;
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////////////
 char* getUnconfiguredStatus() {
   int temperature = (int)round((temprature_sens_read() - 32) / 1.8);
   strcpy(info, (String(softap_ssid) + " unconfigured; temp=" + temperature).c_str());
@@ -320,6 +324,13 @@ void reset() {
   // writeTextToFile("/restart", "Y"); // What's this for (3/12/23)?
   ESP.restart();
   // while (1) {} // force watchdog timer reboot
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Reset the system periodically
+void regularReset() {
+  reportError("Regular reset (this is not an error)");
+  reset();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -512,60 +523,55 @@ void setupHotspot() {
   // Poll the controller regularly
   pollTicker.attach(POLL_INTERVAL, poll);
 
-  // Check for updates periodically
-  updateTicker.attach(UPDATE_CHECK_INTERVAL, requestUpdateCheck);
-  // delay(1000);
-  // Check now
-  updateCheck = true;
+  // Reset regularly
+  resetTicker.attach(RESET_INTERVAL, regularReset);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // Check for updated extender and relay firmware
 void checkForUpdates() {
-  if (updateCheck) {
-    updateCheck = false;
-    busyGettingUpdates = true;
+  busyGettingUpdates = true;
 
-    if (logLevel >= 1) {
-      debugln("Check for update");
-    }
-    WiFiClient client;
-    char request[80];
-    sprintf(request, "http://%s/extender/version", host_server);
-    delay(10);
-    char* httpPayload = httpGET(request, true);
-    int newVersion = atoi(httpPayload);
-    free(httpPayload);
-    if (newVersion == 0) {
-      if (errorCount > HOST_ERROR_LIMIT) {
-        debugln("Too many host comms errors, so resetting");
-        reset();
-      }
-    } else {
-      if (newVersion > CURRENT_VERSION) {
-        debugf("Updating from %d to %d\n\n\n", CURRENT_VERSION, newVersion);
-        writeTextToFile("/restarts", "0");
-        WiFiClient client;
-        sprintf(request, "http://%s/extender/esp32_wifi_extender.ino.bin", host_server);
-        ESPhttpUpdate.update(request);
-        // This is never reached
-      } else {
-        debugf("Firmware version %d\n", CURRENT_VERSION);
-      }
-    }
-    // Get the relay version number
-    char url[40];
-    sprintf(url, "http://%s/relay/version", host_server);
-    httpPayload = httpGET(url, true);
-    relayVersion = atoi(httpPayload);
-    free(httpPayload);
-    debugf("Relay version %d\n", relayVersion);
-    if (relayVersion == 0) {
+  if (logLevel >= 1) {
+    debugln("Check for update");
+  }
+  WiFiClient client;
+  char request[80];
+  sprintf(request, "http://%s/extender/version", host_server);
+  delay(10);
+  char* httpPayload = httpGET(request, true);
+  int newVersion = atoi(httpPayload);
+  free(httpPayload);
+  if (newVersion == 0) {
+    if (errorCount > HOST_ERROR_LIMIT) {
+      debugln("Too many host comms errors, so resetting");
+      reportError("Too many host comms errors");
       reset();
     }
+  } else {
+    if (newVersion > CURRENT_VERSION) {
+      debugf("Updating from %d to %d\n\n\n", CURRENT_VERSION, newVersion);
+      writeTextToFile("/restarts", "0");
+      WiFiClient client;
+      sprintf(request, "http://%s/extender/esp32_wifi_extender.ino.bin", host_server);
+      ESPhttpUpdate.update(request);
+      // This is never reached
+    } else {
+      debugf("Firmware version %d\n", CURRENT_VERSION);
+    }
+  }
+  // Get the relay version number
+  char url[40];
+  sprintf(url, "http://%s/relay/version", host_server);
+  httpPayload = httpGET(url, true);
+  relayVersion = atoi(httpPayload);
+  free(httpPayload);
+  debugf("Relay version %d\n", relayVersion);
+  if (relayVersion == 0) {
+    reportError("Unable to get relay version");
+    reset();
   }
   busyGettingUpdates = false;
-  busyDoingGET = false;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -763,12 +769,14 @@ void setup(void) {
     localServer.begin();
     debugln(getUnconfiguredStatus());
 
-    updateTicker.attach(2, blink);
+    resetTicker.attach(2, blink);
   } else {
     // Here if we are already configured
     setupNetwork();
     busyStartingUp = false;
   }
+
+  checkForUpdates();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -893,8 +901,6 @@ void loop(void) {
     rid = 0;
   }
   busyDoingRelay = false;
-
-  checkForUpdates();
 
   // Handle command input
   if (serial_available()) {     //wait for data available
