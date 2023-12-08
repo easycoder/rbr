@@ -29,8 +29,9 @@
     div AdvanceIndicator
     div StatusPanel
     div Snowflake
-    div BatteryIndicator
     div Date
+    div VersionNumber
+    div StatusFlag
     input Input
     img StatisticsIcon
     img CalendarIcon
@@ -91,12 +92,13 @@
     variable RelayState
     variable RelayType
     variable Temperature
-    variable Battery
     variable StaticData
     variable RoomData
     variable RoomName
     variable Timestamp
     variable IsAlive
+    variable Battery
+    variable Color
     variable Args
     variable Events
     variable Event
@@ -178,7 +180,6 @@
     	else if the key is `S`
         begin
         	put the json keys of Sensors into Keys
-            print Keys
             put 0 into N
             while N is less than the json count of Keys
             begin
@@ -379,21 +380,23 @@ Main:
     end
     clear Blocked
 
+    !	Make sure we have a MAC address; if not, go ask for one
+    clear Flag
+    get MAC from storage as `MAC`
+    if MAC is empty go to SystemManager ! GetLogin
+    print `MAC: ` cat MAC
+
+    !	Make sure we have the password; if not, ask for it
+    get Password from storage as `password`
+    print `Password: ` cat Password
+    if Password is empty go to GetLogin
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Main start point
 Start:
     gosub to Unmask
 	put 0 into RestErrorCount
     send `Count` to DebugModule
-
-    !	Make sure we have a MAC address; if not, go ask for one
-    clear Flag
-    get MAC from storage as `MAC`
-    if MAC is empty go to SystemManager ! GetLogin
-
-    !	Make sure we have the password; if not, ask for it
-    get Password from storage as `password`
-    if Password is empty go to GetLogin
 
 	if not Redraw go to GetMap
     clear MainPanel
@@ -448,7 +451,26 @@ GetMap:
 	! Get the current sensor values
 	rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
     or go to HandleRestError
-!print Sensors
+
+	attach VersionNumber to `systemversion`
+    set the content of VersionNumber to `v:` cat  property `version` of Sensors
+    attach StatusFlag to `statusflag`
+
+    if property `extender` of Sensors is `running`
+    begin
+        set style `background` of StatusFlag to `green`
+        set style `border` of StatusFlag to `1px solid lightgreen`
+    end
+    else if property `extender` of Sensors is `suspect`
+    begin
+        set style `background` of StatusFlag to `gold`
+        set style `border` of StatusFlag to `1px solid yellow`
+    end
+    else
+    begin
+        set style `background` of StatusFlag to `red`
+        set style `border` of StatusFlag to `1px solid lightred`
+    end
 
 !   print Map
     put property `profiles` of Map into Profiles
@@ -487,7 +509,6 @@ GetMap:
     set the elements of ModeText to RoomCount
     set the elements of AdvanceIndicator to RoomCount
     set the elements of Snowflake to RoomCount
-    set the elements of BatteryIndicator to RoomCount
 
 	! Draw a row for each room
     put 0 into RoomIndex
@@ -505,7 +526,6 @@ GetMap:
         index ModeText to RoomIndex
         index AdvanceIndicator to RoomIndex
         index Snowflake to RoomIndex
-        index BatteryIndicator to RoomIndex
 
         put property `room-` cat RoomIndex of StaticData into RoomData
         if RoomData is empty
@@ -551,11 +571,6 @@ GetMap:
         	print `Can't find room-snowflake-` cat RoomIndex
         	stop
         end
-        attach BatteryIndicator to `room-battery-` cat RoomIndex or
-        begin
-        	print `Can't find room-battery-` cat RoomIndex
-        	stop
-        end
 
 		! Set the room name
 		put element RoomIndex of Rooms into RoomSpec
@@ -594,30 +609,17 @@ GetMap:
             put property `alive` of RoomData into IsAlive
             if IsAlive is `true`
             begin
+            	set style `color` of RoomTempPanel to `white`
                 put property `temperature` of SensorSpec into Temperature
-                put property `battery` of SensorSpec into Battery
             	set the content of RoomTempPanel to Temperature cat `&deg;C`
             	put property `relay` of SensorSpec into RelayState
             	if RelayState is `on` set style `background` of RoomTempPanel to `red`
             	else set style `background` of RoomTempPanel to `blue`
-                if Battery is less than 25
-                begin
-                	set attribute `src` of BatteryIndicator to `resources/icon/battery-empty.png`
-                    set style `visibility` of BatteryIndicator to `visible`
-                end
-                else if Battery is less than 40
-                begin
-                	set attribute `src` of BatteryIndicator to `resources/icon/battery-low.png`
-                    set style `visibility` of BatteryIndicator to `visible`
-                end
-                else set style `visibility` of BatteryIndicator to `hidden`
-                if Temperature is empty set style `visibility` of BatteryIndicator to `hidden`
             end
             else
             begin
             	set the content of RoomTempPanel to `--.-&deg;C`
                 set style `background` of RoomTempPanel to `blue`
-                set style `visibility` of BatteryIndicator to `hidden`
             end
         end
 
@@ -631,6 +633,7 @@ GetMap:
         
         ! Get the mode
         put property `mode` of RoomSpec into Mode
+!print RoomName cat ` ` cat Mode
         if Mode is empty put `off` into Mode
 
         ! Show the mode indicator
@@ -819,6 +822,23 @@ GetMap:
             end
         end
         add 1 to RoomIndex
+    end
+    
+    on click RoomTempPanel
+    begin
+    	put the index of RoomTempPanel into RoomIndex
+		put element RoomIndex of Rooms into RoomSpec
+        put `` cat property `sensor` of RoomSpec into SensorIP
+        if SensorIP is not empty
+        begin
+            put property SensorIP of Sensors into SensorSpec
+    		put property `battery` of SensorSpec into Battery
+            if Battery is greater than 40 put `lightgreen` into Color
+            else if Battery is greater than 25 put `orange` into Color
+            else put `deeppink` into Color
+        	set style `color` of RoomTempPanel to Color
+        	set the content of RoomTempPanel to Battery cat `%`
+        end
     end
     
     if property `status` of Sensors is empty set style `display` of StatusPanel to `none`
@@ -1187,6 +1207,8 @@ RoomTools:
     	rest get RoomToolsMenuWebson from `/resources/webson/roomtoolsmenu.json?v=` cat now
             or go to HandleRestError
     render RoomToolsMenuWebson in MainPanel
+    
+	set property `roomIndex` of Sensors to RoomIndex
     put `{}` into Result
     rest get Script from `/resources/ecs/roomtools.ecs?v=` cat now
     run Script with MainPanel and Map and Sensors and ClickIndex and Result
@@ -1390,7 +1412,7 @@ FlashHourglass:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Post a request to the server
 PostRequest:
- print `Request: ` cat RequestData cat newline cat Server cat `/request/` cat MAC cat `/` cat Password
+! print `Request: ` cat RequestData cat newline cat Server cat `/request/` cat MAC cat `/` cat Password
     rest post RequestData to Server cat `/request/` cat MAC cat `/` cat Password
    	or go to HandlePostError
     stop

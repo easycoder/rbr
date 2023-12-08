@@ -106,7 +106,7 @@
         "background-size": "cover",
         "background-position": "center",
         "flex": 1,
-        "#": ["$MaskLayer", "$Panels"],
+        "#": ["$MaskLayer", "$Panels", "$SystemVersion", "$StatusFlag"],
 
         "$MaskLayer": {
             "#element": "div",
@@ -247,6 +247,30 @@
                 "color": "black",
                 "#content": "No errors"
             }
+        },
+
+        "$SystemVersion": {
+            "#element": "div",
+            "@id": "systemversion",
+            "position": "fixed",
+            "bottom": "0",
+            "left": "1em",
+            "font-size": "70%",
+            "font-weight": "bold",
+            "#content": "v:00"
+        },
+
+        "$StatusFlag": {
+            "#element": "div",
+            "@id": "statusflag",
+            "position": "fixed",
+            "bottom": "0.5em",
+            "right": "1em",
+            "width": "1em",
+            "height": "1em",
+            "border": "1px solid lightblue",
+            "border-radius": "50%",
+            "background": "blue"
         }
     },
 

@@ -4,7 +4,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "text-align": "center",
-    "#": ["$Config", "$GetName", "$GetRequest", "$Start", "$Halt", "$Restart", "$Help", "$Cancel"],
+    "#": ["$Config", "$GetName", "$GetRequest", "$PowerOn", "$PowerOff", "$PowerCycle", "$Help", "$Cancel"],
 
     "$Config": {
         "$ID": "button-config",
@@ -24,21 +24,21 @@
         "#": "$Button"
     },
 
-    "$Start": {
+    "$PowerOn": {
         "$ID": "button-start",
-        "$Label": "Start the controller",
+        "$Label": "Power On",
         "#": "$Button"
     },
 
-    "$Halt": {
+    "$PowerOff": {
         "$ID": "button-halt",
-        "$Label": "Halt the controller",
+        "$Label": "Power Off",
         "#": "$Button"
     },
 
-    "$Restart": {
+    "$PowerCycle": {
         "$ID": "button-restart",
-        "$Label": "Halt then restart",
+        "$Label": "Power Cycle",
         "#": "$Button"
     },
 

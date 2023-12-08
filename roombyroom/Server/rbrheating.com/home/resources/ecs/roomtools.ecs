@@ -29,6 +29,8 @@
     variable ThisRoom
     variable ThatRoom
     variable NewRooms
+    variable Relays
+    variable Relay
     variable Webson
     variable Script
     variable Changed
@@ -37,8 +39,12 @@
     variable Timestamp
     variable DateFormat
     variable RequestData
+    variable Responses
+    variable Response
     variable Item
+    variable IP
     variable N
+    variable M
 
 !    debug step
     
@@ -148,14 +154,51 @@ Editor:
     
     on click RoomInfoButton
     begin
+print Sensors
+        put property `responses` of Sensors into Responses
+        if Responses is empty
+        begin
+        	alert `No data is being received from the relays`
+            stop
+        end
+        put element ClickIndex of Responses into Response
         attach DialogPanel to `dialog-panel`
         rest get Webson from `/resources/webson/dialog-info.json?v=` cat now
         render Webson in DialogPanel
         attach DialogText to `dialog-text`
         attach DialogButton1 to `dialog-okbutton`
+        
+        ! Find the room containing the given relay IP
+        put property `relays` of RoomSpec into Relays
+        put empty into Response
+        put 0 into N
+        while N is less than the json count of Relays
+        begin
+        	put element N of Relays into Relay
+            if Relay is empty go to RoomInfo2
+            split Relay on `/` giving Relay
+            if the elements of Relay is 0 go to RoomInfo2
+            index Relay to 1
+            put 0 into M
+            while M is less than the json count of Responses
+            begin
+            	put element M of Responses into Response
+                put property `ip` of Response into IP
+                if IP is Relay
+                begin
+                	put property `response` of Response into Response
+        			replace `,` with `,` cat `<br>&nbsp;&nbsp;&nbsp;\` in Response
+                    go to RoomInfo2
+                end
+            	add 1 to M
+            end
+        	add 1 to N
+        end
+    RoomInfo2:
         put property `sensor` of RoomSpec into SensorIP
         put property SensorIP of Sensors into Sensor
-        if property `rdata` of Sensor is empty set property `rdata` of Sensor to `-no information-`
+        if Response is empty set property `response` of Sensor to `-none-`
+        else set property `response` of Sensor to Response
         put property `timestamp` of Sensor into Timestamp
         set DateFormat to object
         set property `mode` of DateFormat to `date`

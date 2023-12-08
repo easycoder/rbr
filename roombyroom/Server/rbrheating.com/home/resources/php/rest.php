@@ -39,7 +39,7 @@
     } else {
          logger("Properties file $filename not found");
          print("Properties file $filename not found");
-        exit;
+         exit;
     }
 
     // First, the commands that don't require a database table name.
@@ -248,7 +248,9 @@
                 $mac = $request[0];
                 $result = query($conn, "SELECT map FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
-                    print base64_decode($row->map);
+                    $map = base64_decode($row->map);
+                    $map = str_replace('!_SP_!', ' ', $map);
+                    print $map;
                 } else {
                     print '';
                 }
@@ -407,6 +409,23 @@
                 mysqli_free_result($result);
                 break;
 
+            case 'requests':
+                // Get the most recent requests, given the MAC
+                // Endpoint: {site root}/resources/php/rest.php/requests/<mac>/<count>
+                $mac = $request[0];
+                $count = $request[1] * 2;
+                $result = query($conn, "SELECT * FROM (SELECT * FROM requests WHERE mac='$mac' ORDER BY ts DESC LIMIT $count) AS sub ORDER BY ts ASC");
+                $data = array();
+                while ($row = mysqli_fetch_object($result)) {
+                    $item = new stdClass();
+                    $item->ts = $row->ts;
+                    $item->request = base64_decode($row->request);
+                    $data[] = $item;
+                }
+                print json_encode($data);
+                mysqli_free_result($result);
+                break;
+
             case 'sensors':
                 // Get the systems sensor values, given its MAC
                 // Endpoint: {site root}/resources/php/rest.php/sensors/<mac>
@@ -417,6 +436,18 @@
                     print $sensors;
                 } else {
                     print '';
+                }
+                mysqli_free_result($result);
+                break;
+
+            case 'sensorlog':
+                // Get a system's sensor log, given its MAC
+                // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>
+                $mac = $request[0];
+                $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac'");
+                while ($row = mysqli_fetch_object($result)) {
+                    $sensors = base64_decode($row->sensors);
+                    print $sensors . "\n";
                 }
                 mysqli_free_result($result);
                 break;
@@ -556,6 +587,7 @@
                 $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $map = file_get_contents("php://input");
+                    $map = str_replace(' ', '!_SP_!', $map);
                     $map = base64_encode($map);
 //                    print "$map\n";
                     query($conn, "UPDATE systems SET map='$map', last=$ts WHERE mac='$mac'");
@@ -607,14 +639,21 @@
                 }
                 break;
 
-            case 'logdata':
+            case 'sensorlog':
                 // Record a set of sensor data.
-                // Endpoint: {site root}/resources/php/rest.php/_sensors/<mac>
-                $mac = $request[0];
-                $sensors = file_get_contents("php://input");
-                $encoded = base64_encode($sensors);
-                query($conn, "INSERT INTO sensors (mac,ts,sensors) VALUES ('$mac','$timestamp','$encoded')");
-                logger("INSERT INTO sensors (mac,ts,sensors) VALUES ('$mac','$ts','$encoded')");
+                // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>/<password>
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password=$password");
+                if ($row = mysqli_fetch_object($result)) {
+                    $sensors = file_get_contents("php://input");
+                    $encoded = base64_encode($sensors);
+                    query($conn, "INSERT INTO sensors (ts,mac,sensors) VALUES ('$ts','$mac','$encoded')");
+                    logger("INSERT INTO sensors (ts,mac,sensors) VALUES ('$ts','$mac','$encoded')");
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC and password do not match any record.\"}";
+                }
                 break;
 
             case 'sensors':
@@ -750,7 +789,7 @@
                 // Endpoint: {site root}/resources/php/rest.php/psu/<mac>/{password}/{flag}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
-                $flag = trim($request[2]);
+                $flag = trim($request[2])[0];
                 $result = query($conn, "SELECT psu FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     mysqli_free_result($result);
@@ -793,7 +832,7 @@
     // Log a message.
     function logger($message)
     {
-        // return;
+        return;
         // print("$message\n");
         $timestamp = time();
         $date = date("Y/m/d H:i", $timestamp);
