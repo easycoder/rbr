@@ -1,8 +1,10 @@
 # Room By Room Control
 
-This is an Open Source project to build a smart central heating system with control over the Internet. It's designed to be a "distributed appliance"; that is, something that can be set up before delivery and just plugged in, with none of the usual messing about with IP addresses that plagues the "smart home" world. No techncal knowledge on the part of the end user is required; just the ability (and willingness) to program a central heating controller.
+This is an Open Source project to build a smart central heating system with control over the Internet. Although it might be considered to be just another "Smart Home" product, this one has one important difference. It's designed to be a "distributed appliance"; that is, something that can be set up before delivery and just plugged in, with none of the usual messing about with IP addresses that plagues the smart home world. No techncal knowledge on the part of the end user is required; just the ability (and willingness) to program a central heating controller.
 
-This project uses commercially-available BLE and WiFi-connected modules - a temperature sensor and a relay module - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis. The cost of the system is typically about a fifth of the annual running cost of a domestic heating system, and since it can save 10% or more of the annual heating cost by making better use of heating it can pay for itself in the first couple of years.
+An important consequence of this approach is that the system can be managed externally. The UI permits one of any number of systems to be selected at will, and each system can be designated as being controllable by any desired number of managers. So  for example, a housing association can assign a set of installations to be managed by one or more nominated persons. All this is done by the UI app - a mobile web page that will run on any smartphone.
+
+This project uses commercially-available BLE and WiFi-connected modules - a temperature sensor and a relay - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis. The cost of the system is typically about a fifth of the annual running cost of a domestic heating system, and since it can save 10% or more of the annual heating cost by making better use of heating it can pay for itself in the first couple of years.
 
 The repository software is in 3 parts:
 
