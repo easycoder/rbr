@@ -1479,7 +1479,10 @@ class Core(Handler):
         item = self.getRuntimeValue(v['content'])
         value = {}
         value['type'] = 'object'
-        value['content'] = json.loads(item)
+        try:
+            value['content'] = json.loads(item)
+        except:
+            RuntimeError(self.program, 'Item is not a string')
         return value
 
     def v_from(self, v):

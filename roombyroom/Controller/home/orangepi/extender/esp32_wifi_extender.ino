@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 42
+#define CURRENT_VERSION 44
 #define DEBUG 0    // set to 1 to debug
 
 #if DEBUG
@@ -134,11 +134,11 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
   }
   else {  // Here if an error occurred
     if (restartOnError) {
-      debugf("Network error %d\n", httpResponseCode);
-        reset();
+      debugf("%s\nNetwork error %d\n", requestURL, httpResponseCode);
+      reset();
     } else {
       if (logLevel > 1) {
-        debugf("Error %d (%d)\n", httpResponseCode, errorCount);
+        debugf("%s\nNetwork error %d (%d)\n", requestURL, httpResponseCode, errorCount);
       }
       if (++errorCount > ERROR_MAX) {
         reset();
@@ -320,6 +320,7 @@ void handle_reset(AsyncWebServerRequest *request) {
 // Reset the system
 void reset() {
   debugln("Forcing a reset...");
+  WiFi.softAPdisconnect(true);
   delay(10);
   // writeTextToFile("/restart", "Y"); // What's this for (3/12/23)?
   ESP.restart();
@@ -865,6 +866,9 @@ void loop(void) {
       }
     }
     strcpy(relayData[rid].response, response);
+    if (strlen(relayData[rid].response) == 0) {
+      strcpy(relayData[rid].response, "<none>");
+    }
     delay(10);
     if (logLevel >= 3) {
       debugf("Relay %d: %s - Status: %s\n", rid, deviceURL, deviceURL, response);
@@ -891,7 +895,7 @@ void loop(void) {
       serializeJson(jsonDoc, results);
       // debugln(results);
       char request[80];
-      sprintf(request, "http://%s/resources/php/rest.php/response", host_server);
+      sprintf(request, "http://%s/resources/php/rest.php/response/%s", host_server, host_ipaddr);
       int httpResponseCode = httpPost(request, results);
       if (logLevel >= 3) {
         debugf("POST response: %d\n", httpResponseCode);

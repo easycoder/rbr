@@ -12,5 +12,6 @@ fi
 
 if test -f "/mnt/data/version"
 then
-   sh /home/orangepi/update.sh
+   rm /root/updatelog
+   sh /home/orangepi/update.sh >> /root/updatelog 2>&1
 fi

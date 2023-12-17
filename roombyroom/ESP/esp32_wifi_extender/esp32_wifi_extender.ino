@@ -8,8 +8,8 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 43
-#define DEBUG 1    // set to 1 to debug
+#define CURRENT_VERSION 44
+#define DEBUG 0    // set to 1 to debug
 
 #if DEBUG
 #define serial_begin(...)   Serial.begin(__VA_ARGS__);
@@ -895,7 +895,7 @@ void loop(void) {
       serializeJson(jsonDoc, results);
       // debugln(results);
       char request[80];
-      sprintf(request, "http://%s/resources/php/rest.php/response", host_server);
+      sprintf(request, "http://%s/resources/php/rest.php/response/%s", host_server, host_ipaddr);
       int httpResponseCode = httpPost(request, results);
       if (logLevel >= 3) {
         debugf("POST response: %d\n", httpResponseCode);
