@@ -2,16 +2,19 @@
 
 if test -f "/mnt/data/halt"
 then
-   halt
+   rm /mnt/data/halt
+   /usr/sbin/halt
 fi
 
 if test -f "/mnt/data/reboot"
 then
-   reboot
+   rm /mnt/data/reboot
+   /usr/sbin/reboot
 fi
 
 if test -f "/mnt/data/version"
 then
    rm /root/updatelog
-   sh /home/orangepi/update.sh >> /root/updatelog 2>&1
+   cd /home/orangepi/
+   sh update.sh >> /root/updatelog 2>&1
 fi

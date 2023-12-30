@@ -56,7 +56,7 @@
                     "@id": "alive",
                     "width": "0.5em",
                     "height": "0.5em",
-                    "border": "1px solid blue",
+                    "border": "1px solid black",
                     "border-radius": "50%",
                     "background": "#6f6",
                     "margin": "0 auto"
@@ -106,7 +106,7 @@
         "background-size": "cover",
         "background-position": "center",
         "flex": 1,
-        "#": ["$MaskLayer", "$Panels", "$SystemVersion", "$StatusFlag"],
+        "#": ["$MaskLayer", "$Panels", "$StatusFlag", "$SystemVersion"],
 
         "$MaskLayer": {
             "#element": "div",
@@ -125,7 +125,7 @@
             "position": "absolute",
             "width": "100%",
             "height": "100%",
-            "#": ["$Title", "$TitleMask", "$ModePanel", "$DialogPanel", "$MainPanel", "$StatusPanel"],
+            "#": ["$Title", "$TitleMask", "$ModePanel", "$DialogPanel", "$MainPanel"],
 
             "$Title": {
                 "#element": "div",
@@ -233,31 +233,7 @@
                 "@id": "mainpanel",
                 "background": "white",
                 "border": "1px solid gray"
-            },
-
-            "$StatusPanel": {
-                "#element": "div",
-                "@id": "rbr-status",
-                "position": "relative",
-                "top": "0.2em",
-                "display": "none",
-                "width": "100%",
-                "background": "rgba(255, 200, 200, 0.5)",
-                "border": "1px solid red",
-                "color": "black",
-                "#content": "No errors"
             }
-        },
-
-        "$SystemVersion": {
-            "#element": "div",
-            "@id": "systemversion",
-            "position": "fixed",
-            "bottom": "0",
-            "left": "1em",
-            "font-size": "70%",
-            "font-weight": "bold",
-            "#content": "v:00"
         },
 
         "$StatusFlag": {
@@ -265,12 +241,23 @@
             "@id": "statusflag",
             "position": "fixed",
             "bottom": "0.5em",
-            "right": "1em",
+            "left": "1em",
             "width": "1em",
             "height": "1em",
-            "border": "1px solid lightblue",
-            "border-radius": "50%",
-            "background": "blue"
+            "border": "1px solid lightgray",
+            "border-radius": "50%"
+        },
+
+        "$SystemVersion": {
+            "#element": "div",
+            "@id": "systemversion",
+            "position": "fixed",
+            "bottom": "0",
+            "right": "1em",
+            "font-size": "70%",
+            "font-weight": "bold",
+            "color": "lightgray",
+            "#content": "v:00"
         }
     },
 

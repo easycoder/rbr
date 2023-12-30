@@ -646,7 +646,7 @@ class Core(Handler):
                 RuntimeError(self.program, f'Error: {errorReason}')
         if command['result'] != None:
             result = self.getVariable(command['result'])
-            self.program.putSymbolValue(result, retval);
+            self.program.putSymbolValue(result, retval)
         return self.nextPC()
 
     def k_print(self, command):

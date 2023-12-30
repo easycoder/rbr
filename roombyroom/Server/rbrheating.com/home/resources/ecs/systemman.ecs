@@ -146,6 +146,7 @@ Continue:
 	! Get the systems managed by this user
 !    get Systems from storage as `Systems`
     rest get Systems from Server cat `/managed/` cat Email cat `/` cat UserPassword cat `?v=` cat now
+    print Systems
     gosub to GetSystemNames
     if Systems is empty put `{}` into Systems
     if Map is empty put `New system` into SystemName
@@ -256,6 +257,7 @@ CreateList:
         set style `margin-bottom` of SystemNameButton to `0.25em`
         set style `cursor` of SystemNameButton to `pointer`
         put element K of Keys into Text
+        replace `%20` with ` ` in Text
         set the content of SystemNameButton to Text
         ! Highlight the currently-selected system
         if Text is SystemName

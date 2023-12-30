@@ -5,7 +5,7 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Welcome", "$Pad", "$SystemManager", "$GetSysParams", "$Add", "$Pad",
+    "#": ["$Welcome", "$Pad", "$SystemManager", "$Pad", "$Add", "$Pad",
         "$Backup", "$Restore", "$Pad", "$Help", "$Cancel"],
 
     "$Welcome": {
@@ -17,12 +17,6 @@
     "$SystemManager": {
         "$ID": "button-systemmanager",
         "$Label": "System Manager",
-        "#": "$Button"
-    },
-
-    "$GetSysParams": {
-        "$ID": "button-getsysparams",
-        "$Label": "Set System Parameters",
         "#": "$Button"
     },
 

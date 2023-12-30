@@ -71,12 +71,12 @@
     variable Extender
     variable ExtenderRunning
     variable RelayIp
-    variable LogData
     variable Value
     variable Changed
     variable Confirm
     variable Calendar
     variable Day
+    variable WarningMessages
     variable WarningMessage
     variable HaltRequested
     variable TPEmail
@@ -167,7 +167,7 @@
         if T is greater than 600
         begin
             print `No recent requests from extender`
-            post Map to LocalServer cat `.1/resources/php/rest.php/delresponse`
+            post to LocalServer cat `.1/resources/php/rest.php/delresponse`
         end
     end
 
@@ -206,9 +206,10 @@
     begin
         put 1 into Version
         open File `version` for writing
-        write Version to File
+        write `` cat Version to File
         close File
     end
+    if Version is empty put 0 into Version
 ! print RegData
     put property `version` of RegData into Value
     print `Current version: ` cat Version
@@ -489,6 +490,7 @@ SkipRequests:
     set property `actual` of SensorData to CurrentProfile
     set property `status` of SensorData to ``
     put 0 into BadResponses
+    put empty into WarningMessages
     put the count of Rooms into RoomCount
     if RoomCount is 0
     begin
@@ -534,9 +536,10 @@ SkipRequests:
 
         ! Deal with the request relay
         put property `request` of MapObject into RequestIP
-!print `Request IP: ` cat RequestIP
+! print `Request IP: ` cat RequestIP
         if RequestIP is not empty
         begin
+            set property RelayIp of RoomIndices to `R`
             if RequestCount is 0 put `off` into OnOff
             else put `on` into OnOff
 !            print `Request relay is ` cat OnOff
@@ -549,10 +552,6 @@ SkipRequests:
                 set property RelayIp of IPAddresses to `Y`
                 index Extender to 0
                 put `r1` into RelayType     ! May need to allow a different type - 11/6/23
-                if RelayType is `Tasmota` put `tasmota` into RelayType
-                else if RelayType is `RBR R1` put `r1` into RelayType
-                else if RelayType is `Shelly One` put `shelly` into RelayType
-                else if RelayType is `TP-Link P100` put `p100` into RelayType
                 put json `{}` into Item
                 set property `extender` of Item to Extender
                 set property `ip` of Item to RelayIp
@@ -577,79 +576,123 @@ SkipRequests:
         open File `/mnt/data/response` for reading
         read Responses from File
         close File
-        put json Responses into Responses
-        put json `[]` into Items
-        ! Only keep items that are in the map
-        put 0 into N
-        while N is less than the count of Responses
+    end
+    else
+    begin
+        put empty into Responses
+        set ExtenderSuspect
+    end
+!put empty into Responses
+! print Responses
+    if Responses is empty put `[]` into Responses
+    put json Responses into Responses
+    put json `[]` into Items
+    ! Only keep items that are in the map
+    put 0 into N
+    while N is less than the count of Responses
+    begin
+        put element N of Responses into Response
+        put property `ip` of Response into RelayIp
+        put `` cat RelayIp into RelayIp
+        ! Look for this IP in the relay data
+        put 0 into R
+        while R is less than the count of RelayData
         begin
-            put element N of Responses into Response
-            put property `ip` of Response into RelayIp
-            put `` cat RelayIp into RelayIp
-            ! Look for this IP in the relay data
-            put 0 into R
-            while R is less than the count of RelayData
+            put element R of RelayData into Item
+            if property `ip` of Item is RelayIp
             begin
-                put element R of RelayData into Item
-                if property `ip` of Item is RelayIp
+                append Response to Items
+                if not property `ok` of Response
                 begin
-                    append Response to Items
-                    if not property `ok` of Response
+                    set property `ok` of Response to `False`
+                    put property `response` of Response into Response
+                    put property RelayIp of RoomIndices into RoomNumber
+                    if RoomNumber is `R`
                     begin
-                        put property RelayIp of RoomIndices into RoomNumber
+                        if Response is `<none>`
+                        begin
+                            print `No response '` cat Response cat `' from request relay`
+                            put `No` into WarningMessage
+                        end
+                        else
+                        begin
+                            print `Bad response '` cat Response cat `' from request relay`
+                            put `Bad` into WarningMessage
+                        end
+                        put WarningMessage cat ` response from request relay` into WarningMessage
+                        if WarningMessages is not empty put WarningMessages cat `<br>` into WarningMessages
+                        put WarningMessages cat WarningMessage into WarningMessages
+                        set property `status` of SensorData to WarningMessages
+                    end
+                    else
+                    begin
                         put element RoomNumber of Rooms into Room
+                        put property `name` of Room into RoomName
                         put property `sensor` of Room into Sensor
                         put property Sensor of SensorData into SensorValues
-                        if property `respponse` of Response is empty
+                        if Response is `<none>`
+                        begin
+                            print `No response '` cat Response cat `' from ` cat RoomName
                             put `No` into WarningMessage
+                        end
                         else
+                        begin
+                            print `Bad response '` cat Response cat `' from ` cat RoomName
                             put `Bad` into WarningMessage
+                        end
                         put WarningMessage cat ` response from relay in ` cat property `name` of Room into WarningMessage
+                        if WarningMessages is not empty put WarningMessages cat `<br>` into WarningMessages
+                        put WarningMessages cat WarningMessage into WarningMessages
                         gosub to ShowWarning
                     end
                 end
-                add 1 to R
             end
-            add 1 to N
+            add 1 to R
         end
-        ! Add in the direct responses
-        put Items into Responses
-        put 0 into N
-        while N is less than the count of DirectResponses
-        begin
-            put element N of DirectResponses into Item
-            append Item to Responses
-            add 1 to N
-        end
-        put 0 into N
-        while N is less than the count of Responses
-        begin
-            put element N of Responses into Response
-            put property `ip` of Response into RelayIp
-            if property `response` of Response is empty
-            begin
-                if `` cat property `ok` of Response is `False` add 1 to BadResponses
-            end
-            add 1 to N
-        end
-        if BadResponses is greater than 0
-        begin
-            print BadResponses cat ` bad response(s) out of ` cat the count of Responses
-            if BadResponses is less than the count of Responses set ExtenderSuspect
-        end
-        put stringify Responses into Responses
-        set property `responses` of SensorData to Responses
+        add 1 to N
     end
-    else set ExtenderSuspect
+    ! Add in the direct responses
+    put Items into Responses
+    put 0 into N
+    while N is less than the count of DirectResponses
+    begin
+        put element N of DirectResponses into Item
+        append Item to Responses
+        add 1 to N
+    end
+    ! Count the errors
+    put 0 into N
+    while N is less than the count of Responses
+    begin
+        put element N of Responses into Response
+        put property `ip` of Response into RelayIp
+        if property `response` of Response is `<none>`
+        begin
+            if `` cat property `ok` of Response is `False` add 1 to BadResponses
+        end
+        add 1 to N
+    end
+    if BadResponses is greater than 0
+    begin
+        print BadResponses cat ` bad response(s) out of ` cat the count of Responses
+        if BadResponses is less than the count of Responses set ExtenderSuspect
+    end
+    put stringify Responses into Responses
+    set property `responses` of SensorData to Responses
 !    print SensorData
 
 !    print `Extender: ` cat ExtenderRunning cat ` ` cat ExtenderSuspect
+
     if ExtenderRunning
     begin
         if ExtenderSuspect set property `extender` of SensorData to `suspect`
         else set property `extender` of SensorData to `running`
     end
-    else set property `extender` of SensorData to `fail`
+    else if the count of RelayData is 0
+    begin
+        if ExtenderSuspect set property `extender` of SensorData to `fail`
+        else set property `extender` of SensorData to `running`
+    end
 
     set property `version` of SensorData to Version
     put stringify SensorData into Sensors
@@ -1011,7 +1054,7 @@ SR0:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set the relays
 SetRelays:
-    print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat OnOff
+!    print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat OnOff
     if RelayType is empty put `RBR R1` into RelayType
     if Relays is empty put json `[]` into Relays
 ! print RoomName cat ` Relays: ` cat Relays
@@ -1022,7 +1065,6 @@ SetRelays:
         put element R of Relays into Relay
         if Relay is not empty
         begin
-! print `Relay: ` cat Relay
             put Relay into Extender
             split Extender on `/`
             if the elements of Extender is 2
@@ -1046,15 +1088,16 @@ SetRelays:
             begin
                 if RelayType is `Tasmota`
                 begin
-!                    print `http://` cat Relay cat `/cm?cmnd=power%20` cat OnOff
                     put `http://` cat Relay cat `/cm?cmnd=power%20` cat OnOff into Request
+!                    print Request
                     get Response from Request
                     or begin
+                        put `<none>` into Response
                         put `Relay request failed in ` cat RoomName into WarningMessage
                         add 1 to BadResponses
-                        gosub to ShowWarning
+!                        gosub to ShowWarning
                         gosub to NetworkError
-                        go to SR2
+                        go to SR1
                     end
                     gosub to ClearNetworkErrors
                     if Response is empty
@@ -1062,21 +1105,21 @@ SetRelays:
                         put `<none>` into Response
                         put `No response from relay in ` cat RoomName into WarningMessage
                         add 1 to BadResponses
-                        gosub to ShowWarning
+!                        gosub to ShowWarning
                     end
 !                    print `Response: ` cat Response
                 end
                 else if RelayType is `Shelly One`
                 begin
-!                    print `http://` cat Relay cat `/relay/0?turn=` cat OnOff
                     put `http://` cat Relay cat `/relay/0?turn=` cat OnOff into Request
                     get Response from Request
                     or begin
+                        put `<none>` into Response
                         put `Device ` cat Relay cat ` failed in ` cat RoomName into WarningMessage
                         add 1 to BadResponses
-                        gosub to ShowWarning
+!                        gosub to ShowWarning
                         gosub to NetworkError
-                        go to SR2
+                        go to SR1
                     end
                     gosub to ClearNetworkErrors
                     if Response is empty
@@ -1084,9 +1127,9 @@ SetRelays:
                         put `<none>` into Response
                         put `No response from relay in ` cat RoomName into WarningMessage
                         add 1 to BadResponses
-                        gosub to ShowWarning
+!                        gosub to ShowWarning
                     end
-!                    print `Response: ` cat Response
+ !                   print `Response: ` cat Response
                 end
                 else if RelayType is `TP-Link P100`
                 begin
@@ -1094,9 +1137,10 @@ SetRelays:
                     put property `p100Password` of Room into TPPassword
                     relay Relay TPEmail TPPassword OnOff
                 end
+            SR1:
                 put json `{}` into Item
                 set property `ip` of Item to Relay
-                if Response is empty set property `ok` of Item to false
+                if Response is `<none>` set property `ok` of Item to false
                 else set property `ok` of Item to true
                 set property `response` of Item to Response
                 append Item to DirectResponses
@@ -1113,7 +1157,7 @@ SetRelays:
 !   Show a warning message
 ShowWarning:
     set property `status` of SensorValues to `Fail`
-    set property `status` of SensorData to WarningMessage
+    set property `status` of SensorData to WarningMessages
     return
 
 ! Clear the network error counter

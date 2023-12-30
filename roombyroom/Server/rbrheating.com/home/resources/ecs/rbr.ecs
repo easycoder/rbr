@@ -15,6 +15,7 @@
     div RoomNamePanel
     div RoomTempPanel
     div RoomToolsButton
+    div RoomStatusButton
     div ModePanel
     div ModeHolder
     div TargetTemp
@@ -26,12 +27,11 @@
     div ModeInfo
     div Alive
     div Banner
-    div AdvanceIndicator
-    div StatusPanel
     div Snowflake
     div Date
     div VersionNumber
     div StatusFlag
+    div SystemStatusPanel
     input Input
     img StatisticsIcon
     img CalendarIcon
@@ -42,7 +42,6 @@
     button SystemManagerButton
     button ConfigButton
     button AddButton
-    button GetSysParamsButton
     button GetSystemNameButton
     button GetRequestButton
     button StartButton
@@ -71,6 +70,7 @@
     variable MAC
     variable Password
     variable SystemName
+    variable SystemStatus
     variable CurrentProfile
     variable Profiles
     variable Profile
@@ -150,7 +150,7 @@
     variable MainMenuWebson
     variable RoomWebson
     variable RoomToolsMenuWebson
-    variable GetSysParamsWebson
+    variable SysParamsWebson
     variable GetNameWebson
     variable GetRequestWebson
     variable TimedWebson
@@ -281,7 +281,6 @@ Main:
     put empty into MainMenuWebson
     put empty into RoomWebson
     put empty into RoomToolsMenuWebson
-    put empty into GetSysParamsWebson
     put empty into GetNameWebson
     put empty into GetRequestWebson
     put empty into TimedWebson
@@ -307,7 +306,6 @@ Main:
     attach StatisticsPanel to `statisticspanel`
     attach Alive to `alive`
     attach ModePanel to `mode-panel`
-    attach StatusPanel to `rbr-status`
     attach StatisticsIcon to `statistics-icon`
     attach CalendarIcon to `calendar-icon`
     attach Date to `calendar-date`
@@ -402,13 +400,14 @@ Start:
     clear MainPanel
     put 0 into RoomCount
     clear Error
+!    put `System healthy` into SystemStatus
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the map
 GetMap:
 	set Blocked
     rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-       	or begin
+    or begin
     	print `Server not responding; using local data`
     	get Map from storage as `map`
        	continue
@@ -418,26 +417,28 @@ GetMap:
     if Map is not Map2 set Redraw
     put Map into Map2
 
-    put property `name` of Map into SystemName
-    if SystemName is empty
-    begin
-        get SystemName from storage as `SystemName`
-        if SystemName is empty go to GetSystemName
-        else
-        begin
-            set property `name` of Map to SystemName
-            put `{}` into RequestData
-            set property `action` of RequestData to `SystemName`
-            set property `data` of RequestData to SystemName
-            fork to PostRequest
-            set Redraw
-        end
-    end
     get Systems from storage as `Systems`
     if Systems is empty
     begin
     	put `{}` into Systems
     	put Systems into storage as `Systems`
+    end
+
+    put property `name` of Map into SystemName
+    replace `%20` with ` ` in SystemName
+    if SystemName is empty
+    begin
+        get SystemName from storage as `SystemName`
+        if SystemName is empty go to GetSystemName
+!        else
+!        begin
+!            set property `name` of Map to SystemName
+!            put `{}` into RequestData
+!            set property `action` of RequestData to `SystemName`
+!            set property `data` of RequestData to SystemName
+!            fork to PostRequest
+!            set Redraw
+!        end
     end
     
     if property `calendar` of Map is `on` set style `display` of CalendarIcon to `block`
@@ -451,15 +452,17 @@ GetMap:
 	! Get the current sensor values
 	rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
     or go to HandleRestError
+! print Sensors
 
 	attach VersionNumber to `systemversion`
+    if not Mobile set style `color` of VersionNumber to `black`
     set the content of VersionNumber to `v:` cat  property `version` of Sensors
     attach StatusFlag to `statusflag`
 
     if property `extender` of Sensors is `running`
     begin
-        set style `background` of StatusFlag to `green`
-        set style `border` of StatusFlag to `1px solid lightgreen`
+        set style `background` of StatusFlag to `lightgreen`
+        set style `border` of StatusFlag to `1px solid green`
     end
     else if property `extender` of Sensors is `suspect`
     begin
@@ -471,6 +474,8 @@ GetMap:
         set style `background` of StatusFlag to `red`
         set style `border` of StatusFlag to `1px solid lightred`
     end
+    
+    on click StatusFlag go to SystemParameters
 
 !   print Map
     put property `profiles` of Map into Profiles
@@ -502,12 +507,12 @@ GetMap:
     set the elements of RoomNamePanel to RoomCount
     set the elements of RoomTempPanel to RoomCount
     set the elements of RoomToolsButton to RoomCount
+    set the elements of RoomStatusButton to RoomCount
     set the elements of SensorSpec to RoomCount
     set the elements of RelayState to RoomCount
     set the elements of ModeHolder to RoomCount
     set the elements of ModeIcon to RoomCount
     set the elements of ModeText to RoomCount
-    set the elements of AdvanceIndicator to RoomCount
     set the elements of Snowflake to RoomCount
 
 	! Draw a row for each room
@@ -523,8 +528,8 @@ GetMap:
         index RoomNamePanel to RoomIndex
         index RoomTempPanel to RoomIndex
         index RoomToolsButton to RoomIndex
+        index RoomStatusButton to RoomIndex
         index ModeText to RoomIndex
-        index AdvanceIndicator to RoomIndex
         index Snowflake to RoomIndex
 
         put property `room-` cat RoomIndex of StaticData into RoomData
@@ -566,6 +571,11 @@ GetMap:
         	print `Can't find room-tools-` cat RoomIndex
         	stop
         end
+        attach RoomStatusButton to `room-status-` cat RoomIndex or
+        begin
+        	print `Can't find room-status-` cat RoomIndex
+        	stop
+        end
         attach Snowflake to `room-snowflake-` cat RoomIndex or
         begin
         	print `Can't find room-snowflake-` cat RoomIndex
@@ -596,8 +606,7 @@ GetMap:
                 begin
                 	if property `alive` of RoomData is `true`
                     begin
-                    	set the content of StatusPanel to
-                        	`The sensor for ` cat RoomName cat ` is not reporting. `
+                    	put `The sensor for ` cat RoomName cat ` is not reporting. ` into SystemStatus
 !                    	alert `The sensor for ` cat RoomName cat ` has not reported recently. `
 !                        	cat `If it doesn't come back by itself, power it down then re-power it.`
                     	set property `alive` of RoomData to `false`
@@ -684,13 +693,25 @@ GetMap:
             render Webson in ModeHolder
     	    attach ModeText to `room-` cat RoomIndex cat `-mode-text`
 	        attach ModeInfo to `room-` cat RoomIndex cat `-mode-info`
-            if SensorSpec is not empty
+! print SensorSpec
+            if SensorSpec is empty
+            begin
+                set style `background` of RoomStatusButton to `lightgreay`
+                set style `border` of RoomStatusButton to `1px solid gray`
+            end
+            else
             begin
                 put property `status` of SensorSpec into Status
                 if Status is `Good`
-                    set style `color` of ModeText to `black`
+                begin
+                    set style `background` of RoomStatusButton to `lightgreen`
+                    set style `border` of RoomStatusButton to `1px solid green`
+                end
                 else
-                    set style `color` of ModeText to `red`
+                begin
+                    set style `background` of RoomStatusButton to `red`
+                    set style `border` of RoomStatusButton to `1px solid darkred`
+                end
             end
         	if Mode is `timed`
             begin
@@ -701,16 +722,14 @@ GetMap:
                     begin
                         if Advance is not empty
                         begin
-                            if Advance is not `-`
+                            if Advance is `-` set style `color` of ModeText to `black`
+                            else
                             begin
                                 if Advance is not `C`
                                 begin
-                                    set style `color` of ModeText to `green`
-                                    attach AdvanceIndicator to `room-` cat RoomIndex cat `-advance-indicator`
-                                    set style `display` of AdvanceIndicator to `block`
+                                    set style `color` of ModeText to `magenta`
                                 end
                             end
-                            else set style `color` of ModeText to `black`
                         end
                     end
                 end
@@ -787,6 +806,9 @@ GetMap:
 		end
 
 	HandleClicks:
+        ! Set the colour of the room status button
+!        set style `background` of RoomStatusButton to `lightgreen`
+
 		! Handle a click on the row hamburger
         on click RoomToolsButton
         begin
@@ -841,11 +863,7 @@ GetMap:
         end
     end
     
-    if property `status` of Sensors is empty set style `display` of StatusPanel to `none`
-    else begin
-    	set the content of StatusPanel to property `status` of Sensors
-        set style `display` of StatusPanel to `block`
-    end
+    put property `status` of Sensors into SystemStatus
 
     put StaticData into storage as `StaticData`
 
@@ -879,7 +897,6 @@ ShowMenu:
     render MainMenuWebson in MainPanel
     attach SystemManagerButton to `button-systemmanager`
     attach AddButton to `button-add`
-    attach GetSysParamsButton to `button-getsysparams`
     attach BackupButton to `button-backup`
     attach RestoreButton to `button-restore`
     attach WelcomeButton to `button-welcome`
@@ -887,7 +904,6 @@ ShowMenu:
     attach CancelButton to `button-cancel`
     
     on click SystemManagerButton go to SystemManager
-    on click GetSysParamsButton go to GetSystemParameters
 
     on click AddButton
     begin
@@ -979,14 +995,13 @@ SystemManager:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Get system parameters
-GetSystemParameters:
+! 	System parameters
+SystemParameters:
 	set Blocked
     clear MainPanel
-    if GetSysParamsWebson is empty
-        rest get GetSysParamsWebson from `/resources/webson/getsysparams.json?v=` cat now
-            or go to HandleRestError
-    render GetSysParamsWebson in MainPanel
+    rest get SysParamsWebson from `/resources/webson/sysparams.json?v=` cat now
+        or go to HandleRestError
+    render SysParamsWebson in MainPanel
     
     attach ConfigButton to `button-config`
     set style `display` of ConfigButton to `none`	! At least for now
@@ -1009,6 +1024,9 @@ GSP2:
     attach RestartButton to `button-restart`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
+    attach SystemStatusPanel to `rbr-status`
+    
+    set the content of SystemStatusPanel to SystemStatus
 
     on click GetSystemNameButton
     begin
@@ -1064,7 +1082,6 @@ GSP2:
     	clear MainPanel
         clear Blocked
         set Redraw
-        stop
     end
 	stop
 
@@ -1099,6 +1116,7 @@ GetSystemName:
         begin
             json delete property SystemName of Systems
     		put the content of Input into SystemName
+            replace ` ` with `%20` in SystemName
             set property SystemName of Systems to System
         	put Systems into storage as `Systems`
         	put SystemName into storage as `SystemName`
@@ -1374,7 +1392,7 @@ print `Request confirmation: ` cat Confirm
             if Confirm is `Y` go to PAC2
             take 1 from Count
         end
-    	set the content of StatusPanel to `System did not respond to a request`
+    	put `System did not respond to a request` into SystemStatus
         fork to PAC4
         return
 PAC2:
@@ -1391,7 +1409,7 @@ PAC3:
 
 PAC4:
     wait 10
-    set the content of StatusPanel to empty
+!    put `System healthy` into SystemStatus
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

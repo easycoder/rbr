@@ -45,6 +45,7 @@
     variable IP
     variable N
     variable M
+    variable R
 
 !    debug step
     
@@ -154,7 +155,6 @@ Editor:
     
     on click RoomInfoButton
     begin
-print Sensors
         put property `responses` of Sensors into Responses
         if Responses is empty
         begin
@@ -171,34 +171,54 @@ print Sensors
         ! Find the room containing the given relay IP
         put property `relays` of RoomSpec into Relays
         put empty into Response
+        put the json count of Relays into R
         put 0 into N
-        while N is less than the json count of Relays
+        while N is less than R
         begin
         	put element N of Relays into Relay
             if Relay is empty go to RoomInfo2
             split Relay on `/` giving Relay
             if the elements of Relay is 0 go to RoomInfo2
-            index Relay to 1
-            put 0 into M
-            while M is less than the json count of Responses
+            if the elements of Relay is 2    ! It's on an extender
             begin
-            	put element M of Responses into Response
-                put property `ip` of Response into IP
-                if IP is Relay
+                index Relay to 1
+                put 0 into M
+                while M is less than the json count of Responses
                 begin
-                	put property `response` of Response into Response
-        			replace `,` with `,` cat `<br>&nbsp;&nbsp;&nbsp;\` in Response
-                    go to RoomInfo2
+                    put element M of Responses into Response
+                    if property `ip` of Response is Relay
+                    begin
+                        put property `response` of Response into Response
+                        replace `,` with `,` cat `<br>&nbsp;&nbsp;&nbsp;\` in Response
+                        go to RoomInfo2
+                    end
+                    add 1 to M
                 end
-            	add 1 to M
             end
-        	add 1 to N
+            else    ! It's a full IP address
+            begin
+                put 0 into M
+                while M is less than the json count of Responses
+                begin
+                    put element M of Responses into Item
+                    put property `ip` of Item into IP
+                    if IP is Relay
+                    begin
+                        put property `response` of Item into Item
+                        replace `,` with `,` cat `<br>&nbsp;&nbsp;&nbsp;\` in Item
+                        if R is greater than 1
+                        	put Response cat `-- ` cat IP cat ` --<br>` into Response
+                        put Response cat Item cat `<br>` into Response
+                    end
+                    add 1 to M
+                end
+           end
+        add 1 to N
         end
     RoomInfo2:
         put property `sensor` of RoomSpec into SensorIP
         put property SensorIP of Sensors into Sensor
-        if Response is empty set property `response` of Sensor to `-none-`
-        else set property `response` of Sensor to Response
+        if Response is empty put `<none>` into Response
         put property `timestamp` of Sensor into Timestamp
         set DateFormat to object
         set property `mode` of DateFormat to `date`
@@ -218,10 +238,11 @@ print Sensors
         replace `",` with `"<br>` in Sensor
         replace `,\` with `, &nbsp;&nbsp;&nbsp;\` in Sensor
         replace `\` with `` in Sensor
-        replace `{"` with `"` in Sensor
-        replace `"}` with `"` in Sensor
+        replace `{` with `` in Sensor
+        replace `}` with `` in Sensor
         replace `""` with `"` in Sensor
         set the content of DialogText to `Information about this room:<br><br>` cat Sensor
+        	cat `<br><br>-- Response --<br>` cat Response
 
         on click DialogButton1
         begin

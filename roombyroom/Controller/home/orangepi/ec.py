@@ -1,4 +1,4 @@
-#! /bin/python
+#! /usr/bin/python3
 
 import sys
 from ec_program import Program

@@ -251,6 +251,12 @@ class Program:
 				v1 = ''
 			if v2 == None:
 				v2 = ''
+		if type(v1) == int:
+			if type(v2) != int:
+				v1 = f'{v1}'
+		if type(v2) == int:
+			if type(v1) != int:
+				v2 = f'{v2}'
 		if v1 > v2:
 			return 1
 		if v1 < v2:

@@ -1,3 +1,4 @@
 * * * * * sh /home/orangepi/flags.sh
 0 * * * * sh /home/orangepi/server.sh
+0 0 * * * rm /mnt/data/logdata
 @reboot mount -t tmpfs -o size=1M tmpfs /mnt/data; mkdir /mnt/data/sensors; chmod a+w /mnt/data/sensors; sh /home/orangepi/server.sh

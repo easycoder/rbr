@@ -410,11 +410,12 @@
                 break;
 
             case 'requests':
-                // Get the most recent requests, given the MAC
+                // Get a requests, given the MAC
                 // Endpoint: {site root}/resources/php/rest.php/requests/<mac>/<count>
                 $mac = $request[0];
-                $count = $request[1] * 2;
-                $result = query($conn, "SELECT * FROM (SELECT * FROM requests WHERE mac='$mac' ORDER BY ts DESC LIMIT $count) AS sub ORDER BY ts ASC");
+                // $count = $request[1] * 2;
+                // $result = query($conn, "SELECT * FROM (SELECT * FROM requests WHERE mac='$mac' ORDER BY ts DESC LIMIT $count) AS sub ORDER BY ts ASC");
+                $result = query($conn, "SELECT * FROM requests WHERE mac='$mac' ORDER BY ts ASC");
                 $data = array();
                 while ($row = mysqli_fetch_object($result)) {
                     $item = new stdClass();
@@ -444,12 +445,40 @@
                 // Get a system's sensor log, given its MAC
                 // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>
                 $mac = $request[0];
-                $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac'");
+                $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac' LIMIT 1000");
+                $stats = "";
                 while ($row = mysqli_fetch_object($result)) {
                     $sensors = base64_decode($row->sensors);
-                    print $sensors . "\n";
+                    if ($stats) $stats = "$stats<br>";
+                    $stats = "$stats$sensors";
                 }
                 mysqli_free_result($result);
+                // print $stats;
+
+                // Use the 'managed' table to find the user email, then send the stats.
+                $result = query($conn, "SELECT email FROM managed WHERE mac='$mac'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $email = $row->email;
+                    mysqli_free_result($result);
+                    $result = query($conn, "SELECT password FROM users WHERE email='$email'");
+                    if ($row = mysqli_fetch_object($result)) {
+                        $password = $row->password;
+                        $data = new stdClass();
+                        $data->email = $email;
+                        $data->subject = "RBR Heating - monthly statistics";
+                        $data->message = $stats;
+                        $data->smtpusername = $smtpusername;
+                        $data->smtppassword = $smtppassword;
+                        try {
+                            sendMail($data);
+                        } catch (Exception $e) {
+                            http_response_code(404);
+                            print "{\"message\": $data->err}";
+                            break;
+                        }
+                    }
+                    mysqli_free_result($result);
+                }
                 break;
 
             case 'stats':
@@ -674,6 +703,7 @@
                 }
 
                 // Do the statistics
+/*
                 $data = json_decode($sensors);
                 foreach ($data as $sensor=>$value) {
                     if (!in_array($sensor, array('actual', 'status', 'version', 'protect'))) {
@@ -709,6 +739,18 @@
                             query($conn, "UPDATE stats SET duration='$duration' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
                         }
                     }
+                }
+*/
+                break;
+
+            case 'collect':
+                // Request for data to be collected and sent out by email
+                // Endpoint: {site root}/resources/php/rest.php/collect/{mac}/{password}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    print "Collected";
                 }
                 break;
 
@@ -775,8 +817,17 @@
                 if ($row = mysqli_fetch_object($result)) {
                     mysqli_free_result($result);
                     $systems = file_get_contents("php://input");
-                    $systems = base64_encode($systems);
-                    query($conn, "UPDATE users SET systems='$systems' WHERE email='$email'");
+                    $encoded = base64_encode($systems);
+                    query($conn, "UPDATE users SET systems='$encoded' WHERE email='$email'");
+                    // Also write to the 'managed' table
+                    query($conn, "DELETE FROM managed WHERE email='$email'");
+                    foreach(json_decode($systems, true) as $name=>$values)
+                    {
+                        $mac = $values["mac"];
+                        $pwd = $values["password"];
+                        // print "INSERT INTO managed (mac,password,email) VALUES ('$mac',$pwd,'$email')\n";
+                        query($conn, "INSERT INTO managed (mac,password,email) VALUES ('$mac',$pwd,'$email')");
+                    }
                 } else {
                     http_response_code(404);
                     logger("'Managed' failed: Email $email and password $password do not match any record.\n");
@@ -785,7 +836,7 @@
                 break;
 
             case 'psu':
-                // Set a flag for the PSU to reboot (R) or halt (H).
+                // Set a flag for the PSU to start (S), halt (H) or reboot (R)
                 // Endpoint: {site root}/resources/php/rest.php/psu/<mac>/{password}/{flag}
                 $mac = trim($request[0]);
                 $password = trim($request[1]);
