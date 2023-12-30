@@ -1,0 +1,14 @@
+!   Get system stats
+
+    script GetStats
+
+    file File
+    variable MAC
+    variable Result
+
+    open File `/home/orangepi/mac` for reading
+    read MAC from File
+    close File
+    get Result from `https://rbrheating.com/home/resources/php/rest.php/sensorlog/` cat trim MAC
+    print Result
+    exit

@@ -354,6 +354,7 @@
                         . "Please save these details. You should only need them if you change to a different browser "
                         . "or use a different device to access RBR Heating.";
                     $data = new stdClass();
+                    $data->sender = "RBR Heating Admin";
                     $data->email = $email;
                     $data->subject = "RBR Heating - user confirmed";
                     $data->message = $message;
@@ -445,7 +446,7 @@
                 // Get a system's sensor log, given its MAC
                 // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>
                 $mac = $request[0];
-                $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac' LIMIT 1000");
+                $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac'");
                 $stats = "";
                 while ($row = mysqli_fetch_object($result)) {
                     $sensors = base64_decode($row->sensors);
@@ -454,31 +455,37 @@
                 }
                 mysqli_free_result($result);
                 // print $stats;
+                $delay = mt_rand(1, 4000);
+                usleep($delay);
 
                 // Use the 'managed' table to find the user email, then send the stats.
                 $result = query($conn, "SELECT email FROM managed WHERE mac='$mac'");
-                if ($row = mysqli_fetch_object($result)) {
+                while ($row = mysqli_fetch_object($result)) {
                     $email = $row->email;
                     mysqli_free_result($result);
                     $result = query($conn, "SELECT password FROM users WHERE email='$email'");
                     if ($row = mysqli_fetch_object($result)) {
+                        $date = date("Y/m/d H:i", $ts);
                         $password = $row->password;
                         $data = new stdClass();
+                        $data->sender = "RBR server";
                         $data->email = $email;
-                        $data->subject = "RBR Heating - monthly statistics";
+                        $data->subject = "RBR Heating statistics - $date";
                         $data->message = $stats;
                         $data->smtpusername = $smtpusername;
                         $data->smtppassword = $smtppassword;
                         try {
                             sendMail($data);
+                            print "Email sent after $delay microseconds";
                         } catch (Exception $e) {
                             http_response_code(404);
                             print "{\"message\": $data->err}";
                             break;
                         }
                     }
-                    mysqli_free_result($result);
                 }
+                mysqli_free_result($result);
+                $result = query($conn, "Delete FROM sensors WHERE mac='$mac' LIMIT 1000");
                 break;
 
             case 'stats':
@@ -701,57 +708,6 @@
                     print "{\"message\":\"MAC and password do not match any record.\"}";
                     break;
                 }
-
-                // Do the statistics
-/*
-                $data = json_decode($sensors);
-                foreach ($data as $sensor=>$value) {
-                    if (!in_array($sensor, array('actual', 'status', 'version', 'protect'))) {
-                        $relay = $value->relay;
-                        $previous = "off";
-                        // Update the relay states table
-                        $res = query($conn, "SELECT relay from relays WHERE mac='$mac' AND sensor='$sensor'");
-                        if ($r = mysqli_fetch_object($res)) {
-                            $previous = $r->relay;
-                            //print("UPDATE relays SET relay='$relay' WHERE mac='$mac' AND sensor='$sensor'\n");
-                            query($conn, "UPDATE relays SET relay='$relay' WHERE mac='$mac' AND sensor='$sensor'");
-                        } else {
-                            query($conn, "INSERT INTO relays (mac,sensor,relay) VALUES ('$mac','$sensor','$relay')");
-                        }
-                        mysqli_free_result($res);
-                    }
-                    // Update the stats table
-                    if ($previous == "off" && $relay =="on") {
-                        // Mark the start of a timing period
-                        $res = query($conn, "SELECT null FROM stats WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
-                        if ($r = mysqli_fetch_object($res)) {
-                            query($conn, "UPDATE stats SET start='$ts' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
-                        } else {
-                            // logger("INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
-                            query($conn, "INSERT INTO stats (day,mac,sensor,start,duration) VALUES ($day,'$mac','$sensor','$ts',0)");
-                        }
-                    }
-                    else if ($previous == "on" && $relay =="off") {
-                        // Add the period to the total duration for this day
-                        $res = query($conn, "SELECT start, duration FROM stats WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
-                        if ($r = mysqli_fetch_object($res)) {
-                            $duration = ($ts - $r->start + ($r->duration * 60)) / 60;
-                            query($conn, "UPDATE stats SET duration='$duration' WHERE day=$day AND mac='$mac' AND sensor='$sensor'");
-                        }
-                    }
-                }
-*/
-                break;
-
-            case 'collect':
-                // Request for data to be collected and sent out by email
-                // Endpoint: {site root}/resources/php/rest.php/collect/{mac}/{password}
-                $mac = trim($request[0]);
-                $password = trim($request[1]);
-                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
-                if ($row = mysqli_fetch_object($result)) {
-                    print "Collected";
-                }
                 break;
 
             case 'advance':
@@ -914,7 +870,7 @@
             $mail->Port = 465;                                    // TCP port to connect to
 
             //Recipients
-            $mail->setFrom('admin@rbrheating.com', 'From');          //This is the email your form sends From
+            $mail->setFrom('admin@rbrheating.com', $data->sender);          //This is the email your form sends From
             //$mail->addAddress($email, 'Joe User'); // Add a recipient address
             $mail->addAddress($data->email);               // Name is optional
             //$mail->addReplyTo('info@example.com', 'Information');

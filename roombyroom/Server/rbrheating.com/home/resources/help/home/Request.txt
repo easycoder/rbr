@@ -6,6 +6,8 @@ This dialog is asking for the IP address of the relay.
 
 To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right of the screen.
 
-~tid:MainMenu:Return to the main menu help page~
+~tid:SysParamsMenu:Go to the system parameters help page~
+
+~tid:MainMenu:Go to the main menu help page~
 
 ~sid:Index:Index of pages~

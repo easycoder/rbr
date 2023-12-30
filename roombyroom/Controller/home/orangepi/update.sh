@@ -57,5 +57,14 @@ if test -f "dist.tgz"; then
     echo `date` -- exit >> /root/updatelog
     exit >> /root/updatelog 2>&1
 else
+    echo `date` ---- "${GREEN}Restore root cron${NOCOLOR}" ---- >> /root/updatelog
+    echo `date` -- crontab cronroot.txt >> /root/updatelog
+    crontab cronroot.txt >> /root/updatelog 2>&1
+    echo `date` ---- "${GREEN}Set the user cron${NOCOLOR}" ---- >> /root/updatelog
+    echo `date` -- sudo -u orangepi crontab crondata.txt >> /root/updatelog
+    sudo -u orangepi crontab crondata.txt >> /root/updatelog 2>&1
+    echo `date` ---- "${GREEN}Remove the updater flag file${NOCOLOR}" ---- >> /root/updatelog
+    echo `date` -- rm /mnt/data/version >> /root/updatelog
+    rm /mnt/data/version >> /root/updatelog 2>&1
     echo `date` ---- "${GREEN}Update failed${NOCOLOR}" ---- >> /root/updatelog
 fi

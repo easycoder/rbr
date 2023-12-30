@@ -688,10 +688,16 @@ SkipRequests:
         if ExtenderSuspect set property `extender` of SensorData to `suspect`
         else set property `extender` of SensorData to `running`
     end
-    else if the count of RelayData is 0
+    else
     begin
-        if ExtenderSuspect set property `extender` of SensorData to `fail`
-        else set property `extender` of SensorData to `running`
+        if the count of RelayData is 0
+        begin
+            set property `extender` of SensorData to `running`
+        end
+        else
+        begin
+            set property `extender` of SensorData to `fail`
+        end
     end
 
     set property `version` of SensorData to Version

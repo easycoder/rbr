@@ -1,10 +1,12 @@
 ## System Parameters Menu
 
 ~img:sysparamsmenu.jpg:50% center~
-This is the system parameters menu. Here you can set the system name and the request relay IP.
+This is the system parameters menu. Here you can set the system name and the request relay IP. If your system has a smart power supply you can also instruct it to power the controller down or up.
 
 ~tid:Name:Set the system name~
 
 ~tid:Request:Set the IP address of the request relay~
+
+~tid:SmartPower:Control the smart power supply~
 
 ~sid:Index:Index of pages~

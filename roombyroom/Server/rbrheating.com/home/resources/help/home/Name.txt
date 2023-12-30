@@ -4,6 +4,8 @@ The System Name is anything you'd like to call your system, such as "Joe's holid
 
 To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right of the screen.
 
-~tid:MainMenu:Return to the main menu help page~
+~tid:SysParamsMenu:Go to the system parameters help page~
+
+~tid:MainMenu:Go to the main menu help page~
 
 ~sid:Index:Index of pages~
