@@ -444,48 +444,61 @@
 
             case 'sensorlog':
                 // Get a system's sensor log, given its MAC
-                // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>
+                // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>/<password>
                 $mac = $request[0];
-                $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac'");
-                $stats = "";
-                while ($row = mysqli_fetch_object($result)) {
-                    $sensors = base64_decode($row->sensors);
-                    if ($stats) $stats = "$stats<br>";
-                    $stats = "$stats$sensors";
-                }
-                mysqli_free_result($result);
-                // print $stats;
-                $delay = mt_rand(1, 4000);
-                usleep($delay);
-
-                // Use the 'managed' table to find the user email, then send the stats.
-                $result = query($conn, "SELECT email FROM managed WHERE mac='$mac'");
-                while ($row = mysqli_fetch_object($result)) {
-                    $email = $row->email;
+                $password = $request[1];
+                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $map = json_decode(base64_decode($row->map));
+                    $name = str_replace('%20', ' ', $map->name);
                     mysqli_free_result($result);
-                    $result = query($conn, "SELECT password FROM users WHERE email='$email'");
-                    if ($row = mysqli_fetch_object($result)) {
-                        $date = date("Y/m/d H:i", $ts);
-                        $password = $row->password;
-                        $data = new stdClass();
-                        $data->sender = "RBR server";
-                        $data->email = $email;
-                        $data->subject = "RBR Heating statistics - $date";
-                        $data->message = $stats;
-                        $data->smtpusername = $smtpusername;
-                        $data->smtppassword = $smtppassword;
-                        try {
-                            sendMail($data);
-                            print "Email sent after $delay microseconds";
-                        } catch (Exception $e) {
-                            http_response_code(404);
-                            print "{\"message\": $data->err}";
-                            break;
-                        }
+
+                    // Read all the sensor logs for this system
+                    $stats = "";
+                    $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac' ORDER BY ts");
+                    while ($row = mysqli_fetch_object($result)) {
+                        $sensors = base64_decode($row->sensors);
+                        if ($stats) $stats = "$stats<br>";
+                        $stats = "$stats$sensors";
                     }
+                    mysqli_free_result($result);
+                    // print $stats;
+                    $delay = mt_rand(1, 4000);
+                    print "Wait $delay seconds\n";
+                    usleep($delay);
+
+                    // Use the 'managed' table to find the user email, then send the stats.
+                    $result = query($conn, "SELECT email FROM managed WHERE mac='$mac'");
+                    while ($row = mysqli_fetch_object($result)) {
+                        $email = $row->email;
+                        $result2 = query($conn, "SELECT password FROM users WHERE email='$email'");
+                        if ($row = mysqli_fetch_object($result2)) {
+                            $date = date("Y/m", $ts - 24*60*60);
+                            $password = $row->password;
+                            $data = new stdClass();
+                            $data->sender = "RBR statistics";
+                            $data->email = $email;
+                            $data->subject = "RBR Heating for $date at $name";
+                            $data->message = $stats;
+                            $data->smtpusername = $smtpusername;
+                            $data->smtppassword = $smtppassword;
+                            try {
+                                sendMail($data);
+                                print "Email sent to $email\n";
+                            } catch (Exception $e) {
+                                http_response_code(404);
+                                print "{\"message\": $data->err}";
+                                break;
+                            }
+                        }
+                        mysqli_free_result($result2);
+                    }
+                    mysqli_free_result($result);
+                    $result = query($conn, "Delete FROM sensors WHERE mac='$mac");
+                } else {
+                    http_response_code(404);
+                    print "MAC '$mac' and password '$password' do not match any record.";
                 }
-                mysqli_free_result($result);
-                $result = query($conn, "Delete FROM sensors WHERE mac='$mac' LIMIT 1000");
                 break;
 
             case 'stats':
@@ -805,13 +818,6 @@
                     http_response_code(404);
                     print "MAC '$mac' and password '$password' do not match any record.";
                 }
-                break;
-
-            case 'psuversion':
-                $file = fopen('version', 'r');
-                $version = trim(fgets($file));
-                fclose($file);
-                print '{"password":"'.$password.'","version":"'.$version.'"}';
                 break;
 
             default:
