@@ -1,5 +1,7 @@
 .*
 */.*
+.gitignore
 misc
 stats
 roombyroom/Server/rbrheating.com/home/dist.tgz
+roombyroom/ESP/libraries

@@ -1,19 +1,13 @@
-# ArduinoJson - https://arduinojson.org
-# Copyright © 2014-2023, Benoit BLANCHON
+# ArduinoJson - arduinojson.org
+# Copyright Benoit Blanchon 2014-2020
 # MIT License
 
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.0)
 
-if(ESP_PLATFORM)
-	# Build ArduinoJson as an ESP-IDF component
-	idf_component_register(INCLUDE_DIRS src)
-	return()
-endif()
-
-project(ArduinoJson VERSION 6.21.3)
+project(ArduinoJson VERSION 6.17.2)
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-	include(CTest)
+    include(CTest)
 endif()
 
 add_subdirectory(src)

@@ -1,12 +1,12 @@
-// ArduinoJson - https://arduinojson.org
-// Copyright © 2014-2023, Benoit BLANCHON
+// ArduinoJson - arduinojson.org
+// Copyright Benoit Blanchon 2014-2020
 // MIT License
 
 #pragma once
 
 #ifdef __cplusplus
 
-#  include "ArduinoJson.hpp"
+#include "ArduinoJson.hpp"
 
 using namespace ArduinoJson;
 

@@ -1,26 +1,43 @@
-// ArduinoJson - https://arduinojson.org
-// Copyright © 2014-2023, Benoit BLANCHON
+// ArduinoJson - arduinojson.org
+// Copyright Benoit Blanchon 2014-2020
 // MIT License
 
 #pragma once
 
 #include "integral_constant.hpp"
-#include "is_same.hpp"
-#include "remove_cv.hpp"
+namespace ARDUINOJSON_NAMESPACE {
 
-ARDUINOJSON_BEGIN_PRIVATE_NAMESPACE
+template <typename>
+struct is_signed : false_type {};
 
-// clang-format off
-template <typename T>
-struct is_signed : integral_constant<bool,
-    is_same<typename remove_cv<T>::type, char>::value ||
-    is_same<typename remove_cv<T>::type, signed char>::value ||
-    is_same<typename remove_cv<T>::type, signed short>::value ||
-    is_same<typename remove_cv<T>::type, signed int>::value ||
-    is_same<typename remove_cv<T>::type, signed long>::value ||
-    is_same<typename remove_cv<T>::type, signed long long>::value ||
-    is_same<typename remove_cv<T>::type, float>::value ||
-    is_same<typename remove_cv<T>::type, double>::value> {};
-// clang-format on
+template <>
+struct is_signed<char> : true_type {};
 
-ARDUINOJSON_END_PRIVATE_NAMESPACE
+template <>
+struct is_signed<signed char> : true_type {};
+
+template <>
+struct is_signed<signed short> : true_type {};
+
+template <>
+struct is_signed<signed int> : true_type {};
+
+template <>
+struct is_signed<signed long> : true_type {};
+
+template <>
+struct is_signed<float> : true_type {};
+
+template <>
+struct is_signed<double> : true_type {};
+
+#if ARDUINOJSON_HAS_LONG_LONG
+template <>
+struct is_signed<signed long long> : true_type {};
+#endif
+
+#if ARDUINOJSON_HAS_INT64
+template <>
+struct is_signed<signed __int64> : true_type {};
+#endif
+}  // namespace ARDUINOJSON_NAMESPACE
