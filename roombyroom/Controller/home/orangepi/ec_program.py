@@ -1,13 +1,20 @@
 import time, json
-from copy import copy
+from copy import deepcopy
 from collections import deque
 from ec_classes import Script, Token, FatalError, RuntimeError
 from ec_compiler import Compiler
+from ec_compress import Compress
 
 class Program:
 
-	def __init__(self, source, domains):
+	def __init__(self, argv, domains, options):
 
+		scriptName = argv[0]
+		f = open(scriptName, 'r')
+		source = f.read()
+		f.close()
+		self.argv = argv
+		self.options = options
 		self.domains = []
 		self.domainIndex = {}
 		self.name = '<anon>'
@@ -39,8 +46,15 @@ class Program:
 				record = self.code[self.symbols[name]]
 				if name[-1] != ':' and not record['used']:
 					print(f'Variable "{name}" not used')
-			print(f'Run {self.name}')
-			self.run(0)
+			if self.options['object']:
+				n = scriptName.find('.')
+				f = open(f'{scriptName[0:n]}.json', 'w')
+				f.write(json.dumps(self.code, sort_keys=True, indent=2))
+				Compress(self.code, scriptName[0:n])
+				f.close()
+			else:
+				print(f'Run {self.name}')
+				self.run(0)
 		else:
 			self.compiler.showWarnings()
 			return
@@ -71,11 +85,11 @@ class Program:
 			for part in value['parts']:
 				val = self.doValue(part)
 				if val == None:
-					return None
+					val = ''
 				if val != '':
 					val = str(val['content'])
 					if val == None:
-						return None
+						val = ''
 					content += val
 			result['type'] = 'text'
 			result['content'] = content
@@ -131,11 +145,20 @@ class Program:
 		return None
 
 	def getSymbolValue(self, symbolRecord):
-		value = copy(symbolRecord['value'][symbolRecord['index']])
-		return value
+		if len(symbolRecord['value']) == 0:
+			return None
+		value = symbolRecord['value'][symbolRecord['index']]
+		copy = deepcopy(value)
+		return copy
 
 	def putSymbolValue(self, symbolRecord, value):
-		symbolRecord['value'][symbolRecord['index']] = value
+		if symbolRecord['value'] == None or symbolRecord['value'] == []:
+			symbolRecord['value'] = [value]
+		else:
+			index = symbolRecord['index']
+			if index == None:
+				index = 0
+			symbolRecord['value'][index] = value
 
 	def encode(self, value):
 		return value
@@ -226,8 +249,10 @@ class Program:
 	def variableDoesNotHoldAValueError(self, name):
 		raise FatalError(self.compiler, f'Variable "{name}" does not hold a value')
 
+	def noneValueError(self, name):
+		raise FatalError(self.compiler, f'Value is None')
+
 	def compare(self, value1, value2):
-		# print(f'Compare {value1} with {value2}')
 		val1 = self.evaluate(value1)
 		val2 = self.evaluate(value2)
 		if val1 == None or val2 == None:

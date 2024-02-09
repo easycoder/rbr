@@ -49,6 +49,7 @@
     variable Until
     variable Target
     variable SensorValues
+    variable LastReported
     variable Now
     variable Boundary
     variable OnOff
@@ -61,11 +62,13 @@
     variable RequestCount
     variable RequestIP
     variable IPAddresses
+    variable SensorFileName
     variable RoomStatusFileName
     variable Result
     variable Action
     variable Items
     variable Item
+    variable RelayDataItem
     variable Key
     variable Keys
     variable Extender
@@ -81,6 +84,7 @@
     variable HaltRequested
     variable TPEmail
     variable TPPassword
+    variable TempStr
     variable RA
     variable E
     variable EE
@@ -93,6 +97,7 @@
     variable T1
     variable T2
     variable TS
+    variable RR
 
 !    debug step
 
@@ -187,12 +192,7 @@
     put json RegData into RegData
     put property `password` of RegData into Password
     print `Password: ` cat Password
-    if property `reboot` of RegData is not empty go to RestartSystemController
-    if property `update` of RegData is not empty
-    begin
-        system `sh update.sh`
-        exit
-    end
+    if RegData has property `reboot` go to RestartSystemController
 
 !   See if we have the latest system software
     if file `version` exists
@@ -327,149 +327,7 @@ S2:
         end
     end
     gosub to ClearNetworkErrors
-    if Request is not empty
-    begin
- print `Request ` cat Request
-        set Changed
-        set Confirm
-        put json Request into Request
-        put property `action` of Request into Action
-        if Action is `SystemName`
-        begin
-            set property `name` of MapObject to property `SystemName` of Request
-        end
-        else if Action is `map`
-        begin
-            put property `map` of Request into MapObject
-            put stringify MapObject into Map
-        end
-        else if Action is `addroom`
-        begin
-            put property `spec` of Request into Room
-            append Room to Rooms
-            gosub to UpdateRooms
-        end
-        else if Action is `rooms`
-        begin
-            put property `rooms` of Request into Rooms
-            gosub to UpdateRooms
-        end
-        else if Action is `backup`
-        begin
-            open File `backup` for writing
-            write Map to File
-            close File
-        end
-        else if Action is `restore`
-        begin
-            open File `backup` for reading
-            read Map from File
-            close File
-            gosub to SaveMap
-            put json Map into MapObject
-        end
-        else if Action is `profiles`
-        begin
-            put property `profiles` of Request into Profiles
-            put property `profile` of Request into CurrentProfile
-            set property `profiles` of MapObject to Profiles
-            set property `profile` of MapObject to CurrentProfile
-            set property `calendar` of MapObject to property `calendar` of Request
-            set property `calendar-data` of MapObject to property `calendar-data` of Request
-            put stringify MapObject into Map
-            gosub to SaveMap
-        end
-        else if Action is `mode`
-        begin
-            put property `roomnumber` of Request into RoomNumber
-            put element RoomNumber of Rooms into Room
-            put property `name` of Room into RoomName
-            put property `mode` of Request into Mode
-            if Mode is `timed`
-                set property `advance` of Room to property `advance` of Request
-            else if Mode is `on`
-            begin
-                set property `target` of Room to property `target` of Request
-            end
-            else if Mode is `boost`
-            begin
-                set property `target` of Room to property `target` of Request
-                if property `mode` of Room is not `boost`
-                    set property `prevmode` of Room to property `mode` of Room
-                set property `boost` of Room to property `boost` of Request
-            end
-            set property `mode` of Room to Mode
-            gosub to UpdateRoom
-        end
-        else if Action is `profiles`
-        begin
-        end
-        else if Action is `roomname`
-        begin
-            put property `roomnumber` of Request into RoomNumber
-            put element RoomNumber of Rooms into Room
-            set property `name` of Room to property `name` of Request
-            gosub to UpdateRoom
-        end
-        else if Action is `roomdata`
-        begin
-            put property `roomnumber` of Request into RoomNumber
-            put element RoomNumber of Rooms into Room
-            put property `items` of Request into Items
-            put the keys of Items into Keys
-            put 0 into N
-            while N is less than the count of Keys
-            begin
-                put element N of Keys into Key
-                set property Key of Room to property Key of Items
-                add 1 to N
-            end
-            gosub to UpdateRoom
-        end
-        else if Action is `config`
-        begin
-            set property `name` of MapObject to property `name` of Request
-            set property `address` of MapObject to property `address` of Request
-            set property `ssid` of MapObject to property `ssid` of Request
-            set property `password` of MapObject to property `password` of Request
-            set property `extenders` of MapObject to property `extenders` of Request
-            put property `names` of Request into RoomNames
-            put property `ssids` of Request into RoomSSIDs
-            put element 0 of Profiles into Profile
-            put property `rooms` of Profile into Rooms
-            put 0 into R
-            while R is less than the count of Rooms
-            begin
-                put element R of Rooms into Room
-                set property `name` of Room to element R of RoomNames
-                set property `ssid` of Room to element R of RoomSSIDs
-                set element R of Rooms to Room
-                add 1 to R
-            end
-            set property `rooms` of Profile to Rooms
-            set element 0 of Profiles to Profile
-            set property `profiles` of MapObject to Profiles
-            put stringify MapObject into Map
-            put element CurrentProfile of Profiles into Profile
-            put property `rooms` of Profile into Rooms
-        end
-        else if Action is `periods`
-        begin
-            put property `roomnumber` of Request into RoomNumber
-            put element RoomNumber of Rooms into Room
-            set property `events` of Room to property `periods` of Request
-            gosub to UpdateRoom
-        end
-        else if Action is `request`
-        begin
-            set property `request` of MapObject to property `request` of Request
-        end
-        else if Action is `halt`
-        begin
-            print `Request to halt the system`
-            set HaltRequested
-        end
-    end
+    if Request is not empty gosub to ProcessRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process the map
@@ -536,10 +394,9 @@ SkipRequests:
 
         ! Deal with the request relay
         put property `request` of MapObject into RequestIP
-! print `Request IP: ` cat RequestIP
         if RequestIP is not empty
         begin
-            set property RelayIp of RoomIndices to `R`
+            set property RequestIP of RoomIndices to `R`
             if RequestCount is 0 put `off` into OnOff
             else put `on` into OnOff
 !            print `Request relay is ` cat OnOff
@@ -553,6 +410,8 @@ SkipRequests:
                 index Extender to 0
                 put `r1` into RelayType     ! May need to allow a different type - 11/6/23
                 put json `{}` into Item
+                set property `name` of Item to `request`
+                set property `sensor` of Item to `request`
                 set property `extender` of Item to Extender
                 set property `ip` of Item to RelayIp
                 set property `type` of Item to RelayType
@@ -562,143 +421,13 @@ SkipRequests:
         end
     end
 
+    ! Process the responses
+    gosub to ProcessResponses
+
 ! print RelayData
     open File `/mnt/data/relayData` for writing
     write stringify RelayData to File
     close File
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Deal with the status flag
-    clear ExtenderSuspect
-    if file `/mnt/data/response` exists
-    begin
-        ! Get the extender responses; an array of 10 R1 relays
-        open File `/mnt/data/response` for reading
-        read Responses from File
-        close File
-    end
-    else
-    begin
-        put empty into Responses
-        set ExtenderSuspect
-    end
-!put empty into Responses
-! print Responses
-    if Responses is empty put `[]` into Responses
-    put json Responses into Responses
-    put json `[]` into Items
-    ! Only keep items that are in the map
-    put 0 into N
-    while N is less than the count of Responses
-    begin
-        put element N of Responses into Response
-        put property `ip` of Response into RelayIp
-        put `` cat RelayIp into RelayIp
-        ! Look for this IP in the relay data
-        put 0 into R
-        while R is less than the count of RelayData
-        begin
-            put element R of RelayData into Item
-            if property `ip` of Item is RelayIp
-            begin
-                append Response to Items
-                if not property `ok` of Response
-                begin
-                    set property `ok` of Response to `False`
-                    put property `response` of Response into Response
-                    put property RelayIp of RoomIndices into RoomNumber
-                    if RoomNumber is `R`
-                    begin
-                        if Response is `<none>`
-                        begin
-                            print `No response '` cat Response cat `' from request relay`
-                            put `No` into WarningMessage
-                        end
-                        else
-                        begin
-                            print `Bad response '` cat Response cat `' from request relay`
-                            put `Bad` into WarningMessage
-                        end
-                        put WarningMessage cat ` response from request relay` into WarningMessage
-                        if WarningMessages is not empty put WarningMessages cat `<br>` into WarningMessages
-                        put WarningMessages cat WarningMessage into WarningMessages
-                        set property `status` of SensorData to WarningMessages
-                    end
-                    else
-                    begin
-                        put element RoomNumber of Rooms into Room
-                        put property `name` of Room into RoomName
-                        put property `sensor` of Room into Sensor
-                        put property Sensor of SensorData into SensorValues
-                        if Response is `<none>`
-                        begin
-                            print `No response '` cat Response cat `' from ` cat RoomName
-                            put `No` into WarningMessage
-                        end
-                        else
-                        begin
-                            print `Bad response '` cat Response cat `' from ` cat RoomName
-                            put `Bad` into WarningMessage
-                        end
-                        put WarningMessage cat ` response from relay in ` cat property `name` of Room into WarningMessage
-                        if WarningMessages is not empty put WarningMessages cat `<br>` into WarningMessages
-                        put WarningMessages cat WarningMessage into WarningMessages
-                        gosub to ShowWarning
-                    end
-                end
-            end
-            add 1 to R
-        end
-        add 1 to N
-    end
-    ! Add in the direct responses
-    put Items into Responses
-    put 0 into N
-    while N is less than the count of DirectResponses
-    begin
-        put element N of DirectResponses into Item
-        append Item to Responses
-        add 1 to N
-    end
-    ! Count the errors
-    put 0 into N
-    while N is less than the count of Responses
-    begin
-        put element N of Responses into Response
-        put property `ip` of Response into RelayIp
-        if property `response` of Response is `<none>`
-        begin
-            if `` cat property `ok` of Response is `False` add 1 to BadResponses
-        end
-        add 1 to N
-    end
-    if BadResponses is greater than 0
-    begin
-        print BadResponses cat ` bad response(s) out of ` cat the count of Responses
-        if BadResponses is less than the count of Responses set ExtenderSuspect
-    end
-    put stringify Responses into Responses
-    set property `responses` of SensorData to Responses
-!    print SensorData
-
-!    print `Extender: ` cat ExtenderRunning cat ` ` cat ExtenderSuspect
-
-    if ExtenderRunning
-    begin
-        if ExtenderSuspect set property `extender` of SensorData to `suspect`
-        else set property `extender` of SensorData to `running`
-    end
-    else
-    begin
-        if the count of RelayData is 0
-        begin
-            set property `extender` of SensorData to `running`
-        end
-        else
-        begin
-            set property `extender` of SensorData to `fail`
-        end
-    end
 
     set property `version` of SensorData to Version
     put stringify SensorData into Sensors
@@ -774,11 +503,26 @@ Repeat:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
 ProcessRoom:
+!    print `Process ` cat RoomName
     if Sensor is empty return
-    if file RamDisk cat `/sensors/` cat Sensor cat `.txt` exists go to PR2
-    return
+    put RamDisk cat `/sensors/` cat Sensor cat `.txt` into SensorFileName
+    if file SensorFileName exists begin end
+    else
+    begin
+        put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
+        gosub to AddWarning
+!        print `Sensor for ` cat RoomName cat ` has not reported`
+        return
+    end
+    put the modification time of SensorFileName into LastReported
+    take LastReported from now giving LastReported
+    if LastReported is greater than 1800
+    begin
+        put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
+        gosub to AddWarning
+        return
+    end
 
-PR2:
     ! Make sure there's an 'advance' file. Read it into Advance
     if file RamDisk cat `/advance/` cat Sensor exists
     begin
@@ -791,7 +535,8 @@ PR2:
         put `-` into Advance
         gosub to WriteAdvance
     end
-    open File RamDisk cat `/sensors/` cat Sensor cat `.txt` for reading
+
+    open File SensorFileName for reading
     read SensorValues from File
     close File
     put json SensorValues into SensorValues
@@ -883,10 +628,10 @@ PR2:
         gosub to MultiplyTT
         if Temperature is less than Target go to TurnOn else go to TurnOff
     end
-    take 1 from the length of Events giving NPeriods
+    take 1 from the count of Events giving NPeriods
     put `timed` into Mode
     put 0 into E
-    while E is less than the length of Events
+    while E is less than the count of Events
     begin
         put element E of Events into Event
         put property `until` of Event into Until
@@ -1055,12 +800,13 @@ SR0:
     write newline to File
     close File
 
+!    print `Room status: ` cat stringify RoomStatus
     if Password is not empty post stringify RoomStatus to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set the relays
 SetRelays:
-!    print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat OnOff
+    print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat OnOff
     if RelayType is empty put `RBR R1` into RelayType
     if Relays is empty put json `[]` into Relays
 ! print RoomName cat ` Relays: ` cat Relays
@@ -1071,6 +817,7 @@ SetRelays:
         put element R of Relays into Relay
         if Relay is not empty
         begin
+            ! Here if we're on an extender
             put Relay into Extender
             split Extender on `/`
             if the elements of Extender is 2
@@ -1080,19 +827,43 @@ SetRelays:
                 set property RelayIp of IPAddresses to `Y`
                 index Extender to 0
                 if RelayType is `RBR R1` put `r1` into RelayType
-                else if RelayType is `Tasmota` put `tasmota` into RelayType
                 else if RelayType is `Shelly One` put `shelly` into RelayType
+                else if RelayType is `Tasmota` put `tasmota` into RelayType
                 put json `{}` into Item
+                set property `name` of Item to RoomName
+                set property `sensor` of Item to property `sensor` of Room
                 set property `extender` of Item to Extender
                 set property `ip` of Item to RelayIp
                 set property `type` of Item to RelayType
                 set property `onoff` of Item to OnOff
+!                print `Relay data: ` cat Item
                 append Item to RelayData
                 set property RelayIp of RoomIndices to RoomNumber
             end
             else ! Here if we're on the house router or OPi hotspot
             begin
-                if RelayType is `Tasmota`
+                if RelayType is `Shelly One`
+                begin
+
+                    put `http://` cat Relay cat `/relay/0?turn=` cat OnOff into Request
+                    get Response from Request
+                    or begin
+                        put `<none>` into Response
+                        put `Device ` cat Relay cat ` failed in ` cat RoomName into WarningMessage
+                        gosub to AddWarning
+                        gosub to NetworkError
+                        go to SR1
+                    end
+                    gosub to ClearNetworkErrors
+                    if Response is empty
+                    begin
+                        put `<none>` into Response
+                        put `No response from relay in ` cat RoomName into WarningMessage
+                        gosub to AddWarning
+                    end
+!                    print `Response: ` cat Response
+                end
+                else if RelayType is `Tasmota`
                 begin
                     put `http://` cat Relay cat `/cm?cmnd=power%20` cat OnOff into Request
 !                    print Request
@@ -1100,8 +871,7 @@ SetRelays:
                     or begin
                         put `<none>` into Response
                         put `Relay request failed in ` cat RoomName into WarningMessage
-                        add 1 to BadResponses
-!                        gosub to ShowWarning
+                        gosub to AddWarning
                         gosub to NetworkError
                         go to SR1
                     end
@@ -1110,32 +880,9 @@ SetRelays:
                     begin
                         put `<none>` into Response
                         put `No response from relay in ` cat RoomName into WarningMessage
-                        add 1 to BadResponses
-!                        gosub to ShowWarning
+                        gosub to AddWarning
                     end
 !                    print `Response: ` cat Response
-                end
-                else if RelayType is `Shelly One`
-                begin
-                    put `http://` cat Relay cat `/relay/0?turn=` cat OnOff into Request
-                    get Response from Request
-                    or begin
-                        put `<none>` into Response
-                        put `Device ` cat Relay cat ` failed in ` cat RoomName into WarningMessage
-                        add 1 to BadResponses
-!                        gosub to ShowWarning
-                        gosub to NetworkError
-                        go to SR1
-                    end
-                    gosub to ClearNetworkErrors
-                    if Response is empty
-                    begin
-                        put `<none>` into Response
-                        put `No response from relay in ` cat RoomName into WarningMessage
-                        add 1 to BadResponses
-!                        gosub to ShowWarning
-                    end
- !                   print `Response: ` cat Response
                 end
                 else if RelayType is `TP-Link P100`
                 begin
@@ -1160,10 +907,18 @@ SetRelays:
     set property Sensor of SensorData to SensorValues
     return
 
-!   Show a warning message
-ShowWarning:
-    set property `status` of SensorValues to `Fail`
+!   Add a warning message
+AddWarning:
+    add 1 to BadResponses
+    if WarningMessages is not empty put WarningMessages cat `<br>` into WarningMessages
+    put WarningMessages cat WarningMessage into WarningMessages
     set property `status` of SensorData to WarningMessages
+    if the type of SensorValues is `object` set property `status` of SensorValues to `Fail`
+    set property Sensor of SensorData to SensorValues
+
+    put WarningMessages into TempStr
+    replace `<br>` with newline in TempStr
+    print TempStr
     return
 
 ! Clear the network error counter
@@ -1182,3 +937,287 @@ RestartSystemController:
     print `Restart the system controller`
     system `touch /mnt/data/reboot`
     exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Process the relay responses to check for errors
+ProcessResponses:
+    clear ExtenderSuspect
+    if file `/mnt/data/response` exists
+    begin
+        ! Get the extender responses; an array of 10 R1 relays
+        open File `/mnt/data/response` for reading
+        read Responses from File
+        close File
+    end
+    else
+    begin
+        put empty into Responses
+        set ExtenderSuspect
+    end
+!put empty into Responses
+    if Responses is empty put `[]` into Responses
+    put json Responses into Responses
+    put json `[]` into Items
+
+    ! Copy to Items all responses that are in the map
+    put 0 into N
+    while N is less than the count of Responses
+    begin
+        put element N of Responses into Response
+        put property `ip` of Response into RelayIp
+        put `` cat RelayIp into RelayIp
+        ! Look for this IP in the relay data
+        put 0 into R
+        while R is less than the count of RelayData
+        begin
+            put element R of RelayData into RelayDataItem
+            if property `ip` of RelayDataItem is RelayIp
+            begin
+                    set property `ip` of Response to `extender-` cat RelayIp
+                set property `name` of Response to property `name` of RelayDataItem
+                set property `sensor` of Response to property `sensor` of RelayDataItem
+                append Response to Items
+            end
+            add 1 to R
+        end
+        add 1 to N
+    end
+
+    ! Add in the direct responses, e.g. from Shelly devices
+    put 0 into N
+    while N is less than the count of DirectResponses
+    begin
+        put element N of DirectResponses into Response
+        put property `ip` of Response into RelayIp
+        put `` cat RelayIp into RelayIp
+        ! Look for this IP in the relay data
+        put 0 into R
+        while R is less than the count of Rooms
+        begin
+            put element R of Rooms into Room
+            put property `relays` of Room into Relays
+            put 0 into RR
+            while RR is less than the count of Relays
+            begin
+                if element RR of Relays is RelayIp
+                begin
+                    set property `ip` of Response to `direct-` cat RelayIp
+                    set property `name` of Response to property `name` of Room
+                    set property `sensor` of Response to property `sensor` of Room
+                    append Response to Items
+                 end
+                add 1 to RR
+            end
+            add 1 to R
+        end
+        add 1 to N
+    end
+    put Items into Responses
+
+    ! Count the errors
+    put 0 into N
+    while N is less than the count of Responses
+    begin
+        put element N of Responses into Response
+        put property `ip` of Response into RelayIp
+        put property `name` of Response into RoomName
+        put property `sensor` of Response into Sensor
+        if property `response` of Response is `<none>`
+        begin
+            if Sensor is `request`
+            begin
+            end
+            else
+            begin
+                put `No response from relay in ` cat RoomName into WarningMessage
+                gosub to AddWarning
+            end
+        end
+        else if `` cat property `ok` of Response is `False`
+        begin
+            if Sensor is `request`
+            begin
+            end
+            else
+            begin
+                put `No response from relay in ` cat RoomName into WarningMessage
+                gosub to AddWarning
+            end
+        end
+        add 1 to N
+    end
+    if BadResponses is greater than 0
+    begin
+        print BadResponses cat ` bad responses out of ` cat the count of Responses
+        if BadResponses is less than the count of Responses set ExtenderSuspect
+    end
+    put stringify Responses into Responses
+    set property `responses` of SensorData to Responses
+!    print SensorData
+
+!    print `Extender: ` cat ExtenderRunning cat ` ` cat ExtenderSuspect
+
+    if ExtenderRunning
+    begin
+        if ExtenderSuspect set property `extender` of SensorData to `suspect`
+        else set property `extender` of SensorData to `running`
+    end
+    else
+    begin
+        if the count of RelayData is 0
+        begin
+            set property `extender` of SensorData to `running`
+        end
+        else
+        begin
+            set property `extender` of SensorData to `fail`
+        end
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Process a request from the UI
+ProcessRequest:
+print `Request ` cat Request
+    set Changed
+    set Confirm
+    put json Request into Request
+    put property `action` of Request into Action
+    if Action is `SystemName`
+    begin
+        set property `name` of MapObject to property `SystemName` of Request
+    end
+    else if Action is `map`
+    begin
+        put property `map` of Request into MapObject
+        put stringify MapObject into Map
+    end
+    else if Action is `addroom`
+    begin
+        put property `spec` of Request into Room
+        append Room to Rooms
+        gosub to UpdateRooms
+    end
+    else if Action is `rooms`
+    begin
+        put property `rooms` of Request into Rooms
+        gosub to UpdateRooms
+    end
+    else if Action is `backup`
+    begin
+        open File `backup` for writing
+        write Map to File
+        close File
+    end
+    else if Action is `restore`
+    begin
+        open File `backup` for reading
+        read Map from File
+        close File
+        gosub to SaveMap
+        put json Map into MapObject
+    end
+    else if Action is `profiles`
+    begin
+        put property `profiles` of Request into Profiles
+        put property `profile` of Request into CurrentProfile
+        set property `profiles` of MapObject to Profiles
+        set property `profile` of MapObject to CurrentProfile
+        set property `calendar` of MapObject to property `calendar` of Request
+        set property `calendar-data` of MapObject to property `calendar-data` of Request
+        put stringify MapObject into Map
+        gosub to SaveMap
+    end
+    else if Action is `mode`
+    begin
+        put property `roomnumber` of Request into RoomNumber
+        put element RoomNumber of Rooms into Room
+        put property `name` of Room into RoomName
+        put property `mode` of Request into Mode
+        if Mode is `timed`
+            if Request has property `advance`
+                set property `advance` of Room to property `advance` of Request
+        else if Mode is `on`
+        begin
+            set property `target` of Room to property `target` of Request
+        end
+        if Mode is `boost`
+        begin
+            if Request has property `target`
+                set property `target` of Room to property `target` of Request
+            if property `mode` of Room is not `boost`
+                set property `prevmode` of Room to property `mode` of Room
+            set property `boost` of Room to property `boost` of Request
+        end
+        set property `mode` of Room to Mode
+        gosub to UpdateRoom
+    end
+    else if Action is `profiles`
+    begin
+    end
+    else if Action is `roomname`
+    begin
+        put property `roomnumber` of Request into RoomNumber
+        put element RoomNumber of Rooms into Room
+        set property `name` of Room to property `name` of Request
+        gosub to UpdateRoom
+    end
+    else if Action is `roomdata`
+    begin
+        put property `roomnumber` of Request into RoomNumber
+        put element RoomNumber of Rooms into Room
+        put property `items` of Request into Items
+        put the keys of Items into Keys
+        put 0 into N
+        while N is less than the count of Keys
+        begin
+            put element N of Keys into Key
+            set property Key of Room to property Key of Items
+            add 1 to N
+        end
+        gosub to UpdateRoom
+    end
+    else if Action is `config`
+    begin
+        set property `name` of MapObject to property `name` of Request
+        set property `address` of MapObject to property `address` of Request
+        set property `ssid` of MapObject to property `ssid` of Request
+        set property `password` of MapObject to property `password` of Request
+        set property `extenders` of MapObject to property `extenders` of Request
+        put property `names` of Request into RoomNames
+        put property `ssids` of Request into RoomSSIDs
+        put element 0 of Profiles into Profile
+        put property `rooms` of Profile into Rooms
+        put 0 into R
+        while R is less than the count of Rooms
+        begin
+            put element R of Rooms into Room
+            set property `name` of Room to element R of RoomNames
+            set property `ssid` of Room to element R of RoomSSIDs
+            set element R of Rooms to Room
+            add 1 to R
+        end
+        set property `rooms` of Profile to Rooms
+        set element 0 of Profiles to Profile
+        set property `profiles` of MapObject to Profiles
+        put stringify MapObject into Map
+        put element CurrentProfile of Profiles into Profile
+        put property `rooms` of Profile into Rooms
+    end
+    else if Action is `periods`
+    begin
+        put property `roomnumber` of Request into RoomNumber
+        put element RoomNumber of Rooms into Room
+        set property `events` of Room to property `periods` of Request
+        gosub to UpdateRoom
+    end
+    else if Action is `request`
+    begin
+        set property `request` of MapObject to property `request` of Request
+    end
+    else if Action is `halt`
+    begin
+        print `Request to halt the system`
+        set HaltRequested
+    end
+    return

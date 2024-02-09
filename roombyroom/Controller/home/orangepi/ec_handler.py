@@ -40,6 +40,7 @@ class Handler:
 
 		self.nonNumericValueError = self.program.nonNumericValueError
 		self.variableDoesNotHoldAValueError = self.program.variableDoesNotHoldAValueError
+		self.noneValueError = self.program.noneValueError
 
 	def nextPC(self):
 		return self.program.pc + 1

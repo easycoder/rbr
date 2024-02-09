@@ -4,11 +4,17 @@
 
     file File
     variable MAC
+    variable Password
     variable Result
 
     open File `/home/orangepi/mac` for reading
     read MAC from File
     close File
-    get Result from `https://rbrheating.com/home/resources/php/rest.php/sensorlog/` cat trim MAC
+    put trim MAC into MAC
+    open File `/home/orangepi/password` for reading
+    read Password from File
+    close File
+    put trim Password into Password
+    get Result from `https://rbrheating.com/home/resources/php/rest.php/sensorlog/` cat MAC cat `/` cat Password
     print Result
     exit

@@ -18,7 +18,7 @@ def scan(duration):
                 temp = (int(value[16:18], 16) * 256 + int(value[18:20], 16)) / 10
                 hum = int(value[20:22], 16)
                 batt = int(value[22:24], 16)
-                # print(f'{dev.addr}: Temperature: {temp}, Humidity: {hum}, Battery: {batt}, RSSI: {dev.rssi}, RSSI: {dev.rssi}')
+                print(f'{dev.addr}: Temperature: {temp}, Humidity: {hum}, Battery: {batt}, RSSI: {dev.rssi}, RSSI: {dev.rssi}')
                 ts = round(time.time())
                 dir = '/mnt/data/sensors'
                 if not os.path.exists(f'{dir}'):

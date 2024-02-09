@@ -13,14 +13,14 @@ class Condition:
 	def compileCondition(self):
 		mark = self.getIndex()
 		for domain in self.domains:
-			item = domain.compileCondition()
-			if item != None:
-				item['domain'] = domain.getName()
-				return item
+			condition = domain.compileCondition()
+			if condition != None:
+				condition.domain= domain.getName()
+				return condition
 			self.rewindTo(mark)
 			return None
 
 	def testCondition(self, condition):
-		handler = self.program.domainIndex[condition['domain']]
-		handler = handler.conditionHandler(condition['type'])
+		handler = self.program.domainIndex[condition.domain]
+		handler = handler.conditionHandler(condition.type)
 		return handler(condition)

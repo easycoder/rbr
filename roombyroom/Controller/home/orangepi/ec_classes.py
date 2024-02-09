@@ -38,3 +38,6 @@ class Token:
 	def __init__(self, lino, token):
 		self.lino = lino
 		self.token = token
+	
+class Condition():
+	negate = False
