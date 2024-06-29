@@ -415,19 +415,22 @@ SkipRequests:
         print `-------------------- All rooms processed`
 
         ! Deal with the request relay
-        put property `request` of MapObject into RequestIP
-        if RequestIP is not empty
+        if MapObject has property `request`
         begin
-            if RequestCount is 0 put `off` into OnOff
-            else put `on` into OnOff
-            print `Request relay is ` cat OnOff
+            put property `request` of MapObject into RequestIP
+            if RequestIP is not empty
+            begin
+                if RequestCount is 0 put `off` into OnOff
+                else put `on` into OnOff
+                print `Request relay is ` cat OnOff
 
-            put json `{}` into Item
-            set property `relay` of Item to OnOff
-            set property RequestIP of OutgoingPacket to Item
-!            print `RequestIP: ` cat RequestIP cat ` ` cat OutgoingPacket
-
-        set property `request` of SensorValuesBySensor to SensorValues
+                put json `{}` into Item
+                set property `relay` of Item to OnOff
+                set property RequestIP of OutgoingPacket to Item
+    !            print `RequestIP: ` cat RequestIP cat ` ` cat OutgoingPacket
+            end
+            set property `request` of SensorValuesBySensor to SensorValues
+        end
 
         ! Set up the outgoing packet
         set property `ts` of OutgoingPacket to `` cat the timestamp
@@ -535,11 +538,22 @@ ProcessRoom:
         end
         else
         begin
-            put empty into SensorFileName
-            put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
-            gosub to AddWarning
-!            print WarningMessage
-            return
+            if left 5 of Sensor is `Fixed`
+            begin
+                put `{"temperature": "` cat from 6 of Sensor into Value
+                put Value cat `"}` into Value
+                open File SensorFileName for writing
+                write Value to File
+                close File
+            end
+            else
+            begin
+                put empty into SensorFileName
+                put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
+                gosub to AddWarning
+!                print WarningMessage
+                return
+            end
         end
     end
 
@@ -919,6 +933,7 @@ ProcessResponses:
     put json `[]` into Items
 
     ! Check the incoming XR packet
+    if IncomingPacket is empty put `{}` into IncomingPacket
     put json IncomingPacket into IncomingPacket
     ! Iterate the rooms
     put 0 into N

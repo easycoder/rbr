@@ -50,18 +50,6 @@
                     print file_get_contents("/mnt/data/sensorData");
                     exit;
 
-                case 'relaydata':
-                    $mem = array_shift($request);
-                    $fp = fopen("/mnt/data/espmem", "w") or die("Can't open '/mnt/data/espmem'");
-                    fwrite($fp, $mem);
-                    fclose($fp);
-                    $errors = array_shift($request);
-                    $fp = fopen("/mnt/data/esperrors", "w") or die("Can't open '/mnt/data/esperrors'");
-                    fwrite($fp, $errors);
-                    fclose($fp);
-                    print file_get_contents("/mnt/data/relayData");
-                    exit;
-
                 case 'notify':
                     // Accept messages from H&T sensors in the form
                     // http://{ipaddr}/resources/php/rest.php/notify?hum=40&temp=20.10&bat=99
