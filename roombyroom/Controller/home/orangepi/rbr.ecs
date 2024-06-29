@@ -262,6 +262,7 @@ Start:
     if `` cat CurrentProfile is empty put 0 into CurrentProfile
 
     put property `name` of MapObject into SystemName
+    replace `%20` with ` ` in SystemName
     print SystemName
 
     ! If the Calendar is on, find which profile is active
