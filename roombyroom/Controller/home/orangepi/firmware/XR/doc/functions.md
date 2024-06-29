@@ -7,38 +7,39 @@ Here’s the code for `functions.py`:
 ```
 import network,socket,ubinascii,asyncio,time,os,json,machine
 import uaiohttpclient as aiohttp
+import hardware
 
 myname=None
 myssid=None
-myip=None
+mypass=None
 
-###########################################################################
+###################################################################################
 def getMyName():
     global myname
     return myname
 
-###########################################################################
+###################################################################################
 def getHostSSID():
     global hostssid
     return hostssid
 
-###########################################################################
+###################################################################################
 def getMySSID():
     global myssid
     return myssid
 
-###########################################################################
+###################################################################################
 def setMyPassword(p):
     global mypass
     mypass=p
 
-###########################################################################
+###################################################################################
 def isPrimary():
     global station
     path=station[2]
     return path=='172.24.1.1'
 
-###########################################################################
+###################################################################################
 def getServer():
     global station
     path=station[2]
@@ -46,10 +47,10 @@ def getServer():
         return path+'/resources/php/rest.php/'
     return path
 
-###########################################################################
+###################################################################################
 # Get the configuration data
 def getConfigData():
-    global myname,hostssid,hostpass,mypass,myip
+    global myname,hostssid,hostpass,mypass
     if hardware.fileExists('config.json'):
         config=json.loads(hardware.readFile('config.json'))
         myname=config['myname']
@@ -63,16 +64,23 @@ def getConfigData():
         time.sleep(1)
         machine.reset()
 
-###########################################################################
+###################################################################################
 # The Access Point
-async def setupAP(id):
-    global myssid,ipaddr,mypass,myip
+async def setupAP():
+    global station,myssid,mypass
     ap = network.WLAN(network.AP_IF)
-    myssid = 'RBR-'+id+'-' + ubinascii.hexlify(ap.config('mac')).decode()[6:]
+    myssid = 'RBR-XR-' + ubinascii.hexlify(ap.config('mac')).decode()[6:]
     print('Set up AP for',myssid)
-    ap.active(True)
     ap.config(essid=myssid, authmode=3, password=mypass)
+    mynet=station[2]
+    ip=mynet.split('.')
+    if ip[2]=='100':
+        ip[2]='101'
+    else:
+        ip[2]='100'
+    myip=ip[0]+'.'+ip[1]+'.'+ip[2]+'.1'
     ap.ifconfig((myip, '255.255.255.0', myip, '8.8.8.8'))
+    ap.active(True)
 
     timeout=60
     while not ap.active():
@@ -85,7 +93,7 @@ async def setupAP(id):
 
     print('AP:',ap.ifconfig())
 
-###########################################################################
+###################################################################################
 # Connect to our host
 def connect():
     global station,hostssid,hostpass
@@ -101,21 +109,24 @@ def connect():
         timeout-=1
         if timeout==0:
             print('\nCan\'t connect to',hostssid)
-            return False
+            machine.reset()
     station=sta_if.ifconfig()
     print('\nConnected as',station[0])
     return True
 
-###########################################################################
+###################################################################################
 # Do an HTTP GET
 async def httpGET(url):
-    global led
 #    print('Get',url)
-    setLED(True)
+    hardware.setLED(True)
     resp = await aiohttp.request("GET", url)
     response=(await resp.read()).decode()
-    setLED(False)
+    hardware.setLED(False)
     return response
+
+
+
+
 ```
 The second functions module, `hardware.py`, deals with physical devices such as LEDs and files:
 ```
