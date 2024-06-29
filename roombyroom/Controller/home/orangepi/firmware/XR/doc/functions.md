@@ -178,5 +178,5 @@ def readFile(name):
 
 [Update mode](update.md)
 
-[Back to start](XR/doc/README.md)
+[Back to start](README.md)
 

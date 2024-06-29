@@ -179,8 +179,8 @@ The fields are as follows:
 
 When **Setup** is clicked the fields are combined into a JSON structure and saved into the device flash area as `config.json`. Then the device resets itself. If all is well it should restart in Configured mode.
 
-[Configured mode](XR/doc/configured.md)
+[Configured mode](configured.md)
 
-[Update mode](XR/doc/update.md)
+[Update mode](update.md)
 
-[Back to start](XR/doc/README.md)
+[Back to start](README.md)

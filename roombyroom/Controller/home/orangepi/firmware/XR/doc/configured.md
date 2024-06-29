@@ -187,5 +187,5 @@ Any other command will return a line of general information about the device and
 
 [Functions](functions.md)
 
-[Back to start](XR/doc/README.md)
+[Back to start](README.md)
 
