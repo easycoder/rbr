@@ -6,15 +6,20 @@
     variable MAC
     variable Password
     variable Result
+    variable Request
+
+!    debug step
 
     open File `/home/orangepi/mac` for reading
     read MAC from File
     close File
     put trim MAC into MAC
-    open File `/home/orangepi/password` for reading
+    open File `/mnt/data/password` for reading
     read Password from File
     close File
     put trim Password into Password
-    get Result from `https://rbrheating.com/home/resources/php/rest.php/sensorlog/` cat MAC cat `/` cat Password
+    put `https://rbrheating.com/home/resources/php/rest.php/sensorlog/` cat MAC cat `/` cat Password into Request
+    print Request
+    get Result from Request timeout 60
     print Result
     exit

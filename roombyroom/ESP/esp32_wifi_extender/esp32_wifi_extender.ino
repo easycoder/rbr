@@ -8,7 +8,7 @@
 #include <ArduinoJson.h>
 #include <Ticker.h>
 
-#define CURRENT_VERSION 44
+#define CURRENT_VERSION 45
 #define DEBUG 0    // set to 1 to debug
 
 #if DEBUG
@@ -36,7 +36,7 @@
 #define RELAY_ERROR_LIMIT 100
 #define HOST_ERROR_LIMIT 10
 #define POLL_BUSY_LIMIT 10
-#define ERROR_MAX 10
+#define ERROR_MAX 100
 #define FORMAT_LITTLEFS_IF_FAILED true
 #define LED_PIN 2
 #define RELAY_REQ_IDLE 0
@@ -130,7 +130,7 @@ char* httpGET(char* requestURL, bool restartOnError = false) {
     }
     response = (char*)malloc(httpPayload.length() + 1);
     strcpy(response, httpPayload.c_str());
-    errorCount = 0;
+    // errorCount = 0;
   }
   else {  // Here if an error occurred
     if (restartOnError) {
@@ -258,7 +258,7 @@ void poll() {
 
   // Poll the system controller. Reset if no reply
   char request[80];
-  sprintf(request, "http://%s/resources/php/rest.php/relaydata/%d", host_server, mem);
+  sprintf(request, "http://%s/resources/php/rest.php/relaydata/%d/%d", host_server, mem, errorCount);
   char* response = httpGET(request, false);
   // debugf("%s\n", response);
   const int capacity = JSON_OBJECT_SIZE(RELAY_COUNT) + RELAY_COUNT*JSON_OBJECT_SIZE(6);
@@ -791,7 +791,9 @@ void loop(void) {
   busyDoingRelay = true;
   // Examine the info for the next relay and send a command if its request flag is set
   if (relayData[rid].state == RELAY_REQ_REQ) {
-    // debugf("Process relay %d\n", rid);
+    if (logLevel >= 2) {
+      debugf("Process relay %d\n", rid);
+    }
     relayData[rid].state = RELAY_REQ_ACTIVE;
     uint id = rid + 100;
     strcpy(deviceURL, deviceRoot);

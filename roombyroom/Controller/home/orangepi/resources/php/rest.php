@@ -10,60 +10,6 @@
     switch ($method) {
         case 'GET':
             switch ($action) {
-/*
-                case 'list':
-                    // List the contents of a directory
-                    // Endpoint: {site root}/resources/php/rest.php/_list/[{path}]
-//                  Start at the resources folder
-                    $path = $cwd . '/resources/';
-                    if (count($request)) {
-                         $path .= str_replace('~', '/', $request[0]);
-                    }
-                    $files = scandir($path);
-                    print '[';
-                    // First list all the directories
-                    $flag = false;
-                    foreach ($files as $file) {
-                        if (strpos($file, '.') !== 0) {
-                            if (is_dir("$path/$file")) {
-                                if ($flag) {
-                                    print ',';
-                                } else {
-                                    $flag = true;
-                                }
-                                print "{\"name\":\"$file\",\"type\":\"dir\"}";
-                            }
-                        }
-                    }
-                    // Now do the ordinary files
-                    foreach ($files as $file) {
-                        if (strpos($file, '.') !== 0) {
-                            if (!is_dir("$path/$file")) {
-                                if ($flag) {
-                                    print ',';
-                                } else {
-                                    $flag = true;
-                                }
-                                $type = 'file';
-                                $p = strrpos($file, '.');
-                                if ($p > 0) {
-                                    $ext = substr($file, $p + 1);
-                                    $type = $ext;
-                                    switch (strtolower($ext)) {
-                                        case 'jpg':
-                                        case 'png':
-                                        case 'gif':
-                                            $type = 'img';
-                                            break;
-                                    }
-                                }
-                                print "{\"name\":\"$file\",\"type\":\"$type\"}";
-                            }
-                        }
-                    }
-                    print ']';
-                    exit;
-*/
 
                 case 'ping':
                     print "OK";
@@ -77,11 +23,27 @@
                 case 'map':
                     // Return the map. Create a default map if necessary.
                     if (!file_exists("/mnt/data/map")) {
-                        $fp = fopen("/mnt/data/map", "w") or die("Can't open $file");
+                        $fp = fopen("/mnt/data/map", "w") or die("Can't open /mnt/data/map");
                         fwrite($fp, '{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0,"name":"New system"}');
                         fclose($fp);
                     }
-                    print file_get_contents("map");
+                    print file_get_contents("/mnt/data/map");
+                    exit;
+
+                case 'poll':
+                    $args = array();
+                    parse_str($_SERVER['QUERY_STRING'], $args);
+                    $fp = fopen("/mnt/data/incoming", "w") or die("Can't open '/mnt/data/incoming'");
+                    fwrite($fp, $args["data"]);
+                    fclose($fp);
+                    print file_get_contents("/mnt/data/outgoing", "r");
+                    exit;
+
+                case 'getFile':
+                    // http://{ipaddr}/resources/php/rest.php/getFile?data={filename}
+                    $args = array();
+                    parse_str($_SERVER['QUERY_STRING'], $args);
+                    print file_get_contents($args["data"]);
                     exit;
 
                 case 'sensors':
@@ -90,25 +52,32 @@
 
                 case 'relaydata':
                     $mem = array_shift($request);
-                    $fp = fopen("/mnt/data/espmem", "w") or die("Can't open '$file'");
+                    $fp = fopen("/mnt/data/espmem", "w") or die("Can't open '/mnt/data/espmem'");
                     fwrite($fp, $mem);
+                    fclose($fp);
+                    $errors = array_shift($request);
+                    $fp = fopen("/mnt/data/esperrors", "w") or die("Can't open '/mnt/data/esperrors'");
+                    fwrite($fp, $errors);
                     fclose($fp);
                     print file_get_contents("/mnt/data/relayData");
                     exit;
 
                 case 'notify':
-                    // Accept messages from H&T sensors
+                    // Accept messages from H&T sensors in the form
+                    // http://{ipaddr}/resources/php/rest.php/notify?hum=40&temp=20.10&bat=99
                     $source = $_SERVER["REMOTE_ADDR"];
                     $queries = array();
                     parse_str($_SERVER['QUERY_STRING'], $queries);
                     $temp = round($queries["temp"], 1);
+                    $bat = $queries["bat"];
+                    if (!$bat) $bat = "100";
                     $dir = "/mnt/data/sensors";
                     if (!file_exists($dir)) {
                         mkdir($dir, 0777, true);
                     }
                     $path = "$dir/$source.txt";
                     $ts = time();
-                    $message = "{\"temperature\": $temp, \"timestamp\": $ts, \"battery\": 100}";
+                    $message = "{\"temperature\": $temp, \"timestamp\": $ts, \"battery\": $bat}";
                     // print "$message\n";
                     $fp = fopen($path, "w") or die("Can't open '$file'");
                     fwrite($fp, $message);
@@ -117,14 +86,10 @@
                     print "OK";
                     exit;
 
-                case 'ex-restarts':
-                    $restarts = array_shift($request);
-                    // print "Restarts: $restarts\n";
-                    $fp = fopen("/mnt/data/ex-restarts", "a") or die("Can't open /mnt/data/ex-restarts");
-                    fwrite($fp, date('r', time()) . ": $restarts\n");
-                    fclose($fp);
-                    // chmod("/mnt/data/request", 0777);
-                    exit;
+                default:
+                    http_response_code(404);
+                    print "I don't understand $request.";
+                    break;
 
             }
             break;
@@ -153,7 +118,8 @@
                     fclose($fp);
                     chmod("/mnt/data/response", 0777);
                     $fp = fopen("/mnt/data/response-ts", "w") or die("Can't open /mnt/data/response-ts");
-                    fwrite($fp, time());
+                    $ts = time();
+                    fwrite($fp, "$ts");
                     fclose($fp);
                     chmod("/mnt/data/response-ts", 0777);
                     exit;
@@ -230,7 +196,7 @@
 
                 default:
                     http_response_code(404);
-                    print "I don't understand this request.";
+                    print "I don't understand $request.";
                     break;
 
             }

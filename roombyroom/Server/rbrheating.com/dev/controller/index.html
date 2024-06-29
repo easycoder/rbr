@@ -1,0 +1,23 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <script type='text/javascript' src='https://easycoder.github.io/dist/easycoder.js?v=2.7.11'></script>
+    <script type='text/javascript' src='https://easycoder.github.io/dist/plugins/webson.js?v=2.7.11'></script>
+    <script type='text/javascript' src='https://easycoder.github.io/dist/plugins/showdown.js?v=2.7.11'></script>
+  </head>
+
+<body>
+    <pre id="storyteller-stories" style="display:none">stories</pre>
+    <pre id="easycoder-script" style="display:none">
+    !	Room By Room
+
+        script Loader
+
+        variable Script
+        rest get Script from `/storyteller.ecs?v=` cat now
+        run Script
+    </pre>
+</body>
+</html>

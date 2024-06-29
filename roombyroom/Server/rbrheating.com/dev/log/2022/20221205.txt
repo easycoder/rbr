@@ -1,0 +1,17 @@
+2022/12/05 20:18: Boost 02:00:53:61:24:d4; target=1670265496
+2022/12/05 20:18: Boost 02:00:61:18:a8:bc; target=1670271100
+2022/12/05 20:20: Boost 02:00:61:18:a8:bc; target=1670273417
+2022/12/05 20:21: Boost request failed: MAC 02:00:53:61:24:d4 and password !MkfFGYcX@^6$w5m do not match any record.
+
+2022/12/05 20:21: Boost request failed: MAC 02:00:53:61:24:d4 and password !MkfFGYcX@^6$w5m do not match any record.
+
+2022/12/05 22:58: Boost request failed: MAC 02:00:53:61:24:d4 and password !MkfFGYcX@^6$w5m do not match any record.
+
+2022/12/05 22:58: Boost request failed: MAC 02:00:53:61:24:d4 and password !MkfFGYcX@^6$w5m do not match any record.
+
+2022/12/05 22:58: Boost request failed: MAC 02:00:53:61:24:d4 and password !MkfFGYcX@^6$w5m do not match any record.
+
+2022/12/05 22:59: Boost request failed: MAC 02:00:53:61:24:d4 and password !MkfFGYcX@^6$w5m do not match any record.
+
+2022/12/05 22:59: Boost request failed: MAC 02:00:53:61:24:d4 and password !MkfFGYcX@^6$w5m do not match any record.
+

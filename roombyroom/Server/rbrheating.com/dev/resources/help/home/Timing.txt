@@ -1,0 +1,9 @@
+## Edit the timing schedule
+
+The RBR can operate in either manual or timed mode. For the latter there is an editing page that allows you to specify a number of time periods, each with a corresponding target temperature.
+
+~img:periods.jpg:center 50%~
+
+Go to the ~tid:RoomEdit:Room Editor Help page~.
+
+~sid:Index:Index of pages~

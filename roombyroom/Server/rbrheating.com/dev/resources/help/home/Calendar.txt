@@ -1,0 +1,13 @@
+## The Calendar
+
+**RBR** allows you to set up any number of different ~tid:Profiles:Profiles~ where you can adjust times and temperatures to suit your needs, but the Calendar takes things one stage further.
+
+~img:calendar.png:center 50%~
+
+The Calendar operates on a weekly cycle. For each day of the week you can choose which Profile should operate on that day. So you might have a weekday profile and a weekend profile; the former will be set for Monday through Friday and the latter for Saturday and Sunday.
+
+To choose a Profile, tap the right-hand column at the row for that day. A dialog will pop up with a list of all your Profiles; just tap to select one.
+
+When the Calendar is active it displays a small icon next to the Profiles button on the main screen, showing the current date. While it is active you cannot change Profiles manually. If you need to do so, disable the Calendar first. The Calendar is completely optional; if it is not set you change Profiles as and when you wish.
+
+~sid:Index:Index of pages~

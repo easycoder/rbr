@@ -60,8 +60,8 @@ class Core(Handler):
         targetValue = self.getSymbolValue(target)
         if targetValue == None:
             targetValue = {}
-            targetValue['type'] = 'int'
             targetValue['content'] = 0
+        targetValue['type'] = 'int'
         if value2:
             v1 = int(self.getRuntimeValue(value1))
             v2 = int(self.getRuntimeValue(value2))
@@ -277,7 +277,7 @@ class Core(Handler):
         value = self.getSymbolValue(target)
         if value == None:
             value = {}
-            value['type'] = 'int'
+        value['type'] = 'int'
         if value2:
             v1 = int(self.getRuntimeValue(value1))
             v2 = int(self.getRuntimeValue(value2))
@@ -354,6 +354,14 @@ class Core(Handler):
             command['url'] = self.nextValue()
         command['or'] = None
         get = self.getPC()
+        if self.peek() == 'timeout':
+            self.nextToken()
+            command['timeout'] = self.nextValue()
+        else:
+            timeout = {}
+            timeout['type'] = 'int'
+            timeout['content'] = 5
+            command['timeout'] = timeout
         self.addCommand(command)
         if self.peek() == 'or':
             self.nextToken()
@@ -383,7 +391,8 @@ class Core(Handler):
         target = self.getVariable(command['target'])
         response = json.loads('{}')
         try:
-            response = requests.get(url, auth = ('user', 'pass'), timeout=5)
+            timeout = self.getRuntimeValue(command['timeout'])
+            response = requests.get(url, auth = ('user', 'pass'), timeout=timeout)
             if response.status_code >= 400:
                 errorCode = response.status_code
                 errorReason = response.reason
@@ -567,7 +576,7 @@ class Core(Handler):
         elif keyword == 'object':
             self.putSymbolValue(symbolRecord, json.loads('{}'))
         else:
-            RuntimeError(self.program, f"Inappropriate variable type '{keyword}'") 
+            RuntimeError(self.program, f"Inappropriate variable type '{keyword}'")
         return self.nextPC()
 
     # Arithmetic multiply
@@ -605,7 +614,7 @@ class Core(Handler):
         value = self.getSymbolValue(target)
         if value == None:
             value = {}
-            value['type'] = 'int'
+        value['type'] = 'int'
         if value2:
             v1 = int(self.getRuntimeValue(value1))
             v2 = int(self.getRuntimeValue(value2))
@@ -1143,7 +1152,7 @@ class Core(Handler):
         value = self.getSymbolValue(target)
         if value == None:
             value = {}
-            value['type'] = 'int'
+        value['type'] = 'int'
         if value2:
             v1 = int(self.getRuntimeValue(value1))
             v2 = int(self.getRuntimeValue(value2))
@@ -1517,7 +1526,7 @@ class Core(Handler):
                 value['value'] = self.nextValue()
                 return value
             return None
-        
+
         if token == 'modification':
             if self.nextIs('time'):
                 if self.nextIs('of'):
@@ -2101,3 +2110,4 @@ class Core(Handler):
         except:
             hasProp = False
         return hasProp
+# xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
