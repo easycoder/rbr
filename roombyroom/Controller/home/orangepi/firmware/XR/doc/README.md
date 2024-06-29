@@ -53,9 +53,9 @@ The main downside of this system is the time it takes messages to propagate thro
 # The code
 The firmware has 3 modes of operation:
 
-Unconfigured
-Configured
-Updating
+ - Unconfigured
+ - Configured
+ - Updating
 
 As with all Micropython projects there is a boot file and a main program. First, `boot.py`:
 ```
