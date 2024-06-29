@@ -45,9 +45,9 @@ The version number handed out by the hub is used to keep the system firmware up 
 
 In normal use, each device substitutes its own version number in the outgoing message packet, so its own child devices won’t know there are updates until it has completed its own. If the system is a mix of different device types, the code for all of them must be contained in each. So a relay contains thermometer code and vice versa.
 ## Upsides
-Ability to handle a large number of devices spread over a large physical area
-No wifi black spots
-Very low cost
+ - Ability to handle a large number of devices spread over a large physical area
+ - No wifi black spots
+ - Very low cost
 ## Downsides
 The main downside of this system is the time it takes messages to propagate through the network. It's not suitable for use where a rapid response is needed, as response times are measured in seconds or even tens of seconds. There are however many applications for which this is not a problem, ranging from home heating to large-scale irrigation.
 # The code
