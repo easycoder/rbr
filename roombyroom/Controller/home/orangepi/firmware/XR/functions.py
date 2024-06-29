@@ -1,28 +1,10 @@
 import network,socket,ubinascii,asyncio,time,os,json,machine
 import uaiohttpclient as aiohttp
-from machine import Pin
+import hardware
 
-led = Pin(2, Pin.OUT)
 myname=None
 myssid=None
-myip=None
-
-def setupPins():
-    global relay,led
-    relay=Pin(0,mode=Pin.OUT)
-    led=Pin(2,mode=Pin.OUT)
-
-def setLED(onoff):
-    global led
-    led.off() if onoff else led.on()
-
-def setRelay(onoff):
-    global relay
-    relay.off() if onoff=='on' else relay.on()
-
-def getRelay():
-    global relay
-    return 'ON' if relay.value() else 'OFF'
+mypass=None
 
 ###################################################################################
 def getMyName():
@@ -59,38 +41,11 @@ def getServer():
     return path
 
 ###################################################################################
-def fileExists(filename):
-    try:
-        os.stat(filename)
-        return True
-    except OSError:
-        return False
-
-###################################################################################
-# Write data to a file
-def writeFile(name,value):
-#    print(f'Writing {value} to {name}')
-    f = open(name, 'w')
-    f.write(value)
-    f.close()
-
-###################################################################################
-# Read data from a file
-def readFile(name):
-    try:
-        f = open(name,'r')
-        value=f.read()
-        f.close()
-    except:
-        value=None
-    return value
-
-###################################################################################
 # Get the configuration data
 def getConfigData():
-    global myname,hostssid,hostpass,mypass,myip
-    if fileExists('config.json'):
-        config=json.loads(readFile('config.json'))
+    global myname,hostssid,hostpass,mypass
+    if hardware.fileExists('config.json'):
+        config=json.loads(hardware.readFile('config.json'))
         myname=config['myname']
         hostssid=config['hostssid']
         hostpass=config['hostpass']
@@ -104,17 +59,21 @@ def getConfigData():
 
 ###################################################################################
 # The Access Point
-async def setupAP(id):
-    global myssid,ipaddr,mypass,myip
-    if hostssid==None:
-        myip='192.168.66.1'
-        mypass='00000000'
+async def setupAP():
+    global station,myssid,mypass
     ap = network.WLAN(network.AP_IF)
-    myssid = 'RBR-'+id+'-' + ubinascii.hexlify(ap.config('mac')).decode()[6:]
+    myssid = 'RBR-XR-' + ubinascii.hexlify(ap.config('mac')).decode()[6:]
     print('Set up AP for',myssid)
-    ap.active(True)
     ap.config(essid=myssid, authmode=3, password=mypass)
+    mynet=station[2]
+    ip=mynet.split('.')
+    if ip[2]=='100':
+        ip[2]='101'
+    else:
+        ip[2]='100'
+    myip=ip[0]+'.'+ip[1]+'.'+ip[2]+'.1'
     ap.ifconfig((myip, '255.255.255.0', myip, '8.8.8.8'))
+    ap.active(True)
 
     timeout=60
     while not ap.active():
@@ -143,7 +102,7 @@ def connect():
         timeout-=1
         if timeout==0:
             print('\nCan\'t connect to',hostssid)
-            return False
+            machine.reset()
     station=sta_if.ifconfig()
     print('\nConnected as',station[0])
     return True
@@ -151,12 +110,12 @@ def connect():
 ###################################################################################
 # Do an HTTP GET
 async def httpGET(url):
-    global led
 #    print('Get',url)
-    setLED(True)
+    hardware.setLED(True)
     resp = await aiohttp.request("GET", url)
     response=(await resp.read()).decode()
-    setLED(False)
+    hardware.setLED(False)
     return response
+
 
 
