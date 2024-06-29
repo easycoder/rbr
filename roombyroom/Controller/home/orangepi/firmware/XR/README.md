@@ -1,10 +1,9 @@
 # The XR Relay
-## A networking strategy for extended WiFi systems
-This project is a wifi networking strategy for controlling simple devices distributed over a large physical area, without the need for repeaters. The code is Micropython and the system was designed for a network of 4MB ESP8266 devices. A typical target application would be monitoring and control of a commercial irrigation system, but the approach is equally well suited to handling the needs of domestic or industrial central heating systems.
+The XR (eXtended Relay) employs a wifi networking strategy for controlling simple devices distributed over a large physical area, without the need for repeaters. The code is Micropython and the system was designed for a network of 4MB ESP8266 devices. A typical target application would be monitoring and control of a commercial irrigation system, but the approach is equally well suited to handling the needs of domestic or industrial central heating systems.
 ## The problem
 Most small-scale WiFi networking systems adopt a “star” topology:
 
-
+![A star topology](star.png "Star")
 
 with all the control and sensor nodes connected to a single hub. As the physical size of the system grows, two problems soon appear:
 
@@ -15,7 +14,7 @@ These problems can be overcome by the use of routers, but these may be visually 
 Outline
 The strategy is to use some of the networked devices as message relays handing data to and from other nearby devices. The network then looks like this:
 
-
+![A chain tolology](chain.png "Chain")
 
 ## Implementation
 The strategy is based on a packet of information constructed by the system controller. Encoded as JSON, this contains a section for each of the networked devices, keyed by the name of the device. It also contains the current timestamp and the version number of the system firmware. Let's call this packet the “map”. Here’s an example of a simple system with two relay nodes:
