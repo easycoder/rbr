@@ -41,7 +41,7 @@ When a device receives a polling request from a client, it returns to that clien
 
 Each subsequent device added to the system is set up to connect not directly to the system hub but to an already configured device. The behaviour of every device is identical so it’s very easy to configure the system; the device name and its parent SSID are the only items that differ from one device to another. And so the system grows, with devices being connected to any other device that can offer a good wifi signal, up to a limit of 4 connections per device.
 ## Over The Air (OTA) updates
-The version number handed out by the hub is used to keep the system firmware up to date. Each device keeps a note of its current version. When a message packet arrives with a higher version number, the device requests a list of files from its parent, then requests the contents of these files one by one. Once it has finished updating it saves the new version number.
+The version number handed out by the hub is used to keep the system firmware up to date. Each device keeps a note of its current version. When a message packet arrives with a higher version number, the device requests a list of files from its parent, then requests each of the files listed, one by one. Once it has finished updating it saves the new version number.
 
 In normal use, each device substitutes its own version number in the outgoing message packet, so its own child devices won’t know there are updates until it has completed its own. If the system is a mix of different device types, the code for all of them must be contained in each. So a relay contains thermometer code and vice versa.
 ## Upsides
