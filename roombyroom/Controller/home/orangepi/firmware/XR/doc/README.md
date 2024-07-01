@@ -5,18 +5,17 @@ Most small-scale WiFi networking systems adopt a “star” topology:
 
 ![A star topology](star.png "Star")
 
-with all the control and sensor nodes connected to a single hub. As the physical size of the system grows, two problems soon appear:
+with all the control and sensor nodes connected to a single hub; often a standard internet router. This will be located close to where the service provider's cable enters the property, often in a remote corner. Devices such as the ESP8266 have small antennae and operate poorly over anything more than quite a short distance. This is a problem that shows up as  delays in responding, frequent resets and even crashes, but which may not reveal itself until the installation has been completed and signed off.
 
- - All the devices can be connected to the home router, which can support a large number of clients. However, this means all system configuration must be done in situ, which is most inconvenient as it makes it harder to configure and test the system before delivery. To overcome this problem we can set up a private network with only a single connection to the house network. This can be done with a device such as a Raspberry pi, but these support only a limited number of WiFi clients.
- - It can be hard to find a location for the wifi hub where it can be seen by all devices. The house router is often in a remote corner and may have difficulty reaching small devices in distant rooms. This is definitely not a problem that should be allowed to reveal itself during installation!
+This problem can be overcome by the use of extra routers or network extenders, but these may be visually intrusive and they add extra cost and complexity to the system.
 
-Both these problems can be overcome by the use of routers or network extenders, but these may be visually intrusive and they add extra cost and complexity to the system.
+A secondary issue concerns updates to the firmware inside the devices. When updates are required it is often necessary to manually visit each device in turn and perform an update.
 
-This article describes a simpler, low-cost approach that can handle a large number of devices and which can be deployed on very modest hardware such as an ESP8266.
+This article describes a simple, low-cost approach where the controlled devices themselves take care of all the networking. It can handle a large number of devices and can be deployed using very modest hardware such as an ESP8266. The system connects to its controller through a single wifi address and can be completely configured and tested before delivery for installation.
 ## Outline
 The strategy is to use some of the networked devices as message relays handing data to and from other nearby devices. The network then looks like this:
 
-![A chain tolology](chain.png "Chain")
+![A chain topology](chain.png "Chain")
 
 ## Implementation
 The strategy is based on a packet of information constructed by the system controller. Encoded as JSON, this contains a section for each of the networked devices, keyed by the name of the device. It also contains the current timestamp and the version number of the system firmware. Let's call this packet the “map”. Here’s an example of a simple system with two relay nodes:
