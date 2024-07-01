@@ -100,7 +100,7 @@ else:
     import unconfigured
     unconfigured.run()
 ```
-The operating mode is determined by a couple of files in the device flash. The file `config.json` contains information specific to this device. If this file does not exist the device is unconfigured; if it exists then the device is considered to be configured and ready to run. In the latter case, the file update is checked; if it exists the device enters update mode, which I’ll cover last.
+The operating mode is determined by a couple of files in the device flash. The file `config.json` contains information specific to this device. If this file does not exist the device is unconfigured; if it exists then the device is considered to be configured and ready to run. In the latter case, the file `update` is checked; if it exists the device enters update mode, which I’ll cover last.
 
 [Unconfigured mode](unconfigured.md)
 
