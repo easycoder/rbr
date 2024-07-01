@@ -13,7 +13,7 @@ with all the control and sensor nodes connected to a single hub. As the physical
 Both these problems can be overcome by the use of routers or network extenders, but these may be visually intrusive and they add extra cost and complexity to the system.
 
 This article describes a simpler, low-cost approach that can handle a large number of devices and which can be deployed on very modest hardware such as an ESP8266.
-Outline
+## Outline
 The strategy is to use some of the networked devices as message relays handing data to and from other nearby devices. The network then looks like this:
 
 ![A chain tolology](chain.png "Chain")
