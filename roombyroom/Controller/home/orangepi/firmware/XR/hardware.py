@@ -4,27 +4,6 @@ from machine import Pin
 led = Pin(2, Pin.OUT)
 
 ###################################################################################
-def setupPins():
-    global relay,led
-    relay=Pin(0,mode=Pin.OUT)
-    led=Pin(2,mode=Pin.OUT)
-
-###################################################################################
-def setLED(onoff):
-    global led
-    led.off() if onoff else led.on()
-
-###################################################################################
-def setRelay(onoff):
-    global relay
-    relay.off() if onoff=='on' else relay.on()
-
-###################################################################################
-def getRelay():
-    global relay
-    return 'OFF' if relay.value() else 'ON'
-
-###################################################################################
 def fileExists(filename):
     try:
         os.stat(filename)
@@ -50,3 +29,27 @@ def readFile(name):
     except:
         value=None
     return value
+
+###################################################################################
+def setupPins():
+    global relay,led
+    relay=Pin(0,mode=Pin.OUT)
+    led=Pin(2,mode=Pin.OUT)
+
+###################################################################################
+def setLED(onoff):
+    global led
+    led.off() if onoff else led.on()
+
+###################################################################################
+def setRelay(onoff):
+    global relay
+    if fileExists('reverse'):
+        relay.off() if onoff=='on' else relay.on()
+    else:
+        relay.on() if onoff=='on' else relay.off()
+
+###################################################################################
+def getRelay():
+    global relay
+    return 'OFF' if relay.value() else 'ON'
