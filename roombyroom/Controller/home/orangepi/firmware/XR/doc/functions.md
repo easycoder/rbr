@@ -123,10 +123,6 @@ async def httpGET(url):
     response=(await resp.read()).decode()
     hardware.setLED(False)
     return response
-
-
-
-
 ```
 The second functions module, `hardware.py`, deals with physical devices such as LEDs and files:
 ```

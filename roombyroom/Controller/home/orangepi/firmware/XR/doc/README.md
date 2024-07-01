@@ -7,10 +7,12 @@ Most small-scale WiFi networking systems adopt a “star” topology:
 
 with all the control and sensor nodes connected to a single hub. As the physical size of the system grows, two problems soon appear:
 
-A controller such as a Raspberry Pi supports only a limited number of WiFi clients.
-It can be hard to find a location for the hub where it can be seen by all devices.
+ - All the devices can be connected to the home router, which can support a large number of clients. However, this means all system configuration must be done in situ, which is most inconvenient as it makes it harder to configure and test the system before delivery. To overcome this problem we can set up a private network with only a single connection to the house network. This can be done with a device such as a Raspberry pi, but these support only a limited number of WiFi clients.
+ - It can be hard to find a location for the wifi hub where it can be seen by all devices. The house router is often in a remote corner and may have difficulty reaching small devices in distant rooms. This is definitely not a problem that should be allowed to reveal itself during installation!
 
-These problems can be overcome by the use of routers, but these may be visually intrusive and they add extra cost to the system. This article describes a simpler approach that can handle a large number of devices and which can be deployed using Micropython on very modest hardware such as an ESP8266.
+Both these problems can be overcome by the use of routers or network extenders, but these may be visually intrusive and they add extra cost and complexity to the system.
+
+This article describes a simpler, low-cost approach that can handle a large number of devices and which can be deployed on very modest hardware such as an ESP8266.
 Outline
 The strategy is to use some of the networked devices as message relays handing data to and from other nearby devices. The network then looks like this:
 
@@ -51,6 +53,8 @@ In normal use, each device substitutes its own version number in the outgoing me
 ## Downsides
 The main downside of this system is the time it takes messages to propagate through the network. It's not suitable for use where a rapid response is needed, as response times are measured in seconds or even tens of seconds. There are however many applications for which this is not a problem, ranging from home heating to large-scale irrigation.
 # The code
+The code described in these pages is all Micropython. The device on which it runs, typically an ESP8266, must have at least 4M bytes of flash memory in order to support the full set of modules required. If you are using the ESP-01 be sure to get the 4MB version, not the older 1MB.
+
 The firmware has 3 modes of operation:
 
  - Unconfigured
