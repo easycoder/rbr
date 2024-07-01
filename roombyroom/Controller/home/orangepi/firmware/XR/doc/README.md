@@ -45,7 +45,9 @@ Each subsequent device added to the system is set up to connect not directly to 
 ## Over The Air (OTA) updates
 The version number handed out by the hub is used to keep the system firmware up to date. Each device keeps a note of its current version. When a message packet arrives with a higher version number, the device requests a list of files from its parent, then requests each of the files listed, one by one. Once it has finished updating it saves the new version number.
 
-In normal use, each device substitutes its own version number in the outgoing message packet, so its own child devices won’t know there are updates until it has completed its own. If the system is a mix of different device types, the code for all of them must be contained in each. So a relay contains thermometer code and vice versa.
+While updating is taking place, normal operation is suspended. Clients of a device will not get responses to their polling and will eventually time out and reset themselves. Once updating has finished the device will restart normal operation and when it receive the map frpom its parent will pass it on. Since it nowcontains an updated version number, this will in turn cause each of its clients to start their own update. So the latest version ripples through the system and everyone ends up with the same code.
+
+If the system is a mix of different device types, the code for all of them must be contained in each. So a relay contains thermometer code and vice versa.
 ## Upsides
  - Ability to handle a large number of devices spread over a large physical area
  - No wifi black spots
