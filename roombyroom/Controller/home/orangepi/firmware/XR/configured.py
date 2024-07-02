@@ -65,7 +65,7 @@ async def handleClient(reader, writer):
             if len(response)==0:
                 response=None
     else:
-        response=f'{functions.getMyName()} v{currentVersion} {functions.getMySSID()} from {functions.getHostSSID()} {functions.getRelay()} {pollTotal}/{pollCount}'
+        response=f'{functions.getMyName()} v{currentVersion} {functions.getMySSID()} from {functions.getHostSSID()} {hardware.getRelay()} {pollTotal}/{pollCount}'
 #        print(response)
 
     writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
@@ -114,7 +114,7 @@ async def main():
             if 'v' in outgoingMap:
                 version=outgoingMap['v']
             else:
-                version='9999999999'
+                version='1'
             pollCount+=1
             pollTotal+=1
             if int(version)>int(currentVersion):

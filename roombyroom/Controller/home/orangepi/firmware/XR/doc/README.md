@@ -40,11 +40,13 @@ When the device polls its parent it sends its current return packet. If polling 
 ## Adding more devices
 Devices like the ESP8266 and ESP32 can operate simultaneously in Station and in Access Point mode. That is, they can connect to a wifi hotspot while at the same time publishing one of their own. These local hotspots have limited functionality but can usually support up to 4 connections, which allows us to expand the system by connecting devices to each other in a chain rather than all to a central hub. In this system, each device sets up a hotspot with an SSID based on its own MAC address and a network IP address that's different to the one it’s connected to.
 
-When a device receives a polling request from a client, it extracts from the poll the return packet supplied by the child device and adds its contents to its own return packet. Then it passes the current map to the child device. For example if Room1 is the parent and Room2 a child of Room1, the return packet will expand to look like this:
+When a device receives a polling request from a client, it extracts from the poll the return packet and adds the contents to its own return packet. Then it passes the current outgoing map to the child device. For example, if Room2 is a child of Room1, the return packet from Room1 will expand to look like this:
 
 `{“Room1“: {“ts”: “1719094849”}, “Room2“: {“ts”: “1719093995”}}`
 
-Subsequent devices added to the system do not connect directly to the system hub as they would in a star topology. Instead, they connect to the nearest already configured device that has remaining capacity for another connection. Since each device publishes a hotspot it's easy to check which one has the strongest signal, to guarantee reliable system performance.
+As we move back along the chain, the return packet grows to include all the nodes before finally being delivered to the hub on the next poll.
+
+When devices are added to the system they do not connect directly to the system hub as they would in a star topology. Instead, they connect to the nearest already configured device that has remaining capacity for another connection. Since each device publishes a hotspot, it's easy to check on a smartphone which one has the strongest signal, to guarantee reliable system performance.
 
 The behaviour of every device is identical so it’s very easy to configure the system; the device name and its parent SSID are the only items that differ from one device to another. And so the system grows, with devices being connected to any other device that can offer a good wifi signal.
 
