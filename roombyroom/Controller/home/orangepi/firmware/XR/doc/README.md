@@ -49,6 +49,12 @@ Subsequent devices added to the system do not connect directly to the system hub
 The behaviour of every device is identical so it’s very easy to configure the system; the device name and its parent SSID are the only items that differ from one device to another. And so the system grows, with devices being connected to any other device that can offer a good wifi signal.
 
 The system also has the welcome ability to operate without the need to manually track IP addresses. Devices are identified by unique names and SSIDs, and the latter are created automatically from the device MAC address. Each device chooses for its own hotspot an IP address range that's different to the one used by its parent.
+
+It will often be useful to create a simple spreadsheet to record the essential details of the system, as a guide while installing and when doing maintenance. Here's the table for the home heating system:
+
+![System config](table.png "Table")
+
+It's quite simple to check signal strengths at a given location using any computer or smartphone, to decide which devices can connect to which parents. If your computer is connected to a device hotspot, the gateway address (whose 4th octet is `1`, e.g. `172.24.100.1`) runs a small HTTP server that returns basic information about the device; its name, parent and how long it's been up and running.
 ## Over The Air (OTA) updates
 The version number handed out by the hub is used to keep the system firmware up to date. Each device keeps a note of its current version. When a message packet arrives with a higher version number, the device requests a list of files from its parent, then requests each of the files listed, one by one. Once it has finished updating it saves the new version number.
 
