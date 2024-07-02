@@ -1,19 +1,23 @@
-# The XR Relay
-The XR (eXtended Relay) employs a wifi networking strategy for controlling simple devices distributed over a large physical area, without the need for repeaters. The code is Micropython and the system was designed for a network of 4MB ESP8266 devices. A typical target application would be monitoring and control of a commercial irrigation system, but the approach is equally well suited to handling the needs of domestic or industrial central heating systems.
-## The problem
+# Chained wi-fi networking for control systems
+This describes a networking strategy for controlling simple wifi devices distributed over a large physical area, without the need for repeaters. The code is Micropython and the system was designed for a network of 4MB ESP8266 devices. It was originally developed for a home heating control system but is equally well suited to handling the needs of industrial heating, irrigation or similar systems, where several devices need to be controlled centrally.
+## Background
 Most small-scale WiFi networking systems adopt a “star” topology:
 
 ![A star topology](star.png "Star")
 
-with all the control and sensor nodes connected to a single hub; often a standard internet router. This will be located close to where the service provider's cable enters the property, often in a remote corner. Devices such as the ESP8266 have small antennae and operate poorly over anything more than quite a short distance. This is a problem that shows up as  delays in responding, frequent resets and even crashes, but which may not reveal itself until the installation has been completed and signed off.
+with all the control and sensor nodes connected to a single hub; often a standard internet router. This will be located close to where the service provider's cable enters the property, often in a remote corner. Devices such as the ESP8266 have small antennae and operate poorly over anything more than quite a short distance. This shows up as delays in responding, frequent resets and even crashes, but these may not become noticeable until after the installation has been completed and signed off. The system would then require a time-consuming rework.
 
 This problem can be overcome by the use of extra routers or network extenders, but these may be visually intrusive and they add extra cost and complexity to the system.
 
-A secondary issue concerns updates to the firmware inside the devices. When updates are required it is often necessary to manually visit each device in turn and perform an update.
+In the case of the home heating system, there was an additional problem, that if the internet connection went down the local NAT network would also fail and the system controller could not access the relays and other devices. To avoid this, the controller was fitted with a second wifi interface to provide a private LAN, and the entire control network was placed on that.
+
+This was fine, but small computers like Raspberry/Orange pi can only support a limited number of wifi devices, and it didn't deal with devices being too far away to work reliably.
+
+A secondary issue concerned updates to the firmware inside the devices. When updates were required it was necessary to manually visit each device in turn and perform an update.
 
 This article describes a simple, low-cost approach where the controlled devices themselves take care of all the networking. It can handle a large number of devices and can be deployed using very modest hardware such as an ESP8266. The system connects to its controller through a single wifi address and can be completely configured and tested before delivery for installation.
-## Outline
-The strategy is to use some of the networked devices as message relays handing data to and from other nearby devices. The network then looks like this:
+## Outline of the strategy
+This strategy employs some of the networked devices as message relays handing data to and from other nearby devices. The network then looks like this:
 
 ![A chain topology](chain.png "Chain")
 
@@ -24,33 +28,39 @@ The strategy is based on a packet of information constructed by the system contr
 
 The content of each device section in the map depends on the device. A relay has its state, on or off. A thermometer usually requires no information since its job is to return data, not consume it.
 
-A single device such as a relay or a thermometer is designated as the entry point to the network. It connects to the access point (wifi hotspot) published by the system controller. It knows nothing of its role; it behaves just like every other node. The reason for having a single entry node is so the hub doesn’t have to combine messages coming from a variety of sources. Once connected, the entry device polls the hub at regular intervals such as every 10 seconds and the hub responds by sending it the map. The device looks in the map for its own name and extracts its data to perform whatever tasks are needed. For a relay this will tell it to turn on or off. For a thermometer, no actions are needed at this stage.
+A single device such as a relay or a thermometer is designated as the entry point to the network. It connects to the access point (wifi hotspot) published by the system controller. It knows nothing of its role; it behaves just like every other node. The reason for having a single entry node is so the hub doesn’t have to combine messages coming from a variety of sources. Once connected, the entry device polls the hub at regular intervals such as every 10 seconds and the hub responds by sending it the map. The device looks in the map for its own name and extracts the attached data to perform whatever tasks are needed. For a relay this will be to turn on or off. For a thermometer, no actions are needed at this stage.
 
-The next step is for the device to construct a return data packet. All devices add their most recently received timestamp to this packet. For a relay, that's all there is; a thermometer also adds the current temperature. The return packet looks like this:
+When a device starts up it constructs an empty 'return packet', which is maintained for the lifetime of the running program. The device adds its most recently received timestamp to this packet. For a relay, that's all there is; a thermometer also adds the current temperature. The return packet looks like this:
 
 `{“Room1“: {“ts”: “1719094849”}}`
 or
 `{“Thermo1“: {“temp”: “25.3”, “ts”: “1719094849”}}`
 
-The return packet is sent back to the system hub on the next poll. If polling stops or if the timestamps don't get updated, the controller knows there's something wrong in the system by checking the ages of the returning timestamps.
+When the device polls its parent it sends its current return packet. If polling stops or if the timestamps don't get updated, the controller can tell there's something wrong in the system by checking the ages of the returning timestamps.
 ## Adding more devices
-Devices like the ESP8266 and ESP32 can operate simultaneously in Station and in Access Point mode. That is, they can connect to a wifi hotspot while at the same time publishing one of their own. These local hotspots have limited functionality but can usually support up to 4 connections, which allows us to expand the system by connecting devices to each other in a chain rather than all to a central hub. In this system, each device sets up a hotspot with an SSID based on its own MAC address and using a network IP address that's different to the one it’s connected to.
+Devices like the ESP8266 and ESP32 can operate simultaneously in Station and in Access Point mode. That is, they can connect to a wifi hotspot while at the same time publishing one of their own. These local hotspots have limited functionality but can usually support up to 4 connections, which allows us to expand the system by connecting devices to each other in a chain rather than all to a central hub. In this system, each device sets up a hotspot with an SSID based on its own MAC address and a network IP address that's different to the one it’s connected to.
 
-When a device receives a polling request from a client, it returns to that client the map it got from its own poll. The data packet that accompanied the client poll is opened and its contents are added to the packet that will be sent back on the device's own next poll. So the return packet will expand to look like this:
+When a device receives a polling request from a client, it extracts from the poll the return packet supplied by the child device and adds its contents to its own return packet. Then it passes the current map to the child device. For example if Room1 is the parent and Room2 a child of Room1, the return packet will expand to look like this:
 
 `{“Room1“: {“ts”: “1719094849”}, “Room2“: {“ts”: “1719093995”}}`
 
-Each subsequent device added to the system is set up to connect not directly to the system hub but to an already configured device. The behaviour of every device is identical so it’s very easy to configure the system; the device name and its parent SSID are the only items that differ from one device to another. And so the system grows, with devices being connected to any other device that can offer a good wifi signal, up to a limit of 4 connections per device.
+Subsequent devices added to the system do not connect directly to the system hub as they would in a star topology. Instead, they connect to the nearest already configured device that has remaining capacity for another connection. Since each device publishes a hotspot it's easy to check which one has the strongest signal, to guarantee reliable system performance.
+
+The behaviour of every device is identical so it’s very easy to configure the system; the device name and its parent SSID are the only items that differ from one device to another. And so the system grows, with devices being connected to any other device that can offer a good wifi signal.
+
+The system also has the welcome ability to operate without the need to manually track IP addresses. Devices are identified by unique names and SSIDs, and the latter are created automatically from the device MAC address. Each device chooses for its own hotspot an IP address range that's different to the one used by its parent.
 ## Over The Air (OTA) updates
 The version number handed out by the hub is used to keep the system firmware up to date. Each device keeps a note of its current version. When a message packet arrives with a higher version number, the device requests a list of files from its parent, then requests each of the files listed, one by one. Once it has finished updating it saves the new version number.
 
-While updating is taking place, normal operation is suspended. Clients of a device will not get responses to their polling and will eventually time out and reset themselves. Once updating has finished the device will restart normal operation and when it receives the map from its parent will pass it on. Since this now contains an updated version number, each of its clients will start their own update. So the latest version ripples through the system and everyone ends up with the same code.
+While updating is taking place, normal operation is suspended. Clients of a device will not get responses to their polling and will eventually time out and reset themselves. Once updating has finished, a device will restart normal operation and when it receives the map from its parent will pass it on. Since this now contains an updated version number, each of its clients will start their own update. So the latest version ripples through the system and everyone ends up with the same code.
 
 If the system is a mix of different device types, the code for all of them must be contained in each. So a relay contains thermometer code and vice versa.
 ## Upsides
  - Ability to handle a large number of devices spread over a large physical area
  - No wifi black spots
+ - All IP addresses are inferred by the devices themselves
  - Very low cost
+
 ## Downsides
 The main downside of this system is the time it takes messages to propagate through the network. It's not suitable for use where a rapid response is needed, as response times are measured in seconds or even tens of seconds. There are however many applications for which this is not a problem, ranging from home heating to large-scale irrigation.
 # The code
