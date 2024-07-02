@@ -58,7 +58,7 @@ It will often be useful to create a simple spreadsheet to record the essential d
 
 It's quite simple to check signal strengths at a given location using any computer or smartphone, to decide which devices can connect to which parents. If your computer is connected to a device hotspot, the gateway address (whose 4th octet is `1`, e.g. `172.24.100.1`) runs a small HTTP server that returns basic information about the device; its name, parent and how long it's been up and running.
 ## Over The Air (OTA) updates
-The version number handed out by the hub is used to keep the system firmware up to date. Each device keeps a note of its current version. When a message packet arrives with a higher version number, the device requests a list of files from its parent, then requests each of the files listed, one by one. Once it has finished updating it saves the new version number.
+The version number handed out by the hub is used to keep the system firmware up to date. Each device keeps a note of its current version. When a message packet (map) arrives with a higher version number, the device requests a list of files from its parent, then requests each of the files listed, one by one. Once it has finished updating it saves the new version number.
 
 While updating is taking place, normal operation is suspended. Clients of a device will not get responses to their polling and will eventually time out and reset themselves. Once updating has finished, a device will restart normal operation and when it receives the map from its parent will pass it on. Since this now contains an updated version number, each of its clients will start their own update. So the latest version ripples through the system and everyone ends up with the same code.
 
