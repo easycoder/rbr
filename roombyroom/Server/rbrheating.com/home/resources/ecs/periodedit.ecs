@@ -69,7 +69,7 @@
 !    debug step
     
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! The schedule editor
+! 	The schedule editor
     gosub to GetCurrentRooms
     put element ClickIndex of Rooms into RoomSpec
 
@@ -247,15 +247,15 @@ ShowEditor:
 
     on click MinuteUpButton
     begin
-        if MinuteValue is 59 put -1 into MinuteValue
-        add 1 to MinuteValue
+        if MinuteValue is 59 put -5 into MinuteValue
+        add 5 to MinuteValue
         gosub to ShowValues
     end
 
     on click MinuteDownButton
     begin
         if MinuteValue is 0 put 60 into MinuteValue
-        take 1 from MinuteValue
+        take 5 from MinuteValue
         gosub to ShowValues
     end
 

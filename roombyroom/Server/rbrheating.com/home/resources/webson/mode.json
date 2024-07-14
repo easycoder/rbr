@@ -164,6 +164,7 @@
 
                 "$Title": {
                     "#element": "div",
+                    "@id": "timed-text",
                     "#content": "Timed",
                     "flex": 1,
                     "font-weight": "bold",
@@ -226,7 +227,7 @@
                     "background": "lightgray",
                     "padding": "0.5em",
                     "font-weight": "bold",
-                    "#": "$Text",
+                    "#": ["$Text", "$Icon"],
 
                     "$Text": {
                         "#element": "div",
@@ -234,6 +235,17 @@
                         "#content": "Advance",
                         "cursor": "default",
                         "pointer-events": "none"
+                    },
+
+                    "$Icon": {
+                        "#element": "img",
+                        "@id" : "timed-advance-icon",
+                        "@src": "resources/icon/advance.png",
+                        "margin": "0 auto",
+                        "height": "2em",
+                        "width": "auto",
+                        "pointer-events": "none",
+                        "display": "none"
                     }
                 }
             }

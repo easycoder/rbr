@@ -63,7 +63,8 @@ async def setupAP():
     global station,myssid,mypass
     ap = network.WLAN(network.AP_IF)
     myssid = 'RBR-XR-' + ubinascii.hexlify(ap.config('mac')).decode()[6:]
-    print('Set up AP for',myssid)
+    print('Set up AP for',myssid,'with',mypass)
+    ap.active(True)
     ap.config(essid=myssid, authmode=3, password=mypass)
     mynet=station[2]
     ip=mynet.split('.')

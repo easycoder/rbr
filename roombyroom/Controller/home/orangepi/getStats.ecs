@@ -18,7 +18,8 @@
     read Password from File
     close File
     put trim Password into Password
-    put `https://rbrheating.com/home/resources/php/rest.php/sensorlog/` cat MAC cat `/` cat Password into Request
+    put `https://rbrheating.com/home/resources/php/rest.php/sensorlog/`
+        cat MAC cat `/` cat Password into Request
     print Request
     get Result from Request timeout 60
     print Result

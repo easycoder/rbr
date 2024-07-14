@@ -191,12 +191,13 @@
     end
     else
     begin
-        put 1 into Version
+        put `1` into Version
         open File `version` for writing
         write `` cat Version to File
         close File
     end
-    if Version is empty put 0 into Version
+    if Version is empty put `0` into Version
+    print `Version ` cat Version
 ! print RegData
     put property `version` of RegData into Value
     print `Current version: ` cat Version
@@ -443,6 +444,7 @@ SkipRequests:
         begin
             open File `/mnt/data/incoming` for reading
             read IncomingPacket from File
+            put json IncomingPacket into IncomingPacket
             close File
         end
         else put empty into IncomingPacket
@@ -527,14 +529,14 @@ ProcessRoom:
         put RamDisk cat `/sensors/` cat Sensor cat `.txt` into SensorFileName
         if file SensorFileName exists
         begin
-            print `Sensor filename: ` cat SensorFileName
+!            print `Sensor filename: ` cat SensorFileName
             put the modification time of SensorFileName into LastReported
             take LastReported from the timestamp giving LastReported
             if LastReported is greater than 1800
             begin
                 put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
-                gosub to AddWarning
-                return
+!                gosub to AddWarning
+!                return
             end
         end
         else
@@ -553,7 +555,7 @@ ProcessRoom:
                 put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
                 gosub to AddWarning
 !                print WarningMessage
-                return
+!                return
             end
         end
     end
@@ -826,6 +828,8 @@ UpdateLog:
 
 !   Test if the temperature has changed
     put property `temp` of RoomStatus into T
+    put `` cat T into T
+    put `` cat Temperature into Temperature
     if T is Temperature go to SetRelays ! else print `Temperature change in ` cat RoomName
 
 !   Write this room's data to the log file
@@ -860,7 +864,7 @@ SetRelays:
         put element R of Relays into Relay
         if RelayType is `RBR XR`
         begin
-            print `XR relay: ` cat Relay
+!            print `XR relay: ` cat Relay
             put json `{}` into Item
             set property `relay` of Item to OnOff
             set property Relay of OutgoingPacket to Item
@@ -935,7 +939,7 @@ ProcessResponses:
 
     ! Check the incoming XR packet
     if IncomingPacket is empty put `{}` into IncomingPacket
-    put json IncomingPacket into IncomingPacket
+!    put json IncomingPacket into IncomingPacket
     ! Iterate the rooms
     put 0 into N
     while N is less than RoomCount
@@ -956,10 +960,10 @@ ProcessResponses:
                 if IncomingPacket has property RelayName
                 begin
                     set property `ok` of Response to `True`
-                    set property `response` of Response to `<none>`
                     set property `ip` of Response to `XR-` cat RelayName
                     put property RelayName of IncomingPacket into Item
                     put property `ts` of Item into TS
+                    set property `response` of Response to `` cat TS
                     put the value of TS into TS
                     take TS from the timestamp giving T
                     if T is greater than 300
@@ -970,7 +974,7 @@ ProcessResponses:
                     else
                     begin
                         print RelayName cat ` is good (` cat T cat `)`
-                        set property `response` of Response to `good`
+                        if Item has property `i` set property `response` of Response to property `i` of Item
                     end
                     append Response to Items
                 end
@@ -1015,6 +1019,7 @@ ProcessResponses:
 !    print `Responses: ` cat Responses
 
     ! Count the errors
+!    print SensorValuesBySensor
     put 0 into N
     while N is less than the count of Responses
     begin
@@ -1023,28 +1028,31 @@ ProcessResponses:
         put property `ip` of Response into RelayIp
         put property `name` of Response into RoomName
         put property `sensor` of Response into Sensor
-        put property Sensor of SensorValuesBySensor into SensorValues
-        put property Sensor of PerSensor into RelayCount
-        put element 0 of RelayCount into RR
-        add 1 to RR
-        set element 0 of RelayCount to RR
-        if property `response` of Response is `<none>`
+        if SensorValuesBySensor has property Sensor
         begin
-            put `No response from relay ` cat RelayIp cat ` (` cat RoomName cat `)` into WarningMessage
-            gosub to AddWarning
-            put element 1 of RelayCount into RR
+            put property Sensor of SensorValuesBySensor into SensorValues
+            put property Sensor of PerSensor into RelayCount
+            put element 0 of RelayCount into RR
             add 1 to RR
-            set element 1 of RelayCount to RR
+            set element 0 of RelayCount to RR
+            if property `response` of Response is `<none>`
+            begin
+                put `No response from relay ` cat RelayIp cat ` (` cat RoomName cat `)` into WarningMessage
+                gosub to AddWarning
+                put element 1 of RelayCount into RR
+                add 1 to RR
+                set element 1 of RelayCount to RR
+            end
+            else if `` cat property `ok` of Response is `False`
+            begin
+                put `Bad response from relay ` cat RelayIp cat ` (` cat RoomName cat `)` into WarningMessage
+                gosub to AddWarning
+                put element 1 of RelayCount into RR
+                add 1 to RR
+                set element 1 of RelayCount to RR
+            end
+            set property Sensor of PerSensor to RelayCount
         end
-        else if `` cat property `ok` of Response is `False`
-        begin
-            put `Bad response from relay ` cat RelayIp cat ` (` cat RoomName cat `)` into WarningMessage
-            gosub to AddWarning
-            put element 1 of RelayCount into RR
-            add 1 to RR
-            set element 1 of RelayCount to RR
-        end
-        set property Sensor of PerSensor to RelayCount
         add 1 to N
     end
 

@@ -65,7 +65,13 @@ async def handleClient(reader, writer):
             if len(response)==0:
                 response=None
     else:
-        response=f'{functions.getMyName()} v{currentVersion} {functions.getMySSID()} from {functions.getHostSSID()} {hardware.getRelay()} {pollTotal}/{pollCount}'
+        d=int(pollTotal/360/24)
+        t=pollTotal*10%(3600*24)
+        h=int(t/3600)
+        t=t%3600
+        m=int(t/60)
+        s=t%60
+        response=f'{functions.getMyName()} v{currentVersion} {functions.getMySSID()} from {functions.getHostSSID()} {hardware.getRelay()} {d}:{h}:{m}:{s}'
 #        print(response)
 
     writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
@@ -97,7 +103,7 @@ async def main():
     print('Server running')
 
     while (True):
-        await asyncio.sleep(10)
+        await asyncio.sleep(2)
 
         data=urlencode.encode(json.dumps(incomingMap))
         url='http://'+functions.getServer()+'/poll?data='+data
@@ -111,6 +117,8 @@ async def main():
                 state='off'
             hardware.setRelay(state)
             incomingMap[myname]=json.loads('{"ts":"'+outgoingMap['ts']+'"}')
+            info=f'{functions.getMySSID()},{pollTotal}'
+            incomingMap[myname]['i']=info
             if 'v' in outgoingMap:
                 version=outgoingMap['v']
             else:
@@ -155,4 +163,3 @@ def run():
         print('Error occured: ', e)
     except KeyboardInterrupt:
         print('Program interrupted')
-
