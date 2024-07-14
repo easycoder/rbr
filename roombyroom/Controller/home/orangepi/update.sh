@@ -41,13 +41,13 @@ if test -f "dist.tgz"; then
     echo `date` ---- "${GREEN}Remove the updater flag file${NOCOLOR}" ---- >> /root/updatelog
     echo `date` -- rm /mnt/data/version >> /root/updatelog
     rm /mnt/data/version >> /root/updatelog 2>&1
-    echo `date` ---- "${GREEN}Move back to the home directory${NOCOLOR}" ---- >> /root/updatelog
+    echo `date` ---- "${GREEN}Move back to the home folder${NOCOLOR}" ---- >> /root/updatelog
     echo `date` -- cd /home/orangepi >> /root/updatelog
     cd /home/orangepi >> /root/updatelog 2>&1
     echo `date` ---- "${GREEN}Delete everything${NOCOLOR}" ---- >> /root/updatelog
     echo `date` -- rm -rf * >> /root/updatelog
     rm -rf * >> /root/updatelog 2>&1
-    echo `date` ---- "${GREEN}Copy everything from the update directory${NOCOLOR}" ---- >> /root/updatelog
+    echo `date` ---- "${GREEN}Copy everything from the update folder${NOCOLOR}" ---- >> /root/updatelog
     echo `date` -- sudo -u orangepi cp -R ../update/* . >> /root/updatelog
     sudo -u orangepi cp -R ../update/* . >> /root/updatelog 2>&1
     echo `date` ---- "${GREEN}Reboot${NOCOLOR}" ---- >> /root/updatelog
