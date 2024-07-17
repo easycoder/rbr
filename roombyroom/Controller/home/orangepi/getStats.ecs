@@ -22,5 +22,7 @@
         cat MAC cat `/` cat Password into Request
     print Request
     get Result from Request timeout 60
-    print Result
+    open File `/root/` cat now for writing
+    write Result to file
+    close File
     exit

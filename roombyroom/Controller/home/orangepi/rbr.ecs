@@ -328,6 +328,14 @@ SkipRequests:
         close File
     end
     else put `{}` into Sensors
+    if file `/mnt/data/incoming` exists
+    begin
+        open File `/mnt/data/incoming` for reading
+        read IncomingPacket from File
+        put json IncomingPacket into IncomingPacket
+        close File
+    end
+    else put json `{}` into IncomingPacket
 
 !   Process all the rooms
     put json `{}` into SensorData
@@ -440,14 +448,6 @@ SkipRequests:
         open File `/mnt/data/outgoing` for writing
         write stringify OutgoingPacket to File
         close File
-        if file `/mnt/data/incoming` exists
-        begin
-            open File `/mnt/data/incoming` for reading
-            read IncomingPacket from File
-            put json IncomingPacket into IncomingPacket
-            close File
-        end
-        else put empty into IncomingPacket
 !        print `Out: ` cat OutgoingPacket
 !        print `In:  ` cat IncomingPacket
     end
@@ -522,55 +522,73 @@ Repeat:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
 ProcessRoom:
+    put json `{}` into SensorValues
     if RelayType is `Manual` put empty into SensorFileName
     else
     begin
+    print `Sensor: ` cat Sensor
         if Sensor is empty return
         put RamDisk cat `/sensors/` cat Sensor cat `.txt` into SensorFileName
-        if file SensorFileName exists
+        if left 3 of Sensor is `T1-`
         begin
-!            print `Sensor filename: ` cat SensorFileName
+            if IncomingPacket is not empty
+            begin
+                put the keys of IncomingPacket into Keys
+                put 0 into N
+                while N is less than the count of Keys
+                begin
+                    put element N of Keys into Key
+                    if Key is Sensor
+                    begin
+                        put property Key of IncomingPacket into Value
+                        put property `ts` of Value into LastReported
+                        take LastReported from the timestamp giving LastReported
+                        if LastReported is greater than 1800
+                        begin
+                            put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
+                            gosub to AddWarning
+                        end
+                        put property `t` of Value into Temperature
+                        put json `{}` into SensorValues
+                        set property `temperature` of SensorValues to Temperature
+                        set property Sensor of SensorValuesBySensor to SensorValues
+                    end
+                    add 1 to N
+                end
+            end
+        end
+        else if file SensorFileName exists
+        begin
+            print `Read file ` cat SensorFileName cat ` for ` cat RoomName
             put the modification time of SensorFileName into LastReported
             take LastReported from the timestamp giving LastReported
             if LastReported is greater than 1800
             begin
                 put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
-!                gosub to AddWarning
-!                return
+                gosub to AddWarning
             end
+            open File SensorFileName for reading
+            read SensorValues from File
+            close File
+            put json SensorValues into SensorValues
+            put property `temperature` of SensorValues into Temperature
+            set property Sensor of SensorValuesBySensor to SensorValues
+        end
+        else if left 6 of Sensor is `Fixed-`
+        begin
+            put from 6 of Sensor into Temperature
+            set property `temperature` of SensorValues to Temperature
+            set property Sensor of SensorValuesBySensor to SensorValues
         end
         else
         begin
-            if left 5 of Sensor is `Fixed`
-            begin
-                put `{"temperature": "` cat from 6 of Sensor into Value
-                put Value cat `"}` into Value
-                open File SensorFileName for writing
-                write Value to File
-                close File
-            end
-            else
-            begin
-                put empty into SensorFileName
-                put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
-                gosub to AddWarning
-!                print WarningMessage
-!                return
-            end
+            put empty into SensorFileName
+            put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
+            gosub to AddWarning
+            print WarningMessage
         end
+        print `Temperature: ` cat Temperature
     end
-
-    if file SensorFileName exists
-    begin
-!        print `Read file ` cat SensorFileName cat ` for ` cat RoomName
-        open File SensorFileName for reading
-        read SensorValues from File
-        close File
-        put json SensorValues into SensorValues
-        put property `temperature` of SensorValues into Temperature
-        set property Sensor of SensorValuesBySensor to SensorValues
-    end
-    else put json `{}` into SensorValues
 
     ! Make sure there's an 'advance' file. Read it into Advance
     if file RamDisk cat `/advance/` cat Sensor exists
@@ -586,7 +604,8 @@ ProcessRoom:
     end
 
     put property `relays` of Room into Relays
-    put float Temperature into Temperature
+    if Temperature is not empty put float Temperature into Temperature
+    else put float `0.0` into Temperature
 
     ! See if this room is set for winter protection
     if property `protect` of Room is empty set property `protect` of Room to `no`
@@ -641,6 +660,7 @@ ProcessRoom:
                 gosub to UpdateRoom
             end
         end
+        if property `relayType` of Room is `Manual` go to TurnOn
         ! Use the target setting for 'on' mode
         put property `target` of Room into Target
         if `` cat Target is not empty
@@ -837,7 +857,6 @@ SR0:
     set property `ts` of RoomStatus to TS
     set property `temp` of RoomStatus to Temperature
     set property `relay` of RoomStatus to OnOff
-!    print RoomStatus
     open File RoomStatusFileName for writing
     write stringify RoomStatus to File
     write newline to File
@@ -847,8 +866,8 @@ SR0:
     write newline to File
     close File
 
-!    print `Room status: ` cat stringify RoomStatus
-    if Password is not empty post stringify RoomStatus to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password
+    print `Room status: ` cat stringify RoomStatus
+!    if Password is not empty post stringify RoomStatus to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set the relays
@@ -939,7 +958,6 @@ ProcessResponses:
 
     ! Check the incoming XR packet
     if IncomingPacket is empty put `{}` into IncomingPacket
-!    put json IncomingPacket into IncomingPacket
     ! Iterate the rooms
     put 0 into N
     while N is less than RoomCount
@@ -1121,6 +1139,7 @@ AddWarning:
     set property `status` of SensorData to WarningMessages
     set property Sensor of SensorData to SensorValues
     print `Warning: ` cat WarningMessage
+    put empty into WarningMessage
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -150,7 +150,7 @@
 
                 case 'mkdir':
                     // Create a directory
-                    // Endpoint: {site root}/easycoder/rest.php/_mkdir
+                    // Endpoint: {site root}/resources/php/rest.php/_mkdir
                     header("Content-Type: application/text");
                     $path = stripslashes(file_get_contents("php://input"));
                     mkdir($path);
@@ -158,7 +158,7 @@
 
                 case 'save':
                     // Save data to a file in the resources folder
-                    // Endpoint: {site root}/easycoder/rest.php/_save/{path}
+                    // Endpoint: {site root}/resources/php/rest.php/_save/{path}
                     $path = $cwd . '/resources/' . str_replace('~', '/', $request[0]);
                     $p = strrpos($path, '/');
                     $dir = substr($path, 0, $p);
@@ -173,7 +173,7 @@
 
                 case 'delete':
                     // Delete a file in the resources folder
-                    // Endpoint: {site root}/easycoder/rest.php/_delete/{path}
+                    // Endpoint: {site root}/resources/php/rest.php/_delete/{path}
                     $path = $cwd . '/resources/' . str_replace('~', '/', $request[0]);
                     if (is_dir($path)) {
                         rmdir($path);

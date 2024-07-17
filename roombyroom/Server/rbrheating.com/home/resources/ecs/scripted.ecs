@@ -41,7 +41,7 @@
   rest path `resources/php/rest.php`
   set encoding to `base64`
 
-  set the title to `Script Editor`
+  set the title to `EasyCoder Script Editor`
 
   create Body
   create Container in Body

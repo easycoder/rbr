@@ -3,13 +3,6 @@
 
     // This small REST server gives you the ability to manage tables
     // in your site database.
-    use PHPMailer\PHPMailer\PHPMailer;
-    use PHPMailer\PHPMailer\Exception;
-
-    require '/home/rbrheating/PHPMailer/src/Exception.php';
-    require '/home/rbrheating/PHPMailer/src/PHPMailer.php';
-    require '/home/rbrheating/PHPMailer/src/SMTP.php';
-
     require_once "statistics.php";
 
     date_default_timezone_set('Europe/London');
@@ -444,69 +437,28 @@
 
             case 'sensorlog':
                 // Get a system's sensor log, given its MAC
-                // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>/<password>
+                // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>/<password>/<year>/<month>
                 $mac = $request[0];
                 $password = $request[1];
-                $result = query($conn, "SELECT map FROM systems WHERE mac='$mac' AND password='$password'");
+                $year = date("Y");
+                $month = date("m");
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
-                    $map = base64_decode($row->map);
-                    $map = str_replace('!_SP_!', ' ', $map);
-                    $map = json_decode($map);
-                    $name = str_replace('%20', ' ', $map->name);
-                    mysqli_free_result($result);
-
-                    // Read all the sensor logs for this system up to the start of the current month
-                    $year = date("Y");
-                    $month = date("m");
-                    $date = new DateTime();
-                    $date->setDate($year, $month, 1);
-                    $date->setTime(0, 0);
-                    $ts = $date->getTimestamp();
-
+                    $ts = strtotime("$year-$month-01 00:00:00");
+//                    print "Y = $year, $M = $month, TS = $ts\n";
+//                    print "SELECT ts,sensors FROM sensors WHERE mac='$mac' AND ts>=0 AND ts<$ts\n";
+                    $result = query($conn, "SELECT ts,sensors FROM sensors WHERE mac='$mac' AND ts>=0 AND ts<$ts");
                     $stats = "";
-                    $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac' AND ts<$ts ORDER BY ts");
                     while ($row = mysqli_fetch_object($result)) {
+                        $ts = $row->ts;
                         $sensors = base64_decode($row->sensors);
-                        if ($stats) $stats = "$stats<br>";
-                        $stats = "$stats$sensors";
+                        print "$sensors\n";
                     }
                     mysqli_free_result($result);
-                    // print $stats;
-                    $delay = mt_rand(1, 60);
-                    print "Wait $delay seconds\n";
-                    usleep($delay);
-
-                    // Use the 'managed' table to find the user email, then send the stats.
-                    $result = query($conn, "SELECT email FROM managed WHERE mac='$mac'");
-                    while ($row = mysqli_fetch_object($result)) {
-                        $email = $row->email;
-                        $result2 = query($conn, "SELECT password FROM users WHERE email='$email'");
-                        if ($row = mysqli_fetch_object($result2)) {
-                            $date = date("Y/m", $ts - 24*60*60);
-                            $password = $row->password;
-                            $data = new stdClass();
-                            $data->sender = "RBR statistics";
-                            $data->email = $email;
-                            $data->subject = "RBR Heating for $date at $name";
-                            $data->message = $stats;
-                            $data->smtpusername = $smtpusername;
-                            $data->smtppassword = $smtppassword;
-                            try {
-                                sendMail($data);
-                                print "Email sent to $email\n";
-                            } catch (Exception $e) {
-                                http_response_code(404);
-                                print "{\"message\": $data->err}";
-                                break;
-                            }
-                        }
-                        mysqli_free_result($result2);
-                    }
-                    mysqli_free_result($result);
-                    $result = query($conn, "Delete FROM sensors WHERE mac='$mac' AND ts<$ts");
+                    $result = query($conn, "Delete FROM sensors WHERE mac='$mac' and ts<$ts");
                 } else {
                     http_response_code(404);
-                    print "MAC '$mac' and password '$password' do not match any record.";
+                    print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
                 }
                 break;
 
@@ -895,49 +847,5 @@
         $fp = fopen($file, "a+") or die("Can't open $file");
         fwrite($fp, "$date: $message\n");
         fclose($fp);
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Send an email.
-    function sendMail($data)
-    {
-        // print_r($data);
-        $mail = new PHPMailer(true);                              // Passing `true` enables exceptions
-        try {
-            //Server settings
-            $mail->SMTPDebug = 0;                                 // Enable verbose debug output
-            $mail->isSMTP();                                      // Set mailer to use SMTP
-            $mail->Host = 'smtp.dreamhost.com';                   // Specify main and backup SMTP servers
-            $mail->SMTPAuth = true;                               // Enable SMTP authentication
-            $mail->Username = $data->smtpusername;                // SMTP username
-            $mail->Password = $data->smtppassword;                // SMTP password
-            $mail->SMTPSecure = 'ssl';                            // Enable SSL encryption, TLS also accepted with port 465
-            $mail->Port = 465;                                    // TCP port to connect to
-
-            //Recipients
-            $mail->setFrom('admin@rbrheating.com', $data->sender);          //This is the email your form sends From
-            //$mail->addAddress($email, 'Joe User'); // Add a recipient address
-            $mail->addAddress($data->email);               // Name is optional
-            //$mail->addReplyTo('info@example.com', 'Information');
-            //$mail->addCC('cc@example.com');
-            //$mail->addBCC('bcc@example.com');
-
-            //Attachments
-            //$mail->addAttachment('/var/tmp/file.tar.gz');         // Add attachments
-            //$mail->addAttachment('/tmp/image.jpg', 'new.jpg');    // Optional name
-
-            //Content
-            $mail->isHTML(true);                                  // Set email format to HTML
-            $mail->Subject = $data->subject;
-            $mail->Body    = $data->message;
-            //$mail->AltBody = 'This is the body in plain text for non-HTML mail clients';
-
-            $mail->send();
-            //echo 'Message has been sent';
-        } catch (Exception $e) {
-            // print 'Mailer Error: ' . $mail->ErrorInfo;
-            $data->err = 'Mailer Error: ' . $mail->ErrorInfo;
-            throw $e;
-        }
     }
 ?>
