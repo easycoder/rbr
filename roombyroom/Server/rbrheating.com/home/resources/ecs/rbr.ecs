@@ -138,6 +138,7 @@
     variable Key
     variable FH
     variable FM
+    variable NR
     variable E
     variable F
     variable H
@@ -655,8 +656,10 @@ GetMap:
 
         ! Show the mode indicator
         put property `relays` of RoomSpec into Relays
-        put the json count of Relays into Relays
-        if Relays is 0
+        put the json count of Relays into NR
+        if NR is 1
+        	if element 0 of Relays is empty put 0 into NR
+        if NR is 0
         begin
             clear ModeHolder
             if NoneWebson is empty
