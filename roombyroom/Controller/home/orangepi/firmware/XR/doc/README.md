@@ -7,15 +7,15 @@ Most small-scale WiFi networking systems adopt a “star” topology:
 
 with all the control and sensor nodes connected to a single hub; often a standard internet router. This will be located close to where the service provider's cable enters the property, often in a remote corner. Devices such as the ESP8266 have small antennae and operate poorly over anything more than quite a short distance. This shows up as delays in responding, frequent resets and even crashes, but these may not become noticeable until after the installation has been completed and signed off. The system would then require a time-consuming rework.
 
-This problem can be overcome by the use of extra routers or network extenders, but these may be visually intrusive and they add extra cost and complexity to the system.
+This problem can be overcome by the use of extra routers or network extenders, to form what is known as a 'mesh' system, but these may be visually intrusive and they add extra cost and complexity to the system.
 
-In the case of the home heating system, there was an additional problem, that if the internet connection went down the local NAT network would also fail and the system controller could not access the relays and other devices. To avoid this, the controller was fitted with a second wifi interface to provide a private LAN, and the entire control network was placed on that.
+In the case of the home heating system, there was an additional problem, that if the internet connection went down the local NAT network would also fail and the system controller could not access the relays and other devices. To avoid this, the controller was fitted with a second wifi interface to provide a private LAN, and the entire control network was placed on that. In the event of a WAN failure the system carries on happily by itself.
 
-This was fine, but small computers like Raspberry/Orange pi can only support a limited number of wifi devices, and it didn't deal with devices being too far away to work reliably.
+This works fine up to a point, but small computers like Raspberry/Orange pi can only support a limited number of wifi devices, and it didn't deal with devices being too far away to work reliably unless mesh routers were added.
 
 A secondary issue concerned updates to the firmware inside the devices. When updates were required it was necessary to manually visit each device in turn and perform an update.
 
-This article describes a simple, low-cost approach where the controlled devices themselves take care of all the networking. It can handle a large number of devices and can be deployed using very modest hardware such as an ESP8266. The system connects to its controller through a single wifi address and can be completely configured and tested before delivery for installation.
+This article describes a simple, low-cost approach where the controlled devices themselves take care of all the extended networking. It can handle a large number of devices and can be deployed using very modest hardware such as an ESP8266. The system connects to its controller through a single wifi address and can be completely configured and tested before delivery for installation.
 ## Outline of the strategy
 This strategy employs some of the networked devices as message relays handing data to and from other nearby devices. The network then looks like this:
 
@@ -44,7 +44,7 @@ When a device receives a polling request from a client, it extracts from the pol
 
 `{“Room1“: {“ts”: “1719094849”}, “Room2“: {“ts”: “1719093995”}}`
 
-As we move back along the chain, the return packet grows to include all the nodes before finally being delivered to the hub on the next poll.
+As we move back along the chain towards the entry point device, the return packet grows to include all the nodes before finally being delivered to the hub on the next poll.
 
 When devices are added to the system they do not connect directly to the system hub as they would in a star topology. Instead, they connect to the nearest already configured device that has remaining capacity for another connection. Since each device publishes a hotspot, it's easy to check on a smartphone which one has the strongest signal, to guarantee reliable system performance.
 
@@ -79,6 +79,8 @@ The firmware has 3 modes of operation:
  - Unconfigured
  - Configured
  - Updating
+
+Please note that the code presented here may not be up to date. To be sure of seeing the latest version please see the files in the repository.
 
 As with all Micropython projects there is a boot file and a main program. First, `boot.py`:
 ```
@@ -118,7 +120,7 @@ else:
     import unconfigured
     unconfigured.run()
 ```
-The operating mode is determined by a couple of files in the device flash. The file `config.json` contains information specific to this device. If this file does not exist the device is unconfigured; if it exists then the device is considered to be configured and ready to run. In the latter case, the file `update` is checked; if it exists the device enters update mode, which I’ll cover last.
+The operating mode is determined by a couple of files in the device flash. The file `config.json` contains information specific to this device. If this file does not exist the device is unconfigured; if it does exist then the device is considered to be configured and ready to run. In the latter case, the file `update` is checked; if this exists the device enters update mode, which I’ll cover last.
 
 [Unconfigured mode](unconfigured.md)
 

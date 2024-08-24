@@ -139,11 +139,13 @@
         put -1 into NetworkErrors
         gosub to NetworkError
     end
+
     if NetworkErrors is greater than 100
     begin
         print `Too many errors (` cat NetworkErrors cat `) - rebooting`
         gosub to ClearNetworkErrors
-        go to RestartSystemController
+        system `touch /mnt/data/reboot`
+        stop
     end
 
     put 0 into RepeatCount
@@ -157,10 +159,19 @@
     clear Confirm
     clear HaltRequested
 
-    ! Test if the local server is running. If not restart it.
+    ! Test if the local server is running. If not, stop.
     get Result from LocalServer cat `.1/resources/php/rest.php/ping`
-    or go to RestartSystemController
-    if Result is not `OK` go to RestartSystemController
+    or begin
+        gosub to NetworkError
+        print `Local server is not running`
+        stop
+    end
+    if Result is not `OK`
+    begin
+        gosub to NetworkError
+        print `Local server is not running`
+        stop
+    end
     print `Local server is running`
 
     ! Ask the server for our password and other data
@@ -267,26 +278,29 @@ Start:
     print SystemName
 
     ! If the Calendar is on, find which profile is active
-    if property `calendar` of MapObject is `on`
+    if MapObject has property `calendar`
     begin
-        put property `calendar-data` of MapObject into Calendar
-        if Calendar is empty put property `profile` of MapObject into CurrentProfile
-        else
+        if property `calendar` of MapObject is `on`
         begin
-            ! Examine the data for today
-            put the weekday into W
-            put element W of Calendar into Day
-            if stringify Day is not `{}` put property `day` cat W cat `-profile` of Day into ProfileName
-            put 0 into P
-            while P is less than the count of Profiles
+            put property `calendar-data` of MapObject into Calendar
+            if Calendar is empty put property `profile` of MapObject into CurrentProfile
+            else
             begin
-                put element P of Profiles into Profile
-                if property `name` of Profile is ProfileName
+                ! Examine the data for today
+                put the weekday into W
+                put element W of Calendar into Day
+                if stringify Day is not `{}` put property `day` cat W cat `-profile` of Day into ProfileName
+                put 0 into P
+                while P is less than the count of Profiles
                 begin
-                    put P into CurrentProfile
-                    go to S2
+                    put element P of Profiles into Profile
+                    if property `name` of Profile is ProfileName
+                    begin
+                        put P into CurrentProfile
+                        go to S2
+                    end
+                    add 1 to P
                 end
-                add 1 to P
             end
         end
     end
@@ -361,19 +375,22 @@ SkipRequests:
         begin
             put element N of Rooms into Room
             put property `sensor` of Room into Sensor
-            put property `relayType` of Room into RelayType
-            if RelayType is `Manual`
+            if Room has property `relayType`
             begin
-                put `Manual` into Sensor
-                set property `sensor` of Room to Sensor
-                set element N of Rooms to Room
-            end
-            if Sensor is not empty
-            begin
-                put json `[]` into RelayCount
-                append 0 to RelayCount
-                append 0 to RelayCount
-                set property Sensor of PerSensor to RelayCount
+                put property `relayType` of Room into RelayType
+                if RelayType is `Manual`
+                begin
+                    put `Manual` into Sensor
+                    set property `sensor` of Room to Sensor
+                    set element N of Rooms to Room
+                end
+                if Sensor is not empty
+                begin
+                    put json `[]` into RelayCount
+                    append 0 to RelayCount
+                    append 0 to RelayCount
+                    set property Sensor of PerSensor to RelayCount
+                end
             end
             add 1 to N
         end
@@ -604,7 +621,7 @@ ProcessRoom:
     end
 
     put property `relays` of Room into Relays
-    if Temperature is not empty put float Temperature into Temperature
+    if `` cat Temperature is not empty put float Temperature into Temperature
     else put float `0.0` into Temperature
 
     ! See if this room is set for winter protection
@@ -945,12 +962,6 @@ SetRelays:
     set property Sensor of SensorData to SensorValues
     return
 
-! Set a flag to restart the system controller
-RestartSystemController:
-    print `Restart the system controller`
-    system `touch /mnt/data/reboot`
-    exit
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Process the relay responses to check for errors
 ProcessResponses:
@@ -964,40 +975,43 @@ ProcessResponses:
     begin
         put element N of Rooms into Room
         put property `name` of Room into RoomName
-        if property `relayType` of Room is `RBR XR`
+        if Room has property `relayType`
         begin
-            put json `{}` into Response
-            set property `name` of Response to RoomName
-            set property `sensor` of Response to property `sensor` of Room
-            ! Iterate the relays
-            put property `relays` of Room into Relays
-            put 0 into RR
-            while RR is less than the count of Relays
+            if property `relayType` of Room is `RBR XR`
             begin
-                put element RR of Relays into RelayName
-                if IncomingPacket has property RelayName
+                put json `{}` into Response
+                set property `name` of Response to RoomName
+                set property `sensor` of Response to property `sensor` of Room
+                ! Iterate the relays
+                put property `relays` of Room into Relays
+                put 0 into RR
+                while RR is less than the count of Relays
                 begin
-                    set property `ok` of Response to `True`
-                    set property `ip` of Response to `XR-` cat RelayName
-                    put property RelayName of IncomingPacket into Item
-                    put property `ts` of Item into TS
-                    set property `response` of Response to `` cat TS
-                    put the value of TS into TS
-                    take TS from the timestamp giving T
-                    if T is greater than 300
+                    put element RR of Relays into RelayName
+                    if IncomingPacket has property RelayName
                     begin
-                        print RelayName cat ` not responding (` cat T cat `)`
-                        set property `ok` of Response to `False`
+                        set property `ok` of Response to `True`
+                        set property `ip` of Response to `XR-` cat RelayName
+                        put property RelayName of IncomingPacket into Item
+                        put property `ts` of Item into TS
+                        set property `response` of Response to `` cat TS
+                        put the value of TS into TS
+                        take TS from the timestamp giving T
+                        if T is greater than 300
+                        begin
+                            print RelayName cat ` not responding (` cat T cat `)`
+                            set property `ok` of Response to `False`
+                        end
+                        else
+                        begin
+                            print RelayName cat ` is good (` cat T cat `)`
+                            if Item has property `i` set property `response` of Response to property `i` of Item
+                        end
+                        append Response to Items
                     end
-                    else
-                    begin
-                        print RelayName cat ` is good (` cat T cat `)`
-                        if Item has property `i` set property `response` of Response to property `i` of Item
-                    end
-                    append Response to Items
+                    else print `No data for ` cat RelayName
+                    add 1 to RR
                 end
-                else print `No data for ` cat RelayName
-                add 1 to RR
             end
         end
         add 1 to N

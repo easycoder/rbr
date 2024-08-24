@@ -1,0 +1,89 @@
+!	RBR Router selector
+
+	script Router
+
+    div Body
+    div SelectedRouter
+    div Warning
+    input SSIDInput
+    input PasswordInput
+    button SelectButton
+    variable MainScreenWebson
+    variable Mobile
+    variable Data
+    variable SSID
+    variable Password
+    variable N
+    variable H
+
+!    debug step
+
+    set the title to `Router selector`
+
+    clear Mobile
+    if mobile
+    begin
+        if portrait
+        begin
+        	set Mobile
+        end
+    end
+!    else print `PC browser detected`
+
+	create Body
+    if Mobile
+    begin
+    	set style `width` of Body to `100%`
+    end
+    else
+    begin
+        put the height of the window into H
+        multiply H by 9 giving N
+        divide N by 16
+    	set style `width` of Body to N cat `px`
+        set style `margin` of Body to `0 auto`
+        set style `border` of Body to `1px solid lightgray`
+    end
+    set style `height` of Body to `calc(100vh - 1em)`
+
+!	Render the main screen layout
+    rest get MainScreenWebson from `/resources/webson/main.json?v=` cat now
+    	or go to AbandonShip
+	render MainScreenWebson in Body
+
+	attach SSIDInput to `ssid-input`
+	attach PasswordInput to `password-input`
+	attach SelectButton to `select-router`
+	attach SelectedRouter to `selected-router`
+	attach Warning to `warning`
+
+    gosub to ShowRouter
+
+	on click SelectButton
+	begin
+        put the text of SSIDInput into SSID
+        put the text of PasswordInput into Password
+        set style `visibility` of Warning to `visible`
+        rest get Data from `/resources/php/rest.php/setRouter/` cat SSID cat `,` cat Password
+        while true
+        begin
+            gosub to ShowRouter
+            wait 5 seconds
+        end
+	end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show the current router
+ShowRouter:
+    rest get Data from `/resources/php/rest.php/getRouter`
+    put the position of `:` in Data into N
+    set the content of SelectedRouter to `Current router: ` cat left N of Data
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Warn the user and abandon this run
+AbandonShip:
+	alert `An error has occurred while communicating with the web server.`
+    	cat newline cat `Please refresh this browser page to restart.`
+    exit

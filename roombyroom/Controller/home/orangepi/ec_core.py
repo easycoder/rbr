@@ -239,6 +239,7 @@ class Core(Handler):
     def r_delete(self, command):
         filename = self.getRuntimeValue(command['filename'])
         if os.path.isfile(filename):
+            print('Deleting',filename)
             os.remove(filename)
         return self.nextPC()
 
@@ -869,7 +870,7 @@ class Core(Handler):
         file = fileRecord['file']
         if file.mode == 'r':
             value = {}
-            content = file.readline() if line else file.read()
+            content = file.readline().split('\n')[0] if line else file.read()
             value['type'] = 'text'
             value['numeric'] = False
             value['content'] = content
@@ -1038,7 +1039,11 @@ class Core(Handler):
             symbolRecord = self.getSymbolRecord()
             if symbolRecord['valueHolder']:
                 command['target'] = symbolRecord['name']
-                command['on'] = '\n'
+                value = {}
+                value['type'] = 'text'
+                value['numeric'] = 'false'
+                value['content'] = '\n'
+                command['on'] = value
                 if self.peek() == 'on':
                     self.nextToken()
                     command['on'] = self.nextValue()

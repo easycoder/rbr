@@ -1,0 +1,29 @@
+3fi hotspot
+RBR-XR-994e4d
+RBR-XR-6ee3ba
+RBR-XR-6f05a1
+PLUSNET-N7C3KC-plus
+DIRECT-YH53-G3060series
+PLUSNET-N7C3KC
+
+RBR-XR-6ed409
+TP-Link_C2BC
+RBR-0c59541528fa
+VM0448777
+EE-TQF2J7
+Wifi_SREFWZC4Y8
+RBR-XR-0ebc12
+EE WiFi
+VM9002532
+SKYJHHSU
+RBR-XR-6f06d2
+RBR-PS-217247
+
+RBR-dc49239fc124
+
+[2KDevice 'wlx009e9970226c' successfully activated with 'f06a93da-d5b3-4428-a6bf-8387f0a16dd4'.
+/home/orangepi
+Compiled router: 32 lines (67 tokens) in 4 ms
+Run router
+Deleting /mnt/data/router
+-> nmcli dev wifi connect "PLUSNET-N7C3KC-plus" password "Ur4nXVQKJPrQcJ"

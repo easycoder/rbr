@@ -12,6 +12,12 @@ then
    /usr/sbin/reboot
 fi
 
+if test -f "/mnt/data/setrouter"
+then
+   cd /home/orangepi
+   python3 ec.py router.ecs
+fi
+
 if test -f "/mnt/data/version"
 then
    rm /root/updatelog

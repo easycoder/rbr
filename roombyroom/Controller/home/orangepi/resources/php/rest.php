@@ -67,11 +67,31 @@
                     $ts = time();
                     $message = "{\"temperature\": $temp, \"timestamp\": $ts, \"battery\": $bat}";
                     // print "$message\n";
-                    $fp = fopen($path, "w") or die("Can't open '$file'");
+                    $fp = fopen($path, "w") or die("Can't open '$path'");
                     fwrite($fp, $message);
                     fclose($fp);
                     chmod($path, 0666);
                     print "OK";
+                    exit;
+
+                case 'setRouter':
+                    $ssid = $request[0];
+                    $password = $request[1];
+                    $fp = fopen("/mnt/data/setrouter", "w") or die("Can't open '$path'");
+                    fwrite($fp, "$ssid,$password");
+                    fclose($fp);
+                    print("$ssid,$password\n");
+                    exit;
+
+                case 'getRouter':
+                    $fn = "/mnt/data/router";
+                    system("nmcli -t -f NAME,DEVICE con >$fn");
+                    $fp = fopen($fn, "r");
+                    if ($fp) {
+                        print fgets($fp);
+                        fclose($fp);
+                        unlink($fn);
+                    }
                     exit;
 
                 default:

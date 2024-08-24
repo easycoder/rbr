@@ -3047,15 +3047,16 @@ const EasyCoder_Core = {
 				if (property && propertyContent) {
 					if (typeof propertyContent === `object`) {
 						content = propertyContent[property];
-					} else if ([`{`, `]`].includes(propertyContent.charAt(0))) {
-						try {
-							content = JSON.parse(propertyContent);
-						} catch (err) {
-							program.runtimeError(program[program.pc].lino, `Can't parse '${propertyContent}': ${err.message}`);
-						}
-						content = content[property];
-						if (content == undefined) {
-							content = ``;
+					} else {
+						content = ``;
+						propertyContent = ``+propertyContent;
+						if (propertyContent != `` && [`{`, `]`].includes(propertyContent.charAt(0))) {
+							try {
+								content = JSON.parse(propertyContent);
+								content = content[property];
+							} catch (err) {
+								program.runtimeError(program[program.pc].lino, `${err.message}: ${propertyContent}`);
+							}
 						}
 					}
 				}
@@ -3823,6 +3824,7 @@ const EasyCoder_Browser = {
 					`table`,
 					`tr`,
 					`td`,
+					`th`,
 					`text`,
 					`textarea`,
 					`ul`
@@ -4320,7 +4322,7 @@ const EasyCoder_Browser = {
 			}
 			const command = program[program.pc];
 			let state = program.getValue(command.state);
-			if (!state) {
+			if (state == ``) {
 				state = `{"script":"${program.script}"}`;
 			}
 			let title = program.getValue(command.title);
@@ -5836,6 +5838,18 @@ const EasyCoder_Browser = {
 		}
 	},
 
+	TH: {
+
+		compile: (compiler) => {
+			compiler.compileVariable(`browser`, `th`, false, `dom`);
+			return true;
+		},
+
+		run: (program) => {
+			return program[program.pc].pc + 1;
+		}
+	},
+
 	TEXTAREA: {
 
 		compile: (compiler) => {
@@ -6166,6 +6180,8 @@ const EasyCoder_Browser = {
 			return EasyCoder_Browser.TR;
 		case `td`:
 			return EasyCoder_Browser.TD;
+		case `th`:
+			return EasyCoder_Browser.TH;
 		case `textarea`:
 			return EasyCoder_Browser.TEXTAREA;
 		case `trace`:
@@ -6505,11 +6521,33 @@ const EasyCoder_Browser = {
 					content: typeof symbolRecord.element[symbolRecord.index] !== `undefined`
 				};
 			case `mobile`:
+				const isMobile = {
+					Android: function() {
+						return navigator.userAgent.match(/Android/i);
+					},
+					BlackBerry: function() {
+						return navigator.userAgent.match(/BlackBerry/i);
+					},
+					iOS: function() {
+						return navigator.userAgent.match(/iPhone|iPad|iPod/i);
+					},
+					Opera: function() {
+						return navigator.userAgent.match(/Opera Mini/i);
+					},
+					Windows: function() {
+						return navigator.userAgent.match(/IEMobile/i) || navigator.userAgent.match(/WPDesktop/i);
+					},
+					any: function() {
+						return (isMobile.Android() || isMobile.BlackBerry()
+						|| isMobile.iOS() || isMobile.Opera() || isMobile.Windows());
+					}
+				};
 				return {
 					domain: `browser`,
 					type: `boolean`,
+					content: isMobile.any()
 					// content: (typeof window.orientation !== `undefined`) || (navigator.userAgent.indexOf(`IEMobile`) !== -1)
-					content: (/Android|iPhone/i.test(navigator.userAgent))
+					//content: (/Android|iPhone/i.test(navigator.userAgent))
 				};
 			case `browserName`:
 				let userAgent = navigator.userAgent;
@@ -7588,9 +7626,8 @@ const EasyCoder_Rest = {
 			}
 
 			const url = program.getValue(command.url);
-			// Default is the path for a WordPress installation
 			if (!EasyCoder_Rest.restPath) {
-				EasyCoder_Rest.restPath = `/wp-content/plugins/easycoder/rest.php`;
+				EasyCoder_Rest.restPath = `.`;
 			}
 			let path = url;
 			if (!url.startsWith(`http`)) {
@@ -8024,7 +8061,15 @@ const EasyCoder_Run = {
 				program.watchdog++;
 				const domain = program[program.pc].domain;
 				if (program.debugStep) {
-					console.log(`${program.script}: Line ${program[program.pc].lino}: PC: ${program.pc} ${domain}:${program[program.pc].keyword}`);
+					const lino = program[program.pc].lino;
+					let line = '';
+					try {
+						line = program.source.scriptLines[lino - 1].line;
+					}
+					catch (e) {
+					}
+					console.log(`${program.script}: Line ${lino}: `
+					+ `${domain}:${program[program.pc].keyword} - ${line}`);
 				}
 				const handler = program.domain[domain];
 				if (!handler) {
@@ -8872,12 +8917,12 @@ const EasyCoder = {
 		}
 	},
 };
-EasyCoder.version = `221226`;
+EasyCoder.version = `240713`;
 EasyCoder.timestamp = Date.now();
 console.log(`EasyCoder loaded; waiting for page`);
 
 function EasyCoder_Startup() {
-	console.log(`${Date.now() - EasyCoder.timestamp} ms: Page loaded; reset timer & start EasyCoder`);
+	console.log(`${Date.now() - EasyCoder.timestamp} ms: Start EasyCoder`);
 	EasyCoder.timestamp = Date.now();
 	EasyCoder.scripts = {};
 	window.EasyCoder = EasyCoder;
