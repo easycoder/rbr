@@ -87,6 +87,7 @@
     variable HaltRequested
     variable TPEmail
     variable TPPassword
+    variable XRData
     variable RA
     variable E
     variable EE
@@ -543,7 +544,6 @@ ProcessRoom:
     if RelayType is `Manual` put empty into SensorFileName
     else
     begin
-    print `Sensor: ` cat Sensor
         if Sensor is empty return
         put RamDisk cat `/sensors/` cat Sensor cat `.txt` into SensorFileName
         if left 3 of Sensor is `T1-`
@@ -967,6 +967,16 @@ SetRelays:
 ProcessResponses:
     put json `[]` into Items
 
+    ! Read the XR information
+    if file `/mnt/data/xrdata` exists
+    begin
+        open File `/mnt/data/xrdata` for reading
+        read XRData from File
+        close File
+    end
+    else put `{}` into XRData
+    put json XRData into XRData
+
     ! Check the incoming XR packet
     if IncomingPacket is empty put `{}` into IncomingPacket
     ! Iterate the rooms
@@ -1001,13 +1011,19 @@ ProcessResponses:
                         begin
                             print RelayName cat ` not responding (` cat T cat `)`
                             set property `ok` of Response to `False`
+                            delete property RoomName of XRData
                         end
                         else
                         begin
-                            print RelayName cat ` is good (` cat T cat `)`
+                            ! Check if this is the first appearance
+                            if XRData has property RoomName put property RoomName of XRData into TS
+                            else if TS is not 0 set property RoomName of XRData to TS
+                            multiply TS by 1000
+                            print RelayName cat ` is good (` cat T cat `) ` cat datime TS
                             if Item has property `i` set property `response` of Response to property `i` of Item
                         end
                         append Response to Items
+
                     end
                     else print `No data for ` cat RelayName
                     add 1 to RR
@@ -1017,6 +1033,10 @@ ProcessResponses:
         add 1 to N
     end
 !    print `Items: ` cat Items
+    ! Write back the XR information
+    open File `/mnt/data/xrdata` for writing
+    write stringify XRData to File
+    close File
 
     ! Process the direct responses, e.g. from Shelly devices
     put 0 into N

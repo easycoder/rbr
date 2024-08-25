@@ -230,17 +230,42 @@ class Core(Handler):
     def r_decrement(self, command):
         return self.incdec(command, '-')
 
-    # Delete a file
+    # Delete a file or a property
     def k_delete(self, command):
-        command['filename'] = self.nextValue()
-        self.add(command)
-        return True
+        token = self.nextToken( )
+        if token == 'file':
+            command['type'] = 'file'
+            command['filename'] = self.nextValue()
+            self.add(command)
+            return True
+        elif token == 'property':
+            command['key'] = self.nextValue();
+            if self.nextIs('of'):
+                command['type'] = 'property'
+                command['var'] = self.nextToken()
+                self.add(command)
+                return True
+            else:
+                self.warning(f'"of" expected; got {self.getToken()}')
+        else:
+            self.warning(f'"file" or "property" expected; got {token}')
+        return False
 
     def r_delete(self, command):
-        filename = self.getRuntimeValue(command['filename'])
-        if os.path.isfile(filename):
-            print('Deleting',filename)
-            os.remove(filename)
+        type = command['type']
+        if type == 'file':
+            filename = self.getRuntimeValue(command['filename'])
+            if os.path.isfile(filename):
+                print('Deleting',filename)
+                os.remove(filename)
+        elif type == 'property':
+            key = self.getRuntimeValue(command['key'])
+            symbolRecord = self.getVariable(command['var'])
+            value = self.getSymbolValue(symbolRecord)
+            content = value['content']
+            content.pop(key, None)
+            value['content'] = content
+            self.putSymbolValue(symbolRecord, value)
         return self.nextPC()
 
     # Arithmetic division
