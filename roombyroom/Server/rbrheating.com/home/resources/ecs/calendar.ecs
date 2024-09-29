@@ -1,4 +1,7 @@
 !	Calendar
+!	This drives the Calendar screen. It's called from the Profiles module
+!	It does not remain in memory but is loaded and compiled anew each time it is needed.
+!	The DOM elements used by this module are already loaded by the Profiles module.
 
 	script Calendar
     

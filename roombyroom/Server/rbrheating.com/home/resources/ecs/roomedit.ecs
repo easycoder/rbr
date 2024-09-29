@@ -1,4 +1,7 @@
 !	Room Editor
+!	Manages a menu of actions all relating to room characteristics,
+!	specifically to set the name of the room, identify the thermometer and relay(s)
+!	used in the room, and call the period editor.
 
 	script RoomEditor
     

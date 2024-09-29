@@ -5,7 +5,7 @@
     "background": "#ffc",
     "text-align": "center",
     "#": ["$Config", "$GetName", "$GetRequest", "$Pad",
-        "$PowerOn", "$PowerOff", "$PowerCycle", "$Pad",
+        "$PowerOff", "$Pad",
         "$Help", "$Cancel", "$Pad", "$StatusPanel"],
 
     "$Config": {
@@ -26,21 +26,9 @@
         "#": "$Button"
     },
 
-    "$PowerOn": {
-        "$ID": "button-start",
-        "$Label": "Power On",
-        "#": "$Button"
-    },
-
     "$PowerOff": {
         "$ID": "button-halt",
         "$Label": "Power Off",
-        "#": "$Button"
-    },
-
-    "$PowerCycle": {
-        "$ID": "button-restart",
-        "$Label": "Power Cycle",
         "#": "$Button"
     },
 

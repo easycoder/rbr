@@ -1,4 +1,14 @@
 !	Mode selection
+!	Manages the Mode dialog that appears when the user clicks a Mode button on the main UI.
+!	There are 3 primary modes:
+!	1 Timed: The radiator is only on at certain times of the day (depending on the chosen profile).
+!	At those times the system will attempt to match the temperature given for the current period.
+!	2 Always ON: The system will attempt to match the temperature shown in the Mode dialog for that room.
+!	Note that this is NOT a full manual override; just that there is no timing involved.
+!	3 Always OFF: The radiator value will never open.
+!	Other features handled here are Advance and Boost. Advance moves to the next timing period. Timing mode
+!	must be selected. Boost operates when the system is in Timed or OFF mode, by temporarily going into
+!	ON mode for the duration of the boost, then returning to the previous mode.
 
 	script Mode
     

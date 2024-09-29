@@ -1,4 +1,6 @@
 !	Room Tools
+!	This is a menu that allows the order of presentation of rooms to be adjusted,
+!	for rooms to be deleted and to call up a panel pof status information for a room.
 
 	script RoomTools
     
@@ -37,6 +39,7 @@
     variable SensorIP
     variable Sensor
     variable Timestamp
+    variable DisplayTime
     variable DateFormat
     variable RequestData
     variable Responses
@@ -163,7 +166,14 @@ Editor:
         put property `responses` of Sensors into Responses
         if Responses is empty
         begin
-        	alert `No data is being received from the relays`
+			print Sensors
+        	alert `No data is being received from the sensors`
+            stop
+        end
+        if the json count of Responses is empty
+        begin
+			print Sensors
+        	alert `No data is being received from the sensors`
             stop
         end
         put element ClickIndex of Responses into Response
@@ -229,9 +239,9 @@ Editor:
         set property `minute` of Item to `numeric`
         set property `hour12` of Item to false
         set property `options` of DateFormat to Item
-        put Timestamp cat `<br>(` cat Timestamp format DateFormat into Timestamp
-        put Timestamp cat `)` into Timestamp
-        set property `timestamp` of Sensor to Timestamp
+        put Timestamp cat `<br>(` cat Timestamp format DateFormat into DisplayTime
+        put DisplayTime cat `)` into DisplayTime
+        set property `timestamp` of Sensor to DisplayTime
         replace `":"` with `": "` in Sensor
         replace `",` with `"<br>` in Sensor
         replace `,\` with `, &nbsp;&nbsp;&nbsp;\` in Sensor

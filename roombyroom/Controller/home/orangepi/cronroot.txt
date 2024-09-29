@@ -1,4 +1,3 @@
-0 0 1 * * /usr/bin/python3 /home/orangepi/ec.py /home/orangepi/getStats.ecs
 * * * * * sh /home/orangepi/flags.sh
 0 * * * * sh /home/orangepi/server.sh
 0 0 * * * rm /mnt/data/logdata

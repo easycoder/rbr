@@ -2,7 +2,6 @@ import asyncio,hardware,functions,os,machine,gc
 
 watchdogCount=0
 
-###################################################################################
 def saveFile(name,content):
     if len(content)==0:
         raise(BaseException('...Empty file'))
@@ -23,7 +22,6 @@ def saveFile(name,content):
     else:
         raise(BaseException('...Did not save'))
 
-###################################################################################
 async def getFile(file):
     url='http://'+functions.getServer()
     if functions.isPrimary():
@@ -32,7 +30,6 @@ async def getFile(file):
         url+='/getFile?'+file
     return await functions.httpGET(url)
 
-###################################################################################
 async def update(version):
     try:
         print('Updating files.txt','...',end='')
@@ -58,8 +55,6 @@ async def update(version):
         await asyncio.sleep(1)
         machine.reset()
 
-###################################################################################
-# Watchdog
 async def watchdog():
     global watchdogCount
     while True:
@@ -71,9 +66,9 @@ async def watchdog():
             machine.reset()
         watchdogCount=0
 
-###################################################################################
 def run(version):
     print('Update to version',version)
+    hardware.setupPins()
     functions.getConfigData()
     if functions.connect()==False:
         return
@@ -87,5 +82,6 @@ def run(version):
         loop.run_forever()
     except Exception as e:
         print('Error occured: ', e)
+        raise(e)
     except KeyboardInterrupt:
         print('Program Interrupted by the user')

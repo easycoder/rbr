@@ -1,4 +1,6 @@
 !	Room By Room
+!	This is the main program for the RBR Heating user interface. It maintains the screen,
+!	populating it with information loaded from the website, and it calls other modules as they are needed.
 
 	script RoomByRoom
 
@@ -45,9 +47,7 @@
     button GetSystemNameButton
     button GetRequestButton
     button ModeButton
-    button StartButton
     button HaltButton
-    button RestartButton
     button OKButton
     button CancelButton
     button BackupButton
@@ -163,6 +163,8 @@
 
 !    debug step
 
+!	The following allows some debugging when the UI is running on a device with a keyboard
+!	and a console.
 	on key
     begin
     	if the key is `m` print MAC
@@ -208,6 +210,7 @@
     
     clear Debugging
 
+	! Refresh the UI every 5 seconds
 	fork to Main
     wait 5 seconds
     every 5 seconds
@@ -475,7 +478,7 @@ GetMap:
         set style `border` of StatusFlag to `1px solid lightred`
     end
     
-    on click StatusFlag go to SystemParameters
+    on click StatusFlag go to DoSystemParameters
 
 !   print Map
     put property `profiles` of Map into Profiles
@@ -840,7 +843,7 @@ GetMap:
         end
 
 	    ! Handle a click on a mode button
-        if Relays is not 0
+        if the json count of Relays is not 0
         begin
             attach ModeButton to `room-` cat RoomIndex cat `-mode-button`
             on click ModeButton
@@ -1018,7 +1021,7 @@ SystemManager:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	System parameters
-SystemParameters:
+DoSystemParameters:
 	set Blocked
     clear MainPanel
     rest get SysParamsWebson from `/resources/webson/sysparams.json?v=` cat now
@@ -1041,9 +1044,7 @@ SystemParameters:
 GSP2:
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
-    attach StartButton to `button-start`
     attach HaltButton to `button-halt`
-    attach RestartButton to `button-restart`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
     attach SystemStatusPanel to `rbr-status`
@@ -1062,34 +1063,31 @@ GSP2:
         go to GetRequestRelay
     end
 
-    on click StartButton
-    begin
-        set style `color` of StartButton to `lightgray`
-    	rest post to Server cat `/psu/` cat MAC cat `/` cat Password cat `/S`
-        set Redraw
-        clear Blocked
-    end
-
     on click HaltButton
     begin
-        set style `color` of HaltButton to `lightgray`
-        put `{}` into RequestData
-        set property `action` of RequestData to `halt`
-        fork to PostRequest
-    	rest post to Server cat `/psu/` cat MAC cat `/` cat Password cat `/H`
-        set Redraw
-        clear Blocked
-    end
-
-    on click RestartButton
-    begin
-        set style `color` of RestartButton to `lightgray`
-        put `{}` into RequestData
-        set property `action` of RequestData to `halt`
-        fork to PostRequest
-    	rest post to Server cat `/psu/` cat MAC cat `/` cat Password cat `/R`
-        set Redraw
-        clear Blocked
+        attach DialogPanel to `dialog-panel`
+        rest get Webson from `/resources/webson/dialog-confirm.json?v=` cat now
+        render Webson in DialogPanel
+        attach DialogTitle to `dialog-title`
+        attach DialogText to `dialog-text`
+        attach DialogButton1 to `dialog-button1`
+        attach DialogButton2 to `dialog-button2`
+        set the content of DialogTitle to `Confirm halt`
+        set the content of DialogText to `This will halt the system controller. It will need to be restarted manually.`
+        set the content of DialogButton1 to `OK`
+        set the content of DialogButton2 to `Cancel`
+        on click DialogButton1
+        begin
+            clear DialogPanel
+            set style `color` of HaltButton to `lightgray`
+            put `{}` into RequestData
+            set property `action` of RequestData to `halt`
+            fork to PostRequest
+            ! rest post to Server cat `/psu/` cat MAC cat `/` cat Password cat `/H`
+            set Redraw
+            clear Blocked
+        end
+        on click DialogButton2 clear DialogPanel
     end
 
     on click HelpButton
@@ -1343,6 +1341,7 @@ Statistics:
     rest get Script from `/resources/ecs/statistics.ecs?v=` cat now
         or go to HandleRestError
     run Script with StatisticsPanel and Map
+    print `Statistics finished`
     set style `display` of OuterPanel to `block`
     set style `display` of StatisticsPanel to `none`
     clear MainPanel

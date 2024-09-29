@@ -26,7 +26,7 @@
 
     "$Devices": {
         "$ID": "button-devices",
-        "$Label": "Edit device IP addresses",
+        "$Label": "Edit device parameters",
         "#": "$Button"
     },
 

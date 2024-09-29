@@ -1,48 +1,22 @@
 # Import necessary modules
-import network,asyncio,socket,ubinascii,time,machine,json
+import os,network,asyncio,socket,ubinascii,time,machine,json
 from machine import Pin
-
-configHTML='''
-<!DOCTYPE html>
-<html>
-<body>
-	<h1>XR relay - setup data</h1>
-	<form action="/setup" method="get">
-		<label>Relay Name:</label>
-		<input type="text" id="name"
-			name="Relay Name"><br><br>
-
-		<label>Host SSID:</label>
-		<input type="text" id="hostssid"
-			name="Host SSID"><br><br>
-
-		<label>Host Password:</label>
-		<input type="text" id="hostpass"
-			name="Host Password"><br><br>
-
-		<label>My Password:</label>
-		<input type="text" id="mypass"
-			name="My Password"><br><br>
-
-		<input type="submit" value="Setup">
-	</form>
-</body>
-</html>
-'''
-
-ackHTML='''
-<!DOCTYPE html>
-<html>
-<body>
-	<h1>Relay is now configured and will restart</h1>
-</body>
-</html>
-'''
 
 def info():
     print('This handles unconfigured mode')
 
-led_blink = Pin(2, Pin.OUT)
+try:
+    os.stat('esp32')
+    led_blink=Pin(23,mode=Pin.OUT)
+except OSError:
+    led_blink=Pin(2,mode=Pin.OUT)
+
+def fileExists(filename):
+    try:
+        os.stat(filename)
+        return True
+    except OSError:
+        return False
 
 # Asynchronous function to handle client's requests
 async def handle_client(reader, writer):
@@ -86,10 +60,11 @@ async def handle_client(reader, writer):
     print(cmd,args)
     
     # Generate HTML response
+    import hardware
     resetRequest=False
     response = 'OK'
     if cmd is 'config':
-        response=configHTML
+        response=hardware.readFile('config.html')
     elif cmd is 'setup':
         items=args.split('&')
         for item in items:
@@ -100,7 +75,7 @@ async def handle_client(reader, writer):
         f.close()
         
         await asyncio.sleep(1)
-        response=ackHTML
+        response=hardware.readFile('ack.html')
         resetRequest=True
     else:
         try:

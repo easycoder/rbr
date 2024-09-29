@@ -127,7 +127,6 @@
 
     	set property `request` of Result to `Update`
 		set property `data` of Result to RequestData
-print Result
     	remove element ConfigPanel
         exit
 	end

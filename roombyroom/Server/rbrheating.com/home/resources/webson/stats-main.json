@@ -1,0 +1,88 @@
+{
+    "#element": "div",
+    "@id": "main-panel",
+    "margin": "0 auto",
+    "#": ["$ButtonPanel", "$GraphPanel", "$CloseButton"],
+
+    "$ButtonPanel": {
+        "#element": "div",
+        "@id": "button-panel",
+        "width": "20vw",
+        "height": "auto",
+        "margin": "1em auto 0 auto",
+        "border": "1px solid blue",
+        "background": "#ffc",
+        "#": ["$Title", "$Background"],
+
+        "$Title": {
+            "#element": "div",
+            "@id": "buttons-title",
+            "text-align": "center",
+            "font-weight": "bold",
+            "border-bottom": "1px solid blue"
+        },
+
+        "$Background": {
+            "#element": "div",
+            "@id": "button-background",
+            "width": "100%",
+            "height": "auto",
+            "margin": "0.5em 0",
+            "text-align": "center"
+        }
+    },
+
+    "$GraphPanel": {
+        "#element": "div",
+        "@id": "graph-panel",
+        "display": "none",
+        "flex-direction": "column",
+        "height": "100%",
+        "overflow": "hidden",
+        "#": ["$Top", "$Bottom"],
+
+        "$Top": {
+            "#element": "div",
+            "flex": 1,
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$ColumnLabels", "$GraphBackground"],
+
+            "$ColumnLabels": {
+                "#element": "div",
+                "@id": "column-labels",
+                "position": "relative",
+                "width": "5em",
+                "text-align": "right"
+            },
+
+            "$GraphBackground": {
+                "#element": "div",
+                "@id": "graph-background",
+                "position": "relative",
+                "flex": 1,
+                "border": "1px solid black",
+                "background": "#ffc"
+            }
+        },
+
+        "$Bottom": {
+            "#element": "div",
+            "height": "6em",
+            "@id": "row-labels",
+            "position": "relative",
+            "text-align": "center"
+        }
+    },
+
+    "$CloseButton": {
+        "#element": "button",
+        "@id": "stats-close",
+        "width": "auto",
+        "height": "2em",
+        "margin": "1em auto 0 auto",
+        "font-size": "1.2em",
+        "font-weight": "bold",
+        "#content": "Close"
+    }
+}

@@ -1,4 +1,6 @@
 !	Period Editor
+!	This presents an editing panel for Timed mode. The user can add any number of
+!	timing periods and set a desired temperature for each one.
 
 	script PeriodEditor
     

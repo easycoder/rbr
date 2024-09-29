@@ -1,4 +1,7 @@
 !	System Manager
+!	This module allows more than one system to be managed from a single device.
+!	It handles user login and the addition or removal of systems to manage.
+!	The database holds a list of managed systems for each registered user.
 
 	script SystemManager
 

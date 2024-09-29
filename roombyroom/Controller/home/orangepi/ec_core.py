@@ -1214,6 +1214,21 @@ class Core(Handler):
         self.add(command)
         return self.nextPC()
 
+    # Truncate a file
+    def k_truncate(self, command):
+        if self.nextIsSymbol():
+            fileRecord = self.getSymbolRecord()
+            if fileRecord['keyword'] == 'file':
+                command['file'] = fileRecord['name']
+                self.add(command)
+                return True
+        return False
+
+    def r_truncate(self, command):
+        fileRecord = self.getVariable(command['file'])
+        fileRecord['file'].truncate()
+        return self.nextPC()
+
     # Declare a general-purpose variable
     def k_variable(self, command):
         return self.compileVariable(command, True)

@@ -1,8 +1,6 @@
 import os
 from machine import Pin
 
-led = Pin(2, Pin.OUT)
-
 ###################################################################################
 def fileExists(filename):
     try:
@@ -32,14 +30,23 @@ def readFile(name):
 
 ###################################################################################
 def setupPins():
-    global relay,led
-    relay=Pin(0,mode=Pin.OUT)
-    led=Pin(2,mode=Pin.OUT)
+    global relay,led, esp32
+    if fileExists('esp32'):
+        relay=Pin(16,mode=Pin.OUT)
+        led=Pin(23,mode=Pin.OUT)
+        esp32 = True
+    else:
+        relay=Pin(0,mode=Pin.OUT)
+        led=Pin(2,mode=Pin.OUT)
+        esp32 = False
 
 ###################################################################################
 def setLED(onoff):
-    global led
-    led.off() if onoff else led.on()
+    global led, esp32
+    if esp32:
+        led.on() if onoff else led.off()
+    else:
+        led.off() if onoff else led.on()
 
 ###################################################################################
 def setRelay(onoff):

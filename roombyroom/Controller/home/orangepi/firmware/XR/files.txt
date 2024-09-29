@@ -1,8 +1,12 @@
 boot.py
 main.py
+maps.py
 configured.py
+handleClient.py
 hardware.py
 functions.py
 urlencode.py
 unconfigured.py
 updater.py
+config.html
+ack.html
