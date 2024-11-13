@@ -48,7 +48,7 @@ async def update(version):
         if hardware.fileExists('update'):
             os.remove('update')
         print("Update complete - rebooting")
-        await asyncio.sleep(1)
+        await asyncio.sleep(5)
         machine.reset()
     except (BaseException) as error:
         print(error,'\nUpdate aborted')
@@ -67,7 +67,7 @@ async def watchdog():
         watchdogCount=0
 
 def run(version):
-    print('Update to version',version)
+    print('Updater: update to version',version)
     hardware.setupPins()
     functions.getConfigData()
     if functions.connect()==False:
@@ -78,7 +78,6 @@ def run(version):
     loop.create_task(watchdog())
 
     try:
-        # Run the event loop indefinitely
         loop.run_forever()
     except Exception as e:
         print('Error occured: ', e)

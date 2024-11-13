@@ -1,4 +1,4 @@
-import gc,os,json,hardware,maps
+import gc,os,json,hardware,maps,functions
 
 # Asynchronous function to handle client requests
 async def handleClient(reader, writer):
@@ -23,12 +23,18 @@ async def handleClient(reader, writer):
 
     # Generate HTML response
     resetRequest=False
-    if cmd=='reboot':
+    if cmd is 'config':
+        response=hardware.readFile('config.html')
+    elif cmd=='reboot':
         response='reboot'
         resetRequest=True
     elif cmd=='reset':
         response='Factory reset'
         os.remove('config.json');
+        resetRequest=True
+    elif cmd=='debug':
+        response='Run debugger'
+        hardware.writeFile('debug', 'y')
         resetRequest=True
     elif cmd=='poll':
         if data.startswith('data='):
@@ -47,19 +53,22 @@ async def handleClient(reader, writer):
             if len(response)==0:
                 response=None
     else:
+        pollTotal=maps.getPollTotal()
         d=int(pollTotal/360/24)
         t=pollTotal*10%(3600*24)
         h=int(t/3600)
         t=t%3600
         m=int(t/60)
         s=t%60
-        response=f'{functions.getMyName()} v{currentVersion} {functions.getMySSID()} from {functions.getHostSSID()} {hardware.getRelay()} {d}:{h}:{m}:{s}'
+        response=f'{functions.getMyName()} v{maps.getCurrentVersion()} {functions.getMySSID()} from {functions.getHostSSID()} {functions.getRSSI()} {hardware.getRelay()} {d}:{h}:{m}:{s}'
 
     writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
     writer.write(response)
     await writer.drain()
     await writer.wait_closed()
     if resetRequest:
-        await asyncio.sleep(1)
+        import time,machine
+        time.sleep(1)
         machine.reset()
     gc.collect()
+

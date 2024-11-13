@@ -1,20 +1,13 @@
 ## System overview
 
-The RBR system lets you control any radiator or group of radiators, linking them to a thermometer module in the room being controlled. You can choose to control part or all of a house. A small computer serves as the local system controller and the user interface is any computer or smartphone, inside the house or anywhere else via the Internet.
+The RBR system lets you control any radiator or group of radiators, linking them to a thermometer module in the room being controlled. You can choose to equip part or all of a house with this system. A small computer serves as the local system controller and the user interface is any computer or smartphone, inside the house or anywhere else via the Internet.
 
 The RBR system is based on thermo-electric radiator valve actuators, which replace the thermostatic actuators commonly used to control room temperature. It's just a matter of unscrewing the thermostatic actuator and screwing on the electric one; no plumbing changes are needed. A typical actuator looks like this:~clear~
 ~img:danfoss.jpg:center 40%~
 ~clear~
 
-~img:roomkit.jpg:left 50%~ Here's a photo (tap to enlarge) of a "room kit" - all the parts needed to equip a single room with a single radiator, using a standard UK pattress box. The relay is the small blue item inside the box, which also has a neon indicator to show when power is applied to to the actuator (right of photo). It plugs into a standard wall outlet and communicates by wifi with the system controller. On the upper left is a Shelly H&T thermometer unit.
+~img:roomkit.jpg:left 50%~ Here's a photo (tap to enlarge) of a "room kit" - the parts needed to equip a single room with a single radiator. The box has a neon indicator to show when power is applied to to the actuator, and a 3-way switch to provide manual override if needed. It plugs into a standard wall outlet, communicates by wifi with the system controller and controls the radiator actuator shown in the photo.
 
-The actuator is powered from a remotely-controlled relay, which is plugged into a mains power socket. The thermometer regularly sends its current temperature to the system controller, which runs through a set of rules to decide whether to turn on heating and sends commands to the actuator relay(s). The system status is sent to a web server which talks to the webapp you are using now and enables you to control all aspects of the system.
-
-There are two options for the relay. One is a standard Tasmota smart plug, which can be used to control any mains-powered device. The other is our own relay, which mounts next to the radiator. It has a large green neon indicator and a 3-way switch that lets you override the computer control if you need to.
-
-~img:shelly1.jpg:left 25%~ This is a Shelly 1 relay.
-~clear~
-~img:shellyht.jpg:left 25%~ To monitor temperature.
-~clear~
+Also shown is a Xiaomi Mijia thermometer unit, which regularly sends its current temperature to the system controller, which runs through a set of rules to decide whether to turn on heating and sends commands to the actuator relay(s). The system status is sent to a web server which talks to the webapp you are using now and enables you to control all aspects of the system.
 
 ~sid:Index:Index of pages~

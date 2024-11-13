@@ -7,7 +7,7 @@
     "$ButtonPanel": {
         "#element": "div",
         "@id": "button-panel",
-        "width": "20vw",
+        "width": "50%",
         "height": "auto",
         "margin": "1em auto 0 auto",
         "border": "1px solid blue",
@@ -37,7 +37,8 @@
         "@id": "graph-panel",
         "display": "none",
         "flex-direction": "column",
-        "height": "100%",
+        "height": "95%",
+        "margin-top": "0.5em",
         "overflow": "hidden",
         "#": ["$Top", "$Bottom"],
 
@@ -80,7 +81,7 @@
         "@id": "stats-close",
         "width": "auto",
         "height": "2em",
-        "margin": "1em auto 0 auto",
+        "margin": "1em auto 1em auto",
         "font-size": "1.2em",
         "font-weight": "bold",
         "#content": "Close"

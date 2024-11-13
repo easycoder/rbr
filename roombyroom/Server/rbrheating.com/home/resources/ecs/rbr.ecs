@@ -634,7 +634,8 @@ GetMap:
             begin
             	set style `color` of RoomTempPanel to `white`
                 put property `temperature` of SensorSpec into Temperature
-        		set the content of RoomTempPanel to Temperature cat `&deg;C`
+                if Temperature is empty set the content of RoomTempPanel to empty
+                else set the content of RoomTempPanel to Temperature cat `&deg;C`
             	put property `relay` of SensorSpec into RelayState
             	if RelayState is `on` set style `background` of RoomTempPanel to `red`
             	else set style `background` of RoomTempPanel to `blue`
@@ -710,7 +711,7 @@ GetMap:
 	        attach ModeInfo to `room-` cat RoomIndex cat `-mode-info`
             if SensorSpec is empty
             begin
-                set style `background` of RoomStatusButton to `lightgreay`
+                set style `background` of RoomStatusButton to `lightgray`
                 set style `border` of RoomStatusButton to `1px solid gray`
             end
             else

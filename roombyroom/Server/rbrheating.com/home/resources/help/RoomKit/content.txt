@@ -1,43 +1,19 @@
 ## Setting up a Room Kit
 
 ~img:roomkit.jpg:50% center~
-This is a room kit. It comprises a radiator valve actuator, on the right of the photo, powered from a box containing a wifi-controlled relay. It can turn on and off a radiator or any other plumbed item with a 30mm screw fitting. The relay can switch up to 16 amps so the actuator can be replaced by direct resistance heating (e.g an electric fire) up to that rating. In the upper left of the photo is a wifi thermometer module.
+This is a room kit. It comprises a radiator valve actuator powered from a box containing a wifi-controlled relay. It can turn on and off a radiator, under-floor heater grid or any other plumbed item with a 30mm screw fitting. The box has a green indicator to show when the radiator is on, and a 3-way switch allowing full manual override if needed. Also shown in the photo is a Xiaomi Mijia Bluetooth thermometer module.
 
 You can equip as many rooms as you like with room kits. If you wish to leave some rooms controlled by conventional thermostatic actuators, this is no problem. It allows you to evaluate RBR on a room by room basis without the need to splash out on a complete system right at the start.
 
-### Setting up a relay
+### Setting up a room kit
 
-To set up a relay, power it up then go to the wifi access screen on your computer. In the list of nearby hotspots you will see one with a name starting with `shelly`. Choose this one. No password is needed as this is just a temporary step. Then put the address `http://192.168.33.1` into your browser and the following screen should appear:
-~img:shelly01.jpg:50% center~
-Click the `Internet and Security` button and this screen will appear:
-~img:shelly02.jpg:50% center~
-On this screen you will connect the relay to your local network. Make sure the Connect tickbox is ticked, then type the name of your wifi router into the box, exactly as it appears in the list of hotspots. Type the password into the next box then select `Set static IP address`. Choose an address on your local network that you know is not in use; preferably pick one that your DHCP server will not allocate. The details of this depend on your router model. Also give the Gateway address; this is often the network IP address of the router itself, but some routers require you to use a generic gateway such as `8.8.8.8`.
+There is rarely any need to perform any maintenance on the room kit, but here are some notes:
 
-Now click `Save`. You should see a confirmation screen like this:
-~img:shelly03.jpg:50% center~
-Reconnect your computer to your house wifi and put the address you chose for the relay into your browser. The original screen should reappear:
-~img:shelly04.jpg:50% center~
-but with the time showing in the top right corner, proof that it's connected to the Internet.
+Each room kit contains a small computer that connects to the system controller by wifi. It also publishes its own wifi hotspot, with its SSID written on a label on the box. The password will have been provided by the system installer. When you connect to the hotspot you will be assigned an IP address that's either 172.24.100.x or 172.24.101 x, where 'x' is a number between 2 and 5. The room kit itself is either 172.24.100.1 or 172.24.101.1. If connect to it at that address it will return a single line of text giving the current status of the device. This includes the SSID and RSSI (signal strength) of its connection to the system controller, which might be via another room kit. If the RSSI is less (more negative) than -100 you should seek advice from the system installer on whether to reconfigure the system, as too low a signal strength will result in poor reliability.
 
-The next step is highly recommended. Shelly update their device firmware from time to time and it's quite likely that the models you bought have out-of-date firmware. So go to the `Settings` menu and select the `Firmware Update` option. If it offers a newer version, click the button to update.
-~img:shelly05.jpg:50% center~
-Your relay is now ready for use. You can test it by clicking the icon in the upper right of the screen to turn it on and off. If all is well the light on its box will go on and off. Depending on the model of actuator you may also see this opening and closing, though these actions commonly take a couple of minutes to complete and the result is not always visible. The best test is to replace an existing thermostatic actuator with this one and send commnds to open and close.
+The Mijia thermometer has a battery life of up to a year, after which its screen rapidly dims before communication eventually ceases. At this point, install a new battery. The battery state reported by the device can be read by tapping the temperature oval for that room on the user interface. Both the battery state and RSSI can also be read by tapping the paper and pencil icon then "Show rooom info". To determine the MAC address of the Mijia, use the `nRF Connect` smartphone app.
 
-Once set up, the relay can always be accessed at its new address. If you want to use the relay in a different system, be sure to give it a "factory reset" first, or you may not be able to see it on the new system.
-
-### Setting up a thermometer
-
-A thermometer module is set up in much the same way, with a few extra settings that govern how the device will respond to changes of temperature and humidity, all of which are pretty well self-explanatory. One major difference, though, is that instead of the controller addressing the thermometer in the way it does for a relay, it's the thermometer that initiates an action by sending a message to the controller. So you need to specify in the settings where messages should be sent. The value to type in this field is
-```
-http://192.168.x.y:5555
-```
-where `x.y` are the last part of the IP address of your system controller.
-
-To preserve battery life, the thermometer will only be visible on the local network if you push its reset button, allowing you a few minutes to connect to it and edit its settings before it goes offline again.
-
-The default is for the thermometer to report changes of temperature, with a minimum difference of 1 degree, but to otherwise remain silent. Every 12 hours it will send a confirmatory message even if no temperature change has occurred. You can force it to send updates every 10 minutes by telling it there is a power supply attached, but if that's not really the case the battery life will be adversely affected.
-
-If you completely lose contact with a temperature module, hold its reset button down for at least 5 seconds, until the internal red light starts flashing. This in effect performs a factory reset.
+Note to devlopers: Inside the room kit is a relay board with an ESP-01S processor plugged into it. The latter can be removed and connected to a computer running a suitable program such as Thonny. The firmware inside the ESP-01 is Micropython and you will be able to access all the Python scripts that control the device, as well as its configuration data. The [RBR repository](https://github.com/easycoder/rbr) contains all the source code and documentation.
 
 ~stid:Controller/content:The system controller~
 

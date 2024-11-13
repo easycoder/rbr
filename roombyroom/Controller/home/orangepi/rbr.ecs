@@ -91,6 +91,7 @@
     variable TPEmail
     variable TPPassword
     variable XRData
+    variable IProps
     variable RA
     variable E
     variable EE
@@ -418,7 +419,10 @@ SkipRequests:
             if RelayType is empty put `` into RelayType
 
             ! Get the room status
-            put `/mnt/data/rs` cat RoomNumber into RoomStatusFileName
+            put `/mnt/data/rs` into RoomStatusFileName
+            if file RoomStatusFileName exists begin end
+            else create directory RoomStatusFileName
+            put RoomStatusFileName cat `/` cat RoomNumber into RoomStatusFileName
             if file RoomStatusFileName exists
             begin
                 open File RoomStatusFileName for reading
@@ -550,6 +554,7 @@ ProcessRoom:
     else
     begin
         if Sensor is empty return
+        if Sensor is RoomName go to GetAdvance
         put RamDisk cat `/sensors/` cat Sensor cat `.txt` into SensorFileName
         if left 3 of Sensor is `T1-`
         begin
@@ -613,6 +618,7 @@ ProcessRoom:
     end
 
     ! Make sure there's an 'advance' file. Read it into Advance
+GetAdvance:
     if file RamDisk cat `/advance/` cat Sensor exists
     begin
         open File RamDisk cat `/advance/` cat Sensor for reading
@@ -719,11 +725,13 @@ ProcessRoom:
     if Mode is `on`
     begin
         put `on` into HeatingStatus
-        put property `target` of Room into TargetTemp
-        gosub to MultiplyTT
-        if RelayType is `Manual` go to TurnOn
-        if Temperature is less than Target go to TurnOn
-        go to TurnOff
+        if Sensor is RoomName go to TurnOn
+        else
+            put property `target` of Room into TargetTemp
+            gosub to MultiplyTT
+            if Temperature is less than Target go to TurnOn
+            go to TurnOff
+        end
     end
 
     ! Default: timed mode. Check each of the events
@@ -1011,7 +1019,7 @@ ProcessResponses:
         take TS from the timestamp giving T
         if T is greater than 300
         begin
-            print RoomName cat ` not responding (` cat T cat `)`
+            print `No recent response from ` cat RoomName cat `(` cat T cat `)`
             set property `ok` of Response to `False`
             delete property RoomName of XRData
         end
@@ -1058,7 +1066,7 @@ ProcessResponses:
                         take TS from the timestamp giving T
                         if T is greater than 300
                         begin
-                            print RelayName cat ` not responding (` cat T cat `)`
+                            print `No recent response from ` cat RelayName cat `(` cat T cat `)`
                             set property `ok` of Response to `False`
                             delete property RoomName of XRData
                         end
@@ -1070,7 +1078,19 @@ ProcessResponses:
                             multiply TS by 1000
                             put datime TS format `%H:%M:%S` into TS
                             print RelayName cat ` ` cat TS cat ` ` cat T
-                            if Item has property `i` set property `response` of Response to property `i` of Item
+                            if Item has property `i`
+                            begin
+                                put property `i` of Item into IProps
+                                set property `response` of Response to IProps
+                                split IProps on `,`
+                                put 0 into P
+!                                while P is less than the elements of IProps
+!                                begin
+!                                    index IProps to P
+!                                    print `IProps ` cat P cat `: ` cat IProps
+!                                    add 1 to P
+!                                end
+                            end
                         end
                         append Response to Items
 
@@ -1238,10 +1258,10 @@ PostSensorLog:
     write stringify RoomStatus to File
     write newline to File
     close File
-    open File `/mnt/data/logdata` for appending
-    write stringify RoomStatus to File
-    write newline to File
-    close File
+!    open File `/mnt/data/logdata` for appending
+!    write stringify RoomStatus to File
+!    write newline to File
+!    close File
 
     print `Room status: ` cat stringify RoomStatus
     if Password is not empty post stringify RoomStatus to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password

@@ -769,7 +769,7 @@
                     if (!file_exists($file)) mkdir($file);
                     $file .= "/$day";
                     $fp = fopen($file, "a+") or die("Can't open $file");
-                    fwrite($fp, "$ts $target $temp\n");
+                    fwrite($fp, "$ts,$target,$temp\n");
                     fclose($fp);
                 } else {
                     http_response_code(404);

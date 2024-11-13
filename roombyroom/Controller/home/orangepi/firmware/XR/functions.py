@@ -5,34 +5,34 @@ import hardware
 myname=None
 myssid=None
 mypass=None
+rssi=None
+station=None
 
-###################################################################################
+def reset():
+    time.sleep(1)
+    machine.reset()
+
 def getMyName():
     global myname
     return myname
 
-###################################################################################
 def getHostSSID():
     global hostssid
     return hostssid
 
-###################################################################################
 def getMySSID():
     global myssid
     return myssid
 
-###################################################################################
 def setMyPassword(p):
     global mypass
     mypass=p
 
-###################################################################################
 def isPrimary():
     global station
     path=station[2]
     return path=='172.24.1.1'
 
-###################################################################################
 def getServer():
     global station
     path=station[2]
@@ -40,8 +40,10 @@ def getServer():
         return path+'/resources/php/rest.php/'
     return path
 
-###################################################################################
-# Get the configuration data
+def getRSSI():
+    global rssi
+    return rssi
+
 def getConfigData():
     global myname,hostssid,hostpass,mypass
     if hardware.fileExists('config.json'):
@@ -54,11 +56,8 @@ def getConfigData():
     else:
         print('\nCan\'t load the config file')
         os.remove('config.json')
-        time.sleep(1)
-        machine.reset()
+        reset()
 
-###################################################################################
-# The Access Point
 async def setupAP():
     global station,myssid,mypass
     ap = network.WLAN(network.AP_IF)
@@ -66,13 +65,16 @@ async def setupAP():
     print('Set up AP for',myssid,'with',mypass)
     ap.active(True)
     ap.config(essid=myssid, authmode=3, password=mypass)
-    mynet=station[2]
-    ip=mynet.split('.')
-    if ip[2]=='100':
-        ip[2]='101'
+    if station!=None:
+        mynet=station[2]
+        ip=mynet.split('.')
+        if ip[2]=='100':
+            ip[2]='101'
+        else:
+            ip[2]='100'
+        myip=ip[0]+'.'+ip[1]+'.'+ip[2]+'.1'
     else:
-        ip[2]='100'
-    myip=ip[0]+'.'+ip[1]+'.'+ip[2]+'.1'
+        myip='172.24.100.1'
     ap.ifconfig((myip, '255.255.255.0', myip, '8.8.8.8'))
     ap.active(True)
 
@@ -82,20 +84,23 @@ async def setupAP():
         timeout-=1
         if timeout==0:
             print('\nCan\'t set up AP')
-            await asyncio.sleep(1)
-            machine.reset()
+            reset()
 
     print('AP:',ap.ifconfig())
 
-###################################################################################
-# Connect to our host
 def connect():
-    global station,hostssid,hostpass
+    global station,hostssid,hostpass,rssi
     print('connect',hostssid)
     sta_if = network.WLAN(network.STA_IF)
     sta_if.active(True)
+    for (ssid, bssid, channel, RSSI, authmode, hidden) in sta_if.scan():
+        if ssid.decode("utf-8")==hostssid:
+          rssi="{}".format(RSSI)
+    print('RSSI:',rssi)
+    if rssi==None:
+        reset()
     sta_if.connect(hostssid,hostpass)
-    print('Connecting to',hostssid)
+    print('Connecting...')
     timeout=60
     while sta_if.isconnected()==False:
         time.sleep(1)
@@ -103,13 +108,11 @@ def connect():
         timeout-=1
         if timeout==0:
             print('\nCan\'t connect to',hostssid)
-            machine.reset()
+            reset()
     station=sta_if.ifconfig()
     print('\nConnected as',station[0])
     return True
 
-###################################################################################
-# Do an HTTP GET
 async def httpGET(url):
 #    print('Get',url)
     hardware.setLED(True)
