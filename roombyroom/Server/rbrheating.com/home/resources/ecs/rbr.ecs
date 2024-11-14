@@ -132,6 +132,7 @@
     variable UntilTemp
     variable Waiting
     variable Flashing
+    variable Flashes
     variable Value
     variable Count
     variable Keys
@@ -1439,14 +1440,19 @@ PAC4:
 FlashHourglass:
     set Waiting
     set Flashing
+    put 0 into Flashes
 	while Waiting
     begin
     	set style `display` of Hourglass to `block`
     	wait 50 ticks
         set style `display` of Hourglass to `none`
         wait 50 ticks
+        add 1 to Flashes
+        if Flashes is greater than 99 go to FH2
     end
+FH2:
     clear Flashing
+    clear Waiting
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

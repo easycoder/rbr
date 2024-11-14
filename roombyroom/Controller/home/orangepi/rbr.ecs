@@ -92,6 +92,11 @@
     variable TPPassword
     variable XRData
     variable IProps
+    variable PollDir
+    variable PollFile
+    variable PollCount
+    variable RestartDir
+    variable RestartFile
     variable RA
     variable E
     variable EE
@@ -1046,6 +1051,12 @@ ProcessResponses:
         begin
             if property `relayType` of Room is `RBR XR`
             begin
+                put `/mnt/data/poll` into PollDir
+                if file PollDir exists begin end
+                else create directory PollDir
+                put `/mnt/data/restart` into RestartDir
+                if file RestartDir exists begin end
+                else create directory RestartDir
                 put json `{}` into Response
                 set property `name` of Response to RoomName
                 set property `sensor` of Response to property `sensor` of Room
@@ -1081,15 +1092,36 @@ ProcessResponses:
                             begin
                                 put property `i` of Item into IProps
                                 set property `response` of Response to IProps
-                                print `IProps: ` cat IProps
                                 split IProps on `,`
                                 put 0 into P
-!                                while P is less than the elements of IProps
-!                                begin
-!                                    index IProps to P
-!                                    print `IProps ` cat P cat `: ` cat IProps
-!                                    add 1 to P
-!                                end
+                                while P is less than the elements of IProps
+                                begin
+                                    index IProps to P
+!                                    print `IProp ` cat P cat `: ` cat IProps
+                                    add 1 to P
+                                end
+                                index IProps to 1
+                                put PollDir cat `/` cat IProps into PollFile
+                                if file PollFile exists
+                                begin
+                                    open File PollFile for reading
+                                    read PollCount from File
+                                    close File
+                                end
+                                else put 0 into PollCount
+                                put RestartDir cat `/` cat IProps into RestartFile
+                                index IProps to 3
+                                print IProps cat ` - ` cat PollCount
+                                if IProps is less than PollCount
+                                begin
+!                                    print RoomName cat ` restarted at ` cat now cat ` after ` cat PollCount cat `polls`
+                                    open File RestartFile for writing
+                                    write now to File
+                                    close File
+                                end
+                                open File PollFile for writing
+                                write IProps to File
+                                close File
                             end
                         end
                         append Response to Items

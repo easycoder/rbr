@@ -803,10 +803,13 @@ class Core(Handler):
 
     def r_print(self, command):
         value = self.getRuntimeValue(command['value'])
+        program = command['program']
+        code = program.code[program.pc]
+        lino = code['lino'] + 1
         if value == None:
-            print('<empty>')
+            print(f'{lino}: <empty>')
         else:
-            print(f'-> {value}')
+            print(f'{lino}: {value}')
         return self.nextPC()
 
     # Push a value onto a stack

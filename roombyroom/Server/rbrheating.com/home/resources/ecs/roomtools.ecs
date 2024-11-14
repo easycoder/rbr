@@ -44,6 +44,7 @@
     variable RequestData
     variable Responses
     variable Response
+    variable Restart
     variable Item
     variable Host
     variable SSID
@@ -54,7 +55,6 @@
     variable N
     variable M
     variable R
-    variable P
 
 !    debug step
     
@@ -166,6 +166,17 @@ Editor:
     
     on click RoomInfoButton
     begin
+        set DateFormat to object
+        set property `mode` of DateFormat to `date`
+        set property `locale` of DateFormat to `en-EN`
+        set Item to object
+!        set property `year` of Item to `numeric`
+        set property `month` of Item to `long`
+        set property `day` of Item to `numeric`
+        set property `hour` of Item to `numeric`
+        set property `minute` of Item to `numeric`
+        set property `hour12` of Item to false
+        set property `options` of DateFormat to Item
         put property `responses` of Sensors into Responses
         if Responses is empty
         begin
@@ -204,6 +215,7 @@ Editor:
                 begin
                 	if from 3 of IP is Relay
                     begin
+                        put property `restart` of Item into Restart
 	                    put property `response` of Item into Item
                     	split Item on `,`
                         index Item to 0
@@ -218,6 +230,7 @@ Editor:
                         put Item into RSSI
                         put `Host: ` cat Host cat `<br>SSID: ` cat SSID cat `<br>RSSI: ` cat RSSI cat `<br>Poll: ` cat Poll into Response
                         if RelayState is not `-` put Response cat `<br>Relay: ` cat RelayState into Response
+                        if Restart is not 0 put Response cat `<br>Restarted: ` cat Restart format DateFormat into Response
                     end
                 end
                 else
@@ -239,19 +252,7 @@ Editor:
         put property SensorIP of Sensors into Sensor
         if Response is empty put `<none>` into Response
         put property `timestamp` of Sensor into Timestamp
-        set DateFormat to object
-        set property `mode` of DateFormat to `date`
-        set property `locale` of DateFormat to `en-EN`
-        set Item to object
-        set property `year` of Item to `numeric`
-        set property `month` of Item to `long`
-        set property `day` of Item to `numeric`
-        set property `hour` of Item to `numeric`
-        set property `minute` of Item to `numeric`
-        set property `hour12` of Item to false
-        set property `options` of DateFormat to Item
-        put Timestamp cat `<br>(` cat Timestamp format DateFormat into DisplayTime
-        put DisplayTime cat `)` into DisplayTime
+        put Timestamp format DateFormat into DisplayTime
         set property `timestamp` of Sensor to DisplayTime
         replace `":"` with `": "` in Sensor
         replace `",` with `"<br>` in Sensor
@@ -260,6 +261,7 @@ Editor:
         replace `{` with `` in Sensor
         replace `}` with `` in Sensor
         replace `""` with `"` in Sensor
+        replace `"` with `` in Sensor
         set the content of DialogText to `Information about this room:<br><br>` cat Sensor
         	cat `<br><br>-- Response --<br>` cat Response
 
