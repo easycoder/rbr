@@ -32,10 +32,6 @@ async def handleClient(reader, writer):
         response='Factory reset'
         os.remove('config.json');
         resetRequest=True
-    elif cmd=='debug':
-        response='Run debugger'
-        hardware.writeFile('debug', 'y')
-        resetRequest=True
     elif cmd=='poll':
         if data.startswith('data='):
             data=data[5:].replace('%20',' ').replace('%22','"')
@@ -60,15 +56,14 @@ async def handleClient(reader, writer):
         t=t%3600
         m=int(t/60)
         s=t%60
-        response=f'{functions.getMyName()} v{maps.getCurrentVersion()} {functions.getMySSID()} from {functions.getHostSSID()} {functions.getRSSI()} {hardware.getRelay()} {d}:{h}:{m}:{s}'
+        response=f'{functions.getMyName()} v{maps.getCurrentVersion()} {functions.getMAC()} from {functions.getHostSSID()},{functions.getRSSI()} {hardware.getRelay()} {d}:{h}:{m}:{s}'
 
     writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
     writer.write(response)
     await writer.drain()
     await writer.wait_closed()
     if resetRequest:
-        import time,machine
-        time.sleep(1)
+        await asyncio.sleep(1)
         machine.reset()
     gc.collect()
 

@@ -2,15 +2,19 @@ import network,socket,ubinascii,asyncio,time,os,json,machine
 import uaiohttpclient as aiohttp
 import hardware
 
+mac=None
 myname=None
 myssid=None
 mypass=None
 rssi=None
-station=None
 
 def reset():
     time.sleep(1)
     machine.reset()
+
+def getMAC():
+    global mac
+    return mac
 
 def getMyName():
     global myname
@@ -59,22 +63,20 @@ def getConfigData():
         reset()
 
 async def setupAP():
-    global station,myssid,mypass
+    global station,mac,myssid,mypass
     ap = network.WLAN(network.AP_IF)
-    myssid = 'RBR-XR-' + ubinascii.hexlify(ap.config('mac')).decode()[6:]
+    mac = ubinascii.hexlify(ap.config('mac')).decode()[6:]
+    myssid = 'RBR-XR-' + mac
     print('Set up AP for',myssid,'with',mypass)
     ap.active(True)
     ap.config(essid=myssid, authmode=3, password=mypass)
-    if station!=None:
-        mynet=station[2]
-        ip=mynet.split('.')
-        if ip[2]=='100':
-            ip[2]='101'
-        else:
-            ip[2]='100'
-        myip=ip[0]+'.'+ip[1]+'.'+ip[2]+'.1'
+    mynet=station[2]
+    ip=mynet.split('.')
+    if ip[2]=='100':
+        ip[2]='101'
     else:
-        myip='172.24.100.1'
+        ip[2]='100'
+    myip=ip[0]+'.'+ip[1]+'.'+ip[2]+'.1'
     ap.ifconfig((myip, '255.255.255.0', myip, '8.8.8.8'))
     ap.active(True)
 

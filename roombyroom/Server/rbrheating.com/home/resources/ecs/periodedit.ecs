@@ -249,7 +249,7 @@ ShowEditor:
 
     on click MinuteUpButton
     begin
-        if MinuteValue is 59 put -5 into MinuteValue
+        if MinuteValue is 55 put -5 into MinuteValue
         add 5 to MinuteValue
         gosub to ShowValues
     end

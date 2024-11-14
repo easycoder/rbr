@@ -5,6 +5,7 @@ import dht
 
 def init():
     global sensor
+    print('Initialise sensor')
     sensor = dht.DHT11(Pin(0))
     #sensor = dht.DHT22(Pin(0))
 
@@ -14,6 +15,7 @@ def getTemperature():
 
 async def measure():
     global sensor
+    print('Run the temperature sensor')
     while True:
         try:
             sensor.measure()

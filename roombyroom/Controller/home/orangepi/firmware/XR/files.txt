@@ -3,6 +3,7 @@ main.py
 maps.py
 dht22.py
 configured.py
+poll.py
 config.py
 handleClient.py
 hardware.py

@@ -1,6 +1,6 @@
 !	Room Tools
 !	This is a menu that allows the order of presentation of rooms to be adjusted,
-!	for rooms to be deleted and to call up a panel pof status information for a room.
+!	for rooms to be deleted and to call up a panel of status information for a room.
 
 	script RoomTools
     
@@ -45,8 +45,11 @@
     variable Responses
     variable Response
     variable Item
+    variable Host
     variable SSID
+    variable RelayState
     variable Poll
+    variable RSSI
     variable IP
     variable N
     variable M
@@ -202,11 +205,19 @@ Editor:
                 	if from 3 of IP is Relay
                     begin
 	                    put property `response` of Item into Item
-                        put the position of `,` in Item into P
-                        put left P of Item into SSID
-                        add 1 to P
-                        put from P of Item into Poll
-                        put `SSID: ` cat SSID cat `<br>` cat `Poll: ` cat Poll cat `<br>` into Response
+                    	split Item on `,`
+                        index Item to 0
+                        put Item into Host
+                        index Item to 1
+                        put `RBR-XR-` cat Item into SSID
+                        index Item to 2
+                        put Item into RelayState
+                        index Item to 3
+                        put Item into Poll
+                        index Item to 4
+                        put Item into RSSI
+                        put `Host: ` cat Host cat `<br>SSID: ` cat SSID cat `<br>RSSI: ` cat RSSI cat `<br>Poll: ` cat Poll into Response
+                        if RelayState is not `-` put Response cat `<br>Relay: ` cat RelayState into Response
                     end
                 end
                 else

@@ -12,13 +12,7 @@ def fileExists(filename):
     except OSError:
         return False
 
-errorCount=0
-
-if fileExists('debug'):
-    import debug
-    debug.run()
-
-elif fileExists('config.json'):
+if fileExists('config.json'):
     if fileExists('update'):
         f = open('update','r')
         value=f.read()
@@ -38,13 +32,8 @@ elif fileExists('config.json'):
             import configured
             configured.run()
         except Exception as e:
-            print(f'Error ({errorCount})',e)
-            errorCount+=1
-            if errorCount>20:
-                f = open('update', 'w')
-                f.write('1')
-                f.close()
-                machine.reset()
+            print('Error:',e)
+            machine.reset()
 else:
     print('main: Run unconfigured')
     time.sleep(5)

@@ -1072,7 +1072,6 @@ ProcessResponses:
                         end
                         else
                         begin
-                            ! Check if this is the first appearance
                             if XRData has property RoomName put property RoomName of XRData into TS
                             else if TS is not 0 set property RoomName of XRData to TS
                             multiply TS by 1000
@@ -1082,6 +1081,7 @@ ProcessResponses:
                             begin
                                 put property `i` of Item into IProps
                                 set property `response` of Response to IProps
+                                print `IProps: ` cat IProps
                                 split IProps on `,`
                                 put 0 into P
 !                                while P is less than the elements of IProps

@@ -4,4 +4,6 @@
 .gitignore
 misc
 stats
-roombyroom/ESP/libraries
+roombyroom/ESP
+roombyroom/Controller/home/v*.tar.gz
+roombyroom/Server/rbrheating.com/home/dist.tgz
