@@ -97,6 +97,7 @@
     variable PollCount
     variable RestartDir
     variable RestartFile
+    variable RestartTS
     variable RA
     variable E
     variable EE
@@ -1051,6 +1052,7 @@ ProcessResponses:
         begin
             if property `relayType` of Room is `RBR XR`
             begin
+    ! Process XR relays -------------------------------------------------
                 put `/mnt/data/poll` into PollDir
                 if file PollDir exists begin end
                 else create directory PollDir
@@ -1111,7 +1113,7 @@ ProcessResponses:
                                 else put 0 into PollCount
                                 put RestartDir cat `/` cat IProps into RestartFile
                                 index IProps to 3
-                                print IProps cat ` - ` cat PollCount
+!                                print IProps cat ` - ` cat PollCount
                                 if IProps is less than PollCount
                                 begin
 !                                    print RoomName cat ` restarted at ` cat now cat ` after ` cat PollCount cat `polls`
@@ -1119,18 +1121,25 @@ ProcessResponses:
                                     write now to File
                                     close File
                                 end
+                                if file RestartFile exists
+                                begin
+                                    open File RestartFile for reading
+                                    read RestartTS from File
+                                    close File
+                                    set property `restart` of Response to RestartTS
+                                end
                                 open File PollFile for writing
                                 write IProps to File
                                 close File
                             end
                         end
                         append Response to Items
-
                     end
                     else print `No data for ` cat RelayName
                     add 1 to RR
                 end
             end
+    ! End of XR processing -------------------------------------------------
         end
         add 1 to N
     end
@@ -1178,7 +1187,6 @@ ProcessResponses:
     while N is less than the count of Responses
     begin
         put element N of Responses into Response
-!        print Response
         if Response has property `ip`
         begin
             put property `ip` of Response into RelayIp
@@ -1254,7 +1262,6 @@ ProcessResponses:
         end
         add 1 to N
     end
-    put stringify Responses into Responses
     set property `responses` of SensorData to Responses
 
     if Failures is 0
