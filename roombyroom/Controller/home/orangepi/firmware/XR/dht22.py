@@ -1,13 +1,11 @@
-import machine, asyncio
+import asyncio,dht,state
 from machine import Pin
-from time import sleep
-import dht
 
 def init():
     global sensor
     print('Initialise sensor')
-    sensor = dht.DHT11(Pin(0))
-    #sensor = dht.DHT22(Pin(0))
+    #sensor = dht.DHT11(Pin(4))
+    sensor=dht.DHT22(Pin(4)) # ESP12 D2
 
 def getTemperature():
     global sensor
@@ -15,12 +13,23 @@ def getTemperature():
 
 async def measure():
     global sensor
+    errorCount=0
+    running=True
+    msg=None
     print('Run the temperature sensor')
-    while True:
+    while running:
         try:
             sensor.measure()
-            temp = sensor.temperature()
+            await asyncio.sleep(1)
+            temp=sensor.temperature()
             print('Temperature: %3.1f C' %temp)
+            errorCount=0
         except OSError as e:
-            print('Failed to read sensor:',e)
-        await asyncio.sleep(10)
+            errorCount+=1
+            msg=f'Failed to read sensor ({errorCount}): {str(e)}'
+            print(msg)
+            if errorCount>10:
+                running=False
+        await asyncio.sleep(9)
+    state.error(msg)
+

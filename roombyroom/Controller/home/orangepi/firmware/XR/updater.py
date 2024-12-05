@@ -1,21 +1,23 @@
-import asyncio,hardware,functions,os,machine,gc
-
-watchdogCount=0
+import asyncio,hardware,functions,maps,httpGet,os,machine,gc
+from time import sleep
 
 def saveFile(name,content):
     if len(content)==0:
         raise(BaseException('...Empty file'))
     hardware.writeFile('temp',content)
-    if content==hardware.readFile('temp'):
+    sleep(1)
+    temp=hardware.readFile('temp')
+    if temp==content:
         if hardware.fileExists(name):
             gc.collect()
-            if content==hardware.readFile(name):
+            existing=hardware.readFile(name)
+            if content==existing:
                 os.remove('temp')
                 print('...Unchanged')
             else:
                 os.remove(name)
                 os.rename('temp',name)
-                print('...Done')
+                print('...Updated')
         else:
             os.rename('temp',name)
             print('...New file')
@@ -23,12 +25,12 @@ def saveFile(name,content):
         raise(BaseException('...Did not save'))
 
 async def getFile(file):
-    url='http://'+functions.getServer()
-    if functions.isPrimary():
+    url='http://'+maps.getServer()
+    if maps.isPrimary():
         url+='getFile?data=firmware/XR/'+file
     else:
         url+='/getFile?'+file
-    return await functions.httpGET(url)
+    return await httpGet.httpGET(url)
 
 async def update(version):
     try:
@@ -55,27 +57,15 @@ async def update(version):
         await asyncio.sleep(1)
         machine.reset()
 
-async def watchdog():
-    global watchdogCount
-    while True:
-        await asyncio.sleep(60)
-        print('Watchdog count:',watchdogCount)
-        if watchdogCount==0:
-            print('Timeout')
-            await asyncio.sleep(1)
-            machine.reset()
-        watchdogCount=0
-
 def run(version):
     print('Updater: update to version',version)
     hardware.setupPins()
     functions.getConfigData()
     if functions.connect()==False:
-        return
+        raise Exception('\nUpdate aborted')
 
     loop = asyncio.get_event_loop()
     loop.create_task(update(version))
-    loop.create_task(watchdog())
 
     try:
         loop.run_forever()

@@ -1,63 +1,58 @@
 import urlencode,network,asyncio,socket,gc
-import ubinascii,time,json,os,machine
-import hardware,functions,poll,handleClient,maps,dht22
+import ubinascii,time,json,os
+import hardware,functions,poll,handleClient,maps,dht22,state
 
-myName=None
 resetRequest=False
+loop=None
 
-def reset():
+async def pollTask():
+    global loop
+    result=await poll.poll()
     time.sleep(1)
     machine.reset()
 
-async def clientHandler(reader,writer):
-    await handleClient.handleClient(reader,writer)
-
-async def main():
-    myname=functions.getMyName()
-    
-    maps.setIncomingMapElement(myname,json.loads('{"ts":"0"}'))
-    maps.clearPollCount()
-
-    await functions.setupAP()
-    server = asyncio.start_server(clientHandler, "0.0.0.0", 80)
-    asyncio.create_task(server)
-    print('Server running')
-    
-    await poll.poll(myname)
-    reset()
-
 async def watchdog():
-    while True:
-        await asyncio.sleep(60)
+    running=True
+    while running:
+        await asyncio.sleep(300)
         pollCount=maps.getPollCount()
         print('Poll count:',pollCount)
         if pollCount==0:
-            print('Timeout')
-            reset()
-        maps.clearPollCount()
+            running=False
+        else:
+            maps.clearPollCount()
+    state.restart('Watchdog restart')
 
 async def temperature():
     await dht22.measure()
+    state.restart('Sensor loop terminated')
 
 def run():
+    global loop
     hardware.setupPins()
-    functions.getConfigData()
-    functions.connect()
+    try:
+        functions.getConfigData()
+        functions.connect()
+        functions.setupAP()
+    except Exception as e:
+        state.restart(f'Setup: {str(e)}')
+
+    maps.setIncomingMapElement(functions.getMyName(),json.loads('{"ts":"0"}'))
+    maps.clearPollCount()
 
     loop = asyncio.get_event_loop()
     if hardware.fileExists('therm'):
         dht22.init()
         loop.create_task(temperature())
-    loop.create_task(main())
+    loop.create_task(asyncio.start_server(handleClient.handleClient, "0.0.0.0", 80))
+    loop.create_task(pollTask())
     loop.create_task(watchdog())
-    print('Configured as',functions.getMyName())
-
+    print('Configured as',maps.getMyName())
     try:
-        # Run the event loop indefinitely
         loop.run_forever()
-    except Exception as e:
-        print('Error occured: ', e)
-        hardware.writeFile('update', currentVersion)
-        raise(e)
     except KeyboardInterrupt:
         print('Program interrupted')
+    except Exception as e:
+        print('Exception:',str(e))
+    
+    print('All done')

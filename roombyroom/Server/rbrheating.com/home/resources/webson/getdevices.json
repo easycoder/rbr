@@ -11,12 +11,13 @@
         "$Text",
         "$Input",
         "$Clear",
+        "$Linked",
         "$Winter",
         "$Clear",
         "$Span",
         "$Select",
         "$P100",
-        "$Text2",
+        "$RelayListTitleTitle",
         "$TextArea",
         "$Buttons"],
 
@@ -40,6 +41,24 @@
         "margin": "0 auto"
     },
 
+    "$Linked": {
+        "#element": "div",
+        "@id": "linked-div",
+        "#": ["$Title", "$LinkedCheck"],
+        "margin-bottom": "1em",
+
+        "$Title": {
+            "#content": "Sensor is linked to relay&nbsp;&nbsp;"
+        },
+
+        "$LinkedCheck": {
+            "#element": "input",
+            "@type": "checkbox",
+            "@id": "dialog-linked",
+            "@value": "yes"
+        }
+    },
+
     "$Winter": {
         "#element": "div",
         "position": "relative",
@@ -50,7 +69,7 @@
         "margin": "0 auto",
         "padding": "0.3em 1em 0 0",
         "border": "1px solid gray",
-        "#": ["$Title", "$Trigger", "$Temp", "$Deg", "$Pad", "$Check", "$Protect"],
+        "#": ["$Title", "$Trigger", "$Temp", "$Deg", "$Pad", "$ProtectCheck", "$Protect"],
 
         "$Title": {
             "#element": "div",
@@ -81,11 +100,11 @@
             "#content": "0.0"
         },
 
-        "$Check": {
+        "$ProtectCheck": {
             "#element": "input",
             "@type": "checkbox",
             "@id": "dialog-winter-protect",
-            "@value": "protect"
+            "@value": "no"
         },
 
         "$Protect": {
@@ -161,16 +180,16 @@
         "@name": "relayType"
     },
 
-    "$Text2": {
+    "$RelayListTitleTitle": {
         "#element": "div",
-        "@id": "dialog-text2",
+        "@id": "dialog-relayListTitle",
         "margin": "1em",
         "#content": "Text"
     },
 
     "$TextArea": {
         "#element": "textarea",
-        "@id": "dialog-textarea",
+        "@id": "dialog-relayList",
         "width": "20em",
         "height": "4em",
         "margin": "0 auto"

@@ -1,21 +1,13 @@
-# Import necessary modules
 import os,network,asyncio,socket,ubinascii,time,machine,hardware,config
 from machine import Pin
 
-def info():
-    print('This handles unconfigured mode')
-
-# Asynchronous function to handle client's requests
 async def handle_client(reader, writer):
     request_line = await reader.readline()
-#    print('Request:', request_line)
 
-    # Skip HTTP request headers
-    while await reader.readline() != b"\r\n":
+   while await reader.readline() != b"\r\n":
         pass
 
     request = str(request_line, 'utf-8').split()[1]
-#    print('Request:', request)
 
     req=request.split('?')
     cmd=req[0].split('/')
@@ -27,7 +19,6 @@ async def handle_client(reader, writer):
         args=None
     print(cmd,args)
     
-    # Generate HTML response
     import hardware
     resetRequest=False
     response = 'OK'
@@ -45,7 +36,6 @@ async def handle_client(reader, writer):
             rssi=''
         response=f'SSID: {myssid} {rssi}'
 
-    # Send the HTTP response and close the connection
     writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
     writer.write('<!DOCTYPE HTML><html lang="en"><head></head><body>'+response+'</body></html>')
     await writer.drain()
@@ -80,7 +70,6 @@ async def main():
             await asyncio.sleep(1)
             machine.reset()
 
-    # Start the server and run the event loop
     server = asyncio.start_server(handle_client, "0.0.0.0", 80)
     asyncio.create_task(server)
     print('Server running')
@@ -96,5 +85,3 @@ def run():
         asyncio.get_event_loop().run_forever()
     except:
         pass
-
-run()

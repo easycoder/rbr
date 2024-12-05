@@ -1,49 +1,74 @@
-import machine,time,json,asyncio,maps,hardware,functions,urlencode,dht22
+import gc,os,time,asyncio,maps,hardware,functions,urlencode,dht22,state
+from incoming import Devices
+from httpGet import httpGET
 
-async def poll(myname):
+async def poll():
+    print('Poll')
+    version=0
+    rstate=None
+    info=None
+    ts=0
+    rs=0
     pollError=0
     currentVersion=hardware.readFile('version')
     if currentVersion==None:
         currentVersion=0
+    print(f'v:{currentVersion}')
     maps.setCurrentVersion(currentVersion)
+    maps.setIncomingMap(Devices())
+    myname=maps.getMyName()
+    count=0
     while (True):
+        gc.collect()
         await asyncio.sleep(2)
-        incomingMap=maps.getIncomingMap()
-        data=urlencode.encode(json.dumps(incomingMap))
-        url='http://'+functions.getServer()+'/poll?data='+data
         try:
-            response=await functions.httpGET(url)
-            outgoingMap=json.loads(response)
+            maps.bumpPollCount()
+            incomingMap=maps.getIncomingMap()
+            url=f'http://{maps.getServer()}/poll?data={incomingMap.toString()}'
+            outgoingMap=await httpGET(url)
             maps.setOutgoingMap(outgoingMap)
-            print('Outgoing:',outgoingMap)
-            if myname in outgoingMap:
-                state=outgoingMap[myname]['relay']
-            else:
-                state='off'
-            hardware.setRelay(state)
-            if 'ts' in outgoingMap:
-                ts = outgoingMap['ts']
-            else:
-                ts = '0'
-            incomingMap[myname]=json.loads('{"ts":"'+ts+'"}')
-            if hardware.fileExists('therm'):
-                state='-'
-                incomingMap[myname]['t']=dht22.getTemperature()
-            info=f'{functions.getHostSSID()},{functions.getMAC()},{state},{maps.getPollTotal()},{functions.getRSSI()}'
-            incomingMap[myname]['i']=info
-            maps.setIncomingMap(incomingMap)
+            count+=1
+            rstate='off'
+            lines=outgoingMap.split()
+            nlines=len(lines)
+            if nlines>1:
+                version=lines[0]
+                ts=lines[1]
+                n=2
+                while n<nlines:
+                    items=lines[n].split(':')
+                    if myname==items[0]:
+                        rstate=items[1]
+                        break
+                    n+=1
+            hardware.setRelay(rstate)
             
-            if 'v' in outgoingMap:
-                version=outgoingMap['v']
-            else:
-                version='1'
-            maps.bumpPoll()
+            info=''
+            if hardware.fileExists('therm'):
+                info=f't={dht22.getTemperature()}'
+            elif hardware.hasRelay():
+                info=f'r={rstate}'
+
+            if rs==0:
+                rs=ts;
+            
+            ssid=functions.getHostSSID()
+            mac=functions.getMAC()
+            rssi=maps.getRSSI()
+
+            data=f'{myname}:{ts},{rs},{ssid},{mac},{count},{rssi},{info}'
+            item=incomingMap.getDevice(myname)
+            incomingMap.replace(myname,data)
+            maps.setIncomingMap(incomingMap)
+
             if int(version)>int(currentVersion):
-                print('Update required')
                 hardware.writeFile('update',version)
-                return
+                state.restart(f'Update to v{version}')
+            pollError=0
         except Exception as e:
-            print(f'Poll error {pollError}: {e}')
             pollError+=1
+            print(f'Error {pollError}: {str(e)}')
             if pollError>20:
-                return
+                state.restart(f'Too many errors')
+        gc.collect()
+    return

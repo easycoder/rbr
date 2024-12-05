@@ -17,10 +17,13 @@ def readFile(name):
         value=None
     return value
 
-def writeFile(name,value):
+def writeFile(name,text):
     f=open(name,'w')
-    f.write(value)
+    f.write(text)
     f.close()
+
+def clearFile(name):
+    open(name,'w').close()
 
 def setupLED():
     global led
@@ -60,9 +63,17 @@ def setRelay(onoff):
         else:
             relay.on() if onoff=='on' else relay.off()
 
+def hasRelay():
+    global relay
+    return relay!=None
+
 def getRelay():
     global relay
-    return 'OFF' if relay.value() else 'ON'
+    if hasRelay():
+        if fileExists('reverse'):
+            return 'ON' if relay.value() else 'OFF'
+        else:
+            return 'OFF' if relay.value() else 'ON'
 
 async def blink():
     setLED(True)

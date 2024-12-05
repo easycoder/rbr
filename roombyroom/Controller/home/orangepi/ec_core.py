@@ -807,9 +807,9 @@ class Core(Handler):
         code = program.code[program.pc]
         lino = code['lino'] + 1
         if value == None:
-            print(f'{lino}: <empty>')
+            print(f'{lino}-> <empty>')
         else:
-            print(f'{lino}: {value}')
+            print(f'{lino}-> {value}')
         return self.nextPC()
 
     # Push a value onto a stack
@@ -1816,7 +1816,7 @@ class Core(Handler):
         return value
 
     def v_random(self, v):
-        limit = self.getRuntimeValue(v['limit'])
+        limit = self.getRuntimeValue(v['content'])
         value = {}
         value['type'] = 'int'
         value['content'] = randrange(0, limit)

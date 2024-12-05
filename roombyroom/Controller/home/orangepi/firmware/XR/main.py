@@ -1,4 +1,4 @@
-import os,machine,time
+import os,time,state
 
 print('Running main.py')
 
@@ -19,24 +19,24 @@ if fileExists('config.json'):
         f.close()
         try:
             print('main: Update to version',value)
-            time.sleep(5)
+            time.sleep(2)
             import updater
             updater.run(value)
-        except:
-            machine.reset()
+        except Exception as e:
+            state.restart(str(e))
 
     else:
         try:
-            print('main: Run configured')
-            time.sleep(5)
             import configured
+            print('main: Run configured')
+            time.sleep(2)
             configured.run()
         except Exception as e:
-            print('Error:',e)
-            machine.reset()
+            state.restart(str(e))
+
 else:
     print('main: Run unconfigured')
-    time.sleep(5)
+    time.sleep(2)
     import unconfigured
     unconfigured.run()
 
