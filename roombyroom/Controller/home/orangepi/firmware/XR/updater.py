@@ -1,9 +1,14 @@
 import asyncio,hardware,functions,maps,httpGet,os,machine,gc
 from time import sleep
 
+def abort(error=''):
+    print(f'\nError: {error}')
+    sleep(2)
+    machine.reset()
+
 def saveFile(name,content):
     if len(content)==0:
-        raise(BaseException('...Empty file'))
+        abort('Empty')
     hardware.writeFile('temp',content)
     sleep(1)
     temp=hardware.readFile('temp')
@@ -13,64 +18,71 @@ def saveFile(name,content):
             existing=hardware.readFile(name)
             if content==existing:
                 os.remove('temp')
-                print('...Unchanged')
+                print('Unchanged')
             else:
                 os.remove(name)
                 os.rename('temp',name)
-                print('...Updated')
+                print('Updated')
         else:
             os.rename('temp',name)
-            print('...New file')
+            print('New file')
     else:
-        raise(BaseException('...Did not save'))
+        abort('Mismatch')
 
 async def getFile(file):
-    url='http://'+maps.getServer()
-    if maps.isPrimary():
-        url+='getFile?data=firmware/XR/'+file
-    else:
-        url+='/getFile?'+file
-    return await httpGet.httpGET(url)
+    try:
+        file=file.split(' ')
+        url='http://'+maps.getServer()
+        if maps.isPrimary():
+            url+='getFile?data=firmware/XR/'+file[0]
+        else:
+            url+='/getFile?'+file[0]
+        content=await httpGet.httpGET(url)
+        if len(file)==2 and len(content)!=int(file[1]):
+            abort('Length')
+        return content
+    except Exception as e:
+        abort(e)
 
 async def update(version):
     try:
-        print('Updating files.txt','...',end='')
+        print('Updating files.txt ... ',end='')
         files=await getFile('files.txt')
+        if files==None:
+            abort()
         saveFile('files.txt',files)
-        for file in files.split():
+        for file in files.split('\n'):
+            if file=='':
+                break;
             await asyncio.sleep(1)
-            print('Updating',file,'...',end='')
+            print(f'Updating {file} ... ',end='')
             content=await getFile(file)
-            saveFile(file,content)
+            if content==None:
+                abort('Empty')
+            saveFile(file.split(' ')[0],content)
             content=None
             gc.collect()
-        print('Update the version')
         hardware.writeFile('version',version)
-        print('Remove the update flag')
         if hardware.fileExists('update'):
             os.remove('update')
-        print("Update complete - rebooting")
-        await asyncio.sleep(5)
+        print("Rebooting")
+        await asyncio.sleep(3)
         machine.reset()
     except (BaseException) as error:
-        print(error,'\nUpdate aborted')
-        await asyncio.sleep(1)
-        machine.reset()
+        abort(error)
 
 def run(version):
     print('Updater: update to version',version)
     hardware.setupPins()
     functions.getConfigData()
     if functions.connect()==False:
-        raise Exception('\nUpdate aborted')
+        abort()
 
     loop = asyncio.get_event_loop()
     loop.create_task(update(version))
 
     try:
         loop.run_forever()
-    except Exception as e:
-        print('Error occured: ', e)
-        raise(e)
     except KeyboardInterrupt:
         print('Program Interrupted by the user')
+

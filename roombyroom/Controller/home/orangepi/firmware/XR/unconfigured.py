@@ -4,7 +4,7 @@ from machine import Pin
 async def handle_client(reader, writer):
     request_line = await reader.readline()
 
-   while await reader.readline() != b"\r\n":
+    while await reader.readline() != b"\r\n":
         pass
 
     request = str(request_line, 'utf-8').split()[1]

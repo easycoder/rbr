@@ -48,6 +48,7 @@
     variable Item
     variable Host
     variable SSID
+    variable MAC
     variable RelayState
     variable Poll
     variable RSSI
@@ -215,25 +216,21 @@ Editor:
                 begin
                 	if from 3 of IP is Relay
                     begin
-                        put property `rs` of Item into Restart
 	                    put property `response` of Item into Item
-                    	split Item on `,`
-                        if the elements of Item is not less than 5
-                        begin
-                            index Item to 0
-                            put Item into Host
-                            index Item to 1
-                            put `RBR-XR-` cat Item into SSID
-                            index Item to 2
-                            put Item into RelayState
-                            index Item to 3
-                            put Item into Poll
-                            index Item to 4
-                            put Item into RSSI
-                            put `Host: ` cat Host cat `<br>SSID: ` cat SSID cat `<br>RSSI: ` cat RSSI cat `<br>Poll: ` cat Poll into Response
-                            if RelayState is not `-` put Response cat `<br>Relay: ` cat RelayState into Response
-                            if Restart is not empty put Response cat `<br>Restarted: ` cat Restart format DateFormat into Response
-                        end
+                        put property `ts` of Item into Timestamp
+                        put property `rs` of Item into Restart
+                        put property `ssid` of Item into SSID
+                        put property `mac` of Item into MAC
+                        put property `relay` of Item into RelayState
+                        put property `count` of Item into Poll
+                        put property `rssi` of Item into RSSI
+                        put `Host: ` cat Host cat `<br>SSID: ` cat SSID cat `<br>MAC: ` cat MAC cat `<br>RSSI: `
+                        	cat RSSI cat `<br>Poll: ` cat Poll into Response
+                        if RelayState is not `-` put Response cat `<br>Relay: ` cat RelayState into Response
+                        put the value of Timestamp into Timestamp
+                        put Response cat `<br>Time: ` cat Timestamp format DateFormat into Response
+                        if Restart is not empty put Response cat `<br>Restarted: ` cat Restart format DateFormat
+                        	into Response
                     end
                 end
                 else
@@ -265,8 +262,9 @@ Editor:
         replace `}` with `` in Sensor
         replace `""` with `"` in Sensor
         replace `"` with `` in Sensor
-        set the content of DialogText to `Information about this room:<br><br>` cat Sensor
-        	cat `<br><br>-- Response --<br>` cat Response
+        set the content of DialogText to `Information about this room:<br><br>`
+        	cat `-- Sensor --<br>` cat Sensor
+        	cat `<br><br>-- Relay --<br>` cat Response
 
         on click DialogButton1
         begin

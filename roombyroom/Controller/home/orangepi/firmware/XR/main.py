@@ -2,9 +2,6 @@ import os,time,state
 
 print('Running main.py')
 
-###################################################################################
-# Select the operating mode
-
 def fileExists(filename):
     try:
         os.stat(filename)
@@ -39,4 +36,3 @@ else:
     time.sleep(2)
     import unconfigured
     unconfigured.run()
-

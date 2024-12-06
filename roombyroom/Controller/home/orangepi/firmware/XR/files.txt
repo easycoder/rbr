@@ -1,20 +1,20 @@
-boot.py
-main.py
-functions.py
-httpGet.py
-configured.py
-poll.py
-config.py
-handleClient.py
-hardware.py
-urlencode.py
-updater.py
-unconfigured.py
-incoming.py
-state.py
-maps.py
-dht22.py
-debug.py
-test1.py
-config.html
-ack.html
+boot.py 110
+main.py 839
+functions.py 2314
+httpGet.py 262
+configured.py 1393
+poll.py 2261
+config.py 713
+handleClient.py 2230
+hardware.py 1609
+urlencode.py 714
+updater.py 2436
+unconfigured.py 2371
+incoming.py 2423
+state.py 218
+maps.py 2062
+dht22.py 847
+debug.py 2525
+test1.py 370
+config.html 542
+ack.html 97

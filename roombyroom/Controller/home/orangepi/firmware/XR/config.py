@@ -1,6 +1,6 @@
 import asyncio,json
 
-async def writeConfig(args,reader,writer):
+async def writeConfig(args):
     config={}
     def setConfigElement(item):
         key,value=item.split('=',1)

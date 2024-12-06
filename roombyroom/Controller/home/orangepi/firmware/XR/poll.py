@@ -3,7 +3,6 @@ from incoming import Devices
 from httpGet import httpGET
 
 async def poll():
-    print('Poll')
     version=0
     rstate=None
     info=None

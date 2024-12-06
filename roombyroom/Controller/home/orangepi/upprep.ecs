@@ -1,0 +1,39 @@
+!   Update preparation tool
+
+    script UpPrep
+
+    file File
+    variable Files
+    variable Name
+    variable Content
+    variable Length
+    variable Output
+    variable N
+
+    open  File `firmware/XR/files.txt` for reading
+    read Files from File
+    close File
+
+    put empty into Output
+    split Files
+    put 0 into N
+    while N is less than the elements of Files
+    begin
+        index Files to N
+        put Files into Name
+        if Name is not empty
+        begin
+            split Name on ` `
+            index Name to 0
+            open File `firmware/XR/` cat Name for reading
+            read Content from File
+            close File
+            put the length of Content into Length
+            put Output cat Name cat ` ` cat Length cat newline into Output
+        end
+        add 1 to N
+    end
+    print Output
+    open  File `firmware/XR/files.txt` for writing
+    write Output to File
+    close File

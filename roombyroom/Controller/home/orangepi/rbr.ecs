@@ -94,7 +94,6 @@
     variable TPEmail
     variable TPPassword
     variable XRTimestamp
-    variable IProps
     variable LastReset
     variable RA
     variable E
@@ -1115,7 +1114,7 @@ print `ProcessResponses`
         set property `name` of Response to RoomName
         put property RoomName of IncomingPacket into Item
         put property `ts` of Item into TS
-        set property `response` of Response to `` cat TS
+        set property `response` of Response to Item
         put the value of TS into TS
         take TS from the timestamp giving T
         if T is greater than 300
@@ -1138,9 +1137,9 @@ print `ProcessResponses`
                 if RSF is not 0 put datime RSF format `%H:%M` into RSF
             end
             else put 0 into RSF
-            print RoomName cat ` ` cat TS cat ` ` cat T cat ` (` cat RSF cat `)`
+            print RoomName cat ` ` cat TS cat ` (` cat RSF cat `)`
             set property `rs` of Response to RS
-            if Item has property `i` set property `response` of Response to property `i` of Item
+!            if Item has property `i` set property `response` of Response to property `i` of Item
         end
         append Response to Items
     end
@@ -1156,6 +1155,7 @@ print `ProcessResponses`
             if property `relayType` of Room is `RBR XR`
             begin
                 put json `{}` into Response
+                set property `response` of Response to json `{}`
                 set property `name` of Response to RoomName
                 set property `sensor` of Response to property `sensor` of Room
                 ! Iterate the relays
@@ -1170,7 +1170,7 @@ print `ProcessResponses`
                         set property `ip` of Response to `XR-` cat RelayName
                         put property RelayName of IncomingPacket into Item
                         put property `ts` of Item into TS
-                        set property `response` of Response to `` cat TS
+                        set property `response` of Response to Item
                         put the value of TS into TS
                         take TS from the timestamp giving T
                         if T is greater than 300
@@ -1196,13 +1196,13 @@ print `ProcessResponses`
                             begin
                                 put 0 into RSF
                             end
-                            print RelayName cat ` ` cat TS cat ` ` cat T cat ` (` cat RSF cat `)`
+                            print RelayName cat ` ` cat TS cat ` (` cat RSF cat `)`
                             set property `rs` of Response to RS
-                            if Item has property `i`
-                            begin
-                                put property `i` of Item into IProps
-                                set property `response` of Response to IProps
-                            end
+!                            if Item has property `i`
+!                            begin
+!                                put property `i` of Item into IProps
+!                                set property `response` of Response to IProps
+!                            end
                         end
                         append Response to Items
                     end
@@ -1270,22 +1270,23 @@ print `ProcessResponses`
                 put element 0 of RelayCount into RR
                 add 1 to RR
                 set element 0 of RelayCount to RR
-                if property `response` of Response is `<none>`
-                begin
-                    put `No response from relay ` cat RoomName cat `/` cat RelayIp into WarningMessage
-                    gosub to AddWarning
-                    put element 1 of RelayCount into RR
-                    add 1 to RR
-                    set element 1 of RelayCount to RR
-                end
-                else if `` cat property `ok` of Response is `False`
-                begin
-                    put `No response from relay ` cat RoomName cat `/` cat RelayIp into WarningMessage
-                    gosub to AddWarning
-                    put element 1 of RelayCount into RR
-                    add 1 to RR
-                    set element 1 of RelayCount to RR
-                end
+ !               print property `response` of Response
+!                if property `response` of Response is `<none>`
+!                begin
+!                    put `No response from relay ` cat RoomName cat `/` cat RelayIp into WarningMessage
+!                    gosub to AddWarning
+!                    put element 1 of RelayCount into RR
+!                    add 1 to RR
+!                    set element 1 of RelayCount to RR
+!                end
+!                else if `` cat property `ok` of Response is `False`
+!                begin
+!                    put `No response from relay ` cat RoomName cat `/` cat RelayIp into WarningMessage
+!                    gosub to AddWarning
+!                    put element 1 of RelayCount into RR
+!                    add 1 to RR
+!                    set element 1 of RelayCount to RR
+!                end
                 set property Sensor of PerSensor to RelayCount
             end
         end
@@ -1333,6 +1334,7 @@ print `ProcessResponses`
         end
         add 1 to N
     end
+!    print Responses
 !    put stringify Responses into Responses
     set property `responses` of SystemData to Responses
 

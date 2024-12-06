@@ -6,22 +6,17 @@ resetRequest=False
 loop=None
 
 async def pollTask():
-    global loop
     result=await poll.poll()
-    time.sleep(1)
-    machine.reset()
+    state.restart('Polling stopped')
 
 async def watchdog():
-    running=True
-    while running:
+    while True:
         await asyncio.sleep(300)
         pollCount=maps.getPollCount()
-        print('Poll count:',pollCount)
+        print(f'Polls:{pollCount}, free:{gc.mem_free()}')
         if pollCount==0:
-            running=False
-        else:
-            maps.clearPollCount()
-    state.restart('Watchdog restart')
+            state.restart('Watchdog restart')
+        maps.clearPollCount()
 
 async def temperature():
     await dht22.measure()
@@ -37,7 +32,6 @@ def run():
     except Exception as e:
         state.restart(f'Setup: {str(e)}')
 
-    maps.setIncomingMapElement(functions.getMyName(),json.loads('{"ts":"0"}'))
     maps.clearPollCount()
 
     loop = asyncio.get_event_loop()
@@ -56,3 +50,8 @@ def run():
         print('Exception:',str(e))
     
     print('All done')
+
+
+
+
+
