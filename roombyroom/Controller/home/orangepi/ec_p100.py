@@ -1,5 +1,6 @@
-from ec_classes import FatalError, RuntimeError
-from ec_handler import Handler
+# A plugin for the Tapo P100 smartplug
+
+from easycoder import Handler, FatalError, RuntimeError
 from PyP100 import PyP100
 
 class P100(Handler):

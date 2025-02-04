@@ -91,6 +91,7 @@
 	print `Toggle: ` cat Y
 	toggle Y
 	print `Toggle: ` cat Y
+debug step
 
 	set Y
 	if Y is boolean print `Boolean` else print `Not Boolean`

@@ -15,7 +15,8 @@ fi
 if test -f "/mnt/data/setrouter"
 then
    cd /home/orangepi
-   python3 ec.py router.ecs
+#   python3 ec.py router.ecs
+   ./ecrun.py router.ecs
 fi
 
 if test -f "/mnt/data/version"

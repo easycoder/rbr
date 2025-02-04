@@ -5,6 +5,8 @@
 
     script RBR
 
+    import plugin P100 from ec_p100.py
+
     file File
     variable RamDisk
     variable LocalServer

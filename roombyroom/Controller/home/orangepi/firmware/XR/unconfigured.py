@@ -1,4 +1,4 @@
-import os,network,asyncio,socket,ubinascii,time,machine,hardware,config
+import os,network,asyncio,socket,ubinascii,time,machine,hardware
 from machine import Pin
 
 async def handle_client(reader, writer):
@@ -19,16 +19,16 @@ async def handle_client(reader, writer):
         args=None
     print(cmd,args)
     
-    import hardware
     resetRequest=False
     response = 'OK'
     if cmd is 'config':
-        response=hardware.readFile('config.html')
-    elif cmd is 'setup':
-        await config.writeConfig(args,reader,writer)
-        await asyncio.sleep(1)
-        response=hardware.readFile('ack.html')
-        resetRequest=True
+        parts=args.split('=')
+        name=parts[0]
+        value=parts[1]
+        hardware.writeFile(f'config/{name}', value)
+        response=f'{cmd}: OK'
+    elif cmd is 'get':
+        response=hardware.readFile(f'config/{args}')
     else:
         try:
             rssi=ap.status('rssi')
@@ -36,8 +36,9 @@ async def handle_client(reader, writer):
             rssi=''
         response=f'SSID: {myssid} {rssi}'
 
-    writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
-    writer.write('<!DOCTYPE HTML><html lang="en"><head></head><body>'+response+'</body></html>')
+    print('Response:', response)
+    writer.write('HTTP/1.0 200 OK\r\nContent-type: text/plain\r\n\r\n')
+    writer.write(response)
     await writer.drain()
     await writer.wait_closed()
     if resetRequest:
@@ -80,6 +81,7 @@ async def main():
 
 def run():
     print('Unconfigured')
+    hardware.createDirectory('config')
     asyncio.create_task(main())
     try:
         asyncio.get_event_loop().run_forever()

@@ -22,6 +22,12 @@ def writeFile(name,text):
     f.write(text)
     f.close()
 
+def createDirectory(path):
+    try:
+        os.mkdir(path)
+    except Exception:
+        pass
+
 def clearFile(name):
     open(name,'w').close()
 
