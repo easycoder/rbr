@@ -1,0 +1,32 @@
+!   Test
+
+!   Turns the LED on
+
+    script Test
+
+    variable Message
+    variable Result
+    variable MAC
+    variable IPAddr
+
+    put `9c9e6e0ba955` into MAC
+    put `192.168.1.101` into IPAddr
+
+    while true
+    begin
+        put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=on` into Message
+        print Message
+        get Result from Message
+        print Result
+
+        wait 1
+
+        put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=off` into Message
+        print Message
+        get Result from Message
+        print Result
+
+        wait 1
+    end
+
+    exit

@@ -1,0 +1,20 @@
+{
+    "name": "unnamed",
+    "device": "ESP32",
+    "master": true,
+    "ssid": "PLUSNET-N7C3KC",
+    "password": "Ur4nXVQKJPrQcJ",
+    "channel": 11,
+    "pins": [
+        {
+            "name": "led",
+            "pin": 3,
+            "reverse": false
+        },
+        {
+            "name": "relay",
+            "pin": 0,
+            "reverse": false
+        }
+    ]
+}
