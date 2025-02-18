@@ -1,0 +1,79 @@
+{
+    "#doc": "The icon and text for 'timed' mode",
+    "#element": "button",
+    "@id" : "room-/ROOM/-mode-icon",
+    "position": "relative",
+    "display": "flex",
+    "flex-direction": "row",
+    "width": "10em",
+    "#": ["$Button", "$Padding", "$Text", "$Advance"],
+
+    "$Button": {
+        "#element": "div",
+        "margin-right": "0.5em",
+        "pointer-events": "none",
+        "#": "$Icon",
+
+        "$Icon": {
+            "#element": "img",
+            "@src": "resources/icon/clock.png?v=2",
+            "height": "2em",
+            "padding": "0.5em"
+        }
+    },
+
+    "$Padding": {
+        "#element": "div",
+        "width": "0.2em",
+        "pointer-events": "none"
+    },
+
+    "$Text": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "column",
+        "flex": 1,
+        "height": "100%",
+        "text-align": "left",
+        "pointer-events": "none",
+        "#": "$Inner",
+
+        "$Inner": {
+            "#element": "div",
+            "display": "inline-block",
+            "flex": 1,
+            "text-align": "center",
+            "padding": "0.2em",
+            "#": ["$Content1", "$Content2"],
+
+            "$Content1": {
+                "#element": "div",
+                "#content": "Timed",
+                "@id": "room-/ROOM/-mode-text",
+                "font-size": "1.4em",
+                "font-weight": "bold"
+            },
+
+            "$Content2": {
+                "#element": "div",
+                "@id" : "room-/ROOM/-mode-info",
+                "font-size": "0.7em",
+                "font-weight": "bold"
+            }
+        }
+    },
+
+    "$Advance": {
+        "#element": "div",
+        "@id": "room-/ROOM/-advance-indicator",
+        "position": "absolute",
+        "top": "0.1em",
+        "left": "0.1em",
+        "display": "none",
+        "height": "0.5em",
+        "width": "0.5em",
+        "border-radius": "0.5em",
+        "border": "1px solid darkgreen",
+        "background": "green"
+    }
+}

@@ -1,0 +1,39 @@
+## Index
+
+This is a list of all the pages in the Help system.The pages link to each other in a fairly arbitrary manner, but you can always return here and start again somewhere different.
+
+  - Using the RBR system
+    - ~stid:home/content:Introduction~
+    - ~stid:home/Intro:The cost of heating~
+    - ~stid:home/Evaluate:Evaluating the RBR system~
+    - ~stid:home/Overview:Overview of the RBR system~
+    - ~stid:home/GettingStarted:Getting started~
+    - ~stid:home/MainMenu:The main system menu~
+    - ~stid:home/AddRoom:Adding a room~
+    - ~stid:home/Registration:Setting the MAC address and the system password~
+    - ~stid:home/Name:Setting the system name~
+    - ~stid:home/Request:Setting the request relay IP address~
+    - ~stid:home/RoomEdit:The room editor~
+    - ~stid:home/RoomName:Setting a room name~
+    - ~stid:home/Devices:Setting device IP addresses~
+    - ~stid:home/RoomTools:Tools for editing room details~
+    - ~stid:home/Timing:Editing the timing schedule~
+    - ~stid:home/ScheduleEdit:The timing schedule editor~
+    - ~stid:home/Mode:The mode dialog~
+    - ~stid:home/Backup:Backing up the map~
+    - ~stid:home/Restore:Restoring the backed-up map~
+    - ~stid:home/Technical:Technical pages~
+    - ~stid:home/Welcome:The initial welcome page~
+
+  - The system controller
+    - ~stid:Controller/content:The system controller~
+    - ~stid:Controller/RaspberryPi:Setting up a Raspberry Pi~
+    - ~stid:Controller/OrangePi Debian:Setting up an Orange Pi~
+
+  - Room kits
+    - ~stid:RoomKit/content:Room kits~
+
+  - Technical stuff
+    - ~stid:Technical/content:About the software~
+    - ~stid:Technical/EasyCoder:About EasyCoder~
+    - ~stid:Technical/EasyCoderAndRBR:The RBR EasyCoder scripts~

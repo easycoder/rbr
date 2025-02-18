@@ -1,0 +1,218 @@
+!	System Manager
+
+	script SystemManager
+
+    import div MainPanel
+    	and variable MAC
+        and variable Password
+        and variable Map
+        and variable Sensors
+        and variable Server
+    	and variable Flag
+        and variable Result
+    
+    div SystemVersion
+    div SystemManager
+    div SystemSelect
+    div SystemNames
+    div SystemNameButton
+    div LoginPanel
+    div OKPadding
+    div RemovePadding
+    div DialogPanel
+    div DialogTitle
+    div DialogText
+    div DialogButton1
+    div DialogButton2
+    input MACInput
+    input PWDInput
+    button OKButton
+    button AddButton
+    button RemoveButton
+    button HelpButton
+    button CancelButton
+    button AddThisButton
+    variable Webson
+    variable Systems
+    variable System
+    variable SelectedSystem
+    variable SystemName
+    variable Version
+    variable Keys
+    variable Text
+    variable K
+    variable N
+
+!	debug step
+
+	attach SystemManager to `dialog-panel`
+    set style `width` of SystemManager to `80%`
+    set style `left` of SystemManager to `10%`
+    rest get Webson from `/resources/webson/systemmanager.json?v=` cat now
+    render Webson in SystemManager
+    attach SystemVersion to `system-version`
+    attach SystemSelect to `system-select`
+    attach SystemNames to `system-names`
+    attach LoginPanel to `login`
+    attach OKButton to `ok-button`
+    attach AddButton to `add-button`
+    attach RemoveButton to `remove-button`
+    attach HelpButton to `help-button`
+    attach CancelButton to `cancel-button`
+    attach OKPadding to `ok-padding`
+    attach RemovePadding to `remove-padding`
+    
+    if Sensors is not empty
+        if property `version` of Sensors is not empty
+            set the content of SystemVersion to `System version ` cat property `version` of Sensors
+    if Version is empty put 0 into Version
+    set the content of SystemVersion to `System version ` cat Version
+
+    get Systems from storage as `Systems`
+    if Systems is empty put `{}` into Systems
+    if Map is empty put `New system` into SystemName
+    else put property `name` of Map into SystemName
+    gosub to CreateList
+    if the json count of Keys is 0
+    begin
+    	set style `display` of SystemSelect to `none`
+        gosub to SetupAdd
+    end
+    else set style `display` of LoginPanel to `none`
+
+    on click OKButton
+    begin
+    	put Systems into storage as `Systems`
+        put property SystemName of Systems into System
+        put property `mac` of System into MAC
+        put MAC into storage as `MAC`
+        put property `password` of System into Password
+        put Password into storage as `password`
+        put `OK` into Result
+    	clear SystemManager
+        exit
+	end
+
+    on click AddButton gosub to SetupAdd
+
+    on click RemoveButton
+    begin
+    	create DialogPanel in SystemManager
+    	rest get Webson from `/resources/webson/dialog-confirm.json?v=` cat now
+        render Webson in DialogPanel
+        attach DialogTitle to `dialog-title`
+        attach DialogText to `dialog-text`
+        attach DialogButton1 to `dialog-button1`
+        attach DialogButton2 to `dialog-button2`
+        set the content of DialogTitle to `Remove '` cat element SelectedSystem of Keys cat `'`
+        set the content of DialogText to `Are you sure you want to remove this system?`
+        set the content of DialogButton1 to `Yes`
+        set the content of DialogButton2 to `No`
+        on click DialogButton1
+        begin
+        	json delete property SystemName of Systems
+            gosub to CreateList
+        	remove element DialogPanel
+        end
+        on click DialogButton2
+        begin
+        	remove element DialogPanel
+        end
+    end
+
+    on click HelpButton
+    begin
+    	put `Help` into Result
+        clear SystemManager
+    	exit
+    end
+
+    on click CancelButton
+    begin
+    	put empty into Result
+    	clear SystemManager
+    	exit
+    end
+	stop
+
+CreateList:
+    put the json keys of Systems into Keys
+    set the elements of SystemNameButton to the json count of Keys
+    clear SystemNames
+    put 0 into K
+    while K is less than the json count of Keys
+    begin
+    	index SystemNameButton to K
+    	create SystemNameButton in SystemNames
+        set style `width` of SystemNameButton to `100%`
+        set style `font-size` of SystemNameButton to `1.2em`
+        set style `margin-bottom` of SystemNameButton to `0.25em`
+        set style `cursor` of SystemNameButton to `pointer`
+        put element K of Keys into Text
+        set the content of SystemNameButton to Text
+        if Text is SystemName
+        begin
+        	put K into SelectedSystem
+        	set style `font-weight` of SystemNameButton to `bold`
+        end
+    	add 1 to K
+    end
+
+    on click SystemNameButton
+    begin
+    	put the index of SystemNameButton into SelectedSystem
+        put element SelectedSystem of Keys into SystemName
+    	put 0 into N
+        while N is less than the json count of Keys
+        begin
+        	index SystemNameButton to N
+        	set style `font-weight` of SystemNameButton to `normal`
+        	add 1 to N
+        end
+        index SystemNameButton to SelectedSystem
+        set style `font-weight` of SystemNameButton to `bold`
+        set style `display` of OKButton to `block`
+        set style `display` of OKPadding to `block`
+        set style `display` of RemoveButton to `block`
+        set style `display` of RemovePadding to `block`
+    end
+	return
+
+SetupAdd:
+   	set style `display` of LoginPanel to `block`
+    attach MACInput to `getmac-input`
+    attach PWDInput to `getpassword-input`
+    attach AddThisButton to `addthis-button`
+    on click AddThisButton
+    begin
+        put the content of MACInput into MAC
+        put the content of PWDInput into Password
+        if MAC is empty go to MissingInput
+        if Password is empty
+            if MAC is not `DEMO` go to MissingInput
+        if MAC is not `DEMO`
+        begin
+        	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
+            if Map is empty
+            begin
+            	alert `Unable to identify this system`
+                return
+            end
+            put property `name` of Map into SystemName
+            if SystemName is empty put `New` into SystemName
+        end
+        put `{}` into System
+        set property `mac` of System to MAC
+        set property `password` of System to Password
+        set property SystemName of Systems to System
+        set style `display` of SystemSelect to `block`
+        gosub to CreateList
+        set style `display` of OKButton to `block`
+        set style `display` of OKPadding to `block`
+ 		set style `display` of LoginPanel to `none`
+    end
+    return
+
+MissingInput:
+	alert `The MAC address and password are required.`
+    stop

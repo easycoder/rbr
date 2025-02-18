@@ -1,0 +1,15 @@
+## Edit the Sensor and Relay IP addresses
+
+The Sensor is a thermometer module that reguarly reports the current temperature by sending messages to the system controller. So you can identify which sensor is in which room you must enter its address using this editing dialog.
+
+~img:devices.png:center 50%~
+
+Below this is a section that allows you to keep your heating pump running continuously, without opening any radiator valves. This can avoid the risk of freezing in very low temperatures. There is a field to give the temperature below which the feature activates, and a checkbox to enable it. When the feature is active a snowflake symbol appears on the home screen, in the row for that room. In many cases the 'room' will simply be a thermometer outside the house, with no associated relay.
+
+The relay is the device that controls the electric valve on your radiator. In some cases a room may have more than one radiator to be controlled by separate relays; you can add as many as you need.
+
+Go to the ~tid:RoomEdit:Room Editor Help page~
+
+Go to the ~tid:Evaluate:Evaluation page~
+
+~sid:Index:Index of pages~

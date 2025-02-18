@@ -1,0 +1,19 @@
+{
+    "device": "ESP8266",
+    "master": false,
+    "ssid": "",
+    "password": "",
+    "channel": 11,
+    "pins": [
+        {
+            "name": "led",
+            "pin": 2,
+            "reverse": true
+        },
+        {
+            "name": "relay",
+            "pin": 0,
+            "reverse": false
+        }
+    ]
+}

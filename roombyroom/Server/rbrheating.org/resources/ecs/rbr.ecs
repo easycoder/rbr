@@ -1,0 +1,154 @@
+!	Room By Room
+
+	script RoomByRoom
+
+    div Body
+    div OuterPanel
+    div Logo
+    div More
+    div PreviousButton
+    div NextButton
+    div PanelA
+    div PanelB
+    variable Mobile
+    variable MainScreenWebson
+    variable Slide
+    variable CurrentSlide
+    variable MaxSlide
+    variable H
+    variable L
+    variable N
+
+!    debug step
+
+    clear Mobile
+    if mobile
+    if portrait set Mobile
+
+	create Body
+	if Mobile
+    begin
+    	set style `width` of Body to `100%`
+    end
+	else
+	begin
+        put the height of the window into N
+        multiply N by 9
+        divide N by 16
+        set style `width` of Body to N
+        set style `margin` of Body to `0 auto`
+        set style `border` of Body to `1px solid lightgray`
+    end
+
+!	Render the main screen layout
+    rest get MainScreenWebson from `/resources/webson/rbr.json?v=` cat now
+    	or go to AbandonShip
+	render MainScreenWebson in Body
+    attach OuterPanel to `outer-panel`
+    put the height of OuterPanel into H
+    if Mobile divide H by 60
+    else divide H by 52
+    set style `font-size` of Body to H
+    
+    attach PanelA to `panel-a`
+    attach PanelB to `panel-b`
+    put the width of OuterPanel into L
+    set style `left` of PanelA to L
+    set style `left` of PanelB to L
+    set style `display` of PanelA to `block`
+    set style `display` of PanelB to `block`
+    attach Logo to `logo-icon`
+    attach More to `top-level-more`
+    attach PreviousButton to `left-button`
+    attach NextButton to `right-button`
+    on click Logo
+    begin
+    	if CurrentSlide is -1 stop
+    	put 0 into CurrentSlide
+        go to OnPreviousButton
+    end
+    on click More
+    begin
+    	set style `display` of NextButton to `block`
+    	go to OnNextButton
+    end
+    on click NextButton go to OnNextButton
+    on click PreviousButton go to OnPreviousButton
+    
+    set the elements of Slide to 2
+    take 1 from the elements of Slide giving MaxSlide
+    index Slide to 0
+    rest get Slide from `/resources/webson/slide1.json?v=` cat now
+    	or go to AbandonShip
+    index Slide to 1
+    rest get Slide from `/resources/webson/slide2.json?v=` cat now
+    	or go to AbandonShip
+    put -1 into CurrentSlide
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Bring in a slide from the right
+
+OnNextButton:
+    add 1 to CurrentSlide
+    index Slide to CurrentSlide
+    clear PanelB
+    render Slide in PanelB
+    put the width of OuterPanel into L
+    while L is greater than 0
+    begin
+    	set style `left` of PanelB to L
+    	wait 1 tick
+    	take 20 from L
+    end
+    clear PanelA
+    render Slide in PanelA
+    set style `left` of PanelA to 0
+    set style `left` of PanelB to the width of OuterPanel
+    clear PanelB
+    set style `display` of PreviousButton to `block`
+    if CurrentSlide is 0 set style `display` of NextButton to `block`
+    if CurrentSlide is MaxSlide set style `display` of NextButton to `none`
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Banish the current slide to the right
+    
+OnPreviousButton:
+    index Slide to CurrentSlide
+    clear PanelB
+    render Slide in PanelB
+	take 1 from CurrentSlide
+    if CurrentSlide is less than 0
+    begin
+    	set style `left` of PanelA to the width of OuterPanel
+    end
+    else
+    begin
+    	index Slide to CurrentSlide
+    	clear PanelA
+    	render Slide in PanelA
+    	set style `left` of PanelA to 0
+    end
+    put 0 into L
+    while L is less than the width of OuterPanel
+    begin
+        set style `left` of PanelB to L
+        wait 1 tick
+        add 20 to L
+    end
+    set style `left` of PanelB to the width of OuterPanel
+    set style `display` of NextButton to `block`
+    if CurrentSlide is -1
+    begin
+    	set style `display` of PreviousButton to `none`
+    	set style `display` of NextButton to `none`
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Warn the user and abandon this run
+AbandonShip:
+	alert `An error has occurred while communicating with the web server.`
+    	cat newline cat `Please refresh this browser page to restart.`
+    exit

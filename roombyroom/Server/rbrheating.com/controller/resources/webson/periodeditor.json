@@ -1,0 +1,137 @@
+{
+    "#doc": "The time period editor",
+    "#element": "div",
+    "width": "20em",
+    "background": "white",
+    "border": "1px solid gray",
+    "margin": "0.5em auto 0 auto",
+    "padding": "1em",
+    "box-shadow": "0.5em 0.5em 0.5em #444",
+    "text-align": "center",
+    "#": ["$Editor", "$Buttons"],
+
+    "$Editor": {
+        "#element": "div",
+        "display": "flex",
+        "font-family": "Helvetica, Arial, SansSerif",
+        "font-weight": "bold",
+        "#": ["$HourDown", "$HourUp", "$Hour", "$Colon", "$Minute", "$MinuteDown", "$MinuteUp",
+            "$Pad", "$TempDown", "$Temp", "$TempUp"],
+
+        "$HourUp": {
+            "#element": "img",
+            "@id": "hour-up",
+            "@src": "resources/icon/up.png",
+            "width": "1.5em",
+            "height": "1.5em",
+            "padding": "0 0.25em"
+        },
+
+        "$HourDown": {
+            "#element": "img",
+            "@id": "hour-down",
+            "@src": "resources/icon/down.png",
+            "width": "1.5em",
+            "height": "1.5em",
+            "padding": "0 0.25em"
+        },
+
+        "$Hour": {
+            "#element": "div",
+            "@id": "hour-text",
+            "#content": "00"
+        },
+
+        "$Colon": {
+            "#element": "div",
+            "#content": ":"
+        },
+
+        "$Minute": {
+            "#element": "div",
+            "@id": "minute-text",
+            "#content": "00"
+        },
+
+        "$MinuteUp": {
+            "#element": "img",
+            "@id": "minute-up",
+            "@src": "resources/icon/up.png",
+            "width": "1.5em",
+            "height": "1.5em",
+            "padding": "0 0.25em"
+        },
+
+        "$MinuteDown": {
+            "#element": "img",
+            "@id": "minute-down",
+            "@src": "resources/icon/down.png",
+            "width": "1.5em",
+            "height": "1.5em",
+            "padding": "0 0.25em"
+        },
+
+        "$Pad": {
+            "#element": "div",
+            "flex": 1
+        },
+
+        "$TempUp": {
+            "#element": "img",
+            "@id": "temp-up",
+            "@src": "resources/icon/up.png",
+            "width": "1.5em",
+            "height": "1.5em",
+            "padding": "0 0.25em"
+        },
+
+        "$Temp": {
+            "#element": "div",
+            "@id": "temp-text",
+            "#content": "0.0&deg;C"
+        },
+
+        "$TempDown": {
+            "#element": "img",
+            "@id": "temp-down",
+            "@src": "resources/icon/down.png",
+            "width": "1.5em",
+            "height": "1.5em",
+            "padding": "0 0.25em"
+        }
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "row",
+        "margin-top": "1em",
+        "#": ["$OK", "$Pad", "$Cancel", "$Pad", "$Help"],
+
+        "$OK": {
+            "#element": "button",
+            "@id": "period-save",
+            "width": "30%",
+            "#content": "OK"
+        },
+
+        "$Cancel": {
+            "#element": "button",
+            "@id": "period-cancel",
+            "width": "30%",
+            "#content": "Cancel"
+        },
+
+        "$Help": {
+            "#element": "button",
+            "@id": "period-help",
+            "width": "30%",
+            "#content": "Help"
+        },
+
+        "$Pad": {
+            "#element": "div",
+            "flex": 1
+        }
+    }
+}

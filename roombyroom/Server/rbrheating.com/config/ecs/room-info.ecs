@@ -1,0 +1,131 @@
+!   Provide details for all the rooms in this system
+
+	script RoomInfo
+
+    import variable Map and variable Result
+
+    div LeftButton
+    div RightButton
+    div RoomList
+    button AddRoom
+    image DeleteRoom
+    input NameInput
+    input SensorInput
+    variable Profiles
+    variable Profile
+    variable Rooms
+    variable Room
+    variable RoomCount
+    variable RoomWebson
+    variable Webson
+    variable Item
+    variable Data
+    variable N
+    variable M
+
+!    debug step
+
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+    attach RoomList to `cf-rooms`
+    attach AddRoom to `cf-add-room`
+    rest get RoomWebson from `/config/webson/room.json?v=` cat now
+
+    put property `profiles` of Map into Profiles
+    put element 0 of Profiles into Profile
+    put property `rooms` of Profile into Rooms
+    if Rooms is empty
+    begin
+        put `back` into Result
+        exit
+    end
+    put the json count of Rooms into RoomCount
+    set the elements of DeleteRoom to RoomCount
+
+    put `[]` into Data
+    put 0 into N
+    while N is less than RoomCount
+    begin
+        put element N of Rooms into Room
+        put `{}` into Item
+        set property `name` of Item to property `name` of Room
+        set property `sensor` of Item to property `sensor` of Room
+        append Item to Data
+        add 1 to N
+    end
+    gosub to BuildList
+
+    on click AddRoom
+    begin
+        put `{}` into Item
+        set property `name` of Item to empty
+        set property `sensor` of Item to empty
+        append Item to Data
+        gosub to BuildList
+    end
+
+    on click LeftButton
+    begin
+        put `back` into Result
+        exit
+    end
+    on click RightButton
+    begin
+        set style `display` of LeftButton to `none`
+        set style `display` of RightButton to `none`
+        put 0 into N
+        while N is less than RoomCount
+        begin
+            put element N of Data into Item
+            put element N of Rooms into Room
+            attach NameInput to `cf-room-` cat N cat `-name`
+            set property `name` of Room to the content of NameInput
+            attach SensorInput to `cf-room-` cat N cat `-sensor`
+            set property `sensor` of Room to the content of SensorInput
+            set element N of Rooms to Room
+            add 1 to N
+        end
+        set property `rooms` of Profile to Rooms
+
+        set element 0 of Profiles to Profile
+        set property `profiles` of Map to Profiles
+
+        put `url=http://172.24.1.1/resources/php/rest.php/map&data=` cat Map into Data
+        rest post Data to `/config/post` or alert `POST error`
+        put `relay-info` into Result
+        exit
+    end
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
+
+    stop
+
+OnDeleteRoom:
+    put the index of DeleteRoom into N
+    json delete element N of Data
+    gosub to BuildList
+    stop
+
+BuildList:
+    clear RoomList
+    put the json count of Data into RoomCount
+    set the elements of DeleteRoom to RoomCount
+    put 0 into N
+    while N is less than RoomCount
+    begin
+        put element N of Data into Item
+        put RoomWebson into Webson
+        replace `<ID>` with N in Webson
+        add 1 to N giving M
+        replace `<INDEX>` with M in Webson
+        render Webson in RoomList
+        attach NameInput to `cf-room-` cat N cat `-name`
+        set the content of NameInput to property `name` of Item
+        attach SensorInput to `cf-room-` cat N cat `-sensor`
+        set the content of SensorInput to property `sensor` of Item
+        index DeleteRoom to N
+        attach DeleteRoom to `cf-room-` cat N cat `-delete`
+        add 1 to N
+    end
+    on click DeleteRoom go to OnDeleteRoom
+    return

@@ -1,0 +1,74 @@
+## Orange Pi System Controller
+
+The Orange Pi Zero 2 is a very small single-board computer inspired by the Raspberry Pi and roughly equivalent to a Raspberry Pi Model 3B, but is smaller and less expensive.
+
+The system controller runs from an SD card (8GB or more) that contains the operating system and all the RBR files. The simplest way to set this up is to run Balena Etcher to write the operating system image to your SD card. You will find many instructions online how to do this.
+
+There are several alternative operating systems available for the Orange Pi. We have chosen Debian as being solid and reliable. You can download an image from [here](https://drive.google.com/file/d/18IOwIkfiNGR5zTbE4uqPj1aJJGaL79J2/view?usp=sharing).
+
+When flashing has finished, eject the SD card from your computer, put it into the Pi, connect this to your Internet router with an Ethernet (RJ45) cable and power up. You should see a red light on the board, which then turns green. If this does not appear there is most likely something wrong with the firmware; perhaps you downloaded the wrong operating system image.
+
+## Setting up the system controller
+
+For this you may need to have your Internet router's manual to hand. If you don't have one, do an online search for the model name of your router. This will also tell you how to log in.
+
+Type the address of your router control panel into your browser. The address varies from one model to another but it's most likely to be one of
+```
+http://192.168.0.1
+http://192.168.1.1
+```
+A home router manages the devices that connect to it, assigning each one an IP address using a system called DHCP. The RBR system works best if this feature is avoided, since its components need to have fixed known addresses and those supplied by the router could change without warning. In your router admin there will be an option to set the range of addresses to be used by the DHCP server. Make sure this is set to a restricted range - we suggest 200 to 254 as the final part of the IP address. All other addresses will then be free for devices to be allocated as you please.
+
+Note: If you already have equipment such as a network printer and its current address is outside the range you gave above, you may have to set the device up again.
+
+At this point it may be best to restart the router and also the Orange Pi. Log into the router again.
+
+One of the sections of your router's admin will show you all the devices connected to it. Some of these will have names; you might recognize your computer and printer, for example. Once the system controller has booted up it will present itself as `orangepizero2`.
+
+On your computer, fire up a terminal emulator. On Windows you can use PuTTY; on Mac or Linux use the text console. At the command prompt type
+```
+ssh orangepi@xxx.xxx.xxx.xxx
+```
+where `xxx.xxx.xxx.xxx` is the IP address found for the device
+
+and give the password `orangepi`. You will see a welcome message and you will be logged in.
+
+Although the Orange Pi Zero 2 has onboard wifi we recommend using the wired ethernet connection as it may be more reliable. If for some reason you are unable to keep your system controller near the router (for example if you are using someone else's wifi) then you can set up wifi on the Pi using the command
+```
+nmtui
+```
+then continue with these instructions.
+
+Type this command:
+```
+wget https://rbrheating.com/setup-opi
+```
+This will download to the Pi a small script that sets up your system. To run the script, type
+```
+sh setup-opi
+```
+This can take quite a long time, depending on how many updates are needed, and it will display a large amount of technical information on the console as it runs. While it runs it will ask 3 times the password you wish to use for your `pi` account. (I confess I use quite a simple password. Since it will only be used inside your house it's unlikely that you'll need an industrial-strength one, but that's up to you.) It ends by asking you for the static IP address you want to use (see above), the IP address of your router and a DNS address. The last of these is often the same as the router, but in some cases - most notably the Virgin Media Hub - this feature is not provided, so use `8.8.8.8`.
+
+Finally, the Orange Pi will reboot, so log in again, this time at the IP address you gave, as user `pi` and your chosen password. If you are using wifi you can disconnect the network cable, place the system controller anywhere convenient and log in at the IP address you gave to `nmtui`.
+
+To check the controller software is running, type
+```
+ps x
+```
+which lists all the 'processes' running on the controller. You should see one called `python3 rbr.py`. Wihout this, the controller will not respond to messages from thermometer modules. You will usually also see `python3 easycoder.py rbr.ecs`; this is a program that runs every few seconds to monitor temperature changes and turn radiators on or off according to the ruless that have been set up. If you see both of these processes most if not all of the time, the system is probably behaving as it should.
+
+You can also type
+```
+ls
+```
+to see all the files that have been added to your Pi.
+
+Note to users outside the UK: The Python script `ec_timestamp.py` is set up for British time and will need to be adjusted for other countries.
+
+That's the system controller done. You can log in to it at any time but in practice there's very little of interest there. The next job is to set up your room kits, but before you do so, make a note of the contents of 2 files on your system controller, both of which will be needed when you first run the webapp on your phone:
+
+`mac` contains the unique MAC (Media Access Control) address of your system. It comprises 6 pairs of digits and the letters A to F, separated by colons. Type `cat mac`.
+
+`password` is the password handed out by the web server when your system registers itself. It comprises 6 digits and it will be available 30 seconds or so after the system controller reboots. Type `cat password`.
+
+Keep these items safe and do not give them to anyone unless you want them to be able to manage your system. When you set up the webapp on a phone or other device, the MAC address will give that device access to the system setup. If the password is provided it will also allow the user to make changes on that device; otherwise the system will be read-only. This means you can allow people to view the system without also giving them permission to manage it.

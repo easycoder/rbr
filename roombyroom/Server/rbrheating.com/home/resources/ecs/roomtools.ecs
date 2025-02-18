@@ -1,0 +1,320 @@
+!	Room Tools
+!	This is a menu that allows the order of presentation of rooms to be adjusted,
+!	for rooms to be deleted and to call up a panel of status information for a room.
+
+	script RoomTools
+    
+    import div MainPanel
+    	and variable Map
+        and variable Sensors
+        and variable ClickIndex
+        and variable Result
+
+	div RoomName
+    div DialogPanel
+    div DialogTitle
+    div DialogText
+    button RoomUpButton
+    button RoomDownButton
+    button RoomEditButton
+    button RoomDeleteButton
+    button RoomInfoButton
+    button HelpButton
+    button CancelButton
+    button DialogButton1
+    button DialogButton2
+    variable CurrentProfile
+    variable Profiles
+    variable Profile
+    variable Rooms
+    variable RoomSpec
+    variable ThisRoom
+    variable ThatRoom
+    variable NewRooms
+    variable Relays
+    variable Relay
+    variable Webson
+    variable Script
+    variable Changed
+    variable SensorIP
+    variable Sensor
+    variable Timestamp
+    variable DisplayTime
+    variable DateFormat
+    variable RequestData
+    variable Responses
+    variable Response
+    variable Restart
+    variable Item
+    variable Host
+    variable SSID
+    variable MAC
+    variable RelayState
+    variable Poll
+    variable RSSI
+    variable IP
+    variable N
+    variable M
+    variable R
+
+!    debug step
+    
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The room tools menu
+Editor:
+	gosub to GetCurrentRooms
+    attach RoomName to `title-room-name`
+    attach RoomUpButton to `button-up`
+    attach RoomDownButton to `button-down`
+    attach RoomEditButton to `button-edit`
+    attach RoomDeleteButton to `button-delete`
+    attach RoomInfoButton to `button-info`
+    attach HelpButton to `button-help`
+    attach CancelButton to `button-cancel`
+
+    put element ClickIndex of Rooms into RoomSpec
+    set the content of RoomName to property `name` of RoomSpec
+    if property `relayType` of RoomSpec is `Manual`
+    	set style `display` of RoomInfoButton to `none`
+    
+    if ClickIndex is 0 set style `display` of RoomUpButton to `none`
+    put the json count of Rooms into N
+    take 1 from N
+    if ClickIndex is N set style `display` of RoomDownButton to `none`
+    
+    clear Changed
+    
+    on click RoomUpButton
+    begin
+    	put element ClickIndex of Rooms into ThisRoom
+        take 1 from ClickIndex
+        put element ClickIndex of Rooms into ThatRoom
+        set element ClickIndex of Rooms to ThisRoom
+        add 1 to ClickIndex
+        set element ClickIndex of Rooms to ThatRoom
+        set property `action` of RequestData to `rooms`
+        set property `rooms` of RequestData to Rooms
+        set Changed
+        go to Exit
+    end
+    
+    on click RoomDownButton
+    begin
+    	put element ClickIndex of Rooms into ThisRoom
+        add 1 to ClickIndex
+        put element ClickIndex of Rooms into ThatRoom
+        set element ClickIndex of Rooms to ThisRoom
+        take 1 from ClickIndex
+        set element ClickIndex of Rooms to ThatRoom
+        set property `action` of RequestData to `rooms`
+        set property `rooms` of RequestData to Rooms
+        set Changed
+        go to Exit
+    end
+    
+    on click RoomEditButton
+    begin
+        clear MainPanel
+    	rest get Webson from `/resources/webson/roomeditmenu.json?v=` cat now
+        render Webson in MainPanel
+        put empty into Result
+    	rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
+        run Script with MainPanel and Map and CurrentProfile and ClickIndex and Result
+        exit
+    end
+    
+    on click RoomDeleteButton
+    begin
+        attach DialogPanel to `dialog-panel`
+    	rest get Webson from `/resources/webson/dialog-confirm.json?v=` cat now
+        render Webson in DialogPanel
+        attach DialogTitle to `dialog-title`
+        attach DialogText to `dialog-text`
+        attach DialogButton1 to `dialog-button1`
+        attach DialogButton2 to `dialog-button2`
+        set the content of DialogTitle to `Delete '` cat the content of RoomName cat `'`
+        set the content of DialogText to `Are you sure you want to delete this room?`
+        set the content of DialogButton1 to `Yes`
+        set the content of DialogButton2 to `No`
+        on click DialogButton1
+        begin
+            clear DialogPanel
+            put `[]` into NewRooms
+            put 0 into N
+            while N is less than ClickIndex
+            begin
+                append element N of Rooms to NewRooms
+                add 1 to N
+            end
+            add 1 to N
+            while N is less than the json count of Rooms
+            begin
+                append element N of Rooms to NewRooms
+                add 1 to N
+            end
+        	set property `action` of RequestData to `rooms`
+       		set property `rooms` of RequestData to NewRooms
+            set Changed
+            go to Exit
+        end
+        on click DialogButton2
+        begin
+        	clear DialogPanel
+            set property `request` of Result to `Redraw`
+            go to ExitWithoutChanges
+        end
+    end
+    
+    on click RoomInfoButton
+    begin
+        set DateFormat to object
+        set property `mode` of DateFormat to `date`
+        set property `locale` of DateFormat to `en-EN`
+        set Item to object
+!        set property `year` of Item to `numeric`
+        set property `month` of Item to `long`
+        set property `day` of Item to `numeric`
+        set property `hour` of Item to `numeric`
+        set property `minute` of Item to `numeric`
+        set property `hour12` of Item to false
+        set property `options` of DateFormat to Item
+        put property `responses` of Sensors into Responses
+        if Responses is empty
+        begin
+			print Sensors
+        	alert `No data has been received from the sensors`
+            stop
+        end
+        if the json count of Responses is empty
+        begin
+			print Sensors
+        	alert `No data is being received from the sensors`
+            stop
+        end
+        put element ClickIndex of Responses into Response
+        attach DialogPanel to `dialog-panel`
+        rest get Webson from `/resources/webson/dialog-info.json?v=` cat now
+        render Webson in DialogPanel
+        attach DialogText to `dialog-text`
+        attach DialogButton1 to `dialog-okbutton`
+        
+        ! Find the room containing the given relay IP
+        put property `relays` of RoomSpec into Relays
+        put empty into Response
+        put the json count of Relays into R
+        put 0 into N
+        while N is less than R
+        begin
+        	put element N of Relays into Relay
+            if Relay is empty go to RoomInfo2
+            put 0 into M
+            while M is less than the json count of Responses
+            begin
+            	put element M of Responses into Item
+            	put property `ip` of Item into IP
+       			if left 3 of IP is `XR-`
+                begin
+                	if from 3 of IP is Relay
+                    begin
+	                    put property `response` of Item into Item
+                        put property `ts` of Item into Timestamp
+                        put property `rs` of Item into Restart
+                        put property `ssid` of Item into SSID
+                        put property `mac` of Item into MAC
+                        put property `relay` of Item into RelayState
+                        put property `count` of Item into Poll
+                        put property `rssi` of Item into RSSI
+                        put `Host: ` cat Host cat `<br>SSID: ` cat SSID cat `<br>MAC: ` cat MAC cat `<br>RSSI: `
+                        	cat RSSI cat `<br>Poll: ` cat Poll into Response
+                        if RelayState is not `-` put Response cat `<br>Relay: ` cat RelayState into Response
+                        put the value of Timestamp into Timestamp
+                        put Response cat `<br>Time: ` cat Timestamp format DateFormat into Response
+                        if Restart is not empty put Response cat `<br>Restarted: ` cat Restart format DateFormat
+                        	into Response
+                    end
+                end
+                else
+                begin
+                    if IP is `direct-` cat Relay
+                    begin
+                        put property `response` of Item into Item
+                        replace `,` with `,` cat `<br>&nbsp;&nbsp;&nbsp;\` in Item
+                        if R is greater than 1 put Response cat `-- ` cat IP cat ` --<br>` into Response
+                        put Response cat Item cat `<br>` into Response
+                    end
+                end
+            	add 1 to M
+            end
+        add 1 to N
+        end
+    RoomInfo2:
+        put property `sensor` of RoomSpec into SensorIP
+        put property SensorIP of Sensors into Sensor
+        if Response is empty put `<none>` into Response
+        put property `timestamp` of Sensor into Timestamp
+        put Timestamp format DateFormat into DisplayTime
+        set property `timestamp` of Sensor to DisplayTime
+        replace `":"` with `": "` in Sensor
+        replace `",` with `"<br>` in Sensor
+        replace `,\` with `, &nbsp;&nbsp;&nbsp;\` in Sensor
+        replace `\` with `` in Sensor
+        replace `{` with `` in Sensor
+        replace `}` with `` in Sensor
+        replace `""` with `"` in Sensor
+        replace `"` with `` in Sensor
+        set the content of DialogText to `Information about this room:<br><br>`
+        	cat `-- Sensor --<br>` cat Sensor
+        	cat `<br><br>-- Relay --<br>` cat Response
+
+        on click DialogButton1
+        begin
+            clear DialogPanel
+            go to ExitWithoutChanges
+        end
+        stop
+    end
+
+    on click HelpButton
+    begin
+    	set property `request` of Result to `Help`
+        set property `data` of Result to `home RoomTools`
+    	exit
+    end
+
+    on click CancelButton go to ExitWithoutChanges
+    
+    put `{}` into Result
+    put `{}` into RequestData
+    set property `action` of RequestData to empty
+    set property `roomnumber` of RequestData to ClickIndex
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Get the current room set from the map
+GetCurrentRooms:
+	put property `actual` of Sensors into CurrentProfile
+   	put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Exit without changes
+ExitWithoutChanges:
+	set property `request` of Result to `Redraw`
+    clear Changed
+    go to Exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Exit to the main script
+Exit:
+	if Changed
+    begin
+    	set property `request` of Result to `Update`
+        set property `data` of Result to RequestData
+    end
+    else
+    begin
+    	set property `request` of Result to `Redraw`
+    end
+    exit

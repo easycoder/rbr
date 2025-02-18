@@ -1,0 +1,13 @@
+## Smart heating, room by room
+
+The cost of heating is rising fast and there's little sign this will stop any time soon. When considering how to heat your home you'll want to keep the running cost as low as possible, and this means only heating rooms that are being used. Conventional heating control systems either regard the entire house as a single entity, governed by a single timer and thermostat, or as individual rooms whose temperatures are controlled by thermostatic valves but where you have no way to individually adjust the times at which the heating should be on for each room.
+
+**Room By Room** takes a new approach by giving you complete control over each individual radiator from your smartphone or computer, whether you are in the house or not.
+
+**Room By Room** is a DIY project, but don't worry; it requires very little in the way of mechanical or electrical skill. In these pages are full instructions on how to put together a system. The cost is around £50 per radiator, plus you'll need a system controller; a small computer costing as little as £35. These costs will be offset by the savings in energy through better utilization, and there's the additional benefit of having control on your smartphone, wherever you are.
+
+To dismiss any help page tap the "hamburger" menu - the 3 bars at the top right of the screen.
+
+~tid:Overview:System overview~
+
+~sid:Index:Index of pages~

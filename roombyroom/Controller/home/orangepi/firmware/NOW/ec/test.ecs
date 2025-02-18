@@ -1,0 +1,24 @@
+!   Test script
+
+    script Test
+
+    variable Response
+    variable IPAddr
+
+    put `http://192.168.1.101` into IPAddr
+    get Response from IPAddr
+    print Response
+    exit
+
+    wait 1
+
+    while true
+    begin
+        get Response from IPAddr cat `?on`
+        wait 1
+        get Response from IPAddr cat `?off`
+        wait 1
+    end
+    print Response
+
+    exit

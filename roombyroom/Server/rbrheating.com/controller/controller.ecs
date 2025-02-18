@@ -1,0 +1,48 @@
+!   controller.ecs
+
+    script Main
+
+    div Body
+    div Content
+    pre Resources
+    module Storyteller
+    variable Mobile
+    variable Webson
+    variable DocRunner
+    variable SID
+    variable TID
+    variable N
+
+    set the title to `Controller`
+
+    clear Mobile
+    if mobile
+        if portrait set Mobile
+
+	create Body
+    if Mobile
+    begin
+    	set style `width` of Body to `100%`
+    end
+    else
+    begin
+        put the height of the window into N
+    	set style `width` of Body to N
+        set style `margin` of Body to `0 auto`
+        set style `border` of Body to `1px solid lightgray`
+        set style `font-size` of Body to `1.5em`
+    end
+
+    create Resources in Body
+    set attribute `id` of Resources to `storyteller-stories`
+    set the content of Resources to `stories`
+
+    rest get Webson from `/layout.json?v=` cat now
+	render Webson in Body
+	attach Content to `content`
+    rest get DocRunner from `/storyteller.ecs?v=` cat now
+    put `home` into SID
+    put `content` into TID
+	run DocRunner with Content and SID and TID as Storyteller
+
+    stop

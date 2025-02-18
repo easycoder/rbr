@@ -1,0 +1,19 @@
+## The software
+
+The user interface (UI) for the RBR project is a _mobile webapp_ - a web page optimized to run on a mobile device (smartphone) browser. This avoids the need to download and install a native app.
+
+The system controller (the Raspberry PI computer inside the premises) runs a Python application script.
+
+All the software is written in EasyCoder - an English-like scripting system built to make coding easy. Compared to JavaScript or Python, that is. The reason for this is that the latter are a very complex languages living in very complex ecosystems. Beyond a basic level they're really only suitable for professional programmers.  We wanted to make RBR accessible to those with relatively little programming experience and to those for whom programming is not a full-time activity.
+
+This is not to say that RBR itself is simple. All we claim is that you don't have to be a professional to understand the code. The logic is generally straightforward and very few aspects of EasyCoder are hard to grasp, as they are based on English words and phrases with a simple command syntax. Any EasyCoder command can be read out, with a fair chance of an intelligent listener being able to get some idea of what it means, even with no prior training. Very few (if any) other programming languages can claim this.
+
+There are 2 versions of EasyCoder. One is for the user interface; the other for the system controller. The two versions are almost completely identical so the scripts they run share the same syntax.
+
+The following pages describe EasyCoder and how it is used in RBR.
+
+~tid:EasyCoder:About EasyCoder~
+
+~tid:EasyCoderAndRBR:EasyCoder and RBR~
+
+~sid:Index:Index of pages~

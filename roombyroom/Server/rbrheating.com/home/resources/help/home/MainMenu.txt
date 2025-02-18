@@ -1,0 +1,16 @@
+## Main Menu
+
+~img:mainmenu.jpg:50% center~
+This is the main system menu. Here you can set up a new system, add rooms, backup the configuration or restore it. You can also evaluate RBR without the need to buy any hardware or software.
+
+~tid:Welcome:Welcome to RBR!~
+
+~tid:SysParamsMenu:Set system parameters~
+
+~tid:AddRoom:Add a room~
+
+~tid:Backup:Back up your configuration~
+
+~tid:Restore:Restore your configuration to the backed-up version~
+
+~sid:Index:Index of pages~

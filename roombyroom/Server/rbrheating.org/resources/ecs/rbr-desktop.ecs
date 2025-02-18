@@ -1,0 +1,30 @@
+!	Room By Room
+
+	script RoomByRoom
+
+    div Body
+    variable MainScreenWebson
+    variable N
+
+!    debug step
+
+	create Body
+    put the height of the window into N
+    multiply N by 9
+    divide N by 16
+    set style `width` of Body to N
+    set style `margin` of Body to `0 auto`
+    set style `border` of Body to `1px solid lightgray`
+
+!	Render the main screen layout
+    rest get MainScreenWebson from `/resources/webson/rbr-mobile.json?v=` cat now
+    	or go to AbandonShip
+	render MainScreenWebson in Body
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Warn the user and abandon this run
+AbandonShip:
+	alert `An error has occurred while communicating with the web server.`
+    	cat newline cat `Please refresh this browser page to restart.`
+    exit

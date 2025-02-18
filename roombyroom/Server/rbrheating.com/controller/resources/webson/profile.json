@@ -1,0 +1,42 @@
+{
+    "#doc": "A user profile",
+    "#element": "div",
+    "display": "flex",
+    "flex-direction": "row",
+    "background": "#ffc",
+    "text-align": "left",
+    "height": "2em",
+    "margin-bottom": "0.25em",
+    "#": ["$Button","$Pad", "$Edit", "$Pad", "$Delete"],
+
+    "$Button": {
+        "#element": "button",
+        "@id": "profile-select-!ID!",
+        "flex": 1,
+        "vertical-align": "middle",
+        "#content": "!TITLE!"
+    },
+
+    "$Edit": {
+        "#element": "img",
+        "@id": "profile-edit-!ID!",
+        "@src": "resources/icon/edit.png",
+        "width": "2em",
+        "height": "2em",
+        "cursor": "pointer"
+    },
+
+    "$Delete": {
+        "#element": "img",
+        "@id": "profile-delete-!ID!",
+        "@src": "resources/icon/delete.png",
+        "width": "2em",
+        "height": "2em",
+        "cursor": "pointer"
+    },
+
+    "$Pad": {
+        "#element": "div",
+        "width": "1em"
+    }
+}

@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Setup for Orange Pi Zero 2 - Debian Server OS
+
+echo "Update the system"
+apt update
+apt -y upgrade
+
+echo "Install Python Pip"
+apt install -y python3-dev
+apt install -y python3-pip
+apt install -y psutils
+echo "Install python libraries"
+pip3 install bottle requests pytz PyP100 psutil
+
+wget https://rbrheating.com/home/resources/dist.tgz
+tar zxf dist.tgz
+cp system/hosts /etc/hosts
+crontab crondata.txt
+
+echo
+echo "Set the user password"
+passwd
+
+cp system/dnsmasq.conf /etc/dnsmasq.conf
+cp system/hostapd.conf /etc/hostapd.conf
+echo
+echo "MAC addresses:"
+ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'
+echo "Now set up the wifi access point with 'nano /etc/hostapd.conf' then type 'reboot'"

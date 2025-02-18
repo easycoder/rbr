@@ -1,0 +1,19 @@
+## Index
+
+This is a list of all the pages in the Help system.The pages link to each other in a fairly arbitrary manner, but you can always return here and start again somewhere different.
+
+  - Using the RBR system
+    - ~stid:home/content:Introduction~
+    - ~stid:home/Overview:Overview of the RBR system~
+    - ~stid:home/MainMenu:The main system menu~
+    - ~stid:home/AddRoom:Adding a room~
+    - ~stid:home/Name:Setting the system name~
+    - ~stid:home/Request:Setting the request relay IP address~
+    - ~stid:home/RoomEdit:The room editor~
+    - ~stid:home/RoomName:Setting a room name~
+    - ~stid:home/Devices:Setting device IP addresses~
+    - ~stid:home/RoomTools:Tools for editing room details~
+    - ~stid:home/Timing:Editing the timing schedule~
+    - ~stid:home/Mode:The mode dialog~
+    - ~stid:home/Backup:Backing up the map~
+    - ~stid:home/Restore:Restoring the backed-up map~
