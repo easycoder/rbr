@@ -17,10 +17,14 @@
     variable Connected
     variable IPAddr
     variable Master
-    variable IPMaster
+    variable MasterSSID
+    variable MasterIPAddr
+    variable ScanForMaster
+    variable ScanComplete
+    variable MasterInfo
+    variable MasterName
     variable Name
     variable SSID
-    variable Password
     variable MAC
     variable List
     variable Info
@@ -37,6 +41,7 @@
     variable URL
     variable Result
     variable Content
+    variable D
     variable F
     variable N
     variable P
@@ -45,12 +50,28 @@
 
     load Config from `.config.json`
 
+    put property `ssid` of Config into HostSSID
+    put property `password` of Config into HostPassword
+    if Config has property `master`
+    begin
+        put property `master` of Config into Master
+        put property `ssid` of Master into MasterSSID
+        put property `ipaddr` of Master into MasterIPAddr
+        put property `name` of Master into MasterName
+    end
+    else
+    begin
+        put json `{}` into Master
+        set property `ssid` of Master to empty
+        set property `ipaddr` of Master to empty
+        set property `name` of Master to empty
+        set property `master` of Config to Master
+        save Config to `.config.json`
+    end
+
     clear Connected
     put empty into HostName
-    put empty into HostSSID
-    put empty into HostPassword
     put empty into DevicePassword
-    put empty into Master
     put empty into IPAddr
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -59,9 +80,12 @@
     init Layout     ! The main layout
     init Columns    ! The two columns
     init Column     ! A reusable column
-    init Row        ! A reusable layout
 
-    add Button button_text `Scan Network` and size `20 1` to Row
+    init Row        ! A reusable layout
+    add Button button_text `Find Master` and size `20 1` to Row
+    add Row to Column
+    init Row
+    add Button button_text `Find Slaves` and size `20 1` to Row
     add Row to Column
     init Row
     add Button button_text `Select Master` and size `20 1` to Row
@@ -102,20 +126,32 @@
     create Window `RBR-Now Configurator`
         layout Layout
 
-    set property `disabled` of `Select Master` in Window to true
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    set property `value` of `-MASTER-` in Window to MasterName cat ` ` cat MasterSSID cat ` ` cat MasterIPAddr
+    if MasterSSID is empty set property `disabled` of `Select Master` in Window to true
     set property `disabled` of `Select Slave` in Window to true
     set property `disabled` of `Update Device` in Window to true
-    set property `disabled` of `Exit` in Window to true
 
-    on event `Scan Network` in Window gosub to APScan
+    on event `Find Master` in Window
+    begin
+        gosub to FindMaster
+        stop
+    end
+
+    on event `Find Slaves` in Window
+    begin
+        gosub to FindSlaves
+        stop
+    end
 
     on event `Select Master` in Window
     begin
-        set property `value` of `-DEVICE-` in Window to Master
+        set property `value` of `-DEVICE-` in Window to MasterInfo
         set property `disabled` of `Update Device` in Window to false
     end
 
-    on event `Select Slave` in Window
+    on event `Set Slaves` in Window
     begin
         put the value of key `-APLIST-` in Window into SSID
         set property `value` of `-DEVICE-` in Window to SSID
@@ -133,10 +169,28 @@
     stop
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   San for access points
-APScan:
-    set property `value` of `-STATUS-` in Window to `Scanning for local RBR access points`
-    wait 10 ticks
+!   Scan the local network
+FindMaster:
+    set property `value` of `-STATUS-` in Window to `Scanning for the master device`
+    set ScanForMaster
+    gosub to ScanNetwork
+!    if MasterIPAddr is empty gosub to FindMasterIP
+    if MasterIPAddr is not empty
+    begin
+        print `Master IP: ` cat MasterIPAddr
+        set property `disabled` of `Select Master` in Window to false
+    end
+    stop
+
+FindSlaves:
+    print `Find the slaves`
+    set property `value` of `-STATUS-` in Window to `Scanning for slave devices`
+    clear ScanForMaster
+    gosub to ScanNetwork
+    stop
+
+ScanNetwork:
+    clear ScanComplete
     put system `nmcli device wifi list` into List
     split List
     put json `[]` into AccessPoints
@@ -145,9 +199,7 @@ APScan:
     begin
         index List to N
         put List into SSID
-        if left 1 of SSID is `*`
-        begin
-        end
+        if left 1 of SSID is `*` begin end
         else
         begin
             put trim SSID into SSID
@@ -161,73 +213,72 @@ APScan:
             begin
                 set property `value` of `-STATUS-` in Window to `Connecting to ` cat SSID
                 gosub to ConnectToAP
-                wait 3
+                if ScanComplete go to Reconnect
             end
         end
         increment N
     end
 
-    put property `ssid` of Config into SSID
-    put property `password` of Config into Password
+Reconnect:
     print `Reconnect to default AP`
     set property `value` of `-STATUS-` in Window to `Reconnecting to default AP`
-    system `nmcli dev wifi connect ` cat SSID cat ` password ` cat Password
-
+    system `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword
     set property `value` of `-STATUS-` in Window to `Ready`
-    set property `disabled` of `Exit` in Window to false
-    if IPMaster is empty gosub to FindMaster
-    if IPMaster is not empty
-    begin
-        print `Master IP: ` cat IPMaster
-        set property `disabled` of `Select Master` in Window to false
-    end
-    stop
+    return
 
 ! Connect to the access point given by SSID
 ConnectToAP:
-    push N onto Stack
-    print `Activate ` cat SSID
+!    print `Activate ` cat SSID
     set property `value` of `-STATUS-` in Window to `Activate ` cat SSID
     system `nmcli dev wifi connect ` cat SSID cat ` password 00000000`
     put system `hostname -I` into IPAddr
-    put the position of the last `.` in IPAddr into N
-    increment N
-    put left N of IPAddr into IPAddr
-    put `http://` cat IPAddr cat `1` into IPAddr
-    print `Request ` cat IPAddr
-    get APInfo from IPAddr or go to CTAP3
+    put the position of the last `.` in IPAddr into D
+    increment D
+    put left D of IPAddr into IPAddr
+    put `http://` cat IPAddr cat `1` into URL
+    print `Request ` cat URL
+    get APInfo from URL or go to CTAP3
     put trim APInfo into APInfo
     put APInfo into Info
     split Info on ` `
     index Info to 1
     if Info is `M`
     begin
-        put APInfo into Master
-        set property `value` of `-MASTER-` in Window to Master
-        set property `disabled` of `Select Master` in Window to false
-        print `Get the Master IP address`
-        get IPAddr from IPAddr cat `/ipaddr` or go to CTAP3
-        put `http://` cat IPAddr into IPMaster
-        go to CTAP2
+        if ScanForMaster
+        begin
+            index Info to 2
+            set property `name` of Master to Info
+            index Info to 0
+            set property `ssid` of Master to Info
+            set property `value` of `-MASTER-` in Window to APInfo
+            set property `disabled` of `Select Master` in Window to false
+            print `Get the Master IP address from URL ` cat `/ipaddr`
+            get IPAddr from URL cat `/ipaddr` or go to CTAP3
+            put IPAddr into MasterIPAddr
+            set property `ipaddr` of Master to MasterIPAddr
+            set property `master` of Config to Master
+            save Config to `.config.json`
+            print `Master config: ` cat Master
+            set ScanComplete
+            return
+        end
     end
     else if Info is `S`
     begin
-        append APInfo to AccessPoints
-        set property `values` of `-APLIST-` in Window to AccessPoints
-        set property `disabled` of `Select Slave` in Window to false
-        if IPMaster is not empty set property `disabled` of `Select Master` in Window to false
+        if not ScanForMaster
+        begin
+            append APInfo to AccessPoints
+            set property `values` of `-APLIST-` in Window to AccessPoints
+            set property `disabled` of `Select Slave` in Window to false
+        end
     end
-CTAP2:
-    pop N from Stack
-    return
 CTAP3:
     print `Failed to interrogate ` cat SSID
     set property `value` of `-STATUS-` in Window to `Failed to interrogate ` cat SSID
-    pop N from Stack
     return
 
 ! Search for the address used by the Master
-FindMaster:
+FindMasterIP:
     put system `hostname -I` into IPAddr
     put the position of the last `.` in IPAddr into N
     increment N
@@ -246,7 +297,7 @@ FindMaster:
         put Info into Master
         set property `value` of `-MASTER-` in Window to Master
         set property `value` of `-STATUS-` in Window to `Found ` cat Name
-        put `http://` cat IPAddr into IPMaster
+        put `http://` cat IPAddr into MasterIPAddr
         return
     CTM2:
         wait 50 ticks
@@ -300,7 +351,7 @@ UpdateOne:
         put the length of Segment into Length
         add Length to Total
         put encode Segment into Segment
-        put IPMaster cat `/?mac=` cat MAC cat `&msg=part:`
+        put MasterIPAddr cat `/?mac=` cat MAC cat `&msg=part:`
             cat Sequence cat `,text:` cat Segment into URL
 !        print URL
         get Result from URL or go to UpdateFailed
@@ -313,7 +364,7 @@ UpdateOne:
         increment Sequence
     end
 
-    get Result from IPMaster cat `/?mac=` cat MAC cat `&msg=save:` cat FileName
+    get Result from MasterIPAddr cat `/?mac=` cat MAC cat `&msg=save:` cat FileName
         or go to UpdateFailed
     if Result is not Total
         set property `value` of `-STATUS-` in Window to `Mismatched length: ` cat Total cat ` - ` cat Result
