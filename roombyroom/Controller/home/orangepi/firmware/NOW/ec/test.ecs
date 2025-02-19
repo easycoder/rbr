@@ -2,23 +2,29 @@
 
     script Test
 
-    variable Response
-    variable IPAddr
+    variable Files
+    variable FileName
+    variable F
 
-    put `http://192.168.1.101` into IPAddr
-    get Response from IPAddr
-    print Response
-    exit
+    print the files of `.`
 
-    wait 1
-
-    while true
+    load Files from `files.txt`
+    split Files
+    put 0 into F
+    while F is less than the elements of Files
     begin
-        get Response from IPAddr cat `?on`
-        wait 1
-        get Response from IPAddr cat `?off`
-        wait 1
+        index Files to F
+        put Files into FileName
+        if FileName is not empty gosub to UpdateOne
+        increment F
     end
-    print Response
-
     exit
+
+UpdateOne:
+    if file FileName exists begin end
+    else
+    begin
+        print `File ` cat FileName cat ` does not exist`
+        return
+    end
+    return

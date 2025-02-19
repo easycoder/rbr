@@ -40,8 +40,4 @@ def deleteFile(file):
     except: pass
 
 def renameFile(oldName,newName):
-<<<<<<< HEAD
-    print(oldName,newName)
-=======
->>>>>>> 627b084 (sync)
     os.rename(oldName,newName)

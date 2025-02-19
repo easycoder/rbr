@@ -1,26 +1,11 @@
 import asyncio,machine
 from binascii import unhexlify
-<<<<<<< HEAD
-from files import readFile,writeFile
-=======
 from files import readFile,writeFile,renameFile
->>>>>>> 627b084 (sync)
 
 class Handler():
     
     def __init__(self,config):
         self.config=config
-<<<<<<< HEAD
-        self.relay=config.getRelay()
-
-    def handleMessage(self,msg):
-        print('Message:',msg)
-        response='OK'
-        if msg == 'on':
-            self.relay.on()
-            response='OK'
-        elif msg == 'off':
-=======
         config.setHandler(self)
         self.relay=config.getRelay()
 
@@ -33,7 +18,6 @@ class Handler():
             response='OK'
         elif msg == 'off':
             print('relay OFF')
->>>>>>> 627b084 (sync)
             self.relay.off()
             response='OK'
         elif msg == 'uptime':
@@ -70,25 +54,11 @@ class Handler():
                             print('Sequence error')
                             return 'Sequence error'
                 self.buffer.append(text)
-<<<<<<< HEAD
-                response=len(text)
-=======
                 response=str(len(text))
->>>>>>> 627b084 (sync)
         elif msg[0:4]=='save':
             text=''.join(self.buffer)
             if len(text)>0:
                 file=msg[5:]
-<<<<<<< HEAD
-                writeFile(file,text)
-                test=readFile(file)
-                if test==text:
-#                    print(f'Written {file}')
-                    response=len(text)
-                else: response='Bad save'
-            else: response='No update'
-        elif msg == 'reset':
-=======
                 print(f'Save {file}')
                 writeFile('temp',text)
                 test=readFile('temp')
@@ -100,7 +70,6 @@ class Handler():
             else: response='No update'
         elif msg == 'reset':
             print('Reset request')
->>>>>>> 627b084 (sync)
             asyncio.get_event_loop().stop()
         else:
             response='Unknown message'

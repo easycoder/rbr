@@ -22,7 +22,7 @@ Start:
     set the encoding to `hex`
     put 100 into Blocksize
 
-    put `9c9e6e0ba7ed` into MAC
+    put `9c9e6e0baa6d` into MAC
     put `192.168.1.166` into IPAddr
     put `ec/update.ecs` into SourceName
     put `temp.txt` into FileName
@@ -43,7 +43,7 @@ Start:
         put encode Segment into Segment
         put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=part:`
             cat Sequence cat `,text:` cat Segment into URL
-!        print URL
+        print URL
         get Result from URL or go to Restart
 !        print Result
         if Result is not Length

@@ -9,8 +9,7 @@
     window Window
     stack Stack
     variable Config
-    variable MasterAccessPoints
-    variable SlaveAccessPoints
+    variable AccessPoints
     variable HostName
     variable HostSSID
     variable HostPassword
@@ -22,12 +21,12 @@
     variable Name
     variable SSID
     variable Password
-    variable MasterMAC
-    variable SlaveMAC
+    variable MAC
     variable List
     variable Info
     variable APInfo
-    variable File
+    variable Files
+    variable FileName
     variable FileSize
     variable Sequence
     variable Start
@@ -38,6 +37,7 @@
     variable URL
     variable Result
     variable Content
+    variable F
     variable N
     variable P
 
@@ -52,8 +52,6 @@
     put empty into DevicePassword
     put empty into Master
     put empty into IPAddr
-    put empty into File
-    fork to APScan
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Draw the UI
@@ -63,13 +61,13 @@
     init Column     ! A reusable column
     init Row        ! A reusable layout
 
+    add Button button_text `Scan Network` and size `20 1` to Row
+    add Row to Column
+    init Row
     add Button button_text `Select Master` and size `20 1` to Row
     add Row to Column
     init Row
     add Button button_text `Select Slave` and size `20 1` to Row
-    add Row to Column
-    init Row
-    add Button button_text `Select File` and size `20 1` to Row
     add Row to Column
     init Row
     add Button button_text `Update Device` and size `20 1` to Row
@@ -86,25 +84,12 @@
     add Row to Column
 
     init Row
-    add Listbox key `-APLIST-S-` and size `60 10` to Row
-    add Row to Column
-
-    init Row
-    add Text text `Program files` to Row
-    add Row to Column
-
-    init Row
-    add Listbox key `-FILES-` and size `60 10` to Row
+    add Listbox key `-APLIST-` and size `60 10` to Row
     add Row to Column
 
     init Row
     add Text text `Device:` and size `6 1` to Row
     add Text key `-DEVICE-` and expand_x true to Row
-    add Row to Column
-
-    init Row
-    add Text text `File:` and size `6 1` to Row
-    add Text key `-FILE-` and expand_x true to Row
     add Row to Column
 
     init Row
@@ -119,31 +104,22 @@
 
     set property `disabled` of `Select Master` in Window to true
     set property `disabled` of `Select Slave` in Window to true
-    set property `disabled` of `Select File` in Window to true
     set property `disabled` of `Update Device` in Window to true
     set property `disabled` of `Exit` in Window to true
-    set property `values` of `-FILES-` in Window to the files in `.`
+
+    on event `Scan Network` in Window gosub to APScan
 
     on event `Select Master` in Window
     begin
         set property `value` of `-DEVICE-` in Window to Master
-        set property `disabled` of `Select File` in Window to false
-        if File is not empty set property `disabled` of `Update Device` in Window to false
+        set property `disabled` of `Update Device` in Window to false
     end
 
     on event `Select Slave` in Window
     begin
-        put the value of key `-APLIST-S-` in Window into SSID
+        put the value of key `-APLIST-` in Window into SSID
         set property `value` of `-DEVICE-` in Window to SSID
-        set property `disabled` of `Select File` in Window to false
-        if File is not empty set property `disabled` of `Update Device` in Window to false
-    end
-
-    on event `Select File` in Window
-    begin
-        put the value of key `-FILES-` in Window into File
-        set property `value` of `-FILE-` in Window to File
-        if SSID is not empty set property `disabled` of `Update Device` in Window to false
+        set property `disabled` of `Update Device` in Window to false
     end
 
     on event `Update Device` in Window go to Update
@@ -163,8 +139,7 @@ APScan:
     wait 10 ticks
     put system `nmcli device wifi list` into List
     split List
-    put json `[]` into MasterAccessPoints
-    put json `[]` into SlaveAccessPoints
+    put json `[]` into AccessPoints
     put 1 into N
     while N is less than the elements of List
     begin
@@ -219,6 +194,7 @@ ConnectToAP:
     increment N
     put left N of IPAddr into IPAddr
     put `http://` cat IPAddr cat `1` into IPAddr
+    print `Request ` cat IPAddr
     get APInfo from IPAddr or go to CTAP3
     put trim APInfo into APInfo
     put APInfo into Info
@@ -229,15 +205,15 @@ ConnectToAP:
         put APInfo into Master
         set property `value` of `-MASTER-` in Window to Master
         set property `disabled` of `Select Master` in Window to false
-        print `Get the STA IP address`
+        print `Get the Master IP address`
         get IPAddr from IPAddr cat `/ipaddr` or go to CTAP3
         put `http://` cat IPAddr into IPMaster
         go to CTAP2
     end
     else if Info is `S`
     begin
-        append APInfo to SlaveAccessPoints
-        set property `values` of `-APLIST-S-` in Window to SlaveAccessPoints
+        append APInfo to AccessPoints
+        set property `values` of `-APLIST-` in Window to AccessPoints
         set property `disabled` of `Select Slave` in Window to false
         if IPMaster is not empty set property `disabled` of `Select Master` in Window to false
     end
@@ -245,7 +221,8 @@ CTAP2:
     pop N from Stack
     return
 CTAP3:
-    set property `value` of `-STATUS-` in Window to `Failed to activate ` cat SSID
+    print `Failed to interrogate ` cat SSID
+    set property `value` of `-STATUS-` in Window to `Failed to interrogate ` cat SSID
     pop N from Stack
     return
 
@@ -280,17 +257,37 @@ FindMaster:
 
 Update:
     split SSID on ` `
-    index SSID to 2
-    set property `value` of `-STATUS-` in Window to `Updating ` cat SSID cat `... `
-
-    split SSID on ` `
     index SSID to 0
-    put from 8 of SSID into SlaveMAC
-    print `Slave MAC: ` cat SlaveMAC
+    print `Updating ` cat SSID
+    set property `value` of `-STATUS-` in Window to `Updating ` cat SSID cat `... `
+    put SSID into MAC
+    print `Slave MAC: ` cat MAC
 
-    load Content from File
+    set the encoding to `hex`
+
+    load Files from `files.txt`
+    split Files
+    put 0 into F
+    while F is less than the elements of Files
+    begin
+        index Files to F
+        put trim Files into FileName
+        if FileName is not empty gosub to UpdateOne
+        increment F
+    end
+    stop
+
+UpdateOne:
+    if file FileName exists begin end
+    else
+    begin
+        print `File ` cat FileName cat ` does not exist`
+        return
+    end
+    print `Update ` cat FileName
+    load Content from FileName
     put the length of Content into FileSize
-    set property `value` of `-STATUS-` in Window to `Updating ` cat File cat ` (size=` cat FileSize cat `)`
+    set property `value` of `-STATUS-` in Window to `Updating ` cat FileName cat ` (size=` cat FileSize cat `)`
 
     put 0 into Sequence
     put 0 into Start
@@ -298,34 +295,31 @@ Update:
     while Start is less than FileSize
     begin
         if Finish is greater than FileSize put FileSize into Finish
-        add Blocksize to Start giving Finish
-        put from Start to Finish of File into Segment
+        add 100 to Start giving Finish
+        put from Start to Finish of Content into Segment
         put the length of Segment into Length
         add Length to Total
         put encode Segment into Segment
-        put `http://` cat IPAddr cat `/?mac=` cat SlaveMAC cat `&msg=part:`
+        put IPMaster cat `/?mac=` cat MAC cat `&msg=part:`
             cat Sequence cat `,text:` cat Segment into URL
+!        print URL
         get Result from URL or go to UpdateFailed
-        log Result
-        if Result is not `OK`
+        if Result is not Length
         begin
             set property `value` of `-STATUS-` in Window to `Failed to send part ` cat Sequence
-            stop
+            go to UpdateFailed
         end
         put Finish into Start
         increment Sequence
     end
 
-    get Result from `http://` cat IPAddr cat `/?mac=` cat SlaveMAC cat `&msg=save:` cat `temp.txt`
+    get Result from IPMaster cat `/?mac=` cat MAC cat `&msg=save:` cat FileName
         or go to UpdateFailed
-    if Result is not `True`
-    begin
-        if Result is Total
-            set property `value` of `-STATUS-` in Window to `Mismatched length: `
-            cat Total cat ` - ` cat Result
-    end
-    stop
+    if Result is not Total
+        set property `value` of `-STATUS-` in Window to `Mismatched length: ` cat Total cat ` - ` cat Result
+    return
 
 UpdateFailed:
     print `Update failed`
-    stop
+    return
+
