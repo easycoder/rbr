@@ -4,43 +4,49 @@
 
     layout Layout
     layout Row
+    layout Row2
     layout Columns
     column Column
+    frame Frame
     window Window
-    stack Stack
     variable Config
-    variable AccessPoints
-    variable HostName
     variable HostSSID
     variable HostPassword
-    variable DevicePassword
-    variable Connected
     variable IPAddr
-    variable Master
-    variable MasterSSID
-    variable MasterIPAddr
-    variable ScanForMaster
-    variable ScanComplete
-    variable MasterInfo
+    variable Slaves
+    variable ScanResult
+    variable IsMaster
     variable MasterName
+    variable MasterSSID
+    variable MasterMAC
+    variable MasterIPAddr
     variable Name
     variable SSID
     variable MAC
     variable List
     variable Info
     variable APInfo
+    variable Keys
     variable Files
     variable FileName
     variable FileSize
     variable Sequence
+    variable MasterDevice
+    variable SelectedDevice
+    variable Device
+    variable Devices
     variable Start
     variable Finish
     variable Total
     variable Segment
     variable Length
     variable URL
+    variable Value
     variable Result
     variable Content
+    variable SendFail
+    variable Pins
+    variable Pin
     variable D
     variable F
     variable N
@@ -48,44 +54,54 @@
 
 !    debug step
 
-    load Config from `.config.json`
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Initialisation
 
-    put property `ssid` of Config into HostSSID
-    put property `password` of Config into HostPassword
-    if Config has property `master`
+    if file `.config.json` exists
     begin
-        put property `master` of Config into Master
-        put property `ssid` of Master into MasterSSID
-        put property `ipaddr` of Master into MasterIPAddr
-        put property `name` of Master into MasterName
+        load Config from `.config.json`
+        put property `devices` of Config into Devices
+        put property `ssid` of Config into HostSSID
+        put property `password` of Config into HostPassword
     end
     else
     begin
-        put json `{}` into Master
-        set property `ssid` of Master to empty
-        set property `ipaddr` of Master to empty
-        set property `name` of Master to empty
-        set property `master` of Config to Master
-        save Config to `.config.json`
+        put json `{}` into Config
+        put json `{}` into Devices
+        set property `devices` of Config to Devices
+        set property `ssid` of Config to empty
+        set property `password` of Config to empty
     end
 
-    clear Connected
-    put empty into HostName
-    put empty into DevicePassword
+    put the keys of Devices into Keys
+    put 0 into N
+    while N is less than the count of Keys
+    begin
+        put element N of Keys into Name
+        if Name is `(empty)` put empty into Name
+        put property Name of Devices into Device
+        if property `master` of Device is true put Name into MasterName
+        increment N
+    end
+
     put empty into IPAddr
+
+    set the encoding to `hex`
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Draw the UI
 
     init Layout     ! The main layout
     init Columns    ! The two columns
-    init Column     ! A reusable column
 
-    init Row        ! A reusable layout
-    add Button button_text `Find Master` and size `20 1` to Row
+!   The left-hand column
+    init Column
+
+    init Row
+    add Button button_text `Reset config` and size `20 1` to Row
     add Row to Column
     init Row
-    add Button button_text `Find Slaves` and size `20 1` to Row
+    add Button button_text `Scan network` and size `20 1` to Row
     add Row to Column
     init Row
     add Button button_text `Select Master` and size `20 1` to Row
@@ -94,30 +110,77 @@
     add Button button_text `Select Slave` and size `20 1` to Row
     add Row to Column
     init Row
-    add Button button_text `Update Device` and size `20 1` to Row
+    add Button button_text `Update Files` and size `20 1` to Row
     add Row to Column
     init Row
     add Button button_text `Exit` and size `20 1` to Row
     add Row to Column
     add Column to Columns
 
+!   The right-hand column
     init Column
+
+!   The host SSID and password
     init Row
-    add Text text `Master:` and size `8 1` to Row
-    add Text default_text `None` and key `-MASTER-` and expand_x true to Row
+    init Frame
+    init Row2
+    add Text text `SSID:` and size `10 1` to Row2
+    add Input key `-HOST_SSID-` and expand_x true to Row2
+    add Row2 to Frame
+
+    init Row2
+    add Text text `Password:` and size `10 1` to Row2
+    add Input key `-HOST_PASSWORD-` and expand_x true to Row2
+    add Row2 to Frame
+    add Frame title `Host` and expand_x true and pad 10 to Row
     add Row to Column
 
+!   Known devices
     init Row
-    add Listbox key `-APLIST-` and size `60 10` to Row
+    init Frame
+    init Row2
+    add Listbox key `-APLIST-` and size `60 10` and pad 10 to Row2
+    add Row2 to Frame
+    add Frame title `Devices` and expand_x true and pad 10 to Row
     add Row to Column
 
+!   The master device
     init Row
-    add Text text `Device:` and size `6 1` to Row
-    add Text key `-DEVICE-` and expand_x true to Row
+    init Frame
+    init Row2
+    add Text key `-MASTER-` and expand_x true to Row2
+    add Row2 to Frame
+    add Frame title `Master` and expand_x true and pad 10 to Row
     add Row to Column
 
+!   The selected device
     init Row
-    add Text text `` and key `-STATUS-` to Row
+    init Frame
+    init Row2
+    add Text text `Name:` to Row2
+    add Input key `-NAME-` and size `12 1` to Row2
+    add Text text `Channel:` to Row2
+    add Input key `-CHANNEL-` and size `2 1` to Row2
+    add Text expand_x true to Row2
+    add Text key `-MS-` to Row2
+    add Row2 to Frame
+    init Row2
+    add Text text `LED Pin #` to Row2
+    add Input key `-LED_PIN-` and size `4 1` to Row2
+    add Checkbox text `Inverted pin logic` and  key `-LED_INVERT-` to Row2
+    add Row2 to Frame
+    init Row2
+    add Text text `Relay Pin #` to Row2
+    add Input key `-RELAY_PIN-` and size `4 1` to Row2
+    add Checkbox text `Inverted pin logic` and  key `-RELAY_INVERT-` to Row2
+    add Row2 to Frame
+    add Frame title `Selected device` and expand_x true and pad 10 to Row
+    add Button button_text `Update` and size `10 1` to Row
+    add Row to Column
+
+!   The status message
+    init Row
+    add Text key `-STATUS-` to Row
     add Row to Column
 
     add Column expand_x true to Columns
@@ -127,78 +190,105 @@
         layout Layout
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Deal with events
 
-    set property `value` of `-MASTER-` in Window to MasterName cat ` ` cat MasterSSID cat ` ` cat MasterIPAddr
-    if MasterSSID is empty set property `disabled` of `Select Master` in Window to true
-    set property `disabled` of `Select Slave` in Window to true
-    set property `disabled` of `Update Device` in Window to true
+    on event `Reset config` in Window go to ResetConfig
 
-    on event `Find Master` in Window
+    on event `Scan network` in Window
     begin
-        gosub to FindMaster
+        gosub to ScanNetwork
+        gosub to UpdateConfig
         stop
     end
 
-    on event `Find Slaves` in Window
-    begin
-        gosub to FindSlaves
-        stop
-    end
+    on event `Select Master` in Window go to SelectMaster
 
-    on event `Select Master` in Window
-    begin
-        set property `value` of `-DEVICE-` in Window to MasterInfo
-        set property `disabled` of `Update Device` in Window to false
-    end
+    on event `Select Slave` in Window go to SelectSlave
 
-    on event `Set Slaves` in Window
-    begin
-        put the value of key `-APLIST-` in Window into SSID
-        set property `value` of `-DEVICE-` in Window to SSID
-        set property `disabled` of `Update Device` in Window to false
-    end
+    on event `Update Files` in Window go to UpdateFiles
 
-    on event `Update Device` in Window go to Update
+    on event `Update` in Window go to UpdateProperties
 
     on event `Exit` in Window
     begin
+        gosub to UpdateConfig
         close Window
         exit
     end
 
-    stop
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Scan the local network
-FindMaster:
-    set property `value` of `-STATUS-` in Window to `Scanning for the master device`
-    set ScanForMaster
-    gosub to ScanNetwork
-!    if MasterIPAddr is empty gosub to FindMasterIP
-    if MasterIPAddr is not empty
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Refresh the UI. This repeats every 5 seconds
+RefreshUI:
+    set property `disabled` of `Update Files` in Window to true
+    clear SelectedDevice
+    while true
     begin
-        print `Master IP: ` cat MasterIPAddr
-        set property `disabled` of `Select Master` in Window to false
+        set property `value` of `-HOST_SSID-` in Window to HostSSID
+        set property `value` of `-HOST_PASSWORD-` in Window to HostPassword
+        put json `[]` into Slaves
+        put the keys of Devices into Keys
+        put 0 into N
+        while N is less than the count of Keys
+        begin
+            put element N of Keys into Name
+            put property Name of Devices into Device
+            put property `ssid` of Device into SSID
+            if property `master` of Device is true
+            begin
+                put Device into MasterDevice
+                put property `ipaddr` of Device into MasterIPAddr
+                set property `value` of `-MASTER-` in Window to Name cat ` ` cat SSID cat ` ` cat MasterIPAddr
+                put SSID into MasterSSID
+            end
+            else append SSID cat ` ` cat Name to Slaves
+            increment N
+        end
+        if the count of Slaves is 0 set property `disabled` of `Select Slave` in Window to true
+        set property `values` of `-APLIST-` in Window to Slaves
+        if the value of key `-MASTER-` in Window is empty
+        begin
+            set property `disabled` of `-NAME-` in Window to true
+            set property `disabled` of `-CHANNEL-` in Window to true
+            set property `disabled` of `-LED_PIN-` in Window to true
+            set property `disabled` of `-LED_INVERT-` in Window to true
+            set property `disabled` of `-RELAY_PIN-` in Window to true
+            set property `disabled` of `-RELAY_INVERT-` in Window to true
+            set property `disabled` of `Select Master` in Window to true
+        end
+        else
+        begin
+            set property `disabled` of `-NAME-` in Window to false
+            set property `disabled` of `-CHANNEL-` in Window to false
+            set property `disabled` of `-LED_PIN-` in Window to false
+            set property `disabled` of `-LED_INVERT-` in Window to false
+            set property `disabled` of `-RELAY_PIN-` in Window to false
+            set property `disabled` of `-RELAY_INVERT-` in Window to false
+            set property `disabled` of `Select Master` in Window to false
+        end
+stop
+        wait 5
     end
-    stop
 
-FindSlaves:
-    print `Find the slaves`
-    set property `value` of `-STATUS-` in Window to `Scanning for slave devices`
-    clear ScanForMaster
-    gosub to ScanNetwork
-    stop
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Scan the local network
 ScanNetwork:
-    clear ScanComplete
-    put system `nmcli device wifi list` into List
-    split List
-    put json `[]` into AccessPoints
-    put 1 into N
-    while N is less than the elements of List
+    if HostSSID is empty
     begin
-        index List to N
-        put List into SSID
+        popup `Please provide host SSID and password information`
+        return
+    end
+
+    set property `value` of `-STATUS-` in Window to `Scanning the local network...`
+    wait 10 ticks   ! for the screen to update
+    put system `nmcli device wifi list` into ScanResult
+!    log ScanResult
+    split ScanResult
+    put json `[]` into List
+    put 1 into N
+    while N is less than the elements of ScanResult
+    begin
+        index ScanResult to N
+        put ScanResult into SSID
         if left 1 of SSID is `*` begin end
         else
         begin
@@ -208,113 +298,245 @@ ScanNetwork:
             put trim SSID into SSID
             put the position of ` ` in SSID into P
             put left P of SSID into SSID
-!            log SSID
             if left 7 of SSID is `RBR-Now`
             begin
-                set property `value` of `-STATUS-` in Window to `Connecting to ` cat SSID
-                gosub to ConnectToAP
-                if ScanComplete go to Reconnect
+                append SSID to List
             end
         end
         increment N
     end
-
+    put json `[]` into Slaves
+    set property `values` of `-APLIST-` in Window to List
+    put 0 into N
+    while N is less than the count of List
+    begin
+        put element N of List into SSID
+        log `Device ` cat N cat `: ` cat SSID
+        if SSID is not MasterSSID
+        begin
+            set property `value` of `-STATUS-` in Window to `Connecting to ` cat SSID
+            wait 10 ticks
+            gosub to ConnectToAP
+        end
+        increment N
+    end
 Reconnect:
     print `Reconnect to default AP`
     set property `value` of `-STATUS-` in Window to `Reconnecting to default AP`
     system `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword
+    if the count of Slaves is 0
+    begin
+        set property `values` of `-APLIST-` in Window to json `[]`
+    end
+    else set property `values` of `-APLIST-` in Window to Slaves
     set property `value` of `-STATUS-` in Window to `Ready`
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Connect to the access point given by SSID
 ConnectToAP:
-!    print `Activate ` cat SSID
+    log `Connect to ` cat SSID
     set property `value` of `-STATUS-` in Window to `Activate ` cat SSID
+    wait 10 ticks
     system `nmcli dev wifi connect ` cat SSID cat ` password 00000000`
+    wait 1
     put system `hostname -I` into IPAddr
     put the position of the last `.` in IPAddr into D
     increment D
     put left D of IPAddr into IPAddr
-    put `http://` cat IPAddr cat `1` into URL
-    print `Request ` cat URL
-    get APInfo from URL or go to CTAP3
+    put IPAddr cat `1` into IPAddr
+    put `http://` cat IPAddr into URL
+    set property `value` of `-STATUS-` in Window to `Request AP details for ` cat SSID
+    wait 10 ticks
+    get APInfo from URL
+    or begin
+        print `Failed to interrogate ` cat SSID
+        set property `value` of `-STATUS-` in Window to `Failed to interrogate ` cat SSID
+        wait 2
+        return
+    end
     put trim APInfo into APInfo
     put APInfo into Info
     split Info on ` `
-    index Info to 1
-    if Info is `M`
+    index Info to 2
+    put Info into Name
+    index Info to 0
+    put Info into MAC
+    ! Check if this is the first device to be configured. If so, make it the master.
+    if MasterSSID is empty
     begin
-        if ScanForMaster
-        begin
-            index Info to 2
-            set property `name` of Master to Info
-            index Info to 0
-            set property `ssid` of Master to Info
-            set property `value` of `-MASTER-` in Window to APInfo
-            set property `disabled` of `Select Master` in Window to false
-            print `Get the Master IP address from URL ` cat `/ipaddr`
-            get IPAddr from URL cat `/ipaddr` or go to CTAP3
-            put IPAddr into MasterIPAddr
-            set property `ipaddr` of Master to MasterIPAddr
-            set property `master` of Config to Master
-            save Config to `.config.json`
-            print `Master config: ` cat Master
-            set ScanComplete
+        set IsMaster
+        log `Oops!`
+        close Window
+        exit
+        put Name into MasterName
+        gosub to CreateDevice
+        put Device into MasterDevice
+        ! Send the config data to the device
+        put `config.json` into FileName
+        put stringify MasterDevice into Content
+        put MAC into MasterMAC
+        put IPAddr into MasterIPAddr
+        gosub to SendFile
+        if SendFail return
+        gosub to SendReset
+        if SendFail return
+        set property `value` of `-MASTER-` in Window to SSID cat ` ` cat MasterName
+        set property `disabled` of `Select Master` in Window to false
+        wait 5
+        put `http://` cat MasterIPAddr cat `/?mac=` cat MasterMAC cat `&msg=ipaddr` into URL
+        gosub to LogURL
+        set property `value` of `-STATUS-` in Window to `Get the Master IP address from ` cat URL
+        wait 10 ticks
+        log `Connect to ` cat SSID cat `/00000000`
+        system `nmcli dev wifi connect ` cat SSID cat ` password 00000000`
+        wait 1
+        get MasterIPAddr from URL
+        or begin
+            print `Failed to get Master ip address ` cat SSID
+            set property `value` of `-STATUS-` in Window to `Failed to get Master ip address`
+            wait 2
             return
         end
+        log `Master ip address is ` cat MasterIPAddr
+        set property `value` of `-STATUS-` in Window to `Master ip address is ` cat MasterIPAddr
+        set property `ipaddr` of MasterDevice to MasterIPAddr
+        set property MasterName of Devices to MasterDevice
+        set property `devices` of Config to Devices
+        gosub to UpdateConfig
     end
-    else if Info is `S`
+    else
     begin
-        if not ScanForMaster
-        begin
-            append APInfo to AccessPoints
-            set property `values` of `-APLIST-` in Window to AccessPoints
-            set property `disabled` of `Select Slave` in Window to false
-        end
+        log `Deal with slave ` cat Name
+        append SSID cat ` ` cat Name to Slaves
+        set property `values` of `-APLIST-` in Window to Slaves
+        set property `disabled` of `Select Slave` in Window to false
+        clear IsMaster
+        gosub to CreateDevice
     end
-CTAP3:
-    print `Failed to interrogate ` cat SSID
-    set property `value` of `-STATUS-` in Window to `Failed to interrogate ` cat SSID
     return
 
-! Search for the address used by the Master
-FindMasterIP:
-    put system `hostname -I` into IPAddr
-    put the position of the last `.` in IPAddr into N
-    increment N
-    put `http://` cat left N of IPAddr into IPAddr
-    put 1 into N
-    while N is less than 255
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Create a device entry in the config file
+CreateDevice:
+    log `Create device ` cat Name
+    put json `{}` into Device
+    if IsMaster
     begin
-        print `Probing ` cat IPAddr cat N
-        set property `value` of `-STATUS-` in Window to `Locating Master: Probing ` cat IPAddr cat N
-        get Info from IPAddr cat N timeout 1 or goto CTM2
-        print `Response from ` cat IPAddr cat `: ` cat left 40 of Info
-        put Info into APInfo
-        split APInfo on ` `
-        index APInfo to 2
-        put APInfo into Name
-        put Info into Master
-        set property `value` of `-MASTER-` in Window to Master
-        set property `value` of `-STATUS-` in Window to `Found ` cat Name
-        put `http://` cat IPAddr into MasterIPAddr
-        return
-    CTM2:
-        wait 50 ticks
-        increment N
+        set property `hostssid` of Device to HostSSID
+        set property `hostpass` of Device to HostPassword
+        set property `ipaddr` of Device to empty
     end
-    set property `value` of `-STATUS-` in Window to `Master not found`
+    set property `master` of Device to IsMaster
+    set property `name` of Device to Name
+    set property `ssid` of Device to SSID
+    set property `channel` of Device to 1
+    put json `{}` into Pins
+    put json `{}` into Pin
+    set property `pin` of Pin to 3
+    set property `invert` of Pin to false
+    set property `led` of Pins to Pin
+    put json `{}` into Pin
+    set property `pin` of Pin to 9
+    set property `invert` of Pin to false
+    set property `relay` of Pins to Pin
+    set property `pins` of Device to Pins
+    set property Name of Devices to Device
+    set property `devices` of Config to Devices
     return
 
-Update:
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SelectMaster:
+    put MasterDevice into Device
+    set property `value` of `-NAME-` in Window to MasterName
+    set property `value` of `-CHANNEL-` in Window to property `channel` of Device
+    set property `value` of `-MS-` in Window to `Master`
+    put property `pins` of Device into Pins
+    put property `led` of Pins into Pin
+    set property `value` of `-LED_PIN-` in Window to property `pin` of Pin
+    set property `value` of `-LED_INVERT-` in Window to property `invert` of Pin
+    put property `relay` of Pins into Pin
+    set property `value` of `-RELAY_PIN-` in Window to property `pin` of Pin
+    set property `value` of `-RELAY_INVERT-` in Window to property `invert` of Pin
+    set property `disabled` of `Update Files` in Window to false
+    put Device into SelectedDevice
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SelectSlave:
+    put the value of key `-APLIST-` in Window into Info
+    if Info is empty stop
+    split Info on ` `
+    index Info to 0
+    put Info into SSID
+    index Info to 1
+    put Info into Name
+    if Devices has property Name
+    begin
+        put property Name of Devices into Device
+        set property `disabled` of `Update Files` in Window to false
+        set property `value` of `-NAME-` in Window to Name
+        set property `value` of `-CHANNEL-` in Window to property `channel` of Device
+        set property `value` of `-MS-` in Window to `Slave`
+        put property `pins` of Device into Pins
+        put property `led` of Pins into Pin
+        set property `value` of `-LED_PIN-` in Window to property `pin` of Pin
+        set property `value` of `-LED_INVERT-` in Window to property `invert` of Pin
+        put property `relay` of Pins into Pin
+        set property `value` of `-RELAY_PIN-` in Window to property `pin` of Pin
+        set property `value` of `-RELAY_INVERT-` in Window to property `invert` of Pin
+        set property `disabled` of `Update Files` in Window to false
+        put Device into SelectedDevice
+    end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Update device properties
+UpdateProperties:
+    if SelectedDevice is empty stop
+    put SelectedDevice into Device
+    put property `name` of Device into Name
+    delete property Name of Devices
+    put the value of key `-NAME-` in Window into Name
+    set property `name` of Device to Name
+    put the value of key `-MS-` in Window into Value
+    if Value is `Master` set property `master` of Device to true
+    else set property `master` of Device to false
+    set property `channel` of Device to the value of key `-CHANNEL-` in Window
+    put json `{}` into Pins
+    put json `{}` into Pin
+    set property `pin` of Pin to the value of key `-LED_PIN-` in Window
+    set property `invert` of Pin to the value of key `-LED_INVERT-` in Window
+    set property `led` of Pins to Pin
+    put json `{}` into Pin
+    set property `pin` of Pin to the value of key `-RELAY_PIN-` in Window
+    set property `invert` of Pin to the value of key `-RELAY_INVERT-` in Window
+    set property `relay` of Pins to Pin
+    set property `pins` of Device to Pins
+    set property Name of Devices to Device
+    set property `devices` of Config to Devices
+    gosub to UpdateConfig
+!   Save to the device
+    put `config.json` into FileName
+    put stringify Device into Content
+    put property `ssid` of Device into SSID
+    put from 8 of SSID into MAC
+    gosub to SendFile
+    wait 2
+    if SendFail stop
+    gosub to SendReset
+    wait 2
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Update all the files on a device
+UpdateFiles:
+    if SelectedDevice is empty stop
+    put property `ssid` of SelectedDevice into SSID
     split SSID on ` `
-    index SSID to 0
     print `Updating ` cat SSID
     set property `value` of `-STATUS-` in Window to `Updating ` cat SSID cat `... `
-    put SSID into MAC
-    print `Slave MAC: ` cat MAC
-
-    set the encoding to `hex`
+    put from 8 of SSID into MAC
 
     load Files from `files.txt`
     split Files
@@ -326,8 +548,12 @@ Update:
         if FileName is not empty gosub to UpdateOne
         increment F
     end
+    gosub to SendReset
+    set property `value` of `-STATUS-` in Window to `All files updated`
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Update a single file
 UpdateOne:
     if file FileName exists begin end
     else
@@ -337,9 +563,12 @@ UpdateOne:
     end
     print `Update ` cat FileName
     load Content from FileName
+
+SendFile:
     put the length of Content into FileSize
     set property `value` of `-STATUS-` in Window to `Updating ` cat FileName cat ` (size=` cat FileSize cat `)`
-
+    wait 10 ticks
+    clear SendFail
     put 0 into Sequence
     put 0 into Start
     put 0 into Total
@@ -351,26 +580,78 @@ UpdateOne:
         put the length of Segment into Length
         add Length to Total
         put encode Segment into Segment
-        put MasterIPAddr cat `/?mac=` cat MAC cat `&msg=part:`
+!        log `Send part ` cat Sequence
+        put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=part:`
             cat Sequence cat `,text:` cat Segment into URL
-!        print URL
-        get Result from URL or go to UpdateFailed
+        gosub to LogURL
+        get Result from URL
+        or begin
+            log `Part ` cat Sequence cat ` of ` cat FileName cat ` failed`
+            set SendFail
+            return
+        end
         if Result is not Length
         begin
             set property `value` of `-STATUS-` in Window to `Failed to send part ` cat Sequence
-            go to UpdateFailed
+            go to SendFail
         end
         put Finish into Start
         increment Sequence
     end
-
-    get Result from MasterIPAddr cat `/?mac=` cat MAC cat `&msg=save:` cat FileName
-        or go to UpdateFailed
+!    log `Send the save message for ` cat FileName
+    put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=save:` cat FileName into URL
+    gosub to LogURL
+    get Result from URL
+    or begin
+        log `Save failed`
+        set SendFail
+        return
+    end
     if Result is not Total
+    begin
+        log `Mismatched length: ` cat Total cat ` - ` cat Result
         set property `value` of `-STATUS-` in Window to `Mismatched length: ` cat Total cat ` - ` cat Result
+    end
+    set property `value` of `-STATUS-` in Window to `File ` cat FileName cat ` saved`
     return
 
-UpdateFailed:
-    print `Update failed`
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send a reset message to a device
+SendReset:
+!    log `Send the reset message`
+    put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=reset` into URL
+    gosub to LogURL
+    get Result from URL or go to SR2
+    if Result is `OK`
+    begin
+        set property `value` of `-STATUS-` in Window to `Device has been reset`
+        return
+    end
+SR2:
+    log `Reset failed`
+    set property `value` of `-STATUS-` in Window to `Device reset failed`
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Log a URL
+LogURL:
+!    log URL
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Reset the config file
+ResetConfig:
+    put empty into MasterSSID
+    set property `value` of `-MASTER-` in Window to empty
+    put json `{}` into Config
+    put json `{}` into Devices
+    set property `devices` of Config to Devices
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Update the config file
+UpdateConfig:
+    set property `ssid` of Config to the value of key `-HOST_SSID-` in Window
+    set property `password` of Config to the value of key `-HOST_PASSWORD-` in Window
+    save Config to `.config.json`
+    return

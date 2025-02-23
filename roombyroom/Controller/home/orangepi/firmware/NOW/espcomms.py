@@ -8,24 +8,28 @@ class ESPComms():
         self.config=config
         config.setESPComms(self)
         E().active(True)
+        self.peers=[]
         print('ESP-Now initialised')
     
     def checkPeer(self,mac):
-        try:
-            E().get_peer(mac)
-        except Exception:
+        if not mac in self.peers:
+            self.peers.append(mac)
             E().add_peer(mac)
 
     async def send(self,peer,espmsg):
         mac=unhexlify(peer.encode())
         self.checkPeer(mac)
-        print(f'Send {espmsg[0:20]} to {peer}')
         try:
+            print(f'Send {espmsg[0:20]}... to {peer}')
             result=E().send(mac,espmsg)
+            print(f'Result: {result}')
+            result=True
             if result:
                 counter=50
                 while counter>0:
+                    print(counter)
                     if E().any():
+                        print('Reply received')
                         sender,response = E().irecv()
                         if response:
                             print(f"Received response: {response.decode()}")
@@ -46,11 +50,13 @@ class ESPComms():
         self.waiting=False
         while True:
             if E().any():
-                mac,msg=E().irecv()
+                mac,msg=E().recv()
                 sender=hexlify(mac).decode()
                 msg=msg.decode()
-#                print(f'Message from {sender}: {msg[0:20]}')
+                print(f'Message from {sender}: {msg[0:20]}...')
                 response=self.config.getHandler().handleMessage(msg)
+                print('Response',response)
                 self.checkPeer(mac)
                 E().send(mac,response)
             await asyncio.sleep(.1)
+

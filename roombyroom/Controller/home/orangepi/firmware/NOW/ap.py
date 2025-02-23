@@ -26,12 +26,4 @@ class AP():
     def getChannel(self): return self.ap.config('channel')
 
     async def handleClient(self,reader,writer):
-        request_line=await reader.readline()
-        request=request_line.decode().strip()
-        request=request.split(' ')[1]
-        if request=='/ipaddr':
-            response=self.config.getIPAddr()
-            await self.config.respond(response,writer)
-        else:
-            await self.config.sendDefaultResponse(writer)
-
+        await self.config.handleClient(reader,writer)

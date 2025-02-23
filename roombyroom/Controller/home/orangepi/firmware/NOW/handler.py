@@ -15,15 +15,15 @@ class Handler():
         if msg == 'on':
             print('relay ON')
             self.relay.on()
-            response='OK'
         elif msg == 'off':
             print('relay OFF')
             self.relay.off()
-            response='OK'
-        elif msg == 'uptime':
-            response=self.config.getUptime()
         elif msg == 'reset':
             self.config.reset()
+        elif msg == 'uptime':
+            response=self.config.getUptime()
+        elif msg == 'ipaddr':
+            response=self.config.getIPAddr()
         elif msg[0:4]=='part':
         # Format is part:{n},text:{text}
             part=None

@@ -23,6 +23,7 @@ Start:
     put 100 into Blocksize
 
     put `9c9e6e0baa6d` into MAC
+    put `4ae7296f0a51` into MAC
     put `192.168.1.166` into IPAddr
     put `ec/update.ecs` into SourceName
     put `temp.txt` into FileName

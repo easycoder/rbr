@@ -32,10 +32,10 @@ class RBRNow():
     async def blink(self):
         while True:
             self.led.on()
-            self.uptime+=self.blinkOn
+            self.config.addUptime(self.blinkOn)
             await asyncio.sleep(self.blinkOn)
             self.led.off()
-            self.uptime+=self.blinkOff
+            self.config.addUptime(self.blinkOff)
             await asyncio.sleep(self.blinkOff)
     
     def setBlinkCycle(self,on,off):
@@ -49,7 +49,7 @@ class RBRNow():
         await self.blink()
         
     def stopAP(self):
-        await asyncio.sleep(120)
+        await asyncio.sleep(600)
         self.setBlinkCycle(0.2,4.8)
         self.config.getAP().stop()
         self.blinking=False

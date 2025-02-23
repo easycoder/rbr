@@ -4,6 +4,7 @@ config.py
 espcomms.py
 files.py
 handler.py
+main.py
 pin.py
 rbrnow.py
 responder.py
