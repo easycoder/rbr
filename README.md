@@ -8,7 +8,7 @@ This project uses commercially-available BLE and WiFi-connected modules - a temp
 
 The repository software is in 3 parts:
 
-  1. A system controller designed to run on an Orange Pi Zero 2 computer (but others may serve equally well). This is coded in Python.
+  1. A system controller designed to run on an Orange Pi Zero 2 computer (but others will serve equally well). This is coded in Python.
   1. A REST server on public shared hosting. This is coded in PHP.
   1. A user interface, built as a browser-based mobile webapp. This is coded in JavaScript.
 
@@ -28,4 +28,4 @@ The webapp is designed to work on a smartphone but can also be viewed in a PC br
 
 ## Call for collaborators
 
-This project has been developed by one person - me. It controls my central heating and that of a friend, but we'd like to spread the knowledge. I'm getting on in years so I won't be able to support it for very much longer. Anyone who is interested in joining will be most welcome. No strings are attached and I'll give as much help as I can to get you up the learning curve. The project uses some unusual programming techniques designed to help casual programmers get familiar with the product, but underneath it's all pure JavaScript, Python, PHP and C++.
+This project has been developed by one person - me. It controls my central heating and that of a friend, but we'd like to spread the knowledge. I'm getting on in years so I won't be able to support it for very much longer. Anyone who is interested in joining will be most welcome. No strings are attached and I'll give as much help as I can to get you up the learning curve. The project uses some unusual programming techniques designed to help casual programmers get familiar with the product, but underneath it's all pure JavaScript, Python and PHP.
