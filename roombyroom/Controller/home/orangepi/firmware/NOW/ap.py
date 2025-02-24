@@ -16,12 +16,8 @@ class AP():
         ap.ifconfig(('192.168.9.1', '255.255.255.0', '192.168.9.1', '8.8.8.8'))
         print(mac,config.getName()) 
 
-    def startup(self):
-        self.apServer=asyncio.create_task(asyncio.start_server(self.handleClient,self.ap.ifconfig()[0],80))
-
     def stop(self):
-        self.apServer.cancel()
-        self.ap.active(False)
+        self.ap.config(essid='',password='')
 
     def getChannel(self): return self.ap.config('channel')
 

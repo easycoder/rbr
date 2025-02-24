@@ -10,7 +10,7 @@
     variable IPAddr
 
     put `9c9e6e0ba955` into MAC
-    put `192.168.1.106` into IPAddr
+    put `192.168.1.166` into IPAddr
 
     put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=reset` into Message
     print Message

@@ -2,20 +2,44 @@
 
 !   Gets the uptime
 
-    script Test
+    script Uptime
 
-    variable Message
+    variable Config
+    variable Devices
+    variable Device
+    variable URL
     variable Result
+    variable SSID
     variable MAC
     variable IPAddr
+    variable Names
+    variable Name
+    variable N
 
-    put `9c9e6e0ba955` into MAC
-    put `192.168.1.106` into IPAddr
+    put `192.168.1.166` into IPAddr
 
-    put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=uptime` into Message
-    print Message
-    get Result from Message
-
-    print Result
+Loop:
+    load Config from `.config.json`
+    put property `devices` of Config into Devices
+    put the keys of Devices into Names
+    put 0 into N
+    while N is less than the count of Names
+    begin
+        put element N of Names into Name
+        put property Name of Devices into Device
+        put property `ssid` of Device into SSID
+        put from 8 of SSID into MAC
+        gosub to GetUptime
+        increment N
+    end
+    print ``
+    wait 5
+    go to Loop
 
     exit
+
+GetUptime:
+    put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=uptime` into URL
+    get Result from URL
+    print MAC cat ` ` cat Result
+    return

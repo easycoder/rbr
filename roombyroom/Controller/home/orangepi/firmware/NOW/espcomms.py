@@ -27,7 +27,6 @@ class ESPComms():
             if result:
                 counter=50
                 while counter>0:
-                    print(counter)
                     if E().any():
                         print('Reply received')
                         sender,response = E().irecv()

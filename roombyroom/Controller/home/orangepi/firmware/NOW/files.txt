@@ -6,6 +6,5 @@ files.py
 handler.py
 main.py
 pin.py
-rbrnow.py
-responder.py
+server.py
 sta.py

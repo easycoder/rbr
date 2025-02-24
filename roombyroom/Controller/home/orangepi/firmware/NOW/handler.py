@@ -21,7 +21,7 @@ class Handler():
         elif msg == 'reset':
             self.config.reset()
         elif msg == 'uptime':
-            response=self.config.getUptime()
+            response=str(self.config.getUptime())
         elif msg == 'ipaddr':
             response=self.config.getIPAddr()
         elif msg[0:4]=='part':

@@ -20,9 +20,9 @@ class RBRNow():
         config=self.config
         self.handler=Handler(config)
         ap=AP(config)
-        ap.startup()
         sta=STA(config)
         if config.isMaster(): sta.connect()
+        config.startServer()
         espComms=ESPComms(config)
         asyncio.create_task(self.startBlink())
         asyncio.create_task(self.stopAP())

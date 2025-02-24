@@ -3,7 +3,7 @@ from files import readFile,writeFile,fileExists
 from pin import PIN
 from machine import reset
 from binascii import hexlify,unhexlify
-from responder import Responder
+from server import Server
 
 class Config():
 
@@ -29,14 +29,14 @@ class Config():
         if self.getPinNo('relay')!=None: self.relay=PIN(self,'relay')
         self.ipaddr=None
         self.uptime=0
-        self.responder=Responder(self)
+        self.server=Server(self)
 
     async def respond(self,response,writer):
-        await self.responder.respond(response,writer)
+        await self.server.respond(response,writer)
     async def sendDefaultResponse(self,writer):
-        await self.responder.sendDefaultResponse(writer)
+        await self.server.sendDefaultResponse(writer)
     async def handleClient(self,reader,writer):
-        await self.responder.handleClient(reader,writer)
+        await self.server.handleClient(reader,writer)
 
     async def send(self,peer,espmsg): return await self.espComms.send(peer,espmsg)
 
@@ -65,6 +65,8 @@ class Config():
     def getMAC(self): return self.mac
     def getAP(self): return self.ap
     def getSTA(self): return self.sta
+    def stopAP(self): self.ap.stop()
+    def startServer(self): self.server.startup()
     def getIPAddr(self): return self.ipaddr
     def getChannel(self): return self.ap.getChannel()
     def getHandler(self): return self.handler

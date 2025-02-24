@@ -10,10 +10,9 @@ class STA():
         sta.active(True)
         self.sta=sta
         config.setSTA(sta)
-        if config.isESP8266(): sta.disconnect()
     
-    def disconnect(self):
-        self.sta.disconnect()
+#    def disconnect(self):
+#        self.sta.disconnect()
 
     def connect(self):
         ssid=self.config.getSSID()
@@ -28,9 +27,5 @@ class STA():
         self.channel=self.sta.config('channel')
         self.config.setIPAddr(ipaddr)
         print(f'{ipaddr} ch {self.channel}')
-        asyncio.create_task(asyncio.start_server(self.handleClient, "0.0.0.0", 80))
     
     def getChannel(self): return self.channel
-
-    async def handleClient(self,reader,writer):
-        await self.config.handleClient(reader,writer)
