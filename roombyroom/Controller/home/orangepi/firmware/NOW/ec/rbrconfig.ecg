@@ -191,14 +191,18 @@
     add Text key `-MS-` to Row2
     add Row2 to Frame
     init Row2
-    add Text text `LED Pin #` to Row2
-    add Input key `-LED_PIN-` and size `4 1` to Row2
+    add Text text `LED Pin #` and size `11 1` to Row2
+    add Input key `-LED_PIN-` and size `3 1` to Row2
     add Checkbox text `Inverted pin logic` and  key `-LED_INVERT-` to Row2
     add Row2 to Frame
     init Row2
-    add Text text `Relay Pin #` to Row2
-    add Input key `-RELAY_PIN-` and size `4 1` to Row2
+    add Text text `Relay Pin #` and size `11 1` to Row2
+    add Input key `-RELAY_PIN-` and size `3 1` to Row2
     add Checkbox text `Inverted pin logic` and  key `-RELAY_INVERT-` to Row2
+    add Row2 to Frame
+    init Row2
+    add Text text `DHT22 Pin #` and size `11 1` to Row2
+    add Input key `-DHT22_PIN-` and size `3 1` to Row2
     add Row2 to Frame
     add Frame title `Selected device` and expand_x true and pad 10 to Row
     add Button button_text `Update` and size `10 1` to Row
@@ -255,7 +259,7 @@
 !   Refresh the UI.
 RefreshUI:
     set property `disabled` of `Update Files` in Window to true
-    clear SelectedDevice
+    put empty into SelectedDevice
     set property `value` of `-HOST_SSID-` in Window to HostSSID
     set property `value` of `-HOST_PASS-` in Window to HostPassword
     put json `[]` into Slaves
@@ -281,6 +285,7 @@ RefreshUI:
         set property `disabled` of `-LED_INVERT-` in Window to true
         set property `disabled` of `-RELAY_PIN-` in Window to true
         set property `disabled` of `-RELAY_INVERT-` in Window to true
+        set property `disabled` of `-DHT22_PIN-` in Window to true
         set property `disabled` of `Select Master` in Window to true
     end
     else
@@ -291,6 +296,7 @@ RefreshUI:
         set property `disabled` of `-LED_INVERT-` in Window to false
         set property `disabled` of `-RELAY_PIN-` in Window to false
         set property `disabled` of `-RELAY_INVERT-` in Window to false
+        set property `disabled` of `-DHT22_PIN-` in Window to false
         set property `disabled` of `Select Master` in Window to false
     end
     stop
@@ -491,13 +497,16 @@ CreateDevice:
     set property `channel` of Device to 1
     put json `{}` into Pins
     put json `{}` into Pin
-    set property `pin` of Pin to 3
+    set property `pin` of Pin to empty
     set property `invert` of Pin to false
     set property `led` of Pins to Pin
     put json `{}` into Pin
-    set property `pin` of Pin to 9
+    set property `pin` of Pin to empty
     set property `invert` of Pin to false
     set property `relay` of Pins to Pin
+    put json `{}` into Pin
+    set property `pin` of Pin to empty
+    set property `dht22` of Pins to Pin
     set property `pins` of Device to Pins
     set property Name of Devices to Device
     set property `devices` of Config to Devices
@@ -516,6 +525,8 @@ SelectMaster:
     put property `relay` of Pins into Pin
     set property `value` of `-RELAY_PIN-` in Window to property `pin` of Pin
     set property `value` of `-RELAY_INVERT-` in Window to property `invert` of Pin
+    put property `thermometer` of Pins into Pin
+    set property `value` of `-DHT22_PIN-` in Window to property `pin` of Pin
     set property `disabled` of `Update Files` in Window to false
     put Device into SelectedDevice
     stop
@@ -543,6 +554,8 @@ SelectSlave:
         put property `relay` of Pins into Pin
         set property `value` of `-RELAY_PIN-` in Window to property `pin` of Pin
         set property `value` of `-RELAY_INVERT-` in Window to property `invert` of Pin
+        put property `dht22` of Pins into Pin
+        set property `value` of `-DHT22_PIN-` in Window to property `pin` of Pin
         set property `disabled` of `Update Files` in Window to false
         put Device into SelectedDevice
     end
@@ -589,6 +602,9 @@ UpdateProperties:
     set property `pin` of Pin to the value of key `-RELAY_PIN-` in Window
     set property `invert` of Pin to the value of key `-RELAY_INVERT-` in Window
     set property `relay` of Pins to Pin
+    put json `{}` into Pin
+    set property `pin` of Pin to the value of key `-DHT22_PIN-` in Window
+    set property `dht22` of Pins to Pin
     set property `pins` of Device to Pins
     set property Name of Devices to Device
     set property `devices` of Config to Devices

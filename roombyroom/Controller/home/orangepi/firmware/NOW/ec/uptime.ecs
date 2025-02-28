@@ -41,5 +41,9 @@ Loop:
 GetUptime:
     put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=uptime` into URL
     get Result from URL
+    or begin
+       print MAC
+       return
+    end
     print MAC cat ` ` cat Result
     return

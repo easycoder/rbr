@@ -1,0 +1,30 @@
+!   Test
+
+!   Gets the temperature
+
+    script Temperature
+
+    variable URL
+    variable Result
+    variable MAC
+    variable IPAddr
+
+    put `192.168.1.166` into IPAddr
+    put `f09e9ead8f39` into MAC
+
+Loop:
+    gosub to GetTemperature
+    wait 5
+    go to Loop
+
+    exit
+
+GetTemperature:
+    put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=temp` into URL
+    get Result from URL
+    or begin
+       print MAC
+       return
+    end
+    print MAC cat ` ` cat Result
+    return

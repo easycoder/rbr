@@ -22,7 +22,7 @@
 
     $props = array();
     $filename = '../../' . $_SERVER['HTTP_HOST'] . '.txt';
-    // logger($filename);
+    logger($filename);
     if (file_exists($filename)) {
         $file = fopen($filename, 'r');
         while (!feof($file)) {
@@ -38,7 +38,7 @@
         fclose($file);
         // print_r($props); print "\n";
     } else {
-         // logger("Properties file $filename not found");
+         logger("Properties file $filename not found");
          print("Properties file $filename not found");
          exit;
     }
@@ -131,7 +131,7 @@
                         // Endpoint: {site root}/easycoder/rest.php/_mkdir
                         header("Content-Type: application/text");
                         $path = stripslashes(file_get_contents("php://input"));
-                        // logger("Create directory $path");
+                         logger("Create directory $path");
                         mkdir($path);
                         exit;
                     case '_save':
@@ -222,7 +222,7 @@
                         $map = '{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}],"message":"OK"}],"profile":0,"name":"New system"}';
                         $map = base64_encode($map);
                         query($conn, "INSERT INTO systems (ts,mac,password,map) VALUES ('$ts','$mac','$password','$map')");
-                        // logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
+                        logger("INSERT INTO systems (ts,mac,password) VALUES ('$ts','$mac','$password')");
                     }
                     $file = fopen('version', 'r');
                     $version = trim(fgets($file));
@@ -286,7 +286,7 @@
                 if ($row = mysqli_fetch_object($result)) {
                     print $row->confirm;
                     query($conn, "UPDATE systems SET confirm='' WHERE mac='$mac'");
-                    // logger("UPDATE systems SET confirm='' WHERE mac='$mac'");
+                    logger("UPDATE systems SET confirm='' WHERE mac='$mac'");
                 }
                 mysqli_free_result($result);
                 break;
@@ -330,7 +330,7 @@
                         sendMail($data);
                         $xpassword = "x$password";
                         query($conn, "INSERT INTO users (email, password) VALUES ('$email','$xpassword')");
-                        // logger("INSERT INTO user (email, password) VALUES ('$email','$xpassword')");
+                        logger("INSERT INTO user (email, password) VALUES ('$email','$xpassword')");
                         print "{\"message\": \"$xpassword\"}";
                     } catch (Exception $e) {
                         http_response_code(404);
@@ -348,7 +348,7 @@
                 $password = $request[1];
                 $xpassword = "$password";
                 $result = query($conn, "SELECT null FROM users WHERE email='$email' AND password='$password'");
-                // looger("SELECT null FROM user WHERE email='$email' AND password='$password'");
+                logger("SELECT null FROM user WHERE email='$email' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $message = "You are now registered with RBR Heating with the following credentials:<br><br>"
                         . "User name: $email<br>"
@@ -365,7 +365,7 @@
                     try {
                         sendMail($data);
                         query($conn, "UPDATE users SET password='$password' WHERE email='$email'");
-                        // looger("UPDATE users SET password='$password' WHERE email='$email'");
+                        logger("UPDATE users SET password='$password' WHERE email='$email'");
                     } catch (Exception $e) {
                         http_response_code(404);
                         print "{\"message\": $data->err}";
@@ -443,6 +443,102 @@
                 }
                 mysqli_free_result($result);
                 break;
+
+/*            case 'sensorlog':
+                // Get a system's sensor log, given its MAC
+                // Endpoint: {site root}/resources/php/rest.php/sensorlog/<mac>/<password>/<year>/<month>[/x]
+                $mac = $request[0];
+                $password = $request[1];
+                $year = $request[2];
+                $month = $request[3];
+                if (!$year || $year == "x" || $year == "r") {
+                    $flag = $year;
+                    $year = date("Y");
+                    $month = date("m");
+                } else {
+                    $flag = $request[4];
+                }
+                $nextyear = $year;
+                $nextmonth= $month + 1;
+                if ($nextmonth == 13) {
+                    $nextyear++;
+                    $nextmonth = 1;
+                }
+
+                $date = date("m F Y", $ts);
+
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    $ts = strtotime("$year-$month-01 00:00:00");
+                    $nextts = strtotime("$nextyear-$nextmonth-01 00:00:00");
+                    // print "Y = $year, M = $month, TS = $ts\nNY = $nextyear, NM = $nextmonth, NTS = $nextts\n";
+                    // print "SELECT ts,sensors FROM sensors WHERE mac='$mac' AND ts>=$ts AND ts<$nextts\n";
+                    $result = query($conn, "SELECT sensors FROM sensors WHERE mac='$mac' AND ts>=$ts AND ts<$nextts");
+                    $htmlStats = "";
+                    $stats = [];
+                    while ($row = mysqli_fetch_object($result)) {
+                        $sensors = base64_decode($row->sensors);
+                        if ($htmlStats) $htmlStats = "$htmlStats<br>";
+                        $htmlStats = "$htmlStats$sensors";
+                        $stats[] = json_decode($sensors);
+                    }
+                    mysqli_free_result($result);
+                    if ($htmlStats) {
+                        if ($flag == "r") {
+                            // Return the stats - no email
+                            print $htmlStats;
+                            break;
+                        }
+
+                        // Write the stats to a file
+                        $date = date("m F Y", $ts);
+                        $file = "resources/stats";
+                        if (!file_exists($file)) mkdir($file);
+                        $file .= "/$mac";
+                        if (!file_exists($file)) mkdir($file);
+                        $file.= "/$date.txt";
+                        $fp = fopen($file, "w") or die("Can't open $file");
+                        fwrite($fp, json_encode($stats));
+                        fclose($fp);
+
+                        // Use the 'managed' table to find the user email(s), then send the stats.
+                        $delay = mt_rand(1, 4000);
+                        usleep($delay);
+                        $result = query($conn, "SELECT email FROM managed WHERE mac='$mac'");
+                        while ($row = mysqli_fetch_object($result)) {
+                            $email = $row->email;
+                            // if ($email == 'gt@pobox.com') {
+                                print "Sending email to $email<br>";
+                                $date = date("F Y", $ts);
+                                $password = $row->password;
+                                $data = new stdClass();
+                                $data->to = $email;
+                                $data->subject = "RBR Heating statistics for ($mac) - $date";
+                                $data->message = $htmlStats;
+                                $data->smtpusername = $smtpusername;
+                                $data->smtppassword = $smtppassword;
+                                try {
+                                    sendMail($data);
+                                } catch (Exception $e) {
+                                    http_response_code(404);
+                                    print "{\"message\": $data->err}";
+                                    break;
+                                }
+                            // }
+                        mysqli_free_result($result);
+                        }
+                        if ($flag == "x") {
+                            print "<br>Clear the database for " . date("F Y", $ts);
+                            $result = query($conn, "Delete FROM sensors WHERE mac='$mac' and ts>=$ts AND ts<$nextts");
+                        }
+                    } else {
+                        print "No data to send\n";
+                    }
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
+                }
+                break;*/
 
             case 'stats':
                 // Endpoint: {site root}/resources/php/rest.php/stats/{mac}/{action}/...}
@@ -572,7 +668,7 @@
                     $config = base64_encode($config);
 //                    print "$config\n";
                     query($conn, "UPDATE systems SET config='$config', last=$ts WHERE mac='$mac'");
-                    // looger("UPDATE systems SET config='$config' WHERE mac='$mac'");
+                    logger("UPDATE systems SET config='$config' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
@@ -591,7 +687,7 @@
                     $map = base64_encode($map);
 //                    print "$map\n";
                     query($conn, "UPDATE systems SET map='$map', last=$ts WHERE mac='$mac'");
-                    // looger("UPDATE systems SET map='$map' WHERE mac='$mac'");
+                    logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
@@ -608,7 +704,7 @@
                     $map = file_get_contents("php://input");
                     $map = base64_encode($map);
                     query($conn, "UPDATE systems SET map='$map', request='', confirm='Y', last=$ts WHERE mac='$mac'");
-                    // looger("UPDATE systems SET map='$map', request='', confirm='Y', last=$ts WHERE mac='$mac'");
+                    logger("UPDATE systems SET map='$map', request='', confirm='Y', last=$ts WHERE mac='$mac'");
                     // Write to the requests log
                     $data = base64_encode('{}');
                     query($conn, "INSERT INTO requests (ts, mac,request) VALUES ('$ts','$mac','$data')");
@@ -626,11 +722,11 @@
                 $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password=$password");
                 if ($row = mysqli_fetch_object($result)) {
                     $data = file_get_contents("php://input");
-                    // looger($data);
+                    logger($data);
                     $data = base64_encode($data);
                     print("UPDATE systems SET request='$data', confirm='', last=$ts WHERE mac='$mac'\n");
                     query($conn, "UPDATE systems SET request='$data', confirm='', last=$ts WHERE mac='$mac'");
-                    // looger("UPDATE systems SET request='$data', last=$ts WHERE mac='$mac'");
+                    logger("UPDATE systems SET request='$data', last=$ts WHERE mac='$mac'");
                     // Write to the requests log
                     query($conn, "INSERT INTO requests (ts, mac,request) VALUES ('$ts','$mac','$data')");
                 } else {
@@ -691,7 +787,7 @@
                     $sensors = file_get_contents("php://input");
                     $encoded = base64_encode($sensors);
                     query($conn, "UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
-                    // looger("UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
+                    logger("UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
@@ -716,7 +812,7 @@
                     $map = json_encode($map);
                     $map = base64_encode($map);
                     query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");
-//                     // looger("UPDATE systems SET map='$map' WHERE mac='$mac'");
+//                     logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
@@ -744,11 +840,11 @@
                     }
                     $map = json_encode($map);
                     $map = base64_encode($map);
-                    // looger("UPDATE systems SET map='$map' WHERE mac='$mac'");
+                    logger("UPDATE systems SET map='$map' WHERE mac='$mac'");
                     query($conn, "UPDATE systems SET map='$map' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
-                    // looger("Boost request failed: MAC $mac and password $password do not match any record.\n");
+                    logger("Boost request failed: MAC $mac and password $password do not match any record.\n");
                     print "{\"message\":\"MAC $mac and password $password do not match any record.\"}";
                 }
                 break;
@@ -775,7 +871,7 @@
                     }
                 } else {
                     http_response_code(404);
-                    // looger("'Managed' failed: Email $email and password $password do not match any record.\n");
+                    logger("'Managed' failed: Email $email and password $password do not match any record.\n");
                     print "{\"message\":\"Email $email and password $password do not match any record.\"}";
                 }
                 break;
@@ -821,8 +917,6 @@
             case 'sendmail':
                 // Send an email
                 // Endpoint: {site root}/resources/php/rest.php/sendmail
-                // $data must contain $data->to, $data->subject and $data->message
-                // e.g. {"to":"gt@pobox.com","subject":"Testing","message":"A test message"}
                 $content = stripslashes(file_get_contents("php://input"));
                 $data = json_decode($content);
                 $data->smtpusername = $smtpusername;
@@ -832,7 +926,6 @@
                 } catch (Exception $e) {
                     http_response_code(404);
                     print "{\"message\": $e}";
-                    logger("{\"message\": $e}");
                 }
                 break;
 
@@ -855,6 +948,23 @@
             die('Error: '.mysqli_error($conn));
         }
         return $result;
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Log a message.
+    function logger($message)
+    {
+        return;
+        // print("$message\n");
+        $timestamp = time();
+        $date = date("Y/m/d H:i", $timestamp);
+        if (!file_exists("log")) mkdir("log");
+        $file = "log/".date("Y", $timestamp);
+        if (!file_exists($file)) mkdir($file);
+        $file.= "/".date("Ymd", $timestamp).".txt";
+        $fp = fopen($file, "a+") or die("Can't open $file");
+        fwrite($fp, "$date: $message\n");
+        fclose($fp);
     }
 
     ////////////////////////////////////////////////////////////////////////////
@@ -894,28 +1004,10 @@
 
             $mail->send();
             echo 'Message has been sent';
-            logger("Message:\n$data->message");
         } catch (Exception $e) {
             // print 'Mailer Error: ' . $mail->ErrorInfo;
             $data->err = 'Mailer Error: ' . $mail->ErrorInfo;
             throw $e;
         }
-    }
-
-    ////////////////////////////////////////////////////////////////////////////
-    // Log a message.
-    function logger($message)
-    {
-        // return;
-        // print("$message\n");
-        $timestamp = time();
-        $date = date("Y/m/d H:i", $timestamp);
-        if (!file_exists("log")) mkdir("log");
-        $file = "log/".date("Y", $timestamp);
-        if (!file_exists($file)) mkdir($file);
-        $file.= "/".date("Ymd", $timestamp).".txt";
-        $fp = fopen($file, "a+") or die("Can't open $file");
-        fwrite($fp, "$date: $message\n");
-        fclose($fp);
     }
 ?>

@@ -24,6 +24,8 @@ class Handler():
             response=str(self.config.getUptime())
         elif msg == 'ipaddr':
             response=self.config.getIPAddr()
+        elif msg == 'temp':
+            response=str(self.config.getTemperature())
         elif msg[0:4]=='part':
         # Format is part:{n},text:{text}
             part=None

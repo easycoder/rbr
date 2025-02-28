@@ -4,6 +4,7 @@ from pin import PIN
 from machine import reset
 from binascii import hexlify,unhexlify
 from server import Server
+from dht22 import DHT22
 
 class Config():
 
@@ -24,9 +25,18 @@ class Config():
             pin['pin']=9
             pin['invert']=False
             self.config['pins']['relay']=pin
+            pin={}
+            pin['pin']=None
+            self.config['pins']['dht22']=pin
             writeFile('config.json',json.dumps(self.config))
         self.led=PIN(self,'led')
-        if self.getPinNo('relay')!=None: self.relay=PIN(self,'relay')
+        self.relay=None
+        self.dht22=None
+        if self.getPinNo('relay')!='': self.relay=PIN(self,'relay')
+        pin=self.getPinNo('dht22')
+        if pin!='':
+            self.dht22=DHT22(pin)
+            asyncio.create_task(self.dht22.measure())
         self.ipaddr=None
         self.uptime=0
         self.server=Server(self)
@@ -73,10 +83,13 @@ class Config():
     def getESPComms(self): return self.espComms
     def getRBRNow(self): return self.rbrNow
     def getPinNo(self,name):
-        return self.config['pins'][name]['pin']
+        pin=self.config['pins'][name]
+        return pin['pin']
     def isPinInverted(self,name):
-        return self.config['pins'][name]['invert']
-        return None
+        pin=self.config['pins'][name]
+        if 'invert' in pin: return pin['invert']
+        return False
     def getLED(self): return self.led
     def getRelay(self): return self.relay
     def getUptime(self): return int(round(self.uptime))
+    def getTemperature(self): return self.dht22.getTemperature()
