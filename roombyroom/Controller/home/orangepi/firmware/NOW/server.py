@@ -6,6 +6,20 @@ class Server():
         self.config=config
 
     async def respond(self,response,writer):
+<<<<<<< HEAD
+        try:
+            responseBytes = str(response).encode()
+            await writer.awrite(b'HTTP/1.0 200 OK\r\n')
+            await writer.awrite(b'Content-Type: text/plain\r\n')
+            await writer.awrite(f'Content-Length: {len(responseBytes)}\r\n'.encode())
+            await writer.awrite(b'\r\n')
+            await writer.awrite(str(response).encode())
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+        except Exception as e:
+            print(f'server.respond: {e}')
+=======
         responseBytes = str(response).encode()
         await writer.awrite(b'HTTP/1.0 200 OK\r\n')
         await writer.awrite(b'Content-Type: text/plain\r\n')
@@ -15,6 +29,7 @@ class Server():
         await writer.drain()
         writer.close()
         await writer.wait_closed()
+>>>>>>> refs/remotes/origin/main
         return None
 
     async def sendDefaultResponse(self,writer):
@@ -56,6 +71,10 @@ class Server():
                         print('Can\'t send message')
                         response='Can\'t send message'
             await self.config.respond(response,writer)
+<<<<<<< HEAD
+            self.config.kickWatchdog()
+=======
+>>>>>>> refs/remotes/origin/main
 
     def startup(self):
         self.server=asyncio.create_task(asyncio.start_server(self.handleClient,'0.0.0.0',80))

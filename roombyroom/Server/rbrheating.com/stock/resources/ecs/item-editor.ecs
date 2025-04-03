@@ -13,7 +13,8 @@
     input PostageField
     input StockField
     textarea NotesArea
-    button AddItemButton
+    button ClearItemButton
+    button FindItemButton
     button RemoveItemButton
     button SaveItemButton
     button CancelButton
@@ -30,21 +31,41 @@
     attach PostageField to `item-postage`
     attach StockField to `item-stock`
     attach NotesArea to `item-notes`
-    attach AddItemButton to `item-add`
+    attach ClearItemButton to `item-clear`
+    attach FindItemButton to `item-find`
     attach RemoveItemButton to `item-remove`
     attach SaveItemButton to `item-save`
     attach CancelButton to `item-cancel`
     
-    on click AddItemButton
+    on click ClearItemButton
     begin
+        clear CodeField
+        clear NameField
+        clear SourceField
+        clear PackSizeField
+        clear PackPriceField
+        clear PostageField
+        clear StockField
+        clear NotesArea
+    end
+    
+    on click FindItemButton
+    begin
+    	alert `Find item`
     end
     
     on click RemoveItemButton
     begin
+    	alert `Remove item`
     end
     
     on click SaveItemButton
     begin
+    	if the content of CodeField is empty
+        begin
+        	alert `Nothing saved`
+        	stop
+        end
     	! Save the item
         put `{}` into Data
         set property `code` of Data to the content of CodeField
@@ -55,8 +76,12 @@
         set property `postage` of Data to the content of PostageField
         set property `stock` of Data to the content of StockField
         set property `notes` of Data to the content of NotesArea
-print Data
-!        post Data to Server cat `/stock/save`
+        rest post Data to Server cat `/stock/items/save`
+		put `{}` into Data
+        set property `timestamp` of Data to now
+        set property `code` of Data to the content of CodeField
+        set property `stock` of Data to the content of StockField
+        rest post Data to Server cat `/stock/stock/add`
 	    remove element ItemEditForm
         exit
     end

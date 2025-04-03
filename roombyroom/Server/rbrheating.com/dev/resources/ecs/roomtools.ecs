@@ -29,6 +29,8 @@
     variable ThisRoom
     variable ThatRoom
     variable NewRooms
+    variable Relays
+    variable Relay
     variable Webson
     variable Script
     variable Changed
@@ -37,8 +39,13 @@
     variable Timestamp
     variable DateFormat
     variable RequestData
+    variable Responses
+    variable Response
     variable Item
+    variable IP
     variable N
+    variable M
+    variable R
 
 !    debug step
     
@@ -148,13 +155,77 @@ Editor:
     
     on click RoomInfoButton
     begin
+        put property `responses` of Sensors into Responses
+  print Responses
+        if Responses is empty
+        begin
+        	alert `No data is being received from the relays`
+            stop
+        end
+        put element ClickIndex of Responses into Response
         attach DialogPanel to `dialog-panel`
         rest get Webson from `/resources/webson/dialog-info.json?v=` cat now
         render Webson in DialogPanel
         attach DialogText to `dialog-text`
         attach DialogButton1 to `dialog-okbutton`
+        
+        ! Find the room containing the given relay IP
+        put property `relays` of RoomSpec into Relays
+        put empty into Response
+        put the json count of Relays into R
+        put 0 into N
+        while N is less than R
+        begin
+        	put element N of Relays into Relay
+            if Relay is empty go to RoomInfo2
+            split Relay on `/` giving Relay
+            if the elements of Relay is 0 go to RoomInfo2
+            if the elements of Relay is 2    ! It's on an extender
+            begin
+                index Relay to 1
+                put 0 into M
+                while M is less than the json count of Responses
+                begin
+                    put element M of Responses into Response
+                    if property `ip` of Response is Relay go to XX1A
+                    if property `ip` of Response is not `extender-` cat Relay go to XX1B
+             XX1A:
+                    begin
+                        put property `response` of Response into Response
+                        replace `,` with `,` cat `<br>&nbsp;&nbsp;&nbsp;\` in Response
+                        go to RoomInfo2
+                    end
+             XX1B:
+                    add 1 to M
+                end
+            end
+            else    ! It's a full IP address
+            begin
+                put 0 into M
+                while M is less than the json count of Responses
+                begin
+                    put element M of Responses into Item
+                    put property `ip` of Item into IP
+                    if IP is Relay go to XX2A
+                    if IP is not `direct-` cat Relay go to XX2B
+                XX2A:
+                    begin
+                        put property `response` of Item into Item
+                        replace `,` with `,` cat `<br>&nbsp;&nbsp;&nbsp;\` in Item
+                        if R is greater than 1
+                        	put Response cat `-- ` cat IP cat ` --<br>` into Response
+                        put Response cat Item cat `<br>` into Response
+                    end
+                XX2B:
+                    add 1 to M
+                end
+           end
+        add 1 to N
+        end
+    RoomInfo2:
         put property `sensor` of RoomSpec into SensorIP
         put property SensorIP of Sensors into Sensor
+        if Response is empty put `<none>` into Response
         put property `timestamp` of Sensor into Timestamp
         set DateFormat to object
         set property `mode` of DateFormat to `date`
@@ -170,11 +241,15 @@ Editor:
         put Timestamp cat `<br>(` cat Timestamp format DateFormat into Timestamp
         put Timestamp cat `)` into Timestamp
         set property `timestamp` of Sensor to Timestamp
-        replace `{"` with `"` in Sensor
-        replace `"}` with `"` in Sensor
         replace `":"` with `": "` in Sensor
         replace `",` with `"<br>` in Sensor
+        replace `,\` with `, &nbsp;&nbsp;&nbsp;\` in Sensor
+        replace `\` with `` in Sensor
+        replace `{` with `` in Sensor
+        replace `}` with `` in Sensor
+        replace `""` with `"` in Sensor
         set the content of DialogText to `Information about this room:<br><br>` cat Sensor
+        	cat `<br><br>-- Response --<br>` cat Response
 
         on click DialogButton1
         begin

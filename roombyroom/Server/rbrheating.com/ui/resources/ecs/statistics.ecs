@@ -1,0 +1,395 @@
+!	Statistics
+
+	script Statistics
+    
+    import div StatisticsPanel
+        and variable Map
+
+    div MainPanel
+    div Title
+    div ButtonBackground
+    div ButtonPanel
+    div GraphPanel
+    div GraphBackground
+    div Column
+    div ColumnLabels
+    div RowLabels
+    div Label
+    div LineSeg
+    button Button
+    button CloseButton
+    variable MAC
+    variable Password
+    variable Room
+    variable Year
+    variable Month
+    variable Day
+    variable EventData
+    variable EventCount
+	variable Webson
+    variable Items
+    variable Events
+    variable Event
+    variable GraphTop
+    variable GraphBottom
+    variable GraphWidth
+    variable GraphHeight
+    variable SubHeight
+    variable Text
+    variable Count
+    variable Range
+    variable StartTS
+    variable EndTS
+    variable TS
+    variable Target
+    variable Temp
+    variable MaxTemp
+    variable MinTemp
+    variable DiffTemp
+    variable Left
+    variable Top
+    variable Height
+    variable LabelHeight
+    variable NLabels
+    variable Spacing
+    variable Value
+    variable DateFormat
+    variable Item
+    variable Angle
+    variable TPrevY
+    variable TPrevX
+    variable DY
+    variable DX
+    variable E
+    variable H
+    variable N
+    variable V
+    
+!    debug step
+
+    clear StatisticsPanel
+    rest get Webson from `/resources/webson/stats-main.json?v=` cat now
+    render Webson in StatisticsPanel
+    attach MainPanel to `main-panel`
+    attach ButtonPanel to `button-panel`
+    attach ButtonBackground to `button-background`
+    attach GraphPanel to `graph-panel`
+    attach CloseButton to `stats-close`
+    on click CloseButton 
+    begin
+        set style `display` of GraphPanel to `none`
+        exit
+    end
+
+    get MAC from storage as `MAC`
+    get Password from storage as `password`
+    
+    attach Title to `buttons-title`
+    
+    set the content of Title to `Select the room`
+    rest get Items from `/resources/php/rest.php/_list/stats~` cat MAC
+    	cat `?v=` cat now
+    gosub to SetupButtons
+    on click Button go to OnClickRoom
+    stop
+
+OnClickRoom:
+	put the text of Button into Room
+print `Room: ` cat Room
+    set the content of Title to `Select the year`
+    rest get Items from `/resources/php/rest.php/_list/stats~` cat MAC cat `~` cat Room
+    	cat `?v=` cat now
+    gosub to SetupButtons
+    if Count is not 1
+    begin
+	    on click Button go to OnClickYear
+		stop
+    end
+
+OnClickYear:
+	put the text of Button into Year
+!print `Year: ` cat Year
+    set the content of Title to `Select the month in ` cat Year
+    rest get Items from `/resources/php/rest.php/_list/stats~` cat MAC cat `~` cat Room cat `~` cat Year
+    	cat `?v=` cat now
+    gosub to SetupButtons
+    if Count is not 1
+    begin
+	    on click Button go to OnClickMonth
+		stop
+    end
+
+OnClickMonth:
+	put the text of Button into Month
+!print `Month: ` cat Month
+    set the content of Title to `Select the day in ` cat Year cat `-` cat Month
+ 	rest get Items from `/resources/php/rest.php/_list/stats~` cat MAC cat `~` cat Room cat `~` cat Year cat `~` cat Month
+    	cat `?v=` cat now
+    gosub to SetupButtons
+    if Count is not 1
+    begin
+	    on click Button go to OnClickDay
+		stop
+    end
+
+OnClickDay:
+	put the text of Button into Day
+!print `Day: ` cat Day
+ 	rest get Items from `/resources/php/rest.php/_list/stats~` cat MAC cat `~` cat Room cat `~` cat Year cat `~` cat Month cat `~` cat Day
+    	cat `?v=` cat now
+    put the json count of Items into Count
+
+    set style `display` of ButtonPanel to `none`
+    set style `display` of GraphPanel to `flex`
+    set style `width` of MainPanel to `90%`
+    set style `height` of MainPanel to `90%`
+	gosub to GetEvents
+    gosub to ComputeScale
+    gosub to DrawGraph
+    gosub to DrawGrid
+    gosub to DrawColumnLabels
+	stop
+
+GetEvents:
+    print `GetEvents`
+    rest get Events from `/stats/` cat MAC cat `/` cat Room cat `/` cat Year cat `/` cat Month cat `/` cat Day cat `?v=` cat now
+!    print Events
+	split Events into EventData
+    put the elements of EventData into EventCount
+    put 0 into E
+    while E is less than EventCount
+    begin
+    	index EventData to E
+        split EventData on `,` into Event
+        set EventData to object
+        index Event to 0
+        set property `ts` of EventData to the value of Event
+        index Event to 1
+        set property `target` of EventData to the value of Event
+        index Event to 2
+        set property `temp` of EventData to the value of Event
+    	add 1 to E
+    end
+    print EventCount cat ` events`
+	return
+
+ComputeScale:
+    print `ComputeScale`
+    ! Get the range
+    index EventData to 0
+    put property `ts` of EventData into StartTS
+    take 1 from EventCount giving E
+    index EventData to E
+    put property `ts` of EventData into EndTS
+    take StartTS from EndTS giving Range
+    put 0 into MaxTemp
+    put 300 into MinTemp
+    put 0 into E
+    while E is less than EventCount
+    begin
+        index EventData to E
+        put property `temp` of EventData into Temp
+        if Temp is not greater than 300
+        	if Temp is greater than MaxTemp put Temp into MaxTemp
+        if Temp is greater than 0
+        	if Temp is less than MinTemp put Temp into MinTemp
+        add 1 to E
+    end
+    take MinTemp from MaxTemp giving DiffTemp
+    print MinTemp cat ` ` cat DiffTemp cat ` ` cat MaxTemp
+    put 300 into MaxTemp
+    return
+
+DrawGraph:
+    print `DrawGraph`
+    attach GraphBackground to `graph-background`
+    attach ColumnLabels to `column-labels`
+    attach RowLabels to `row-labels`
+    put the top of GraphBackground into GraphTop
+    put the bottom of GraphBackground into GraphBottom
+    put the width of GraphBackground into GraphWidth
+    put the height of GraphBackground into GraphHeight
+
+    ! Start drawing
+!    alert `Draw ` cat RoomName cat ` with ` cat Elements cat ` elements`
+    clear GraphBackground
+    clear RowLabels
+    put 0 into E
+    while E is less than EventCount
+    begin
+    	index EventData to E
+        put property `ts` of EventData into TS
+        put property `target` of EventData into Target
+        put property `temp` of EventData into Temp
+        if Temp is not greater than 300
+        begin
+
+            ! Compute the height of the column
+            multiply Temp by GraphHeight giving Height
+            divide Height by MaxTemp        ! Temp range 0-30
+            take Height from GraphBottom giving Top
+            take GraphTop from Top
+!    print E cat `: ` cat Temp cat `, ` cat GraphHeight cat `, ` cat MaxTemp cat `, ` cat Height cat `, ` cat Top
+
+            ! Compute the position of the column
+            take StartTS from TS
+            multiply TS by GraphWidth giving Left
+            divide Left by Range
+            create Column in GraphBackground
+            set style `position` of Column to `absolute`
+            if Temp is less than Target set style `background` of Column to `#f44`
+            else set style `background` of Column to `#44f`
+
+            ! Position and size the column
+            set style `width` of Column to `1px`
+            set style `height` of Column to Height cat `px`
+            set style `left` of Column to Left cat `px`
+            set style `top` of Column to Top cat `px`
+            
+            ! Draw a line segment for the target temperature
+            multiply Target by GraphHeight giving Height
+            divide Height by MaxTemp        ! Temp range 0-30
+            take Height from GraphBottom giving Top
+            take GraphTop from Top
+            if E is not 0
+            begin
+            	take TPrevY from Top giving DY
+                take TPrevX from Left giving DX
+                create LineSeg in GraphBackground
+                set style `position` of LineSeg to `absolute`
+                set style `background` of LineSeg to `#080`
+                set style `width` of LineSeg to DX
+                set style `height` of LineSeg to 2
+                set style `top` of LineSeg to TPrevY
+                set style `left` of LineSeg to TPrevX
+                if DY is not 0
+                begin
+                    create LineSeg in GraphBackground
+                    set style `position` of LineSeg to `absolute`
+                    set style `background` of LineSeg to `#080`
+                    set style `width` of LineSeg to 2
+                    set style `left` of LineSeg to Left
+                    if DY is greater than 0
+                    begin
+                        set style `height` of LineSeg to DY
+                        set style `top` of LineSeg to TPrevY
+                    end
+                    else
+                    begin
+                        negate DY
+                        set style `height` of LineSeg to DY
+                        set style `top` of LineSeg to Top
+                    end
+                end
+            end
+            put Top into TPrevY
+            put Left into TPrevX
+        end
+
+        add 1 to E
+    end
+    return
+
+DrawGrid:
+    print `DrawGrid`
+    put StartTS into N
+    divide N by 86400
+    multiply N by 86400
+    add 86400 to N
+    while N is less than EndTS
+    begin
+        take StartTS from N giving Left
+        multiply Left by GraphWidth
+        divide Left by Range
+        create Column in GraphBackground
+        set style `position` of Column to `absolute`
+        set style `background` of Column to `black`
+        set style `width` of Column to `1px`
+        set style `height` of Column to GraphHeight cat `px`
+        set style `left` of Column to Left cat `px`
+        set style `top` of Column to 0 cat `px`
+        set DateFormat to object
+        set property `mode` of DateFormat to `date`
+        set property `locale` of DateFormat to `en-EN`
+        set Item to object
+        set property `month` of Item to `long`
+        set property `day` of Item to `numeric`
+        set property `options` of DateFormat to Item
+        create Label in RowLabels
+        set style `position` of Label to `absolute`
+        divide the width of ColumnLabels by 2 giving E
+        add E to Left
+        set style `left` of Label to Left cat `px`
+        set style `top` of Label to `2em`
+        set style `font-weight` of Label to `bold`
+        set style `transform` of Label to `rotate(-45deg)`
+        set the content of Label to N format DateFormat
+        add 86400 to N ! one day
+    end
+    return
+
+DrawColumnLabels:
+    print `DrawLabels`
+    create Label in ColumnLabels
+    set the content of Label to `M`
+    put the height of Label into LabelHeight
+    multiply LabelHeight by 5 giving Spacing
+    put the height of ColumnLabels into NLabels
+    divide NLabels by Spacing
+    add 1 to NLabels
+    remove element Label
+
+    ! Get the position of the bottom (zero) label
+
+    ! Create the labels
+    divide LabelHeight by 2 giving H
+    take H from GraphHeight giving SubHeight
+    put 0 into N
+    while N is not greater than 300
+    begin
+        multiply N by SubHeight giving Top
+        divide Top by 300
+        take Top from SubHeight giving Top
+        create Label in ColumnLabels
+        set style `position` of Label to `absolute`
+        set style `right` of Label to `0.5em`
+        set style `top` of Label to Top cat `px`
+        divide N by 10 giving Temp
+        if N is 0 put 0 into Value
+        else put Temp cat `.` cat N modulo 10 into Value
+        set the content of Label to Value
+        add 50 to N
+    end
+    create Label in ColumnLabels
+    set style `position` of Label to `absolute`
+    set style `right` of Label to `-1em`
+    put GraphHeight into Top
+    divide Top by 2
+    set style `top` of Label to Top cat `px`
+    set style `transform` of Label to `rotate(-90deg)`
+    set style `font-weight` of Label to `bold`
+    set style `font-size` of Label to `1.3em`
+    set the content of Label to `Temperature&nbsp;&deg;C`
+    return
+
+! Set up a group of buttons
+SetupButtons:
+	clear ButtonBackground
+    put the json count of Items into Count
+    set the elements of Button to Count
+    put 0 into N
+    while N is less than Count
+    begin
+    	put element N of Items into Item
+        put property `name` of Item into Text
+        index Button to N
+        create Button in ButtonBackground
+        set style `width` of Button to `90%`
+        set style `height` of Button to `2em`
+        set style `margin` of Button to `0.25em auto`
+        set style `font-size` of Button to `1.2em`
+        set style `font-weight` of Button to `bold`
+        set the text of Button to Text
+        add 1 to N
+    end
+    return

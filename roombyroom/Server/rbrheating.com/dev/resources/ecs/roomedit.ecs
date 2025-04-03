@@ -143,20 +143,18 @@ DevicesButtonCB:
     set the content of ProtectTemp to  property `ptemp` of Room
     
     put `[]` into List
-    json add `TP-Link P100` to List
+    json add `RBR XR` to List
+    json add `RBR R1` to List
     json add `Shelly One` to List
-    json add `Simulator` to List
+    json add `Tasmota` to List
+    json add `TP-Link P100` to List
+    json add `Manual` to List
     set RelayTypes from List as property `relayType` of Room
     if property `relayType` of Room is `TP-Link P100`
     begin
         set the content of P100Email to property `p100Email` of Room
         set the content of P100Password to property `p100Password` of Room
     	set style `display` of P100Login to `block`
-    end
-    if property `relayType` of Room is `Simulator`
-    begin
-        set style `display` of DialogText2 to `none`
-        set style `display` of TextArea to `none`
     end
     on change RelayTypes
     begin
@@ -167,14 +165,9 @@ DevicesButtonCB:
             set the content of P100Email to property `p100Email` of Room
             set the content of P100Password to property `p100Password` of Room
         end
-        else set style `display` of P100Login to `none`
-        if attribute `value` of RelayTypes is `Simulator`
-        begin
-            set style `display` of DialogText2 to `none`
-            set style `display` of TextArea to `none`
-        end
         else
         begin
+        	set style `display` of P100Login to `none`
             set style `display` of DialogText2 to `block`
             set style `display` of TextArea to `block`
         end
@@ -182,7 +175,7 @@ DevicesButtonCB:
     
     set the content of DialogTitle to `Sensor and relays for '` cat property `name` of Room cat `'`
     set the content of DialogText to `Type the IP address of the temperature sensor`
-    set the content of DialogText2 to `Type the IP addresses of the relays, 1 per line`
+    set the content of DialogText2 to `Type the relay identifiers (name, address etc.), 1 per line`
     set the content of DialogButton1 to `Save`
     set the content of DialogButton2 to `Help`
     set the content of DialogButton3 to `Cancel`
@@ -209,6 +202,7 @@ DevicesButtonCB:
             set property `ptemp` of Items to the content of ProtectTemp
         end
         else set property `protect` of Items to `no`
+        set property `relayType` of Items to property `relayType` of Room
         if property `relayType` of Items is `TP-Link P100`
         begin
             set property `p100Email` of Items to the content of P100Email
@@ -258,7 +252,7 @@ GetCurrentRooms:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the times
 TimesButtonCB:
-    rest get PeriodEditScript from `/resources/ecs/periodedit-dev.ecs?v=` cat now
+    rest get PeriodEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
 	exit
 

@@ -5,14 +5,18 @@
 
     script RBR
 
+<<<<<<< HEAD
+    import plugin P100 from plugins/ec_p100.py
+=======
     import plugin P100 from ec_p100.py
+>>>>>>> refs/remotes/origin/main
 
     file File
     variable RamDisk
-    variable LocalServer
     variable RBRServer
     variable RegData
     variable Version
+    variable Config
     variable RepeatCount
     variable CurrentProfile
     variable Profiles
@@ -22,31 +26,42 @@
     variable Map
     variable MapObject
     variable Rooms
-    variable Room
+    variable RoomSpec
     variable RoomNumber
     variable RoomName
-    variable RoomIndices
+    variable RoomCount
+    variable RoomNames
+    variable RoomSSIDs
     variable RoomStatus
     variable HeatingStatus
-    variable SensorValuesBySensor
     variable Mode
+<<<<<<< HEAD
+    variable MasterDevice
+    variable Device
+    variable Devices
+    variable MasterIPAddr
+    variable MasterMAC
+    variable DeviceMAC
+    variable URL
+=======
     variable SystemDataText
+>>>>>>> refs/remotes/origin/main
     variable Sensor
     variable Relays
     variable Relay
     variable RelayType
-    variable RelayCount
-    variable PerSensor
-    variable Responses
-    variable DirectResponses
     variable BadResponses
+    variable Responses
     variable Response
     variable Timestamp
     variable Temperature
     variable SystemData
+<<<<<<< HEAD
+=======
     variable RoomCount
     variable RoomNames
     variable RoomSSIDs
+>>>>>>> refs/remotes/origin/main
     variable NPeriods
     variable Events
     variable Event
@@ -57,7 +72,6 @@
     variable Now
     variable Boundary
     variable OnOff
-    variable RequestOnOff
     variable MAC
     variable Password
     variable Advance
@@ -65,22 +79,15 @@
     variable NetworkErrors
     variable Request
     variable RequestCount
-    variable RequestIP
     variable IPAddresses
-    variable FileName
+    variable SSID
     variable SensorFileName
-    variable RoomStatusFileName
+    variable RoomStatusFile
     variable TargetTemp
-    variable Result
     variable Action
     variable Items
-    variable Item
-    variable RelayName
     variable Key
     variable Keys
-    variable OutgoingPacket
-    variable IncomingPacket
-    variable RelayIp
     variable Value
     variable Changed
     variable Confirm
@@ -89,6 +96,14 @@
     variable WarningMessages
     variable WarningMessage
     variable MailMessage
+<<<<<<< HEAD
+    variable Message
+    variable Mail
+    variable HaltRequested
+    variable TPEmail
+    variable TPPassword
+    variable Name
+=======
     variable Mail
     variable Data
     variable Failures
@@ -97,6 +112,7 @@
     variable TPPassword
     variable XRTimestamp
     variable LastReset
+>>>>>>> refs/remotes/origin/main
     variable RA
     variable E
     variable EE
@@ -107,46 +123,57 @@
     variable T
     variable V
     variable W
-    variable N1
-    variable N2
     variable P1
     variable T1
     variable T2
     variable TS
+<<<<<<< HEAD
+=======
     variable RR
     variable RS
     variable RSF
+>>>>>>> refs/remotes/origin/main
 
 !    debug step
 
     put `/mnt/data/` into RamDisk
+<<<<<<< HEAD
+    if file RamDisk cat `pause` exists
+=======
 
     if file RamDisk cat `halt` exists
+>>>>>>> refs/remotes/origin/main
     begin
-        print `Waiting for halt`
+        log `Paused`
         exit
     end
 
+    load RBRServer from `server.txt`
+    put trim RBRServer into RBRServer
+    put RBRServer cat `/resources/php/rest.php` into RBRServer
+
+<<<<<<< HEAD
     put the timestamp into Timestamp
     multiply Timestamp by 1000 giving T
-    print datime T format `%b %d %H:%M:%S`
+    log datime T format `%b %d %H:%M:%S`
 
-    put `http://172.24.1` into LocalServer
-
-    open File `server.txt` for reading
-    read RBRServer from File
-    close File
+    load RBRServer from `server.txt`
     put trim RBRServer into RBRServer
     put RBRServer cat `/resources/php/rest.php` into RBRServer
 
     if file RamDisk cat `network-errors` exists
     begin
+        load NetworkErrors from RamDisk cat `network-errors`
+=======
+    if file RamDisk cat `network-errors` exists
+    begin
         open File RamDisk cat `network-errors` for reading
         read NetworkErrors from File
         close File
+>>>>>>> refs/remotes/origin/main
         if NetworkErrors is empty put 0 into NetworkErrors
         put the value of NetworkErrors into NetworkErrors
-        print NetworkErrors cat ` network errors`
+        log NetworkErrors cat ` network errors`
     end
     else
     begin
@@ -156,7 +183,11 @@
 
     if NetworkErrors is greater than 100
     begin
+<<<<<<< HEAD
+        log `Too many errors (` cat NetworkErrors cat `) - rebooting`
+=======
         print `Too many errors (` cat NetworkErrors cat `) - rebooting`
+>>>>>>> refs/remotes/origin/main
         put `The controller restarted (>100 errors)` into MailMessage
         gosub to SendMailMessage
         gosub to ClearNetworkErrors
@@ -165,71 +196,90 @@
     end
 
     put 0 into RepeatCount
-    open File `mac` for reading
-    read MAC from File
-    close File
+    load MAC from `mac`
     put trim MAC into MAC
-    print `MAC: ` cat MAC
+    log `MAC: ` cat MAC
 
     clear Changed
     clear Confirm
     clear HaltRequested
 
-    ! Test if the local server is running. If not, stop.
-    get Result from LocalServer cat `.1/resources/php/rest.php/ping`
-    or begin
-        gosub to NetworkError
-        print `Local server is not running`
-        stop
-    end
-    if Result is not `OK`
-    begin
-        gosub to NetworkError
-        print `Local server is not running`
-        stop
-    end
-    print `Local server is running`
-
     ! Ask the server for our password and other data
     put empty into RegData
-    get RegData from RBRServer cat `/register/` cat MAC cat `?v=` cat now
+    get RegData from url RBRServer cat `/register/` cat MAC cat `?v=` cat now
     or begin
-        print `Server did not respond`
+        log `Server did not respond`
         gosub to NetworkError
         put empty into Password
         put 1 into Version
         go to SkipServerInteraction
     end
     gosub to ClearNetworkErrors
-    print `Server ` cat RBRServer cat ` connected successfully`
+    log `Server ` cat RBRServer cat ` connected successfully`
 
     put json RegData into RegData
     put property `password` of RegData into Password
+<<<<<<< HEAD
+    log `Password: ` cat Password
+!    if RegData has property `reboot` go to RestartSystemController
+
+    get Config from url RBRServer cat `/config/` cat MAC cat `/` cat Password
+    put json Config into Config
+!    load Config from `.config.json`
+!    log `Config: ` cat Config
+    put empty into MasterDevice
+    put empty into MasterIPAddr
+    put property `devices` of Config into Devices
+    put the keys of Devices into Keys
+    put 0 into N
+    while N is less than the count of Keys
+    begin
+        put element N of Keys into Key
+        put property Key of Devices into Device
+        if property `master` of Device is true
+        begin
+            put Device into MasterDevice
+            put property `ssid` of Device into SSID
+            put from 8 of SSID into MasterMAC
+        end
+        increment N
+    end
+    if MasterDevice is not empty
+    begin
+        log `Master device: ` cat property `name` of MasterDevice
+        put property `ipaddr` of MasterDevice into MasterIPAddr
+    end
+    else print `No master device`
+=======
     print `Password: ` cat Password
 !    if RegData has property `reboot` go to RestartSystemController
+>>>>>>> refs/remotes/origin/main
 
 !   See if we have the latest system software
     if file `version` exists
     begin
-        open File `version` for reading
-        read Version from File
+        load Version from `version`
         put trim Version into Version
-        close File
     end
     else
     begin
         put `1` into Version
-        open File `version` for writing
-        write `` cat Version to File
-        close File
+        save `` cat Version to `version`
     end
     if Version is empty put `0` into Version
-    print `Version ` cat Version
-! print RegData
+    log `Version ` cat Version
+! log RegData
     put property `version` of RegData into Value
-    print `Current version: ` cat Version
+    log `Current version: ` cat Version
     if the value of Value is greater than the value of Version
     begin
+<<<<<<< HEAD
+        log `Install update from ` cat Version cat ` to ` cat Value
+        save `` cat Value to RamDisk cat `version`
+        if Map is not empty
+        begin
+            save Map to RamDisk cat `map`
+=======
         print `Installing update from ` cat Version cat ` to ` cat Value
         open File RamDisk cat `version` for writing
         write `` cat Value to File
@@ -239,14 +289,19 @@
             open File RamDisk cat `map` for writing
             write Map to File
             close File
+>>>>>>> refs/remotes/origin/main
         end
     end
 
 !   Continue here if we are not connected to the RBR web server
 SkipServerInteraction:
+<<<<<<< HEAD
+    save Password to RamDisk cat `password`
+=======
     open File RamDisk cat `password` for writing
     write Password to File
     close File
+>>>>>>> refs/remotes/origin/main
 
 !   Make sure there's an 'advance' directory
     put RamDisk cat `advance` into Advance
@@ -260,29 +315,38 @@ Start:
     ! Load the map
     if file RamDisk cat `map` exists
     begin
+<<<<<<< HEAD
+        load Map from RamDisk cat `map`
+=======
         open File RamDisk cat `map` for reading
         read Map from File
         close File
+>>>>>>> refs/remotes/origin/main
     end
     else put empty into Map
     if Map is empty
     begin
         ! Try to get the map from the RBR server
-        print `Get the map from the server`
-        get Map from RBRServer cat `/map/` cat MAC cat `?v=` cat now
+        log `Get the map from the server`
+        get Map from url RBRServer cat `/map/` cat MAC cat `?v=` cat now
         or begin
             put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
             gosub to NetworkError
         end
         gosub to ClearNetworkErrors
+<<<<<<< HEAD
+        save Map to RamDisk cat `map`
+        save Map to `backup`
+=======
         open File RamDisk cat `map` for writing
         write Map to File
         close File
         open File `backup` for writing
         write Map to File
         close File
+>>>>>>> refs/remotes/origin/main
     end
-!    print Map
+!    log Map
 
     if Map is empty
         put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
@@ -293,7 +357,7 @@ Start:
 
     put property `name` of MapObject into SystemName
     replace `%20` with ` ` in SystemName
-    print SystemName
+    log `System Name: ` cat SystemName
 
     ! If the Calendar is on, find which profile is active
     if MapObject has property `calendar`
@@ -325,11 +389,17 @@ Start:
 
 S2:
     put element CurrentProfile of Profiles into Profile
-    print `Profile: ` cat property `name` of Profile
+    log `Profile: ` cat property `name` of Profile
 
     put property `rooms` of Profile into Rooms
     if Password is empty go to SkipRequests
 
+<<<<<<< HEAD
+    get Request from url RBRServer cat `/request/` cat MAC cat `?v=` cat now
+    or begin
+        gosub to NetworkError
+        stop
+=======
     ! Get the request, if any, from the user.
     if file RamDisk cat `request` exists
     begin
@@ -346,6 +416,7 @@ S2:
             gosub to NetworkError
             stop
         end
+>>>>>>> refs/remotes/origin/main
     end
     gosub to ClearNetworkErrors
     if Request is not empty gosub to ProcessRequest
@@ -353,6 +424,14 @@ S2:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process the map
 SkipRequests:
+<<<<<<< HEAD
+
+!   Process all the rooms
+    put json `{}` into SystemData
+
+    set property `actual` of SystemData to CurrentProfile
+    set property `system-status` of SystemData to `good`
+=======
     if file RamDisk cat `incoming` exists
     begin
         if file RamDisk cat `lastrs` exists
@@ -448,12 +527,13 @@ SkipRequests:
 
     set property `actual` of SystemData to CurrentProfile
     set property `status` of SystemData to ``
+>>>>>>> refs/remotes/origin/main
     put 0 into BadResponses
     put empty into WarningMessages
     put the count of Rooms into RoomCount
     if RoomCount is 0
     begin
-        print `There are no rooms in this profile`
+        log `There are no rooms in this profile`
     end
     else
     begin
@@ -461,39 +541,30 @@ SkipRequests:
         put 0 into N
         while N is less than RoomCount
         begin
-            put element N of Rooms into Room
-            put property `sensor` of Room into Sensor
-            if Room has property `relayType`
+            put element N of Rooms into RoomSpec
+            put property `sensor` of RoomSpec into Sensor
+            if RoomSpec has property `relayType`
             begin
-                put property `relayType` of Room into RelayType
+                put property `relayType` of RoomSpec into RelayType
                 if RelayType is `Manual`
                 begin
                     put `Manual` into Sensor
-                    set property `sensor` of Room to Sensor
-                    set element N of Rooms to Room
-                end
-                if Sensor is not empty
-                begin
-                    put json `[]` into RelayCount
-                    append 0 to RelayCount
-                    append 0 to RelayCount
-                    set property Sensor of PerSensor to RelayCount
+                    set property `sensor` of RoomSpec to Sensor
+                    set element N of Rooms to RoomSpec
                 end
             end
             add 1 to N
         end
-        put json `[]` into RelayCount
-        append 0 to RelayCount              ! the number of relays
-        append 0 to RelayCount              ! the number that are not good
-        set property `request` of PerSensor to RelayCount
-!        print `PerSensor: ` cat PerSensor
 
-        print RoomCount cat ` rooms`
-        put json `{}` into OutgoingPacket
+        ! Process all the rooms
+        log RoomCount cat ` rooms`
         put 0 into RequestCount
         put 0 into RoomNumber
         while RoomNumber is less than RoomCount
         begin
+<<<<<<< HEAD
+            put element RoomNumber of Rooms into RoomSpec
+=======
             put element RoomNumber of Rooms into Room
             put property `name` of Room into RoomName
             put property `sensor` of Room into Sensor
@@ -527,28 +598,37 @@ SkipRequests:
 
             print `-------------------- ` cat RoomName
             put json `{}` into SensorValues
+>>>>>>> refs/remotes/origin/main
             gosub to ProcessRoom
+            set element RoomNumber of Rooms to RoomSpec
+            set property RoomName of SystemData to RoomSpec
             add 1 to RoomNumber
         end
-        print `-------------------- All rooms processed`
+        log `-------------------- All rooms processed`
 
         ! Deal with the request relay
         if MapObject has property `request`
         begin
-            put property `request` of MapObject into RequestIP
-            if RequestIP is not empty
+            put property `request` of MapObject into Name
+            if Name is not empty
             begin
-                if RequestCount is 0 put `off` into RequestOnOff
-                else put `on` into RequestOnOff
-   !             print `Request relay is ` cat OnOff
-
-                put json `{}` into Item
-                set property `relay` of Item to RequestOnOff
-                set property RequestIP of OutgoingPacket to Item
-    !            print `RequestIP: ` cat RequestIP cat ` ` cat OutgoingPacket
+                if RequestCount is 0 put `off` into OnOff
+                else put `on` into OnOff
+                log RequestCount cat ` requests: Turn ` cat Name cat ` ` cat OnOff
+                put property Name of Devices into Device
+                put OnOff into Message
+                gosub to MessageESPDevice
+                if Response is empty log Name cat `: No response` else log `Response: ` cat Response
             end
-            set property `request` of SensorValuesBySensor to SensorValues
         end
+<<<<<<< HEAD
+    end
+
+    set property `version` of SystemData to Version
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Repeat everything another 5 times
+=======
 
         ! Set up the outgoing packet
 !        print `OutgoingPacket:` cat stringify OutgoingPacket
@@ -626,6 +706,7 @@ SkipRequests:
         end
     end
 
+>>>>>>> refs/remotes/origin/main
 Repeat:
     if HaltRequested
     begin
@@ -633,11 +714,11 @@ Repeat:
         exit
     end
 
-    print `Memory used: ` cat memory cat ` MB`
+    log `Memory used: ` cat memory cat ` MB`
 
-    ! Do all the above 6 times
+    gosub to PostToServer
     add 1 to RepeatCount
-    print `Repeat ` cat RepeatCount cat ` done`
+    log `Repeat ` cat RepeatCount cat ` done`
     if RepeatCount is less than 6
     begin
         while now is less than Timestamp wait 50 ticks
@@ -649,11 +730,43 @@ Repeat:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
 ProcessRoom:
-    put json `{}` into SensorValues
-    if RelayType is `Manual` put empty into SensorFileName
-    else
+    put property `name` of RoomSpec into RoomName
+    log `-------------------- ` cat RoomName
+!    log RoomName cat `: ` cat property RoomName of Devices
+
+    put property `sensor` of RoomSpec into Sensor
+    put empty into RelayType
+    if RoomSpec has property `relayType` put property `relayType` of RoomSpec into RelayType
+
+    ! Get the room status
+    put RamDisk cat `status` into RoomStatusFile
+    if file RoomStatusFile does not exist
+    create directory RoomStatusFile
+    put RoomStatusFile cat `/` cat RoomName into RoomStatusFile
+    if file RoomStatusFile does not exist
+    begin
+        put json `{}` into RoomStatus
+        set property `status` of RoomStatus to `good`
+        set property `errors` of RoomStatus to 0
+        save stringify RoomStatus to RoomStatusFile
+    end
+    load RoomStatus from RoomStatusFile
+    put json RoomStatus into RoomStatus
+    set property `status` of RoomSpec to property `status` of RoomStatus
+    set property `timestamp` of RoomSpec to now
+
+    put json `{}` into Response
+    if RelayType is not `Manual`
     begin
         if Sensor is empty return
+<<<<<<< HEAD
+        if left 2 of Sensor is `T-`
+        begin
+            if Devices does not have property Sensor
+            begin
+                print `Device '` cat Sensor cat `' is not in the map`
+                return
+=======
         put RamDisk cat `sensors/` cat Sensor cat `.txt` into SensorFileName
         if left 3 of Sensor is `T1-`
         begin
@@ -684,67 +797,86 @@ ProcessRoom:
                     end
                     add 1 to N
                 end
+>>>>>>> refs/remotes/origin/main
             end
-        end
-        else if file SensorFileName exists
-        begin
-!            print `Read file ` cat SensorFileName cat ` for ` cat RoomName
-            put the modification time of SensorFileName into LastReported
-            take LastReported from the timestamp giving LastReported
-            if LastReported is greater than 1800
+            put property Sensor of Devices into Device
+            put `temp` into Message
+            gosub to MessageESPDevice
+!            log `Sensor: ` cat Response
+            if left 3 of Response is `OK `
             begin
-                put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
-                gosub to AddWarning
+                split Response on ` `
+                index Response to 1
+                set property `temperature` of RoomSpec to Response
+                set property `battery` of RoomSpec to 100
             end
-            open File SensorFileName for reading
-            read SensorValues from File
-            close File
-            put json SensorValues into SensorValues
-            put property `temperature` of SensorValues into Temperature
-            set property Sensor of SensorValuesBySensor to SensorValues
-        end
-        else if left 6 of Sensor is `Fixed-`
-        begin
-            put from 6 of Sensor into Temperature
-            set property `temperature` of SensorValues to Temperature
-            set property Sensor of SensorValuesBySensor to SensorValues
         end
         else
         begin
-            put empty into SensorFileName
-            put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
-            gosub to AddWarning
-            print WarningMessage
+            put RamDisk cat `sensors/` cat Sensor cat `.txt` into SensorFileName
+            if file SensorFileName exists
+            begin
+!                log `Read file ` cat SensorFileName cat ` for ` cat RoomName
+                put the modification time of SensorFileName into LastReported
+                take LastReported from the timestamp giving LastReported
+                if LastReported is greater than 1800
+                begin
+                    put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
+                    gosub to AddWarning
+                end
+                load SensorValues from SensorFileName
+                put json SensorValues into SensorValues
+                set property `temperature` of RoomSpec to property `temperature` of SensorValues
+                set property `battery` of RoomSpec to property `battery` of SensorValues
+            end
+            else
+            begin
+                put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
+                gosub to AddWarning
+                log WarningMessage
+            end
         end
-        print `Temperature: ` cat Temperature
+    end
+!    log RoomSpec
+    put property `target` of RoomSpec into Target
+    if RoomSpec has property `temperature` put property `temperature` of RoomSpec into Temperature
+    else
+    begin
+        put 0 into Temperature
+        set property `temperature` of RoomSpec to 0
     end
 
     ! Make sure there's an 'advance' file. Read it into Advance
 GetAdvance:
     if file RamDisk cat `advance/` cat Sensor exists
     begin
+<<<<<<< HEAD
+        load Advance from RamDisk cat `advance/` cat Sensor
+=======
         open File RamDisk cat `advance/` cat Sensor for reading
         read Advance from File
         close File
+>>>>>>> refs/remotes/origin/main
     end
     else
     begin
         put `-` into Advance
         gosub to WriteAdvance
     end
+    set property `advance` of RoomSpec to Advance
 
-    put property `relays` of Room into Relays
+    put property `relays` of RoomSpec into Relays
     if `` cat Temperature is not empty put float Temperature into Temperature
     else put float `0.0` into Temperature
 
     ! See if this room is set for winter protection
-    if property `protect` of Room is empty set property `protect` of Room to `no`
-    if property `protect` of Room is `yes`
+    if property `protect` of RoomSpec is empty set property `protect` of RoomSpec to `no`
+    if property `protect` of RoomSpec is `yes`
     begin
-        put float property `ptemp` of Room into Target
+        put float property `ptemp` of RoomSpec into Target
         if Temperature is not greater than Target
         begin
-            print `Frost protect ON`
+            log `Frost protect ON`
             add 1 to RequestCount
             set property `protect` of SystemData to Sensor
         end
@@ -752,30 +884,30 @@ GetAdvance:
     end
 
     ! Deal with mode requests
-    put property `mode` of Room into Mode
+    put property `mode` of RoomSpec into Mode
     if Mode is empty put `off` into Mode
 
     if Mode is `boost`
     begin
-        put `` cat property `boost` of Room into Boost
+        put `` cat property `boost` of RoomSpec into Boost
         if left 1 of Boost is `B`       ! Set up a boost
         begin
             put from 1 of Boost into Target
             multiply Target by 60
             add the timestamp to Target
-            set property `boost` of Room to Target
+            set property `boost` of RoomSpec to Target
             set property `message` of MapObject to `confirm`
             gosub to UpdateRoom
-            set property `advance` of Room to `-`
             put `-` into Advance
+            set property `advance` of RoomSpec to Advance
             gosub to WriteAdvance
-            put property `target` of Room into TargetTemp
+            put property `target` of RoomSpec into TargetTemp
             put `on` into HeatingStatus
         end
         else if Boost is empty      ! Cancel the boost
         begin
-            set property `boost` of Room to 0
-            set property `mode` of Room to property `prevmode` of Room
+            set property `boost` of RoomSpec to 0
+            set property `mode` of RoomSpec to property `prevmode` of RoomSpec
             gosub to UpdateRoom
             put 0 into TargetTemp
             put `off` into HeatingStatus
@@ -788,22 +920,27 @@ GetAdvance:
             if Boost is less than 0
             begin
                 ! Deal with the end of the boost period
-                print `Boost finished`
-                set property `boost` of Room to 0
-                set property `mode` of Room to property `prevmode` of Room
+                log `Boost finished`
+                set property `boost` of RoomSpec to 0
+                set property `mode` of RoomSpec to property `prevmode` of RoomSpec
                 gosub to UpdateRoom
                 put 0 into TargetTemp
                 put `off` into HeatingStatus
             end
         end
+<<<<<<< HEAD
+        if RoomSpec has property `linked`
+            if property `linked` of RoomSpec is not `yes`
+=======
         if Room has property `linked`
             if property `linked` of Room is not `yes`
+>>>>>>> refs/remotes/origin/main
             begin
                 put 0 into TargetTemp
                 go to TurnOn
             end
         ! Use the target setting for 'on' mode
-        put property `target` of Room into Target
+        put property `target` of RoomSpec into Target
         if `` cat Target is not empty
         begin
             gosub to MultiplyTT
@@ -828,11 +965,18 @@ GetAdvance:
     if Mode is `on`
     begin
         put `on` into HeatingStatus
+<<<<<<< HEAD
+        if property `linked` of RoomSpec is not `yes` go to TurnOn
+        else
+            gosub to MultiplyTT
+!            log RoomName cat `: ` cat Temperature cat ` ` cat Target
+=======
         if property `linked` of Room is not `yes` go to TurnOn
         else
             put property `target` of Room into Target
             gosub to MultiplyTT
 !            print RoomName cat `: ` cat Temperature cat ` ` cat Target
+>>>>>>> refs/remotes/origin/main
             if Temperature is less than Target go to TurnOn
             go to TurnOff
         end
@@ -840,11 +984,12 @@ GetAdvance:
 
     ! Default: timed mode. Check each of the events
     put `on` into HeatingStatus
-    put property `events` of Room into Events
+    put property `events` of RoomSpec into Events
     if Events is empty
     begin
         gosub to MultiplyTT
         put Target into TargetTemp
+        if RoomName is `Kitchen` log Temperature cat `-` cat Target
         if Temperature is less than Target go to TurnOn else go to TurnOff
     end
     take 1 from the count of Events giving NPeriods
@@ -907,54 +1052,66 @@ MultiplyTT:
         put from P1 of Temperature into T2
         add T2 to T1 giving Temperature
     end
-!    print `Target: ` cat Target cat `, Temperature: ` cat Temperature
+!    log `Target: ` cat Target cat `, Temperature: ` cat Temperature
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   This is called in 'timed' mode to deal with the Advance setting
 CheckAdvance:
+!    log `CheckAdvance`
     put `` cat E into EE
-    put property `advance` of Room into RA
-    if RA is empty go to TurnOnOrOff
+    load Advance from RamDisk cat `advance/` cat Sensor
+    if RoomSpec has property `advance-rq` put property `advance-rq` of RoomSpec into RA
+    else put `-` into RA
+!    log `Current Advance is ` cat Advance cat `, new is ` cat RA
     if Advance is `-`
     begin
         if RA is `A`
         begin
-            set property `boost` of Room to 0
+            set property `boost` of RoomSpec to 0
             put EE into Advance
             gosub to WriteAdvance
-            go to AcknowlegeAdvance
         end
     end
     else
     begin
-        if Advance is not EE
-        begin
-            go to CancelAdvance
-        end
-        if RA is `C` go to CancelAdvance
-        if EE is not Advance go to CancelAdvance
+        if RA is `C` gosub to CancelAdvance
+        if EE is not Advance gosub to CancelAdvance
+        gosub to WriteAdvance
     end
+    debug stop
     go to TurnOnOrOff
 
+<<<<<<< HEAD
+CancelAdvance:
+    put `-` into Advance
+=======
 WriteAdvance:
     open File RamDisk cat `advance/` cat Sensor for writing
     write Advance to File
     close File
     return
+>>>>>>> refs/remotes/origin/main
 
-UpdateAdvance:
-    set property `advance` of Room to `-`
+WriteAdvance:
+!    log `Save '` cat Advance cat `' to ` cat RamDisk cat `advance/` cat Sensor
+    save Advance to RamDisk cat `advance/` cat Sensor
+    set property `advance` of RoomSpec to Advance
+    set property `advance-rq` of RoomSpec to `-`
 
 UpdateRoom:
-    set element RoomNumber of Rooms to Room
+    set element RoomNumber of Rooms to RoomSpec
 UpdateRooms:
     set property `rooms` of Profile to Rooms
     set element CurrentProfile of Profiles to Profile
     set property `profiles` of MapObject to Profiles
     put stringify MapObject into Map
+    save Map to RamDisk cat `map`
     set Changed
     return
 
+<<<<<<< HEAD
+=======
 CancelAdvance:
     put `-` into Advance
     gosub to WriteAdvance
@@ -969,6 +1126,7 @@ SaveMap:
     close File
     return
 
+>>>>>>> refs/remotes/origin/main
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Turn a relay on or off
 TurnOnOrOff:
@@ -976,6 +1134,7 @@ TurnOnOrOff:
     begin
         add 1 to E
         if E is greater than NPeriods put 0 into E
+        log `Advance to period ` cat E
     end
     put element E of Events into Event
     put float property `temp` of Event into Target
@@ -985,107 +1144,105 @@ TurnOnOrOff:
 
 TurnOff:
     put `off` into OnOff
-!    if HeatingStatus is not `off`
-!    begin
-!        put `off` into HeatingStatus
-!        gosub to GetLogData
-!        gosub to PostSensorLog
-!    end
     go to UpdateLog
 
 TurnOn:
     add 1 to RequestCount
     put `on` into OnOff
-!    if HeatingStatus is not `on`
-!    begin
-!        put `on` into HeatingStatus
-!        gosub to GetLogData
-!        gosub to PostSensorLog
-!    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the log if the temperature has changed outside a 10-minute window
 UpdateLog:
-
 !   Skip if less than 10 minutes from the last change
-    gosub to GetLogData
+    put property `timestamp` of RoomSpec into TS
+    put property `temperature` of RoomSpec into T
+    put `` cat T into T
+    put `` cat Temperature into Temperature
     add 600 to TS
-    if now is less than TS go to SetRelays ! else print `Time change to ` cat TS cat ` in ` cat RoomName
+    if now is less than TS go to SetRelays ! else log `Time change to ` cat TS cat ` in ` cat RoomName
 
 !   Test if the temperature has changed
-    if T is Temperature go to SetRelays ! else print `Temperature change in ` cat RoomName
+    if T is Temperature go to SetRelays ! else log `Temperature change in ` cat RoomName
     gosub to PostSensorLog
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Set the relays
+!   Set the relay(s) in a single room
 SetRelays:
-    print Sensor cat ` ` cat RoomName cat ` ` cat Mode cat ` ` cat OnOff
-    if RelayType is empty put `RBR R1` into RelayType
+    log `Sensor: ` cat Sensor cat ` T:A=` cat Target cat `:` cat Temperature cat ` ` cat Mode cat `:` cat OnOff
+    if RelayType is empty put `RBR-Now` into RelayType
     if Relays is empty put json `[]` into Relays
-! print RoomName cat ` Relays: ` cat Relays
-    put the count of Relays into RelayCount
+! log RoomName cat ` Relays: ` cat Relays
+    put json `[]` into Responses
     put 0 into R
-    while R is less than RelayCount
+    while R is less than the count of Relays
     begin
         put element R of Relays into Relay
-        if RelayType is `RBR XR`
+        put json `{}` into Response
+        if RelayType is `RBR-Now`
         begin
-!            print `XR relay: ` cat Relay
-            put json `{}` into Item
-            set property `relay` of Item to OnOff
-            set property Relay of OutgoingPacket to Item
+            if Devices does not have property RoomName go to SR2
+            put property RoomName of Devices into Device
+            put OnOff into Message
+            gosub to MessageESPDevice
+            put Response into Value
+            put json `{}` into Response
+            split Value on ` `
+            index Value to 1
+            set property `uptime` of Response to Value
+            index Value to 2
+            if Value is 1 set property `state` of Response to `on` else set property `state` of Response to `off`
         end
-        else
+        else if RelayType is `Shelly One`
         begin
-            if RelayType is `Shelly One`
-            begin
-                put `http://` cat Relay cat `/relay/0?turn=` cat OnOff into Request
-                get Response from Request
-                or begin
-                    put `<none>` into Response
-                    gosub to NetworkError
-                    go to SR1
-                end
-                gosub to ClearNetworkErrors
-                if Response is empty
-                begin
-                    put `<none>` into Response
-                end
-    !            print `Response: ` cat Response
+            put `http://` cat Relay cat `/relay/0?turn=` cat OnOff into Request
+            get Response from url Request
+            or begin
+                put empty into Response
+                gosub to NetworkError
+                go to SR1
             end
-            else if RelayType is `Tasmota`
-            begin
-                put `http://` cat Relay cat `/cm?cmnd=power%20` cat OnOff into Request
-    !            print Request
-                get Response from Request
-                or begin
-                    put `<none>` into Response
-                    gosub to NetworkError
-                    go to SR1
-                end
-                gosub to ClearNetworkErrors
-                if Response is empty
-                begin
-                    put `<none>` into Response
-                end
-    !            print `Response: ` cat Response
-            end
-            else if RelayType is `TP-Link P100`
-            begin
-                put property `p100Email` of Room into TPEmail
-                put property `p100Password` of Room into TPPassword
-                relay Relay TPEmail TPPassword OnOff
-            end
-        SR1:
-            put json `{}` into Item
-            set property `ip` of Item to Relay
-            if Response is `<none>` set property `ok` of Item to false
-            else set property `ok` of Item to true
-            set property `response` of Item to Response
-            append Item to DirectResponses
+            put json Response into Value
+            put json `{}` into Response
+            set property `uptime` of Response to 0
+            if property `ison` of Value is true set property `state` of Response to `on`
+            else set property `state` of Response to `off`
+            gosub to ClearNetworkErrors
         end
+        else if RelayType is `Tasmota`
+        begin
+            put `http://` cat Relay cat `/cm?cmnd=power%20` cat OnOff into Request
+            get Response from url Request
+            or begin
+                put empty into Response
+                gosub to NetworkError
+                go to SR1
+            end
+            put json Response into Value
+            put json `{}` into Response
+            set property `uptime` of Response to 0
+            set property `state` of Response to `?`
+            gosub to ClearNetworkErrors
+        end
+        else if RelayType is `TP-Link P100`
+        begin
+            put property `p100Email` of RoomSpec into TPEmail
+            put property `p100Password` of RoomSpec into TPPassword
+            relay Relay TPEmail TPPassword OnOff
+        end
+    SR1:
+        if Response is empty log RoomName cat `: No response` else log `Response: ` cat Response
+        append Response to Responses
+    SR2:
         add 1 to R
     end
+<<<<<<< HEAD
+    set property `relay` of RoomSpec to OnOff
+    set property `responses` of RoomSpec to Responses
+    if RelayType is not `Manual`
+    begin
+        set property `relay` of SensorValues to OnOff
+        set property `advance` of SensorValues to Advance
+=======
     set property `relay` of SensorValues to OnOff
     set property `advance` of SensorValues to Advance
     set property Sensor of SensorValuesBySensor to SensorValues
@@ -1349,21 +1506,59 @@ print `ProcessResponses`
     else
     begin
         set property `system-status` of SystemData to `fail`
+>>>>>>> refs/remotes/origin/main
     end
     return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Get data for logging
-GetLogData:
-    put property `ts` of RoomStatus into TS
-    put property `temp` of RoomStatus into T
-    put `` cat T into T
-    put `` cat Temperature into Temperature
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Post data to the RBR server
+PostToServer:
+    if Password is not empty
+    begin
+        save stringify SystemData to RamDisk cat `systemdata`
+        post stringify SystemData to RBRServer cat `/sensors/` cat MAC cat `/` cat Password
+        or begin
+            log `Unable to post sensor data`
+            go to PSD2
+        end
+
+        ! If the map has changed, write it back to the RBR server.
+    PSD2:
+        if Changed
+        begin
+            put stringify MapObject into Map
+!            post Map to LocalServer cat `.1/resources/php/rest.php/map`
+            open File RamDisk cat `map` for writing
+            write Map to File
+            close File
+            if Password is not empty
+            begin
+                if Confirm
+                begin
+                    log `Post the map & confirm`
+!                    print Map
+                    post Map to RBRServer cat `/confirm/` cat MAC cat `/` cat Password
+                    clear Confirm
+                end
+                else
+                begin
+                    log `Post the map`
+                    post Map to RBRServer cat `/map/` cat MAC cat `/` cat Password
+                end
+            end
+            clear Changed
+        end
+    end
     return
 
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Write this room's data to the sensor log file
+!   Post a change in sensor readings to the server
 PostSensorLog:
+<<<<<<< HEAD
+!    log `Room spec: ` cat stringify RoomSpec
+    if Password is not empty post stringify RoomSpec to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password
+=======
     set property `ts` of RoomStatus to TS
     set property `target` of RoomStatus to TargetTemp
     set property `temp` of RoomStatus to Temperature
@@ -1380,6 +1575,7 @@ PostSensorLog:
 
     print `Room status: ` cat stringify RoomStatus
     if Password is not empty post stringify RoomStatus to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password
+>>>>>>> refs/remotes/origin/main
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1388,9 +1584,15 @@ AddWarning:
     add 1 to BadResponses
     if WarningMessages is not empty put WarningMessages cat `<br>` into WarningMessages
     put WarningMessages cat WarningMessage into WarningMessages
+<<<<<<< HEAD
+    set property `status` of SystemData to `suspect`
+    set property Sensor of SystemData to SensorValues
+    log `Warning: ` cat WarningMessage
+=======
     set property `status` of SystemData to WarningMessages
     set property Sensor of SystemData to SensorValues
     print `Warning: ` cat WarningMessage
+>>>>>>> refs/remotes/origin/main
     put empty into WarningMessage
     return
 
@@ -1406,10 +1608,34 @@ NetworkError:
     close File
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send a message to an ESP-Now device
+MessageESPDevice:
+    if MasterIPAddr is empty return
+    put property `ssid` of Device into DeviceMAC
+    put from 8 of DeviceMAC into DeviceMAC
+    put `http://` cat MasterIPAddr cat `/?mac=` cat DeviceMAC cat `&msg=` cat Message into URL
+    get Response from url URL
+    or begin
+        log `------- Message to '` cat Name cat `' failed`
+        put empty into Response
+        return
+    end
+!    log URL cat ` -> ` cat Response
+    if left 2 of Response is not `OK` log `Bad response: ` cat Response
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send an email message
+SendMailMessage:
+    put `{"to":"admin@rbrheating.com","subject":"Restart","message":"` cat MailMessage cat `"}` into Mail
+    post Mail to RBRServer cat `/sendmail/`
+    return
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a request from the UI
 ProcessRequest:
-print `Request ` cat Request
+    log `Request ` cat Request
     set Changed
     set Confirm
     put json Request into Request
@@ -1425,8 +1651,8 @@ print `Request ` cat Request
     end
     else if Action is `addroom`
     begin
-        put property `spec` of Request into Room
-        append Room to Rooms
+        put property `spec` of Request into RoomSpec
+        append RoomSpec to Rooms
         gosub to UpdateRooms
     end
     else if Action is `rooms`
@@ -1442,10 +1668,8 @@ print `Request ` cat Request
     end
     else if Action is `restore`
     begin
-        open File `backup` for reading
-        read Map from File
-        close File
-        gosub to SaveMap
+        load Map from `backup`
+        save Map to RamDisk cat `map`
         put json Map into MapObject
     end
     else if Action is `profiles`
@@ -1457,33 +1681,36 @@ print `Request ` cat Request
         set property `calendar` of MapObject to property `calendar` of Request
         set property `calendar-data` of MapObject to property `calendar-data` of Request
         put stringify MapObject into Map
-        gosub to SaveMap
+        save Map to RamDisk cat `map`
     end
     else if Action is `mode`
     begin
         put property `roomnumber` of Request into RoomNumber
-        put element RoomNumber of Rooms into Room
-        put property `name` of Room into RoomName
+        put element RoomNumber of Rooms into RoomSpec
+        put property `name` of RoomSpec into RoomName
         put property `mode` of Request into Mode
         if Mode is `timed`
         begin
             if Request has property `advance`
-                set property `advance` of Room to property `advance` of Request
+            begin
+                set property `advance-rq` of RoomSpec to property `advance` of Request
+            end
+            else set property `advance-rq` of RoomSpec to `-`
         end
         else if Mode is `on`
         begin
             if Request has property `target`
-                set property `target` of Room to property `target` of Request
+                set property `target` of RoomSpec to property `target` of Request
         end
         if Mode is `boost`
         begin
             if Request has property `target`
-                set property `target` of Room to property `target` of Request
-            if property `mode` of Room is not `boost`
-                set property `prevmode` of Room to property `mode` of Room
-            set property `boost` of Room to property `boost` of Request
+                set property `target` of RoomSpec to property `target` of Request
+            if property `mode` of RoomSpec is not `boost`
+                set property `prevmode` of RoomSpec to property `mode` of RoomSpec
+            set property `boost` of RoomSpec to property `boost` of Request
         end
-        set property `mode` of Room to Mode
+        set property `mode` of RoomSpec to Mode
         gosub to UpdateRoom
     end
     else if Action is `profiles`
@@ -1492,21 +1719,21 @@ print `Request ` cat Request
     else if Action is `roomname`
     begin
         put property `roomnumber` of Request into RoomNumber
-        put element RoomNumber of Rooms into Room
-        set property `name` of Room to property `name` of Request
+        put element RoomNumber of Rooms into RoomSpec
+        set property `name` of RoomSpec to property `name` of Request
         gosub to UpdateRoom
     end
     else if Action is `roomdata`
     begin
         put property `roomnumber` of Request into RoomNumber
-        put element RoomNumber of Rooms into Room
+        put element RoomNumber of Rooms into RoomSpec
         put property `items` of Request into Items
         put the keys of Items into Keys
         put 0 into N
         while N is less than the count of Keys
         begin
             put element N of Keys into Key
-            set property Key of Room to property Key of Items
+            set property Key of RoomSpec to property Key of Items
             add 1 to N
         end
         gosub to UpdateRoom
@@ -1525,10 +1752,10 @@ print `Request ` cat Request
         put 0 into R
         while R is less than the count of Rooms
         begin
-            put element R of Rooms into Room
-            set property `name` of Room to element R of RoomNames
-            set property `ssid` of Room to element R of RoomSSIDs
-            set element R of Rooms to Room
+            put element R of Rooms into RoomSpec
+            set property `name` of RoomSpec to element R of RoomNames
+            set property `ssid` of RoomSpec to element R of RoomSSIDs
+            set element R of Rooms to RoomSpec
             add 1 to R
         end
         set property `rooms` of Profile to Rooms
@@ -1541,8 +1768,8 @@ print `Request ` cat Request
     else if Action is `periods`
     begin
         put property `roomnumber` of Request into RoomNumber
-        put element RoomNumber of Rooms into Room
-        set property `events` of Room to property `periods` of Request
+        put element RoomNumber of Rooms into RoomSpec
+        set property `events` of RoomSpec to property `periods` of Request
         gosub to UpdateRoom
     end
     else if Action is `request`
@@ -1551,7 +1778,7 @@ print `Request ` cat Request
     end
     else if Action is `halt`
     begin
-        print `Request to halt the system`
+        log `Request to halt the system`
         set HaltRequested
     end
     return

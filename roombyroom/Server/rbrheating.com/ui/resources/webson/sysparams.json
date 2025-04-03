@@ -1,0 +1,73 @@
+{
+    "#doc": "The system parameters menu, accessed from the main hamburger",
+    "#element": "div",
+    "padding": "1em 0",
+    "background": "#ffc",
+    "text-align": "center",
+    "#": ["$Config", "$GetName", "$GetRequest", "$Pad",
+        "$PowerOff", "$Pad",
+        "$Help", "$Cancel", "$Pad", "$StatusPanel"],
+
+    "$Config": {
+        "$ID": "button-config",
+        "$Label": "Configuration",
+        "#": "$Button"
+    },
+
+    "$GetName": {
+        "$ID": "button-getname",
+        "$Label": "Set the system name",
+        "#": "$Button"
+    },
+
+    "$GetRequest": {
+        "$ID": "button-getrequest",
+        "$Label": "Set the request relay IP",
+        "#": "$Button"
+    },
+
+    "$PowerOff": {
+        "$ID": "button-halt",
+        "$Label": "Power Off",
+        "#": "$Button"
+    },
+
+    "$Help": {
+        "$ID": "button-help",
+        "$Label": "Help",
+        "#": "$Button"
+    },
+
+    "$Cancel": {
+        "$ID": "button-cancel",
+        "$Label": "Cancel",
+        "#": "$Button"
+    },
+
+    "$Button": {
+        "#element": "button",
+        "@id": "$ID",
+        "display": "block",
+        "width": "60%",
+        "font-size": "1.3em",
+        "margin": "0 auto 0.5em auto",
+        "border-radius": "0.25em",
+        "#content": "$Label"
+    },
+
+    "$Pad": {
+        "#element": "div",
+        "height": "1em"
+    },
+
+    "$StatusPanel": {
+        "#element": "div",
+        "@id": "rbr-status",
+        "position": "relative",
+        "top": "0.2em",
+        "width": "100%",
+        "background": "rgba(255, 200, 200, 0.5)",
+        "color": "black",
+        "#content": ""
+    }
+}

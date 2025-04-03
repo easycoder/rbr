@@ -1,4 +1,8 @@
+<<<<<<< HEAD
+import os,network,asyncio,socket,ubinascii,time,machine,hardware,config
+=======
 import os,network,asyncio,socket,ubinascii,time,machine,hardware
+>>>>>>> refs/remotes/origin/main
 from machine import Pin
 
 async def handle_client(reader, writer):
@@ -19,6 +23,10 @@ async def handle_client(reader, writer):
         args=None
     print(cmd,args)
     
+<<<<<<< HEAD
+    import hardware
+=======
+>>>>>>> refs/remotes/origin/main
     resetRequest=False
     response = 'OK'
     if cmd is 'config':
@@ -36,9 +44,14 @@ async def handle_client(reader, writer):
             rssi=''
         response=f'SSID: {myssid} {rssi}'
 
+<<<<<<< HEAD
+    writer.write('HTTP/1.0 200 OK\r\nContent-type: text/html\r\n\r\n')
+    writer.write('<!DOCTYPE HTML><html lang="en"><head></head><body>'+response+'</body></html>')
+=======
     print('Response:', response)
     writer.write('HTTP/1.0 200 OK\r\nContent-type: text/plain\r\n\r\n')
     writer.write(response)
+>>>>>>> refs/remotes/origin/main
     await writer.drain()
     await writer.wait_closed()
     if resetRequest:

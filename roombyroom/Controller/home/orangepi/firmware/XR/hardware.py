@@ -22,12 +22,15 @@ def writeFile(name,text):
     f.write(text)
     f.close()
 
+<<<<<<< HEAD
+=======
 def createDirectory(path):
     try:
         os.mkdir(path)
     except Exception:
         pass
 
+>>>>>>> refs/remotes/origin/main
 def clearFile(name):
     open(name,'w').close()
 

@@ -18,6 +18,26 @@ class Config():
             self.config['channel']=1
             self.config['pins']={}
             pin={}
+<<<<<<< HEAD
+            pin['pin']=''
+            pin['invert']=False
+            self.config['pins']['led']=pin
+            pin={}
+            pin['pin']=''
+            pin['invert']=False
+            self.config['pins']['relay']=pin
+            pin={}
+            pin['pin']=''
+            self.config['pins']['dht22']=pin
+            writeFile('config.json',json.dumps(self.config))
+        pin,invert=self.getPinInfo('led')
+        self.led=PIN(self,pin,invert)
+        pin,invert=self.getPinInfo('relay')
+        self.relay=PIN(self,pin,invert)
+        pin,_=self.getPinInfo('dht22')
+        if pin!='':
+            self.dht22=DHT22(pin,True)
+=======
             pin['pin']=3
             pin['invert']=False
             self.config['pins']['led']=pin
@@ -36,10 +56,15 @@ class Config():
         pin=self.getPinNo('dht22')
         if pin!='':
             self.dht22=DHT22(pin)
+>>>>>>> refs/remotes/origin/main
             asyncio.create_task(self.dht22.measure())
         self.ipaddr=None
         self.uptime=0
         self.server=Server(self)
+<<<<<<< HEAD
+        asyncio.create_task(self.runWatchdog())
+=======
+>>>>>>> refs/remotes/origin/main
 
     async def respond(self,response,writer):
         await self.server.respond(response,writer)
@@ -82,6 +107,14 @@ class Config():
     def getHandler(self): return self.handler
     def getESPComms(self): return self.espComms
     def getRBRNow(self): return self.rbrNow
+<<<<<<< HEAD
+    def getPinInfo(self,name):
+        pin=self.config['pins'][name]
+        print(name,pin)
+        if 'invert' in pin: invert=pin['invert']
+        else: invert=False
+        return pin['pin'],invert
+=======
     def getPinNo(self,name):
         pin=self.config['pins'][name]
         return pin['pin']
@@ -89,7 +122,23 @@ class Config():
         pin=self.config['pins'][name]
         if 'invert' in pin: return pin['invert']
         return False
+>>>>>>> refs/remotes/origin/main
     def getLED(self): return self.led
     def getRelay(self): return self.relay
     def getUptime(self): return int(round(self.uptime))
     def getTemperature(self): return self.dht22.getTemperature()
+<<<<<<< HEAD
+
+    async def runWatchdog(self):
+        while True:
+            self.active=False
+            await asyncio.sleep(180)
+            if not self.active:
+                print('No activity - reset')
+                asyncio.get_event_loop().stop()
+        pass
+
+    def kickWatchdog(self):
+        self.active=True
+=======
+>>>>>>> refs/remotes/origin/main

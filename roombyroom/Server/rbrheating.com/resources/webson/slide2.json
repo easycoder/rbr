@@ -5,7 +5,7 @@
     "top": 0,
     "width": "100%",
     "height": "100%",
-    "#": ["$Title", "$Text1", "$Text2", "$Text3", "$Text4", "$Text5", "$Text6"],
+    "#": ["$Title", "$Text1", "$Text2", "$Text3", "$Text4", "$Text5", "$Text6", "$Image1"],
 
     "$Title": {
         "#element": "div",
@@ -31,7 +31,7 @@
         "color": "indigo",
         "font-weight": "bold",
         "font-size": "1.4em",
-        "#content": "Independent control of each room's heating times and temperature"
+        "#content": "Each room has an independent schedule of heating times and temperatures"
     },
 
     "$Text3": {
@@ -40,7 +40,7 @@
         "color": "indigo",
         "font-weight": "bold",
         "font-size": "1.4em",
-        "#content": "No plumbing or electrical skill needed"
+        "#content": "No disruption to plumbing or electrics"
     },
 
     "$Text4": {
@@ -49,7 +49,7 @@
         "color": "indigo",
         "font-weight": "bold",
         "font-size": "1.4em",
-        "#content": "Full control from inside or outside your house"
+        "#content": "Friendly smartphone interface gives control from inside or outside the house"
     },
 
     "$Text5": {
@@ -58,7 +58,7 @@
         "color": "indigo",
         "font-weight": "bold",
         "font-size": "1.4em",
-        "#content": "Friendly user interface on any smartphone"
+        "#content": "From £50 per room, installed"
     },
 
     "$Text6": {
@@ -67,6 +67,13 @@
         "color": "indigo",
         "font-weight": "bold",
         "font-size": "1.4em",
-        "#content": "From £50 per room, installed"
+        "#content": ""
+    },
+
+    "$Image1": {
+        "#element": "img",
+        "width": "50%",
+        "height": "auto",
+        "@src": "/resources/img/example.jpg"
     }
 }

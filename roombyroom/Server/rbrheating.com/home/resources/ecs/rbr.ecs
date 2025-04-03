@@ -1,4 +1,4 @@
-!	Room By Room
+!	Room By Room 
 !	This is the main program for the RBR Heating user interface. It maintains the screen,
 !	populating it with information loaded from the website, and it calls other modules as they are needed.
 
@@ -122,6 +122,7 @@
     variable MapErrorCount
     variable RestErrorCount
     variable Debugging
+    variable TVal
     variable Item
     variable Status
     variable Elapsed
@@ -410,14 +411,21 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the map
 GetMap:
+	print `Get the map`
 	set Blocked
     rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-    or begin
+    or put empty into Map
+    if Map is empty
+    begin
     	print `Server not responding; using local data`
     	get Map from storage as `map`
        	continue
     end
-    if Map is empty stop
+    if Map is empty
+    begin
+    	print `Map is empty`
+    	stop
+    end
     put Map into storage as `map`
     if Map is not Map2 set Redraw
     put Map into Map2
@@ -630,7 +638,9 @@ GetMap:
                 else set property `alive` of RoomData to `true`
             end
             set property `room-` cat RoomIndex of StaticData to RoomData
-            put property `alive` of RoomData into IsAlive
+            if property `relays` of RoomSpec is empty put `true` into IsAlive
+!            else if property `linked` of RoomSpec is `no` put `true` into IsAlive
+            else put property `alive` of RoomData into IsAlive
             if IsAlive is `true`
             begin
             	set style `color` of RoomTempPanel to `white`
@@ -638,7 +648,7 @@ GetMap:
                 if Temperature is empty set the content of RoomTempPanel to empty
                 else set the content of RoomTempPanel to Temperature cat `&deg;C`
             	put property `relay` of SensorSpec into RelayState
-            	if RelayState is `on` set style `background` of RoomTempPanel to `red`
+            	if RelayState is not `off` set style `background` of RoomTempPanel to `red`
             	else set style `background` of RoomTempPanel to `blue`
             end
             else
@@ -808,7 +818,9 @@ GetMap:
                 put element 0 of Events into Event
                 put property `until` of Event into Finish
                 put property `temp` of Event into Temperature
-                set the content of ModeInfo to Temperature cat `&deg;C->` cat Finish
+                if property `linked` of RoomSpec is `yes`
+                	set the content of ModeInfo to Temperature cat `&deg;C->` cat Finish
+                else set the content of ModeInfo to `->` cat Finish
             end
             else if Mode is `boost`
             begin
@@ -827,8 +839,13 @@ GetMap:
             else if Mode is `on`
             begin
                 attach TargetTemp to `room-` cat RoomIndex cat `-mode-info`
-                if property `sensor` of RoomSpec is empty set the content of TargetTemp to empty
-                else set the content of TargetTemp to property `target` of RoomSpec cat `&deg;C`
+                put empty into TVal
+                if property `sensor` of RoomSpec is not empty
+                begin
+                	if property `linked` of RoomSpec is `yes`
+                		put property `target` of RoomSpec cat `&deg;C` into TVal
+                end
+                set the content of TargetTemp to TVal
             end
             else if Mode is `off`
             begin

@@ -1,9 +1,16 @@
 #!/bin/sh
 
-# This cron script restarts the mijia server
+if [ $# -eq 0 ]
+then
+    if test -f "/mnt/data/running"
+    then
+        exit
+    fi
+fi
+/usr/bin/touch "/mnt/data/running"
 
-# Look for a running instance of mijia.py
-p=$(ps -eaf | grep "[m]ijia.py")
+# Look for a running instance of http.server
+p=$(ps -eaf | grep "[h]ttp.server")
 # Get the second item; the process number
 n=$(echo $p | awk '{print $2}')
 # If it's not empty, kill the process
@@ -11,5 +18,4 @@ if [ "$n" ]
 then
    kill $n
 fi
-# Start a new instance
-python3 /home/orangepi/mijia.py &
+/usr/bin/python3 -m http.server --cgi &

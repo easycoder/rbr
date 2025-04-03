@@ -304,27 +304,53 @@
 
             case 'stock':
                 // Handle a stock request.
-                // Endpoint: {site root}/resources/php/rest.php/stock/save
-                $opcode = $request[0];
-                $data = file_get_contents("php://input");
-                $data = json_decode($data);
-                $code = $data->code;
-                $name = $data->name;
-                $source = $data->source;
-                $packsize = $data->packsize;
-                $packprice = $data->packprice;
-                $postage = $data->postage;
-                $stock = $data->stock;
-                $notes = $data->notes;
-                $result = query($conn, "SELECT null FROM stock WHERE code='$code'");
-                if ($row = mysqli_fetch_object($result)) {
-                    query($conn, "UPDATE stock SET name='$name', source='$source', packsize=$packsize, packprice=$packprice, postage=$postage, stock=$stock, notes='$notes' WHERE code='$code'");
-                    logger("UPDATE stock SET name='$name', source='$source', packsize=$packsize, packprice=$packprice, postage=$postage, stock=$stock, notes='$notes' WHERE code='$code'");
-                } else {
-                    query($conn, "INSERT INTO stock (code, name, source, packsize, packprice, postage, stock, notes) VALUES ('$code','$name', '$source', $packsize, $packprice, $postage, $stock, '$notes')");
-                    logger("INSERT INTO stock (code, name, source, packsize, packprice, postage, stock, notes) VALUES ('$code','$name', '$source', $packsize, $packprice, $postage, $stock, '$notes')");
-                break;
+                // Endpoint: {site root}/resources/php/rest.php/stock/{table}/{operation}
+                $table = $request[0];
+                $operation = $request[1];
+                switch ($table) {
+
+                    case 'items':
+                        switch ($operation) {
+
+                            case 'save':
+                                $data = file_get_contents("php://input");
+                                $data = json_decode($data);
+                                $code = $data->code;
+                                $name = $data->name;
+                                $source = $data->source;
+                                $packsize = $data->packsize;
+                                $packprice = $data->packprice;
+                                $postage = $data->postage;
+                                $stock = $data->stock;
+                                $notes = $data->notes;
+                                $result = query($conn, "SELECT null FROM items WHERE code='$code'");
+                                if ($row = mysqli_fetch_object($result)) {
+                                    query($conn, "UPDATE items SET name='$name', source='$source', packsize=$packsize, packprice=$packprice, postage=$postage, notes='$notes' WHERE code='$code'");
+                                    logger("UPDATE items SET name='$name', source='$source', packsize=$packsize, packprice=$packprice, postage=$postage, notes='$notes' WHERE code='$code'");
+                                } else {
+                                    query($conn, "INSERT INTO items (code, name, source, packsize, packprice, postage, notes) VALUES ('$code','$name', '$source', $packsize, $packprice, $postage, '$notes')");
+                                    logger("INSERT INTO items (code, name, source, packsize, packprice, postage, notes) VALUES ('$code','$name', '$source', $packsize, $packprice, $postage, '$notes')");
+                                }
+                                break;
+                        }
+                        break;
+
+                    case 'stock':
+                        switch ($operation) {
+
+                            case 'add':
+                                $data = file_get_contents("php://input");
+                                $data = json_decode($data);
+                                $timestamp = $data->timestamp;
+                                $code = $data->code;
+                                $stock = $data->stock;
+                                query($conn, "INSERT INTO stock (timestamp, code, stock) VALUES ('$timestamp','$code', '$stock')");
+                                logger("INSERT INTO stock (timestamp, code, stock) VALUES ('$timestamp','$code', '$stock')");
+                                break;
+                        }
                 }
+                break;
+
 
             default:
                 http_response_code(404);

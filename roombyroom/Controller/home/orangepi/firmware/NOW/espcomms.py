@@ -28,7 +28,10 @@ class ESPComms():
                 counter=50
                 while counter>0:
                     if E().any():
+<<<<<<< HEAD
+=======
                         print('Reply received')
+>>>>>>> refs/remotes/origin/main
                         sender,response = E().irecv()
                         if response:
                             print(f"Received response: {response.decode()}")
@@ -58,4 +61,8 @@ class ESPComms():
                 self.checkPeer(mac)
                 E().send(mac,response)
             await asyncio.sleep(.1)
+<<<<<<< HEAD
+            self.config.kickWatchdog()
+=======
+>>>>>>> refs/remotes/origin/main
 

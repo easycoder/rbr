@@ -51,6 +51,9 @@
     variable MonthNames
     variable MonthNumber
     variable Year
+    variable Timestamp
+    variable DateFormat
+    variable Item
     variable D
     variable H
     variable K
@@ -73,8 +76,36 @@
     
 !    gosub to AllStats
 !    gosub to YearStats
-	gosub to MonthStats
+!	gosub to MonthStats
+	gosub to NewStats
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Process the sensor statistics
+NewStats:
+    rest get Data from Server cat `/sensorlog/` cat MAC
+    split Data on newline giving Data
+    print the elements of Data
+	put 0 into N
+    while N is less than the elements of Data
+    begin
+    	index Data to N
+        set DateFormat to object
+        set property `mode` of DateFormat to `date`
+        set property `locale` of DateFormat to `en-EN`
+        set Item to object
+        set property `year` of Item to `numeric`
+        set property `month` of Item to `long`
+        set property `day` of Item to `numeric`
+        set property `hour` of Item to `numeric`
+        set property `minute` of Item to `numeric`
+        set property `options` of DateFormat to Item
+        put property `ts` of Data into Timestamp
+        print Timestamp format DateFormat
+!    	print Data
+        add 1 to N
+    end
+    return
 
 AllStats:
     rest get Data from Server cat `/stats/` cat MAC 

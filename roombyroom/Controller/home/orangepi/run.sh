@@ -24,4 +24,8 @@ then
    kill $n
 fi
 # Start a new instance
+<<<<<<< HEAD
+.local/bin/easycoder rbr.ecs
+=======
 $HOME/.local/bin/easycoder rbr.ecs
+>>>>>>> refs/remotes/origin/main

@@ -1,0 +1,14 @@
+{
+    "#element": "div",
+    "width": "100%",
+    "#": ["$SSID"],
+
+    "$SSID": {
+        "#element": "div",
+        "@id": "cf-ssid-/ID/",
+        "width": "100%",
+        "padding": "0.5em 0",
+        "background": "pink",
+        "cursor": "pointer"
+    }
+}

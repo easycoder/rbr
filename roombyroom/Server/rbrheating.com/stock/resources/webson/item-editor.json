@@ -7,6 +7,7 @@
     "padding": "0 0.5em",
     "#": [
         "$Code",
+        "$VPad",
         "$Name",
         "$Source",
         "$PackSize",
@@ -20,6 +21,11 @@
         "$LabelText": "Code:",
         "$ID": "item-code",
         "#": "$ItemRow"
+    },
+
+    "$VPad": {
+        "#element": "div",
+        "height": "1em"
     },
 
     "$Name": {
@@ -102,20 +108,28 @@
         "flex-direction": "row",
         "height": "2em",
         "margin-top": "1em",
-        "#": ["$Add", "$Remove", "$Save", "$Cancel"],
+        "#": ["$Clear", "$Find", "$Remove", "$Save", "$Cancel"],
 
-        "$Add": {
+        "$Clear": {
             "#element": "button",
-            "@id": "item-add",
-            "flex": "25%",
+            "@id": "item-clear",
+            "flex": "20%",
+            "margin": "0 1em",
+            "#content": "Clear"
+        },
+
+        "$Find": {
+            "#element": "button",
+            "@id": "item-find",
+            "flex": "20%",
             "margin-right": "1em",
-            "#content": "Add"
+            "#content": "Find"
         },
 
         "$Remove": {
             "#element": "button",
             "@id": "item-remove",
-            "flex": "25%",
+            "flex": "20%",
             "margin": "0 1em",
             "#content": "Remove"
         },
@@ -123,7 +137,7 @@
         "$Save": {
             "#element": "button",
             "@id": "item-save",
-            "flex": "25%",
+            "flex": "20%",
             "margin": "0 1em",
             "#content": "Save"
         },
@@ -131,7 +145,7 @@
         "$Cancel": {
             "#element": "button",
             "@id": "item-cancel",
-            "flex": "25%",
+            "flex": "20%",
             "margin-left": "1em",
             "#content": "Cancel"
         }

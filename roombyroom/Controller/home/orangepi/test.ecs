@@ -1,5 +1,18 @@
+<<<<<<< HEAD
+!   Test
+
+    script Test
+
+    variable Config
+
+    get Config from `https://rbrheating.com/home/resources/php/rest.php/config/0c:59:54:15:28:fa/797147`
+    print Config
+
+    exit
+=======
 !   Test script
 
     script Test
 
     print `Hello, world!`
+>>>>>>> refs/remotes/origin/main

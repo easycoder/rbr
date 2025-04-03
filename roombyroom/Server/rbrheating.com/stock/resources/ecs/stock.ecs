@@ -4,6 +4,7 @@
 
     div Body
     div MainPanel
+    div MenuPanel
     div ContentPanel
     div DialogPanel
     div DialogTitle
@@ -14,6 +15,9 @@
     button DialogButton1
     button DialogButton2
     button CancelButton
+    button ItemsButton
+    button ControllersButton
+    button RelaysButton
     variable Server
     variable Args
     variable Mobile
@@ -138,10 +142,27 @@ GetUserData:
     end
 
 Start:
-    rest get Webson from `/resources/webson/item-editor.json?v=` cat now
-    render Webson in ContentPanel
-    rest get Script from `/resources/ecs/item-editor.ecs?v=` cat now
-    run Script with ContentPanel and Server
+	attach MenuPanel to `menu-panel`
+	attach ItemsButton to `menu-items`
+    attach ControllersButton to `menu-controllers`
+    attach RelaysButton to `menu-relays`
+    on click ItemsButton
+    begin
+    	set style `display` of MenuPanel to `none`
+        rest get Webson from `/resources/webson/item-editor.json?v=` cat now
+        render Webson in ContentPanel
+        rest get Script from `/resources/ecs/item-editor.ecs?v=` cat now
+        run Script with ContentPanel and Server
+        set style `display` of MenuPanel to `flex`
+    end
+    on click ControllersButton
+    begin
+    	alert `Do the controllers`
+    end
+    on click RelaysButton
+    begin
+    	alert `Do the relays`
+    end
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

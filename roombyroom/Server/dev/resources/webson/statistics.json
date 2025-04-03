@@ -1,0 +1,23 @@
+{
+    "#doc": "The main panel for the statistics UI",
+    "#element": "div",
+    "background": "white",
+    "border": "1px solid gray",
+    "margin-top": "0.5em",
+    "padding": "0.5em",
+    "text-align": "center",
+    "#": ["$Data", "$OKButton"],
+
+    "$Data": {
+        "#element": "div",
+        "@id": "statistics-content"
+    },
+
+    "$OKButton": {
+        "#element": "button",
+        "@id": "statistics-ok",
+        "#content": "OK",
+        "margin-top": "2em",
+        "width": "50%"
+    }
+}

@@ -1,0 +1,328 @@
+!	Statistics 0
+
+	script Statistics
+    
+    import div StatisticsPanel
+        and variable Map
+
+    div ContentPanel
+    div TablePanel
+    div RowPanel
+    div NamePanel
+    div ValuePanel
+    div StatsPanel
+    div VerticalBar
+    div DateLabel
+    div MinutesLabel
+    div MonthLT
+    div MonthGT
+    div MonthName
+    div FloatingLabel
+    button OKButton
+    variable Server
+    variable MAC
+	variable Webson
+    variable Data
+    variable Data2
+    variable Keys
+    variable Key
+    variable Arg1
+    variable Arg2
+    variable Result
+    variable Rooms
+    variable Room
+    variable SensorID
+    variable Name
+    variable Total
+    variable RowSpec
+    variable Row
+    variable Days
+    variable Hours
+    variable Minutes
+    variable Value
+    variable DayData
+    variable MaxValue
+    variable DaysInMonth
+    variable Interval
+    variable GraphWidth
+    variable GraphHeight
+    variable GraphLeft
+    variable BarWidth
+    variable MonthNames
+    variable MonthNumber
+    variable Year
+    variable D
+    variable H
+    variable K
+    variable N
+    variable R
+    variable W
+    
+!    debug step
+    
+    get Server from storage as `server`
+    get MAC from storage as `MAC`
+    
+    clear StatisticsPanel
+    rest get Webson from `/resources/webson/statistics.json?v=` cat now
+    render Webson in StatisticsPanel
+    attach ContentPanel to `statistics-content`
+    attach OKButton to `statistics-ok`
+
+	on click OKButton exit
+    
+!    gosub to AllStats
+!    gosub to YearStats
+	gosub to MonthStats
+    stop
+
+AllStats:
+    rest get Data from Server cat `/stats/` cat MAC 
+    put the json keys of Data into Keys
+
+    rest get Webson from `/resources/webson/table1.json?v=` cat now
+    clear ContentPanel
+    render Webson in ContentPanel
+    attach TablePanel to `statistics-table1`
+    attach RowPanel to `statistics-row-/ROW/`
+    put the content of TablePanel into RowSpec
+    put RowSpec into Row
+    replace `/ROW/` with `0` in Row
+    clear TablePanel
+
+    put property `rooms` of Map into Rooms
+    put `{}` into Data2
+	put 0 into K
+    while K is less than the json count of Keys
+    begin
+    	put element K of Keys into SensorID
+        put 0 into R
+        while R is less than the json count of Rooms
+        begin
+        	put element R of Rooms into Room
+            if property `sensor` of Room is SensorID
+            begin
+            	put property `name` of Room into Name
+                set property Name of Data2 to property SensorID of Data
+                go to Break1
+            end
+        	add 1 to R
+        end
+    Break1:
+    	add 1 to K
+    end
+    put the json keys of Data2 into Keys
+    sort Keys with Sorter
+
+	put 0 into K
+    while K is less than the json count of Keys
+    begin
+    	put element K of Keys into Name
+        put property Name of Data2 into Total
+        put RowSpec into Row
+        replace `/ROW/` with K in Row
+        set the content of TablePanel to the content of TablePanel cat Row
+        attach NamePanel to `statistics-name-` cat K
+        attach ValuePanel to `statistics-value-` cat K
+        set the content of NamePanel to Name
+        divide Total by 24*60 giving Days
+        put Total modulo 24*60 into Minutes
+        divide Minutes by 60 giving Hours
+        put Minutes modulo 60 into Minutes
+        put empty into Value
+        if Days is not 0
+        	put Days cat ` days, ` cat Hours cat ` hours, ` into Value
+        else if Hours is not 0
+        	put Hours cat ` hours, ` into Value
+       	put Value cat Minutes cat ` minutes` into Value
+        set the content of ValuePanel to Value
+    	add 1 to K
+    end
+    return
+
+YearStats:
+    rest get Data from Server cat `/stats/` cat MAC cat `/12-months`
+    print Data
+	return
+
+! Display statistics for the current month
+MonthStats:
+	set MonthNames to array
+    append `Jan` to MonthNames
+    append `Feb` to MonthNames
+    append `Mar` to MonthNames
+    append `Apr` to MonthNames
+    append `May` to MonthNames
+    append `Jun` to MonthNames
+    append `Jul` to MonthNames
+    append `Aug` to MonthNames
+    append `Sep` to MonthNames
+    append `Oct` to MonthNames
+    append `Nov` to MonthNames
+    append `Dec` to MonthNames
+    dummy
+    put the month number into MonthNumber
+    put the year into Year
+    print MonthNumber
+
+!	Main entry point for the display algorithm
+Display:
+    rest get Webson from `/resources/webson/monthstats.json?v=` cat now
+    clear ContentPanel
+    render Webson in ContentPanel
+	attach StatsPanel to `stats-panel`
+    attach MonthLT to `month-lt`
+    attach MonthGT to `month-gt`
+    attach MonthName to `month-name`
+    create FloatingLabel in ContentPanel
+    if Year is less than the year go to D2
+    if MonthNumber is less than the month number go to D2
+    set style `visibility` of MonthGT to `hidden`
+
+D2:
+	on click MonthLT
+    begin
+        if MonthNumber is 0
+        begin
+        	put 12 into MonthNumber
+            take 1 from Year
+        end
+    	take 1 from MonthNumber
+        gosub to Display
+    end
+    
+    on click MonthGT
+    begin
+    	add 1 to MonthNumber
+        if MonthNumber is 12
+        begin
+        	put 0 into MonthNumber
+            add 1 to Year
+        end
+        gosub to Display
+    end
+
+    set the content of MonthName to element MonthNumber of MonthNames cat ` ` cat Year
+	rest get Data from Server cat `/stats/` cat MAC cat `/month`
+    	cat `/` cat Year cat `/` cat MonthNumber
+    
+    ! Collect the data and find the maximum value
+    put 0 into MaxValue
+    put the json count of Data into DaysInMonth
+    put 0 into D
+    while D is less than DaysInMonth
+    begin
+    	put element D of Data into DayData
+        put the json keys of DayData into Keys
+		put 0 into Total
+		put 0 into K
+        while K is less than the json count of Keys
+        begin
+        	put element K of Keys into Key
+			if Key is `day`
+            begin
+     		end
+            else
+            begin
+            	add property Key of DayData to Total
+            end
+        	add 1 to K
+        end
+        if Total is greater than MaxValue put Total into MaxValue
+    	add 1 to D
+    end
+	divide MaxValue by 6 giving Interval
+    
+!	Draw the Y axis labels
+	multiply Interval by 6 giving Value
+	put 7 into R
+    while R is greater than 0
+    begin
+    	take 1 from R
+    	attach MinutesLabel to `stats-minutes-` cat R
+        set the content of MinutesLabel to Value
+        take Interval from Value
+    end
+
+!	Draw the bars
+    put the width of StatsPanel into GraphWidth
+    put the height of StatsPanel into GraphHeight
+    multiply GraphHeight by 6
+    divide GraphHeight by 7
+    put the width of MinutesLabel into GraphLeft
+    take the width of MinutesLabel from GraphWidth
+    divide GraphWidth by 31 giving BarWidth
+    multiply BarWidth by 3 giving W
+    divide W by 4
+    set the elements of VerticalBar to DaysInMonth
+    put 0 into D
+    while D is less than DaysInMonth
+    begin
+    	put element D of Data into DayData
+        put the json keys of DayData into Keys
+		put 0 into Total
+		put 0 into K
+        while K is less than the json count of Keys
+        begin
+        	put element K of Keys into Key
+			if Key is `day`
+            begin
+     		end
+            else
+            begin
+            	add property Key of DayData to Total
+            end
+        	add 1 to K
+        end
+        index VerticalBar to D
+		create VerticalBar in StatsPanel
+        set attribute `data-total` of VerticalBar to Total
+        set style `position` of VerticalBar to `absolute`
+        set style `left` of VerticalBar to GraphLeft
+        set style `bottom` of VerticalBar to 0
+        set style `width` of VerticalBar to W cat `px`
+        multiply Total by GraphHeight giving H
+        divide H by MaxValue
+        set style `height` of VerticalBar to H cat `px`
+        set style `background` of VerticalBar to `#10e080`
+        add BarWidth to GraphLeft
+        add 1 to D
+    end
+    on click VerticalBar
+    begin
+    	remove element FloatingLabel
+    	put the height of VerticalBar into H
+        create FloatingLabel in VerticalBar
+        set style `position` of FloatingLabel to `absolute`
+        set style `display` of FloatingLabel to `inline-block`
+        set style `z-index` of FloatingLabel to 10
+        set style `left` of FloatingLabel to `-0.2em`
+        set style `bottom` of FloatingLabel to H cat `px`
+        set style `font-size` of FloatingLabel to `50%`
+        set style `font-weight` of FloatingLabel to `bold`
+        set style `color` of FloatingLabel to `peru`
+        set the content of FloatingLabel to attribute `data-total` of VerticalBar
+    end
+
+!	Draw the date labels
+	put the width of MinutesLabel into GraphLeft
+	multiply BarWidth by 5
+	put 1 into N
+    while N is less than 32
+    begin
+    	attach DateLabel to `stats-date-` cat N
+        set style `left` of DateLabel to GraphLeft
+        add BarWidth to GraphLeft
+    	add 5 to N
+    end
+	return
+
+!	Sort an array of keys
+Sorter:
+    put arg `a` of Keys into Arg1
+    put arg `b` of Keys into Arg2
+    if Arg1 is greater than Arg2 put 1 into Result
+    else if Arg1 is less than Arg2 put -1 into Result
+    else put 0 into Result
+    set arg `v` of Keys to Result
+    stop

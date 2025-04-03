@@ -1,0 +1,83 @@
+## Orange Pi System Controller
+
+The Orange Pi is a very small single-board computer inspired by the Raspberry Pi. The Orange Pi Zero 2 is equivalent to a Raspberry Pi Model 3B but is smaller and less expensive.
+
+The system controller runs from an SD card (8GB or more) that contains the operating system and all the RBR files. The simplest way to set this up is to run Balena Etcher to write the operating system image to your SD card. You will find many instructions online how to do this.
+
+There are several alternative operating systems available for the Orange Pi. We have chosen Armbian as being solid and reliable. You can download an image from [here](https://www.armbian.com/orange-pi-zero-2/).
+
+Either the desktop or server version will work, but the former adds a full Linux GUI that you will never use on your system controller, so it's better to download the server version.
+
+When the installation has finished, eject the SD card from your computer, put it into the Pi, connect this to your Internet router with an Ethernet (RJ45) cable and power up. After a few seconds there will be a red light on the board. If this does not appear there is most likely something wrong with the firmware; perhaps you downloaded the wrong operating system image.
+
+## Setting up the system controller
+
+For this you may need to have your Internet router's manual to hand. If you don't have one, do an online search for the model name of your router. This will also tell you how to log in.
+
+Type the address of your router control panel into your browser. The address varies from one model to another but it's most likely to be one of
+```
+http://192.168.0.1
+http://192.168.1.1
+```
+A home router manages the devices that connect to it, assigning each one an IP address using a system called DHCP. The RBR system works best if this feature is avoided, since its components need to have fixed known addresses and the addresses supplied by the router could change without warning. In your router admin there will be an option to set the range of addresses to be used by the DHCP server. Make sure this is set to a restricted range - we suggest 200 to 254 as the final part of the IP address. All other addresses will then be free for devices to be allocated as you please.
+
+Note: If you already have equipment such as a network printer and its current address is outside the range you gave above, you may have to set the device up again.
+
+At this point it may be best to restart the router and also the Orange Pi. Log into the router again.
+
+One of the sections of your router's admin will show you all the devices connected to it. Some of these will have names; you might recognize your computer and printer, for example. Once the system controller has booted up it will present itself as `orangepizero2`.
+
+On your computer, fire up a terminal emulator. On Windows you can use PuTTY; on Mac or Linux use the text console. At the command prompt type
+```
+ssh root@xx.xx.xx.xx
+```
+where `xx.xx.xx.xx` is the IP address you found in your router admin screen. The password is `1234`. The Pi will ask you for a root password, then it asks you which shell you want; choose `bash` (option 1). It also asks you to set up a user, so use the name `pi` with the same or different password. Answer `Y` to all the questions, but you can skip generating locales by typing `6` at that question.
+
+Now type `logout`, then log in again, this time with
+```
+ssh pi@xx.xx.xx.xx
+```
+and the password you gave for the `pi` user. Again you will see a welcome message and you will be logged in. Now type
+```
+wget https://rbrheating.com/setup
+```
+This will download to the Pi a second small script that sets up your system. To run the script, type
+```
+sh setup
+```
+This will display a large amount of technical information on the console as it runs. It will ask you for a password, so type your `pi` password again. There may also be other prompts; if a default is offered choose it. When installation has finished (and the $ prompt returns) you can type
+```
+ls
+```
+to see all the files that have been added to your Pi.
+
+Note to users outside the UK: The Python script `ec_timestamp.py` is set up for British time and will need to be adjusted for other countries.
+
+The next step is to set up networking. There are 2 options, depending if you want to use Ethernet or Wifi. (Note that at the time of writing these notes, only Ethernet is supported.) Type one of the following commands:
+```
+sh setup-eth0-opi.sh
+sh setup.wlan0-opi.sh
+```
+The system will ask you a couple of questions regarding your network settings, in particular to choose the IP address you would like to use for your system controller. As stated above, pick an address that's outside the range handed out by the router's DHCP, but where the first 3 groups of digits are unchanged. Once this is done the Pi will shut down automatically and you will have to restart it and log in again, this time using your chosen IP address.
+
+Although the questions are very simple, take care or you may put the system firmware into a state from which you will be unable to recover. The worst case would require you to reprogram the SD card and start again. If you are unsure what to type at any point, [email us](mailto:info@rbrheating.com) to ask for help.
+
+To test if your system controller is connected to the Internet, type
+```
+ping rbrheating.com
+```
+This should give a stream of responses from the remote server (type Control-C to stop it). If it fails there's something wrong with the settings; most likely the DNS server address. If you are relatively experienced you can try editing the configuration files by hand, but if you find all this is too complex, let us know by sending us an email and we'll try to help.
+
+To check the controller software is running, type
+```
+ps x
+```
+which lists all the 'processes' running on the controller. You should see one called `python3 rbr.py`. Wihout this, the controller will not respond to messages from thermometer modules. You should also see `python3 easycoder.py rbr.ecs` nearly every time you run `ps x`; this is a program that runs every few seconds to monitor temperature changes and turn radiators on or off according to the ruless that have been set up. If you see both of these processes most if not all of the time, the system is probably behaving as it should.
+
+That's the system controller done. You can log in to it at any time but in practice there's very little of interest there. The next job is to set up your room kits. Before you do so, make a note of the contents of 2 files on your system controller, both of which will be needed when you first run the webapp on your phone:
+
+`mac` contains the unique address of your system It comprises 6 pairs of digits (and the letters A to F) separated by colons.
+
+`password` is the password handed out by the web server when your system registered itself. It comprises 6 digits.
+
+Keep these items safe and do not give them to anyone unless you want them to be able to manage your system.
