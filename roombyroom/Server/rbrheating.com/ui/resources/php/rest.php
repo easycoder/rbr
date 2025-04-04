@@ -647,22 +647,30 @@
                 $password = trim($request[1]);
                 $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password=$password");
                 if ($row = mysqli_fetch_object($result)) {
-                    $sensors = file_get_contents("php://input");
+                    $input = file_get_contents("php://input");
 
                     // Write to local files
-                    $data = json_decode($sensors);
+                    $data = json_decode($input);
                     $name = $data->name;
-                    $ts = $data->ts;
+                    $ts = $data->timestamp;
                     $target = $data->target;
-                    $temp = $data->temp;
-                    // $relay = $data->relay;
-                    // $status = $data->status;
+                    $temp = $data->temperature;
 
                     $year = date("Y");
                     $month = date("m");
                     $day = date("d");
 
-                    $file = "resources/stats";
+                    // $file = "stats/$mac/$name/$year/$month";
+                    // if (!file_exists($file)) {
+                    //     mkdir($file, 0777, true);
+                    // }
+                    // $file .= "/$day";
+                    // logger("Write $ts,$target,$temp to $file");
+                    // $fp = fopen($file, "a+") or die("Can't open $file");
+                    // fwrite($fp, "$ts,$target,$temp\n");
+                    // fclose($fp);
+
+                    $file = "stats";
                     if (!file_exists($file)) mkdir($file);
                     $file .= "/$mac";
                     if (!file_exists($file)) mkdir($file);
@@ -676,6 +684,7 @@
                     $fp = fopen($file, "a+") or die("Can't open $file");
                     fwrite($fp, "$ts,$target,$temp\n");
                     fclose($fp);
+
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
@@ -778,44 +787,6 @@
                     http_response_code(404);
                     // looger("'Managed' failed: Email $email and password $password do not match any record.\n");
                     print "{\"message\":\"Email $email and password $password do not match any record.\"}";
-                }
-                break;
-
-            case 'psu':
-                // Set a flag for the PSU to start (S), halt (H) or reboot (R)
-                // Endpoint: {site root}/resources/php/rest.php/psu/<mac>/{password}/{flag}
-                $mac = trim($request[0]);
-                $password = trim($request[1]);
-                $flag = trim($request[2])[0];
-                $result = query($conn, "SELECT psu FROM systems WHERE mac='$mac' AND password='$password'");
-                if ($row = mysqli_fetch_object($result)) {
-                    mysqli_free_result($result);
-                    query($conn, "UPDATE systems SET psu='$flag' WHERE mac='$mac'");
-
-                    // Use the 'managed' table to find the user email, then send notifications.
-                    $result = query($conn, "SELECT email FROM managed WHERE mac='$mac'");
-                    while ($row = mysqli_fetch_object($result)) {
-                        $email = $row->email;
-                        $data = new stdClass();
-                        $data->sender = "RBR admin";
-                        $data->email = $email;
-                        $data->subject = "RBR power supply message";
-                        $data->message = "Received PSU code $flag for system $mac ";
-                        $data->smtpusername = $smtpusername;
-                        $data->smtppassword = $smtppassword;
-                        try {
-                            sendMail($data);
-                            print "Email sent to $email\n";
-                        } catch (Exception $e) {
-                            http_response_code(404);
-                            print "{\"message\": $data->err}";
-                            break;
-                        }
-                    }
-                    mysqli_free_result($result);
-                } else {
-                    http_response_code(404);
-                    print "MAC '$mac' and password '$password' do not match any record.";
                 }
                 break;
 
