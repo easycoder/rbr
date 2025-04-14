@@ -17,7 +17,6 @@ pip install --upgrade --extra-index-url https://PySimpleGUI.net/install PySimple
 echo "Install python libraries"
 sudo pip3 install requests pytz PyP100 psutil bluepy
 pip install easycoder
-<<<<<<< HEAD
 
 LOCAL_BIN=".local/bin"
 
@@ -29,8 +28,6 @@ else
     echo "export PATH=\$PATH:$LOCAL_BIN" >> ~/.profile
     echo "Path added to .profile."
 fi
-=======
->>>>>>> refs/remotes/origin/main
 
 sudo mkdir /mnt/data
 sudo chmod a+w /mnt/data

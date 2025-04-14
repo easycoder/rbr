@@ -1,20 +1,12 @@
 ap.py
 boot.py
 config.py
-<<<<<<< HEAD
 dht22.py
-=======
->>>>>>> refs/remotes/origin/main
 espcomms.py
 files.py
 handler.py
 main.py
 pin.py
-<<<<<<< HEAD
 responder.py
 server.py
 sta.py
-=======
-server.py
-sta.py
->>>>>>> refs/remotes/origin/main

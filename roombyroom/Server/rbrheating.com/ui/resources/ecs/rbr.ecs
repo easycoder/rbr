@@ -2,7 +2,7 @@
 !	This is the main program for the RBR Heating user interface. It maintains the screen,
 !	populating it with information loaded from the website, and it calls other modules as they are needed.
 
-	script RBRTest
+	script RBR
 
     div Body
     div MainPanel
@@ -46,6 +46,7 @@
     button AddButton
     button GetSystemNameButton
     button GetRequestButton
+    button CopyMapButton
     button ModeButton
     button HaltButton
     button OKButton
@@ -78,6 +79,7 @@
     variable RequestIP
     variable Map
     variable Map2
+    variable Config
     variable Rooms
     variable RoomSpec
     variable RoomCount
@@ -95,6 +97,7 @@
     variable StaticData
     variable RoomData
     variable RoomName
+    variable RoomStatus
     variable Timestamp
     variable IsAlive
     variable Battery
@@ -123,7 +126,6 @@
     variable Debugging
     variable TVal
     variable Item
-    variable Status
     variable Elapsed
     variable Boost
     variable Advance
@@ -135,6 +137,8 @@
     variable Flashes
     variable Value
     variable Count
+    variable NGood
+    variable NBad
     variable Keys
     variable Key
     variable FH
@@ -462,21 +466,21 @@ GetMap:
     set the content of VersionNumber to `v:` cat  property `version` of Sensors
     attach StatusFlag to `statusflag`
 
-    if property `system-status` of Sensors is `good`
-    begin
-        set style `background` of StatusFlag to `lightgreen`
-        set style `border` of StatusFlag to `1px solid green`
-    end
-    else if property `system-status` of Sensors is `suspect`
-    begin
-        set style `background` of StatusFlag to `gold`
-        set style `border` of StatusFlag to `1px brown`
-    end
-    else
-    begin
-        set style `background` of StatusFlag to `red`
-        set style `border` of StatusFlag to `1px solid lightred`
-    end
+!    if property `system-status` of Sensors is `good`
+!    begin
+!        set style `background` of StatusFlag to `lightgreen`
+!        set style `border` of StatusFlag to `1px solid green`
+!    end
+!    else if property `system-status` of Sensors is `suspect`
+!    begin
+!        set style `background` of StatusFlag to `gold`
+!        set style `border` of StatusFlag to `1px brown`
+!    end
+!    else
+!    begin
+!        set style `background` of StatusFlag to `red`
+!        set style `border` of StatusFlag to `1px solid lightred`
+!    end
     
     on click StatusFlag go to DoSystemParameters
     
@@ -511,6 +515,7 @@ GetMap:
     set the elements of RoomTempPanel to RoomCount
     set the elements of RoomToolsButton to RoomCount
     set the elements of RoomStatusButton to RoomCount
+    set the elements of RoomStatus to RoomCount
     set the elements of RelayState to RoomCount
     set the elements of ModeHolder to RoomCount
     set the elements of ModeButton to RoomCount
@@ -532,6 +537,7 @@ GetMap:
         index RoomTempPanel to RoomIndex
         index RoomToolsButton to RoomIndex
         index RoomStatusButton to RoomIndex
+        index RoomStatus to RoomIndex
         index ModeText to RoomIndex
         index Snowflake to RoomIndex
 
@@ -596,7 +602,6 @@ GetMap:
         
         ! Show the current temperature and relay state
         put property RoomName of Sensors into RoomSpec
-!        print RoomSpec
         put property `sensor` of RoomSpec into SensorIP
         put property `relayType` of RoomSpec into RelayType
         put property `relay` of RoomSpec into RelayState
@@ -604,7 +609,7 @@ GetMap:
     	put property `battery` of RoomSpec into Battery
         put property `timestamp` of RoomSpec into Timestamp
         put property `advance` of RoomSpec into Advance
-        put property `status` of RoomSpec into Status
+        put property `status` of RoomSpec into RoomStatus
         if RelayType is `Manual`
         begin
             set the content of RoomTempPanel to `Manual`
@@ -638,7 +643,7 @@ GetMap:
             if IsAlive is `true`
             begin
             	set style `color` of RoomTempPanel to `white`
-                if Temperature is empty set the content of RoomTempPanel to empty
+                if Temperature is 0 set the content of RoomTempPanel to empty 
                 else set the content of RoomTempPanel to Temperature cat `&deg;C`
             	if RelayState is not `off` set style `background` of RoomTempPanel to `red`
             	else set style `background` of RoomTempPanel to `blue`
@@ -659,7 +664,22 @@ GetMap:
         		set style `display` of Snowflake to `block`
             end
         end
-        	
+
+		if RoomStatus is `good`
+        begin
+            set style `background` of RoomStatusButton to `lightgreen`
+            set style `border` of RoomStatusButton to `1px solid green`
+        end
+        else if RoomStatus is `fail`
+        begin
+            set style `background` of RoomStatusButton to `red`
+            set style `border` of RoomStatusButton to `1px solid darkred`
+        end
+        else
+        begin
+            set style `background` of RoomStatusButton to `gold`
+            set style `border` of RoomStatusButton to `1px solid brown`
+        end
 
         ! Show the mode indicator
         put property `relays` of RoomSpec into Relays
@@ -712,24 +732,9 @@ GetMap:
         	attach ModeIcon to `room-` cat RoomIndex cat `-mode-icon`
     	    attach ModeText to `room-` cat RoomIndex cat `-mode-text`
 	        attach ModeInfo to `room-` cat RoomIndex cat `-mode-info`
-            if Status is `good`
-            begin
-                set style `background` of RoomStatusButton to `lightgreen`
-                set style `border` of RoomStatusButton to `1px solid green`
-            end
-            else if Status is `fail`
-            begin
-                set style `background` of RoomStatusButton to `red`
-                set style `border` of RoomStatusButton to `1px solid darkred`
-            end
-            else
-            begin
-                set style `background` of RoomStatusButton to `gold`
-                set style `border` of RoomStatusButton to `1px solid brown`
-            end
         	if Mode is `timed`
             begin
-                if Status is `good`
+                if RoomStatus is `good`
                 begin
                 	put `` cat Advance into Advance
                     if Advance is not empty
@@ -868,6 +873,33 @@ GetMap:
             end
         end
         add 1 to RoomIndex
+    end
+
+!	Get the system status
+	put 0 into NGood
+    put 0 into NBad
+    put 0 into RoomIndex
+    while RoomIndex is less than RoomCount
+    begin
+    	index RoomStatus to RoomIndex
+        if RoomStatus is `good` add 1 to NGood
+        else if RoomStatus is `fail` add 1 to NBad
+    	add 1 to RoomIndex
+    end
+    if NGood is RoomCount
+    begin
+        set style `background` of StatusFlag to `lightgreen`
+        set style `border` of StatusFlag to `1px solid green`
+    end
+    else if NBad is RoomCount
+    begin
+        set style `background` of StatusFlag to `red`
+        set style `border` of StatusFlag to `1px solid lightred`
+    end
+    else
+    begin
+        set style `background` of StatusFlag to `gold`
+        set style `border` of StatusFlag to `1px brown`
     end
     
     on click RoomTempPanel
@@ -1041,6 +1073,7 @@ DoSystemParameters:
 GSP2:
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
+    attach CopyMapButton to `button-copymap`
     attach HaltButton to `button-halt`
     attach CancelButton to `button-cancel`
     attach HelpButton to `button-help`
@@ -1058,6 +1091,12 @@ GSP2:
     begin
     	set Flag
         go to GetRequestRelay
+    end
+
+    on click CopyMapButton
+    begin
+    	set Flag
+        go to CopySystemMap
     end
 
     on click HaltButton
@@ -1080,7 +1119,6 @@ GSP2:
             put `{}` into RequestData
             set property `action` of RequestData to `halt`
             fork to PostRequest
-            ! rest post to Server cat `/psu/` cat MAC cat `/` cat Password cat `/H`
             set Redraw
             clear Blocked
         end
@@ -1190,6 +1228,50 @@ GetRequestRelay:
         put `{}` into RequestData
         set property `action` of RequestData to `request`
         set property `request` of RequestData to the content of Input
+        go to PostRequest
+    end
+    on click CancelButton
+    begin
+    	clear MainPanel
+        clear Blocked
+        set Redraw
+        stop
+    end
+    on click HelpButton
+    begin
+        clear MainPanel
+    	set style `display` of OuterPanel to `none`
+      	set style `display` of HelpPanel to `block`
+    	put `home` into SID
+        put `Request` into TID
+        go to RunHelp
+    end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Copy the system map and config file from another system
+CopySystemMap:
+	set Blocked
+    clear MainPanel
+    rest get Webson from `/resources/webson/copysystemmap.json?v=` cat now
+        or go to HandleRestError
+    render Webson in MainPanel
+    attach Input to `copymap-input`
+    attach OKButton to `copymap-ok`
+    attach CancelButton to `copymap-cancel`
+    attach HelpButton to `copymap-help`
+    on click OKButton
+    begin
+    	clear MainPanel
+        clear Blocked
+        set Redraw
+        if the content of Input is empty stop
+    	rest get Config from `/resources/php/rest.php/config/` cat the content of Input or go to HandleRestError
+        rest post Config to `/resources/php/rest.php/config/` cat MAC cat `/` cat Password or go to HandleRestError
+    	rest get Map from `/resources/php/rest.php/map/` cat the content of Input or go to HandleRestError
+        put `{}` into RequestData
+        set property `action` of RequestData to `map`
+        set property `map` of RequestData to Map
         go to PostRequest
     end
     on click CancelButton

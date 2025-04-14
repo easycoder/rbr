@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 import network,binascii,asyncio,random
-=======
-import network,binascii,asyncio
->>>>>>> refs/remotes/origin/main
 
 class AP():
     
@@ -17,7 +13,6 @@ class AP():
         self.ssid=f'RBR-Now-{mac}'
         ap.config(essid=self.ssid,password='00000000')
         ap.config(channel=config.getChannel())
-<<<<<<< HEAD
         ap.ifconfig(('192.168.9.1','255.255.255.0','192.168.9.1','8.8.8.8'))
         print(mac,config.getName()) 
 
@@ -25,13 +20,6 @@ class AP():
         password=str(random.randrange(100000,999999))
         print(password)
         self.ap.config(essid='-',password=password)
-=======
-        ap.ifconfig(('192.168.9.1', '255.255.255.0', '192.168.9.1', '8.8.8.8'))
-        print(mac,config.getName()) 
-
-    def stop(self):
-        self.ap.config(essid='',password='')
->>>>>>> refs/remotes/origin/main
 
     def getChannel(self): return self.ap.config('channel')
 

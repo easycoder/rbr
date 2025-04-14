@@ -1,10 +1,6 @@
 import asyncio,machine
 from binascii import unhexlify
-<<<<<<< HEAD
 from files import readFile,writeFile,renameFile,deleteFile
-=======
-from files import readFile,writeFile,renameFile
->>>>>>> refs/remotes/origin/main
 
 class Handler():
     
@@ -15,7 +11,6 @@ class Handler():
 
     def handleMessage(self,msg):
 #        print('Message:',msg)
-<<<<<<< HEAD
         response=f'OK {self.config.getUptime()}'
         if msg == 'uptime':
             pass
@@ -45,23 +40,6 @@ class Handler():
         elif msg[0:6]=='delete':
             file=msg[7:]
             deleteFile(file)
-=======
-        response='OK'
-        if msg == 'on':
-            print('relay ON')
-            self.relay.on()
-        elif msg == 'off':
-            print('relay OFF')
-            self.relay.off()
-        elif msg == 'reset':
-            self.config.reset()
-        elif msg == 'uptime':
-            response=str(self.config.getUptime())
-        elif msg == 'ipaddr':
-            response=self.config.getIPAddr()
-        elif msg == 'temp':
-            response=str(self.config.getTemperature())
->>>>>>> refs/remotes/origin/main
         elif msg[0:4]=='part':
         # Format is part:{n},text:{text}
             part=None
@@ -106,14 +84,6 @@ class Handler():
                     response=str(len(text))
                 else: response='Bad save'
             else: response='No update'
-<<<<<<< HEAD
         else:
             response=f'Unknown message: {msg}'
-=======
-        elif msg == 'reset':
-            print('Reset request')
-            asyncio.get_event_loop().stop()
-        else:
-            response='Unknown message'
->>>>>>> refs/remotes/origin/main
         return response

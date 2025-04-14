@@ -1,1 +1,0 @@
-{"master": false, "name": "T-Office", "ssid": "RBR-Now-f09e9ead8f39", "channel": "1", "pins": {"led": {"pin": "8", "invert": false}, "relay": {"pin": "", "invert": false}, "dht22": {"pin": "4"}}}

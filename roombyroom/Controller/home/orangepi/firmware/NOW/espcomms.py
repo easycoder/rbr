@@ -21,17 +21,15 @@ class ESPComms():
         self.checkPeer(mac)
         try:
             print(f'Send {espmsg[0:20]}... to {peer}')
-            result=E().send(mac,espmsg)
+            if espmsg[0]=='>':
+                result=self.sendToSlave(mac,espmsg)
+            else:
+                result=E().send(mac,espmsg)
             print(f'Result: {result}')
-            result=True
             if result:
                 counter=50
                 while counter>0:
                     if E().any():
-<<<<<<< HEAD
-=======
-                        print('Reply received')
->>>>>>> refs/remotes/origin/main
                         sender,response = E().irecv()
                         if response:
                             print(f"Received response: {response.decode()}")
@@ -55,14 +53,22 @@ class ESPComms():
                 mac,msg=E().recv()
                 sender=hexlify(mac).decode()
                 msg=msg.decode()
-#                print(f'Message from {sender}: {msg[0:20]}...')
-                response=self.config.getHandler().handleMessage(msg)
+                print(f'Message from {sender}: {msg[0:20]}...')
+                if msg[0]=='!':
+                    comma=msg.index(',')
+                    slave=msg[1:comma]
+                    msg=msg[comma+1:]
+#                    print('Slave:',slave,', msg:',msg)
+                    response=await self.send(slave,msg)
+                else:
+                    response=self.config.getHandler().handleMessage(msg)
+                    response=f'{response} {self.getRSS(sender)}'
 #                print('Response',response)
                 self.checkPeer(mac)
                 E().send(mac,response)
             await asyncio.sleep(.1)
-<<<<<<< HEAD
             self.config.kickWatchdog()
-=======
->>>>>>> refs/remotes/origin/main
 
+    def getRSS(self,peer):
+        mac=unhexlify(peer.encode())
+        return E().peers_table[mac][0]

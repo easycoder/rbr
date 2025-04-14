@@ -1,18 +1,20 @@
-<<<<<<< HEAD
-!   Test
+!   test.ecs
 
     script Test
 
-    variable Config
+    variable IPAddr
+    variable Peer
+    variable Slave
+    variable URL
+    variable Value
 
-    get Config from `https://rbrheating.com/home/resources/php/rest.php/config/0c:59:54:15:28:fa/797147`
-    print Config
+    put `http://192.168.1.169/` into IPAddr
+    put `9c9e6e0ba7ed` into Peer
+    put `34cdb04eda99` into Slave
+
+    put IPAddr cat `?mac=` cat Peer cat `&msg=!` cat Slave cat `,uptime` into URL
+    log URL
+    get Value from url URL
+    log Value
 
     exit
-=======
-!   Test script
-
-    script Test
-
-    print `Hello, world!`
->>>>>>> refs/remotes/origin/main

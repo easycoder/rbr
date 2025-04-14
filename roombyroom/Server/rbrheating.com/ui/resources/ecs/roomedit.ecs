@@ -154,7 +154,6 @@ DevicesButtonCB:
     put `[]` into List
     json add `none` to List
     json add `RBR-Now` to List
-    json add `RBR XR` to List
     json add `Shelly One` to List
     json add `Tasmota` to List
     json add `TP-Link P100` to List
@@ -234,7 +233,7 @@ DevicesButtonCB:
         while R is less than the elements of Item
         begin
             index Item to R
-            append Item to Relays
+            if Item is not empty append Item to Relays
             add 1 to R
         end
         set property `relays` of Items to Relays

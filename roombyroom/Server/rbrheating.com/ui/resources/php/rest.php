@@ -232,13 +232,22 @@
                 break;
 
             case 'config':
-                // Get the system config file, given its MAC and password.
+                // Get the system config file, given its MAC and password (ignored). Also return the IP address.
                 // Endpoint: {site root}/resources/php/rest.php/config/<mac>/<password>
                 $mac = $request[0];
                 $password = $request[1];
-                $result = query($conn, "SELECT config FROM systems WHERE mac='$mac' AND password='$password'");
+                $result = query($conn, "SELECT config, ipaddr FROM systems WHERE mac='$mac'");
                 if ($row = mysqli_fetch_object($result)) {
-                    print base64_decode($row->config);
+                    $data = $row->config;
+                    if ($data == '') {
+                        $data = '{}';
+                    }
+                    else {
+                        $data = base64_decode($data);
+                    }
+                    $data = json_decode($data);
+                    $data->ipaddr = $row->ipaddr;
+                    print json_encode($data);
                 } else {
                     print '';
                 }
@@ -562,6 +571,22 @@
         $ts = time();
         switch ($action) {
 
+            case 'ipaddr':
+                // Save my IP address
+                // Endpoint: {site root}/resources/php/rest.php/ipaddr/{mac}/{password}/{ipaddr}
+                $mac = trim($request[0]);
+                $password = trim($request[1]);
+                $ipaddr = trim($request[2]);
+                $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
+                if ($row = mysqli_fetch_object($result)) {
+                    query($conn, "UPDATE systems SET ipaddr='$ipaddr' WHERE mac='$mac'");
+                    // looger("UPDATE systems SET ipaddr='$ipaddr' WHERE mac='$mac'");
+                } else {
+                    http_response_code(404);
+                    print "{\"message\":\"MAC and password do not match any record.\"}";
+                }
+                break;
+
             case 'config':
                 // Save the system config file
                 // Endpoint: {site root}/resources/php/rest.php/config/{mac}/{password}
@@ -692,15 +717,16 @@
                 break;
 
             case 'sensors':
-                // Update sensor values.
-                // Endpoint: {site root}/resources/php/rest.php/sensors/<mac>/<password>
+                // Update sensor values and the IP address
+                // Endpoint: {site root}/resources/php/rest.php/sensors/<mac>/<password>/<ipaddr>
                 $mac = $request[0];
                 $password = $request[1];
+                $ipaddr = trim($request[2]);
                 $result = query($conn, "SELECT null FROM systems WHERE mac='$mac' AND password='$password'");
                 if ($row = mysqli_fetch_object($result)) {
                     $sensors = file_get_contents("php://input");
                     $encoded = base64_encode($sensors);
-                    query($conn, "UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
+                    query($conn, "UPDATE systems SET sensors='$encoded', ipaddr='$ipaddr' WHERE mac='$mac'");
                     // looger("UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);

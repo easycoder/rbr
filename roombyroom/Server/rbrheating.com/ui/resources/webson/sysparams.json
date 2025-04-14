@@ -5,6 +5,7 @@
     "background": "#ffc",
     "text-align": "center",
     "#": ["$Config", "$GetName", "$GetRequest", "$Pad",
+        "$CopyMap", "$Pad",
         "$PowerOff", "$Pad",
         "$Help", "$Cancel", "$Pad", "$StatusPanel"],
 
@@ -23,6 +24,12 @@
     "$GetRequest": {
         "$ID": "button-getrequest",
         "$Label": "Set the request relay IP",
+        "#": "$Button"
+    },
+
+    "$CopyMap": {
+        "$ID": "button-copymap",
+        "$Label": "Copy another system map",
         "#": "$Button"
     },
 

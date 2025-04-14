@@ -15,6 +15,7 @@
     variable System
     variable SystemMAC
     variable SystemPassword
+    variable SystemIPAddress
     variable HostSSID
     variable HostPassword
     variable Config
@@ -41,6 +42,7 @@
     variable FileSize
     variable Sequence
     variable Message
+    variable Message2
     variable Uptime
     variable MasterDevice
     variable SelectedDevice
@@ -59,11 +61,11 @@
     variable Pins
     variable Pin
     variable Flag
-    variable Count
     variable Ready
     variable RelayInvert
     variable RelayState
     variable Updating
+    variable StatusMessage
     variable D
     variable F
     variable K
@@ -77,7 +79,6 @@
 !   Initialisation
 
     clear Ready
-    get Response from url `http://192.168.1.140:8000/cgi-bin/pause.py`
     if file `.rbrsystems.json` exists
     begin
         load Systems from `.rbrsystems.json`
@@ -94,6 +95,9 @@
         if Name is empty exit
     end
     gosub to GetConfig
+    log `Controller IP address is ` cat SystemIPAddress
+    ! Pause the controller
+    get Response from url `http://` cat SystemIPAddress cat `:8000/cgi-bin/pause.py`
 
     ! Scan the devices to find the master, if there is one
     put empty into MasterSSID
@@ -146,6 +150,9 @@
     add Button button_text `Update Files` and size `20 1` to Row
     add Row to Column
     init Row
+    add Button button_text `Delete File` and size `20 1` to Row
+    add Row to Column
+    init Row
     add Button button_text `Exit` and size `20 1` to Row
     add Row to Column
     add Column to Columns
@@ -184,15 +191,6 @@
     add Frame title `Host` and expand_x true and pad 10 to Row
     add Row to Column
 
-!   Known devices
-    init Row
-    init Frame
-    init Row2
-    add Listbox key `-APLIST-` and size `60 10` and pad 10 to Row2
-    add Row2 to Frame
-    add Frame title `Slave devices` and expand_x true and pad 10 to Row
-    add Row to Column
-
 !   The master device
     init Row
     init Frame
@@ -200,6 +198,15 @@
     add Text key `-MASTER-` and expand_x true to Row2
     add Row2 to Frame
     add Frame title `Master device` and expand_x true and pad 10 to Row
+    add Row to Column
+
+!   Slave devices
+    init Row
+    init Frame
+    init Row2
+    add Listbox key `-APLIST-` and size `60 10` and pad 10 to Row2
+    add Row2 to Frame
+    add Frame title `Slave devices` and expand_x true and pad 10 to Row
     add Row to Column
 
 !   The selected device
@@ -230,6 +237,10 @@
     add Text text `DHT22 Pin` and size `10 1` to Row2
     add Input key `-DHT22_PIN-` and size `3 1` to Row2
     add Row2 to Frame
+    init Row2
+    add Text text `Path:` to Row2
+    add Row2 to Frame
+    add Input key `-PATH-` and size `40 1` to Row2
     add Frame title `Selected device` and expand_x true and pad 10 to Row
     add Button button_text `Update` and size `10 1` to Row
     add Row to Column
@@ -285,6 +296,8 @@
 
     on event `Update Files` in Window go to UpdateFiles
 
+    on event `Delete File` in Window go to DeleteFile
+
     on event `Update` in Window go to UpdateProperties
 
     on event `-` in Window go to RelayOff
@@ -297,7 +310,7 @@
         set property `password` of Config to the value of key `-HOST_PASS-` in Window
         gosub to PostConfigData
         close Window
-        get Response from url `http://192.168.1.140:8000/cgi-bin/resume.py`
+        get Response from url `http://` cat SystemIPAddress cat `:8000/cgi-bin/resume.py`
         exit
     end
     gosub to RefreshUI
@@ -306,15 +319,14 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Get the config file from RBR Heating website
 GetConfig:
-log `Get Config from https://rbrheating.com/home/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
+    ! log `Get Config from https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
     get Config from url
-        `https://rbrheating.com/home/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
+        `https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
     or
     begin
         log `Can't read the config file`
         exit
     end
-    log Config
 
     if Config is empty
     begin
@@ -326,19 +338,21 @@ log `Get Config from https://rbrheating.com/home/resources/php/rest.php/config/`
     end
     else put json Config into Config
 !load Config from `.config.json`
-    log Config
     put property `devices` of Config into Devices
     put property `ssid` of Config into HostSSID
     put property `password` of Config into HostPassword
+    put property `ipaddr` of Config into SystemIPAddress
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Post the config data
 PostConfigData:
+!    log Config
     save Config to `.config.json`
-    log `Posting Config to ` cat `https://rbrheating.com/home/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
+    log `Posting Config to ` cat `https://rbrheating.com/ui/resources/php/rest.php/config/`
+        cat SystemMAC cat `/` cat SystemPassword
     post stringify Config to
-        `https://rbrheating.com/home/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
+        `https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
     or
     begin
         log `I couldn't post the config file`
@@ -351,6 +365,7 @@ PostConfigData:
 RefreshUI:
 !    log `Refresh the UI`
     set property `disabled` of `Update Files` in Window to true
+    set property `disabled` of `Delete File` in Window to true
     set property `disabled` of `+` in Window to true
     set property `disabled` of `-` in Window to true
     put empty into SelectedDevice
@@ -390,6 +405,7 @@ RefreshUI:
         set property `value` of `-RELAY_PIN-` in Window to empty
         set property `value` of `-RELAY_INVERT-` in Window to empty
         set property `value` of `-DHT22_PIN-` in Window to empty
+        set property `value` of `-PATH-` in Window to empty
         set property `disabled` of `-NAME-` in Window to true
         set property `disabled` of `-CHANNEL-` in Window to true
         set property `disabled` of `-LED_PIN-` in Window to true
@@ -397,6 +413,7 @@ RefreshUI:
         set property `disabled` of `-RELAY_PIN-` in Window to true
         set property `disabled` of `-RELAY_INVERT-` in Window to true
         set property `disabled` of `-DHT22_PIN-` in Window to true
+        set property `disabled` of `-PATH-` in Window to true
         set property `disabled` of `Select Master` in Window to true
     end
     else
@@ -408,6 +425,7 @@ RefreshUI:
         set property `disabled` of `-RELAY_PIN-` in Window to false
         set property `disabled` of `-RELAY_INVERT-` in Window to false
         set property `disabled` of `-DHT22_PIN-` in Window to false
+        set property `disabled` of `-PATH-` in Window to false
         set property `disabled` of `Select Master` in Window to false
     end
     return
@@ -439,16 +457,18 @@ SetUIProperties:
         set property `value` of `-DHT22_PIN-` in Window to property `pin` of Pin
     end
     else set property `value` of `-DHT22_PIN-` in Window to empty
+    set property `value` of `-PATH-` in Window to Path
     set property `disabled` of `Update Files` in Window to false
+    set property `disabled` of `Delete File` in Window to false
     set property `disabled` of `+` in Window to false
     set property `disabled` of `-` in Window to false
     put `relay` into Message
     gosub to MessageDevice
 !    log Response
-    if Response is `OK 0`
+    if left 4 of Response is `OK 0`
         if RelayInvert put `ON` into RelayState
         else put `OFF` into RelayState
-    else if Response is `OK 1`
+    else if left 4 of Response is `OK 1`
         if RelayInvert put `OFF` into RelayState
         else put `ON` into RelayState
     else put `Unknown` into RelayState
@@ -475,7 +495,8 @@ ScanNetwork:
     end
     if Flag gosub to PostConfigData
 
-    set property `value` of `-STATUS-` in Window to `Scanning the local network...`
+    put `Scanning the local network...` into StatusMessage
+    gosub to ShowStatusMessage
     wait 10 ticks   ! for the screen to update
     put system `nmcli device wifi list` into SystemCallResult
 !    log SystemCallResult
@@ -523,8 +544,8 @@ SNLoop:
                 if Slave is SSID go to SNEnd
                 increment S
             end
-            set property `value` of `-STATUS-` in Window to `Connecting to ` cat SSID
-            wait 10 ticks
+            put `Connecting to ` cat SSID into StatusMessage
+            gosub to ShowStatusMessage
             gosub to ConnectToAP
         end
         increment N
@@ -533,29 +554,31 @@ SNEnd:
     gosub to ListConfiguredSlaves
 
     log `Reconnect to default AP`
-    set property `value` of `-STATUS-` in Window to `Reconnecting to default AP`
+    put `Reconnecting to default AP` into StatusMessage
+    gosub to ShowStatusMessage
     system `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword
     if the count of Slaves is 0
     begin
         set property `values` of `-APLIST-` in Window to json `[]`
     end
     else set property `values` of `-APLIST-` in Window to Slaves
-    if Count is 0  set property `value` of `-STATUS-` in Window to `Ready`
-    else set property `value` of `-STATUS-` in Window to `Ready`
+    put `Ready` into StatusMessage
+    gosub to ShowStatusMessage
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Connect to the access point given by SSID
 ConnectToAP:
-    set property `value` of `-STATUS-` in Window to `Connect to ` cat SSID
-    wait 10 ticks
+    put `Connect to ` cat SSID into StatusMessage
+    gosub to ShowStatusMessage
     put system `nmcli dev wifi connect ` cat SSID cat ` password 00000000` into SystemCallResult
     split SystemCallResult on ` `
     index SystemCallResult to 2
     if SystemCallResult is not `successfully`
     begin
-        log `Failed to connect to ` cat SSID
-        set property `value` of `-STATUS-` in Window to `Failed to connect to ` cat SSID
+        put `Failed to connect to ` cat SSID into StatusMessage
+        gosub to ShowStatusMessage
+        log StatusMessage
         wait 2
         return
     end
@@ -566,13 +589,14 @@ ConnectToAP:
     put left D of IPAddr into IPAddr
     put IPAddr cat `1` into IPAddr
     put `http://` cat IPAddr into URL
-    set property `value` of `-STATUS-` in Window to `Request AP details for ` cat SSID
-    wait 10 ticks
+    put `Request AP details for ` cat SSID into StatusMessage
+    gosub to ShowStatusMessage
     log `Get AP info from ` cat URL
     get APInfo from url URL
     or begin
-        log `Failed to interrogate ` cat SSID
-        set property `value` of `-STATUS-` in Window to `Failed to interrogate ` cat SSID
+        put `Failed to interrogate ` cat SSID into StatusMessage
+        log StatusMessage
+        gosub to ShowStatusMessage
         wait 2
         return
     end
@@ -586,8 +610,9 @@ ConnectToAP:
     ! If this one is known, ignore it
     if Devices has property Name
     begin
-        log `Device '` cat Name cat `' is already configured`
-        set property `value` of `-STATUS-` in Window to `Device '` cat Name cat `' is already configured`
+        put `Device '` cat Name cat `' is already configured` into StatusMessage
+        log StatusMessage
+        gosub to ShowStatusMessage
         wait 2
         return
     end
@@ -612,8 +637,9 @@ ConnectToAP:
         set property `disabled` of `Select Master` in Window to false
         wait 5
         put `http://` cat MasterIPAddr cat `/?mac=` cat MasterMAC cat `&msg=ipaddr` into URL
-        gosub to LogURL
-        set property `value` of `-STATUS-` in Window to `Get the Master IP address`
+        log URL
+        put `Get the Master IP address` into StatusMessage
+        gosub to ShowStatusMessage
         wait 10 ticks
         log `Connect to ` cat MasterSSID cat `/00000000`
         system `nmcli dev wifi connect ` cat MasterSSID cat ` password 00000000`
@@ -621,7 +647,8 @@ ConnectToAP:
         get Response from url URL
         or begin
             log `Failed to get Master ip address ` cat MasterSSID
-            set property `value` of `-STATUS-` in Window to `Failed to get Master ip address`
+            put `Failed to get Master ip address` into StatusMessage
+            gosub to ShowStatusMessage
             wait 2
             return
         end
@@ -629,15 +656,19 @@ ConnectToAP:
         if left 2 of Response is `OK`
         begin
             put from 3 of Response into MasterIPAddr
-            log `Master ip address is ` cat MasterIPAddr
-            set property `value` of `-STATUS-` in Window to `Master ip address is ` cat MasterIPAddr
+            put `Master ip address is ` cat MasterIPAddr into StatusMessage
+            log StatusMessage
             set property `value` of `-MASTER-` in Window to MasterSSID cat ` ` cat MasterName cat ` ` cat MasterIPAddr
             set property `ipaddr` of MasterDevice to MasterIPAddr
             set property MasterName of Devices to MasterDevice
             set property `devices` of Config to Devices
             gosub to RequestReset
         end
-        else set property `value` of `-STATUS-` in Window to `Failed to get Master ip address`
+        else
+        begin
+            put `Failed to get Master ip address` into StatusMessage
+            gosub to ShowStatusMessage
+        end
     end
     else
     begin
@@ -690,21 +721,29 @@ CreateDevice:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SelectMaster:
+    put `Selecting Master device` into StatusMessage
+    gosub to ShowStatusMessage
+    wait 1 tick
     put MasterDevice into Device
     gosub to CheckDevice
     if Uptime is 0
     begin
-        set property `value` of `-STATUS-` in Window to `Device ` cat Name cat ` not responding`
+        put `Device ` cat Name cat ` not responding` into StatusMessage
+        gosub to ShowStatusMessage
         stop
     end
     set property `value` of `-MS-` in Window to `Master`
     set property `disabled` of `Update Files` in Window to false
+    set property `disabled` of `Delete File` in Window to false
     gosub to SetUIProperties
-    set property `value` of `-STATUS-` in Window to Name cat ` selected`
+    put Name cat ` selected` into StatusMessage
+    gosub to ShowStatusMessage
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SelectSlave:
+    put `Selecting Slave device` into StatusMessage
+    gosub to ShowStatusMessage
     put the value of key `-APLIST-` in Window into Info
     if Info is empty stop
     split Info on ` `
@@ -718,14 +757,19 @@ SelectSlave:
         gosub to CheckDevice
         if Uptime is 0
         begin
-            set property `value` of `-STATUS-` in Window to `Device ` cat Name cat ` not responding`
+            put `Device ` cat Name cat ` not responding` into StatusMessage
+            gosub to ShowStatusMessage
+            get Response from popup yes-no Name cat ` is not responding. Delete it?` `No response`
+            if Response is `Yes` go to DeleteSlave2
             stop
         end
         set property `value` of `-MS-` in Window to `Slave`
         set property `disabled` of `Update Files` in Window to false
+        set property `disabled` of `Delete File` in Window to false
         gosub to SetUIProperties
     end
-    set property `value` of `-STATUS-` in Window to Name cat ` selected`
+    put Name cat ` selected` into StatusMessage
+    gosub to ShowStatusMessage
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -742,12 +786,14 @@ DeleteSlave:
         get Response from popup yes-no `Are you sure you want to delete ` cat Name cat `?` `Confirm delete`
         if Response is `Yes`
         begin
+DeleteSlave2:
             push Name onto Stack
             delete property Name of Devices
             set property `devices` of Config to Devices
             gosub to PostConfigData
             pop Name from Stack
-            set property `value` of `-STATUS-` in Window to Name cat ` deleted`
+            put Name cat ` deleted` into StatusMessage
+            gosub to ShowStatusMessage
         end
     end
     stop
@@ -759,7 +805,8 @@ CheckDevice:
     gosub to MessageDevice
     if Response is empty
     begin
-        set property `value` of `-STATUS-` in Window to `No response from ` cat Name
+        put `No response from ` cat Name into StatusMessage
+        gosub to ShowStatusMessage
         put 0 into Uptime
     end
     else put from 3 of Response into Uptime
@@ -777,7 +824,8 @@ RelayOn:
     log `ON: ` cat Response
     if Response is empty
     begin
-        set property `value` of `-STATUS-` in Window to `No response from ` cat Name
+        put `No response from ` cat Name into StatusMessage
+        gosub to ShowStatusMessage
         put 0 into Uptime
     end
     else gosub to SetUIProperties
@@ -791,7 +839,8 @@ RelayOff:
     log `OFF: ` cat Response
     if Response is empty
     begin
-        set property `value` of `-STATUS-` in Window to `No response from ` cat Name
+        put `No response from ` cat Name into StatusMessage
+        gosub to ShowStatusMessage
         put 0 into Uptime
     end
     else gosub to SetUIProperties
@@ -841,6 +890,8 @@ UpdateProperties:
     set property `relay` of Pins to Pin
     put json `{}` into Pin
     set property `pin` of Pin to the value of key `-DHT22_PIN-` in Window
+    put the value of key `-PATH-` in Window into Path
+    set property `path` of Device to Path
     set property `dht22` of Pins to Pin
     set property `pins` of Device to Pins
     set property Name of Devices to Device
@@ -866,7 +917,8 @@ UpdateFiles:
     put property `ssid` of SelectedDevice into SSID
     split SSID on ` `
     log `Updating ` cat SSID
-    set property `value` of `-STATUS-` in Window to `Updating ` cat SSID cat `... `
+    put `Updating ` cat SSID cat `... ` into StatusMessage
+    gosub to ShowStatusMessage
     put from 8 of SSID into MAC
 
     put FirmwareDirectory cat `files.txt` into Path
@@ -880,7 +932,8 @@ UpdateFiles:
         if FileName is not empty gosub to UpdateOneFile
         increment F
     end
-    set property `value` of `-STATUS-` in Window to `All files updated`
+    put `All files updated` into StatusMessage
+    gosub to ShowStatusMessage
     wait 1
     gosub to RequestReset
     stop
@@ -906,8 +959,8 @@ UpdateOneFile:
 !   Send a file to the device
 SendFile:
     put the length of Content into FileSize
-    set property `value` of `-STATUS-` in Window to `Updating ` cat FileName cat ` (size=` cat FileSize cat `)`
-    wait 10 ticks
+    put `Updating ` cat FileName cat ` (size=` cat FileSize cat `)` into StatusMessage
+    gosub to ShowStatusMessage
     clear SendFail
     put 0 into Sequence
     put 0 into Start
@@ -923,16 +976,21 @@ SendFile:
 !        log `Send part ` cat Sequence
         put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=part:`
             cat Sequence cat `,text:` cat Segment into URL
-        gosub to LogURL
+!        log URL
         get Response from url URL
         or begin
-            log `Upload part ` cat Sequence cat ` of ` cat FileName cat ` failed`
+            put `Upload part ` cat Sequence cat ` of ` cat FileName cat ` failed` into Response
+            log Response
             set SendFail
             return
         end
+        log `Part ` cat Sequence cat `: ` cat Response
+        split Response on ` `
+        index Response to 0
         if Response is not Length
         begin
-            set property `value` of `-STATUS-` in Window to `Failed to send part ` cat Sequence
+            put `Failed to send part ` cat Sequence into StatusMessage
+            gosub to ShowStatusMessage
             set SendFail
             return
         end
@@ -941,43 +999,69 @@ SendFile:
     end
 !    log `Send the save message for ` cat FileName
     put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=save:` cat FileName into URL
-    gosub to LogURL
+    log URL
     get Response from url URL
     or begin
         log `Save failed`
         set SendFail
         return
     end
+    log `Save: ` cat Response
+    split Response on ` `
+    index Response to 0
     if Response is not Total
     begin
-        log `Mismatched length: ` cat Total cat ` - ` cat Response
-        set property `value` of `-STATUS-` in Window to `Mismatched length: ` cat Total cat ` - ` cat Response
+        put `Mismatched length: ` cat Total cat ` - ` cat Response into StatusMessage
+        gosub to ShowStatusMessage
+        log StatusMessage
+        set SendFail
+        return
     end
-    set property `value` of `-STATUS-` in Window to `File ` cat FileName cat ` saved`
+    put `File ` cat FileName cat ` saved` into StatusMessage
+    gosub to ShowStatusMessage
     return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Delete a file on a device
+DeleteFile:
+    get FileName from popup text `File name:` `Confirm delete`
+    put from 8 of property `ssid` of Device into MAC
+    put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=delete:` cat FileName into URL
+    get Response from url URL
+    or begin
+        log `Save failed`
+        set SendFail
+        return
+    end
+    log Response
+    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a reset message to a device
 RequestReset:
     gosub to GetDeviceData
     log `Reset ` cat Name
-    set property `value` of `-STATUS-` in Window to Name cat ` is being reset`
+    put Name cat ` is being reset` into StatusMessage
+    gosub to ShowStatusMessage
     wait 1
     put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=reset` into URL
-    gosub to LogURL
+    log URL
     get Response from url URL
     or begin
         log `Reset failed`
-        set property `value` of `-STATUS-` in Window to `Failed to reset ` cat Name
+        put `Failed to reset ` cat Name into StatusMessage
+        gosub to ShowStatusMessage
         return
     end
     if left 2 of Response is not `OK`
     begin
         log `Reset failed`
-        set property `value` of `-STATUS-` in Window to `Bad response from ` cat Name
+        put `Bad response from ` cat Name into StatusMessage
+        gosub to ShowStatusMessage
         return
     end
-    set property `value` of `-STATUS-` in Window to `Device has been reset`
+    put `Device has been reset` into StatusMessage
+    gosub to ShowStatusMessage
     go to PostConfigData
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -986,20 +1070,54 @@ MessageDevice:
     if Updating return
     gosub to GetDeviceData
     log `Send '` cat Message cat `' to ` cat Name
-    put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=` cat Message into URL
-    gosub to LogURL
+    put Message into Message2
+    if Path is not empty
+    begin
+        put the position of `,` in Path into P
+        if P is greater than 0
+        begin
+            put left P of Path into MAC
+            add 1 to P
+            put from P of Path into Path
+            put `!` cat Path cat `,` cat Message into Message2
+        end
+        else
+        begin
+            put `!` cat MAC cat `,` cat Message into Message2
+            put Path into MAC
+        end
+    end
+    put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=` cat Message2 into URL
+!    log URL
     get Response from url URL
     or begin
         log `Message to ` cat Name cat ` failed`
-        set property `value` of `-STATUS-` in Window to `Could not message ` cat Name
+        put `Could not message ` cat Name into StatusMessage
+        gosub to ShowStatusMessage
+        ! Try direct communication
+        if Path is not empty go to RetryWithoutPath
         put empty into Response
         return
     end
 !    log URL cat ` -> ` cat Response
     if left 2 of Response is `OK` return
-    log `Bad response: ` cat Response
-    set property `value` of `-STATUS-` in Window to `Bad response from ` cat Name
+    put `Bad response from ` cat Name into StatusMessage
+    gosub to ShowStatusMessage
+!    log StatusMessage
+    if Path is not empty go to RetryWithoutPath
     put empty into Response
+    return
+
+RetryWithoutPath:
+    log `Retry without path`
+    set property `path` of Device to empty
+    go to MessageDevice
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show a status message
+ShowStatusMessage:
+    set property `value` of `-STATUS-` in Window to StatusMessage
+    wait 1 tick
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1008,12 +1126,12 @@ GetDeviceData:
     put property `name` of Device into Name
     put property `ssid` of Device into SSID
     put from 8 of SSID into MAC
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Log a URL
-LogURL:
-!    log URL
+    if Device has property `path` put property `path` of Device into Path
+    else
+    begin
+        put empty into Path
+        set property `path` of Device to Path
+    end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1099,6 +1217,7 @@ ShowSystems:
 
     on event `Select` in SystemsWindow
     begin
+        get Response from url `http://` cat SystemIPAddress cat `:8000/cgi-bin/resume.py`
         put the value of key `-SYSTEMS-` in SystemsWindow into Name
         log `Selected ` cat Name
         set property `name` of Systems to Name
@@ -1108,7 +1227,9 @@ ShowSystems:
         set property Name of Systems to System
         save Systems to `.rbrsystems.json`
         close SystemsWindow
-        return
+        close Window
+        get Response from url `http://` cat SystemIPAddress cat `:8000/cgi-bin/resume.py`
+        exit
     end
 
     on event `Add` in SystemsWindow

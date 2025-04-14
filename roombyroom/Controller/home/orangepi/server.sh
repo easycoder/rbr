@@ -1,13 +1,13 @@
 #!/bin/sh
 
-if [ $# -eq 0 ]
-then
-    if test -f "/mnt/data/running"
-    then
-        exit
-    fi
-fi
-/usr/bin/touch "/mnt/data/running"
+#if [ $# -eq 0 ]
+#then
+#    if test -f "/mnt/data/running"
+#    then
+#        exit
+#    fi
+#fi
+#/usr/bin/touch "/mnt/data/running"
 
 # Look for a running instance of http.server
 p=$(ps -eaf | grep "[h]ttp.server")

@@ -156,7 +156,7 @@ Editor:
     
     on click RoomInfoButton
     begin
-    	print RoomSpec
+!    	print RoomSpec
         set DateFormat to object
         set property `mode` of DateFormat to `date`
         set property `locale` of DateFormat to `en-EN`

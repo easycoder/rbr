@@ -2,4 +2,10 @@
 
 import os
 ipaddr = os.popen('hostname -I').read()
-print(f'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(ipaddr)}\r\n\r\n{ipaddr}')
+
+f = open('/mnt/data/ipaddr', 'w')
+mac = f.write(ipaddr)
+f.close()
+print(f'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\n\r\nOK')
+
+# print(f'HTTP/1.0 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(ipaddr)}\r\n\r\n{ipaddr}')

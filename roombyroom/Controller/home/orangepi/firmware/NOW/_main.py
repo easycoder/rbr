@@ -12,17 +12,18 @@ from espcomms import ESPComms
 
 class RBRNow():
 
-    def __init__(self):
+    def init(self):
         self.config=Config()
         self.led=self.config.getLED()
-
-    def init(self):
         config=self.config
         self.handler=Handler(config)
         ap=AP(config)
-        ap.startup()
         sta=STA(config)
-        if config.isMaster(): sta.connect()
+        if config.isMaster():
+            print('Starting as master')
+            sta.connect()
+        else: print('Starting as slave')
+        config.startServer()
         espComms=ESPComms(config)
         asyncio.create_task(self.startBlink())
         asyncio.create_task(self.stopAP())
@@ -32,25 +33,36 @@ class RBRNow():
     async def blink(self):
         while True:
             self.led.on()
-            self.uptime+=self.blinkOn
-            await asyncio.sleep(self.blinkOn)
-            self.led.off()
-            self.uptime+=self.blinkOff
-            await asyncio.sleep(self.blinkOff)
-    
-    def setBlinkCycle(self,on,off):
-        self.blinkOn=on
-        self.blinkOff=off
+            if self.blinkCycle=='init':
+                await asyncio.sleep(0.5)
+                self.led.off()
+                await asyncio.sleep(0.5)
+                self.config.addUptime(1)
+            elif self.blinkCycle=='master':
+                await asyncio.sleep(0.2)
+                self.led.off()
+                await asyncio.sleep(0.2)
+                self.led.on()
+                await asyncio.sleep(0.2)
+                self.led.off()
+                await asyncio.sleep(4.6)
+                self.config.addUptime(5)
+            elif self.blinkCycle=='slave':
+                await asyncio.sleep(0.2)
+                self.led.off()
+                await asyncio.sleep(4.8)
+                self.config.addUptime(5)
         
     def startBlink(self):
         self.blinking=True
         self.uptime=0
-        self.setBlinkCycle(0.5,0.5)
+        self.blinkCycle='init'
         await self.blink()
         
     def stopAP(self):
         await asyncio.sleep(120)
-        self.setBlinkCycle(0.2,4.8)
+        if self.config.isMaster(): self.blinkCycle='master'
+        else: self.blinkCycle='slave'
         self.config.getAP().stop()
         self.blinking=False
 
@@ -60,3 +72,4 @@ if __name__ == '__main__':
     except: pass
     reset()
  
+

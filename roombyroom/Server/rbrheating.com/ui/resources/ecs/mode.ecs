@@ -133,7 +133,8 @@
 	set style `color` of Boost1Text to `green`
 
 	set style `visibility` of ModePanel to `visible`
-    put `` cat property `advance` of RoomSpec into Advance
+    put property RoomName of Sensors into RoomSpec
+    put property `advance` of RoomSpec into Advance
     if Advance is empty put `-` into Advance
     if Advance is `-`
     begin
