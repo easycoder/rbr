@@ -37,6 +37,7 @@
     variable MasterMAC
     variable DeviceMAC
     variable URL
+    variable Path
     variable Sensor
     variable Relays
     variable Relay
@@ -974,9 +975,25 @@ NetworkError:
 MessageESPDevice:
     if MasterIPAddr is empty return
     put property `name` of Device into Name
+!    log `Send ` cat Message cat ` to ` cat Name
     put property `ssid` of Device into DeviceMAC
     put from 8 of DeviceMAC into DeviceMAC
-    put `http://` cat MasterIPAddr cat `/?mac=` cat DeviceMAC cat `&msg=` cat Message into URL
+    put `http://` cat MasterIPAddr cat `/?mac=` into URL
+    if Device has property `path` put property `path` of Device into Path else put empty into Path
+    if Path is empty put URL cat DeviceMAC cat `&msg=` cat Message into URL
+    else
+    begin
+        put the position of `,` in Path into P
+        if P is greater than 0
+        begin
+            put URL cat left P of Path into URL
+            increment P
+            put URL cat `&msg=!` cat from P of Path into URL
+            put URL cat DeviceMAC cat `,` cat Message into URL
+        end
+        else put URL cat Path cat `&msg=!` cat DeviceMAC cat `,` cat Message into URL
+    end
+!    log URL
     get Response from url URL
     or begin
 !        log `!!!!!!!! Message to '` cat Name cat `' failed`

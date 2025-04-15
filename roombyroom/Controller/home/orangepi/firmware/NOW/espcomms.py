@@ -3,14 +3,14 @@ from binascii import hexlify,unhexlify
 from espnow import ESPNow as E
 
 class ESPComms():
-    
+
     def __init__(self,config):
         self.config=config
         config.setESPComms(self)
         E().active(True)
         self.peers=[]
         print('ESP-Now initialised')
-    
+
     def checkPeer(self,mac):
         if not mac in self.peers:
             self.peers.append(mac)

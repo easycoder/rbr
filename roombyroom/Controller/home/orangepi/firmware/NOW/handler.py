@@ -35,7 +35,7 @@ class Handler():
                 response='No relay'
         elif msg == 'ipaddr':
             response=f'OK {self.config.getIPAddr()}'
-        elif msg == 'temp':
+        elif msg[0:4] == 'temp':
             response=f'OK {self.config.getTemperature()}'
         elif msg[0:6]=='delete':
             file=msg[7:]
