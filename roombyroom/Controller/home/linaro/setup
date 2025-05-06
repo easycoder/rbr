@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# RBR setu
+
+echo
+echo "Set the user password"
+passwd
+
+LOCAL_BIN=".local/bin"
+
+# Check if the path is already in .profile
+if grep -Fxq "export PATH=\$PATH:$LOCAL_BIN" ~/.profile; then
+    echo "The path is already in .profile."
+else
+    # Append the path to .profile
+    echo "export PATH=\$PATH:$LOCAL_BIN" >> ~/.profile
+    echo "Path added to .profile."
+fi
+
+echo "Update the system"
+sudo apt update
+sudo apt -y upgrade
+
+sudo apt install -y ufw cron python3-dev python3-pip libglib2.0-dev
+
+echo "Install python libraries"
+sudo pip3 install requests pytz PyP100 psutil bluepy
+pip install easycoder
+
+sudo mkdir /mnt/data
+sudo chmod a+w /mnt/data
+
+wget https://rbrheating.com/ui/dist.tgz
+tar zxf dist.tgz
+rm backup mac map dist.tgz
+sudo crontab cronroot.txt
+crontab crondata.txt
+
+ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'>interfaces
+python3 getmac.py >mac
+
+echo
+echo "Rebooting now"
+
+sudo reboot

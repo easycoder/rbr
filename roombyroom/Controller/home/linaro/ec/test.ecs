@@ -1,0 +1,74 @@
+!   Test
+
+    script Test
+
+    variable FileName
+    variable Segment
+    variable Sequence
+    variable Result
+    variable Length
+    variable Total
+    variable Start
+    variable Finish
+    variable Blocksize
+    variable FileSize
+    variable Content
+    variable MAC
+    variable IPAddr
+    variable URL
+
+!    debug step
+
+Start:
+    set the encoding to `hex`
+    put 100 into Blocksize
+
+    put `{'hostssid': 'PLUSNET-N7C3KC', 'hostpass': 'Ur4nXVQKJPrQcJ', 'ipaddr': '', 'master': True, 'ssid': '9c9e6e0babc1', 'name': None, 'channel': 1, 'pins': {'led': {'pin': 3, 'invert': False}, 'relay': {'pin': 9, 'invert': False}}}` into Content
+    put `test.json` into FileName
+
+    put `9c9e6e0babc1` into MAC
+    put `192.168.9.1` into IPAddr
+    put the length of Content into FileSize
+    put 0 into Sequence
+    put 0 into Start
+    put 0 into Total
+    while Start is less than FileSize
+    begin
+        if Finish is greater than FileSize put FileSize into Finish
+        add Blocksize to Start giving Finish
+        put from Start to Finish of Content into Segment
+        put the length of Segment into Length
+        add Length to Total
+        put encode Segment into Segment
+        put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=part:`
+            cat Sequence cat `,text:` cat Segment into URL
+        print URL
+        get Result from URL or go to Restart
+!        print Result
+        if Result is not Length
+            if Result is not `OK` print `Failed to send part ` cat Sequence
+        put Finish into Start
+        increment Sequence
+!        wait 10 ticks
+    end
+
+    print `File size: ` cat FileSize
+    put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=save:` cat FileName into URL
+    print URL
+    get Result from URL or go to Restart
+    if Result is not `True`
+    begin
+        if Result is Total print Result cat ` chars transferred`
+        else print `Mismatched length: ` cat Total cat ` - ` cat Result
+    end
+    wait 1
+!    get Result from `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=reset`
+!    or exit
+
+    exit
+
+Restart:
+    print `An error occurred`
+exit
+    wait 2
+    go to Start

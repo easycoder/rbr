@@ -97,7 +97,7 @@
     gosub to GetConfig
     log `Controller IP address is ` cat SystemIPAddress
     ! Pause the controller
-    get Response from url `http://` cat SystemIPAddress cat `:8000/cgi-bin/pause.py`
+    get Response from url `http://` cat SystemIPAddress cat `:17348/cgi-bin/pause.py`
 
     ! Scan the devices to find the master, if there is one
     put empty into MasterSSID
@@ -310,7 +310,7 @@
         set property `password` of Config to the value of key `-HOST_PASS-` in Window
         gosub to PostConfigData
         close Window
-        get Response from url `http://` cat SystemIPAddress cat `:8000/cgi-bin/resume.py`
+        get Response from url `http://` cat SystemIPAddress cat `:17348/cgi-bin/resume.py`
         exit
     end
     gosub to RefreshUI
@@ -327,17 +327,20 @@ GetConfig:
         log `Can't read the config file`
         exit
     end
+    log Config
 
-    if Config is empty
+!    if Config is empty
+    if Config is `{}`
     begin
         put json `{}` into Config
         put json `{}` into Devices
         set property `devices` of Config to Devices
         set property `ssid` of Config to empty
         set property `password` of Config to empty
+        set property `ipaddr` of Config to `192.168.1.236`
     end
     else put json Config into Config
-!load Config from `.config.json`
+load Config from `.config.json`
     put property `devices` of Config into Devices
     put property `ssid` of Config into HostSSID
     put property `password` of Config into HostPassword
@@ -571,6 +574,7 @@ SNEnd:
 ConnectToAP:
     put `Connect to ` cat SSID into StatusMessage
     gosub to ShowStatusMessage
+    log StatusMessage
     put system `nmcli dev wifi connect ` cat SSID cat ` password 00000000` into SystemCallResult
     split SystemCallResult on ` `
     index SystemCallResult to 2
@@ -757,9 +761,9 @@ SelectSlave:
         gosub to CheckDevice
         if Uptime is 0
         begin
-            put `Device ` cat Name cat ` not responding` into StatusMessage
+            put `Device ` cat Name cat ` did not respond` into StatusMessage
             gosub to ShowStatusMessage
-            get Response from popup yes-no Name cat ` is not responding. Delete it?` `No response`
+            get Response from popup yes-no Name cat ` did not respond. Delete it?` `No response`
             if Response is `Yes` go to DeleteSlave2
             stop
         end
@@ -979,9 +983,9 @@ SendFile:
 !        log URL
         get Response from url URL
         or begin
-            put `Upload part ` cat Sequence cat ` of ` cat FileName cat ` failed` into Response
-            log Response
+            log `Upload part ` cat Sequence cat ` of ` cat FileName cat ` failed`
             set SendFail
+            wait 2
             return
         end
         log `Part ` cat Sequence cat `: ` cat Response
@@ -992,6 +996,7 @@ SendFile:
             put `Failed to send part ` cat Sequence into StatusMessage
             gosub to ShowStatusMessage
             set SendFail
+            wait 2
             return
         end
         put Finish into Start
@@ -1004,6 +1009,7 @@ SendFile:
     or begin
         log `Save failed`
         set SendFail
+        wait 2
         return
     end
     log `Save: ` cat Response
@@ -1015,6 +1021,7 @@ SendFile:
         gosub to ShowStatusMessage
         log StatusMessage
         set SendFail
+        wait 2
         return
     end
     put `File ` cat FileName cat ` saved` into StatusMessage
@@ -1088,7 +1095,7 @@ MessageDevice:
         end
     end
     put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=` cat Message2 into URL
-!    log URL
+    log URL
     get Response from url URL
     or begin
         log `Message to ` cat Name cat ` failed`
@@ -1217,7 +1224,7 @@ ShowSystems:
 
     on event `Select` in SystemsWindow
     begin
-        get Response from url `http://` cat SystemIPAddress cat `:8000/cgi-bin/resume.py`
+        get Response from url `http://` cat SystemIPAddress cat `:17348/cgi-bin/resume.py`
         put the value of key `-SYSTEMS-` in SystemsWindow into Name
         log `Selected ` cat Name
         set property `name` of Systems to Name
@@ -1228,7 +1235,7 @@ ShowSystems:
         save Systems to `.rbrsystems.json`
         close SystemsWindow
         close Window
-        get Response from url `http://` cat SystemIPAddress cat `:8000/cgi-bin/resume.py`
+        get Response from url `http://` cat SystemIPAddress cat `:17348/cgi-bin/resume.py`
         exit
     end
 

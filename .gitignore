@@ -5,6 +5,8 @@
 misc
 stats
 backup
+extras
 ESP
+*/__pycache__/*
 roombyroom/Server/rbrheating.com/home/dist.tgz
 roombyroom/Server/rbrheating.*.txt

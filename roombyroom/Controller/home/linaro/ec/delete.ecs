@@ -1,0 +1,21 @@
+!   Test
+
+!   Resets the device
+
+    script Test
+
+    variable Message
+    variable Result
+    variable MAC
+    variable IPAddr
+
+    put `9c9e6e0babc1` into MAC
+    put `192.168.1.166` into IPAddr
+
+    put `http://` cat IPAddr cat `/?mac=` cat MAC cat `&msg=delete:main.py` into Message
+    print Message
+    get Result from Message
+
+    print Result
+
+    exit

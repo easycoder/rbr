@@ -3,28 +3,28 @@ from binascii import hexlify,unhexlify
 from espnow import ESPNow as E
 
 class ESPComms():
-
+    
     def __init__(self,config):
         self.config=config
         config.setESPComms(self)
         E().active(True)
         self.peers=[]
         print('ESP-Now initialised')
+    
+    def checkPeer(self,peer):
+        if not peer in self.peers:
+            self.peers.append(peer)
+            E().add_peer(peer)
 
-    def checkPeer(self,mac):
-        if not mac in self.peers:
-            self.peers.append(mac)
-            E().add_peer(mac)
-
-    async def send(self,peer,espmsg):
-        mac=unhexlify(peer.encode())
-        self.checkPeer(mac)
+    async def send(self,mac,espmsg):
+        peer=unhexlify(mac.encode())
+        self.checkPeer(peer)
         try:
-            print(f'Send {espmsg[0:20]}... to {peer}')
+            print(f'Send {espmsg[0:20]}... to {mac}')
             if espmsg[0]=='>':
-                result=self.sendToSlave(mac,espmsg)
+                result=self.sendToSlave(peer,espmsg)
             else:
-                result=E().send(mac,espmsg)
+                result=E().send(peer,espmsg)
             print(f'Result: {result}')
             if result:
                 counter=50
@@ -44,31 +44,31 @@ class ESPComms():
             print(e)
             result='Fail'
         return result
+    
+    async def sendToSlave(self,mac,espmsg):
+        print(f'Send {espmsg} via {mac}')
+        return True
 
     async def receive(self):
         print('Starting ESPNow receiver on channel',self.config.getChannel())
         self.waiting=False
         while True:
             if E().any():
-                mac,msg=E().recv()
-                sender=hexlify(mac).decode()
+                peer,msg=E().recv()
+                sender=hexlify(peer).decode()
                 msg=msg.decode()
-                print(f'Message from {sender}: {msg[0:20]}...')
-                if msg[0]=='!':
-                    comma=msg.index(',')
-                    slave=msg[1:comma]
-                    msg=msg[comma+1:]
-#                    print('Slave:',slave,', msg:',msg)
-                    response=await self.send(slave,msg)
-                else:
-                    response=self.config.getHandler().handleMessage(msg)
-                    response=f'{response} {self.getRSS(sender)}'
+#                print(f'Message from {sender}: {msg[0:20]}...')
+                response=self.config.getHandler().handleMessage(msg)
+                response=f'{response} {self.getRSS(sender)}'
 #                print('Response',response)
-                self.checkPeer(mac)
-                E().send(mac,response)
+                self.checkPeer(peer)
+                E().send(peer,response)
             await asyncio.sleep(.1)
             self.config.kickWatchdog()
 
-    def getRSS(self,peer):
-        mac=unhexlify(peer.encode())
-        return E().peers_table[mac][0]
+    def getRSS(self,mac):
+        peer=unhexlify(mac.encode())
+        try:
+            return E().peers_table[peer][0]
+        except:
+            return '0'

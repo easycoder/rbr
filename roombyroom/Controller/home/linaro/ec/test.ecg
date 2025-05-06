@@ -1,0 +1,59 @@
+!   Test
+
+    script Test
+
+    layout Layout
+    layout Row
+    window Window1
+    window Window2
+
+    init Layout
+    init Row
+    add Text key `-TEXT-` and size `60 10` and pad 10 to Row
+    add Row to Layout
+    init Row
+    add Text size `10 1` to Row
+    add Button button_text `OK` and expand_x true to Row
+    add Button button_text `Window 2` and expand_x true to Row
+    add Row to Layout
+
+    create Window1 `Window 1`
+        layout Layout
+
+    set property `value` of `-TEXT-` in Window1 to `This is my text`
+
+    on event `OK` in Window1
+    begin
+        close Window1
+        exit
+    end
+
+    on event `Window 2` in Window1
+    begin
+        gosub to DoWindow2
+        print `Returned: ` cat the value of key `-TEXT-` in Window1
+    end
+    stop
+
+DoWindow2:
+    init Layout
+    init Row
+    add Text key `-STATUS-` and size `60 10` and pad 10 to Row
+    add Row to Layout
+    init Row
+    add Text size `10 1` to Row
+    add Button button_text `OK` and expand_x true to Row
+    add Row to Layout
+
+    create Window2 `Window 2`
+        layout Layout
+
+    set property `value` of `-STATUS-` in Window2 to `Good`
+
+    on event `OK` in Window2
+    begin
+        set property `value` of `-TEXT-` in Window1 to `Altered text`
+        close Window2
+        return
+    end
+    stop
