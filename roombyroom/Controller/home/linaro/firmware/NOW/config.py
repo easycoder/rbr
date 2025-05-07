@@ -11,8 +11,6 @@ class Config():
     def __init__(self):
         if fileExists('config.json'):
             self.config=json.loads(readFile('config.json'))
-            if not 'hostssid' in self.config or self.config['hostssid'] == None:
-                self.config['master']=False
         else:
             self.config={}
             self.config['name']='(none)'
@@ -31,7 +29,6 @@ class Config():
             pin['pin']=''
             self.config['pins']['dht22']=pin
             writeFile('config.json',json.dumps(self.config))
-            
         pin,invert=self.getPinInfo('led')
         self.led=PIN(self,pin,invert)
         pin,invert=self.getPinInfo('relay')
@@ -108,4 +105,3 @@ class Config():
 
     def kickWatchdog(self):
         self.active=True
-

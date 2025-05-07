@@ -59,7 +59,7 @@ class Server():
                     # This is for one of my peers
                     if espmsg!=None:
                         response=await(self.messagePeer(peer,espmsg))
-                        print('sta response:',response)
+#                        print('sta response:',response)
                     else:
                         print('Can\'t send message')
                         response='Can\'t send message'
