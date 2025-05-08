@@ -6,6 +6,7 @@ class Responder():
         self.config=config
 
     async def respond(self,response,writer):
+#        print('Responder:',response)
         responseBytes = str(response).encode()
         await writer.awrite(b"HTTP/1.0 200 OK\r\n")
         await writer.awrite(b"Content-Type: text/plain\r\n")

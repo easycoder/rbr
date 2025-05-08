@@ -20,7 +20,7 @@ class DHT22():
                 self.sensor.measure()
                 self.temp=round(self.sensor.temperature(),1)
                 if self.verbose:
-                    print('Temperature: %3.1f C' %self.temp)
+                    print('Temperature:',self.temp)
                 self.errors=0
             except OSError as e:
                 if self.verbose:
