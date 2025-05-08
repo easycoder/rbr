@@ -1,0 +1,20 @@
+'''
+Write a pyside program that creates a window 600 pixels wide and 1024 pixels high
+Set the background of the window to the image 'backdrop.jpg'
+In this window, create a list of 5 rows, that fills the window
+Each row has a fixed height of 1/12 the height of the list
+Set the background color of each row to #ffffcc
+Set the spacing between rows to 10
+Each row should have a 2-pixel gray outline
+Each row has 4 elements:
+    1 an icon taken from 'clock.png', with no outline
+    2 a 'Room Name' label, with no outline
+    3 a button with white text '20.0°C' and a blue background, with no outline
+    4 an icon taken from 'edit.png', with no outline
+The Name label should expand to use all spare space
+The font height of the Name label should be such as to show at least 20 characters
+The font height of the button should be the same as that of the label, and both should be bold
+The icon heights should be 3/4 the height of a row
+Add a 'stretch' below the last row
+
+'''

@@ -1,0 +1,15 @@
+'''
+Write pyside code for a square button of 50 pixels with 5-pixel rounded corners.
+The text of the button is 'A'
+Set the font size to 25 pixels
+The background of the button is white
+Apply a light shadow to the right and bottom of the button
+When the button is clicked it moves 2 pixels down and right,
+waits 200ms then move back to its original position
+The __init__ function should accept the size of the button and the text to display
+Other functions:
+setWidth(self, width) sets the width
+setText(self, text) sets the text
+setCallback(self, cb) sets a function to call when the button is clicked.
+The callback function is of the form callback(key) where 'key' is the button text
+'''
