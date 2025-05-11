@@ -1,17 +1,29 @@
-from PySide6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QGraphicsDropShadowEffect, QSpacerItem, QSizePolicy
-from PySide6.QtCore import QTimer, Qt
-from PySide6.QtGui import QFont, QColor, QIcon
+from PySide6.QtWidgets import (
+    QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QSpacerItem,
+    QSizePolicy, QGraphicsDropShadowEffect, QStackedWidget
+)
+from PySide6.QtGui import QFont, QIcon, QColor
+from PySide6.QtCore import QTimer
 
-
-class RoundedButton(QPushButton):
-    def __init__(self, width, height, text):
-        super().__init__(text)
+class KeyboardButton(QPushButton):
+    def __init__(self, width, height, text, icon=None, onClick=None):
+        super().__init__()
         self.setFixedSize(width, height)
+        self._text = text
+        self._icon = icon
+        self._callback = onClick
+
+        if text is not None:
+            self.setText(text)
+        if icon is not None:
+            self.setIcon(QIcon(icon))
+            self.setIconSize(self.size())
+
         self.setFont(QFont("Arial", height // 2))
         self.setStyleSheet(f"""
             QPushButton {{
                 background-color: white;
-                border-radius: {height // 5}px;
+                border-radius: {int(height * 0.2)}px;
             }}
             QPushButton:pressed {{
                 background-color: #f0f0f0;
@@ -22,92 +34,201 @@ class RoundedButton(QPushButton):
         shadow.setOffset(2, 2)
         shadow.setColor(QColor(200, 200, 200))
         self.setGraphicsEffect(shadow)
-        self.callback = None
-
         self.clicked.connect(self._on_click)
 
     def _on_click(self):
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))
-        if self.callback:
-            self.callback(self.text())
-
-    def setWidth(self, width):
-        self.setFixedSize(width, self.height())
+        if self._callback:
+            self._callback(self._text)
 
     def setText(self, text):
+        self._text = text
         super().setText(text)
 
-    def setCallback(self, cb):
-        self.callback = cb
+    def setIcon(self, icon):
+        self._icon = icon
+        super().setIcon(QIcon(icon))
 
+    def onClick(self, cb):
+        self._callback = cb
 
-class KeyboardWidget(QWidget):
-    def __init__(self):
+class KeyboardRow(QHBoxLayout):
+    def __init__(self, widgets):
         super().__init__()
-        self.setWindowTitle("Keyboard")
-        self.setGeometry(100, 100, 600, 300)
+        for widget in widgets:
+            if isinstance(widget, QSpacerItem):
+                self.addSpacerItem(widget)
+            elif widget == 'stretch':
+                self.addStretch()
+            else:
+                self.addWidget(widget)
 
-        main_layout = QVBoxLayout()
-        main_layout.setAlignment(Qt.AlignCenter)
+class KeyboardView(QVBoxLayout):
+    def __init__(self, rows):
+        super().__init__()
+        for row in rows:
+            self.addLayout(row)
 
-        # Define rows of buttons
-        rows = [
-            "1234567890",
-            "QWERTYUIOP",
-            "ASDFGHJKL",
-            "ZXCVBNM"
-        ]
+class Keyboard(QStackedWidget):
+    def __init__(self, views):
+        super().__init__()
+        for v in views:
+            w = QWidget()
+            w.setLayout(v)
+            self.addWidget(w)
+        self.setCurrentIndex(0)
 
-        for row in rows[:-1]:
-            row_layout = QHBoxLayout()
-            row_layout.setAlignment(Qt.AlignCenter)
-            for label in row:
-                button = RoundedButton(50, 50, label)
-                button.setCallback(self.on_button_click)
-                row_layout.addWidget(button)
-            main_layout.addLayout(row_layout)
+    def setCurrentIndex(self, v=0):
+        super().setCurrentIndex(v)
 
-        # Fourth row with additional buttons and spacers
-        fourth_row_layout = QHBoxLayout()
-        fourth_row_layout.setAlignment(Qt.AlignCenter)
+#-------------------------------------------------------------------------------
 
-        # Add the left button with the graphic
-        left_button = RoundedButton(75, 50, "")
-        left_button.setIcon(QIcon("up.png"))
-        left_button.setIconSize(left_button.size())
-        fourth_row_layout.addWidget(left_button)
+def onClickChar(keycode):
+    print(keycode)
 
-        # Add a 3-pixel spacer
-        left_spacer = QSpacerItem(3, 50, QSizePolicy.Fixed, QSizePolicy.Minimum)
-        fourth_row_layout.addSpacerItem(left_spacer)
+def onClickShift(keycode=None):
+    global currentView
+    print('Shift')
+    if currentView == 0:
+        keyboard.setCurrentIndex(1)
+        currentView = 1
+    elif currentView == 1:
+        keyboard.setCurrentIndex(0)
+        currentView = 0
 
-        # Add the rest of the buttons
-        for label in rows[-1]:
-            button = RoundedButton(50, 50, label)
-            button.setCallback(self.on_button_click)
-            fourth_row_layout.addWidget(button)
+def onClickNumbers(keycode=None):
+    global currentView
+    print('Numbers')
+    keyboard.setCurrentIndex(2)
+    currentView = 2
 
-        # Add a 3-pixel spacer
-        right_spacer = QSpacerItem(3, 50, QSizePolicy.Fixed, QSizePolicy.Minimum)
-        fourth_row_layout.addSpacerItem(right_spacer)
+def onClickLetters(keycode=None):
+    global currentView
+    print('Letters')
+    keyboard.setCurrentIndex(3)
+    currentView = 3
 
-        # Add the right button with the graphic
-        right_button = RoundedButton(75, 50, "")
-        right_button.setIcon(QIcon("back.png"))
-        right_button.setIconSize(right_button.size())
-        fourth_row_layout.addWidget(right_button)
+def onClickBack(keycode=None):
+    print('Back')
 
-        main_layout.addLayout(fourth_row_layout)
+def onClickSpace(keycode=None):
+    print('Space')
 
-        self.setLayout(main_layout)
+def onClickEnter(keycode=None):
+    print('Enter')
 
-    def on_button_click(self, key):
-        print(f"Button clicked: {key}")
+def onClickSymbols(keycode=None):
+    global currentView
+    print('Symbols')
+    keyboard.setCurrentIndex(3)
+    currentView = 3
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     app = QApplication([])
-    keyboard = KeyboardWidget()
-    keyboard.show()
+    keyboardViews = []
+    currentView = 0
+    standard_height = int(0.15 * 350)
+
+    # Layout 0
+    rowList0 = []
+    row1 = [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in '1234567890']
+    rowList0.append(KeyboardRow(row1))
+    row2 = [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in 'qwertyuiop']
+    rowList0.append(KeyboardRow(row2))
+    widgets3 = ['stretch']
+    widgets3 += [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in 'asdfghjkl']
+    widgets3.append('stretch')
+    rowList0.append(KeyboardRow(widgets3))
+    widgets4 = []
+    widgets4.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "up.png", onClickShift))
+    widgets4.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets4 += [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in 'zxcvbnm']
+    widgets4.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets4.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "back.png", onClickBack))
+    rowList0.append(KeyboardRow(widgets4))
+    widgets5 = []
+    widgets5.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "numbers.png", onClickNumbers))
+    widgets5.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets5.append(KeyboardButton(standard_height, standard_height, ',', None, onClickChar))
+    widgets5.append(KeyboardButton(int(6 * standard_height), standard_height, None, "space.png", onClickSpace))
+    widgets5.append(KeyboardButton(standard_height, standard_height, '.', None, onClickChar))
+    widgets5.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets5.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "enter.png", onClickEnter))
+    rowList0.append(KeyboardRow(widgets5))
+    view0 = KeyboardView(rowList0)
+    keyboardViews.append(view0)
+
+    # Layout 1
+    rowList1 = []
+    row1u = [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in '1234567890']
+    rowList1.append(KeyboardRow(row1u))
+    row2u = [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in 'QWERTYUIOP']
+    rowList1.append(KeyboardRow(row2u))
+    widgets3u = ['stretch']
+    widgets3u += [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in 'ASDFGHJKL']
+    widgets3u.append('stretch')
+    rowList1.append(KeyboardRow(widgets3u))
+    widgets4u = []
+    widgets4u.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "up.png", onClickShift))
+    widgets4u.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets4u += [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in 'ZXCVBNM']
+    widgets4u.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets4u.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "back.png", onClickBack))
+    rowList1.append(KeyboardRow(widgets4u))
+    widgets5u = []
+    widgets5u.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "numbers.png", onClickNumbers))
+    widgets5u.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets5u.append(KeyboardButton(standard_height, standard_height, ',', None, onClickChar))
+    widgets5u.append(KeyboardButton(int(6 * standard_height), standard_height, None, "space.png", onClickSpace))
+    widgets5u.append(KeyboardButton(standard_height, standard_height, '.', None, onClickChar))
+    widgets5u.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets5u.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "enter.png", onClickEnter))
+    rowList1.append(KeyboardRow(widgets5u))
+    view1 = KeyboardView(rowList1)
+    keyboardViews.append(view1)
+
+    # Layout 2
+    rowList2 = []
+    row1_2 = [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in '1234567890']
+    rowList2.append(KeyboardRow(row1_2))
+    row2_2 = [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in '@#£&_-()=%']
+    rowList2.append(KeyboardRow(row2_2))
+    widgets3_2 = []
+    widgets3_2.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "symbols.png", onClickSymbols))
+    widgets3_2.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    chars = list('"*') + ["'"] + list(':/!?+')
+    widgets3_2 += [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in chars]
+    widgets3_2.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets3_2.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "back.png", onClickBack))
+    rowList2.append(KeyboardRow(widgets3_2))
+    view2 = KeyboardView(rowList2)
+    keyboardViews.append(view2)
+
+    # Layout 3
+    rowList3 = []
+    row1_3 = [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in '$€¥¢©®µ~¿¡']
+    rowList3.append(KeyboardRow(row1_3))
+    row2_3 = [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in '¼½¾[]{}<>^']
+    rowList3.append(KeyboardRow(row2_3))
+    widgets3_3 = []
+    widgets3_3.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "numbers.png", onClickShift))
+    widgets3_3.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets3_3 += [KeyboardButton(standard_height, standard_height, c, None, onClickChar) for c in '`;÷\\∣|¬±']
+    widgets3_3.append(QSpacerItem(int(0.05 * standard_height), standard_height, QSizePolicy.Fixed, QSizePolicy.Minimum))
+    widgets3_3.append(KeyboardButton(int(1.5 * standard_height), standard_height, None, "back.png", onClickBack))
+    rowList3.append(KeyboardRow(widgets3_3))
+    view3 = KeyboardView(rowList3)
+    keyboardViews.append(view3)
+
+    keyboard = Keyboard(keyboardViews)
+
+    window = QWidget()
+    window.setWindowTitle("Keyboard Test")
+    window.setGeometry(100, 100, 600, 350)
+    window.setStyleSheet("background-color: #ccc;")
+    layout = QVBoxLayout(window)
+    layout.addWidget(keyboard)
+    window.setLayout(layout)
+    window.show()
     app.exec()

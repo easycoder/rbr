@@ -1,0 +1,309 @@
+'''
+Write class KeyboardButton(QPushButton):
+    def __init__(self, width, height, text, icon=None, onClick=None):
+    def setText(self, text):
+    def setIcon(self, icon):
+    def onClick(self, cb):
+The text to be shown on the button can be any string, or None.
+The icon to be shown on the button can be any graphic, or None
+The button has rounded corders of radius 20% of the button height
+The font size is half the button height
+The background of the button is white
+Apply a light shadow to the right and bottom of the button
+When the button is clicked it moves 2 pixels down and right,
+waits 200ms then moves back to its original position.
+A call is made to function 'cb' with the value of 'text'.
+
+Write class KeyboardRow(QHBoxLayout):
+    def __init__(self, list):
+     where 'list' is a list of buttons to be added.
+
+Write class KeyboardView(QVBoxLayout):
+    def __init__(self, list):
+        where 'list' is a list of KeyboardRow to be added.
+
+The final class is the actual keyboard, based on a QStackedWidget:
+Write class Keyboard(QStackedWidget):
+    def__init__(self, list):
+        add the items in 'list' to the Keyboard.
+    setCurrentIndex(self, v = 0)
+
+#-------------------------------------------------------------------------------
+
+To test the keyboard, write a test program:
+keyboardViews = []
+currentView = 0
+def onClickChar(keycode): Print the key code to the console
+def onClickShift(keycode): Print 'Shift' to the console.
+    if currentView is 0 call keyboard.setCurrentIndex(1) and set currentView to 1
+    elif currentView is 1 call keyboard.setCurrentIndex(0) and set currentView to 0
+def onClickNumbers(keycode) Print `Numbers` to the console
+    call keyboard.setCurrentIndex(2) and set currentView to 2
+def onClickLetters(keycode) Print `Letters` to the console
+    call keyboard.setCurrentIndex(3) and set currentView to 3
+def onClickBack(keycode): Print 'Back' to the console
+def onClickSpace(keycode) Print `Space` to the console
+def onClickEnter(keycode): Print 'Enter' to the console
+
+Create a window 600 pixels wide and 350 high with background #ccc.
+Compute a standard height value, to be 15% of the window height. 
+
+Add keyboard layouts as follows:
+
+#-------------------------------------------------------------------------------
+Layout 0
+
+Create rowList - an empty list of KeyboardRow
+
+Create a list of KeyboardButton with the characters from '1234567890'
+The 'callback' function is onClickChar
+Create a KeyboardRow with this list
+Add the KeyboardRow to the KeyboardView
+
+Create a list of KeyboardButton with the characters from 'qwertyuiop'
+The 'callback' function is onClickChar
+Create a KeyboardRow with this list
+Add the KeyboardRow to the row list
+
+Create an empty list of widgets
+Add a horizontal stretch to the widget list
+Create a list of KeyboardButton with the characters from 'asdfghjkl'
+The 'callback' function is onClickChar
+Append this list to the widget list
+Add a horizontal stretch to the widget list
+Create a KeyboardRow with the widget list
+Add the KeyboardRow to the row list
+
+Create an empty list of widgets
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'up.png'
+    the 'callback' function is onClickShift
+Append the KeyboardButton to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a list of KeyboardButton with the characters from 'zxcvbnm'
+The 'callback' function is onClickChar
+Append this list to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'back.png'
+    the 'callback' function is onClickBack
+Append the KeyboardButton to the widget list
+Create a KeyboardRow with the widget list
+Add the KeyboardRow to the row list
+
+Create an empty list of widgets
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'numbers.png'
+    the 'callback' function is onClickNumbers
+Append the KeyboardButton to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a KeyboardButton with the character ','
+The 'callback' function is onClickChar
+Append this button to the widget list
+Create a KeyboardButton with
+    a width 600% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'space.png'
+    the 'callback' function is onClickSpace
+Create a KeyboardButton with the character '.'
+The 'callback' function is onClickChar
+Append this button to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'enter.png'
+    the 'callback' function is onClickEnter
+Append the KeyboardButton to the widget list
+Create a KeyboardRow with the widget list
+Add the KeyboardRow to the row list
+
+Create a KeyboardView with the row list
+Append the KeyboardView to the view list
+
+#-------------------------------------------------------------------------------
+Layout 1
+
+Create a row list - an empty list of KeyboardRow
+
+Create a list of KeyboardButton  with the characters from '1234567890'
+The 'callback' function is onClickChar
+Create a KeyboardRow with this list
+Add the KeyboardRow to the KeyboardView
+
+Create a list of KeyboardButton  with the characters from 'QWERTYUIOP'
+The 'callback' function is onClickChar
+Create a KeyboardRow with this list
+Add the KeyboardRow to the row list
+
+Create an empty list of widgets
+Add a horizontal stretch to the widget list
+Create a list of KeyboardButton  with the characters from 'ASDFGHJKL'
+The 'callback' function is onClickChar
+Append this list to the widget list
+Add a horizontal stretch to the widget list
+Create a KeyboardRow with the widget list
+Add the KeyboardRow to the row list
+
+Create an empty list of widgets
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'up.png'
+    the 'callback' function is onClickShift
+Append the KeyboardButton to the widgt list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a list of KeyboardButton with the characters from 'ZXCVBNM'
+The 'callback' function is onClickChar
+Append this list to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'back.png'
+    the 'callback' function is onClickBack
+Append the KeyboardButton to the widget list
+Create a KeyboardRow with the widget list
+Add the KeyboardRow to the row list
+
+Create a KeyboardView with the row list
+Append the KeyboardView to the view list
+
+Create an empty list of widgets
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'numbers.png'
+    the 'callback' function is onClickNumbers
+Append the KeyboardButton to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a KeyboardButton with the character ','
+The 'callback' function is onClickChar
+Append this button to the widget list
+Create a KeyboardButton with
+    a width 600% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'space.png'
+    the 'callback' function is onClickSpace
+Create a KeyboardButton with the character '.'
+The 'callback' function is onClickChar
+Append this button to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'enter.png'
+    the 'callback' function is onClickEntera
+Append the KeyboardButton to the widget list
+Create a KeyboardRow with the widget list
+Add the KeyboardRow to the row list
+
+#-------------------------------------------------------------------------------
+Layout 2
+
+Create a row list - an empty list of KeyboardRow
+
+Create a list of KeyboardButton  with the characters from '1234567890'
+The 'callback' function is onClickChar
+Create a KeyboardRow with this list
+Add the KeyboardRow to the KeyboardView
+
+Create a list of KeyboardButton  with the characters from '@#£&_-()=%'
+The 'callback' function is onClickChar
+Create a KeyboardRow with this list
+Add the KeyboardRow to the row list
+
+Create an empty list of widgets
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'symbols.png'
+    the 'callback' function is onClickSymbols
+Append the KeyboardButton to the widgt list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a list of KeyboardButton with the characters from '"*'
+Add "'" to the list
+Add the characters from ':/!?+' to the list
+The 'callback' function for everything in this list is onClickChar
+Append this list to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'back.png'
+    the 'callback' function is onClickBack
+Append the KeyboardButton to the widget list
+Create a KeyboardRow with the widget list
+Add the KeyboardRow to the row list
+
+Create a KeyboardView with the row list
+Append the KeyboardView to the view list
+
+#-------------------------------------------------------------------------------
+Layout 3
+
+Create a row list - an empty list of KeyboardRow
+
+Create a list of KeyboardButton  with the characters from '$€¥¢©®µ~¿¡'
+The 'callback' function is onClickChar
+Create a KeyboardRow with this list
+Add the KeyboardRow to the KeyboardView
+
+Create a list of KeyboardButton  with the characters from '¼½¾[]{}<>^'
+The 'callback' function is onClickChar
+Create a KeyboardRow with this list
+Add the KeyboardRow to the row list
+
+Create an empty list of widgets
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'numbers.png'
+    the 'callback' function is onClickShift
+Append the KeyboardButton to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a list of KeyboardButton with the characters from '`;÷\∣|¬±'
+The 'callback' function is onClickChar
+Append this list to the widget list
+Append a spacer whose width is 5% of the standard height to the widget list
+Create a KeyboardButton with
+    a width 150% of the standard height
+    the standard height
+    a text value None
+    an icon taken from the graphic 'back.png'
+    the 'callback' function is onClickBack
+Append the KeyboardButton to the widget list
+Create a KeyboardRow with the widget list
+Add the KeyboardRow to the row list
+
+Create a KeyboardView with the row list
+Append the KeyboardView to the view list
+
+#-------------------------------------------------------------------------------
+
+Create a Keyboard with the view list
+
+Add the Keyboard to the window
+Show the window
+
+Note: QGraphicsDropShadowEffect is part of QtWidgets, not QtCore
+'''
