@@ -1,9 +1,57 @@
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QStackedWidget, QSpacerItem, QSizePolicy
+    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget, QStackedWidget, QSpacerItem, QSizePolicy
 )
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, QTimer
 
+class VirtualKeyboardField(QLineEdit):
+    def __init__(self, height, parent=None):
+        """
+        Initialize the text field as a non-editable QLineEdit with a specified height.
+        
+        :param height: The height of the text field in pixels.
+        :param parent: The parent widget (optional).
+        """
+        super().__init__(parent)
+        self.setReadOnly(True)  # Make the field non-editable by the user
+        self.setFixedHeight(height)  # Set the height of the field
+
+        # Set a suitable font size based on the height
+        font = self.font()
+        font.setPointSize(int(height * 0.4))  # Adjust font size relative to height
+        self.setFont(font)
+
+        # Center-align the text
+        self.setAlignment(Qt.AlignCenter)
+
+    def add_character(self, char):
+        """
+        Add a character to the text field.
+        
+        :param char: A single character to add to the field.
+        """
+        if len(char) == 1:
+            self.setText(self.text() + char)
+        else:
+            raise ValueError("Only single characters are allowed.")
+
+    def backspace(self):
+        """
+        Remove the last character from the text field.
+        If the field is already empty, do nothing.
+        """
+        current_text = self.text()
+        if current_text:
+            self.setText(current_text[:-1])
+
+    def get_content(self):
+        """
+        Return the current content of the text field.
+        
+        :return: The current text in the field.
+        """
+        return self.text()
+        
 class KeyboardButton(QPushButton):
     def __init__(self, width, height, onClick, text=None, icon=None):
         super().__init__(text)
@@ -48,9 +96,10 @@ class KeyboardView(QVBoxLayout):
             self.addLayout(row)
 
 class VirtualKeyboard(QStackedWidget):
-    def __init__(self, buttonHeight):
+    def __init__(self, buttonHeight, textField):
         super().__init__()
         self.buttonHeight = buttonHeight
+        self.textField = textField
 
         # Create the 4 keyboard layouts
         self.addKeyboardLayout0()
@@ -160,7 +209,11 @@ class VirtualKeyboard(QStackedWidget):
         rowList.append(row1)
 
         # Row 2: Symbols
-        row2 = KeyboardRow([KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '@#£&_-()=%'])
+        row2 = KeyboardRow([
+            *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '@#£'],
+            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, '&&'),
+            *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '_-()=%'],
+        ])
         rowList.append(row2)
 
         # Row 3: Symbols with horizontal stretches
@@ -233,35 +286,39 @@ class VirtualKeyboard(QStackedWidget):
 
     # Callback functions
     def onClickChar(self,keycode):
-        print(f"Key pressed: {keycode}")
+        # print(f"Key pressed: {keycode}")
+        self.textField.add_character(keycode)
 
     def onClickShift(self,keycode):
-        print("Shift pressed")
+        # print("Shift pressed")
         if self.currentIndex() == 0:
             self.setCurrentIndex(1)
         elif self.currentIndex() == 1:
             self.setCurrentIndex(0)
 
     def onClickLetters(self,keycode):
-        print("Letters pressed")
+        # print("Letters pressed")
         self.setCurrentIndex(0)
 
     def onClickNumbers(self,keycode):
-        print("Numbers pressed")
+        # print("Numbers pressed")
         self.setCurrentIndex(2)
 
     def onClickSymbols(self,keycode):
-        print("Symbols pressed")
+        # print("Symbols pressed")
         self.setCurrentIndex(3)
 
     def onClickBack(self,keycode):
-        print("Backspace pressed")
+        # print("Backspace pressed")
+        self.textField.backspace()
 
     def onClickSpace(self,keycode):
-        print("Space pressed")
+        # print("Space pressed")
+        self.textField.add_character(' ')
 
     def onClickEnter(self,keycode):
-        print("Enter pressed")
+        # print("Enter pressed")
+        print(self.textField.get_content())
 
 
 if __name__ == "__main__":
@@ -270,18 +327,22 @@ if __name__ == "__main__":
     # Create the main window
     mainWindow = QMainWindow()
     mainWindow.setWindowTitle("Virtual Keyboard")
-    mainWindow.setFixedSize(600, 350)
+    mainWindow.setFixedSize(600, 400)
     mainWindow.setStyleSheet("background-color: #ccc;")
 
     # Compute the standard button height
-    standardHeight = int(350 * 0.15)
+    standardHeight = int(400 * 0.13)
+
+    # Create the text field
+    textField = VirtualKeyboardField(height=standardHeight/2)
 
     # Create the virtual keyboard
-    virtualKeyboard = VirtualKeyboard(standardHeight)
+    virtualKeyboard = VirtualKeyboard(standardHeight, textField)
 
     # Set the keyboard as the central widget
     mainWidget = QWidget()
     layout = QVBoxLayout(mainWidget)
+    layout.addWidget(textField)
     layout.addWidget(virtualKeyboard)
     mainWindow.setCentralWidget(mainWidget)
 

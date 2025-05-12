@@ -1,0 +1,12 @@
+''''''
+Create a text editing field for a virtual keyboard, based on QLineEdit.
+It has functions to add a character, backspace and return the current content.
+The field is non-clickable and cannot be edited other than using its functions.
+The constructor takes the height of the field, and the font size is set to a suitable value.
+The text in the field is center-aligned.
+'''
+Create a text editing field for a virtual keyboard, based on QLineEdit.
+It has functions to add a character, backspace and return the current content.
+The field is non-clickable and cannot be edited other than using its functions.
+The constructor takes the height of the field, and the font size is set to a suitable value.
+'''

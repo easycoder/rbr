@@ -1,5 +1,5 @@
 '''
-This prompt describes a virtual keyboard, to be written in Python using Pyside graphics.
+This prompt describes a virtual keyboard, to be written in Python using Pyside6 graphics.
 I provide Python-style class definitions, with constructor and function prototypes.
 Python comments are general notes and instructions to help build the classes.
 
