@@ -30,6 +30,7 @@ class VirtualKeyboardField(QLineEdit):
         
         :param char: A single character to add to the field.
         """
+        char = char.replace('&&', '&')
         if len(char) == 1:
             self.setText(self.text() + char)
         else:
@@ -54,6 +55,7 @@ class VirtualKeyboardField(QLineEdit):
         
 class KeyboardButton(QPushButton):
     def __init__(self, width, height, onClick, text=None, icon=None):
+        if text != None: text = text.replace('&','&&')
         super().__init__(text)
         self.setFixedSize(width, height)
         self.setFont(QFont("Arial", height // 2))  # Font size is half the button height
@@ -111,8 +113,8 @@ class VirtualKeyboard(QStackedWidget):
         rowList = []
 
         # Row 1: Numbers
-        row1 = KeyboardRow([KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '1234567890'])
-        rowList.append(row1)
+        # row1 = KeyboardRow([KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '1234567890'])
+        # rowList.append(row1)
 
         # Row 2: QWERTY
         row2 = KeyboardRow([KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in 'qwertyuiop'])
@@ -158,8 +160,8 @@ class VirtualKeyboard(QStackedWidget):
         rowList = []
 
         # Row 1: Numbers
-        row1 = KeyboardRow([KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '1234567890'])
-        rowList.append(row1)
+        # row1 = KeyboardRow([KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '1234567890'])
+        # rowList.append(row1)
 
         # Row 2: Uppercase QWERTY
         row2 = KeyboardRow([KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in 'QWERTYUIOP'])
@@ -209,11 +211,7 @@ class VirtualKeyboard(QStackedWidget):
         rowList.append(row1)
 
         # Row 2: Symbols
-        row2 = KeyboardRow([
-            *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '@#£'],
-            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, '&&'),
-            *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '_-()=%'],
-        ])
+        row2 = KeyboardRow([KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '@#£&_-()=%'])
         rowList.append(row2)
 
         # Row 3: Symbols with horizontal stretches
@@ -271,7 +269,6 @@ class VirtualKeyboard(QStackedWidget):
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, ","),
             KeyboardButton(self.buttonHeight * 3, self.buttonHeight, self.onClickSpace, None, "space.png"),
-            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, "."),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '✕§¶°'],
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickEnter, None, "enter.png")
@@ -327,14 +324,14 @@ if __name__ == "__main__":
     # Create the main window
     mainWindow = QMainWindow()
     mainWindow.setWindowTitle("Virtual Keyboard")
-    mainWindow.setFixedSize(600, 400)
+    mainWindow.setFixedSize(600, 300)
     mainWindow.setStyleSheet("background-color: #ccc;")
 
     # Compute the standard button height
-    standardHeight = int(400 * 0.13)
+    standardHeight = int(400 * 0.12)
 
     # Create the text field
-    textField = VirtualKeyboardField(height=standardHeight/2)
+    textField = VirtualKeyboardField(height=standardHeight * 0.75)
 
     # Create the virtual keyboard
     virtualKeyboard = VirtualKeyboard(standardHeight, textField)

@@ -37,6 +37,12 @@ class Handler():
             response=f'OK {self.config.getIPAddr()}'
         elif msg == 'temp':
             response=f'OK {self.config.getTemperature()}'
+        elif msg=='pause':
+            self.config.pause()
+            response=f'OK paused'
+        elif msg=='resume':
+            self.config.resume()
+            response=f'OK resumed'
         elif msg[0:6]=='delete':
             file=msg[7:]
             deleteFile(file)

@@ -218,7 +218,8 @@
     gosub to OK 
     add StatusLabel to RightPanel
 
-    create Window title `RBR-Now configurator` size 700 500 layout MainPanel
+    create Window title `RBR-Now configurator` size 700 500
+    set the layout of Window to MainPanel
     show Window
 
     start graphics
@@ -612,15 +613,15 @@ CheckFirmware2:
     gosub to GetFirmware
 CheckFirmware3:
     if ReturnValue is empty return
-    put trim system `echo $HOME` cat `/` cat ReturnValue into FirmwareDirectory
+    put ReturnValue into FirmwareDirectory
     go to CheckFirmware2
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Get the RBR-Now firmware
 GetFirmware:
     put `RBR-Now firmware` into Title
-    put `Get the directory containing the RBR-Now firmware`
-        cat newline cat `(relative to your home directory)` into Prompt
+    put `Get the directory containing the RBR-Now firmware` into Prompt
+    put FirmwareDirectory into Value
     put 80 into Length
     go to GetRequestedText
 
@@ -629,9 +630,9 @@ GetFirmware:
 ScanForDevicesClick:
     gosub to SetBusy
     put `Scanning for new devices...` into StatusMessage
-    log StatusMessage
     gosub to Working
     put system `nmcli device wifi list` into SystemCallResult
+    log SystemCallResult
     split SystemCallResult
     put json `[]` into List
     put 1 into N
@@ -672,7 +673,7 @@ ScanForDevicesClick:
     SFDC2:
         increment N
     end
-!    log `SSIDs: ` cat List
+    log `SSIDs: ` cat List
     if the count of List is 0
     begin
         put `No new devices were found` into StatusMessage
@@ -734,7 +735,8 @@ SelectSSIDFromList:
     end
     add CancelButton to HLayout
     add HLayout to Layout
-    create Dialog title Title layout Layout size 250 200
+    create Dialog title Title size 250 200
+    set the layout of Dialog to Layout
     center Dialog on Window
     show Dialog
     stop
@@ -908,6 +910,7 @@ PopulateSystemInfo:
         begin
             put SystemHostSSID into HostSSID
             put Password into HostPassword
+            system `nmcli connection delete ` cat HostSSID
             put system `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword into SystemCallResult
             split SystemCallResult on ` `
             if the elements of SystemCallResult is greater than 2
@@ -1069,6 +1072,7 @@ GetHostPassword:
     log `Get the host password`
     put `Type the host password:` into Prompt
     put `Host password` into Title
+    put empty into Value
     put 40 into Length
     gosub to GetRequestedText
     put ReturnValue into HostPassword
@@ -1083,6 +1087,7 @@ GetRequestedText:
     create HLayout type QHBoxLayout
     add HLayout to VLayout
     create LineInput size Length
+    set the text of LineInput to Value
     add stretch LineInput to HLayout
     create HLayout type QHBoxLayout
     add HLayout to VLayout
@@ -1102,7 +1107,8 @@ GetRequestedText:
         return
     end
     add CancelButton to HLayout
-    create Dialog title Title layout VLayout size 300 80
+    create Dialog title Title size 300 80
+    set the layout of Dialog to VLayout
     center Dialog on Window
     show Dialog
     stop
@@ -1147,6 +1153,7 @@ GetAccessPoints:
 ConnectToHost:
     put `Connect to host ` cat HostSSID cat ` with password ` cat HostPassword into StatusMessage
     gosub to Working
+    system `nmcli connection delete ` cat HostSSID
     put system `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword into SystemCallResult
     split SystemCallResult on ` `
     if the elements of SystemCallResult is greater than 2
@@ -1183,6 +1190,7 @@ FailedToConnect:
 ConnectToDevice:
     put `Connect to device ` cat SSID cat ` with password 00000000` into StatusMessage
     gosub to Working
+    system `nmcli connection delete ` cat SSID
     put system `nmcli dev wifi connect ` cat SSID cat ` password 00000000` into SystemCallResult
     put SystemCallResult into Value
     split Value on ` `
@@ -1216,6 +1224,8 @@ UpdateWidgetDataClick:
     set property `pins` of Device to Pins
     put `config.json` into FileName
     put stringify Device into Content
+    put `pause` into Message
+    gosub to SendRBRMessage
     gosub to SendOneFile
     if not ErrorFlag
     begin
@@ -1240,6 +1250,8 @@ UpdateFilesClick:
     if not DeviceSelected stop
     put property `ssid` of Device into SSID
     put from 8 of SSID into MAC
+    put `pause` into Message
+    gosub to SendRBRMessage
 
     put FirmwareDirectory cat `/files.txt` into Path
     load Files from Path
@@ -1309,7 +1321,8 @@ SendFileToDevice:
         put the length of Segment into Length
         add Length to Total
         put encode Segment into Segment
-        put `Send ` cat FileName cat `, part ` cat Sequence cat ` (attempt ` cat Attempt cat `)` into StatusMessage
+        put `Send ` cat FileName cat `, part ` cat Sequence into StatusMessage
+        if Attempt is not 1 put StatusMessage cat ` (attempt ` cat Attempt cat `)` into StatusMessage
         gosub to Working
         put `part:`  cat Sequence cat `,text:` cat Segment into Message
         gosub to SendMessageToDevice
@@ -1321,9 +1334,15 @@ SendFileToDevice:
 !        log `Part ` cat Sequence cat `: ` cat Response
         split Response on ` `
         index Response to 0
+!        if Response is not Sequence
+!        begin
+!            put `Incorrect sequence: got ` cat Response cat ` instead of ` cat Sequence into StatusMessage
+!            go to SendFileFail
+!        end
+!        index Response to 1
         if Response is not Length
         begin
-            put `Mismatched length in part ` cat Sequence into StatusMessage
+            put `Mismatched length in part ` cat Sequence cat `: got ` cat Response cat ` instead of ` cat Length into StatusMessage
             go to SendFileFail
         end
         put Finish into Start
@@ -1352,6 +1371,7 @@ SendFileFail:
 !   Delete a file on the selected device
 DeleteFileClick:
     put `Name of file to delete:` into Prompt
+    put empty into Value
     put `Delete file` into Title
     put 40 into Length
     gosub to GetRequestedText
@@ -1412,7 +1432,7 @@ CheckDevice2:
         put Uptime cat ` sec` into Uptime
     end
     else put `Unknown` into Uptime
-    log Name cat ` uptime: ` cat Uptime
+!    log Name cat ` uptime: ` cat Uptime
     set the text of UptimeLabel to Uptime
     go to OK
 
@@ -1486,6 +1506,7 @@ SendMessageToDevice:
     put left 30 of Message into Message2
     if the length of Message is greater than 30 put Message2 cat `...` into Message2
     put Message into Message2
+put empty into Path
     if Path is not empty
     begin
         put the position of `,` in Path into P

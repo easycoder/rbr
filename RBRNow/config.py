@@ -34,9 +34,11 @@ class Config():
         pin,invert=self.getPinInfo('relay')
         self.relay=PIN(self,pin,invert)
         pin,_=self.getPinInfo('dht22')
-        if pin!='':
-            self.dht22=DHT22(pin,True)
+        if pin=='': self.dht22=None
+        else:
+            self.dht22=DHT22(pin)
             asyncio.create_task(self.dht22.measure())
+        print('path:',self.config['path'])
         self.ipaddr=None
         self.uptime=0
         self.server=Server(self)
@@ -58,6 +60,12 @@ class Config():
     def reset(self):
         print('Reset requested')
         asyncio.create_task(self.restart())
+    
+    def pause(self):
+        if self.dht22!=None: self.dht22.pause()
+    
+    def resume(self):
+        if self.dht22!=None: self.dht22.resume()
 
     def setAP(self,ap): self.ap=ap
     def setSTA(self,sta): self.sta=sta
