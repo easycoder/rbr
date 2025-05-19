@@ -36,10 +36,10 @@ class ESPComms():
                     counter-=1
                 if counter==0:
                     result='Response timeout'
-            else: result='Fail'
+            else: result='Fail (no result)'
         except Exception as e:
             print(e)
-            result='Fail'
+            result=f'Fail ({e})'
         return result
 
     async def receive(self):

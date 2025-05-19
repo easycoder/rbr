@@ -10,6 +10,7 @@
     layout LeftPanel
     layout RightPanel
     layout DeviceHPanel
+    layout DeviceButtonPanel
     layout OuterLayout
     layout Layout
     layout VLayout
@@ -33,6 +34,7 @@
     pushbutton RelayOffButton
     pushbutton RelayOnButton
     pushbutton UpdateWidgetDataButton
+    pushbutton ResetDeviceButton
     pushbutton OKButton
     pushbutton CancelButton
     lineinput LineInput
@@ -207,10 +209,17 @@
     add PathInput to Layout
     add stretch to Layout
 
-    ! The 'Update' button
+    ! The 'Update' and 'Reset' ManageButtons
+    create DeviceButtonPanel type QVBoxLayout
+    add stretch to DeviceButtonPanel
     create UpdateWidgetDataButton text `Update`
     on click UpdateWidgetDataButton go to UpdateWidgetDataClick
-    add UpdateWidgetDataButton to DeviceHPanel
+    add UpdateWidgetDataButton to DeviceButtonPanel
+    create ResetDeviceButton text `Reset`
+    on click ResetDeviceButton go to ResetDeviceButtonClick
+    add ResetDeviceButton to DeviceButtonPanel
+    add stretch to DeviceButtonPanel
+    add DeviceButtonPanel to DeviceHPanel
 
     add stretch to RightPanel
 
@@ -1209,6 +1218,8 @@ UpdateWidgetDataClick:
     put property `name` of Device into Previous
     set property `name` of Device to DeviceNameInput
     set property `path` of Device to PathInput
+    put `pause` into Message
+    gosub to SendRBRMessage
     put json `{}` into Pins
     put json `{}` into Pin
     set property `pin` of Pin to LEDPinInput
@@ -1224,8 +1235,6 @@ UpdateWidgetDataClick:
     set property `pins` of Device to Pins
     put `config.json` into FileName
     put stringify Device into Content
-    put `pause` into Message
-    gosub to SendRBRMessage
     gosub to SendOneFile
     if not ErrorFlag
     begin
@@ -1238,7 +1247,6 @@ UpdateWidgetDataClick:
         if DeviceNameInput is not Previous delete property Previous of Devices
         gosub to UpdateSystemConfig
         gosub to PostConfigData
-        gosub to RequestReset
     end
     gosub to Idle
     gosub to ManageButtonStates
@@ -1271,7 +1279,6 @@ UpdateFilesClick:
         end
         increment F
     end
-    gosub to RequestReset
     gosub to ManageButtonStates
     gosub to Idle
     stop
@@ -1331,17 +1338,19 @@ SendFileToDevice:
             put `Failed to send part ` cat Sequence into StatusMessage
             go to SendFileFail
         end
-!        log `Part ` cat Sequence cat `: ` cat Response
+        log `Part ` cat Sequence cat `: ` cat Response
         split Response on ` `
         index Response to 0
-!        if Response is not Sequence
-!        begin
-!            put `Incorrect sequence: got ` cat Response cat ` instead of ` cat Sequence into StatusMessage
-!            go to SendFileFail
-!        end
-!        index Response to 1
+        if Response is not Sequence
+        begin
+            if the length of Response is greater than 20 put left 20 of Response cat `...` into Response
+            put `Incorrect sequence: got ` cat Response cat ` instead of ` cat Sequence into StatusMessage
+            go to SendFileFail
+        end
+        index Response to 1
         if Response is not Length
         begin
+            if the length of Response is greater than 20 put left 20 of Response cat `...` into Response
             put `Mismatched length in part ` cat Sequence cat `: got ` cat Response cat ` instead of ` cat Length into StatusMessage
             go to SendFileFail
         end
@@ -1392,6 +1401,14 @@ DeleteFileClick:
         put `File ` cat FileName cat ` has been deleted` into StatusMessage
         gosub to Idle
     end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Reset a device
+ResetDeviceButtonClick:
+    gosub to RequestReset
+    gosub to Idle
+    gosub to ManageButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1485,7 +1502,7 @@ SendRBRMessage:
     gosub to SendMessageToDevice
 !    log URL cat ` -> ` cat Response
     if left 2 of Response is `OK` return
-    put `Bad response from ` cat Name into StatusMessage
+    put `Bad response '` cat Response cat `' from ` cat Name into StatusMessage
     gosub to Error
     if Path is not empty
     begin
@@ -1506,7 +1523,7 @@ SendMessageToDevice:
     put left 30 of Message into Message2
     if the length of Message is greater than 30 put Message2 cat `...` into Message2
     put Message into Message2
-put empty into Path
+!put empty into Path
     if Path is not empty
     begin
         put the position of `,` in Path into P
@@ -1679,8 +1696,17 @@ ManageButtonStates:
     if DeviceNameInput is empty disable UpdateFilesButton else enable UpdateFilesButton
 ! DeleteFileButton
     if DeviceNameInput is empty disable DeleteFileButton else enable DeleteFileButton
-! UpdateWidgetDataButton
-    if DeviceNameInput is empty disable UpdateWidgetDataButton else enable UpdateWidgetDataButton
+! UpdateWidgetDataButton and ResetDeviceButton
+    if DeviceNameInput is empty
+    begin
+        disable UpdateWidgetDataButton
+        disable ResetDeviceButton
+    end
+    else
+    begin
+        enable UpdateWidgetDataButton
+        enable ResetDeviceButton
+    end
     wait 10 ticks
     return
 
@@ -1698,6 +1724,7 @@ SetBusy:
     disable RelayOffButton
     disable RelayOnButton
     disable UpdateWidgetDataButton
+    disable ResetDeviceButton
     disable DeviceNameInput
     disable PathInput
     disable LEDPinInput

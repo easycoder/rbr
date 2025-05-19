@@ -1,0 +1,22 @@
+
+!   rbr-ui.ecs
+
+    script RBR_UI
+
+    use graphics
+    
+    import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
+
+    rbrwin Window
+    room Room
+    variable N
+
+    debug step
+
+    init graphics
+
+    create Window title `Room By Room` size 600 1024
+    show Window
+
+    start graphics
+    stop

@@ -26,13 +26,13 @@ class Handler():
                 response=f'{response} {self.relay.getState()}'
             except:
                 response='No relay'
-        elif msg == 'reset':
-            self.config.reset()
         elif msg == 'relay':
             try:
                 response=f'OK {self.relay.getState()}'
             except:
                 response='No relay'
+        elif msg == 'reset':
+            self.config.reset()
         elif msg == 'ipaddr':
             response=f'OK {self.config.getIPAddr()}'
         elif msg == 'temp':
@@ -76,7 +76,7 @@ class Handler():
                             print('Sequence error')
                             return 'Sequence error'
                 self.buffer.append(text)
-                response=str(len(text))
+                response=f'{part} {str(len(text))}'
         elif msg[0:4]=='save':
             text=''.join(self.buffer)
             if len(text)>0:
@@ -94,3 +94,4 @@ class Handler():
             response=f'Unknown message: {msg}'
 #        print('Handler:',response)
         return response
+
