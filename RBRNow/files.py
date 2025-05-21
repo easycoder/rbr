@@ -36,8 +36,10 @@ def clearFile(name):
     open(name,'w').close()
 
 def deleteFile(file):
-    try: os.remove(file)
-    except: pass
+    try:
+        os.remove(file)
+        return True
+    except: return False
 
 def renameFile(oldName,newName):
     os.rename(oldName,newName)

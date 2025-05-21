@@ -40,6 +40,7 @@ class Config():
         print('path:',self.config['path'])
         self.ipaddr=None
         self.uptime=0
+        self.resetRequested=False
         self.server=Server(self)
         asyncio.create_task(self.runWatchdog())
 
@@ -52,13 +53,9 @@ class Config():
 
     async def send(self,peer,espmsg): return await self.espComms.send(peer,espmsg)
 
-    def restart(self):
-        time.sleep(1)
-        asyncio.get_event_loop().stop()
-
     def reset(self):
         print('Reset requested')
-        asyncio.create_task(self.restart())
+        self.resetRequested=True
     
     def pause(self):
         if self.dht22!=None: self.dht22.pause()

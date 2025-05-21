@@ -32,6 +32,8 @@ class RBRNow():
 
     async def blink(self):
         while True:
+            if self.config.resetRequested:
+                asyncio.get_event_loop().stop()
             self.led.on()
             if self.blinkCycle=='init':
                 await asyncio.sleep(0.5)

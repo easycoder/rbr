@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QLabel, 
     QPushButton, 
     QWidget, 
+    QFrame,
     QHBoxLayout, 
     QVBoxLayout, 
     QSpacerItem, 
@@ -12,33 +13,44 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt
+from widgets import IconButton, IconAndWidgetButton
 
 # This is the package that handles the RBR user interface.
 
-class Room(QWidget):
+class Room(QFrame):
 
     def __init__(self, command, roomlist):
         super().__init__()
         name = command['program'].getRuntimeValue(command['name'])
         mode = command['program'].getRuntimeValue(command['mode'])
+
+        self.setStyleSheet("""
+            background-color: #ffc;
+            border: 2px solid #888;
+            border-radius: 10px;
+        """)
+
         height = roomlist['height']
         self.setFixedHeight(height)  # Each row is 1/12 the height of the window
-        self.setStyleSheet("background-color: #ffffcc; border: 2px solid gray;")  # Set background and border
 
-        row_layout = QHBoxLayout(self)
-        row_layout.setContentsMargins(10, 0, 10, 0)  # Add margins for spacing
-        row_layout.setSpacing(10)  # Add spacing between elements
+        roomsLayout = QHBoxLayout(self)
+        roomsLayout.setContentsMargins(10, 0, 10, 0)  # Add margins for spacing
+        roomsLayout.setSpacing(0)  # No spacing between elements
 
-        # Icon 1
+        # Icon 1: Mode
         mode = command['program'].getRuntimeValue(command['mode'])
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
         icon = f'/home/graham/dev/rbr/ui/main/{mode}.png'
-        mode_icon = QLabel()
-        mode_pixmap = QPixmap(icon).scaled(height * 3 // 4, height * 3 // 4, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        mode_icon.setPixmap(mode_pixmap)
-        mode_icon.setStyleSheet("border-left: none; border-right: none;")
 
-        # Name label
+        widget = QLabel(f'{mode[0].upper()}{mode[1:]}')
+        widget.setStyleSheet(f"""
+            font-size: {height // 5}px;
+            font-weight: bold;
+            text-align: center;
+        """)
+        modeButton = IconAndWidgetButton(height * 0.7, 2.5, mode, icon, widget)
+
+        # Room name label
         name_label = QLabel("Room Name")
         name_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         name_label.setStyleSheet("background-color: transparent; border: none;")  # Transparent background
@@ -47,23 +59,20 @@ class Room(QWidget):
         font.setBold(True)  # Make the font bold
         name_label.setFont(font)
 
-        # Button with white text and blue background
-        button = QPushButton("20.0°C")
-        button.setStyleSheet("color: white; background-color: blue; border: none;")
-        button.setFixedSize(80, 40)  # Adjust button size
-        button.setFont(font)  # Use the same font as the label
+        # # Button with white text and blue background
+        # button = QPushButton("20.0°C")
+        # button.setStyleSheet("color: white; background-color: blue; border: none;")
+        # button.setFixedSize(80, 40)  # Adjust button size
+        # button.setFont(font)  # Use the same font as the label
 
         # Icon 2: Edit
-        edit_icon = QLabel()
-        edit_pixmap = QPixmap("/home/graham/dev/rbr/ui/main/edit.png").scaled(height * 3 // 4, height * 3 // 4, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        edit_icon.setPixmap(edit_pixmap)
-        edit_icon.setStyleSheet("border-left: none; border-right: none;")
+        editButton = IconButton(height * 3 // 4, mode, '/home/graham/dev/rbr/ui/main/edit.png')
 
         # Add elements to the row layout
-        row_layout.addWidget(mode_icon, 1)
-        # row_layout.addWidget(name_label, 1)  # Expand the name label to use all spare space
-        # row_layout.addWidget(button)
-        row_layout.addWidget(edit_icon)
+        roomsLayout.addWidget(modeButton, 1)
+        roomsLayout.addWidget(name_label, 1)  # Expand the name label to use all spare space
+        # roomsLayout.addWidget(button)
+        roomsLayout.addWidget(editButton)
 
         roomlist['names'].append(name)
         roomlist['modes'].append(mode)
@@ -80,7 +89,7 @@ class RBR_UI(Handler):
     # Keyword handlers
 
     # add room to {roomlist} name {name} mode {mode}
-    # add {roomlist} to {layout}
+    # add {roomlist} to {window}
     def k_add(self, command):
         if self.nextIs('room'):
             self.skip('to')
@@ -109,18 +118,19 @@ class RBR_UI(Handler):
                 if self.nextIsSymbol():
                     record = self.getSymbolRecord()
                     keyword = record['keyword']
-                    if keyword == 'layout':
-                        command['layout'] = record['name']
+                    if keyword == 'rbrwin':
+                        command['window'] = record['name']
                         self.add(command)
                         return True
         return False
         
     def r_add(self, command):
-        if 'layout' in command:
+        if 'window' in command:
             roomlist = self.getVariable(command['roomlist'])
-            layout = self.getVariable(command['layout'])
+            window = self.getVariable(command['window'])
+            layout = window['roomsLayout']
             for room in roomlist['rooms']:
-                layout['widget'].addWidget(room)
+                layout.addWidget(room)
         else:
             record = self.getVariable(command['roomlist'])
             room = Room(command, record)
@@ -175,13 +185,37 @@ class RBR_UI(Handler):
             if y == None: y = (self.program.screenHeight - h) / 2
             else: y = self.getRuntimeValue(x)
             window.setGeometry(x, y, w, h)
+
+            # Create central widget
+            central_widget = QWidget()
+            window.setCentralWidget(central_widget)
             
-            # Set the background image
-            palette = QPalette()
-            background_pixmap = QPixmap("/home/graham/dev/rbr/ui/main/backdrop.jpg")
-            palette.setBrush(QPalette.Window, QBrush(background_pixmap))
-            window.setPalette(palette)
+            # Create background label with image
+            window.background = QLabel(central_widget)
+            window.background.setPixmap(QPixmap("/home/graham/dev/rbr/ui/main/backdrop.jpg").scaled(
+                w, h, 
+                Qt.AspectRatioMode.IgnoreAspectRatio, 
+                Qt.TransformationMode.SmoothTransformation
+            ))
+            window.background.setGeometry(0, 0, w, h)
+            windowLayout = QVBoxLayout(central_widget)
+
+            # Create a rooms panel (frame)
+            roomsPanel = QFrame()
+            roomsPanel.setStyleSheet("""
+                background-color: #ffc;
+                border-radius: 10px;
+            """)
+            windowLayout.addWidget(roomsPanel)
+            windowLayout.addStretch()
+            
+            # Create a layout for the rooms inside the rooms panel
+            roomsLayout = QVBoxLayout(roomsPanel)
+            roomsLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            roomsLayout.setSpacing(10)
+
             record['window'] = window
+            record['roomsLayout'] = roomsLayout
             record['width'] = w
             record['height'] = h
             return self.nextPC()

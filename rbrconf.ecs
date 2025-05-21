@@ -243,7 +243,7 @@
 
     add stretch to RightPanel
 
-    create StatusLabel text ``
+    create StatusLabel text `` align right
     add StatusLabel to RightPanel
     gosub to OK 
 
@@ -1023,7 +1023,6 @@ PopulateDeviceInfo:
         log `Populate device ` cat property `name` of Device
         gosub to CheckDevice
         set the text of DeviceNameInput to property `name` of Device
-        set the text of UptimeLabel to Uptime
         set the text of RelayStateLabel to `???`
         set the text of PathInput to property `path` of Device
         put property `pins` of Device into Pins
@@ -1300,6 +1299,7 @@ UpdateAllFilesClick:
         increment F
     end
     gosub to SetButtonStates
+    put `All files updated` into StatusMessage
     gosub to Idle
     stop
 
@@ -1498,9 +1498,9 @@ RequestReset:
     gosub to GetDeviceData
     put `Reset ` cat Name into StatusMessage
     gosub to Working
-    wait 1
     put `reset` into Message
     gosub to SendRBRMessage
+    log Response
     if left 2 of Response is not `OK`
     begin
         put `Failed to reset ` cat Name into StatusMessage
@@ -1512,6 +1512,7 @@ RequestReset:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Check a device
 CheckDevice:
+    log `Get uptime`
     put `uptime` into Message
     gosub to SendRBRMessage
     if Response is empty
@@ -1521,6 +1522,16 @@ CheckDevice:
         put `0` into Uptime
     end
     else put from 3 of Response into Uptime
+    put the position of `-` in Uptime into P
+    if P is greater than 0 put left P of Uptime into Uptime
+    set the text of UptimeLabel to Uptime cat ` sec`
+    log Name cat ` uptime: ` cat Uptime
+    put property `pins` of Device into Pins
+    put property `dht22` of Pins into Pin
+    put property `pin` of Pin into Value
+    if Value is empty  set the text of TemperatureLabel to empty
+    else gosub to TemperatureRequest
+    go to OK
 
 CheckDevice2:
     put the position of ` ` in Uptime into P
@@ -1530,8 +1541,8 @@ CheckDevice2:
         put Uptime cat ` sec` into Uptime
     end
     else put `Unknown` into Uptime
-!    log Name cat ` uptime: ` cat Uptime
     set the text of UptimeLabel to Uptime
+    log Name cat ` uptime: ` cat Uptime
     go to OK
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1582,7 +1593,7 @@ RelayOnClick:
 SendRBRMessage:
     gosub to SetBusy
     gosub to SendMessageToDevice
-!    log URL cat ` -> ` cat Response
+    log URL cat ` -> ` cat Response
     if left 2 of Response is `OK` return
     put `Bad response '` cat Response cat `' from ` cat Name into StatusMessage
     gosub to Error

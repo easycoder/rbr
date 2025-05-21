@@ -8,7 +8,6 @@
     import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
 
     rbrwin Window
-    layout WindowLayout
     roomlist RoomList
     variable WindowHeight
     variable RoomHeight
@@ -43,11 +42,8 @@
     put `off` into Mode
     gosub to AddRoom
 
-    create WindowLayout type QVBoxLayout
-
     create Window title `Room By Room` size 600 WindowHeight
-    add RoomList to WindowLayout
-    set the layout of Window to WindowLayout
+    add RoomList to Window
     show Window
 
     start graphics

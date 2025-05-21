@@ -33,6 +33,7 @@ class Handler():
                 response='No relay'
         elif msg == 'reset':
             self.config.reset()
+            response='OK'
         elif msg == 'ipaddr':
             response=f'OK {self.config.getIPAddr()}'
         elif msg == 'temp':
@@ -45,7 +46,7 @@ class Handler():
             response=f'OK resumed'
         elif msg[0:6]=='delete':
             file=msg[7:]
-            deleteFile(file)
+            response='OK' if deleteFile(file) else 'Fail'
         elif msg[0:4]=='part':
         # Format is part:{n},text:{text}
             part=None
