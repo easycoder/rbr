@@ -23,7 +23,7 @@ class DHT22():
                     self.sensor.measure()
                     temperature=self.sensor.temperature()
                     if temperature>50: temperature=0
-                    self.temp=round(self.sensor.temperature(),1)
+                    self.temp=round(temperature,1)
                     if self.verbose:
                         print('Temperature:',self.temp)
                     self.errors=0

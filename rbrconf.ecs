@@ -4,6 +4,8 @@
 
     use graphics
 
+!    debug compile
+
     window Window
     window Dialog
     layout MainPanel
@@ -20,12 +22,14 @@
     label RelayStateLabel
     label StatusLabel
     label UptimeLabel
+    label TemperatureLabel
     pushbutton ResetConfigButton
     pushbutton RBRNowDirectoryButton
     pushbutton ScanDevicesButton
     pushbutton ClearSystemButton
     pushbutton RemoveSlaveButton
-    pushbutton UpdateFilesButton
+    pushbutton UpdateFileButton
+    pushbutton UpdateAllFilesButton
     pushbutton DeleteFileButton
     pushbutton ExitButton
     pushbutton ScanSystemsButton
@@ -35,6 +39,7 @@
     pushbutton RelayOnButton
     pushbutton UpdateWidgetDataButton
     pushbutton ResetDeviceButton
+    pushbutton TemperatureButton
     pushbutton OKButton
     pushbutton CancelButton
     lineinput LineInput
@@ -81,9 +86,13 @@
     on click ScanDevicesButton go to ScanForDevicesClick
     add ScanDevicesButton to LeftPanel
 
-    create UpdateFilesButton text `Update files`
-    on click UpdateFilesButton go to UpdateFilesClick
-    add UpdateFilesButton to LeftPanel
+    create UpdateFileButton text `Update one file`
+    on click UpdateFileButton go to UpdateFileClick
+    add UpdateFileButton to LeftPanel
+
+    create UpdateAllFilesButton text `Update all files`
+    on click UpdateAllFilesButton go to UpdateAllFilesClick
+    add UpdateAllFilesButton to LeftPanel
 
     create DeleteFileButton text `Delete file`
     add DeleteFileButton to LeftPanel
@@ -208,6 +217,14 @@
     set the width of PathInput to 250
     add PathInput to Layout
     add stretch to Layout
+    
+    create Layout type QHBoxLayout
+    add Layout to OuterLayout
+    create Label text `Temperature:`
+    add Label to Layout
+    create TemperatureLabel text ``
+    add TemperatureLabel to Layout
+    add stretch to Layout
 
     ! The 'Update' and 'Reset' ManageButtons
     create DeviceButtonPanel type QVBoxLayout
@@ -218,14 +235,17 @@
     create ResetDeviceButton text `Reset`
     on click ResetDeviceButton go to ResetDeviceButtonClick
     add ResetDeviceButton to DeviceButtonPanel
+    create TemperatureButton text `Get temperature`
+    on click TemperatureButton go to TemperatureButtonClick
+    add TemperatureButton to DeviceButtonPanel
     add stretch to DeviceButtonPanel
     add DeviceButtonPanel to DeviceHPanel
 
     add stretch to RightPanel
 
-    create StatusLabel align right
-    gosub to OK 
+    create StatusLabel text ``
     add StatusLabel to RightPanel
+    gosub to OK 
 
     create Window title `RBR-Now configurator` size 700 500
     set the layout of Window to MainPanel
@@ -371,7 +391,7 @@ Start:
         end
     end
 
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     on select SystemsCombo go to SystemsComboSelect
     stop
 
@@ -409,7 +429,7 @@ ScanSystemsClick:
     end
     gosub to RefreshSystemsCombo
     gosub to PostConfigData
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -522,7 +542,7 @@ SystemsComboSelect:
     gosub to ResumeSystemController
     put SystemsCombo into SystemName
     if SystemName is not empty gosub to SelectSystem
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     if not ErrorFlag gosub to OK
     stop
 
@@ -569,7 +589,7 @@ RemoveSystemClick:
     begin
         select index 0 of SystemsCombo
     end
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -707,7 +727,7 @@ ScanForDevicesClick:
         gosub to PostConfigData
     end
 SFDC3:
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -991,7 +1011,7 @@ MasterDeviceClick:
         put MasterDevice into Device
         gosub to PopulateDeviceInfo
     end
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1015,7 +1035,7 @@ PopulateDeviceInfo:
         set the state of RelayInvertCheckbox to property `invert` of Pin
         put property `dht22` of Pins into Pin
         set the text of DHT22PinInput to property `pin` of Pin
-        enable UpdateFilesButton
+        enable UpdateAllFilesButton
         enable DeleteFileButton
     end
     go to OK
@@ -1032,7 +1052,7 @@ SelectSlaveClick:
     put property Item of Devices into Device
     set the elements of Item to 1
     gosub to PopulateDeviceInfo
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1249,12 +1269,12 @@ UpdateWidgetDataClick:
         gosub to PostConfigData
     end
     gosub to Idle
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update all the files on a device
-UpdateFilesClick:
+UpdateAllFilesClick:
     if not DeviceSelected stop
     put property `ssid` of Device into SSID
     put from 8 of SSID into MAC
@@ -1274,13 +1294,45 @@ UpdateFilesClick:
         begin
             put `File updates did not succeed` into StatusMessage
             gosub to Error
-            gosub to ManageButtonStates
+            gosub to SetButtonStates
             stop
         end
         increment F
     end
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     gosub to Idle
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Update a single  file on the selected device
+UpdateFileClick:
+    put `Name of file to update:` into Prompt
+    put empty into Value
+    put `Update file` into Title
+    put 40 into Length
+    gosub to GetRequestedText
+    if ReturnValue is not empty
+    begin
+        put ReturnValue into FileName
+        if FileName is not empty
+        begin
+            put `Update  ` cat FileName into StatusMessage
+            gosub to Working
+            gosub to UpdateOneFile
+            if ErrorFlag
+            begin
+                put `File update did not succeed` into StatusMessage
+                gosub to Error
+                stop
+            end
+            else
+            begin
+                put `File ` cat FileName cat `updated` into StatusMessage
+                gosub to Idle
+            end
+        end
+    end
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1404,11 +1456,40 @@ DeleteFileClick:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Get the tmmperature
+TemperatureButtonClick:
+    log `Get temperature`
+    gosub to TemperatureRequest
+    gosub to Idle
+    gosub to SetButtonStates
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send a reset message to a device
+TemperatureRequest:
+    gosub to GetDeviceData
+    put `Request temperature from ` cat Name into StatusMessage
+    gosub to Working
+    put `temp` into Message
+    gosub to SendRBRMessage
+    log Response
+    if left 2 of Response is not `OK`
+    begin
+        put `Failed to get temperature from ` cat Name into StatusMessage
+        go to Error
+    end
+    split Response on ` `
+    index Response to 1
+    set the text of TemperatureLabel to Response cat `°C`
+    put `Temperature read successfully` into StatusMessage
+    go to Idle
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Reset a device
 ResetDeviceButtonClick:
     gosub to RequestReset
     gosub to Idle
-    gosub to ManageButtonStates
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1499,6 +1580,7 @@ RelayOnClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send an RBR-Now message to a device
 SendRBRMessage:
+    gosub to SetBusy
     gosub to SendMessageToDevice
 !    log URL cat ` -> ` cat Response
     if left 2 of Response is `OK` return
@@ -1523,7 +1605,6 @@ SendMessageToDevice:
     put left 30 of Message into Message2
     if the length of Message is greater than 30 put Message2 cat `...` into Message2
     put Message into Message2
-!put empty into Path
     if Path is not empty
     begin
         put the position of `,` in Path into P
@@ -1631,7 +1712,7 @@ Idle:
     log `*** ` cat StatusMessage cat ` ***`
     set the text of StatusLabel to `<font color="#008000">` cat StatusMessage cat `</font>`
     clear ErrorFlag
-    go to ManageButtonStates
+    go to SetButtonStates
 
 Working:
     log `*** ` cat StatusMessage cat ` ***`
@@ -1647,19 +1728,17 @@ Error:
     log `*** ` cat StatusMessage cat ` ***`
     set the text of StatusLabel to `<font color="#ff0000">` cat StatusMessage cat `</font>`
     set ErrorFlag
-    go to ManageButtonStates
+    go to SetButtonStates
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Enable or disable the various buttons
-ManageButtonStates:
+SetButtonStates:
     if SystemHostSSID is not empty
         if SystemHostSSID is not HostSSID go to SetBusy
 ! ScanDevicesButton
     if the count of SystemsCombo is 0 disable ScanDevicesButton else enable ScanDevicesButton
 ! ClearSystemButton
     if the count of SystemsCombo is 0 disable ClearSystemButton else enable ClearSystemButton
-! RemoveSlaveButton
-    if the count of SlaveList is 0 disable RemoveSlaveButton else enable RemoveSlaveButton
 ! ScanSystemsButton
     enable ScanSystemsButton
 ! RemoveSystemButton
@@ -1677,6 +1756,7 @@ ManageButtonStates:
 ! PathInput
     if DeviceSelected
     begin
+        enable RemoveSlaveButton
         enable DeviceNameInput
         enable PathInput
         enable LEDPinInput
@@ -1692,20 +1772,33 @@ ManageButtonStates:
         disable RelayPinInput
         disable DHT22PinInput
     end
-! UpdateFilesButton
-    if DeviceNameInput is empty disable UpdateFilesButton else enable UpdateFilesButton
+! Update Files buttons
+    if DeviceNameInput is empty
+    begin
+        disable UpdateFileButton
+        disable UpdateAllFilesButton
+    end
+    else
+    begin
+        enable UpdateFileButton
+        enable UpdateAllFilesButton
+    end
 ! DeleteFileButton
     if DeviceNameInput is empty disable DeleteFileButton else enable DeleteFileButton
-! UpdateWidgetDataButton and ResetDeviceButton
+! Update some buttons
     if DeviceNameInput is empty
     begin
         disable UpdateWidgetDataButton
         disable ResetDeviceButton
+        disable TemperatureButton
     end
     else
     begin
         enable UpdateWidgetDataButton
         enable ResetDeviceButton
+        put property `pins` of Device into Pins
+        put property `dht22` of Pins into Pin
+        if property `pin` of Pin is not empty enable TemperatureButton
     end
     wait 10 ticks
     return
@@ -1716,7 +1809,8 @@ SetBusy:
     disable ScanDevicesButton
     disable ClearSystemButton
     disable RemoveSlaveButton
-    disable UpdateFilesButton
+    disable UpdateFileButton
+    disable UpdateAllFilesButton
     disable DeleteFileButton
     disable ScanSystemsButton
     disable RemoveSystemButton
@@ -1725,6 +1819,7 @@ SetBusy:
     disable RelayOnButton
     disable UpdateWidgetDataButton
     disable ResetDeviceButton
+    disable TemperatureButton
     disable DeviceNameInput
     disable PathInput
     disable LEDPinInput

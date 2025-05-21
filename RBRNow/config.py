@@ -1,8 +1,6 @@
-import json,asyncio,network
+import json,asyncio,time
 from files import readFile,writeFile,fileExists
 from pin import PIN
-from machine import reset
-from binascii import hexlify,unhexlify
 from server import Server
 from dht22 import DHT22
 
@@ -16,6 +14,7 @@ class Config():
             self.config['name']='(none)'
             self.config['master']=False
             self.config['channel']=1
+            self.config['path']=''
             self.config['pins']={}
             pin={}
             pin['pin']=''
@@ -54,7 +53,7 @@ class Config():
     async def send(self,peer,espmsg): return await self.espComms.send(peer,espmsg)
 
     def restart(self):
-        await asyncio.sleep(1)
+        time.sleep(1)
         asyncio.get_event_loop().stop()
 
     def reset(self):
