@@ -13,10 +13,8 @@
     variable RoomHeight
     variable Name
     variable Mode
-    variable N
-    variable R
 
-    debug step
+!    debug step
 
     init graphics
 

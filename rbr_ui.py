@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt
-from widgets import IconButton, IconAndWidgetButton, Room
+from widgets import IconButton, IconAndWidgetButton, Room, Banner
 
 # This is the package that handles the RBR user interface.
 
@@ -50,8 +50,8 @@ class RBR_UI(Handler):
         if 'room' in command:
             room = self.getVariable(command['room'])['room']
             window = self.getVariable(command['window'])
-            layout = window['layout']
-            layout.addWidget(room)
+            rooms = window['rooms']
+            rooms.addWidget(room)
         return self.nextPC()
 
     # create {rbrwin} at {left} {top} size {width} {height}
@@ -125,28 +125,39 @@ class RBR_UI(Handler):
             palette.setBrush(QPalette.Window, QBrush(background_pixmap))
             window.setPalette(palette)
 
-            # Panel for rows
-            panel = QWidget()
-            panel.setStyleSheet('''
+            # Panel for the main components
+            content = QWidget()
+            content.setStyleSheet('''
                 background-color: #fff;
                 border-radius: 10px;
                 margin:5px;
             ''')
+            contentLayout = QVBoxLayout(content)
+            contentLayout.addWidget(Banner(w))
+
+            # Panel for rows
+            panel = QWidget()
+            panel.setStyleSheet('''
+                background: transparent;
+                border: none;
+                margin: 5px;
+            ''')
             roomsLayout = QVBoxLayout(panel)
             roomsLayout.setSpacing(2)
             roomsLayout.setContentsMargins(5, 5, 5, 5)
+            contentLayout.addWidget(panel)
 
             # Main layout
             mainWidget = QWidget()
             mainLayout = QVBoxLayout(mainWidget)
             mainLayout.setContentsMargins(0, 0, 0, 0)
-            mainLayout.addWidget(panel)
+            mainLayout.addWidget(content)
             mainLayout.addStretch(1)
 
             window.setCentralWidget(mainWidget)
 
             record['window'] = window
-            record['layout'] = roomsLayout
+            record['rooms'] = roomsLayout
             record['width'] = w
             record['height'] = h
             return self.nextPC()
@@ -175,31 +186,9 @@ class RBR_UI(Handler):
 
    # set [the] layout of {rbrwin} to {layout}
     def k_set(self, command):
-        self.skip('the')
-        token = self.nextToken()
-        command['what'] = token
-        if token == 'layout':
-            self.skip('of')
-            if self.nextIsSymbol():
-                record = self.getSymbolRecord()
-                if record['keyword'] == 'rbrwin':
-                    command['name'] = record['name']
-                    self.skip('to')
-                    if self.nextIsSymbol():
-                        record = self.getSymbolRecord()
-                        command['layout'] = record['name']
-                        self.add(command)
-                        return True
         return False
     
     def r_set(self, command):
-        what = command['what']
-        if what == 'layout':
-            window = self.getVariable(command['name'])['window']
-            content = self.getVariable(command['layout'])['widget']
-            container = QWidget()
-            container.setLayout(content)
-            window.setCentralWidget(container)
         return self.nextPC()
 
     # show {rbrwin}

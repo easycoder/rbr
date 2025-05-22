@@ -165,6 +165,44 @@ class Room(QFrame):
         roomsLayout.addWidget(editButton)
 
 ###############################################################################
+# The banner at the top of the window
+class Banner(QLabel):
+    def __init__(self, width):
+        super().__init__()
+        self.setStyleSheet(f'''
+            background: transparent;
+        ''')
+
+        # The gradient label
+        height = width * 80 / 600
+        self.setFixedSize(width, height)
+        pixmap = QPixmap("/home/graham/dev/rbr/ui/main/gradient.png")
+        self.setPixmap(pixmap)
+
+        layout = QHBoxLayout(self)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        homeButton = IconButton(height * 3 // 4, 'home', '/home/graham/dev/rbr/ui/main/RBRLogo.png')
+        layout.addWidget(homeButton)
+
+        titleLayout = QVBoxLayout()
+        title1 = QLabel('Room By Room Heating')
+        title1.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+        title1.setStyleSheet(f'''
+            color: white;
+            font-weight: bold;
+            font-size: {height * 0.4}px;
+            text-align: center;
+        ''')
+        titleLayout.addWidget(title1, 1)
+
+        layout.addLayout(titleLayout)
+
+        hamburgerButton = IconButton(height * 3 // 4, 'menu', '/home/graham/dev/rbr/ui/main/hamburger.png')
+        layout.addWidget(hamburgerButton)
+
+###############################################################################
 # Test code
 class MainWindow(QMainWindow):
     def __init__(self, width, height):
