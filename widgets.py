@@ -48,27 +48,30 @@ class IconAndWidgetButton(QWidget):
 
     def __init__(self, height, widthFactor, text, image, widget):
         super().__init__()
+
+        self.setStyleSheet("""
+            background-color: transparent;
+            border: none;
+        """)
+
         self.onClick = self.nothing
         self.clicked.connect(lambda: self.animate_button(self.onClick, text))
 
         self.setFixedSize(height*widthFactor, height)
-        mainLayout = QHBoxLayout()
-        self.setLayout(mainLayout)
+        mainLayout = QHBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
         mainLayout.setSpacing(0)
 
         # Icon on the left
         label = QLabel()
-        self.setStyleSheet(f'''
-            border: 1px solid green;
-        ''')
-        label.setFixedHeight(height * 0.8)
-        pixmap = QPixmap(image).scaled(height * 0.6, height * 0.6)
+        label.setFixedSize(height, height)
+        label.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+        pixmap = QPixmap(image).scaled(height * 0.75, height * 0.75)
         label.setPixmap(pixmap)
-        mainLayout.addWidget(label, alignment=Qt.AlignTop)
+        mainLayout.addWidget(label)
 
         # Widget on the right
-        mainLayout.addWidget(widget, alignment=Qt.AlignTop)
+        mainLayout.addWidget(widget, alignment=Qt.AlignVCenter)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -94,71 +97,75 @@ class Room(QFrame):
 
     def __init__(self, name, mode, height):
         super().__init__()
+        self.name = name
+        self.mode = mode
 
         self.setStyleSheet("""
             background-color: #ffc;
-            border: 2px solid #888;
+            border: 1px solid gray;
             border-radius: 10px;
         """)
 
         self.setFixedHeight(height)  # Each row is 1/12 the height of the window
 
         roomsLayout = QHBoxLayout(self)
-        roomsLayout.setContentsMargins(0, 0, 0, 0)  # Add margins for spacing
         roomsLayout.setSpacing(0)  # No spacing between elements
-        roomsLayout.setContentsMargins(2, 2, 2, 2)
+        roomsLayout.setContentsMargins(0, 0, 0, 0)
 
-        inner = QWidget()
-        inner.setStyleSheet('''
-            background-color: #fff;
+        modePanel = QWidget()
+        modePanel.setStyleSheet('''
+            background-color: #ccc;
+            border: 1px solid gray;
         ''')
-        innerLayout = QHBoxLayout(inner)
-        roomsLayout.addWidget(inner)
+        roomsLayout.addWidget(modePanel)
+        modePanelLayout = QHBoxLayout(modePanel)
+        modePanelLayout.setSpacing(0)
+        modePanelLayout.setContentsMargins(5, 0, 0, 0)
+        # modePanelLayout.setAlignment(Qt.AlignTop)
 
         # Icon 1: Mode
-        if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
-        icon = f'/home/graham/dev/rbr/ui/main/{mode}.png'
-
         label = QLabel(f'{mode[0].upper()}{mode[1:]}')
         label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         label.setStyleSheet(f"""
             background-color: none;
-            border-radius: 0;
+            border: none;
             font-size: {height // 5}px;
             font-weight: bold;
         """)
-        label.setFixedSize(height * 1.2, height * 0.6)
-        modeButton = IconAndWidgetButton(height * 0.7, 2.5, mode, icon, label)
+        # label.setFixedSize(height * 1.2, height * 0.6)
+        if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
+        icon = f'/home/graham/dev/rbr/ui/main/{mode}.png'
+        modeButton = IconAndWidgetButton(height * 0.8, 2.5, mode, icon, label)
 
         # Room name label
-        name_label = QLabel("Room Name")
-        name_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        name_label.setStyleSheet('''
+        nameLabel = QLabel(name)
+        nameLabel.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        nameLabel.setStyleSheet('''
             background-color: transparent;
             border: none;
         ''')
         font = QFont()
         font.setPointSize(16)  # Adjust font size to fit at least 20 characters
         font.setBold(True)  # Make the font bold
-        name_label.setFont(font)
+        nameLabel.setFont(font)
 
-        # # Button with white text and blue background
-        # button = QPushButton("20.0°C")
-        # button.setStyleSheet("color: white; background-color: blue; border: none;")
-        # button.setFixedSize(80, 40)  # Adjust button size
-        # button.setFont(font)  # Use the same font as the label
+        # Button with white text and blue background
+        button = QPushButton("20.0°C")
+        button.setStyleSheet("color: white; background-color: blue; border: none;")
+        button.setFixedSize(height * 1.2, height * 0.6)  # Adjust button size
+        button.setFont(font)  # Use the same font as the label
 
         # Icon 2: Edit
-        editButton = IconButton(height * 3 // 4, mode, '/home/graham/dev/rbr/ui/main/edit.png')
+        editButton = IconButton(height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png')
 
         # Add elements to the row layout
-        innerLayout.addWidget(modeButton, 1)
-        innerLayout.addWidget(name_label, 1)  # Expand the name label to use all spare space
-        # roomsLayout.addWidget(button)
-        innerLayout.addWidget(editButton)
+        modePanelLayout.addWidget(modeButton)
+        roomsLayout.addWidget(nameLabel, 1)  # Expand the name label to use all spare space
+        roomsLayout.addWidget(button)
+        roomsLayout.addWidget(editButton)
 
 ###############################################################################
-# Test program
+# Test code
 class MainWindow(QMainWindow):
     def __init__(self, width, height):
         super().__init__()
@@ -174,29 +181,29 @@ class MainWindow(QMainWindow):
         # Panel for rows
         panel = QWidget()
         panel.setStyleSheet('''
-            background-color: #ccc;
+            background-color: #fff;
             border-radius: 10px;
             margin:5px;
         ''')
-        panel_layout = QVBoxLayout(panel)
-        panel_layout.setSpacing(10)
-        panel_layout.setContentsMargins(5, 5, 5, 5)
+        panelLayout = QVBoxLayout(panel)
+        panelLayout.setSpacing(2)
+        panelLayout.setContentsMargins(5, 5, 5, 5)
 
         # Add rows
-        panel_layout.addWidget(Room('Room 1', 'timed', 1024/12))
-        panel_layout.addWidget(Room('Room 2', 'boost', 1024/12))
-        panel_layout.addWidget(Room('Room 3', 'advance', 1024/12))
-        panel_layout.addWidget(Room('Room 4', 'on', 1024/12))
-        panel_layout.addWidget(Room('Room 5', 'off', 1024/12))
+        panelLayout.addWidget(Room('Room 1', 'timed', 1024/12))
+        panelLayout.addWidget(Room('Room 2', 'boost', 1024/12))
+        panelLayout.addWidget(Room('Room 3', 'advance', 1024/12))
+        panelLayout.addWidget(Room('Room 4', 'on', 1024/12))
+        panelLayout.addWidget(Room('Room 5', 'off', 1024/12))
 
         # Main layout
-        main_widget = QWidget()
-        main_layout = QVBoxLayout(main_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.addWidget(panel)
-        main_layout.addStretch(1)
+        mainWidget = QWidget()
+        mainLayout = QVBoxLayout(mainWidget)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.addWidget(panel)
+        mainLayout.addStretch(1)
 
-        self.setCentralWidget(main_widget)
+        self.setCentralWidget(mainWidget)
 
 if __name__ == "__main__":
     app = QApplication()

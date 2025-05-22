@@ -8,7 +8,7 @@
     import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
 
     rbrwin Window
-    roomlist RoomList
+    room Room
     variable WindowHeight
     variable RoomHeight
     variable Name
@@ -23,35 +23,39 @@
     put 1024 into WindowHeight
     divide WindowHeight by 12 giving RoomHeight
 
-    init RoomList
-        height RoomHeight
+    create Window title `Room By Room` size 600 WindowHeight
     
+    set the elements of Room to 5
+    index Room to 0
     put `Kitchen` into Name
     put `timed` into Mode
-    gosub to AddRoom
+    gosub to CreateRoom
+    index Room to 1
     put `Lounge` into Name
     put `boost` into Mode
-    gosub to AddRoom
+    gosub to CreateRoom
+    index Room to 2
     put `Hall` into Name
     put `advance` into Mode
-    gosub to AddRoom
+    gosub to CreateRoom
+    index Room to 3
     put `Bedroom 1` into Name
     put `on` into Mode
-    gosub to AddRoom
+    gosub to CreateRoom
+    index Room to 4
     put `Bedroom 2` into Name
     put `off` into Mode
-    gosub to AddRoom
-
-    create Window title `Room By Room` size 600 WindowHeight
-    add RoomList to Window
+    gosub to CreateRoom
     show Window
 
     start graphics
     stop
 
-AddRoom:
-    log `Add ` cat Name cat `, mode ` cat Mode
-    add room to RoomList
+CreateRoom:
+    log `Create ` cat Name cat `, mode ` cat Mode
+    create Room
         name Name
         mode Mode
+        height RoomHeight
+    add Room to Window
     return

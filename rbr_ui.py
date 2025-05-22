@@ -13,69 +13,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt
-from widgets import IconButton, IconAndWidgetButton
+from widgets import IconButton, IconAndWidgetButton, Room
 
 # This is the package that handles the RBR user interface.
-
-class Room(QFrame):
-
-    def __init__(self, command, roomlist):
-        super().__init__()
-        name = command['program'].getRuntimeValue(command['name'])
-        mode = command['program'].getRuntimeValue(command['mode'])
-
-        self.setStyleSheet("""
-            background-color: #ffc;
-            border: 2px solid #888;
-            border-radius: 10px;
-        """)
-
-        height = roomlist['height']
-        self.setFixedHeight(height)  # Each row is 1/12 the height of the window
-
-        roomsLayout = QHBoxLayout(self)
-        roomsLayout.setContentsMargins(10, 0, 10, 0)  # Add margins for spacing
-        roomsLayout.setSpacing(0)  # No spacing between elements
-
-        # Icon 1: Mode
-        mode = command['program'].getRuntimeValue(command['mode'])
-        if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
-        icon = f'/home/graham/dev/rbr/ui/main/{mode}.png'
-
-        widget = QLabel(f'{mode[0].upper()}{mode[1:]}')
-        widget.setStyleSheet(f"""
-            font-size: {height // 5}px;
-            font-weight: bold;
-            text-align: center;
-        """)
-        modeButton = IconAndWidgetButton(height * 0.7, 2.5, mode, icon, widget)
-
-        # Room name label
-        name_label = QLabel("Room Name")
-        name_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        name_label.setStyleSheet("background-color: transparent; border: none;")  # Transparent background
-        font = QFont()
-        font.setPointSize(16)  # Adjust font size to fit at least 20 characters
-        font.setBold(True)  # Make the font bold
-        name_label.setFont(font)
-
-        # # Button with white text and blue background
-        # button = QPushButton("20.0°C")
-        # button.setStyleSheet("color: white; background-color: blue; border: none;")
-        # button.setFixedSize(80, 40)  # Adjust button size
-        # button.setFont(font)  # Use the same font as the label
-
-        # Icon 2: Edit
-        editButton = IconButton(height * 3 // 4, mode, '/home/graham/dev/rbr/ui/main/edit.png')
-
-        # Add elements to the row layout
-        roomsLayout.addWidget(modeButton, 1)
-        roomsLayout.addWidget(name_label, 1)  # Expand the name label to use all spare space
-        # roomsLayout.addWidget(button)
-        roomsLayout.addWidget(editButton)
-
-        roomlist['names'].append(name)
-        roomlist['modes'].append(mode)
 
 class RBR_UI(Handler):
 
@@ -88,32 +28,13 @@ class RBR_UI(Handler):
     #############################################################################
     # Keyword handlers
 
-    # add room to {roomlist} name {name} mode {mode}
-    # add {roomlist} to {window}
+    # add {room} to {rbrwin}
     def k_add(self, command):
-        if self.nextIs('room'):
-            self.skip('to')
-            if self.nextIsSymbol():
-                record = self.getSymbolRecord()
-                if record['keyword'] == 'roomlist':
-                    command['roomlist'] = record['name']
-                    while True:
-                        token = self.peek()
-                        if token in ['name', 'mode']:
-                            self.nextToken()
-                            if token == 'name':
-                                command['name'] = self.nextValue()
-                            elif token == 'mode':
-                                command['mode'] = self.nextValue()
-                        else: break
-                    self.add(command)
-                    return True
-
-        elif self.isSymbol():
+        if self.nextIsSymbol():
             record = self.getSymbolRecord()
             keyword = record['keyword']
-            if keyword == 'roomlist':
-                command['roomlist'] = record['name']
+            if keyword == 'room':
+                command['room'] = record['name']
                 self.skip('to')
                 if self.nextIsSymbol():
                     record = self.getSymbolRecord()
@@ -122,26 +43,23 @@ class RBR_UI(Handler):
                         command['window'] = record['name']
                         self.add(command)
                         return True
+
         return False
         
     def r_add(self, command):
-        if 'window' in command:
-            roomlist = self.getVariable(command['roomlist'])
+        if 'room' in command:
+            room = self.getVariable(command['room'])['room']
             window = self.getVariable(command['window'])
-            layout = window['roomsLayout']
-            for room in roomlist['rooms']:
-                layout.addWidget(room)
-        else:
-            record = self.getVariable(command['roomlist'])
-            room = Room(command, record)
-            record['rooms'].append(room)
+            layout = window['layout']
+            layout.addWidget(room)
         return self.nextPC()
 
     # create {rbrwin} at {left} {top} size {width} {height}
+    # create {room} {name} {mode} {height}
     def k_create(self, command):
         if self.nextIsSymbol():
             record = self.getSymbolRecord()
-            command['name'] = record['name']
+            command['varname'] = record['name']
             keyword = record['keyword']
             if keyword == 'rbrwin':
                 command['title'] = 'Default'
@@ -168,10 +86,25 @@ class RBR_UI(Handler):
                 command['h'] = h
                 self.add(command)
                 return True
+
+            elif keyword == 'room':
+                while True:
+                    token = self.peek()
+                    if token in ['name', 'mode', 'height']:
+                        self.nextToken()
+                        if token == 'name':
+                            command['name'] = self.nextValue()
+                        elif token == 'mode':
+                            command['mode'] = self.nextValue()
+                        elif token == 'height':
+                            command['height'] = self.nextValue()
+                    else: break
+                self.add(command)
+                return True
         return False
 
     def r_create(self, command):
-        record = self.getVariable(command['name'])
+        record = self.getVariable(command['varname'])
         keyword = record['keyword']
         if keyword == 'rbrwin':
             window = QMainWindow()
@@ -186,67 +119,47 @@ class RBR_UI(Handler):
             else: y = self.getRuntimeValue(x)
             window.setGeometry(x, y, w, h)
 
-            # Create central widget
-            central_widget = QWidget()
-            window.setCentralWidget(central_widget)
-            
-            # Create background label with image
-            window.background = QLabel(central_widget)
-            window.background.setPixmap(QPixmap("/home/graham/dev/rbr/ui/main/backdrop.jpg").scaled(
-                w, h, 
-                Qt.AspectRatioMode.IgnoreAspectRatio, 
-                Qt.TransformationMode.SmoothTransformation
-            ))
-            window.background.setGeometry(0, 0, w, h)
-            windowLayout = QVBoxLayout(central_widget)
+            # Set the background image
+            palette = QPalette()
+            background_pixmap = QPixmap("/home/graham/dev/rbr/ui/main/backdrop.jpg")
+            palette.setBrush(QPalette.Window, QBrush(background_pixmap))
+            window.setPalette(palette)
 
-            # Create a rooms panel (frame)
-            roomsPanel = QFrame()
-            roomsPanel.setStyleSheet("""
-                background-color: #ffc;
+            # Panel for rows
+            panel = QWidget()
+            panel.setStyleSheet('''
+                background-color: #fff;
                 border-radius: 10px;
-            """)
-            windowLayout.addWidget(roomsPanel)
-            windowLayout.addStretch()
-            
-            # Create a layout for the rooms inside the rooms panel
-            roomsLayout = QVBoxLayout(roomsPanel)
-            roomsLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            roomsLayout.setSpacing(10)
+                margin:5px;
+            ''')
+            roomsLayout = QVBoxLayout(panel)
+            roomsLayout.setSpacing(2)
+            roomsLayout.setContentsMargins(5, 5, 5, 5)
+
+            # Main layout
+            mainWidget = QWidget()
+            mainLayout = QVBoxLayout(mainWidget)
+            mainLayout.setContentsMargins(0, 0, 0, 0)
+            mainLayout.addWidget(panel)
+            mainLayout.addStretch(1)
+
+            window.setCentralWidget(mainWidget)
 
             record['window'] = window
-            record['roomsLayout'] = roomsLayout
+            record['layout'] = roomsLayout
             record['width'] = w
             record['height'] = h
             return self.nextPC()
-        return 0
-
-    # init {roomlist}
-    def k_init(self, command):
-        if self.nextIsSymbol():
-            record = self.getSymbolRecord()
-            keyword = record['keyword']
-            if keyword == 'roomlist':
-                command['name'] = record['name']
-                while True:
-                    token = self.peek()
-                    if token == 'height':
-                        self.nextToken()
-                        height = self.nextValue()
-                        if height == None: FatalError(self.compiler, 'Compile error')
-                        command['height'] = height
-                    else: break
-                self.add(command)
-                return True
-        return False
         
-    def r_init(self, command):
-        record = self.getVariable(command['name'])
-        record['height'] = self.getRuntimeValue(command['height'])
-        record['rooms'] = []
-        record['names'] = []
-        record['modes'] = []
-        return self.nextPC()
+        elif keyword == 'room':
+            name = self.getRuntimeValue(command['name'])
+            mode = self.getRuntimeValue(command['mode'])
+            height = self.getRuntimeValue(command['height'])
+            room = Room(name, mode, height)
+            record['room'] = room
+            return self.nextPC()
+
+        return 0
 
     def k_rbrwin(self, command):
         return self.compileVariable(command, False)
@@ -254,10 +167,10 @@ class RBR_UI(Handler):
     def r_rbrwin(self, command):
         return self.nextPC()
 
-    def k_roomlist(self, command):
-        return self.compileVariable(command, False)
+    def k_room(self, command):
+        return self.compileVariable(command, False, 'gui')
 
-    def r_roomlist(self, command):
+    def r_room(self, command):
         return self.nextPC()
 
    # set [the] layout of {rbrwin} to {layout}
