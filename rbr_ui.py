@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt
-from widgets import IconButton, IconAndWidgetButton, Room, Banner
+from widgets import IconButton, IconAndWidgetButton, Room, Banner, Profiles
 
 # This is the package that handles the RBR user interface.
 
@@ -129,11 +129,16 @@ class RBR_UI(Handler):
             content = QWidget()
             content.setStyleSheet('''
                 background-color: #fff;
-                border-radius: 10px;
-                margin:5px;
+                margin:0;
             ''')
             contentLayout = QVBoxLayout(content)
+            contentLayout.setSpacing(0)
+
+            # Add the main banner
             contentLayout.addWidget(Banner(w))
+
+            # Add the system name and Profiles button
+            contentLayout.addWidget(Profiles(w))
 
             # Panel for rows
             panel = QWidget()
@@ -141,10 +146,11 @@ class RBR_UI(Handler):
                 background: transparent;
                 border: none;
                 margin: 5px;
+                padding: 0;
             ''')
             roomsLayout = QVBoxLayout(panel)
-            roomsLayout.setSpacing(2)
-            roomsLayout.setContentsMargins(5, 5, 5, 5)
+            roomsLayout.setSpacing(0)
+            roomsLayout.setContentsMargins(0, 0, 0, 0)
             contentLayout.addWidget(panel)
 
             # Main layout

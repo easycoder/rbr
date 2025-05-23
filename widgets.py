@@ -12,6 +12,37 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
 
+class TextButton(QPushButton):
+    def __init__(self, height, text):
+        super().__init__()
+        self.onClick = self.nothing
+        self.clicked.connect(lambda: self.animate_button(self.onClick, text))
+
+        self.setFixedHeight(height)
+        self.setStyleSheet(f"""
+            QPushButton {{
+                padding: 5px;
+                background-color: #ccc;
+                border:1px solid black;
+                border-radius:{height // 5}px;
+            }}
+        """)
+
+        self.setText(text)
+
+    def nothing(self, text):
+        print('Click',text)
+        pass
+    
+    def setOnClick(self, onClick):
+        self.onClick = onClick
+
+    def animate_button(self, onClick, text):
+        # Move the button 2 pixels down and right
+        self.move(self.x() + 2, self.y() + 2)
+        QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
+        onClick(text)
+
 class IconButton(QPushButton):
     def __init__(self, height, text, icon):
         super().__init__()
@@ -171,11 +202,17 @@ class Banner(QLabel):
         super().__init__()
         self.setStyleSheet(f'''
             background: transparent;
+            margin-bottom: 5px;
+            padding: 0;
+            color: black;
+            font-family: Times;
+            font-weight: bold;
+            text-align: center;
         ''')
-
-        # The gradient label
         height = width * 80 / 600
         self.setFixedSize(width, height)
+
+        # The gradient label
         pixmap = QPixmap("/home/graham/dev/rbr/ui/main/gradient.png")
         self.setPixmap(pixmap)
 
@@ -183,24 +220,76 @@ class Banner(QLabel):
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        # The home buttom
         homeButton = IconButton(height * 3 // 4, 'home', '/home/graham/dev/rbr/ui/main/RBRLogo.png')
         layout.addWidget(homeButton)
 
-        titleLayout = QVBoxLayout()
-        title1 = QLabel('Room By Room Heating')
+        # The title panel
+        titlePanel = QWidget()
+        titlePanel.setStyleSheet(f'''
+        ''')
+        titleLayout = QVBoxLayout(titlePanel)
+        titleLayout.setSpacing(0)
+        titleLayout.setContentsMargins(0, 0, 0, 0)
+        title1 = QLabel('Room By Room')
         title1.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
         title1.setStyleSheet(f'''
-            color: white;
-            font-weight: bold;
-            font-size: {height * 0.4}px;
-            text-align: center;
+            font-size: {height * 0.6}px;
+            margin: 0;
+        ''')
+        title2 = QLabel('Intelligent heating when and where you need it')
+        title2.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+        title2.setStyleSheet(f'''
+            font-size: {height * 0.18}px;
+            margin: 0;
         ''')
         titleLayout.addWidget(title1, 1)
+        titleLayout.addWidget(title2, 1)
 
-        layout.addLayout(titleLayout)
+        layout.addWidget(titlePanel)
 
+        #The Hamburger button
         hamburgerButton = IconButton(height * 3 // 4, 'menu', '/home/graham/dev/rbr/ui/main/hamburger.png')
         layout.addWidget(hamburgerButton)
+
+###############################################################################
+# The Profiles bar
+class Profiles(QWidget):
+    def __init__(self, width):
+        super().__init__()
+        self.setStyleSheet(f'''
+            background: transparent;
+            margin: 0;
+            padding: 0;
+            color: black;
+            font-family: Times;
+            font-weight: bold;
+            text-align: center;
+        ''')
+        height = width * 60 / 600
+
+        layout = QHBoxLayout(self)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        systemName = QLabel('System')
+        systemName.setStyleSheet(f'''
+            font-size: {height * 0.4}px;
+            margin-left: 10px;
+        ''')
+        layout.addWidget(systemName, 1)
+
+        profileButton = TextButton(height * 0.7, 'Profile: Default')
+        profileButton.setStyleSheet(f'''
+            margin-right: 10px;
+            background-color: #ccc;
+            font-size: {height // 3}px;
+            border: 1px solid black;
+            margin-bottom: 5px;
+            padding-left: 5px;
+            padding-right: 5px;
+        ''')
+        layout.addWidget(profileButton)
 
 ###############################################################################
 # Test code
