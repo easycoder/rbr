@@ -1,4 +1,5 @@
 import sys
+from collections import namedtuple
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -12,9 +13,13 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
 
+Callback = namedtuple('Callback', ['name', 'text'])
+
 class TextButton(QPushButton):
-    def __init__(self, height, text):
+    def __init__(self, name, height, text):
         super().__init__()
+        self.name = name
+        self.text = text
         self.onClick = self.nothing
         self.clicked.connect(lambda: self.animate_button(self.onClick, text))
 
@@ -30,8 +35,8 @@ class TextButton(QPushButton):
 
         self.setText(text)
 
-    def nothing(self, text):
-        print('Click',text)
+    def nothing(self, callback):
+        print('Click',callback.name, callback.text)
         pass
     
     def setOnClick(self, onClick):
@@ -41,11 +46,13 @@ class TextButton(QPushButton):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        onClick(text)
+        self.onClick(Callback(name=self.name, text=self.text))
 
 class IconButton(QPushButton):
-    def __init__(self, height, text, icon):
+    def __init__(self, name, height, text, icon):
         super().__init__()
+        self.name = name
+        self.text = text
         self.onClick = self.nothing
         self.clicked.connect(lambda: self.animate_button(self.onClick, text))
 
@@ -61,9 +68,8 @@ class IconButton(QPushButton):
         self.setIcon(QIcon(icon))
         self.setIconSize(QSize(height * 0.8, height * 0.8))
 
-    def nothing(self, text):
-        print('Click',text)
-        pass
+    def nothing(self, callback):
+        print('Click',callback.name, callback.text)
     
     def setOnClick(self, onClick):
         self.onClick = onClick
@@ -72,12 +78,12 @@ class IconButton(QPushButton):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        onClick(text)
+        self.onClick(Callback(name=self.name, text=self.text))
 
 class IconAndWidgetButton(QWidget):
     clicked = Signal()
 
-    def __init__(self, height, widthFactor, text, image, widget):
+    def __init__(self, name, height, widthFactor, text, image, widget):
         super().__init__()
 
         self.setStyleSheet("""
@@ -85,6 +91,8 @@ class IconAndWidgetButton(QWidget):
             border: none;
         """)
 
+        self.name = name
+        self.text = text
         self.onClick = self.nothing
         self.clicked.connect(lambda: self.animate_button(self.onClick, text))
 
@@ -109,9 +117,8 @@ class IconAndWidgetButton(QWidget):
             self.clicked.emit()
         super().mousePressEvent(event)
 
-    def nothing(self, text):
-        print('Click',text)
-        pass
+    def nothing(self, callback):
+        print('Click',callback.name, callback.text)
     
     def setOnClick(self, onClick):
         self.onClick = onClick
@@ -120,7 +127,7 @@ class IconAndWidgetButton(QWidget):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        onClick(text)
+        onClick(Callback(name=self.name, text=self.text))
 
 ###############################################################################
 # A row of room information
@@ -166,7 +173,7 @@ class Room(QFrame):
         # label.setFixedSize(height * 1.2, height * 0.6)
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
         icon = f'/home/graham/dev/rbr/ui/main/{mode}.png'
-        modeButton = IconAndWidgetButton(height * 0.8, 2.5, mode, icon, label)
+        modeButton = IconAndWidgetButton(name, height * 0.8, 2.5, mode, icon, label)
 
         # Room name label
         nameLabel = QLabel(name)
@@ -187,7 +194,7 @@ class Room(QFrame):
         button.setFont(font)  # Use the same font as the label
 
         # Icon 2: Edit
-        editButton = IconButton(height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png')
+        editButton = IconButton(name, height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png')
 
         # Add elements to the row layout
         modePanelLayout.addWidget(modeButton)
@@ -221,7 +228,7 @@ class Banner(QLabel):
         layout.setContentsMargins(0, 0, 0, 0)
 
         # The home buttom
-        homeButton = IconButton(height * 3 // 4, 'home', '/home/graham/dev/rbr/ui/main/RBRLogo.png')
+        homeButton = IconButton('-', height * 3 // 4, 'home', '/home/graham/dev/rbr/ui/main/RBRLogo.png')
         layout.addWidget(homeButton)
 
         # The title panel
@@ -249,7 +256,7 @@ class Banner(QLabel):
         layout.addWidget(titlePanel)
 
         #The Hamburger button
-        hamburgerButton = IconButton(height * 3 // 4, 'menu', '/home/graham/dev/rbr/ui/main/hamburger.png')
+        hamburgerButton = IconButton('-', height * 3 // 4, 'menu', '/home/graham/dev/rbr/ui/main/hamburger.png')
         layout.addWidget(hamburgerButton)
 
 ###############################################################################
@@ -279,7 +286,7 @@ class Profiles(QWidget):
         ''')
         layout.addWidget(systemName, 1)
 
-        profileButton = TextButton(height * 0.7, 'Profile: Default')
+        profileButton = TextButton('-', height * 0.7, 'Profile: Default')
         profileButton.setStyleSheet(f'''
             margin-right: 10px;
             background-color: #ccc;
