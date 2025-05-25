@@ -50,19 +50,19 @@ class ESPComms():
                 mac,msg=E().recv()
                 sender=hexlify(mac).decode()
                 msg=msg.decode()
-#                print(f'Message from {sender}: {msg[0:20]}...')
+#                print(f'Message from {sender}: {msg[0:30]}...')
                 if msg[0]=='!':
                     # It's a message to be relayed
                     comma=msg.index(',')
                     slave=msg[1:comma]
                     msg=msg[comma+1:]
-#                    print('Slave:',slave,', msg:',msg)
+#                    print(f'Slave: {slave}, msg: {msg}')
                     response=await self.send(slave,msg)
                 else:
                     # It's a message for me
                     response=self.config.getHandler().handleMessage(msg)
                     response=f'{response} {self.getRSS(sender)}'
-#                print('Response',response)
+#                print(f'Response to {sender}: {response}')
                 self.checkPeer(mac)
                 E().send(mac,response)
             await asyncio.sleep(.1)

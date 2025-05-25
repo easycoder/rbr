@@ -22,6 +22,3 @@ class AP():
         self.ap.config(essid='-',password=password)
 
     def getChannel(self): return self.ap.config('channel')
-
-    async def handleClient(self,reader,writer):
-        await self.config.handleClient(reader,writer)

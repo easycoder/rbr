@@ -7,6 +7,5 @@ files.py
 handler.py
 main.py
 pin.py
-responder.py
 server.py
 sta.py

@@ -63,8 +63,8 @@ class Server():
                     else:
                         print('Can\'t send message')
                         response='Can\'t send message'
-            await self.config.respond(response,writer)
             self.config.kickWatchdog()
+            return await self.config.respond(response,writer)
 
     async def messagePeer(self,peer,espmsg):
         response=await self.config.send(peer,espmsg)
@@ -72,7 +72,3 @@ class Server():
 
     def startup(self):
         self.server=asyncio.create_task(asyncio.start_server(self.handleClient,'0.0.0.0',80))
-
-    def stop(self):
-        self.server.cancel()
-        self.ap.active(False)
