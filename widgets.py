@@ -188,10 +188,11 @@ class Room(QFrame):
         nameLabel.setFont(font)
 
         # Button with white text and blue background
-        button = QPushButton("20.0°C")
-        button.setStyleSheet("color: white; background-color: blue; border: none;")
-        button.setFixedSize(height * 1.2, height * 0.6)  # Adjust button size
-        button.setFont(font)  # Use the same font as the label
+        temperatureButton = QPushButton('----°C')
+        temperatureButton.setStyleSheet('color: white; background-color: blue; border: none;')
+        temperatureButton.setFixedSize(height * 1.2, height * 0.6)  # Adjust button size
+        temperatureButton.setFont(font)  # Use the same font as the label
+        self.temperatureButton = temperatureButton
 
         # Icon 2: Edit
         editButton = IconButton(name, height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png')
@@ -199,8 +200,11 @@ class Room(QFrame):
         # Add elements to the row layout
         modePanelLayout.addWidget(modeButton)
         roomsLayout.addWidget(nameLabel, 1)  # Expand the name label to use all spare space
-        roomsLayout.addWidget(button)
+        roomsLayout.addWidget(temperatureButton)
         roomsLayout.addWidget(editButton)
+    
+    def setTemperature(self, value):
+        self.temperatureButton.setText(f'{value}°C')
 
 ###############################################################################
 # The banner at the top of the window
@@ -285,6 +289,7 @@ class Profiles(QWidget):
             margin-left: 10px;
         ''')
         layout.addWidget(systemName, 1)
+        self.systemName = systemName
 
         profileButton = TextButton('-', height * 0.7, 'Profile: Default')
         profileButton.setStyleSheet(f'''
@@ -297,6 +302,13 @@ class Profiles(QWidget):
             padding-right: 5px;
         ''')
         layout.addWidget(profileButton)
+        self.profileButton = profileButton
+    
+    def setSystemName(self, name):
+        self.systemName.setText(name)
+    
+    def setProfile(self, name):
+        self.profileButton.setText(f'Profile: {name}')
 
 ###############################################################################
 # Test code

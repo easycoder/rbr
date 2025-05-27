@@ -9,48 +9,60 @@
 
     rbrwin Window
     room Room
+    variable RamDisk
     variable WindowHeight
     variable RoomHeight
     variable Name
     variable Mode
+    variable Map
+    variable CurrentProfile
+    variable Profiles
+    variable Profile
+    variable Rooms
+    variable RoomSpec
+    variable R
 
-!    debug step
+    debug step
 
     init graphics
+
+    put `/home/graham/dev/rbr/` into RamDisk
 
     put 1024 into WindowHeight
     divide WindowHeight by 12 giving RoomHeight
 
     create Window title `Room By Room` size 600 WindowHeight
+
+    load Map from RamDisk cat `map`
+    put json Map into Map
+    load CurrentProfile from RamDisk cat `profile`
+    put the value of CurrentProfile into CurrentProfile
+    put property `profiles` of Map into Profiles
+    put element CurrentProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms
+    set the elements of Room to the count of Rooms
+    put 0 into R
+    while R is less than the count of Rooms
+    begin
+        put element R of Rooms into RoomSpec
+        put property `name` of RoomSpec into Name
+        put property `mode` of RoomSpec into Mode
+        gosub to CreateRoom
+        set attribute `temperature` of Room to property `temperature` of RoomSpec
+        increment R
+    end
+    set attribute `system name` of Window to property `name` of Map
+    set attribute `profile` of Window to property `name` of Profile
     
-    set the elements of Room to 5
-    index Room to 0
-    put `Kitchen` into Name
-    put `timed` into Mode
-    gosub to CreateRoom
-    index Room to 1
-    put `Lounge` into Name
-    put `boost` into Mode
-    gosub to CreateRoom
-    index Room to 2
-    put `Hall` into Name
-    put `advance` into Mode
-    gosub to CreateRoom
-    index Room to 3
-    put `Bedroom 1` into Name
-    put `on` into Mode
-    gosub to CreateRoom
-    index Room to 4
-    put `Bedroom 2` into Name
-    put `off` into Mode
-    gosub to CreateRoom
     show Window
 
     start graphics
+    log the ticker
     stop
 
 CreateRoom:
     log `Create ` cat Name cat `, mode ` cat Mode
+    index Room to R
     create Room
         name Name
         mode Mode

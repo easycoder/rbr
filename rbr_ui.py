@@ -48,7 +48,8 @@ class RBR_UI(Handler):
         
     def r_add(self, command):
         if 'room' in command:
-            room = self.getVariable(command['room'])['room']
+            record = self.getVariable(command['room'])
+            room = record['value'][record['index']]
             window = self.getVariable(command['window'])
             rooms = window['rooms']
             rooms.addWidget(room)
@@ -138,7 +139,8 @@ class RBR_UI(Handler):
             contentLayout.addWidget(Banner(w))
 
             # Add the system name and Profiles button
-            contentLayout.addWidget(Profiles(w))
+            profiles = Profiles(w)
+            contentLayout.addWidget(profiles)
 
             # Panel for rows
             panel = QWidget()
@@ -166,6 +168,7 @@ class RBR_UI(Handler):
             record['rooms'] = roomsLayout
             record['width'] = w
             record['height'] = h
+            record['profiles'] = profiles
             return self.nextPC()
         
         elif keyword == 'room':
@@ -173,7 +176,8 @@ class RBR_UI(Handler):
             mode = self.getRuntimeValue(command['mode'])
             height = self.getRuntimeValue(command['height'])
             room = Room(name, mode, height)
-            record['room'] = room
+            if not 'rooms' in record:
+                record['value'][record['index']] = room
             return self.nextPC()
 
         return 0
@@ -190,12 +194,41 @@ class RBR_UI(Handler):
     def r_room(self, command):
         return self.nextPC()
 
-   # set [the] layout of {rbrwin} to {layout}
+   # set attribute {attr} [of] {window}/{room} [to] {value}
     def k_set(self, command):
+        if self.nextIs('attribute'):
+            command['attribute'] = self.nextValue()
+            self.skip('of')
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                keyword = record['keyword']
+                if keyword in ['rbrwin', 'room']:
+                    command['name'] = record['name']
+                    self.skip('to')
+                    command['value'] = self.nextValue()
+                    self.add(command)
+                    return True
         return False
     
     def r_set(self, command):
-        return self.nextPC()
+        if 'attribute' in command:
+            attribute = self.getRuntimeValue(command['attribute'])
+            record = self.getVariable(command['name'])
+            value = self.getRuntimeValue(command['value'])
+            keyword = record['keyword']
+            if keyword == 'rbrwin':
+                if attribute == 'system name':
+                    profiles = record['profiles']
+                    profiles.setSystemName(value)
+                elif attribute == 'profile':
+                    profiles = record['profiles']
+                    profiles.setProfile(value)
+            elif keyword == 'room':
+                room = record['value'][record['index']]
+                if attribute == 'temperature':
+                    room.setTemperature(value)
+            return self.nextPC()
+        return 0
 
     # show {rbrwin}
     def k_show(self, command):
