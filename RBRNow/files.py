@@ -29,8 +29,9 @@ def appendFile(name,text):
 def createDirectory(path):
     try:
         os.mkdir(path)
-    except Exception:
-        pass
+    except OSError as e:
+        if e.args[0] != 17: return False
+    return True
 
 def clearFile(name):
     open(name,'w').close()

@@ -25,6 +25,51 @@ class RBR_UI(Handler):
     def getName(self):
         return 'rbr_ui'
 
+    def clearWidget(self, widget):
+        layout = widget.layout()
+        if layout is not None:
+            while layout.count():
+                item = layout.takeAt(0)
+                child_widget = item.widget()
+                if child_widget is not None:
+                    child_widget.setParent(None)
+                    child_widget.deleteLater()
+                else:
+                    # If it's a layout, clear it recursively
+                    child_layout = item.layout()
+                    if child_layout is not None:
+                        clear_widget(child_layout)
+    
+    #   Init the main content of a window
+    def initContent(self, record, window, contentLayout):
+
+        w = record['width']
+
+        # Add the main banner
+        contentLayout.addWidget(Banner(w))
+
+        # Add the system name and Profiles button
+        profiles = Profiles(w)
+        contentLayout.addWidget(profiles)
+
+        # Panel for rows
+        panel = QWidget()
+        panel.setStyleSheet('''
+            background: transparent;
+            border: none;
+            margin: 5px;
+            padding: 0;
+        ''')
+        roomsLayout = QVBoxLayout(panel)
+        roomsLayout.setSpacing(0)
+        roomsLayout.setContentsMargins(0, 0, 0, 0)
+        contentLayout.addWidget(panel)
+
+        record['profiles'] = profiles
+        record['rooms'] = roomsLayout
+
+        return
+
     #############################################################################
     # Keyword handlers
 
@@ -53,6 +98,25 @@ class RBR_UI(Handler):
             window = self.getVariable(command['window'])
             rooms = window['rooms']
             rooms.addWidget(room)
+        return self.nextPC()
+
+    # clear {rbrwin}
+    def k_clear(self, command):
+        if self.nextIsSymbol():
+            record = self.getSymbolRecord()
+            if record['keyword']== 'rbrwin':
+                command['name'] = record['name']
+                self.add(command)
+            return True
+        return False
+    
+    def r_clear(self, command):
+        record = self.getVariable(command['name'])
+        window = record['window']
+        content = record['content']
+        contentLayout = record['contentLayout']
+        self.clearWidget(content)
+        self.initContent(record, window, contentLayout)
         return self.nextPC()
 
     # create {rbrwin} at {left} {top} size {width} {height}
@@ -119,6 +183,8 @@ class RBR_UI(Handler):
             if y == None: y = (self.program.screenHeight - h) / 2
             else: y = self.getRuntimeValue(x)
             window.setGeometry(x, y, w, h)
+            record['width'] = w
+            record['height'] = h
 
             # Set the background image
             palette = QPalette()
@@ -135,25 +201,7 @@ class RBR_UI(Handler):
             contentLayout = QVBoxLayout(content)
             contentLayout.setSpacing(0)
 
-            # Add the main banner
-            contentLayout.addWidget(Banner(w))
-
-            # Add the system name and Profiles button
-            profiles = Profiles(w)
-            contentLayout.addWidget(profiles)
-
-            # Panel for rows
-            panel = QWidget()
-            panel.setStyleSheet('''
-                background: transparent;
-                border: none;
-                margin: 5px;
-                padding: 0;
-            ''')
-            roomsLayout = QVBoxLayout(panel)
-            roomsLayout.setSpacing(0)
-            roomsLayout.setContentsMargins(0, 0, 0, 0)
-            contentLayout.addWidget(panel)
+            self.initContent(record, window, contentLayout)
 
             # Main layout
             mainWidget = QWidget()
@@ -165,10 +213,8 @@ class RBR_UI(Handler):
             window.setCentralWidget(mainWidget)
 
             record['window'] = window
-            record['rooms'] = roomsLayout
-            record['width'] = w
-            record['height'] = h
-            record['profiles'] = profiles
+            record['contentLayout'] = contentLayout
+            record['content'] = content
             return self.nextPC()
         
         elif keyword == 'room':

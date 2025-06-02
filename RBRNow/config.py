@@ -3,6 +3,7 @@ from files import readFile,writeFile,fileExists
 from pin import PIN
 from server import Server
 from dht22 import DHT22
+from blescan import BLEScan
 
 class Config():
 
@@ -43,6 +44,7 @@ class Config():
         self.resetRequested=False
         self.server=Server(self)
         asyncio.create_task(self.runWatchdog())
+        self.bleScan=BLEScan()
 
     async def respond(self,response,writer):
         await self.server.respond(response,writer)
@@ -86,6 +88,7 @@ class Config():
     def getChannel(self): return self.ap.getChannel()
     def getHandler(self): return self.handler
     def getESPComms(self): return self.espComms
+    def getBLEScan(self): return self.bleScan
     def getRBRNow(self): return self.rbrNow
     def getPinInfo(self,name):
         pin=self.config['pins'][name]

@@ -18,29 +18,47 @@
     variable CurrentProfile
     variable Profiles
     variable Profile
+    variable SystemData
     variable Rooms
     variable RoomSpec
+    variable RoomData
+    variable Tick
     variable R
-
-    debug step
+    variable T
 
     init graphics
 
-    put `/home/graham/dev/rbr/` into RamDisk
-
     put 1024 into WindowHeight
     divide WindowHeight by 12 giving RoomHeight
+    put 0 into Tick
 
     create Window title `Room By Room` size 600 WindowHeight
 
-    load Map from RamDisk cat `map`
+    gosub to Refresh
+    
+    show Window
+
+    start graphics
+    on tick
+    begin
+        put the ticker into Tick
+        if Tick modulo 1000 is 0 gosub to Refresh
+    end
+    stop
+
+Refresh:
+    get Map from url `http://192.168.1.236:17348/cgi-bin/map.py` or goto ReadError
     put json Map into Map
-    load CurrentProfile from RamDisk cat `profile`
+    get CurrentProfile from url `http://192.168.1.236:17348/cgi-bin/profile.py` or goto ReadError
     put the value of CurrentProfile into CurrentProfile
+    get SystemData from url `http://192.168.1.236:17348/cgi-bin/systemdata.py` or goto ReadError
+    put json SystemData into SystemData
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
     set the elements of Room to the count of Rooms
+
+    clear Window
     put 0 into R
     while R is less than the count of Rooms
     begin
@@ -48,20 +66,22 @@
         put property `name` of RoomSpec into Name
         put property `mode` of RoomSpec into Mode
         gosub to CreateRoom
-        set attribute `temperature` of Room to property `temperature` of RoomSpec
+        put property Name of SystemData into RoomData
+        set attribute `temperature` of Room to property `temperature` of RoomData
         increment R
     end
     set attribute `system name` of Window to property `name` of Map
     set attribute `profile` of Window to property `name` of Profile
-    
-    show Window
+    return
 
-    start graphics
-    log the ticker
-    stop
+ReadError:
+    put Tick into T
+    divide T by 100
+    log `Read failure at ` cat T
+    return
 
 CreateRoom:
-    log `Create ` cat Name cat `, mode ` cat Mode
+!    log `Create ` cat Name cat `, mode ` cat Mode
     index Room to R
     create Room
         name Name

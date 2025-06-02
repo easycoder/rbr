@@ -1304,7 +1304,7 @@ UpdateAllFilesClick:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Update a single  file on the selected device
+!   Update a single file on the selected device
 UpdateFileClick:
     put `Name of file to update:` into Prompt
     put empty into Value
@@ -1319,15 +1319,10 @@ UpdateFileClick:
             put `Update  ` cat FileName into StatusMessage
             gosub to Working
             gosub to UpdateOneFile
-            if ErrorFlag
-            begin
-                put `File update did not succeed` into StatusMessage
-                gosub to Error
-                stop
-            end
+            if ErrorFlag stop
             else
             begin
-                put `File ` cat FileName cat `updated` into StatusMessage
+                put `File ` cat FileName cat ` updated` into StatusMessage
                 gosub to Idle
             end
         end
@@ -1342,9 +1337,29 @@ UpdateOneFile:
     if file Path exists begin end
     else
     begin
-        log `File ` cat Path cat ` does not exist`
-        return
+        put `File ` cat Path cat ` does not exist` into StatusMessage
+        go to Error
     end
+    if right 1 of Path is `/`
+    begin
+        gosub to GetDeviceData
+        put the length of FileName into S
+        decrement S
+        put left S of FileName into FileName
+        put `Create directory ` cat FileName into StatusMessage
+        gosub to Working
+        put `mkdir:` cat FileName into Message
+        gosub to SendRBRMessage
+        log Response
+        if left 2 of Response is not `OK`
+        begin
+            put `Failed to create directory` into StatusMessage
+            go to Error
+        end
+        go to Idle
+    end
+
+    ! Send a regular file
     load Content from Path
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -1,6 +1,6 @@
 import asyncio,machine
 from binascii import unhexlify
-from files import readFile,writeFile,renameFile,deleteFile
+from files import readFile,writeFile,renameFile,deleteFile,createDirectory
 
 class Handler():
     
@@ -9,23 +9,37 @@ class Handler():
         config.setHandler(self)
         self.relay=config.getRelay()
 
+    def checkFile(self, buf, file):
+        try:
+            with open(file, 'r') as f:
+                i = 0  # index in lst
+                pos = 0  # position in current list item
+                while True:
+                    c = f.read(1)
+                    if not c:
+                        # End of file: check if we've also finished the list
+                        while i < len(buf) and pos == len(buf[i]):
+                            i += 1
+                            pos = 0
+                        return i == len(buf)
+                    if i >= len(buf) or pos >= len(buf[i]) or c != buf[i][pos]:
+                        return False
+                    pos += 1
+                    if pos == len(buf[i]):
+                        i += 1
+                        pos = 0
+        except OSError:
+            return False
+
     def handleMessage(self,msg):
 #        print('Message:',msg)
         response=f'OK {self.config.getUptime()}'
         if msg == 'uptime':
             pass
         elif msg == 'on':
-            try:
-                self.relay.on()
-                response=f'{response} {self.relay.getState()}'
-            except:
-                response='No relay'
+            response=f'{response} ON' if self.relay.on() else 'No relay'
         elif msg == 'off':
-            try:
-                self.relay.off()
-                response=f'{response} {self.relay.getState()}'
-            except:
-                response='No relay'
+            response=f'{response} OFF' if self.relay.off() else 'No relay'
         elif msg == 'relay':
             try:
                 response=f'OK {self.relay.getState()}'
@@ -79,20 +93,26 @@ class Handler():
                 self.buffer.append(text)
                 response=f'{part} {str(len(text))}'
         elif msg[0:4]=='save':
-            text=''.join(self.buffer)
-            if len(text)>0:
+            if len(self.buffer[0])>0:
                 file=msg[5:]
                 print(f'Save {file}')
-                writeFile('temp',text)
-                test=readFile('temp')
-                if test==text:
-                    renameFile('temp',file)
-#                    print(f'Written {file}')
-                    response=str(len(text))
+                size=0
+                f = open(file,'w')
+                for n in range(0, len(self.buffer)):
+                    f.write(self.buffer[n])
+                    size+= len(self.buffer[n])
+                f.close()
+                # Check the file against the buffer
+                if self.checkFile(self.buffer, file): response=str(size) 
                 else: response='Bad save'
             else: response='No update'
-        else:
-            response=f'Unknown message: {msg}'
+            text=None
+        elif msg[0:5]=='mkdir':
+            path=msg[6:]
+            print(f'mkdir {path}')
+            response='OK' if createDirectory(path) else 'Fail'
+        else: response=f'Unknown message: {msg}'
 #        print('Handler:',response)
         return response
+
 

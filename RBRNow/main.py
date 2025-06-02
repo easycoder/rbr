@@ -29,6 +29,7 @@ class RBRNow():
         asyncio.create_task(self.stopAP())
         if not config.isMaster():
             asyncio.create_task(espComms.receive())
+        asyncio.create_task(self.config.bleScan.scan())
 
     async def blink(self):
         while True:
