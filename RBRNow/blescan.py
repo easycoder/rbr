@@ -3,6 +3,9 @@ import aioble
 from binascii import hexlify
 
 class BLEScan():
+    
+    def __init__(self):
+        self.values=''
 
     async def scan(self):
         print("Scanning for BLE devices...")
@@ -18,5 +21,11 @@ class BLEScan():
                             hum = int(data[24:26], 16)
                             batt = int(data[26:28], 16)
                             print(f'{addr[9:]} {rssi} {temp} {hum} {batt}')
+                            self.values = f'{addr[9:]};{rssi};{temp};{hum};{batt}'
 #                    else: print(f'{addr} - no')
             await asyncio.sleep(0.1)
+
+    def getValues(self):
+        values=self.values
+        self.values=''
+        return values

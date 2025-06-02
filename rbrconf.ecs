@@ -325,6 +325,8 @@
     variable N
     variable P
     variable S
+    variable T1
+    variable T2
 
 !    debug step
 
@@ -1495,7 +1497,10 @@ TemperatureRequest:
     end
     split Response on ` `
     index Response to 1
-    set the text of TemperatureLabel to Response cat `°C`
+    put the value of Response into T1
+    put T1 modulo 10 into T2
+    divide T1 by 10
+    set the text of TemperatureLabel to T1 cat `.` cat T2 cat `°C`
     put `Temperature read successfully` into StatusMessage
     go to Idle
 
@@ -1539,6 +1544,8 @@ CheckDevice:
     else put from 3 of Response into Uptime
     put the position of `-` in Uptime into P
     if P is greater than 0 put left P of Uptime into Uptime
+    put the position of ` ` in Uptime into P
+    if P is greater than 0 put left P of Uptime into Uptime
     set the text of UptimeLabel to Uptime cat ` sec`
     log Name cat ` uptime: ` cat Uptime
     put property `pins` of Device into Pins
@@ -1553,6 +1560,8 @@ CheckDevice2:
     if P is greater than 0
     begin
         put left P of Uptime into Uptime
+        put the position of ` ` in Uptime into P
+        if P is greater than 0 put left P of Uptime into Uptime
         put Uptime cat ` sec` into Uptime
     end
     else put `Unknown` into Uptime
@@ -1575,6 +1584,8 @@ RelayOffClick:
     end
     begin
         put from 3 of Response into Uptime
+        put the position of ` ` in Uptime into P
+        if P is greater than 0 put left P of Uptime into Uptime
         put Uptime cat ` sec` into Uptime
         set the text of RelayStateLabel to `OFF`
     end
@@ -1597,6 +1608,8 @@ RelayOnClick:
     else
     begin
         put from 3 of Response into Uptime
+        put the position of ` ` in Uptime into P
+        if P is greater than 0 put left P of Uptime into Uptime
         put Uptime cat ` sec` into Uptime
         set the text of RelayStateLabel to `ON`
     end

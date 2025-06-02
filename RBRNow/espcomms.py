@@ -62,7 +62,7 @@ class ESPComms():
                     # It's a message for me
                     response=self.config.getHandler().handleMessage(msg)
                     response=f'{response} {self.getRSS(sender)}'
-#                print(f'Response to {sender}: {response}')
+                print(f'Response to {sender}: {response}')
                 self.checkPeer(mac)
                 E().send(mac,response)
             await asyncio.sleep(.1)

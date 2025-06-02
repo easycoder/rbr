@@ -33,7 +33,7 @@ class Handler():
 
     def handleMessage(self,msg):
 #        print('Message:',msg)
-        response=f'OK {self.config.getUptime()}'
+        response=f'OK {self.config.getUptime()} :{self.config.getBLEScan().getValues()}'
         if msg == 'uptime':
             pass
         elif msg == 'on':
