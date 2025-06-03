@@ -37,7 +37,7 @@ The remote UI is a webapp designed to work on a smartphone but it can also be vi
 
 There are two items of primary interest in the repo:
 
- - The RBR-Now dorectory contains a set of MicroPython files for ESP32-based devices such as relays and thermometers, that uses the ESP-Now comms protocol to accept commands and requests from the system controller.
+ - The RBR-Now directory contains a set of MicroPython files for ESP32-based devices such as relays and thermometers, that uses the ESP-Now comms protocol to accept commands and requests from the system controller.
  - The roombyroom directory contains files for the local system controller and the remote web-based user interface:
    - The system controller files are for either an Orange Pi based controller or a Linaro (IXHUB) industrial PC, both running Debian Linux. The Orange Pi version is current code in daily use and the Linarian is under development with the aim of becoming the standard product.
    - The server files are held on the rbrheating.com website. They run the remote user interface and the database.
