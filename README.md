@@ -1,6 +1,6 @@
 # Room By Room Control
 
-This is an Open Source project to build a smart central heating system with control over the Internet. There are several "Smart Home" products available that broadly fit that description, but none have gained significant traction owing to the complexity involved. This one is different, because RBR Heating recognise that the barrier to setting up a home control system is not one of cost but of complexity. Our aim is to build a system that requires little expertise to install or run, and where all of the more complicated aspects of setup are done before delivery.
+This is an Open Source project to build a smart central heating system with control over the Internet. There are several "Smart Home" products available that broadly fit that description, but none have gained significant traction in the general home market. This one is different, because RBR Heating recognise that the barrier to setting up a home control system is not one of cost but of complexity. Our aim is to build a system that requires little expertise to install or run, and where all of the more complicated aspects of setup are done before delivery.
 
 ## What makes RBR special? ##
  1. RBR is designed to be a "distributed appliance"; that is, something that can be set up before delivery and just plugged in, with none of the usual messing about with IP addresses that plagues the smart home world. No technical knowledge on the part of the end user is required; just the ability (and willingness) to program a central heating controller.
