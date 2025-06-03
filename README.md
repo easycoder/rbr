@@ -25,7 +25,7 @@ The system requires no software framework, nor any build tools beyond a text edi
 
 The remote UI is a webapp designed to work on a smartphone but it can also be viewed in a PC browser. It can be found at
 
-[https://rbrheating.com/home](https://rbrheating.com/ui)
+[https://rbrheating.com/ui](https://rbrheating.com/ui)
 
 ## Repository structure ##
 
