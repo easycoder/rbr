@@ -8,7 +8,8 @@ from PySide6.QtWidgets import (
     QPushButton,
     QFrame,
     QHBoxLayout,
-    QVBoxLayout
+    QVBoxLayout,
+    QDialog
 )
 from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
@@ -137,6 +138,7 @@ class Room(QFrame):
         super().__init__()
         self.name = name
         self.mode = mode
+        self.temperature = 0
 
         self.setStyleSheet("""
             background-color: #ffc;
@@ -204,7 +206,17 @@ class Room(QFrame):
         roomsLayout.addWidget(editButton)
     
     def setTemperature(self, value):
+        self.temperature = value
         self.temperatureButton.setText(f'{value}°C')
+    
+    def getName(self):
+        return self.name
+    
+    def getMode(self):
+        return self.mode
+    
+    def getTemperature(self):
+        return self.temperature
 
 ###############################################################################
 # The banner at the top of the window
@@ -309,6 +321,89 @@ class Profiles(QWidget):
     
     def setProfile(self, name):
         self.profileButton.setText(f'Profile: {name}')
+
+###############################################################################
+# A popup menu
+class Menu(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Select Function")
+        self.setModal(True)
+        self.layout = QVBoxLayout(self)
+
+        # Cancel button
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        self.layout.addWidget(cancel_btn)
+
+        self.buttons = []
+
+    def addButton(self, button):
+        self.layout.insertWidget(self.layout.count() - 1, button)
+        self.buttons.append(button)
+
+###############################################################################
+# The RBR Main Window
+class RBRWindow(QMainWindow):
+    def __init__(self, title, x, y, w, h):
+        super().__init__()
+        self.setWindowTitle(title)
+        self.setGeometry(x, y, w, h)
+        self.width = w
+        self.height = h
+
+        # Set the background image
+        palette = QPalette()
+        background_pixmap = QPixmap("/home/graham/dev/rbr/ui/main/backdrop.jpg")
+        palette.setBrush(QPalette.Window, QBrush(background_pixmap))
+        self.setPalette(palette)
+
+        # Panel for the main components
+        content = QWidget()
+        content.setStyleSheet('''
+            background-color: #fff;
+            margin:0;
+        ''')
+        contentLayout = QVBoxLayout(content)
+        contentLayout.setSpacing(0)
+        self.contentLayout = contentLayout
+        self.content = content
+
+        self.initContent()
+
+        # Main layout
+        mainWidget = QWidget()
+        mainLayout = QVBoxLayout(mainWidget)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.addWidget(content)
+        mainLayout.addStretch(1)
+
+        self.setCentralWidget(mainWidget)
+
+    def initContent(self):
+        # Add the main banner
+        banner = Banner(self.width)
+        self.contentLayout.addWidget(banner)
+        self.banner = banner
+
+        # Add the system name and Profiles button
+        profiles = Profiles(self.width)
+        self.contentLayout.addWidget(profiles)
+        self.profiles = profiles
+
+        # Panel for rows
+        panel = QWidget()
+        panel.setStyleSheet('''
+            background: transparent;
+            border: none;
+            margin: 5px;
+            padding: 0;
+        ''')
+        roomsLayout = QVBoxLayout(panel)
+        roomsLayout.setSpacing(0)
+        roomsLayout.setContentsMargins(0, 0, 0, 0)
+        self.contentLayout.addWidget(panel)
+        self.rooms = roomsLayout
 
 ###############################################################################
 # Test code

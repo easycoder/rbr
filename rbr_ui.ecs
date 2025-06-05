@@ -9,6 +9,10 @@
 
     rbrwin Window
     room Room
+    menu Menu
+    element Banner
+    button Hamburger
+    module PopupMenu
     variable RamDisk
     variable WindowHeight
     variable RoomHeight
@@ -35,7 +39,10 @@
     create Window title `Room By Room` size 600 WindowHeight
 
     gosub to Refresh
-    
+    attach Banner to element `banner` of Window
+!    attach Hamburger to element `hamburger` of TitleBar
+!    on click Hamburger print `Clicked hamburger`
+
     show Window
 
     start graphics
@@ -57,11 +64,13 @@ Refresh:
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
     set the elements of Room to the count of Rooms
+    set the elements of RoomData to the count of Rooms
 
     clear Window
     put 0 into R
     while R is less than the count of Rooms
     begin
+        index RoomData to R
         put element R of Rooms into RoomSpec
         put property `name` of RoomSpec into Name
         put property `mode` of RoomSpec into Mode
@@ -88,4 +97,5 @@ CreateRoom:
         mode Mode
         height RoomHeight
     add Room to Window
+    log Room
     return

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt
-from widgets import IconButton, IconAndWidgetButton, Room, Banner, Profiles
+from widgets import RBRWindow, IconButton, IconAndWidgetButton, Room, Banner, Profiles
 
 # This is the package that handles the RBR user interface.
 
@@ -38,37 +38,7 @@ class RBR_UI(Handler):
                     # If it's a layout, clear it recursively
                     child_layout = item.layout()
                     if child_layout is not None:
-                        clear_widget(child_layout)
-    
-    #   Init the main content of a window
-    def initContent(self, record, window, contentLayout):
-
-        w = record['width']
-
-        # Add the main banner
-        contentLayout.addWidget(Banner(w))
-
-        # Add the system name and Profiles button
-        profiles = Profiles(w)
-        contentLayout.addWidget(profiles)
-
-        # Panel for rows
-        panel = QWidget()
-        panel.setStyleSheet('''
-            background: transparent;
-            border: none;
-            margin: 5px;
-            padding: 0;
-        ''')
-        roomsLayout = QVBoxLayout(panel)
-        roomsLayout.setSpacing(0)
-        roomsLayout.setContentsMargins(0, 0, 0, 0)
-        contentLayout.addWidget(panel)
-
-        record['profiles'] = profiles
-        record['rooms'] = roomsLayout
-
-        return
+                        self.clearWidget(child_layout)
 
     #############################################################################
     # Keyword handlers
@@ -95,9 +65,50 @@ class RBR_UI(Handler):
         if 'room' in command:
             record = self.getVariable(command['room'])
             room = record['value'][record['index']]
-            window = self.getVariable(command['window'])
-            rooms = window['rooms']
-            rooms.addWidget(room)
+            window = self.getVariable(command['window'])['window']
+            window.rooms.addWidget(room)
+        return self.nextPC()
+
+    # attach {element} [to element] {name} of {rbrwin}/{widget}
+    def k_attach(self, command):
+        if self.nextIsSymbol():
+            record = self.getSymbolRecord()
+            if record['keyword'] in ['element', 'button']:
+                command['target'] = record['name']
+                self.skip('to')
+                self.skip('element')
+                command['value'] = self.nextValue()
+                self.skip('of')
+                if self.nextIsSymbol():
+                    record = self.getSymbolRecord()
+                    if record['keyword'] in ['rbrwin', 'element']:
+                        command['item'] = record['name']
+                        self.add(command)
+                        return True
+        return False
+    
+    def r_attach(self, command):
+        target = self.getVariable(command['target'])
+        value = self.getRuntimeValue(command['value'])
+        item = self.getVariable(command['item'])
+        keyword = item['keyword']
+        if keyword == 'rbrwin':
+            window = item['window']
+            if value == 'banner':
+                target['widget'] = window.banner
+            elif value == 'profiles':
+                target['widget'] = window.profiles
+            elif value == 'rooms':
+                target['widget'] = window.rooms
+        elif keyword == 'element':
+            target = item.getElement(value)
+            pass
+        return self.nextPC()
+
+    def k_button(self, command):
+        return self.compileVariable(command, False)
+
+    def r_button(self, command):
         return self.nextPC()
 
     # clear {rbrwin}
@@ -113,10 +124,8 @@ class RBR_UI(Handler):
     def r_clear(self, command):
         record = self.getVariable(command['name'])
         window = record['window']
-        content = record['content']
-        contentLayout = record['contentLayout']
-        self.clearWidget(content)
-        self.initContent(record, window, contentLayout)
+        self.clearWidget(window.content)
+        window.initContent()
         return self.nextPC()
 
     # create {rbrwin} at {left} {top} size {width} {height}
@@ -172,8 +181,6 @@ class RBR_UI(Handler):
         record = self.getVariable(command['varname'])
         keyword = record['keyword']
         if keyword == 'rbrwin':
-            window = QMainWindow()
-            window.setWindowTitle(self.getRuntimeValue(command['title']))
             w = self.getRuntimeValue(command['w'])
             h = self.getRuntimeValue(command['h'])
             x = command['x']
@@ -182,39 +189,9 @@ class RBR_UI(Handler):
             else: x = self.getRuntimeValue(x)
             if y == None: y = (self.program.screenHeight - h) / 2
             else: y = self.getRuntimeValue(x)
-            window.setGeometry(x, y, w, h)
-            record['width'] = w
-            record['height'] = h
 
-            # Set the background image
-            palette = QPalette()
-            background_pixmap = QPixmap("/home/graham/dev/rbr/ui/main/backdrop.jpg")
-            palette.setBrush(QPalette.Window, QBrush(background_pixmap))
-            window.setPalette(palette)
-
-            # Panel for the main components
-            content = QWidget()
-            content.setStyleSheet('''
-                background-color: #fff;
-                margin:0;
-            ''')
-            contentLayout = QVBoxLayout(content)
-            contentLayout.setSpacing(0)
-
-            self.initContent(record, window, contentLayout)
-
-            # Main layout
-            mainWidget = QWidget()
-            mainLayout = QVBoxLayout(mainWidget)
-            mainLayout.setContentsMargins(0, 0, 0, 0)
-            mainLayout.addWidget(content)
-            mainLayout.addStretch(1)
-
-            window.setCentralWidget(mainWidget)
-
+            window = RBRWindow(self.getRuntimeValue(command['title']), x, y, w, h)
             record['window'] = window
-            record['contentLayout'] = contentLayout
-            record['content'] = content
             return self.nextPC()
         
         elif keyword == 'room':
@@ -227,6 +204,18 @@ class RBR_UI(Handler):
             return self.nextPC()
 
         return 0
+
+    def k_element(self, command):
+        return self.compileVariable(command, False)
+
+    def r_element(self, command):
+        return self.nextPC()
+
+    def k_menu(self, command):
+        return self.compileVariable(command, False)
+
+    def r_menu(self, command):
+        return self.nextPC()
 
     def k_rbrwin(self, command):
         return self.compileVariable(command, False)
@@ -263,11 +252,12 @@ class RBR_UI(Handler):
             value = self.getRuntimeValue(command['value'])
             keyword = record['keyword']
             if keyword == 'rbrwin':
+                window = record['window']
                 if attribute == 'system name':
-                    profiles = record['profiles']
+                    profiles = window.profiles
                     profiles.setSystemName(value)
                 elif attribute == 'profile':
-                    profiles = record['profiles']
+                    profiles = window.profiles
                     profiles.setProfile(value)
             elif keyword == 'room':
                 room = record['value'][record['index']]
@@ -295,6 +285,17 @@ class RBR_UI(Handler):
     #############################################################################
     # Compile a value in this domain
     def compileValue(self):
+        value = {}
+        value['domain'] = self.getName()
+        token = self.getToken()
+        if self.isSymbol():
+            if self.getSymbolRecord()['extra'] == 'gui':
+                value['name'] = token
+                value['type'] = 'symbol'
+                return value
+
+        else:
+            pass
         return None
 
     #############################################################################
@@ -305,8 +306,16 @@ class RBR_UI(Handler):
     #############################################################################
     # Value handlers
 
-    def v_none(self, v):
-        return None
+    def v_symbol(self, value):
+        record = self.getVariable(value['name'])
+        value = record['value'][record['index']]
+        name = value.getName()
+        mode = value.getMode()
+        temp = value.getTemperature()
+        v = {}
+        v['type'] = 'text'
+        v['content'] = f'{name} {mode} {temp}'
+        return v
 
     #############################################################################
     # Compile a condition
