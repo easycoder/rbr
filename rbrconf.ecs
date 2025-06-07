@@ -298,6 +298,7 @@
     variable CurrentSSID
     variable Previous
     variable IsMaster
+    variable FilePath
     variable FileName
     variable FileSize
     variable ErrorFlag
@@ -1335,16 +1336,15 @@ UpdateFileClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update a single file
 UpdateOneFile:
-    put FirmwareDirectory cat `/` cat FileName into Path
-    if file Path exists begin end
+    put FirmwareDirectory cat `/` cat FileName into FilePath
+    if file FilePath exists begin end
     else
     begin
-        put `File ` cat Path cat ` does not exist` into StatusMessage
+        put `File ` cat FilePath cat ` does not exist` into StatusMessage
         go to Error
     end
-    if right 1 of Path is `/`
+    if right 1 of FilePath is `/`
     begin
-        gosub to GetDeviceData
         put the length of FileName into S
         decrement S
         put left S of FileName into FileName
@@ -1362,7 +1362,7 @@ UpdateOneFile:
     end
 
     ! Send a regular file
-    load Content from Path
+    load Content from FilePath
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a single file with multiple attempts
@@ -1625,14 +1625,7 @@ SendRBRMessage:
     if left 2 of Response is `OK` return
     put `Bad response '` cat Response cat `' from ` cat Name into StatusMessage
     gosub to Error
-    if Path is not empty
-    begin
-        log `Retry without path`
-        set property `path` of Device to empty
-        go to SendMessageToDevice
-    end
     put empty into Response
-    set ErrorFlag
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1660,6 +1653,7 @@ SendMessageToDevice:
             put Path into MAC
         end
     end
+SMTD2:
     put empty into Response
     put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=` cat Message2 into URL
 !    log URL
@@ -1667,13 +1661,10 @@ SendMessageToDevice:
     or begin
         put `Could not message ` cat Name into StatusMessage
         gosub to Working
+        if Path is empty return
         ! Try direct communication
-        if Path is not empty
-        begin
-            set property `path` of Device to empty
-            go to SendMessageToDevice
-        end
-        return
+        put empty into Path
+        go to SMTD2
     end
 !    log URL cat ` - ` cat Response
     return
@@ -1685,11 +1676,7 @@ GetDeviceData:
     put property `ssid` of Device into SSID
     put from 8 of SSID into MAC
     if Device has property `path` put property `path` of Device into Path
-    else
-    begin
-        put empty into Path
-        set property `path` of Device to Path
-    end
+    else put empty into Path
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

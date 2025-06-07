@@ -94,15 +94,9 @@ class RBR_UI(Handler):
         keyword = item['keyword']
         if keyword == 'rbrwin':
             window = item['window']
-            if value == 'banner':
-                target['widget'] = window.banner
-            elif value == 'profiles':
-                target['widget'] = window.profiles
-            elif value == 'rooms':
-                target['widget'] = window.rooms
+            target['widget'] = window.getElement(value)
         elif keyword == 'element':
-            target = item.getElement(value)
-            pass
+            target['widget'] = item['widget'].getElement(value)
         return self.nextPC()
 
     def k_button(self, command):
@@ -190,7 +184,7 @@ class RBR_UI(Handler):
             if y == None: y = (self.program.screenHeight - h) / 2
             else: y = self.getRuntimeValue(x)
 
-            window = RBRWindow(self.getRuntimeValue(command['title']), x, y, w, h)
+            window = RBRWindow(self.program, self.getRuntimeValue(command['title']), x, y, w, h)
             record['window'] = window
             return self.nextPC()
         
@@ -198,7 +192,7 @@ class RBR_UI(Handler):
             name = self.getRuntimeValue(command['name'])
             mode = self.getRuntimeValue(command['mode'])
             height = self.getRuntimeValue(command['height'])
-            room = Room(name, mode, height)
+            room = Room(self.program, name, mode, height)
             if not 'rooms' in record:
                 record['value'][record['index']] = room
             return self.nextPC()
@@ -215,6 +209,51 @@ class RBR_UI(Handler):
         return self.compileVariable(command, False)
 
     def r_menu(self, command):
+        return self.nextPC()
+
+    # on click {pushbutton}
+    def k_on(self, command):
+        def setupOn():
+            command['goto'] = self.getPC() + 2
+            self.add(command)
+            self.nextToken()
+            # Step over the click handler
+            pcNext = self.getPC()
+            cmd = {}
+            cmd['domain'] = 'core'
+            cmd['lino'] = command['lino']
+            cmd['keyword'] = 'gotoPC'
+            cmd['goto'] = 0
+            cmd['debug'] = False
+            self.addCommand(cmd)
+            # This is the click handler
+            self.compileOne()
+            cmd = {}
+            cmd['domain'] = 'core'
+            cmd['lino'] = command['lino']
+            cmd['keyword'] = 'stop'
+            cmd['debug'] = False
+            self.addCommand(cmd)
+            # Fixup the goto
+            self.getCommandAt(pcNext)['goto'] = self.getPC()
+
+        token = self.nextToken()
+        command['type'] = token
+        if token == 'click':
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if record['keyword'] == 'button':
+                    command['name'] = record['name']
+                    setupOn()
+                    return True
+        return False
+    
+    def r_on(self, command):
+        record = self.getVariable(command['name'])
+        widget = record['widget']
+        keyword = record['keyword']
+        if keyword == 'button':
+            record['widget'].onClick = (command['goto'])
         return self.nextPC()
 
     def k_rbrwin(self, command):

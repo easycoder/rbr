@@ -39,9 +39,6 @@
     create Window title `Room By Room` size 600 WindowHeight
 
     gosub to Refresh
-    attach Banner to element `banner` of Window
-!    attach Hamburger to element `hamburger` of TitleBar
-!    on click Hamburger print `Clicked hamburger`
 
     show Window
 
@@ -81,6 +78,10 @@ Refresh:
     end
     set attribute `system name` of Window to property `name` of Map
     set attribute `profile` of Window to property `name` of Profile
+
+    attach Banner to element `banner` of Window
+    attach Hamburger to element `hamburger` of Banner
+    on click Hamburger go to ShowMainMenu
     return
 
 ReadError:
@@ -99,3 +100,7 @@ CreateRoom:
     add Room to Window
     log Room
     return
+
+ShowMainMenu:
+    log `Clicked hamburger`
+    stop

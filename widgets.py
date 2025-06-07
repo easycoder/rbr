@@ -21,8 +21,8 @@ class TextButton(QPushButton):
         super().__init__()
         self.name = name
         self.text = text
-        self.onClick = self.nothing
-        self.clicked.connect(lambda: self.animate_button(self.onClick, text))
+        self.onClick = None
+        self.clicked.connect(lambda: self.animate_button())
 
         self.setFixedHeight(height)
         self.setStyleSheet(f"""
@@ -35,27 +35,25 @@ class TextButton(QPushButton):
         """)
 
         self.setText(text)
-
-    def nothing(self, callback):
-        print('Click',callback.name, callback.text)
-        pass
     
     def setOnClick(self, onClick):
+        print('onClick =', onClick)
         self.onClick = onClick
 
-    def animate_button(self, onClick, text):
+    def animate_button(self):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        self.onClick(Callback(name=self.name, text=self.text))
+        self.program.run(self.onClick)
 
 class IconButton(QPushButton):
-    def __init__(self, name, height, text, icon):
+    def __init__(self, program, name, height, text, icon):
         super().__init__()
+        self.program = program
         self.name = name
         self.text = text
-        self.onClick = self.nothing
-        self.clicked.connect(lambda: self.animate_button(self.onClick, text))
+        self.onClick = None
+        self.clicked.connect(lambda: self.animate_button())
 
         self.setFixedSize(height, height)
         self.setStyleSheet(f"""
@@ -68,23 +66,21 @@ class IconButton(QPushButton):
 
         self.setIcon(QIcon(icon))
         self.setIconSize(QSize(height * 0.8, height * 0.8))
-
-    def nothing(self, callback):
-        print('Click',callback.name, callback.text)
     
     def setOnClick(self, onClick):
+        print('onClick =', onClick)
         self.onClick = onClick
 
-    def animate_button(self, onClick, text):
+    def animate_button(self):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        self.onClick(Callback(name=self.name, text=self.text))
+        self.program.run(self.onClick)
 
 class IconAndWidgetButton(QWidget):
     clicked = Signal()
 
-    def __init__(self, name, height, widthFactor, text, image, widget):
+    def __init__(self, program, name, height, widthFactor, text, image, widget):
         super().__init__()
 
         self.setStyleSheet("""
@@ -92,10 +88,11 @@ class IconAndWidgetButton(QWidget):
             border: none;
         """)
 
+        self.program = program
         self.name = name
         self.text = text
-        self.onClick = self.nothing
-        self.clicked.connect(lambda: self.animate_button(self.onClick, text))
+        self.onClick = None
+        self.clicked.connect(lambda: self.animate_button())
 
         self.setFixedSize(height*widthFactor, height)
         mainLayout = QHBoxLayout(self)
@@ -117,25 +114,24 @@ class IconAndWidgetButton(QWidget):
         if event.button() == Qt.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
-
-    def nothing(self, callback):
-        print('Click',callback.name, callback.text)
     
     def setOnClick(self, onClick):
+        print('onClick =', onClick)
         self.onClick = onClick
 
-    def animate_button(self, onClick, text):
+    def animate_button(self):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        onClick(Callback(name=self.name, text=self.text))
+        self.program.run(self.onClick)
 
 ###############################################################################
 # A row of room information
 class Room(QFrame):
 
-    def __init__(self, name, mode, height):
+    def __init__(self, program, name, mode, height):
         super().__init__()
+        self.program = program
         self.name = name
         self.mode = mode
         self.temperature = 0
@@ -175,7 +171,7 @@ class Room(QFrame):
         # label.setFixedSize(height * 1.2, height * 0.6)
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
         icon = f'/home/graham/dev/rbr/ui/main/{mode}.png'
-        modeButton = IconAndWidgetButton(name, height * 0.8, 2.5, mode, icon, label)
+        modeButton = IconAndWidgetButton(self.program, name, height * 0.8, 2.5, mode, icon, label)
 
         # Room name label
         nameLabel = QLabel(name)
@@ -197,7 +193,7 @@ class Room(QFrame):
         self.temperatureButton = temperatureButton
 
         # Icon 2: Edit
-        editButton = IconButton(name, height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png')
+        editButton = IconButton(self.program, name, height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png')
 
         # Add elements to the row layout
         modePanelLayout.addWidget(modeButton)
@@ -221,7 +217,7 @@ class Room(QFrame):
 ###############################################################################
 # The banner at the top of the window
 class Banner(QLabel):
-    def __init__(self, width):
+    def __init__(self, program, width):
         super().__init__()
         self.setStyleSheet(f'''
             background: transparent;
@@ -244,7 +240,7 @@ class Banner(QLabel):
         layout.setContentsMargins(0, 0, 0, 0)
 
         # The home buttom
-        homeButton = IconButton('-', height * 3 // 4, 'home', '/home/graham/dev/rbr/ui/main/RBRLogo.png')
+        homeButton = IconButton(program, '-', height * 3 // 4, 'home', '/home/graham/dev/rbr/ui/main/RBRLogo.png')
         layout.addWidget(homeButton)
 
         # The title panel
@@ -272,14 +268,20 @@ class Banner(QLabel):
         layout.addWidget(titlePanel)
 
         #The Hamburger button
-        hamburgerButton = IconButton('-', height * 3 // 4, 'menu', '/home/graham/dev/rbr/ui/main/hamburger.png')
-        layout.addWidget(hamburgerButton)
+        self.hamburgerButton = IconButton(program, '-', height * 3 // 4, 'menu', '/home/graham/dev/rbr/ui/main/hamburger.png')
+        layout.addWidget(self.hamburgerButton)
+    
+    def getElement(self, name):
+        if name == 'hamburger': return self.hamburgerButton
+        return None
 
 ###############################################################################
 # The Profiles bar
 class Profiles(QWidget):
-    def __init__(self, width):
+    def __init__(self, program, width):
         super().__init__()
+        self.program = program
+
         self.setStyleSheet(f'''
             background: transparent;
             margin: 0;
@@ -325,8 +327,10 @@ class Profiles(QWidget):
 ###############################################################################
 # A popup menu
 class Menu(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, program, parent=None):
         super().__init__(parent)
+        self.program = program
+
         self.setWindowTitle("Select Function")
         self.setModal(True)
         self.layout = QVBoxLayout(self)
@@ -345,8 +349,9 @@ class Menu(QDialog):
 ###############################################################################
 # The RBR Main Window
 class RBRWindow(QMainWindow):
-    def __init__(self, title, x, y, w, h):
+    def __init__(self, program, title, x, y, w, h):
         super().__init__()
+        self.program = program
         self.setWindowTitle(title)
         self.setGeometry(x, y, w, h)
         self.width = w
@@ -382,12 +387,12 @@ class RBRWindow(QMainWindow):
 
     def initContent(self):
         # Add the main banner
-        banner = Banner(self.width)
+        banner = Banner(self.program, self.width)
         self.contentLayout.addWidget(banner)
         self.banner = banner
 
         # Add the system name and Profiles button
-        profiles = Profiles(self.width)
+        profiles = Profiles(self.program, self.width)
         self.contentLayout.addWidget(profiles)
         self.profiles = profiles
 
@@ -404,50 +409,9 @@ class RBRWindow(QMainWindow):
         roomsLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.addWidget(panel)
         self.rooms = roomsLayout
-
-###############################################################################
-# Test code
-class MainWindow(QMainWindow):
-    def __init__(self, width, height):
-        super().__init__()
-        self.setWindowTitle("Room List")
-        self.setFixedSize(width, height)
-
-        # Set the background image
-        palette = QPalette()
-        background_pixmap = QPixmap("/home/graham/dev/rbr/ui/main/backdrop.jpg")
-        palette.setBrush(QPalette.Window, QBrush(background_pixmap))
-        self.setPalette(palette)
-
-        # Panel for rows
-        panel = QWidget()
-        panel.setStyleSheet('''
-            background-color: #fff;
-            border-radius: 10px;
-            margin:5px;
-        ''')
-        panelLayout = QVBoxLayout(panel)
-        panelLayout.setSpacing(2)
-        panelLayout.setContentsMargins(5, 5, 5, 5)
-
-        # Add rows
-        panelLayout.addWidget(Room('Room 1', 'timed', 1024/12))
-        panelLayout.addWidget(Room('Room 2', 'boost', 1024/12))
-        panelLayout.addWidget(Room('Room 3', 'advance', 1024/12))
-        panelLayout.addWidget(Room('Room 4', 'on', 1024/12))
-        panelLayout.addWidget(Room('Room 5', 'off', 1024/12))
-
-        # Main layout
-        mainWidget = QWidget()
-        mainLayout = QVBoxLayout(mainWidget)
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-        mainLayout.addWidget(panel)
-        mainLayout.addStretch(1)
-
-        self.setCentralWidget(mainWidget)
-
-if __name__ == "__main__":
-    app = QApplication()
-    window = MainWindow(600, 1024)
-    window.show()
-    sys.exit(app.exec())
+    
+    def getElement(self, name):
+        if name == 'banner': return self.banner
+        elif name == 'profiles': return self.profiles
+        elif name == 'rooms': return self.rooms
+        else: return None
