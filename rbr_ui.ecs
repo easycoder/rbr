@@ -9,11 +9,10 @@
 
     rbrwin Window
     room Room
-    menu Menu
     element Banner
     button Hamburger
-    module PopupMenu
-    variable RamDisk
+    button ModeButton
+!    variable RamDisk
     variable WindowHeight
     variable RoomHeight
     variable Name
@@ -26,6 +25,8 @@
     variable Rooms
     variable RoomSpec
     variable RoomData
+    variable Choices
+    variable Choice
     variable Tick
     variable R
     variable T
@@ -62,6 +63,7 @@ Refresh:
     put property `rooms` of Profile into Rooms
     set the elements of Room to the count of Rooms
     set the elements of RoomData to the count of Rooms
+    set the elements of ModeButton to the count of Rooms
 
     clear Window
     put 0 into R
@@ -97,10 +99,32 @@ CreateRoom:
         name Name
         mode Mode
         height RoomHeight
+        index R
     add Room to Window
-    log Room
+!    log Room
+    index ModeButton to R
+    attach ModeButton to element `mode` of Room
+    on click ModeButton
+    begin
+        put attribute `index` of ModeButton into R
+        log `Mode for room ` cat R
+    end
     return
 
 ShowMainMenu:
-    log `Clicked hamburger`
+    put json `[]` into Choices
+    append `Set the system name` to Choices
+    append `Set the request relay` to Choices
+    append `Power off` to Choices
+    append `Cancel` to Choices
+
+    select Choice from menu `Main Menu` with Choices
+    log Choice
+    if Choice is element 0 of Choices go to Nothing
+    if Choice is element 1 of Choices go to Nothing
+    if Choice is element 2 of Choices go to Nothing
+    if Choice is element 3 of Choices stop
+    stop
+
+Nothing:
     stop

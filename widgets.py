@@ -17,11 +17,14 @@ from PySide6.QtCore import Qt, QTimer, QSize, Signal
 Callback = namedtuple('Callback', ['name', 'text'])
 
 class TextButton(QPushButton):
-    def __init__(self, name, height, text):
+    def __init__(self, program, name, height, text, index=0):
         super().__init__()
+        self.program = program
         self.name = name
         self.text = text
+        self.index = index
         self.onClick = None
+        self.fcb = None
         self.clicked.connect(lambda: self.animate_button())
 
         self.setFixedHeight(height)
@@ -29,29 +32,40 @@ class TextButton(QPushButton):
             QPushButton {{
                 padding: 5px;
                 background-color: #ccc;
-                border:1px solid black;
-                border-radius:{height // 5}px;
+                border: 1px solid black;
+                border-radius: {height // 5}px;
+                font-size: {height * 0.35}px;
+                font-weight: bold;
             }}
         """)
 
         self.setText(text)
     
+    # Callback to EC script
     def setOnClick(self, onClick):
-        print('onClick =', onClick)
         self.onClick = onClick
+    
+    # Function callback
+    def setFCB(self, fcb):
+        self.fcb = fcb
 
     def animate_button(self):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        self.program.run(self.onClick)
+        if self.onClick != None: self.program.run(self.onClick)
+        elif self.fcb != None: self.fcb(self.name)
+
+    def getIndex(self):
+        return self.index
 
 class IconButton(QPushButton):
-    def __init__(self, program, name, height, text, icon):
+    def __init__(self, program, name, height, text, icon, index=0):
         super().__init__()
         self.program = program
         self.name = name
         self.text = text
+        self.index = index
         self.onClick = None
         self.clicked.connect(lambda: self.animate_button())
 
@@ -68,19 +82,21 @@ class IconButton(QPushButton):
         self.setIconSize(QSize(height * 0.8, height * 0.8))
     
     def setOnClick(self, onClick):
-        print('onClick =', onClick)
         self.onClick = onClick
 
     def animate_button(self):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        self.program.run(self.onClick)
+        if self.onClick != None: self.program.run(self.onClick)
+
+    def getIndex(self):
+        return self.index
 
 class IconAndWidgetButton(QWidget):
     clicked = Signal()
 
-    def __init__(self, program, name, height, widthFactor, text, image, widget):
+    def __init__(self, program, name, height, widthFactor, text, image, widget, index=0):
         super().__init__()
 
         self.setStyleSheet("""
@@ -91,8 +107,9 @@ class IconAndWidgetButton(QWidget):
         self.program = program
         self.name = name
         self.text = text
+        self.index = index
         self.onClick = None
-        self.clicked.connect(lambda: self.animate_button())
+        self.clicked.connect(lambda: self.animate_button(self.index))
 
         self.setFixedSize(height*widthFactor, height)
         mainLayout = QHBoxLayout(self)
@@ -116,25 +133,29 @@ class IconAndWidgetButton(QWidget):
         super().mousePressEvent(event)
     
     def setOnClick(self, onClick):
-        print('onClick =', onClick)
         self.onClick = onClick
 
-    def animate_button(self):
+    def animate_button(self, index):
+        self.program.roomIndex = index
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
-        self.program.run(self.onClick)
+        if self.onClick != None: self.program.run(self.onClick)
+
+    def getIndex(self):
+        return self.index
 
 ###############################################################################
 # A row of room information
 class Room(QFrame):
 
-    def __init__(self, program, name, mode, height):
+    def __init__(self, program, name, mode, height, index=0):
         super().__init__()
         self.program = program
         self.name = name
         self.mode = mode
         self.temperature = 0
+        self.index = index
 
         self.setStyleSheet("""
             background-color: #ffc;
@@ -171,7 +192,7 @@ class Room(QFrame):
         # label.setFixedSize(height * 1.2, height * 0.6)
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
         icon = f'/home/graham/dev/rbr/ui/main/{mode}.png'
-        modeButton = IconAndWidgetButton(self.program, name, height * 0.8, 2.5, mode, icon, label)
+        self.modeButton = IconAndWidgetButton(self.program, name, height * 0.8, 2.5, mode, icon, label, index)
 
         # Room name label
         nameLabel = QLabel(name)
@@ -193,13 +214,13 @@ class Room(QFrame):
         self.temperatureButton = temperatureButton
 
         # Icon 2: Edit
-        editButton = IconButton(self.program, name, height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png')
+        self.editButton = IconButton(self.program, name, height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png', index)
 
         # Add elements to the row layout
-        modePanelLayout.addWidget(modeButton)
+        modePanelLayout.addWidget(self.modeButton)
         roomsLayout.addWidget(nameLabel, 1)  # Expand the name label to use all spare space
         roomsLayout.addWidget(temperatureButton)
-        roomsLayout.addWidget(editButton)
+        roomsLayout.addWidget(self.editButton)
     
     def setTemperature(self, value):
         self.temperature = value
@@ -213,6 +234,9 @@ class Room(QFrame):
     
     def getTemperature(self):
         return self.temperature
+
+    def getIndex(self):
+        return self.index
 
 ###############################################################################
 # The banner at the top of the window
@@ -305,7 +329,7 @@ class Profiles(QWidget):
         layout.addWidget(systemName, 1)
         self.systemName = systemName
 
-        profileButton = TextButton('-', height * 0.7, 'Profile: Default')
+        profileButton = TextButton(program, '-', height * 0.7, 'Profile: Default')
         profileButton.setStyleSheet(f'''
             margin-right: 10px;
             background-color: #ccc;
@@ -327,24 +351,109 @@ class Profiles(QWidget):
 ###############################################################################
 # A popup menu
 class Menu(QDialog):
-    def __init__(self, program, parent=None):
+    def __init__(self, program, height, parent=None, title="Select Action", actions=None):
         super().__init__(parent)
         self.program = program
+        
+        dialog = QDialog(parent)
+        dialog.setWindowTitle(title)
+        dialog.setModal(True)
+        dialog.setFixedWidth(300)
+        layout = QVBoxLayout(dialog)
+        self.dialog = dialog
+        self.result = None
 
-        self.setWindowTitle("Select Function")
-        self.setModal(True)
-        self.layout = QVBoxLayout(self)
+        # Add action buttons
+        for action in actions:
+            button = TextButton(program, action, height, action)
+            button.setFCB(self.accept)
+            layout.addWidget(button)
 
-        # Cancel button
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.reject)
-        self.layout.addWidget(cancel_btn)
+    def accept(self, action):
+        self.result = action
+        # Create a timer and wait for it
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.start(500)  # 500ms delay
+        while timer.isActive():
+            QApplication.processEvents()
+        self.dialog.accept()
 
-        self.buttons = []
+    def show(self):
+        # Show dialog and return result
+        if self.dialog.exec() == QDialog.Accepted:
+            return self.result
+        return None
 
-    def addButton(self, button):
-        self.layout.insertWidget(self.layout.count() - 1, button)
-        self.buttons.append(button)
+###############################################################################
+# The Timed Mode widget
+class TimedMode(QWidget):
+    def __init__(self, program):
+        super().__init__()
+        self.program = program
+        height = 200
+
+        self.setStyleSheet("""
+            background-color: transparent;
+            border: none;
+        """)
+
+        mainLayout = QHBoxLayout(self)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.setSpacing(0)
+
+        # Icon on the left
+        label = QLabel()
+        label.setFixedSize(height, height)
+        label.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+        pixmap = QPixmap('/home/graham/dev/rbr/ui/main/timed.png').scaled(height * 0.75, height * 0.75)
+        label.setPixmap(pixmap)
+        mainLayout.addWidget(label)
+
+        # Widget on the right
+        mainLayout.addWidget(QLabel('Dummy'))
+
+###############################################################################
+# The Operating Mode dialog
+class Mode(QDialog):
+    def __init__(self, program, parent=None, roomName="Unknown"):
+        super().__init__(parent)
+
+        self.setStyleSheet("""
+            background-color: transparent;
+            border: none;
+            padding: 10px;
+        """)
+
+        self.program = program
+        
+        dialog = QDialog(parent)
+        dialog.setWindowTitle('Operating mode')
+        dialog.setModal(True)
+        dialog.setFixedWidth(440)
+        layout = QVBoxLayout(dialog)
+        self.dialog = dialog
+        self.result = None
+
+        # Add modes
+        self.timedMode = TimedMode(program)
+        layout.addWidget(self.timedMode)
+
+    def accept(self, action):
+        self.result = action
+        # Create a timer and wait for it
+        timer = QTimer()
+        timer.setSingleShot(True)
+        timer.start(500)  # 500ms delay
+        while timer.isActive():
+            QApplication.processEvents()
+        self.dialog.accept()
+
+    def show(self):
+        # Show dialog and return result
+        if self.dialog.exec() == QDialog.Accepted:
+            return self.result
+        return None
 
 ###############################################################################
 # The RBR Main Window

@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt
-from widgets import RBRWindow, IconButton, IconAndWidgetButton, Room, Banner, Profiles
+from widgets import RBRWindow, IconButton, IconAndWidgetButton, Room, Banner, Profiles, Menu
 
 # This is the package that handles the RBR user interface.
 
@@ -21,6 +21,7 @@ class RBR_UI(Handler):
 
     def __init__(self, compiler):
         Handler.__init__(self, compiler)
+        self.window = None
 
     def getName(self):
         return 'rbr_ui'
@@ -81,7 +82,7 @@ class RBR_UI(Handler):
                 self.skip('of')
                 if self.nextIsSymbol():
                     record = self.getSymbolRecord()
-                    if record['keyword'] in ['rbrwin', 'element']:
+                    if record['keyword'] in ['rbrwin', 'element', 'room']:
                         command['item'] = record['name']
                         self.add(command)
                         return True
@@ -97,6 +98,9 @@ class RBR_UI(Handler):
             target['widget'] = window.getElement(value)
         elif keyword == 'element':
             target['widget'] = item['widget'].getElement(value)
+        elif keyword == 'room':
+            if value == 'mode':
+                target['widget'] = item['value'][item['index']].modeButton
         return self.nextPC()
 
     def k_button(self, command):
@@ -158,7 +162,7 @@ class RBR_UI(Handler):
             elif keyword == 'room':
                 while True:
                     token = self.peek()
-                    if token in ['name', 'mode', 'height']:
+                    if token in ['name', 'mode', 'height', 'index']:
                         self.nextToken()
                         if token == 'name':
                             command['name'] = self.nextValue()
@@ -166,6 +170,8 @@ class RBR_UI(Handler):
                             command['mode'] = self.nextValue()
                         elif token == 'height':
                             command['height'] = self.nextValue()
+                        elif token == 'index':
+                            command['index'] = self.nextValue()
                     else: break
                 self.add(command)
                 return True
@@ -192,7 +198,8 @@ class RBR_UI(Handler):
             name = self.getRuntimeValue(command['name'])
             mode = self.getRuntimeValue(command['mode'])
             height = self.getRuntimeValue(command['height'])
-            room = Room(self.program, name, mode, height)
+            index = self.getRuntimeValue(command['index'])
+            room = Room(self.program, name, mode, height, index)
             if not 'rooms' in record:
                 record['value'][record['index']] = room
             return self.nextPC()
@@ -203,12 +210,6 @@ class RBR_UI(Handler):
         return self.compileVariable(command, False)
 
     def r_element(self, command):
-        return self.nextPC()
-
-    def k_menu(self, command):
-        return self.compileVariable(command, False)
-
-    def r_menu(self, command):
         return self.nextPC()
 
     # on click {pushbutton}
@@ -305,6 +306,36 @@ class RBR_UI(Handler):
             return self.nextPC()
         return 0
 
+   # select {choice} from menu {title} [with] {choices}
+    def k_select(self, command):
+        if self.nextIsSymbol():
+            record = self.getSymbolRecord()
+            if record['hasValue']:
+                command['choice'] = record['name']
+                if self.nextIs('from'):
+                    if self.nextIs('menu'):
+                        command['title'] = self.nextValue()
+                        self.skip('with')
+                        if self.nextIsSymbol():
+                            record = self.getSymbolRecord()
+                            if record['hasValue']:
+                                command['choices'] = record['name']
+                                self.add(command)
+                                return True
+        return False
+    
+    def r_select(self, command):
+        target = self.getVariable(command['choice'])
+        title = self.getRuntimeValue(command['title'])
+        var = self.getVariable(command['choices'])
+        choices = var['value'][var['index']]['content']
+        choice = Menu(self.program, 50, self.window, title, choices).show()
+        v = {}
+        v['type'] = 'text'
+        v['content'] = choice
+        self.putSymbolValue(target, v)
+        return self.nextPC()
+
     # show {rbrwin}
     def k_show(self, command):
         if self.nextIsSymbol():
@@ -318,6 +349,7 @@ class RBR_UI(Handler):
         
     def r_show(self, command):
         window = self.getVariable(command['window'])['window']
+        self.window = window
         window.show()
         return self.nextPC()
 
@@ -333,8 +365,17 @@ class RBR_UI(Handler):
                 value['type'] = 'symbol'
                 return value
 
-        else:
-            pass
+        else: value['type'] = token
+
+        if token == 'attribute':
+            value['attr'] = self.nextValue()
+            self.skip('of')
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if record['keyword'] == 'button':
+                    value['name'] = record['name']
+                    return value
+
         return None
 
     #############################################################################
@@ -354,6 +395,15 @@ class RBR_UI(Handler):
         v = {}
         v['type'] = 'text'
         v['content'] = f'{name} {mode} {temp}'
+        return v
+    
+    def v_attribute(self, value):
+        record = self.getVariable(value['name'])
+        attr = self.getRuntimeValue(value['attr'])
+        v = {}
+        if attr == 'index':
+            v['type'] = 'int'
+            v['content'] = self.program.roomIndex
         return v
 
     #############################################################################

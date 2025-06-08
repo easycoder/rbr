@@ -18,6 +18,8 @@ class ESPComms():
 
     async def send(self,mac,espmsg):
         peer=unhexlify(mac.encode())
+        # Flush any incoming messages
+        while E().any(): _,_ = E().irecv()
         self.checkPeer(peer)
         try:
 #            print(f'Send {espmsg[0:20]}... to {mac}')
