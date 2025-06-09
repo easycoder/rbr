@@ -1,5 +1,6 @@
 from easycoder import Handler, FatalError, RuntimeError
-from widgets import RBRWindow, IconButton, IconAndWidgetButton, Room, Banner, Profiles, Menu
+from widgets import RBRWindow, IconButton, IconAndWidgetButton, Room, Banner, Profiles, Menu, Keyboard
+from keyboard import VirtualKeyboard, TextReceiver
 
 # This is the package that handles the RBR user interface.
 
@@ -116,8 +117,10 @@ class RBR_UI(Handler):
 
     # create {rbrwin} at {left} {top} size {width} {height}
     # create {room} {name} {mode} {height}
+    # create keyboard with {field}
     def k_create(self, command):
-        if self.nextIsSymbol():
+        token = self.nextToken()
+        if self.isSymbol():
             record = self.getSymbolRecord()
             command['varname'] = record['name']
             keyword = record['keyword']
@@ -163,9 +166,31 @@ class RBR_UI(Handler):
                     else: break
                 self.add(command)
                 return True
+
+        elif token == 'keyboard':
+            self.skip('with')
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if record['keyword'] == 'element':
+                    command['keyboard'] = record['name']
+                    self.skip('in')
+                    if self.nextIsSymbol():
+                        record = self.getSymbolRecord()
+                        if record['keyword'] == 'rbrwin':
+                            command['window'] = record['name']
+                            self.add(command)
+                            return True
+
         return False
 
     def r_create(self, command):
+        if 'keyboard' in command:
+            field = self.getVariable(command['keyboard'])['widget']
+            window = self.getVariable(command['window'])['window']
+            Keyboard(self.program, receiver = TextReceiver(field), parent=window)
+            print(field.text())
+            return self.nextPC()
+
         record = self.getVariable(command['varname'])
         keyword = record['keyword']
         if keyword == 'rbrwin':
@@ -352,8 +377,10 @@ class RBR_UI(Handler):
                 value['name'] = token
                 value['type'] = 'symbol'
                 return value
-
-        else: value['type'] = token
+            return None
+        
+        if token == 'the': token = self.nextToken()
+        value['type'] = token
 
         if token == 'attribute':
             value['attr'] = self.nextValue()
@@ -363,6 +390,13 @@ class RBR_UI(Handler):
                 if record['keyword'] in ['room', 'button']:
                     value['name'] = record['name']
                     return value
+
+        elif token == 'text':
+            self.skip('of')
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                value['name'] = record['name']
+                return value
 
         return None
 
@@ -407,6 +441,13 @@ class RBR_UI(Handler):
                 v['content'] = content
             else:
                 RuntimeError(self.program, f'Element type "{keyword}" does not have attributes')
+        return v
+    
+    def v_text(self, value):
+        record = self.getVariable(value['name'])
+        v = {}
+        v['type'] = 'text'
+        v['content'] = rfecord['widget'].text()
         return v
 
     #############################################################################

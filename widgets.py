@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
+from keyboard import VirtualKeyboard
 
 Callback = namedtuple('Callback', ['name', 'text'])
 
@@ -354,9 +355,10 @@ class Profiles(QWidget):
         ''')
         layout.addWidget(profileButton)
         self.profileButton = profileButton
-    
-    def systemName(self):
-        return self.systemName
+
+    def getElement(self, name):
+        if name == 'systemName': return self.systemName
+        return None
     
     def setSystemName(self, name):
         self.systemName.setText(name)
@@ -474,8 +476,29 @@ class Mode(QDialog):
 ###############################################################################
 # The keyboard
 class Keyboard(QDialog):
-    def __init__(self, program, parent=None, roomName="Unknown"):
+    def __init__(self, program, receiver, parent=None):
         super().__init__(parent)
+        self.program = program
+        
+        self.setWindowTitle('')
+        self.setModal(True)
+        self.setFixedSize(600, 250)
+        self.setStyleSheet("background-color: #ccc;")
+        layout = QVBoxLayout(self)
+        self.result = None
+
+        # Add the keyboard
+        layout.addWidget(VirtualKeyboard(42, receiver, self.onFinished))
+        
+        # Position at bottom of parent window
+        if parent:
+            y = parent.y() + parent.height - 42
+            self.move(0, y)
+
+        self.exec()
+    
+    def onFinished(self):
+        self.reject()
 
 ###############################################################################
 # The RBR Main Window

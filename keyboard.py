@@ -82,10 +82,11 @@ class KeyboardView(QVBoxLayout):
             self.addLayout(row)
 
 class VirtualKeyboard(QStackedWidget):
-    def __init__(self, buttonHeight, textField):
+    def __init__(self, buttonHeight, textField, onFinished=None):
         super().__init__()
         self.buttonHeight = buttonHeight
         self.textField = textField
+        self.onFinished = onFinished
 
         # Create the 4 keyboard layouts
         self.addKeyboardLayout0()
@@ -114,23 +115,23 @@ class VirtualKeyboard(QStackedWidget):
 
         # Row 4: Shift, ZXC..., Backspace
         row4 = KeyboardRow([
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickShift, None, "up.png"),
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickShift, None, "/home/graham/dev/rbr/ui/main/up.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in 'zxcvbnm'],
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickBack, None, "back.png")
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickBack, None, "/home/graham/dev/rbr/ui/main/back.png")
         ])
         rowList.append(row4)
 
         # Row 5: Numbers, Space, Enter
         row5 = KeyboardRow([
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickNumbers, None, "numbers.png"),
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickNumbers, None, "/home/graham/dev/rbr/ui/main/numbers.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, ","),
-            KeyboardButton(self.buttonHeight * 5, self.buttonHeight, self.onClickSpace, None, "space.png"),
+            KeyboardButton(self.buttonHeight * 5, self.buttonHeight, self.onClickSpace, None, "/home/graham/dev/rbr/ui/main/space.png"),
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, "."),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickEnter, None, "enter.png")
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickEnter, None, "/home/graham/dev/rbr/ui/main/enter.png")
         ])
         rowList.append(row5)
 
@@ -161,23 +162,23 @@ class VirtualKeyboard(QStackedWidget):
 
         # Row 4: Shift, Uppercase ZXC..., Backspace
         row4 = KeyboardRow([
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickShift, None, "up.png"),
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickShift, None, "/home/graham/dev/rbr/ui/main/up.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in 'ZXCVBNM'],
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickBack, None, "back.png")
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickBack, None, "/home/graham/dev/rbr/ui/main/back.png")
         ])
         rowList.append(row4)
 
         # Row 5: Numbers, Space, Enter
         row5 = KeyboardRow([
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickNumbers, None, "numbers.png"),
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickNumbers, None, "/home/graham/dev/rbr/ui/main/numbers.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, ","),
-            KeyboardButton(self.buttonHeight * 5, self.buttonHeight, self.onClickSpace, None, "space.png"),
+            KeyboardButton(self.buttonHeight * 5, self.buttonHeight, self.onClickSpace, None, "/home/graham/dev/rbr/ui/main/space.png"),
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, "."),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickEnter, None, "enter.png")
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickEnter, None, "/home/graham/dev/rbr/ui/main/enter.png")
         ])
         rowList.append(row5)
 
@@ -200,23 +201,23 @@ class VirtualKeyboard(QStackedWidget):
 
         # Row 3: Symbols with horizontal stretches
         row3 = KeyboardRow([
-            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickSymbols, None, "symbols.png"),
+            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickSymbols, None, "/home/graham/dev/rbr/ui/main/symbols.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '"*\'/:!?+'],
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
-            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickBack, None, "back.png")
+            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickBack, None, "/home/graham/dev/rbr/ui/main/back.png")
         ])
         rowList.append(row3)
 
         # Row 4: Numbers, Space, Enter
         row4 = KeyboardRow([
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickLetters, None, "letters.png"),
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickLetters, None, "/home/graham/dev/rbr/ui/main/letters.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, ","),
-            KeyboardButton(self.buttonHeight * 6, self.buttonHeight, self.onClickSpace, None, "space.png"),
+            KeyboardButton(self.buttonHeight * 6, self.buttonHeight, self.onClickSpace, None, "/home/graham/dev/rbr/ui/main/space.png"),
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, "."),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
-            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickEnter, None, "enter.png")
+            KeyboardButton(self.buttonHeight * 1.5, self.buttonHeight, self.onClickEnter, None, "/home/graham/dev/rbr/ui/main/enter.png")
         ])
         rowList.append(row4)
 
@@ -239,23 +240,23 @@ class VirtualKeyboard(QStackedWidget):
 
         # Row 3: Symbols with horizontal stretches
         row3 = KeyboardRow([
-            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickNumbers, None, "numbers.png"),
+            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickNumbers, None, "/home/graham/dev/rbr/ui/main/numbers.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '`;÷\\∣|¬±'],
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
-            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickBack, None, "back.png")
+            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickBack, None, "/home/graham/dev/rbr/ui/main/back.png")
         ])
         rowList.append(row3)
 
         # Row 4: Numbers, Space, Enter
         row4 = KeyboardRow([
-            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickLetters, None, "letters.png"),
+            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickLetters, None, "/home/graham/dev/rbr/ui/main/letters.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, ","),
-            KeyboardButton(self.buttonHeight * 3, self.buttonHeight, self.onClickSpace, None, "space.png"),
+            KeyboardButton(self.buttonHeight * 3, self.buttonHeight, self.onClickSpace, None, "/home/graham/dev/rbr/ui/main/space.png"),
             QSpacerItem(self.buttonHeight * 0.05, 0, QSizePolicy.Fixed, QSizePolicy.Minimum),
             *[KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickChar, char) for char in '✕§¶°'],
-            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickEnter, None, "enter.png")
+            KeyboardButton(self.buttonHeight, self.buttonHeight, self.onClickEnter, None, "/home/graham/dev/rbr/ui/main/enter.png")
         ])
         rowList.append(row4)
 
@@ -299,8 +300,8 @@ class VirtualKeyboard(QStackedWidget):
 
     def onClickEnter(self,keycode):
         # print("Enter pressed")
-        print(self.textField.get_content())
-
+        # print(self.textField.get_content())
+        if self.onFinished: self.onFinished()
 
 if __name__ == "__main__":
     app = QApplication([])
@@ -343,3 +344,4 @@ if __name__ == "__main__":
     # Show the main window
     mainWindow.show()
     app.exec()
+    
