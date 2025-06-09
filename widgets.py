@@ -48,11 +48,15 @@ class TextButton(QPushButton):
     # Function callback
     def setFCB(self, fcb):
         self.fcb = fcb
+    
+    def moveBack(self):
+        try: self.move(self.x() - 2, self.y() - 2)
+        except: pass
 
     def animate_button(self):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
-        QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
+        QTimer.singleShot(200, lambda: self.moveBack())  # Move back after 200ms
         if self.onClick != None: self.program.run(self.onClick)
         elif self.fcb != None: self.fcb(self.name)
 
@@ -67,7 +71,7 @@ class IconButton(QPushButton):
         self.text = text
         self.index = index
         self.onClick = None
-        self.clicked.connect(lambda: self.animate_button())
+        self.clicked.connect(lambda: self.animate_button(self.index))
 
         self.setFixedSize(height, height)
         self.setStyleSheet(f"""
@@ -83,11 +87,16 @@ class IconButton(QPushButton):
     
     def setOnClick(self, onClick):
         self.onClick = onClick
+    
+    def moveBack(self):
+        try: self.move(self.x() - 2, self.y() - 2)
+        except: pass
 
-    def animate_button(self):
+    def animate_button(self, index):
+        self.program.roomIndex = index
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
-        QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
+        QTimer.singleShot(200, lambda: self.moveBack())
         if self.onClick != None: self.program.run(self.onClick)
 
     def getIndex(self):
@@ -134,12 +143,16 @@ class IconAndWidgetButton(QWidget):
     
     def setOnClick(self, onClick):
         self.onClick = onClick
+    
+    def moveBack(self):
+        try: self.move(self.x() - 2, self.y() - 2)
+        except: pass
 
     def animate_button(self, index):
         self.program.roomIndex = index
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
-        QTimer.singleShot(200, lambda: self.move(self.x() - 2, self.y() - 2))  # Move back after 200ms
+        QTimer.singleShot(200, lambda: self.moveBack())
         if self.onClick != None: self.program.run(self.onClick)
 
     def getIndex(self):
@@ -213,14 +226,14 @@ class Room(QFrame):
         temperatureButton.setFont(font)  # Use the same font as the label
         self.temperatureButton = temperatureButton
 
-        # Icon 2: Edit
-        self.editButton = IconButton(self.program, name, height * 3 // 4, 'edit', '/home/graham/dev/rbr/ui/main/edit.png', index)
+        # Icon 2: Tools
+        self.toolsButton = IconButton(self.program, name, height * 3 // 4, 'tools', '/home/graham/dev/rbr/ui/main/edit.png', index)
 
         # Add elements to the row layout
         modePanelLayout.addWidget(self.modeButton)
         roomsLayout.addWidget(nameLabel, 1)  # Expand the name label to use all spare space
         roomsLayout.addWidget(temperatureButton)
-        roomsLayout.addWidget(self.editButton)
+        roomsLayout.addWidget(self.toolsButton)
     
     def setTemperature(self, value):
         self.temperature = value
@@ -342,6 +355,9 @@ class Profiles(QWidget):
         layout.addWidget(profileButton)
         self.profileButton = profileButton
     
+    def systemName(self):
+        return self.systemName
+    
     def setSystemName(self, name):
         self.systemName.setText(name)
     
@@ -374,7 +390,7 @@ class Menu(QDialog):
         # Create a timer and wait for it
         timer = QTimer()
         timer.setSingleShot(True)
-        timer.start(500)  # 500ms delay
+        timer.start(300)
         while timer.isActive():
             QApplication.processEvents()
         self.dialog.accept()
@@ -456,6 +472,12 @@ class Mode(QDialog):
         return None
 
 ###############################################################################
+# The keyboard
+class Keyboard(QDialog):
+    def __init__(self, program, parent=None, roomName="Unknown"):
+        super().__init__(parent)
+
+###############################################################################
 # The RBR Main Window
 class RBRWindow(QMainWindow):
     def __init__(self, program, title, x, y, w, h):
@@ -465,6 +487,8 @@ class RBRWindow(QMainWindow):
         self.setGeometry(x, y, w, h)
         self.width = w
         self.height = h
+
+        if title == '': self.setWindowFlags(Qt.FramelessWindowHint)
 
         # Set the background image
         palette = QPalette()

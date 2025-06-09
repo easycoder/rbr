@@ -1,18 +1,4 @@
 from easycoder import Handler, FatalError, RuntimeError
-from PySide6.QtWidgets import (
-    QApplication, 
-    QMainWindow, 
-    QLabel, 
-    QPushButton, 
-    QWidget, 
-    QFrame,
-    QHBoxLayout, 
-    QVBoxLayout, 
-    QSpacerItem, 
-    QSizePolicy
-)
-from PySide6.QtGui import QPixmap, QFont, QPalette, QBrush
-from PySide6.QtCore import Qt
 from widgets import RBRWindow, IconButton, IconAndWidgetButton, Room, Banner, Profiles, Menu
 
 # This is the package that handles the RBR user interface.
@@ -101,6 +87,8 @@ class RBR_UI(Handler):
         elif keyword == 'room':
             if value == 'mode':
                 target['widget'] = item['value'][item['index']].modeButton
+            elif value == 'tools':
+                target['widget'] = item['value'][item['index']].toolsButton
         return self.nextPC()
 
     def k_button(self, command):
@@ -254,7 +242,7 @@ class RBR_UI(Handler):
         widget = record['widget']
         keyword = record['keyword']
         if keyword == 'button':
-            record['widget'].onClick = (command['goto'])
+            widget.onClick = (command['goto'])
         return self.nextPC()
 
     def k_rbrwin(self, command):
@@ -372,7 +360,7 @@ class RBR_UI(Handler):
             self.skip('of')
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                if record['keyword'] == 'button':
+                if record['keyword'] in ['room', 'button']:
                     value['name'] = record['name']
                     return value
 
@@ -404,6 +392,21 @@ class RBR_UI(Handler):
         if attr == 'index':
             v['type'] = 'int'
             v['content'] = self.program.roomIndex
+        else:
+            keyword = record['keyword']
+            if record['keyword'] == 'room':
+                if attr == 'name':
+                    type = 'text'
+                    content = record['value'][record['index']].name
+                elif attr == 'mode':
+                    type = 'text'
+                    content = record['value'][record['index']].mode
+                else:
+                    RuntimeError(self.program, f'Item has no attribute "{attr}"')
+                v['type'] = type
+                v['content'] = content
+            else:
+                RuntimeError(self.program, f'Element type "{keyword}" does not have attributes')
         return v
 
     #############################################################################

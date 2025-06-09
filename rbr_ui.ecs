@@ -10,8 +10,11 @@
     rbrwin Window
     room Room
     element Banner
+    element NameAndProfiles
     button Hamburger
     button ModeButton
+    button ToolsButton
+    module Module
 !    variable RamDisk
     variable WindowHeight
     variable RoomHeight
@@ -37,7 +40,7 @@
     divide WindowHeight by 12 giving RoomHeight
     put 0 into Tick
 
-    create Window title `Room By Room` size 600 WindowHeight
+    create Window title `xx` size 600 WindowHeight
 
     gosub to Refresh
 
@@ -64,6 +67,7 @@ Refresh:
     set the elements of Room to the count of Rooms
     set the elements of RoomData to the count of Rooms
     set the elements of ModeButton to the count of Rooms
+    set the elements of ToolsButton to the count of Rooms
 
     clear Window
     put 0 into R
@@ -84,6 +88,8 @@ Refresh:
     attach Banner to element `banner` of Window
     attach Hamburger to element `hamburger` of Banner
     on click Hamburger go to ShowMainMenu
+
+    attach NameAndProfiles to element `profiles` of Window
     return
 
 ReadError:
@@ -107,7 +113,16 @@ CreateRoom:
     on click ModeButton
     begin
         put attribute `index` of ModeButton into R
-        log `Mode for room ` cat R
+        index Room to R
+        log `Mode for ` cat attribute `name` of Room
+    end
+    index ToolsButton to R
+    attach ToolsButton to element `tools` of Room
+    on click ToolsButton
+    begin
+        put attribute `index` of ToolsButton into R
+        index Room to R
+        log `Tools for ` cat attribute `name` of Room
     end
     return
 
@@ -116,15 +131,21 @@ ShowMainMenu:
     append `Set the system name` to Choices
     append `Set the request relay` to Choices
     append `Power off` to Choices
+    append `Exit Application` to Choices
     append `Cancel` to Choices
 
     select Choice from menu `Main Menu` with Choices
     log Choice
-    if Choice is element 0 of Choices go to Nothing
+    if Choice is element 0 of Choices go to SetSystemName
     if Choice is element 1 of Choices go to Nothing
     if Choice is element 2 of Choices go to Nothing
-    if Choice is element 3 of Choices stop
+    if Choice is element 3 of Choices exit
+    if Choice is element 4 of Choices stop
     stop
 
 Nothing:
+    stop
+
+SetSystemName:
+    run `systemName.ecs` as Module with NameAndProfiles
     stop

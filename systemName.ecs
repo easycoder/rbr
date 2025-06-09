@@ -1,0 +1,26 @@
+!   systemName.ecs
+
+    script SystemName
+
+    use graphics
+    
+    import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
+
+    import element NameAndProfiles
+    element SystemName
+
+    
+    exit
+
+    variable Choices
+    variable Choice
+
+    log `Hello, world!`
+    put json `[]` into Choices
+    append `Option 1` to Choices
+    append `Option 2` to Choices
+    append `Option 3` to Choices
+
+    select Choice from menu `Test Menu` with Choices
+    log Choice
+    exit
