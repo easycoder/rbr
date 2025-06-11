@@ -482,7 +482,7 @@ class Keyboard(QDialog):
         
         self.setWindowTitle('')
         self.setModal(True)
-        self.setFixedSize(600, 250)
+        self.setFixedSize(500, 250)
         self.setStyleSheet("background-color: #ccc;")
         layout = QVBoxLayout(self)
         self.result = None

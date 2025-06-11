@@ -188,7 +188,7 @@ class RBR_UI(Handler):
             field = self.getVariable(command['keyboard'])['widget']
             window = self.getVariable(command['window'])['window']
             Keyboard(self.program, receiver = TextReceiver(field), parent=window)
-            print(field.text())
+#            print(field.text())
             return self.nextPC()
 
         record = self.getVariable(command['varname'])
@@ -239,7 +239,7 @@ class RBR_UI(Handler):
             cmd['keyword'] = 'gotoPC'
             cmd['goto'] = 0
             cmd['debug'] = False
-            self.addCommand(cmd)
+            self.add(cmd)
             # This is the click handler
             self.compileOne()
             cmd = {}
@@ -247,7 +247,7 @@ class RBR_UI(Handler):
             cmd['lino'] = command['lino']
             cmd['keyword'] = 'stop'
             cmd['debug'] = False
-            self.addCommand(cmd)
+            self.add(cmd)
             # Fixup the goto
             self.getCommandAt(pcNext)['goto'] = self.getPC()
 
@@ -372,11 +372,13 @@ class RBR_UI(Handler):
         value = {}
         value['domain'] = self.getName()
         token = self.getToken()
+        value['name'] = token
         if self.isSymbol():
-            if self.getSymbolRecord()['extra'] == 'gui':
-                value['name'] = token
+            record =self.getSymbolRecord()
+            if record['extra'] == 'gui' or record['keyword'] == 'element':
                 value['type'] = 'symbol'
                 return value
+
             return None
         
         if token == 'the': token = self.nextToken()
@@ -391,13 +393,6 @@ class RBR_UI(Handler):
                     value['name'] = record['name']
                     return value
 
-        elif token == 'text':
-            self.skip('of')
-            if self.nextIsSymbol():
-                record = self.getSymbolRecord()
-                value['name'] = record['name']
-                return value
-
         return None
 
     #############################################################################
@@ -409,14 +404,17 @@ class RBR_UI(Handler):
     # Value handlers
 
     def v_symbol(self, value):
-        record = self.getVariable(value['name'])
-        value = record['value'][record['index']]
-        name = value.getName()
-        mode = value.getMode()
-        temp = value.getTemperature()
         v = {}
         v['type'] = 'text'
-        v['content'] = f'{name} {mode} {temp}'
+        record = self.getVariable(value['name'])
+        if record['keyword'] == 'element':
+            v['content'] = record['widget'].text()
+        else:
+            value = record['value'][record['index']]
+            name = value.getName()
+            mode = value.getMode()
+            temp = value.getTemperature()
+            v['content'] = f'{name} {mode} {temp}'
         return v
     
     def v_attribute(self, value):
@@ -441,13 +439,6 @@ class RBR_UI(Handler):
                 v['content'] = content
             else:
                 RuntimeError(self.program, f'Element type "{keyword}" does not have attributes')
-        return v
-    
-    def v_text(self, value):
-        record = self.getVariable(value['name'])
-        v = {}
-        v['type'] = 'text'
-        v['content'] = rfecord['widget'].text()
         return v
 
     #############################################################################
