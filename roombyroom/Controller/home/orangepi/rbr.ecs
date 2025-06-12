@@ -68,12 +68,13 @@
     variable Request
     variable RequestCount
     variable SSID
-    variable SensorFileName
     variable Status
     variable RoomStatus
     variable TargetTemp
+    variable Mijia
     variable Action
     variable Items
+    variable Item
     variable Key
     variable Keys
     variable Value
@@ -136,6 +137,13 @@
     begin
         put -1 into NetworkErrors
         gosub to NetworkError
+    end
+
+    if file RamDisk cat `mijia.json` exists load Mijia from RamDisk cat `mijia.json`
+    else
+    begin
+        put json `{}` into Mijia
+        save Mijia to RamDisk cat `mijia.json`
     end
 
     if NetworkErrors is greater than 100
@@ -269,7 +277,7 @@ Start:
     put property `name` of MapObject into SystemName
     replace `%20` with ` ` in SystemName
     log `System Name: ` cat SystemName
-    save SystemName to `/mnt/data/name`
+    save SystemName to RamDisk cat `name`
 
     ! If the Calendar is on, find which profile is active
     if MapObject has property `calendar`
@@ -300,18 +308,25 @@ Start:
     end
 
 S2:
+    save `` cat CurrentProfile to RamDisk cat `profile`
     put element CurrentProfile of Profiles into Profile
     log `Profile: ` cat property `name` of Profile
 
     put property `rooms` of Profile into Rooms
     if Password is empty go to SkipRequests
 
-    get Request from url RBRServer cat `/request/` cat MAC cat `?v=` cat now
-    or begin
-        gosub to NetworkError
-        stop
+    put empty into Request
+    if file RamDisk cat `request` exists load Request from RamDisk cat `request`
+    log `Got request: ` cat Request
+    if Request is empty
+    begin
+        get Request from url RBRServer cat `/request/` cat MAC cat `?v=` cat now
+        or begin
+            gosub to NetworkError
+            stop
+        end
+        gosub to ClearNetworkErrors
     end
-    gosub to ClearNetworkErrors
     if Request is not empty gosub to ProcessRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -375,10 +390,12 @@ SkipRequests:
                 log RequestCount cat ` requests: Turn ` cat Name cat ` ` cat OnOff
                 if Devices has property Name
                 begin
+                    put Name into RoomName
                     put property Name of Devices into Device
                     put OnOff into Message
                     gosub to MessageESPDevice
-                    if Response is empty log Name cat `: No response` else log `Response: ` cat Response
+                    if Response is empty log Name cat `: No response`
+                    else gosub to RecordMijia
                 end
             end
         end
@@ -398,6 +415,8 @@ Repeat:
     log `Memory used: ` cat memory cat ` MB`
 
     gosub to PostToServer
+    save Mijia to RamDisk cat `mijia.json`
+
     add 1 to RepeatCount
     log `Repeat ` cat RepeatCount cat ` done`
     if RepeatCount is less than 6
@@ -473,32 +492,34 @@ ProcessRoom:
             else
             begin
                 if RoomStatus has property `temperature`
-                    set property `temperature` of RoomSpec to property `temperature` of RoomStatus
+                begin
+                    set property `temperature` of RoomSpec
+                        to property `temperature` of RoomStatus
+                end
                 else set property `temperature` of RoomSpec to 0
                 gosub to BumpErrorCount
             end
         end
         else
         begin
-            put RamDisk cat `sensors/` cat Sensor cat `.txt` into SensorFileName
-            if file SensorFileName exists
+            if Mijia has property Sensor
             begin
-!                log `Read file ` cat SensorFileName cat ` for ` cat RoomName
-                put the modification time of SensorFileName into LastReported
+                put property Sensor of Mijia into Item
+                log Item
+                put property `ts` of Item into LastReported
                 take LastReported from the timestamp giving LastReported
                 if LastReported is greater than 1800
                 begin
                     put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
                     gosub to AddWarning
                 end
-                load SensorValues from SensorFileName
-                put json SensorValues into SensorValues
-                set property `temperature` of RoomSpec to property `temperature` of SensorValues
-                set property `battery` of RoomSpec to property `battery` of SensorValues
+                set property `temperature` of RoomSpec to property `temp` of Item
+                set property `battery` of RoomSpec to property `batt` of Item
             end
             else
             begin
                 put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
+                set property `temperature` of RoomSpec to `9999`
                 gosub to AddWarning
                 log WarningMessage
             end
@@ -506,12 +527,12 @@ ProcessRoom:
     end
 !    log RoomSpec
     put property `target` of RoomSpec into Target
-    if RoomSpec has property `temperature` put property `temperature` of RoomSpec into Temperature
-    else
-    begin
-        put 0 into Temperature
-        set property `temperature` of RoomSpec to 0
-    end
+    if RoomSpec has property `temperature` put `` cat property `temperature` of RoomSpec into Temperature
+    else put `0` into Temperature
+    put the value of Temperature into T
+    put T modulo 10 into T1
+    divide T by 10
+    set property `temperature` of RoomSpec to T cat `.` cat T1
 
     ! Get the advance data for this room
 GetAdvance:
@@ -524,14 +545,14 @@ GetAdvance:
     else put json `{}` into AdvanceData
     set property `advance` of RoomSpec to Advance
 
-    if `` cat Temperature is not empty put float Temperature into Temperature
-    else put float `0.0` into Temperature
+    if Temperature is empty put `0` into Temperature
 
     ! See if this room is set for winter protection
     if property `protect` of RoomSpec is empty set property `protect` of RoomSpec to `no`
     if property `protect` of RoomSpec is `yes`
     begin
         put float property `ptemp` of RoomSpec into Target
+        gosub to MultiplyTT
         if Temperature is not greater than Target
         begin
             log `Frost protect ON`
@@ -584,11 +605,14 @@ GetAdvance:
             end
         end
         if RoomSpec has property `linked`
+        begin
             if property `linked` of RoomSpec is not `yes`
             begin
+                gosub to MultiplyTT ! not needed: just to make the log consistent
                 put 0 into TargetTemp
                 go to TurnOn
             end
+        end
         ! Use the target setting for 'on' mode
         put property `target` of RoomSpec into Target
         if `` cat Target is not empty
@@ -659,7 +683,7 @@ GetAdvance:
     end
     return
 
-!   Multiply Target and Temperature each by 10 so they can be compared
+!   Multiply Target by 10 so it can be compared
 MultiplyTT:
     if `` cat Target is empty put `16` into Target
     else put `` cat Target into Target
@@ -675,21 +699,6 @@ MultiplyTT:
         add 1 to P1
         put from P1 of Target into T2
         add T2 to T1 giving Target
-    end
-    put `` cat Temperature into Temperature
-    if Temperature is empty put `0` into Temperature
-    put the position of `.` in Temperature into P1
-    if P1 is less than 0
-    begin
-        multiply Temperature by 10
-    end
-    else
-    begin
-        put left P1 of Temperature into T1
-        multiply T1 by 10
-        add 1 to P1
-        put from P1 of Temperature into T2
-        add T2 to T1 giving Temperature
     end
 !    log `Target: ` cat Target cat `, Temperature: ` cat Temperature
     return
@@ -802,9 +811,8 @@ SetRelays:
     put property `relays` of RoomSpec into Relays
     if Relays is empty put json `[]` into Relays
     if the count of Relays is 0 log `Sensor: ` cat Sensor cat ` ` cat Temperature cat ` ` cat SensorRSS
-    else
-        log `Sensor: ` cat Sensor cat ` T:A=` cat Target cat `:` cat Temperature cat ` ` cat Mode cat `:` cat OnOff
-            cat ` ` cat SensorRSS
+    else log `Sensor: ` cat Sensor cat ` T:A=` cat Target cat `:` cat Temperature cat ` ` cat Mode cat `:`
+        cat OnOff cat ` ` cat SensorRSS
     if RelayType is empty put `RBR-Now` into RelayType
 ! log RoomName cat ` Relays: ` cat Relays
     put json `[]` into Responses
@@ -819,17 +827,22 @@ SetRelays:
             put property RoomName of Devices into Device
             put OnOff into Message
             gosub to MessageESPDevice
-            put Response into Value
-            put json `{}` into Response
-            split Value on ` `
-            if the elements of Value is not less than 4
+            if Response is empty log Name cat `: No response`
+            else
             begin
-                index Value to 1
-                set property `uptime` of Response to Value
-                index Value to 2
-                if Value is 1 set property `state` of Response to `on` else set property `state` of Response to `off`
-                index Value to 3
-                set property `RSS` of Response to Value
+                gosub to RecordMijia
+                put Response into Value
+                put json `{}` into Response
+                split Value on ` `
+                if the elements of Value is not less than 4
+                begin
+                    index Value to 1
+                    set property `uptime` of Response to Value
+                    index Value to 2
+                    if Value is 1 set property `state` of Response to `on` else set property `state` of Response to `off`
+                    index Value to 3
+                    set property `RSS` of Response to Value
+                end
             end
             set the elements of Value to 1
         end
@@ -946,6 +959,35 @@ PostToServer:
             end
             clear Changed
         end
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Record information about Mijia thermometers
+RecordMijia:
+    put Response into Value
+    split Value on ` `
+    index Value to 2
+    if Value is not `:`
+    begin
+        log `Mijia: ` cat  RoomName cat ` ` cat from 1 of Value
+        split Value on `;`
+        if the elements of Value is not less than 5
+        begin
+            put json `{}` into Item
+            set property `ts` of Item to now
+            index Value to 1
+            set property `rssi` of Item to Value
+            index Value to 2
+            set property `temp` of Item to Value
+            index Value to 3
+            set property `hum` of Item to Value
+            index Value to 4
+            set property `batt` of Item to Value
+            index Value to 0
+            set property `a4:c1:38` cat Value of Mijia to Item
+        end
+        set the elements of Value to 1
     end
     return
 

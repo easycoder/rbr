@@ -25,10 +25,8 @@
     end
     else
     begin
-        put `3fi hotspot` into SSID
-        put `VivaItalia` into Password
-        !put `PLUSNET-N7C3KC-plus` into SSID
-        !put `Ur4nXVQKJPrQcJ` into Password
+        put `PLUSNET-N7C3KC-plus` into SSID
+        put `Ur4nXVQKJPrQcJ` into Password
     end
 
     system `nmcli -t -f SSID dev wifi list`

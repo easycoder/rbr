@@ -726,7 +726,7 @@ ScanForDevicesClick:
     begin
         gosub to SetupDevice
         if ErrorFlag go to SFDC3
-        gosub to ConnectToHost
+!        gosub to ConnectToHost
         gosub to PostConfigData
     end
 SFDC3:
@@ -824,6 +824,11 @@ SetupDevice:
         put Device into MasterDevice
         put MAC into MasterMAC
         put IPAddr into MasterIPAddr
+
+        ! Send the config data to the device
+        put `config.json` into FileName
+        put stringify Device into Content
+        gosub to SendOneFile
         if ErrorFlag return
 
         ! Reboot the device
@@ -847,6 +852,7 @@ SetupDevice:
             put `Failed to get Master ip address of ` cat MasterSSID into StatusMessage
             go to Error
         end
+        log `ipaddr: ` cat Response
         if left 2 of Response is `OK`
         begin
             put from 3 of Response into MasterIPAddr
@@ -864,6 +870,7 @@ SetupDevice:
         end
         enable MasterDeviceButton
         put MasterDevice into Device
+        gosub to ConnectToHost
         gosub to PopulateDeviceInfo
     end
     else
@@ -895,6 +902,7 @@ CreateDevice:
         set property `ipaddr` of Device to empty
     end
     else log `Create slave device ` cat Name
+    set property `path` of Device to empty
     set property `master` of Device to IsMaster
     set property `name` of Device to Name
     set property `ssid` of Device to SSID
@@ -1266,7 +1274,20 @@ UpdateWidgetDataClick:
             put DeviceNameInput into MasterDeviceName
             gosub to SetMasterDeviceButtonText
         end
-        if DeviceNameInput is not Previous delete property Previous of Devices
+        else
+        begin
+            delete element SlaveList of SlaveDevices
+            put SlaveList into Item
+            split Item on ` `
+            append Item cat ` ` cat DeviceNameInput to SlaveDevices
+            set the elements of Item to 1
+            set SlaveList to SlaveDevices
+        end
+        if DeviceNameInput is not Previous
+        begin
+            delete property Previous of Devices
+            set property Name of Devices to Device
+        end
         gosub to UpdateSystemConfig
         gosub to PostConfigData
     end
