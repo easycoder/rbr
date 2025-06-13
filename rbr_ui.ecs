@@ -122,12 +122,7 @@ CreateRoom:
 !    log Room
     index ModeButton to R
     attach ModeButton to element `mode` of Room
-    on click ModeButton
-    begin
-        put attribute `index` of ModeButton into R
-        index Room to R
-        log `Mode for ` cat attribute `name` of Room
-    end
+    on click ModeButton go to HandleMode
     index ToolsButton to R
     attach ToolsButton to element `tools` of Room
     on click ToolsButton
@@ -162,4 +157,11 @@ SetSystemName:
     run `systemName.ecs` as Module with Window and RamDisk
         and Controller and NameAndProfiles and Result
     log Result
+    stop
+
+HandleMode:
+    put attribute `index` of ModeButton into R
+    index Room to R
+    log `Mode for ` cat attribute `name` of Room
+    run `mode.ecs` as Module
     stop

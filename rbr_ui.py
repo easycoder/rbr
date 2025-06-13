@@ -1,6 +1,16 @@
 from easycoder import Handler, FatalError, RuntimeError
-from widgets import RBRWindow, IconButton, IconAndWidgetButton, Room, Banner, Profiles, Menu, Keyboard
 from keyboard import VirtualKeyboard, TextReceiver
+from widgets import (
+    RBRWindow,
+    IconButton,
+    IconAndWidgetButton,
+    Room,
+    Banner,
+    Profiles,
+    Menu,
+    Keyboard,
+    ModeDialog
+)
 
 # This is the package that handles the RBR user interface.
 
@@ -8,7 +18,6 @@ class RBR_UI(Handler):
 
     def __init__(self, compiler):
         Handler.__init__(self, compiler)
-        self.window = None
 
     def getName(self):
         return 'rbr_ui'
@@ -219,6 +228,12 @@ class RBR_UI(Handler):
 
         return 0
 
+    def k_modeDialog(self, command):
+        return self.compileVariable(command, False)
+
+    def r_modeDialog(self, command):
+        return self.nextPC()
+
     def k_element(self, command):
         return self.compileVariable(command, False)
 
@@ -282,6 +297,36 @@ class RBR_UI(Handler):
     def r_room(self, command):
         return self.nextPC()
 
+   # select {choice} from menu {title} [with] {choices}
+    def k_select(self, command):
+        if self.nextIsSymbol():
+            record = self.getSymbolRecord()
+            if record['hasValue']:
+                command['choice'] = record['name']
+                if self.nextIs('from'):
+                    if self.nextIs('menu'):
+                        command['title'] = self.nextValue()
+                        self.skip('with')
+                        if self.nextIsSymbol():
+                            record = self.getSymbolRecord()
+                            if record['hasValue']:
+                                command['choices'] = record['name']
+                                self.add(command)
+                                return True
+        return False
+    
+    def r_select(self, command):
+        target = self.getVariable(command['choice'])
+        title = self.getRuntimeValue(command['title'])
+        var = self.getVariable(command['choices'])
+        choices = var['value'][var['index']]['content']
+        choice = Menu(self.program, 50, self.program.rbrwin, title, choices).show()
+        v = {}
+        v['type'] = 'text'
+        v['content'] = choice
+        self.putSymbolValue(target, v)
+        return self.nextPC()
+
    # set attribute {attr} [of] {window}/{room} [to] {value}
     def k_set(self, command):
         if self.nextIs('attribute'):
@@ -319,51 +364,25 @@ class RBR_UI(Handler):
             return self.nextPC()
         return 0
 
-   # select {choice} from menu {title} [with] {choices}
-    def k_select(self, command):
-        if self.nextIsSymbol():
-            record = self.getSymbolRecord()
-            if record['hasValue']:
-                command['choice'] = record['name']
-                if self.nextIs('from'):
-                    if self.nextIs('menu'):
-                        command['title'] = self.nextValue()
-                        self.skip('with')
-                        if self.nextIsSymbol():
-                            record = self.getSymbolRecord()
-                            if record['hasValue']:
-                                command['choices'] = record['name']
-                                self.add(command)
-                                return True
-        return False
-    
-    def r_select(self, command):
-        target = self.getVariable(command['choice'])
-        title = self.getRuntimeValue(command['title'])
-        var = self.getVariable(command['choices'])
-        choices = var['value'][var['index']]['content']
-        choice = Menu(self.program, 50, self.window, title, choices).show()
-        v = {}
-        v['type'] = 'text'
-        v['content'] = choice
-        self.putSymbolValue(target, v)
-        return self.nextPC()
-
     # show {rbrwin}
     def k_show(self, command):
         if self.nextIsSymbol():
             record = self.getSymbolRecord()
             keyword = record['keyword']
-            if keyword == 'rbrwin':
-                command['window'] = record['name']
+            command[keyword] = record['name']
+            if keyword in ['rbrwin', 'modeDialog']:
                 self.add(command)
                 return True
         return False
         
     def r_show(self, command):
-        window = self.getVariable(command['window'])['window']
-        self.window = window
-        window.show()
+        if 'rbrwin' in command:
+            window = self.getVariable(command['rbrwin'])['window']
+            self.program.rbrwin = window
+            window.show()
+        elif 'modeDialog' in command:
+            record = self.getVariable(command['modeDialog'])
+            ModeDialog(self.program).show()
         return self.nextPC()
 
     #############################################################################

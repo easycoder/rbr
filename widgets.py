@@ -1,5 +1,6 @@
 import sys
 from collections import namedtuple
+from keyboard import VirtualKeyboard
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -13,9 +14,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
-from keyboard import VirtualKeyboard
-
-Callback = namedtuple('Callback', ['name', 'text'])
 
 class TextButton(QPushButton):
     def __init__(self, program, name, height, text, index=0):
@@ -373,12 +371,12 @@ class Menu(QDialog):
         super().__init__(parent)
         self.program = program
         
-        dialog = QDialog(parent)
-        dialog.setWindowTitle(title)
-        dialog.setModal(True)
-        dialog.setFixedWidth(300)
-        layout = QVBoxLayout(dialog)
-        self.dialog = dialog
+#        dialog = QDialog(parent)
+        self.setWindowTitle(title)
+        self.setModal(True)
+        self.setFixedWidth(300)
+        layout = QVBoxLayout(self)
+#        self.dialog = dialog
         self.result = None
 
         # Add action buttons
@@ -395,11 +393,11 @@ class Menu(QDialog):
         timer.start(300)
         while timer.isActive():
             QApplication.processEvents()
-        self.dialog.accept()
+        super().accept()
 
     def show(self):
         # Show dialog and return result
-        if self.dialog.exec() == QDialog.Accepted:
+        if self.exec() == QDialog.Accepted:
             return self.result
         return None
 
@@ -433,9 +431,9 @@ class TimedMode(QWidget):
 
 ###############################################################################
 # The Operating Mode dialog
-class Mode(QDialog):
-    def __init__(self, program, parent=None, roomName="Unknown"):
-        super().__init__(parent)
+class ModeDialog(QDialog):
+    def __init__(self, program):
+        super().__init__(program.parent.program.rbrwin)
 
         self.setStyleSheet("""
             background-color: transparent;
@@ -445,12 +443,10 @@ class Mode(QDialog):
 
         self.program = program
         
-        dialog = QDialog(parent)
-        dialog.setWindowTitle('Operating mode')
-        dialog.setModal(True)
-        dialog.setFixedWidth(440)
-        layout = QVBoxLayout(dialog)
-        self.dialog = dialog
+        self.setWindowTitle('Operating mode')
+        self.setModal(True)
+        self.setFixedWidth(440)
+        layout = QVBoxLayout(self)
         self.result = None
 
         # Add modes
@@ -465,11 +461,11 @@ class Mode(QDialog):
         timer.start(500)  # 500ms delay
         while timer.isActive():
             QApplication.processEvents()
-        self.dialog.accept()
+        super().accept()
 
     def show(self):
         # Show dialog and return result
-        if self.dialog.exec() == QDialog.Accepted:
+        if self.exec() == QDialog.Accepted:
             return self.result
         return None
 
