@@ -934,7 +934,7 @@ PopulateSystemInfo:
         put `Different host SSID: ` cat SystemHostSSID into StatusMessage
         gosub to Working
         create MessageBox on Window
-            style question
+            style yesnocancel
             title `Move system`
             message `Shall I move system ` cat SystemName cat ` to the current host (` cat HostSSID cat `)?` cat newline
                 cat `(If 'No' I will attempt to connect to ` cat SystemHostSSID cat `)`
@@ -946,7 +946,7 @@ PopulateSystemInfo:
             set property `host-password` of SystemConfig to HostPassword
             gosub to UpdateSystems
         end
-        else
+        else if Value is `No`
         begin
             put SystemHostSSID into HostSSID
             put Password into HostPassword

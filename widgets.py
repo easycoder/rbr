@@ -15,6 +15,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
 
+###############################################################################
+# A button just containing tezt
+
 class TextButton(QPushButton):
     def __init__(self, program, name, height, text, index=0):
         super().__init__()
@@ -62,6 +65,9 @@ class TextButton(QPushButton):
     def getIndex(self):
         return self.index
 
+###############################################################################
+# A button containing an icon
+
 class IconButton(QPushButton):
     def __init__(self, program, name, height, text, icon, index=0):
         super().__init__()
@@ -101,6 +107,9 @@ class IconButton(QPushButton):
     def getIndex(self):
         return self.index
 
+###############################################################################
+# A button with text/icon and a widget.
+
 class IconAndWidgetButton(QWidget):
     clicked = Signal()
 
@@ -124,7 +133,7 @@ class IconAndWidgetButton(QWidget):
         mainLayout.setContentsMargins(0, 0, 0, 0)
         mainLayout.setSpacing(0)
 
-        # Icon on the left
+        # icon on the left
         label = QLabel()
         label.setFixedSize(height, height)
         label.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
@@ -403,31 +412,131 @@ class Menu(QDialog):
 
 ###############################################################################
 # The Timed Mode widget
-class TimedMode(QWidget):
+class TimedModeX(QWidget):
     def __init__(self, program):
         super().__init__()
         self.program = program
-        height = 200
+        height = 100
 
-        self.setStyleSheet("""
-            background-color: transparent;
-            border: none;
-        """)
+        self.setStyleSheet('''
+            background-color: yellow;
+            border: 1px solid gray;
+            border-radius: 10px;
+        ''')
 
         mainLayout = QHBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
         mainLayout.setSpacing(0)
 
-        # Icon on the left
-        label = QLabel()
-        label.setFixedSize(height, height)
-        label.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-        pixmap = QPixmap('/home/graham/dev/rbr/ui/main/timed.png').scaled(height * 0.75, height * 0.75)
-        label.setPixmap(pixmap)
-        mainLayout.addWidget(label)
+        # Text and icon on the left
+        image = '/home/graham/dev/rbr/ui/main/timed.png'
+        name = 'Timed'
+        label = QLabel(name)
+        label.setStyleSheet(f'''
+            font-weight: bold;
+            font-size: {height // 5}px;
+            text-align: center;
+        ''')
+        button = IconAndWidgetButton(self.program, name, height * 0.8, 1, 'timed', image, label, 0, 'V')
+        button.setStyleSheet('''
+            background-color: pink;
+            border: 1px solid gray;
+            border-radius: 10px;
+        ''')
+        mainLayout.addWidget(button)
 
         # Widget on the right
         mainLayout.addWidget(QLabel('Dummy'))
+
+###############################################################################
+# A horizontal dual widget
+class DualHWidget(QFrame):
+    def __init__(self, left, right):
+        super().__init__()
+
+        # Set frame properties
+        self.setFrameStyle(QFrame.Box | QFrame.Plain)
+        self.setLineWidth(1)
+        
+        # Main widget layout
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(10)
+        
+        # Set styles
+        self.setStyleSheet('''
+            DualHWidget {
+                background-color: #ffc;
+                border: 2px solid #888;
+                border-radius: 10px;
+            }
+            QLabel {
+                background-color: #ccc;
+                border: 2px solid #888;
+                padding: 10px;
+                border-radius: 10px;
+            }
+        ''')
+
+        # Left widget
+        layout.addWidget(left)
+
+        # Right widget
+        layout.addWidget(right)
+###############################################################################
+# A vertical dual widget
+class DualVWidget(QFrame):
+    def __init__(self, top, bottom):
+        super().__init__()
+
+        # Set frame properties
+        self.setFrameStyle(QFrame.Box | QFrame.Plain)
+        self.setLineWidth(1)
+        
+        # Main widget layout
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+        layout.setSpacing(10)
+        
+        # Set styles
+        self.setStyleSheet('''
+            DualVWidget {
+                background-color: #ffc;
+                border: 2px solid #888;
+                border-radius: 10px;
+            }
+            QLabel {
+                background-color: #ccc;
+                border: 2px solid #888;
+                padding: 10px;
+                border-radius: 10px;
+            }
+        ''')
+
+        # Left widget
+        layout.addWidget(top)
+
+        # Right widget
+        layout.addWidget(bottom)
+
+###############################################################################
+# The Timed Mode widget
+class TimedMode(QWidget):
+    def __init__(self, program):
+        super().__init__()
+        self.program = program
+        height = 150
+
+        mainLayout = QHBoxLayout(self)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.setSpacing(0)
+
+        left = QLabel('Left')
+        left.setFixedWidth(height)
+        right = QLabel('Right')
+        content = DualHWidget(left, right)
+        content.setFixedSize(500, height)
+        mainLayout.addWidget(content)
 
 ###############################################################################
 # The Operating Mode dialog
@@ -435,23 +544,22 @@ class ModeDialog(QDialog):
     def __init__(self, program):
         super().__init__(program.parent.program.rbrwin)
 
-        self.setStyleSheet("""
-            background-color: transparent;
-            border: none;
-            padding: 10px;
-        """)
-
         self.program = program
+        self.setStyleSheet('''
+            background-color: white;
+        ''')
         
         self.setWindowTitle('Operating mode')
         self.setModal(True)
-        self.setFixedWidth(440)
         layout = QVBoxLayout(self)
         self.result = None
 
         # Add modes
         self.timedMode = TimedMode(program)
         layout.addWidget(self.timedMode)
+        layout.addWidget(TimedMode(program))
+        layout.addWidget(TimedMode(program))
+        layout.addWidget(TimedMode(program))
 
     def accept(self, action):
         self.result = action
