@@ -449,9 +449,9 @@ class TimedModeX(QWidget):
         mainLayout.addWidget(QLabel('Dummy'))
 
 ###############################################################################
-# A horizontal dual widget
-class DualHWidget(QFrame):
-    def __init__(self, left, right):
+# A frame widget containing a number of widgets
+class WidgetSet(QFrame):
+    def __init__(self, widgets, horizontal=True, margins=(5, 5, 5, 5), spacing=10, styles=None):
         super().__init__()
 
         # Set frame properties
@@ -459,65 +459,54 @@ class DualHWidget(QFrame):
         self.setLineWidth(1)
         
         # Main widget layout
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(10)
+        layout = QHBoxLayout(self) if horizontal else QVBoxLayout(self)
+        layout.setContentsMargins(margins[0], margins[1], margins[2], margins[3])
+        layout.setSpacing(spacing)
         
-        # Set styles
-        self.setStyleSheet('''
-            DualHWidget {
+        # Set the styles of each widget type in the set.
+        # Don't forget that a base style includes all subclasses,
+        # so a separate definition must be provided for each subclass type.
+        # Here, QLabel is a subclass of QFrame so it needs its own definition
+        if styles == None: styles = {}
+        if not 'QFrame' in styles: styles['QFrame'] = self.defaultQFrame()
+        if not 'QLabel' in styles: styles['QLabel'] = self.defaultQLabel()
+
+        self.setStyleSheet(f'''
+            QFrame {styles['QFrame']}
+            QLabel {styles['QLabel']}
+        ''')
+
+        # Add the widgets
+        for widget in widgets: layout.addWidget(widget)
+    
+    def defaultQFrame(self):
+        return '''{
                 background-color: #ffc;
                 border: 2px solid #888;
                 border-radius: 10px;
-            }
-            QLabel {
+            }'''
+    
+    def defaultQLabel(self):
+        return '''{
                 background-color: #ccc;
                 border: 2px solid #888;
+                border-radius: 10px;
                 padding: 10px;
-                border-radius: 10px;
-            }
-        ''')
+            }'''
 
-        # Left widget
-        layout.addWidget(left)
-
-        # Right widget
-        layout.addWidget(right)
-###############################################################################
-# A vertical dual widget
-class DualVWidget(QFrame):
-    def __init__(self, top, bottom):
-        super().__init__()
-
-        # Set frame properties
-        self.setFrameStyle(QFrame.Box | QFrame.Plain)
-        self.setLineWidth(1)
-        
-        # Main widget layout
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(5, 5, 5, 5)
-        layout.setSpacing(10)
-        
-        # Set styles
-        self.setStyleSheet('''
-            DualVWidget {
-                background-color: #ffc;
-                border: 2px solid #888;
-                border-radius: 10px;
-            }
-            QLabel {
+    def noBorderQFrame(self):
+        return '''{
                 background-color: #ccc;
                 border: 2px solid #888;
-                padding: 10px;
                 border-radius: 10px;
-            }
-        ''')
+            }'''
 
-        # Left widget
-        layout.addWidget(top)
-
-        # Right widget
-        layout.addWidget(bottom)
+    def noBorderQLabel(self):
+        return '''{
+                background-color: #ccc;
+                border: none;
+                padding: 10px;
+            }'''
 
 ###############################################################################
 # The Timed Mode widget
@@ -531,10 +520,21 @@ class TimedMode(QWidget):
         mainLayout.setContentsMargins(0, 0, 0, 0)
         mainLayout.setSpacing(0)
 
-        left = QLabel('Left')
+        styles = {}
+        top = QLabel('Top')
+        style = f'''
+            background-color: #ccc;
+            text-align: center;
+            font-size: {height * 0.15}px;
+            font-weight: bold;
+            padding: 10px;
+        '''
+        styles['QLabel'] = '{'+style+'}'
+        bottom = QLabel('Bottom')
+        left = WidgetSet((top, bottom), horizontal=False, styles=styles)
         left.setFixedWidth(height)
         right = QLabel('Right')
-        content = DualHWidget(left, right)
+        content = WidgetSet((left, right))
         content.setFixedSize(500, height)
         mainLayout.addWidget(content)
 
