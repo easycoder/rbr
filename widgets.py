@@ -10,10 +10,79 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QVBoxLayout,
-    QDialog
+    QDialog,
+    QSizePolicy
 )
 from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
+
+###############################################################################
+# Some style definitions
+def defaultQFrameStyle():
+    return '{' + f'''
+        background-color: #ffc;
+        border: 2px solid #888;
+        border-radius: 10px;
+        ''' + '}'
+
+def defaultGrayFrameStyle():
+    return '{' + f'''
+        background-color: #ccc;
+        border: 2px solid #888;
+        border-radius: 10px;
+        ''' + '}'
+
+def borderlessQFrameStyle():
+    return '{' + f'''
+        background-color: #ccc;
+        border: none;
+        ''' + '}'
+
+def invisibleQFrameStyle():
+    return '{' + f'''
+        background-color: #ffc;
+        border: none;
+        ''' + '}'
+
+def defaultQLabelStyle(size):
+    return '{' + f'''
+        background-color: #ccc;
+        border: 2px solid #888;
+        border-radius: 10px;
+        padding: 10px;
+        font-size: {size}px;
+        font-weight: bold;
+        ''' + '}'
+
+def borderlessQLabelStyle(size):
+    return '{' + f'''
+        background-color: #ccc;
+        border: none;
+        padding: 10px;
+        font-size: {size}px;
+        font-weight: bold;
+        ''' + '}'
+
+def defaultIconStyle():
+    return '{' + f'''
+        background-color: #ccc;
+        border: 2px solid #888;
+        border-radius: 10px;
+        ''' + '}'
+
+def borderlessIconStyle():
+    return '{' + f'''
+        background-color: #ccc;
+        border: none;
+        ''' + '}'
+
+###############################################################################
+# An expanding label
+class ExpandingLabel(QLabel):
+    def __init__(self, text=''):
+        super().__init__(text)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setAlignment(Qt.AlignCenter)
 
 ###############################################################################
 # A button just containing tezt
@@ -134,9 +203,8 @@ class IconAndWidgetButton(QWidget):
         mainLayout.setSpacing(0)
 
         # icon on the left
-        label = QLabel()
+        label = ExpandingLabel()
         label.setFixedSize(height, height)
-        label.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
         pixmap = QPixmap(image).scaled(height * 0.75, height * 0.75)
         label.setPixmap(pixmap)
         mainLayout.addWidget(label)
@@ -295,14 +363,12 @@ class Banner(QLabel):
         titleLayout = QVBoxLayout(titlePanel)
         titleLayout.setSpacing(0)
         titleLayout.setContentsMargins(0, 0, 0, 0)
-        title1 = QLabel('Room By Room')
-        title1.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+        title1 = ExpandingLabel('Room By Room')
         title1.setStyleSheet(f'''
             font-size: {height * 0.6}px;
             margin: 0;
         ''')
-        title2 = QLabel('Intelligent heating when and where you need it')
-        title2.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+        title2 = ExpandingLabel('Intelligent heating when and where you need it')
         title2.setStyleSheet(f'''
             font-size: {height * 0.18}px;
             margin: 0;
@@ -343,6 +409,7 @@ class Profiles(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
 
         systemName = QLabel('System')
+        systemName.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         systemName.setStyleSheet(f'''
             font-size: {height * 0.4}px;
             margin-left: 10px;
@@ -411,47 +478,9 @@ class Menu(QDialog):
         return None
 
 ###############################################################################
-# The Timed Mode widget
-class TimedModeX(QWidget):
-    def __init__(self, program):
-        super().__init__()
-        self.program = program
-        height = 100
-
-        self.setStyleSheet('''
-            background-color: yellow;
-            border: 1px solid gray;
-            border-radius: 10px;
-        ''')
-
-        mainLayout = QHBoxLayout(self)
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-        mainLayout.setSpacing(0)
-
-        # Text and icon on the left
-        image = '/home/graham/dev/rbr/ui/main/timed.png'
-        name = 'Timed'
-        label = QLabel(name)
-        label.setStyleSheet(f'''
-            font-weight: bold;
-            font-size: {height // 5}px;
-            text-align: center;
-        ''')
-        button = IconAndWidgetButton(self.program, name, height * 0.8, 1, 'timed', image, label, 0, 'V')
-        button.setStyleSheet('''
-            background-color: pink;
-            border: 1px solid gray;
-            border-radius: 10px;
-        ''')
-        mainLayout.addWidget(button)
-
-        # Widget on the right
-        mainLayout.addWidget(QLabel('Dummy'))
-
-###############################################################################
 # A frame widget containing a number of widgets
 class WidgetSet(QFrame):
-    def __init__(self, widgets, horizontal=True, margins=(5, 5, 5, 5), spacing=10, styles=None):
+    def __init__(self, widgets, horizontal=True, margins=(5, 5, 5, 5), spacing=5):
         super().__init__()
 
         # Set frame properties
@@ -462,81 +491,174 @@ class WidgetSet(QFrame):
         layout = QHBoxLayout(self) if horizontal else QVBoxLayout(self)
         layout.setContentsMargins(margins[0], margins[1], margins[2], margins[3])
         layout.setSpacing(spacing)
-        
-        # Set the styles of each widget type in the set.
-        # Don't forget that a base style includes all subclasses,
-        # so a separate definition must be provided for each subclass type.
-        # Here, QLabel is a subclass of QFrame so it needs its own definition
-        if styles == None: styles = {}
-        if not 'QFrame' in styles: styles['QFrame'] = self.defaultQFrame()
-        if not 'QLabel' in styles: styles['QLabel'] = self.defaultQLabel()
-
-        self.setStyleSheet(f'''
-            QFrame {styles['QFrame']}
-            QLabel {styles['QLabel']}
-        ''')
 
         # Add the widgets
         for widget in widgets: layout.addWidget(widget)
-    
-    def defaultQFrame(self):
-        return '''{
-                background-color: #ffc;
-                border: 2px solid #888;
-                border-radius: 10px;
-            }'''
-    
-    def defaultQLabel(self):
-        return '''{
-                background-color: #ccc;
-                border: 2px solid #888;
-                border-radius: 10px;
-                padding: 10px;
-            }'''
-
-    def noBorderQFrame(self):
-        return '''{
-                background-color: #ccc;
-                border: 2px solid #888;
-                border-radius: 10px;
-            }'''
-
-    def noBorderQLabel(self):
-        return '''{
-                background-color: #ccc;
-                border: none;
-                padding: 10px;
-            }'''
 
 ###############################################################################
-# The Timed Mode widget
-class TimedMode(QWidget):
+# A generic Mode widget
+class GenericMode(QWidget):
     def __init__(self, program):
         super().__init__()
         self.program = program
+        self.styles = {}
+    
+    def setStyles(self):
+        # Set the styles of each widget type in the set.
+        # Don't forget that a base style includes all subclasses,
+        # so a separate definition must be provided for each subclass type.
+        # For example, QLabel is a subclass of QFrame so it needs its own definition
+        if not 'QFrame' in self.styles: self.styles['QFrame'] = defaultQFrameStyle()
+        if not 'QLabel' in self.styles: self.styles['QLabel'] = defaultQLabelStyle(20)
+
+        stylesheet = '\n'.join(f"{key} {value}" for key, value in self.styles.items())
+        # print('Stylesheet:', stylesheet)
+        self.setStyleSheet(stylesheet)
+
+###############################################################################
+# The Timed Mode widget
+class TimedMode(GenericMode):
+
+    # The left-hand panel, with label and icon
+    # This animates when clicked
+    class TimedModeLeft(WidgetSet):
+        clicked = Signal()
+
+        def __init__(self, widgets, horizontal=True, margins=(5, 5, 5, 5), spacing=10):
+            super().__init__(widgets, horizontal, margins, spacing)
+            self.index = 0
+            self.onClick = None
+            self.fcb = None
+            self.clicked.connect(lambda: self.animate())
+            self.setObjectName('TimedModeLeft')
+
+        # Generate a signal when the widget is clicked
+        def mousePressEvent(self, event):
+            if event.button() == Qt.LeftButton:
+                self.clicked.emit()
+            super().mousePressEvent(event)
+    
+        # Callback to EC script
+        def setOnClick(self, onClick):
+            self.onClick = onClick
+        
+        # Function callback
+        def setFCB(self, fcb):
+            self.fcb = fcb
+        
+        def moveBack(self):
+            try: self.move(self.x() - 2, self.y() - 2)
+            except: pass
+
+        def animate(self):
+            # Move the widget 2 pixels down and right
+            self.move(self.x() + 2, self.y() + 2)
+            QTimer.singleShot(200, lambda: self.moveBack())  # Move back after 200ms
+            if self.onClick != None: self.program.run(self.onClick)
+            elif self.fcb != None: self.fcb(self.name)
+
+        def getIndex(self):
+            return self.index
+
+    # The right-hand panel, with icon and Advance label
+    class TimedModeRight(WidgetSet):
+        def __init__(self, widgets, horizontal=True, margins=(0, 0, 0, 0), spacing=5):
+            super().__init__(widgets, horizontal, margins, spacing)
+            self.setObjectName('TimedModeRight')
+
+    # The label on the left panel
+    class TimedModeLabel(ExpandingLabel):
+        def __init__(self, text):
+            super().__init__(text)
+            self.setFixedHeight(50)
+            self.setObjectName('TimedModeLabel')
+
+    # The label on the right panel
+    class AdvanceLabel(ExpandingLabel):
+        def __init__(self, text):
+            super().__init__(text)
+            self.setObjectName('AdvanceLabel')
+
+    # The icon on the left panel
+    class GenericIcon(ExpandingLabel):
+        def __init__(self, icon, size):
+            super().__init__()
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setAlignment(Qt.AlignCenter)
+            pixmap = QPixmap(icon).scaled(size, size)
+            self.setPixmap(pixmap)
+
+    # The icon on the left panel
+    class TimedModeIcon(GenericIcon):
+        def __init__(self, icon, size):
+            super().__init__(icon, size)
+            self.setObjectName('TimedModeIcon')
+
+    # The icon on the right panel
+    class EditIcon(GenericIcon):
+        def __init__(self, icon, size):
+            super().__init__(icon, size)
+            self.setObjectName('EditIcon')
+
+    # The main class for the Timed Mode widget
+    def __init__(self, program):
+        super().__init__(program)
         height = 150
 
         mainLayout = QHBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
         mainLayout.setSpacing(0)
 
-        styles = {}
-        top = QLabel('Top')
-        style = f'''
-            background-color: #ccc;
-            text-align: center;
-            font-size: {height * 0.15}px;
-            font-weight: bold;
-            padding: 10px;
-        '''
-        styles['QLabel'] = '{'+style+'}'
-        bottom = QLabel('Bottom')
-        left = WidgetSet((top, bottom), horizontal=False, styles=styles)
+        self.styles['QFrame#TimedModeLeft'] = defaultGrayFrameStyle()
+
+        # Do the left-hand panel, with a label and an icon
+        self.styles['QLabel#TimedModeLabel'] = borderlessQLabelStyle(20)
+        top = self.TimedModeLabel('Timed')
+        top.setFixedHeight(40)
+        self.styles['QLabel#TimedModeIcon'] = borderlessIconStyle()
+        bottom = self.TimedModeIcon('/home/graham/dev/rbr/ui/main/timed.png', 50)
+        bottom.setFixedHeight(70)
+
+        # Create the left panel
+        left = self.TimedModeLeft((top, bottom), horizontal=False)
         left.setFixedWidth(height)
-        right = QLabel('Right')
-        content = WidgetSet((left, right))
+
+        # Do the right-hand panel
+        self.styles['QLabel#EditIcon'] = defaultIconStyle()
+        top = self.EditIcon('/home/graham/dev/rbr/ui/main/edit.png', 50)
+        self.styles['QLabel#AdvanceLabel'] = defaultQLabelStyle(20)
+        bottom = self.AdvanceLabel('Advance')
+        right = self.TimedModeRight((top, bottom), horizontal=False)
+
+        # Put left and right into the main widget set
+        self.styles['QFrame#TimedModeRight'] = invisibleQFrameStyle()
+        content = WidgetSet((left, right), horizontal=True)
         content.setFixedSize(500, height)
         mainLayout.addWidget(content)
+
+        self.setStyles()
+    
+    # Callback to EC script
+    def setOnClick(self, onClick):
+        self.onClick = onClick
+    
+    # Function callback
+    def setFCB(self, fcb):
+        self.fcb = fcb
+    
+    def moveBack(self):
+        try: self.move(self.x() - 2, self.y() - 2)
+        except: pass
+
+    def animate_button(self):
+        # Move the button 2 pixels down and right
+        self.move(self.x() + 2, self.y() + 2)
+        QTimer.singleShot(200, lambda: self.moveBack())  # Move back after 200ms
+        if self.onClick != None: self.program.run(self.onClick)
+        elif self.fcb != None: self.fcb(self.name)
+
+    def getIndex(self):
+        return self.index
 
 ###############################################################################
 # The Operating Mode dialog
@@ -557,9 +679,9 @@ class ModeDialog(QDialog):
         # Add modes
         self.timedMode = TimedMode(program)
         layout.addWidget(self.timedMode)
-        layout.addWidget(TimedMode(program))
-        layout.addWidget(TimedMode(program))
-        layout.addWidget(TimedMode(program))
+#        layout.addWidget(TimedMode(program))
+#        layout.addWidget(TimedMode(program))
+#        layout.addWidget(TimedMode(program))
 
     def accept(self, action):
         self.result = action
@@ -615,11 +737,11 @@ class RBRWindow(QMainWindow):
         self.width = w
         self.height = h
 
-        if title == '': self.setWindowFlags(Qt.FramelessWindowHint)
+        if title == '': self.setWindowFlags(Qt.borderlessWindowHint)
 
         # Set the background image
         palette = QPalette()
-        background_pixmap = QPixmap("/home/graham/dev/rbr/ui/main/backdrop.jpg")
+        background_pixmap = QPixmap('/home/graham/dev/rbr/ui/main/backdrop.jpg')
         palette.setBrush(QPalette.Window, QBrush(background_pixmap))
         self.setPalette(palette)
 
