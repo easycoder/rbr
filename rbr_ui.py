@@ -228,6 +228,34 @@ class RBR_UI(Handler):
 
         return 0
 
+    # get {variable} from  {dialog}
+    def k_get(self, command):
+        if self.nextIsSymbol():
+            record = self.getSymbolRecord()
+            if record['hasValue']:
+                command['target'] = record['name']
+                self.skip('from')
+                if self.nextIsSymbol():
+                    record = self.getSymbolRecord()
+                    keyword = record['keyword']
+                    if keyword == 'modeDialog':
+                        command['dialog'] = record['name']
+                        self.add(command)
+                        return True
+        return False
+    
+    def r_get(self, command):
+        target = self.getVariable(command['target'])
+        dialog = self.getVariable(command['dialog'])
+        keyword = dialog['keyword']
+        if keyword == 'modeDialog':
+            value = ModeDialog(self.program).show()
+        v = {}
+        v['type'] = 'text'
+        v['content'] = value
+        self.putSymbolValue(target, v)
+        return self.nextPC()
+
     def k_modeDialog(self, command):
         return self.compileVariable(command, False)
 
@@ -370,7 +398,7 @@ class RBR_UI(Handler):
             record = self.getSymbolRecord()
             keyword = record['keyword']
             command[keyword] = record['name']
-            if keyword in ['rbrwin', 'modeDialog']:
+            if keyword in ['rbrwin']:
                 self.add(command)
                 return True
         return False
@@ -380,9 +408,6 @@ class RBR_UI(Handler):
             window = self.getVariable(command['rbrwin'])['window']
             self.program.rbrwin = window
             window.show()
-        elif 'modeDialog' in command:
-            record = self.getVariable(command['modeDialog'])
-            ModeDialog(self.program).show()
         return self.nextPC()
 
     #############################################################################

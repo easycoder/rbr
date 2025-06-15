@@ -498,9 +498,8 @@ class WidgetSet(QFrame):
 ###############################################################################
 # A generic Mode widget
 class GenericMode(QWidget):
-    def __init__(self, program):
+    def __init__(self):
         super().__init__()
-        self.program = program
         self.styles = {}
     
     def setStyles(self):
@@ -524,11 +523,9 @@ class TimedMode(GenericMode):
     class TimedModeLeft(WidgetSet):
         clicked = Signal()
 
-        def __init__(self, widgets, horizontal=True, margins=(5, 5, 5, 5), spacing=10):
+        def __init__(self, widgets, horizontal=True, margins=(5, 5, 5, 5), spacing=10, fcb=None):
             super().__init__(widgets, horizontal, margins, spacing)
-            self.index = 0
-            self.onClick = None
-            self.fcb = None
+            self.fcb = fcb
             self.clicked.connect(lambda: self.animate())
             self.setObjectName('TimedModeLeft')
 
@@ -537,14 +534,6 @@ class TimedMode(GenericMode):
             if event.button() == Qt.LeftButton:
                 self.clicked.emit()
             super().mousePressEvent(event)
-    
-        # Callback to EC script
-        def setOnClick(self, onClick):
-            self.onClick = onClick
-        
-        # Function callback
-        def setFCB(self, fcb):
-            self.fcb = fcb
         
         def moveBack(self):
             try: self.move(self.x() - 2, self.y() - 2)
@@ -554,8 +543,7 @@ class TimedMode(GenericMode):
             # Move the widget 2 pixels down and right
             self.move(self.x() + 2, self.y() + 2)
             QTimer.singleShot(200, lambda: self.moveBack())  # Move back after 200ms
-            if self.onClick != None: self.program.run(self.onClick)
-            elif self.fcb != None: self.fcb(self.name)
+            if self.fcb != None: self.fcb()
 
         def getIndex(self):
             return self.index
@@ -601,9 +589,9 @@ class TimedMode(GenericMode):
             self.setObjectName('EditIcon')
 
     # The main class for the Timed Mode widget
-    def __init__(self, program):
-        super().__init__(program)
-        height = 150
+    def __init__(self, fcb=None):
+        super().__init__()
+        self.fcb = fcb
 
         mainLayout = QHBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
@@ -620,8 +608,8 @@ class TimedMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.TimedModeLeft((top, bottom), horizontal=False)
-        left.setFixedWidth(height)
+        left = self.TimedModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left.setFixedWidth(150)
 
         # Do the right-hand panel
         self.styles['QLabel#EditIcon'] = defaultIconStyle()
@@ -633,32 +621,10 @@ class TimedMode(GenericMode):
         # Put left and right into the main widget set
         self.styles['QFrame#TimedModeRight'] = invisibleQFrameStyle()
         content = WidgetSet((left, right), horizontal=True)
-        content.setFixedSize(500, height)
+        content.setFixedSize(500, 150)
         mainLayout.addWidget(content)
 
         self.setStyles()
-    
-    # Callback to EC script
-    def setOnClick(self, onClick):
-        self.onClick = onClick
-    
-    # Function callback
-    def setFCB(self, fcb):
-        self.fcb = fcb
-    
-    def moveBack(self):
-        try: self.move(self.x() - 2, self.y() - 2)
-        except: pass
-
-    def animate_button(self):
-        # Move the button 2 pixels down and right
-        self.move(self.x() + 2, self.y() + 2)
-        QTimer.singleShot(200, lambda: self.moveBack())  # Move back after 200ms
-        if self.onClick != None: self.program.run(self.onClick)
-        elif self.fcb != None: self.fcb(self.name)
-
-    def getIndex(self):
-        return self.index
 
 ###############################################################################
 # The Operating Mode dialog
@@ -677,18 +643,38 @@ class ModeDialog(QDialog):
         self.result = None
 
         # Add modes
-        self.timedMode = TimedMode(program)
-        layout.addWidget(self.timedMode)
-#        layout.addWidget(TimedMode(program))
-#        layout.addWidget(TimedMode(program))
-#        layout.addWidget(TimedMode(program))
+        modes = []
+        mode = TimedMode(self.timedModeSelected)
+        modes.append(mode)
+        layout.addWidget(mode)
+        mode = TimedMode(self.boostModeSelected)
+        modes.append(mode)
+        layout.addWidget(mode)
+        mode = TimedMode(self.onModeSelected)
+        modes.append(mode)
+        layout.addWidget(mode)
+        mode = TimedMode(self.offModeSelected)
+        modes.append(mode)
+        layout.addWidget(mode)
+    
+    def timedModeSelected(self):
+        self.accept('timed')
+    
+    def boostModeSelected(self):
+        self.accept('boost')
+    
+    def onModeSelected(self):
+        self.accept('on')
+    
+    def offModeSelected(self):
+        self.accept('off')
 
-    def accept(self, action):
-        self.result = action
+    def accept(self, result):
+        self.result = result
         # Create a timer and wait for it
         timer = QTimer()
         timer.setSingleShot(True)
-        timer.start(500)  # 500ms delay
+        timer.start(300)  # 300ms delay
         while timer.isActive():
             QApplication.processEvents()
         super().accept()

@@ -7,8 +7,10 @@
 
 !    import rbrwin Window
 
-    modeDialog Mode
+    modeDialog ModeDialog
+    variable Result
 
-    show Mode
+    get Result from ModeDialog
+    log Result
 
     stop
