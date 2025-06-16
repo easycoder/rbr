@@ -85,6 +85,16 @@ class ExpandingLabel(QLabel):
         self.setAlignment(Qt.AlignCenter)
 
 ###############################################################################
+# A generic icon
+class GenericIcon(ExpandingLabel):
+    def __init__(self, icon, size):
+        super().__init__()
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.setAlignment(Qt.AlignCenter)
+        pixmap = QPixmap(icon).scaled(size, size)
+        self.setPixmap(pixmap)
+
+###############################################################################
 # A button just containing tezt
 
 class TextButton(QPushButton):
@@ -514,20 +524,16 @@ class GenericMode(QWidget):
         # print('Stylesheet:', stylesheet)
         self.setStyleSheet(stylesheet)
 
-###############################################################################
-# The Timed Mode widget
-class TimedMode(GenericMode):
-
     # The left-hand panel, with label and icon
     # This animates when clicked
-    class TimedModeLeft(WidgetSet):
+    class GenericModeLeft(WidgetSet):
         clicked = Signal()
 
         def __init__(self, widgets, horizontal=True, margins=(5, 5, 5, 5), spacing=10, fcb=None):
             super().__init__(widgets, horizontal, margins, spacing)
             self.fcb = fcb
             self.clicked.connect(lambda: self.animate())
-            self.setObjectName('TimedModeLeft')
+            self.setObjectName('GenericModeLeft')
 
         # Generate a signal when the widget is clicked
         def mousePressEvent(self, event):
@@ -545,21 +551,52 @@ class TimedMode(GenericMode):
             QTimer.singleShot(200, lambda: self.moveBack())  # Move back after 200ms
             if self.fcb != None: self.fcb()
 
-        def getIndex(self):
-            return self.index
+    # A generic mode label
+    class GenericModeLabel(ExpandingLabel):
+        def __init__(self, text, height=50):
+            super().__init__(text)
+            if height != None: self.setFixedHeight(height)
+            self.setObjectName('GenericModeLabel')
 
-    # The right-hand panel, with icon and Advance label
-    class TimedModeRight(WidgetSet):
-        def __init__(self, widgets, horizontal=True, margins=(0, 0, 0, 0), spacing=5):
-            super().__init__(widgets, horizontal, margins, spacing)
-            self.setObjectName('TimedModeRight')
-
-    # The label on the left panel
-    class TimedModeLabel(ExpandingLabel):
+    # A bordered label
+    class BorderedLabel(ExpandingLabel):
         def __init__(self, text):
             super().__init__(text)
-            self.setFixedHeight(50)
-            self.setObjectName('TimedModeLabel')
+            self.setObjectName('BorderedLabel')
+
+    # A generic mode icon
+    class GenericModeIcon(GenericIcon):
+        def __init__(self, icon, size):
+            super().__init__(icon, size)
+            self.setObjectName('GenericModeIcon')
+
+    # The right-hand panel
+    class GenericModeRight(WidgetSet):
+        def __init__(self, widgets, horizontal=True, margins=(0, 0, 0, 0), spacing=5):
+            super().__init__(widgets, horizontal, margins, spacing)
+            self.setObjectName('GenericModeRight')
+
+    # Create a lwyout and add left and right widgets
+    def setupMode(self, left, right):
+        mainLayout = QHBoxLayout(self)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.setSpacing(0)
+        
+        self.styles['QFrame#GenericModeLeft'] = defaultGrayFrameStyle()
+        self.styles['QLabel#GenericModeLabel'] = borderlessQLabelStyle(20)
+        self.styles['QLabel#BorderedLabel'] = defaultQLabelStyle(20)
+        self.styles['QLabel#GenericModeIcon'] = borderlessIconStyle()
+        self.styles['QFrame#GenericModeRight'] = invisibleQFrameStyle()
+
+        content = WidgetSet((left, right), horizontal=True)
+        content.setFixedSize(500, 150)
+        mainLayout.addWidget(content)
+
+        self.setStyles()
+
+###############################################################################
+# The Timed Mode widget
+class TimedMode(GenericMode):
 
     # The label on the right panel
     class AdvanceLabel(ExpandingLabel):
@@ -567,64 +604,107 @@ class TimedMode(GenericMode):
             super().__init__(text)
             self.setObjectName('AdvanceLabel')
 
-    # The icon on the left panel
-    class GenericIcon(ExpandingLabel):
-        def __init__(self, icon, size):
-            super().__init__()
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.setAlignment(Qt.AlignCenter)
-            pixmap = QPixmap(icon).scaled(size, size)
-            self.setPixmap(pixmap)
-
-    # The icon on the left panel
-    class TimedModeIcon(GenericIcon):
-        def __init__(self, icon, size):
-            super().__init__(icon, size)
-            self.setObjectName('TimedModeIcon')
-
     # The icon on the right panel
     class EditIcon(GenericIcon):
-        def __init__(self, icon, size):
-            super().__init__(icon, size)
+        def __init__(self, size):
+            super().__init__('/home/graham/dev/rbr/ui/main/edit.png', size)
             self.setObjectName('EditIcon')
 
-    # The main class for the Timed Mode widget
+    # The main class for the widget
     def __init__(self, fcb=None):
         super().__init__()
         self.fcb = fcb
 
-        mainLayout = QHBoxLayout(self)
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-        mainLayout.setSpacing(0)
-
-        self.styles['QFrame#TimedModeLeft'] = defaultGrayFrameStyle()
-
         # Do the left-hand panel, with a label and an icon
-        self.styles['QLabel#TimedModeLabel'] = borderlessQLabelStyle(20)
-        top = self.TimedModeLabel('Timed')
+        top = self.GenericModeLabel('Timed')
         top.setFixedHeight(40)
-        self.styles['QLabel#TimedModeIcon'] = borderlessIconStyle()
-        bottom = self.TimedModeIcon('/home/graham/dev/rbr/ui/main/timed.png', 50)
+        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/timed.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.TimedModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
         self.styles['QLabel#EditIcon'] = defaultIconStyle()
-        top = self.EditIcon('/home/graham/dev/rbr/ui/main/edit.png', 50)
+        top = self.EditIcon(50)
         self.styles['QLabel#AdvanceLabel'] = defaultQLabelStyle(20)
         bottom = self.AdvanceLabel('Advance')
-        right = self.TimedModeRight((top, bottom), horizontal=False)
+        right = self.GenericModeRight((top, bottom), horizontal=False)
 
-        # Put left and right into the main widget set
-        self.styles['QFrame#TimedModeRight'] = invisibleQFrameStyle()
-        content = WidgetSet((left, right), horizontal=True)
-        content.setFixedSize(500, 150)
-        mainLayout.addWidget(content)
+        self.setupMode(left, right)
 
-        self.setStyles()
+###############################################################################
+# The Boost Mode widget
+class BoostMode(GenericMode):
+
+    # The main class for the widget
+    def __init__(self, fcb=None):
+        super().__init__()
+        self.fcb = fcb
+
+        # Do the left-hand panel, with a label and an icon
+        top = self.GenericModeLabel('Boost')
+        top.setFixedHeight(40)
+        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/boost.png', 50)
+        bottom.setFixedHeight(70)
+
+        # Create the left panel
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left.setFixedWidth(150)
+
+        # Do the right-hand panel
+        right = QLabel()
+
+        self.setupMode(left, right)
+
+###############################################################################
+# The On Mode widget
+class OnMode(GenericMode):
+
+    # The main class for the widget
+    def __init__(self, fcb=None):
+        super().__init__()
+        self.fcb = fcb
+
+        # Do the left-hand panel, with a label and an icon
+        top = self.GenericModeLabel('On')
+        top.setFixedHeight(40)
+        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/on.png', 50)
+        bottom.setFixedHeight(70)
+
+        # Create the left panel
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left.setFixedWidth(150)
+
+        # Do the right-hand panel
+        right = QLabel()
+
+        self.setupMode(left, right)
+
+###############################################################################
+# The Off Mode widget
+class OffMode(GenericMode):
+
+    # The main class for the widget
+    def __init__(self, fcb=None):
+        super().__init__()
+        self.fcb = fcb
+
+        # Do the left-hand panel, with a label and an icon
+        top = self.GenericModeLabel('Off')
+        top.setFixedHeight(40)
+        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/off.png', 50)
+        bottom.setFixedHeight(70)
+
+        # Create the left panel
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left.setFixedWidth(150)
+
+        # Do the right-hand panel
+        right = self.BorderedLabel('Permanently\nOff')
+
+        self.setupMode(left, right)
 
 ###############################################################################
 # The Operating Mode dialog
@@ -647,15 +727,20 @@ class ModeDialog(QDialog):
         mode = TimedMode(self.timedModeSelected)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = TimedMode(self.boostModeSelected)
+        mode = BoostMode(self.boostModeSelected)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = TimedMode(self.onModeSelected)
+        mode = OnMode(self.onModeSelected)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = TimedMode(self.offModeSelected)
+        mode = OffMode(self.offModeSelected)
         modes.append(mode)
         layout.addWidget(mode)
+
+        # Add Cancel button
+        cancelButton = TextButton(program, 'Cancel', 40, 'Cancel')
+        cancelButton.setFCB(self.reject)
+        layout.addWidget(cancelButton)
     
     def timedModeSelected(self):
         self.accept('timed')
@@ -678,6 +763,9 @@ class ModeDialog(QDialog):
         while timer.isActive():
             QApplication.processEvents()
         super().accept()
+    
+    def reject(self, value):
+        super().reject()
 
     def show(self):
         # Show dialog and return result
