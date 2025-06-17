@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QVBoxLayout,
     QDialog,
-    QSizePolicy
+    QSizePolicy,
+    QGridLayout
 )
 from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
@@ -638,8 +639,14 @@ class TimedMode(GenericMode):
 # The Boost Mode widget
 class BoostMode(GenericMode):
 
+    # A generic boost button
+    class BoostButton(TextButton):
+        def __init__(self, program, text):
+            super().__init__(program, text, 65, text)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
     # The main class for the widget
-    def __init__(self, fcb=None):
+    def __init__(self, program, fcb=None):
         super().__init__()
         self.fcb = fcb
 
@@ -654,7 +661,25 @@ class BoostMode(GenericMode):
         left.setFixedWidth(150)
 
         # Do the right-hand panel
-        right = QLabel()
+        panel = QWidget()
+        panel.setStyleSheet('background: transparent;')
+        gridLayout = QGridLayout(panel)
+        gridLayout.setSpacing(5)
+        gridLayout.setContentsMargins(0,0,0,0)
+        
+        # Create 4 boost buttons in a 2x2 grid
+        boost15 = self.BoostButton(program, "Off")
+        boost30 = self.BoostButton(program, "30 min")
+        boost60 = self.BoostButton(program, "1 hour")
+        boost120 = self.BoostButton(program, "2 hours")
+        
+        # Add buttons to grid
+        gridLayout.addWidget(boost15, 0, 0)
+        gridLayout.addWidget(boost30, 0, 1)
+        gridLayout.addWidget(boost60, 1, 0)
+        gridLayout.addWidget(boost120, 1, 1)
+
+        right = self.GenericModeRight([panel], horizontal=False)
 
         self.setupMode(left, right)
 
