@@ -41,20 +41,23 @@ LC_ALL=en_GB.UTF-8
 
 The next time you reboot the computer it will come up in English.
 
-The other problem is the computer is in landscape orientation, but for our purposes we want portrait. So we need to rotate the screen. Open the editor again:
+The other problem is the computer is in landscape orientation, but for our purposes we want portrait. So we need to rotate the screen. We do this by adding an `xrandr `command to the startup applications:
+
+### Open Startup Applications: ###
+
+Go to the XFCE menu and navigate to Settings > Session and Startup.
+Click on the Application Autostart tab.
+
+### Add a New Startup Program: ###
+
+Click on the "Add" button.
+In the "Name" field, enter a descriptive name like "Rotate Screen".
+In the "Command" field, enter the `xrandr` command for the desired rotation:
 
 ```
-nano rotate.sh
+`xrandr --output DSI-1 --rotate left`
 ```
 
- and enter the following:
-
-```
-#!/bin/bash
-
-xrandr --output DSI-1  --rotate left
-```
-
-then save and exit. The next time you restart, the screen will be rotated 90 degrees to the left.
+Click "OK" to save the new startup program.The next time you restart, the screen will be rotated 90 degrees to the left.
 
 Now you can start installing the RBR applications; go to [Setting up RBR](setupRBR.md).
