@@ -339,8 +339,14 @@ Start:
 
 !   Load the main config file or create one if there is none
     put trim system `echo $HOME` cat `/.rbr.conf` into ConfigFile
-    load Config from ConfigFile
-    if Config is empty put json `{}` into Config else put json Config into Config
+    if file ConfigFile exists load Config from ConfigFile
+    else put empty into Config
+    if Config is empty
+    begin
+        put `{}` into Config
+        save Config to ConfigFile
+    end
+    put json Config into Config
     if Config does not have property `hosts` set property `hosts` of Config to json `{}`
     if Config does not have property `systems` set property `systems` of Config to json `{}`
     if Config does not have property `current-system` set property `current-system` of Config to empty

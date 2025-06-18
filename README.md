@@ -46,3 +46,6 @@ There are two items of primary interest in the repo:
 ## Call for collaborators ##
 
 This project has been developed by one person - me. It controls my central heating and that of a friend, but we'd like to spread the knowledge. I'm getting on in years so I won't be able to support it for very much longer. Anyone who is interested in joining will be most welcome. No strings are attached and I'll give as much help as I can to get you up the learning curve. The project uses some unusual programming techniques designed to help casual programmers get familiar with the product, but underneath it's all pure JavaScript, Python and PHP.
+
+## Further documentation ##
+For instructions on setting up a system, go to [Setting up RBR](doc/setupRBR.md).
