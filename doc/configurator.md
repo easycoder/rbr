@@ -85,17 +85,15 @@ The configuration is a GUI application written in EasyCoder for Python. It runs 
 
 <img src="img/config.png" width="100%">
 
-When first started up, the configurator performs a network scan and presents a list of all the available access points. The user chooses the one their own RBR network will be using, which may not be the one the computer is currently connected to. The configurator then offers to either move the system to the user’s network or reconnect the user’s computer to the system’s network (if it’s accessible).
-
-The configurator also asks for the directory containing the Micropython source files for the RBR-Now devices, so that updates can be applied if needed
+When first started up, the configurator identifies the networkthe computer is currently connected to, and asks for the wifi password (as this cannot be obtained any other way). It also asks for the directory containing the Micropython source files for the RBR-Now devices, so that updates can be applied if needed. The requested path is relative to your home folder, not to the system root.
 
 ## Finding RBR systems
 
-Initially, the only button that is enabled is “System Scan”. This performs a scan of the network to discover  RBR system controllers. Each of these runs an access point on an obscure port number, that responds to a specific request by returning its name, MAC address and password for accessing the RBR server. With this information, the configurator contacts the server and downloads the current configuration information (if any) held for that system. As can be seen above, the UI is populated with this information. The system scan takes around 5 minutes as it has to check every IP address from 1 through 254.
+Initially, the only button that is enabled is “System Scan”. This performs a scan of the network to discover RBR system controllers. Each of these runs an access point on an obscure port number, that responds to a specific request by returning its name, MAC address and password for accessing the RBR web server. With this information, the configurator contacts the server and downloads the current configuration information (if any) held for that system. As can be seen above, the UI is populated with this information. The system scan takes around 5 minutes as it has to check every IP address from 1 through 254.
 
-The configurator can handle any number of systems, even if they are not all on the same network. The Systems dropdown box holds a list of names, and when one is selected the configurator attempts to connect to its network. If it fails, the attempt is abandoned. This feature allows a single computer to configure and maintain RBR systems at many locations.
+The configurator can handle any number of systems, even if they are not all on the same network. The Systems dropdown box holds a list of names, and when one is selected the configurator checks if the network for that system matches the one the user's computer is currently on. If not, it offers to reconnect to the system’s network (if it’s accessible). Note that this has no effect on the RBR devices themselves. There's also a Cancel option which does nothing, but this will leave you unable to access the devices on the selected system.
 
-All configurator functions that make changes to the information held will require confirmation from the user, so it is quite safe to experiment with the buttons.
+All configurator functions that make changes to the information held will require confirmation from the user, so it is generally quite safe to experiment with the buttons. Note also that while the configurator is running, the system controller on the selected system is prevented from running. This lets you turn relays on and off manually from the configurator without the system controller immediately overriding your actions.
 
 ## Finding RBR-Now devices
 
