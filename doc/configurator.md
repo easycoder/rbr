@@ -37,7 +37,7 @@ ESP-Now requires a device to have an active wifi connection, but the access poin
 
 The master device has a slightly more complex configuration. When first set up it will be passed the SSID and password of the network it is to connect to (the home router). After a reset it then connects to that network as a client and receives an IP address that will subsequently be used for all communications between the system controller and the RBR-Now device network.
 
-## Running the configurator
+## System prerequisites ##
 
 To run the configurator you will need EasyCoder. This should have been set up when the RBR software was installed, but if not you  can run
 
