@@ -83,7 +83,7 @@ easycoder rbrconf.ecs
 The configuration is a GUI application written in EasyCoder for Python. It runs exclusively on Linux because it requires the use of commands that are not available on Windows. Here is a screenshot of the application under development:
 <br/>
 
-<img src=":/e38244a9f8c34fc68376682a92db04a5" width="690" height="521" style="margin-left: 0px; margin-top: 0px;" class="jop-noMdConv">
+<img src="img/config.png" width="100%">
 
 When first started up, the configurator performs a network scan and presents a list of all the available access points. The user chooses the one their own RBR network will be using, which may not be the one the computer is currently connected to. The configurator then offers to either move the system to the user’s network or reconnect the user’s computer to the system’s network (if it’s accessible).
 
