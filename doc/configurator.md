@@ -47,7 +47,7 @@ To run the configurator you will need EasyCoder. This should have been set up wh
 pip install -U easycoder
 ```
 
-where the `-U` option makes sure that any older version you may have will be updated to the latest. EasyCoder will install in `~/.local/bin`, which may not be on your execution path. You can either adjust this (e.g. in .profile), or give the full path when you run EasyCoder, or set up an alias using the `ln` system command such as:
+where the `-U` option makes sure that any older version you may have will be updated to the latest. EasyCoder will install in `~/.local/bin`, which may not be on your execution path. You can either adjust this (e.g. in `.profile`), or give the full path when you run EasyCoder, or set up an alias using the `ln` system command such as:
 
 ```
 ln -s ~/.local/bin/easycoder ec
@@ -78,7 +78,7 @@ Now issue this command:
 easycoder rbrconf.ecs
 ```
 
-## The system configurator
+## The system configurator ##
 
 The configuration is a GUI application written in EasyCoder for Python. It runs exclusively on Linux because it requires the use of commands that are not available on Windows. Here is a screenshot of the application under development:
 <br/>
@@ -87,7 +87,11 @@ The configuration is a GUI application written in EasyCoder for Python. It runs 
 
 When first started up, the configurator identifies the networkthe computer is currently connected to, and asks for the wifi password (as this cannot be obtained any other way). It also asks for the directory containing the Micropython source files for the RBR-Now devices, so that updates can be applied if needed. The requested path is relative to your home folder, not to the system root.
 
-## Finding RBR systems
+# Overview of the configurator #
+
+I'll start by outlining the primary features of the configurator, before decribing in detail how to set up a network of devices using the tool.
+
+## Finding RBR systems ##
 
 Initially, the only button that is enabled is “System Scan”. This performs a scan of the network to discover RBR system controllers. Each of these runs an access point on an obscure port number, that responds to a specific request by returning its name, MAC address and password for accessing the RBR web server. With this information, the configurator contacts the server and downloads the current configuration information (if any) held for that system. As can be seen above, the UI is populated with this information. The system scan takes around 5 minutes as it has to check every IP address from 1 through 254.
 
@@ -95,13 +99,13 @@ The configurator can handle any number of systems, even if they are not all on t
 
 All configurator functions that make changes to the information held will require confirmation from the user, so it is generally quite safe to experiment with the buttons. Note also that while the configurator is running, the system controller on the selected system is prevented from running. This lets you turn relays on and off manually from the configurator without the system controller immediately overriding your actions.
 
-## Finding RBR-Now devices
+## Finding RBR-Now devices ##
 
 With the appropriate system selected, the “Scan for devices” button searches the current network for RBR-Now devices, each of which has an SSID starting with RBR-Now-, as described in the Overview above. A list is then presented to the user, who selects one. The first time this is done for a system, the chosen device will become the master. The configurator connects to the device’s access point and sends it a new `config.json`, which includes the SSID and password of the network router. It then requests the device to reset and waits for 10 seconds for this to happen. When the device restarts it connects to the network and gets an IP address that the system controller will need, so the configurator now sends a request to the device for this address, which is added to the system configuration and sent back to the server.
 
 A slave device requires none of the above configuration. Once selected it just goes into the “Slave devices” list.
 
-## Working with devices
+## Working with devices ##
 
 The user can select the master device or any one of the slaves by clicking its name. This causes the current configuration of the device to be copied into the “Selected device” fields. Here you set the name of the device and the pin numbers it uses for the LED, relay and thermometer (other fields may be added in future). Every time you interact with the device you will see the “Uptime” value increase, confirming that the device is active.
 
@@ -109,7 +113,12 @@ Once changes have been made, clicking the “Update” button writes the changed
 
 If the device is driving a relay you can turn this on and off by clicking the appropriate button.
 
-## Information storage
+## Information storage ##
 
 The configurator creates a hidden file `.rbr.conf` in the users’ home directory, containing all the currently known information about the systems being managed and the devices they contain. Each of the systems managed has its own configuration file on the RBR webserver; this is copied over when a system is accessed in the UI, and replaces that part of the local file. This is to permit changes to be made on different computers; the UI will always use the most recent data.
+
+# A walk-through of the setup process #
+
+Let's imagine a system with 4 rooms; Kitchen, Lounge, Bedroom 1 and Bedroom 2. Each of these has a single radiator, which is controlled by an electric TRV powered by an RBR-Now relay box. Let's suppose the system controller is in the kitchen, so it makes sense for the Master device is the one next to the kitchen radiator. All the other roooms are assumed to be close enough for the wireless signals to reach from the kitchen.
+
 

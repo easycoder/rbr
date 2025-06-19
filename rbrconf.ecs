@@ -429,13 +429,51 @@ ScanSystemsClick:
     gosub to SetBusy
     log `Scan for system controllers`
     disable ScanSystemsButton
-    put 0 into Count
-    gosub to ScanSystems
-    if Count is 0
+    create MessageBox on Window
+        style yesnocancel
+        title `Systems scan`
+        message `Do you know the IP address of a new system controller?` cat newline
+            cat `If not, I will do a complete scan of the local network, taking about 5 minutes.`
+    show MessageBox giving Value
+    log Value
+
+    if Value is `Yes`
     begin
-        put `No new systems were found` into StatusMessage
-        gosub to Error
+        put `New RBR system` into Title
+        put `Type the IP adress of the new system` into Prompt
+        put empty into Value
+        put 20 into Length
+        gosub to GetRequestedText
+        put ReturnValue into IPAddr
+        put 0 into Count
+        gosub to ScanIPAddress
+        log `Result: ` cat Result
+        if Result is not `OK`
+        begin
+            put `The system did not respond to the scan` into StatusMessage
+            gosub to Error
+            gosub to SetButtonStates
+            stop
+        end
     end
+
+    else if Value is `No`
+    begin
+        put 0 into Count
+        gosub to ScanSystems
+        if Count is 0
+        begin
+            put `No new systems were found` into StatusMessage
+            gosub to Error
+        end
+    end
+
+    else
+    begin  ! The Cancel button was clicked
+        gosub to SetButtonStates
+        stop 
+    end
+
     gosub to RefreshSystemsCombo
     gosub to PostConfigData
     gosub to SetButtonStates
@@ -455,31 +493,7 @@ ScanSystems:
         put left P of MyIPAddr into Value
         put Value cat N into IPAddr
         put `Scanning ` cat IPAddr into StatusMessage
-        gosub to Working
-        get Result from url `http://` cat IPAddr cat `:17348/cgi-bin/mac.py` timeout 1 or go to SS2
-        increment Count
-        put trim Result into Result
-        log IPAddr cat `: ` cat Result
-        put the position of ` ` in Result into P
-        put left P of Result into SystemMAC
-        increment P
-        put from P of Result into Result
-        put the position of ` ` in Result into P
-        put left P of Result into SystemPassword
-        increment P
-        put from P of Result into SystemName
-        put json `{}` into SystemConfig
-        set property `host-ssid` of SystemConfig to HostSSID
-        set property `host-password` of SystemConfig to HostPassword
-        set property `ipaddr` of SystemConfig to IPAddr
-        set property `mac` of SystemConfig to SystemMAC
-        set property `password` of SystemConfig to SystemPassword
-        set property `devices` of SystemConfig to json `{}`
-        log `Adding ` cat SystemName cat ` to Systems`
-        gosub to GetConfigData
-!        log prettify SystemConfig
-        set property SystemName of Systems to SystemConfig
-    SS2:
+        gosub to ScanIPAddress
         wait 10 ticks
         increment N
     end
@@ -488,6 +502,40 @@ ScanSystems:
 !    log `After scan: ` cat prettify Config
     gosub to PostConfigData
     go to OK
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Scan a supplied IP address
+ScanIPAddress:
+    gosub to Working
+    put empty into Result
+    get Result from url `http://` cat IPAddr cat `:17348/cgi-bin/mac.py` timeout 1 or go to SIA2
+    increment Count
+    put trim Result into Result
+    log IPAddr cat `: ` cat Result
+    put the position of ` ` in Result into P
+    put left P of Result into SystemMAC
+    increment P
+    put from P of Result into Result
+    put the position of ` ` in Result into P
+    put left P of Result into SystemPassword
+    increment P
+    put from P of Result into SystemName
+    put json `{}` into SystemConfig
+    set property `host-ssid` of SystemConfig to HostSSID
+    set property `host-password` of SystemConfig to HostPassword
+    set property `ipaddr` of SystemConfig to IPAddr
+    set property `mac` of SystemConfig to SystemMAC
+    set property `password` of SystemConfig to SystemPassword
+    set property `devices` of SystemConfig to json `{}`
+    log `Adding ` cat SystemName cat ` to Systems`
+    gosub to GetConfigData
+!    log prettify SystemConfig
+    set property SystemName of Systems to SystemConfig
+    put `OK` into Result
+    return
+SIA2:
+    put `Fail` into Result
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Get the config data for a system
@@ -578,7 +626,7 @@ RemoveSystemClick:
     create MessageBox on Window
         style question
         title `Remove system`
-        message `Continue you want to remove ` cat Name cat `?`
+        message `Are you sure you want to remove ` cat Name cat `?`
     show MessageBox giving Value
     if Value is `Yes`
     begin
@@ -934,30 +982,24 @@ CreateDevice:
 PopulateSystemInfo:
     log `Populate fields for ` cat SystemName
     put property `host-ssid` of SystemConfig into SystemHostSSID
-    put property `host-password` of SystemConfig into Password
+    put property `host-password` of SystemConfig into HostPassword
     if SystemHostSSID is not HostSSID
     begin
         put `Different host SSID: ` cat SystemHostSSID into StatusMessage
         gosub to Working
         create MessageBox on Window
-            style yesnocancel
-            title `Move system`
-            message `Shall I move system ` cat SystemName cat ` to the current host (` cat HostSSID cat `)?` cat newline
-                cat `(If 'No' I will attempt to connect to ` cat SystemHostSSID cat `)`
+            style question
+            title `Change network`
+            message `You are not connected to the same network as system ` cat SystemName
+                cat `. Would you like to connect to that network (` cat SystemHostSSID cat `)?`
         show MessageBox giving Value
         if Value is `Yes`
         begin
-            put HostSSID into SystemHostSSID
-            set property `host-ssid` of SystemConfig to HostSSID
-            set property `host-password` of SystemConfig to HostPassword
-            gosub to UpdateSystems
-        end
-        else if Value is `No`
-        begin
             put SystemHostSSID into HostSSID
-            put Password into HostPassword
             system `nmcli connection delete ` cat HostSSID
+            log `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword
             put system `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword into SystemCallResult
+            log SystemCallResult
             split SystemCallResult on ` `
             if the elements of SystemCallResult is greater than 2
             begin
@@ -1729,6 +1771,9 @@ PostConfigData:
 UpdateSystemConfig:
     set property `devices` of SystemConfig to Devices
 UpdateSystems:
+!   Bug fix
+!    put `Ur4nXVQKJPrQcJ` into HostPassword
+!    set property `host-password` of SystemConfig to HostPassword
     set property SystemName of Systems to SystemConfig
 UpdateConfig:
     set property `systems` of Config to Systems
