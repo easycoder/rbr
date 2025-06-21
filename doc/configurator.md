@@ -1,6 +1,6 @@
-6# RBR-Now Configuration
+# RBR-Now Configurator #
 
-RBR-Now is a collection of local devices, all powered by ESP32, that implement the ESP-Now networking protocol to accept commands from a central controller. Configuration is a fairly complex procedure, so a special tool has been built to automate the process.
+RBR-Now is a collection of local devices, all powered by ESP32, that implement the ESP-Now networking protocol to accept commands from a central controller. (For setting up hardware, [see here](setupHardware.md)). Configuration is a fairly complex procedure, so a special tool has been built to automate the process.
 
 ## Overview
 
