@@ -31,7 +31,7 @@ Let's change the system language from Chinese to UK English. Open the following 
 
 ```
 sudo nano /etc/default/locale
-````
+```
 
 As supplied, this specifies the Chinese language, so change it by replacing all the content with
 

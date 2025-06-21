@@ -149,26 +149,25 @@ class TextButton(QPushButton):
 # A button containing an icon
 
 class IconButton(QPushButton):
-    def __init__(self, program, name, height, text, icon, index=0):
+    def __init__(self, program, height, icon, index=0):
         super().__init__()
         self.program = program
-        self.name = name
-        self.text = text
         self.index = index
         self.onClick = None
         self.clicked.connect(lambda: self.animate_button(self.index))
 
-        self.setFixedSize(height, height)
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background-color #ccc;
-                border:none;
-                border-radius:{int(height * 0.2)}px;  /* Rounded corners */
-            }}
-        """)
+        if height != None:
+            self.setFixedSize(height, height)
+            self.setStyleSheet(f"""
+                QPushButton {{
+                    background-color #ccc;
+                    border:none;
+                    border-radius:{int(height * 0.2)}px;  /* Rounded corners */
+                }}
+            """)
+            self.setIconSize(QSize(height * 0.8, height * 0.8))
 
         self.setIcon(QIcon(icon))
-        self.setIconSize(QSize(height * 0.8, height * 0.8))
     
     def setOnClick(self, onClick):
         self.onClick = onClick
@@ -178,7 +177,7 @@ class IconButton(QPushButton):
         except: pass
 
     def animate_button(self, index):
-        self.program.roomIndex = index
+        if index != None: self.program.roomIndex = index
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.moveBack())
@@ -314,7 +313,7 @@ class Room(QFrame):
         self.temperatureButton = temperatureButton
 
         # Icon 2: Tools
-        self.toolsButton = IconButton(self.program, name, height * 3 // 4, 'tools', '/home/graham/dev/rbr/ui/main/edit.png', index)
+        self.toolsButton = IconButton(self.program, height * 3 // 4, '/home/graham/dev/rbr/ui/main/edit.png', index)
 
         # Add elements to the row layout
         modePanelLayout.addWidget(self.modeButton)
@@ -364,7 +363,7 @@ class Banner(QLabel):
         layout.setContentsMargins(0, 0, 0, 0)
 
         # The home buttom
-        homeButton = IconButton(program, '-', height * 3 // 4, 'home', '/home/graham/dev/rbr/ui/main/RBRLogo.png')
+        homeButton = IconButton(program, height * 3 // 4, '/home/graham/dev/rbr/ui/main/RBRLogo.png')
         layout.addWidget(homeButton)
 
         # The title panel
@@ -390,7 +389,7 @@ class Banner(QLabel):
         layout.addWidget(titlePanel)
 
         #The Hamburger button
-        self.hamburgerButton = IconButton(program, '-', height * 3 // 4, 'menu', '/home/graham/dev/rbr/ui/main/hamburger.png')
+        self.hamburgerButton = IconButton(program, height * 3 // 4, '/home/graham/dev/rbr/ui/main/hamburger.png')
         layout.addWidget(self.hamburgerButton)
     
     def getElement(self, name):
@@ -612,8 +611,9 @@ class TimedMode(GenericMode):
             self.setObjectName('EditIcon')
 
     # The main class for the widget
-    def __init__(self, fcb=None):
+    def __init__(self, program, fcb=None):
         super().__init__()
+        self.program = program
         self.fcb = fcb
 
         # Do the left-hand panel, with a label and an icon
@@ -648,6 +648,7 @@ class BoostMode(GenericMode):
     # The main class for the widget
     def __init__(self, program, fcb=None):
         super().__init__()
+        self.program = program
         self.fcb = fcb
 
         # Do the left-hand panel, with a label and an icon
@@ -668,13 +669,13 @@ class BoostMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create 4 boost buttons in a 2x2 grid
-        boost15 = self.BoostButton(program, "Off")
+        boostOff = self.BoostButton(program, "Off")
         boost30 = self.BoostButton(program, "30 min")
         boost60 = self.BoostButton(program, "1 hour")
         boost120 = self.BoostButton(program, "2 hours")
         
         # Add buttons to grid
-        gridLayout.addWidget(boost15, 0, 0)
+        gridLayout.addWidget(boostOff, 0, 0)
         gridLayout.addWidget(boost30, 0, 1)
         gridLayout.addWidget(boost60, 1, 0)
         gridLayout.addWidget(boost120, 1, 1)
@@ -687,9 +688,29 @@ class BoostMode(GenericMode):
 # The On Mode widget
 class OnMode(GenericMode):
 
+    # The plus/minus buttons
+    class PlusMinusButton(IconButton):
+        def __init__(self, program, icon, fcb=None):
+            super().__init__(program, height=None, icon=icon)
+            self.setFixedHeight(50)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setStyleSheet('''
+                background-color: #ccc;
+                border: 2px solid #888;
+                border-radius: 10px;
+            ''')
+            self.setIconSize(QSize(30, 30))
+    
+    class Panel(QLabel):
+        def __init__(self):
+            super().__init__('0.0')
+            self.setAlignment(Qt.AlignCenter)
+            self.setStyleSheet('background: transparent;')
+
     # The main class for the widget
-    def __init__(self, fcb=None):
+    def __init__(self, program, fcb=None):
         super().__init__()
+        self.program = program
         self.fcb = fcb
 
         # Do the left-hand panel, with a label and an icon
@@ -703,9 +724,28 @@ class OnMode(GenericMode):
         left.setFixedWidth(150)
 
         # Do the right-hand panel
-        right = QLabel()
+        panel = self.Panel()
+        layout = QVBoxLayout(panel)
+        layout.setSpacing(0)
+        layout.setContentsMargins(0,0,0,0)
+        
+        # Create the buttons and text
+        upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png')
+        spacer = QLabel()
+        spacer.setFixedHeight(30)
+        downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png')
+        
+        # Add buttons to grid
+        layout.addWidget(upButton)
+        layout.addWidget(spacer)
+        layout.addWidget(downButton)
+
+        right = self.GenericModeRight([panel], horizontal=False)
 
         self.setupMode(left, right)
+    
+    def setSetting(self, value):
+        self.panel.setText(value)
 
 ###############################################################################
 # The Off Mode widget
@@ -749,13 +789,13 @@ class ModeDialog(QDialog):
 
         # Add modes
         modes = []
-        mode = TimedMode(self.timedModeSelected)
+        mode = TimedMode(program, self.timedModeSelected)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = BoostMode(self.boostModeSelected)
+        mode = BoostMode(program, self.boostModeSelected)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = OnMode(self.onModeSelected)
+        mode = OnMode(program, self.onModeSelected)
         modes.append(mode)
         layout.addWidget(mode)
         mode = OffMode(self.offModeSelected)

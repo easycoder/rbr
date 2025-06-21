@@ -1262,6 +1262,11 @@ ConnectToHost:
     set property `host-ssid` of Config to HostSSID
     if Config does not have property `host-password` gosub to GetHostPassword
     set property `host-password` of Config to HostPassword
+    if HostPassword is not `Ur4nXVQKJPrQcJ`
+    begin
+        log `******** I just set the host password for ` cat HostSSID cat ` to ` cat HostPassword cat `************`
+        print prettify Config
+    end
     go to ConnectToHost
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
