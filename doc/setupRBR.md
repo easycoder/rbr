@@ -6,9 +6,9 @@ Here are the steps to be taken to set up a new RBR system.
 2. Log in with the default user account name and password.
 3. Download the setup script from the RBR website:
 
-```
- wget https://rbrheating.com/ui/setup
-```
+   ```
+   wget https://rbrheating.com/ui/setup
+   ```
 
 4. Run the setup script. This will first ask for a new password, then update the system, download all the files needed, set up cron tasks and reboot the computer.
 
