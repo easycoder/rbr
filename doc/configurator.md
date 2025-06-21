@@ -1,4 +1,4 @@
-# RBR-Now Configuration
+6# RBR-Now Configuration
 
 RBR-Now is a collection of local devices, all powered by ESP32, that implement the ESP-Now networking protocol to accept commands from a central controller. Configuration is a fairly complex procedure, so a special tool has been built to automate the process.
 
@@ -119,5 +119,5 @@ The configurator creates a hidden file `.rbr.conf` in the users’ home director
 
 Let's imagine a system with 4 rooms; Kitchen, Lounge, Bedroom 1 and Bedroom 2. Each of these has a single radiator, which is controlled by an electric TRV powered by an RBR-Now relay box. Let's suppose the system controller is in the kitchen, so it makes sense for the Master device is the one next to the kitchen radiator. All the other roooms are assumed to be close enough for the wireless signals to reach from the kitchen.
 
-I assume you've already built the relay boxes, flashed them with Micropython and loaded the RBR-Now Python scripts onto them. If you need more information about doing this, [see here](setup-hardware.md). 
+I assume you've already built the relay boxes, flashed them with Micropython and loaded the RBR-Now Python scripts onto them. If you need more information about doing this, [see here](setupHardware.md). 
 
