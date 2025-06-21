@@ -22,14 +22,14 @@ from PySide6.QtCore import Qt, QTimer, QSize, Signal
 def defaultQFrameStyle():
     return '{' + f'''
         background-color: #ffc;
-        border: 2px solid #888;
+        border: 1px solid #888;
         border-radius: 10px;
         ''' + '}'
 
 def defaultGrayFrameStyle():
     return '{' + f'''
         background-color: #ccc;
-        border: 2px solid #888;
+        border: 1px solid #888;
         border-radius: 10px;
         ''' + '}'
 
@@ -48,7 +48,7 @@ def invisibleQFrameStyle():
 def defaultQLabelStyle(size):
     return '{' + f'''
         background-color: #ccc;
-        border: 2px solid #888;
+        border: 1px solid #888;
         border-radius: 10px;
         padding: 10px;
         font-size: {size}px;
@@ -67,7 +67,7 @@ def borderlessQLabelStyle(size):
 def defaultIconStyle():
     return '{' + f'''
         background-color: #ccc;
-        border: 2px solid #888;
+        border: 1px solid #888;
         border-radius: 10px;
         ''' + '}'
 
@@ -598,17 +598,25 @@ class GenericMode(QWidget):
 # The Timed Mode widget
 class TimedMode(GenericMode):
 
-    # The label on the right panel
-    class AdvanceLabel(ExpandingLabel):
-        def __init__(self, text):
-            super().__init__(text)
-            self.setObjectName('AdvanceLabel')
-
     # The icon on the right panel
-    class EditIcon(GenericIcon):
-        def __init__(self, size):
-            super().__init__('/home/graham/dev/rbr/ui/main/edit.png', size)
-            self.setObjectName('EditIcon')
+    class EditIcon(IconButton):
+        def __init__(self, program, icon, fcb=None):
+            super().__init__(program, height=None, icon=icon)
+            self.setFixedHeight(136)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setStyleSheet('''
+                background-color: #ccc;
+                border: 1px solid #888;
+                border-radius: 10px;
+            ''')
+            self.setIconSize(QSize(50, 50))
+
+    # The advance button
+    class AdvanceButton(TextButton):
+        def __init__(self, program, text):
+            super().__init__(program, text, 70, text)
+            self.setFixedHeight(136)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     # The main class for the widget
     def __init__(self, program, fcb=None):
@@ -627,11 +635,22 @@ class TimedMode(GenericMode):
         left.setFixedWidth(150)
 
         # Do the right-hand panel
+        panel = QWidget()
+        panel.setStyleSheet('background: transparent;')
+        gridLayout = QGridLayout(panel)
+        gridLayout.setSpacing(5)
+        gridLayout.setContentsMargins(0,0,0,0)
+        
+        # Create the buttons and text
         self.styles['QLabel#EditIcon'] = defaultIconStyle()
-        top = self.EditIcon(50)
-        self.styles['QLabel#AdvanceLabel'] = defaultQLabelStyle(20)
-        bottom = self.AdvanceLabel('Advance')
-        right = self.GenericModeRight((top, bottom), horizontal=False)
+        edit = self.EditIcon(program, '/home/graham/dev/rbr/ui/main/edit.png')
+        advance = self.AdvanceButton(program, 'Advance')
+        
+        # Add buttons to grid
+        gridLayout.addWidget(edit, 0, 0)
+        gridLayout.addWidget(advance, 0, 1)
+
+        right = self.GenericModeRight([panel], horizontal=False)
 
         self.setupMode(left, right)
 
@@ -692,14 +711,14 @@ class OnMode(GenericMode):
     class PlusMinusButton(IconButton):
         def __init__(self, program, icon, fcb=None):
             super().__init__(program, height=None, icon=icon)
-            self.setFixedHeight(40)
+            self.setFixedHeight(136)
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             self.setStyleSheet('''
                 background-color: #ccc;
-                border: 2px solid #888;
+                border: 1px solid #888;
                 border-radius: 10px;
             ''')
-            self.setIconSize(QSize(25, 25))
+            self.setIconSize(QSize(50, 50))
 
     # The 'setting' label
     class SettingLabel(ExpandingLabel):
@@ -731,15 +750,15 @@ class OnMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the buttons and text
-        upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png')
+        upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png')
         self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
         self.settingLabel = self.SettingLabel('0.0')
-        downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png')
+        downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png')
         
         # Add buttons to grid
         gridLayout.addWidget(upButton, 0, 0)
-        gridLayout.addWidget(self.settingLabel, 1, 0)
-        gridLayout.addWidget(downButton, 2, 0)
+        gridLayout.addWidget(self.settingLabel, 0, 1)
+        gridLayout.addWidget(downButton, 0, 2)
 
         right = self.GenericModeRight([panel], horizontal=False)
 
@@ -747,69 +766,6 @@ class OnMode(GenericMode):
     
     def getSettinglabel(self):
         return self.settingLabel
-
-###############################################################################
-# The On Mode widget
-class OnModeX(GenericMode):
-
-    # The plus/minus buttons
-    class PlusMinusButton(IconButton):
-        def __init__(self, program, icon, fcb=None):
-            super().__init__(program, height=None, icon=icon)
-            self.setFixedHeight(50)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.setStyleSheet('''
-                background-color: #ccc;
-                border: 2px solid #888;
-                border-radius: 10px;
-            ''')
-            self.setIconSize(QSize(30, 30))
-    
-    class Panel(QLabel):
-        def __init__(self):
-            super().__init__('0.0')
-            self.setAlignment(Qt.AlignCenter)
-            self.setStyleSheet('background: transparent;')
-
-    # The main class for the widget
-    def __init__(self, program, fcb=None):
-        super().__init__()
-        self.program = program
-        self.fcb = fcb
-
-        # Do the left-hand panel, with a label and an icon
-        top = self.GenericModeLabel('On')
-        top.setFixedHeight(40)
-        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/on.png', 50)
-        bottom.setFixedHeight(70)
-
-        # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
-        left.setFixedWidth(150)
-
-        # Do the right-hand panel
-        self.panel = self.Panel()
-        layout = QVBoxLayout(self.panel)
-        layout.setSpacing(0)
-        layout.setContentsMargins(0,0,0,0)
-        
-        # Create the buttons and text
-        upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png')
-        spacer = QLabel()
-        spacer.setFixedHeight(30)
-        downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png')
-        
-        # Add buttons to grid
-        layout.addWidget(upButton)
-        layout.addWidget(spacer)
-        layout.addWidget(downButton)
-
-        right = self.GenericModeRight([panel], horizontal=False)
-
-        self.setupMode(left, right)
-    
-    def setSetting(self, value):
-        self.panel.setText(value)
 
 ###############################################################################
 # The Off Mode widget

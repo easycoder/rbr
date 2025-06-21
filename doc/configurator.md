@@ -123,7 +123,7 @@ The configurator creates a hidden file `.rbr.conf` in the users’ home director
 
 Let's imagine a system with 4 rooms; Kitchen, Lounge, Bedroom 1 and Bedroom 2. Each of these has a single radiator, which is controlled by a thermo-electric TRV powered by an RBR-Now relay box. Let's suppose the system controller is in the kitchen, so it makes sense for the Master device to be the one next to the kitchen radiator. All the other roooms are assumed to be close enough for the wireless signals to reach from the kitchen.
 
-I assume you've already built the relay boxes, flashed them with Micropython and loaded the RBR-Now Python scripts onto them. If you need more information about doing this, see [Setting up RBR-Now hardware](setupHardware.md). You will also have installed Linux on your system controller and downloaded the RBR controller softwre as described in [Setting up a new RBR system](setupRBR.md).
+I assume you've already built the relay boxes, flashed them with Micropython and loaded the RBR-Now Python scripts onto them. If you need more information about doing this, see [Setting up RBR-Now hardware](setupHardware.md). You will also have installed Linux on your system controller and downloaded the RBR controller software as described in [Setting up a new RBR system](setupRBR.md).
 
 In the configurator, scan for systems (or provide the IPaddress of the one you have).
 
