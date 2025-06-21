@@ -692,6 +692,70 @@ class OnMode(GenericMode):
     class PlusMinusButton(IconButton):
         def __init__(self, program, icon, fcb=None):
             super().__init__(program, height=None, icon=icon)
+            self.setFixedHeight(40)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setStyleSheet('''
+                background-color: #ccc;
+                border: 2px solid #888;
+                border-radius: 10px;
+            ''')
+            self.setIconSize(QSize(25, 25))
+
+    # The 'setting' label
+    class SettingLabel(ExpandingLabel):
+        def __init__(self, text):
+            super().__init__(text)
+            self.setObjectName('SettingLabel')
+
+    # The main class for the widget
+    def __init__(self, program, fcb=None):
+        super().__init__()
+        self.program = program
+        self.fcb = fcb
+
+        # Do the left-hand panel, with a label and an icon
+        top = self.GenericModeLabel('On')
+        top.setFixedHeight(40)
+        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/on.png', 50)
+        bottom.setFixedHeight(70)
+
+        # Create the left panel
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left.setFixedWidth(150)
+
+        # Do the right-hand panel
+        panel = QWidget()
+        panel.setStyleSheet('background: transparent;')
+        gridLayout = QGridLayout(panel)
+        gridLayout.setSpacing(0)
+        gridLayout.setContentsMargins(0,0,0,0)
+        
+        # Create the buttons and text
+        upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png')
+        self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
+        self.settingLabel = self.SettingLabel('0.0')
+        downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png')
+        
+        # Add buttons to grid
+        gridLayout.addWidget(upButton, 0, 0)
+        gridLayout.addWidget(self.settingLabel, 1, 0)
+        gridLayout.addWidget(downButton, 2, 0)
+
+        right = self.GenericModeRight([panel], horizontal=False)
+
+        self.setupMode(left, right)
+    
+    def getSettinglabel(self):
+        return self.settingLabel
+
+###############################################################################
+# The On Mode widget
+class OnModeX(GenericMode):
+
+    # The plus/minus buttons
+    class PlusMinusButton(IconButton):
+        def __init__(self, program, icon, fcb=None):
+            super().__init__(program, height=None, icon=icon)
             self.setFixedHeight(50)
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             self.setStyleSheet('''
@@ -724,8 +788,8 @@ class OnMode(GenericMode):
         left.setFixedWidth(150)
 
         # Do the right-hand panel
-        panel = self.Panel()
-        layout = QVBoxLayout(panel)
+        self.panel = self.Panel()
+        layout = QVBoxLayout(self.panel)
         layout.setSpacing(0)
         layout.setContentsMargins(0,0,0,0)
         
