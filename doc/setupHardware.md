@@ -67,6 +67,7 @@ Now create a new file, `flash.ecs` containing the following script. You may need
         to `mkdirs.py`
     system `ampy --port ` cat Port cat ` put mkdirs.py`
     system `ampy --port ` cat Port cat ` run mkdirs.py`
+    delete file `mkdirs.py`
 
     ! Copy the BLE library files
     load Files from Scripts cat `/lib/aioble/files.txt`
@@ -87,6 +88,7 @@ Now create a new file, `flash.ecs` containing the following script. You may need
             to `move.py`
         system `ampy --port ` cat Port cat ` put move.py`
         system `ampy --port ` cat Port cat ` run move.py`
+        delete file `move.py`
         increment N
     end
 
