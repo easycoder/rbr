@@ -5,12 +5,12 @@
     use graphics
     import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
 
-!    import rbrwin Window
+    import variable Result
+
+!    debug step
 
     modeDialog ModeDialog
-    variable Result
 
     get Result from ModeDialog
-    log Result
 
-    stop
+    exit

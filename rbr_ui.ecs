@@ -162,6 +162,6 @@ SetSystemName:
 HandleMode:
     put attribute `index` of ModeButton into R
     index Room to R
-    log `Mode for ` cat attribute `name` of Room
-    run `mode.ecs` as Module
+    run `mode.ecs` as Module with Result
+    log `Mode for ` cat attribute `name` of Room cat ` is ` cat Result
     stop

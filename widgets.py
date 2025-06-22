@@ -154,6 +154,7 @@ class IconButton(QPushButton):
         self.program = program
         self.index = index
         self.onClick = None
+        self.fcb = None
         self.clicked.connect(lambda: self.animate_button(self.index))
 
         if height != None:
@@ -169,6 +170,10 @@ class IconButton(QPushButton):
 
         self.setIcon(QIcon(icon))
     
+    # Function callback
+    def setFCB(self, fcb):
+        self.fcb = fcb
+    
     def setOnClick(self, onClick):
         self.onClick = onClick
     
@@ -181,7 +186,9 @@ class IconButton(QPushButton):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.moveBack())
+        print('fcb:',self.fcb)
         if self.onClick != None: self.program.run(self.onClick)
+        elif self.fcb != None: self.fcb()
 
     def getIndex(self):
         return self.index
@@ -600,10 +607,15 @@ class TimedMode(GenericMode):
 
     # The advance button
     class AdvanceButton(TextButton):
-        def __init__(self, program, text):
+        def __init__(self, program, text, fcb):
             super().__init__(program, text, 70, text)
             self.setFixedHeight(136)
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setFCB(self.onFCB)
+            self.fcb = fcb
+
+        def onFCB(self, name):
+            self.fcb()
 
     # The icon on the right panel
     class EditIcon(IconButton):
@@ -619,10 +631,10 @@ class TimedMode(GenericMode):
             self.setIconSize(QSize(50, 50))
 
     # The main class for the widget
-    def __init__(self, program, fcb=None):
+    def __init__(self, program, parent):
         super().__init__()
         self.program = program
-        self.fcb = fcb
+        self.parent = parent
 
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Timed')
@@ -631,7 +643,7 @@ class TimedMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=parent.timedModeSelected)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
@@ -642,9 +654,10 @@ class TimedMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the content
-        advance = self.AdvanceButton(program, 'Advance')
+        advance = self.AdvanceButton(program, 'Advance', self.advance)
         self.styles['QLabel#EditIcon'] = defaultIconStyle()
         edit = self.EditIcon(program, '/home/graham/dev/rbr/ui/main/edit.png')
+        edit.setFCB(self.advance)
         
         # Add buttons to grid
         gridLayout.addWidget(advance, 0, 0)
@@ -653,6 +666,9 @@ class TimedMode(GenericMode):
         right = self.GenericModeRight([panel], horizontal=False)
 
         self.setupMode(left, right)
+    
+    def advance(self, _):
+        self.parent.advanceSelected()
 
 ###############################################################################
 # The Boost Mode widget
@@ -660,15 +676,20 @@ class BoostMode(GenericMode):
 
     # A generic boost button
     class BoostButton(TextButton):
-        def __init__(self, program, text):
+        def __init__(self, program, text, fcb):
             super().__init__(program, text, 65, text)
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setFCB(self.onFCB)
+            self.fcb = fcb
+
+        def onFCB(self, name):
+            self.fcb()
 
     # The main class for the widget
-    def __init__(self, program, fcb=None):
+    def __init__(self, program, parent):
         super().__init__()
         self.program = program
-        self.fcb = fcb
+        self.parent = parent
 
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Boost')
@@ -677,7 +698,7 @@ class BoostMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=parent.boostModeSelected)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
@@ -688,10 +709,10 @@ class BoostMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create 4 boost buttons in a 2x2 grid
-        boostOff = self.BoostButton(program, "Off")
-        boost30 = self.BoostButton(program, "30 min")
-        boost60 = self.BoostButton(program, "1 hour")
-        boost120 = self.BoostButton(program, "2 hours")
+        boostOff = self.BoostButton(program, "Off", self.boostOff)
+        boost30 = self.BoostButton(program, "30 min", self.boost30)
+        boost60 = self.BoostButton(program, "1 hour", self.boost60)
+        boost120 = self.BoostButton(program, "2 hours", self.boost120)
         
         # Add buttons to grid
         gridLayout.addWidget(boostOff, 0, 0)
@@ -702,6 +723,18 @@ class BoostMode(GenericMode):
         right = self.GenericModeRight([panel], horizontal=False)
 
         self.setupMode(left, right)
+
+    def boostOff(self, _):
+        self.parent.boostOffSelected()
+
+    def boost30(self, _):
+        self.parent.boost30Selected()
+
+    def boost60(self, _):
+        self.parent.boost60Selected()
+
+    def boost120(self, _):
+        self.parent.boost120Selected()
 
 ###############################################################################
 # The On Mode widget
@@ -727,10 +760,10 @@ class OnMode(GenericMode):
             self.setObjectName('SettingLabel')
 
     # The main class for the widget
-    def __init__(self, program, fcb=None):
+    def __init__(self, program, parent):
         super().__init__()
         self.program = program
-        self.fcb = fcb
+        self.parent = parent
 
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('On')
@@ -739,7 +772,7 @@ class OnMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=parent.onModeSelected)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
@@ -772,9 +805,9 @@ class OnMode(GenericMode):
 class OffMode(GenericMode):
 
     # The main class for the widget
-    def __init__(self, fcb=None):
+    def __init__(self, parent):
         super().__init__()
-        self.fcb = fcb
+        self.parent = parent
 
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Off')
@@ -783,7 +816,7 @@ class OffMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.fcb)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=parent.offModeSelected)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
@@ -810,16 +843,16 @@ class ModeDialog(QDialog):
 
         # Add modes
         modes = []
-        mode = TimedMode(program, self.timedModeSelected)
+        mode = TimedMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = BoostMode(program, self.boostModeSelected)
+        mode = BoostMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = OnMode(program, self.onModeSelected)
+        mode = OnMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = OffMode(self.offModeSelected)
+        mode = OffMode(self)
         modes.append(mode)
         layout.addWidget(mode)
 
@@ -839,6 +872,24 @@ class ModeDialog(QDialog):
     
     def offModeSelected(self):
         self.accept('off')
+    
+    def advanceSelected(self):
+        self.accept('advance')
+    
+    def editSelected(self):
+        self.accept('edit')
+    
+    def boostOffSelected(self):
+        self.accept('boost off')
+    
+    def boost30Selected(self):
+        self.accept('boost 30')
+    
+    def boost60Selected(self):
+        self.accept('boost 60')
+    
+    def boost120Selected(self):
+        self.accept('boost 120')
 
     def accept(self, result):
         self.result = result

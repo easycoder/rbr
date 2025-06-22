@@ -102,7 +102,7 @@ class RBR_UI(Handler):
         return self.nextPC()
 
     def k_button(self, command):
-        return self.compileVariable(command, False)
+        return self.compileVariable(command)
 
     def r_button(self, command):
         return self.nextPC()
@@ -257,13 +257,13 @@ class RBR_UI(Handler):
         return self.nextPC()
 
     def k_modeDialog(self, command):
-        return self.compileVariable(command, False)
+        return self.compileVariable(command)
 
     def r_modeDialog(self, command):
         return self.nextPC()
 
     def k_element(self, command):
-        return self.compileVariable(command, False)
+        return self.compileVariable(command)
 
     def r_element(self, command):
         return self.nextPC()
@@ -314,13 +314,13 @@ class RBR_UI(Handler):
         return self.nextPC()
 
     def k_rbrwin(self, command):
-        return self.compileVariable(command, False)
+        return self.compileVariable(command)
 
     def r_rbrwin(self, command):
         return self.nextPC()
 
     def k_room(self, command):
-        return self.compileVariable(command, False, 'gui')
+        return self.compileVariable(command, 'gui')
 
     def r_room(self, command):
         return self.nextPC()
