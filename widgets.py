@@ -598,6 +598,13 @@ class GenericMode(QWidget):
 # The Timed Mode widget
 class TimedMode(GenericMode):
 
+    # The advance button
+    class AdvanceButton(TextButton):
+        def __init__(self, program, text):
+            super().__init__(program, text, 70, text)
+            self.setFixedHeight(136)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
     # The icon on the right panel
     class EditIcon(IconButton):
         def __init__(self, program, icon, fcb=None):
@@ -610,13 +617,6 @@ class TimedMode(GenericMode):
                 border-radius: 10px;
             ''')
             self.setIconSize(QSize(50, 50))
-
-    # The advance button
-    class AdvanceButton(TextButton):
-        def __init__(self, program, text):
-            super().__init__(program, text, 70, text)
-            self.setFixedHeight(136)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
     # The main class for the widget
     def __init__(self, program, fcb=None):
@@ -641,14 +641,14 @@ class TimedMode(GenericMode):
         gridLayout.setSpacing(5)
         gridLayout.setContentsMargins(0,0,0,0)
         
-        # Create the buttons and text
+        # Create the content
+        advance = self.AdvanceButton(program, 'Advance')
         self.styles['QLabel#EditIcon'] = defaultIconStyle()
         edit = self.EditIcon(program, '/home/graham/dev/rbr/ui/main/edit.png')
-        advance = self.AdvanceButton(program, 'Advance')
         
         # Add buttons to grid
-        gridLayout.addWidget(edit, 0, 0)
-        gridLayout.addWidget(advance, 0, 1)
+        gridLayout.addWidget(advance, 0, 0)
+        gridLayout.addWidget(edit, 0, 1)
 
         right = self.GenericModeRight([panel], horizontal=False)
 
@@ -752,7 +752,7 @@ class OnMode(GenericMode):
         # Create the buttons and text
         upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png')
         self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
-        self.settingLabel = self.SettingLabel('0.0')
+        self.settingLabel = self.SettingLabel('0.0°C')
         downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png')
         
         # Add buttons to grid
@@ -805,6 +805,7 @@ class ModeDialog(QDialog):
         self.setWindowTitle('Operating mode')
         self.setModal(True)
         layout = QVBoxLayout(self)
+        layout.setSpacing(10)
         self.result = None
 
         # Add modes
