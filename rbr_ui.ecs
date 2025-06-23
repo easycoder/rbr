@@ -14,6 +14,7 @@
     button Hamburger
     button ModeButton
     button ToolsButton
+    modeDialog ModeDialog
     ssh Controller
     module Module
     variable RamDisk
@@ -34,6 +35,8 @@
     variable Choice
     variable Tick
     variable Result
+    variable Request
+    variable Data
     variable R
     variable T
 
@@ -159,9 +162,38 @@ SetSystemName:
     log Result
     stop
 
+!   Handle a click on one of the Mode buttons
 HandleMode:
+    put json `{}` into Data
     put attribute `index` of ModeButton into R
     index Room to R
-    run `mode.ecs` as Module with Result
-    log `Mode for ` cat attribute `name` of Room cat ` is ` cat Result
+    put element R of Rooms into RoomSpec
+    put property `mode` of RoomSpec into Mode
+    set property `target` of Data to property `target` of RoomSpec
+    get Result from ModeDialog with Data
+    log property `name` of RoomSpec cat `: ` cat Result
+    put json `{}` into Request
+    if Result is `timed` gosub to SetMode
+    else if Result is `off` gosub to SetMode
+    else if Result is `on`
+    begin
+        set property `target` of Request to property `target` of Data
+        gosub to SetMode
+    end
+    else if left 5 of Result is `boost`
+    begin
+        put from 6 of Result into Result
+		set property `boost` of Request to `B` cat Result
+        set property `target` of Request to property `target` of Data
+        gosub to SetMode
+    end
     stop
+
+SetMode:
+    set property `action` of Request to `mode`
+    set property `roomnumber` of Request to R
+    set property `mode` of Request to Result
+    log `Save ` cat Request
+    save stringify Request to Controller RamDisk cat `request`
+    return
+

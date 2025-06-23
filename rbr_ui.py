@@ -1,5 +1,5 @@
 from easycoder import Handler, FatalError, RuntimeError
-from keyboard import VirtualKeyboard, TextReceiver
+from qwerty import TextReceiver
 from widgets import (
     RBRWindow,
     IconButton,
@@ -210,7 +210,7 @@ class RBR_UI(Handler):
             if x == None: x = (self.program.screenWidth - w) / 2
             else: x = self.getRuntimeValue(x)
             if y == None: y = (self.program.screenHeight - h) / 2
-            else: y = self.getRuntimeValue(x)
+            else: y = self.getRuntimeValue(y)
 
             window = RBRWindow(self.program, self.getRuntimeValue(command['title']), x, y, w, h)
             record['window'] = window
@@ -228,7 +228,7 @@ class RBR_UI(Handler):
 
         return 0
 
-    # get {variable} from  {dialog}
+    # get {variable} from {dialog} [with {value}]
     def k_get(self, command):
         if self.nextIsSymbol():
             record = self.getSymbolRecord()
@@ -240,6 +240,13 @@ class RBR_UI(Handler):
                     keyword = record['keyword']
                     if keyword == 'modeDialog':
                         command['dialog'] = record['name']
+                        if self.peek() == 'with':
+                            self.nextToken()
+                            if self.nextIsSymbol():
+                                record = self.getSymbolRecord()
+                                if not record['hasValue']: return False
+                                command['with'] = record['name']
+                            else: return False
                         self.add(command)
                         return True
         return False
@@ -247,9 +254,10 @@ class RBR_UI(Handler):
     def r_get(self, command):
         target = self.getVariable(command['target'])
         dialog = self.getVariable(command['dialog'])
+        data = self.getVariable(command['with']) if 'with' in command else None
         keyword = dialog['keyword']
         if keyword == 'modeDialog':
-            value = ModeDialog(self.program).show()
+            value = ModeDialog(self.program, data).showDialog()
         v = {}
         v['type'] = 'text'
         v['content'] = value

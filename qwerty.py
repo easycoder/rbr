@@ -1,5 +1,14 @@
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QWidget, QStackedWidget, QSpacerItem, QSizePolicy
+    QApplication,
+    QMainWindow,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLineEdit,
+    QPushButton,
+    QWidget,
+    QStackedWidget,
+    QSpacerItem,
+    QSizePolicy
 )
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, QTimer

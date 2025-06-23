@@ -1,6 +1,6 @@
 import sys
 from collections import namedtuple
-from keyboard import VirtualKeyboard
+from qwerty import VirtualKeyboard
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -76,6 +76,15 @@ def borderlessIconStyle():
         background-color: #ccc;
         border: none;
         ''' + '}'
+
+def defaultButtonStyle():
+    return '''
+        background-color: #ccc;
+        border: 1px solid #888;
+        border-radius: 10px;
+        font-size: 20px;
+        font-weight: bold;
+        '''
 
 ###############################################################################
 # An expanding label
@@ -186,9 +195,8 @@ class IconButton(QPushButton):
         # Move the button 2 pixels down and right
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.moveBack())
-        print('fcb:',self.fcb)
         if self.onClick != None: self.program.run(self.onClick)
-        elif self.fcb != None: self.fcb()
+        elif self.fcb != None: self.fcb(None)
 
     def getIndex(self):
         return self.index
@@ -528,7 +536,6 @@ class GenericMode(QWidget):
         if not 'QLabel' in self.styles: self.styles['QLabel'] = defaultQLabelStyle(20)
 
         stylesheet = '\n'.join(f"{key} {value}" for key, value in self.styles.items())
-        # print('Stylesheet:', stylesheet)
         self.setStyleSheet(stylesheet)
 
     # The left-hand panel, with label and icon
@@ -611,6 +618,7 @@ class TimedMode(GenericMode):
             super().__init__(program, text, 70, text)
             self.setFixedHeight(136)
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setStyleSheet(defaultButtonStyle())
             self.setFCB(self.onFCB)
             self.fcb = fcb
 
@@ -619,22 +627,22 @@ class TimedMode(GenericMode):
 
     # The icon on the right panel
     class EditIcon(IconButton):
-        def __init__(self, program, icon, fcb=None):
+        def __init__(self, program, icon, fcb):
             super().__init__(program, height=None, icon=icon)
             self.setFixedHeight(136)
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.setStyleSheet('''
-                background-color: #ccc;
-                border: 1px solid #888;
-                border-radius: 10px;
-            ''')
+            self.setStyleSheet(defaultButtonStyle())
             self.setIconSize(QSize(50, 50))
+            self.setFCB(self.onFCB)
+            self.fcb = fcb
+
+        def onFCB(self):
+            self.fcb()
 
     # The main class for the widget
-    def __init__(self, program, parent):
+    def __init__(self, program, caller):
         super().__init__()
-        self.program = program
-        self.parent = parent
+        self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Timed')
@@ -643,7 +651,7 @@ class TimedMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=parent.timedModeSelected)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=caller.timedModeSelected)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
@@ -655,9 +663,7 @@ class TimedMode(GenericMode):
         
         # Create the content
         advance = self.AdvanceButton(program, 'Advance', self.advance)
-        self.styles['QLabel#EditIcon'] = defaultIconStyle()
-        edit = self.EditIcon(program, '/home/graham/dev/rbr/ui/main/edit.png')
-        edit.setFCB(self.advance)
+        edit = self.EditIcon(program, '/home/graham/dev/rbr/ui/main/edit.png', self.edit)
         
         # Add buttons to grid
         gridLayout.addWidget(advance, 0, 0)
@@ -668,7 +674,10 @@ class TimedMode(GenericMode):
         self.setupMode(left, right)
     
     def advance(self, _):
-        self.parent.advanceSelected()
+        self.caller.advanceSelected()
+    
+    def edit(self, _):
+        self.caller.editSelected()
 
 ###############################################################################
 # The Boost Mode widget
@@ -679,6 +688,7 @@ class BoostMode(GenericMode):
         def __init__(self, program, text, fcb):
             super().__init__(program, text, 65, text)
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setStyleSheet(defaultButtonStyle())
             self.setFCB(self.onFCB)
             self.fcb = fcb
 
@@ -686,10 +696,9 @@ class BoostMode(GenericMode):
             self.fcb()
 
     # The main class for the widget
-    def __init__(self, program, parent):
+    def __init__(self, program, caller):
         super().__init__()
-        self.program = program
-        self.parent = parent
+        self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Boost')
@@ -698,7 +707,7 @@ class BoostMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=parent.boostModeSelected)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=caller.boostModeSelected)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
@@ -709,10 +718,10 @@ class BoostMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create 4 boost buttons in a 2x2 grid
-        boostOff = self.BoostButton(program, "Off", self.boostOff)
-        boost30 = self.BoostButton(program, "30 min", self.boost30)
-        boost60 = self.BoostButton(program, "1 hour", self.boost60)
-        boost120 = self.BoostButton(program, "2 hours", self.boost120)
+        boostOff = self.BoostButton(program, "Off", self.boostOffCB)
+        boost30 = self.BoostButton(program, "30 min", self.boost30CB)
+        boost60 = self.BoostButton(program, "1 hour", self.boost60CB)
+        boost120 = self.BoostButton(program, "2 hours", self.boost120CB)
         
         # Add buttons to grid
         gridLayout.addWidget(boostOff, 0, 0)
@@ -724,17 +733,17 @@ class BoostMode(GenericMode):
 
         self.setupMode(left, right)
 
-    def boostOff(self, _):
-        self.parent.boostOffSelected()
+    def boostOffCB(self, _):
+        self.caller.boostOffSelected()
 
-    def boost30(self, _):
-        self.parent.boost30Selected()
+    def boost30CB(self, _):
+        self.caller.boost30Selected()
 
-    def boost60(self, _):
-        self.parent.boost60Selected()
+    def boost60CB(self, _):
+        self.caller.boost60Selected()
 
-    def boost120(self, _):
-        self.parent.boost120Selected()
+    def boost120CB(self, _):
+        self.caller.boost120Selected()
 
 ###############################################################################
 # The On Mode widget
@@ -742,16 +751,13 @@ class OnMode(GenericMode):
 
     # The plus/minus buttons
     class PlusMinusButton(IconButton):
-        def __init__(self, program, icon, fcb=None):
+        def __init__(self, program, icon, fcb):
             super().__init__(program, height=None, icon=icon)
             self.setFixedHeight(136)
             self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.setStyleSheet('''
-                background-color: #ccc;
-                border: 1px solid #888;
-                border-radius: 10px;
-            ''')
+            self.setStyleSheet(defaultButtonStyle())
             self.setIconSize(QSize(50, 50))
+            self.setFCB(fcb)
 
     # The 'setting' label
     class SettingLabel(ExpandingLabel):
@@ -760,10 +766,10 @@ class OnMode(GenericMode):
             self.setObjectName('SettingLabel')
 
     # The main class for the widget
-    def __init__(self, program, parent):
+    def __init__(self, program, data, caller):
         super().__init__()
-        self.program = program
-        self.parent = parent
+        self.data = data
+        self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('On')
@@ -772,7 +778,7 @@ class OnMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=parent.onModeSelected)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=self.onModeSelected)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
@@ -783,31 +789,60 @@ class OnMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the buttons and text
-        upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png')
+        downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png', fcb=self.onDown)
         self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
-        self.settingLabel = self.SettingLabel('0.0°C')
-        downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png')
+        self.target = float(data['value'][data['index']]['content']['target']) if data != None else 0.0
+        self.settingLabel = self.SettingLabel(f'{self.target}°C')
+        upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png', fcb=self.onUp)
         
         # Add buttons to grid
-        gridLayout.addWidget(upButton, 0, 0)
+        gridLayout.addWidget(downButton, 0, 0)
         gridLayout.addWidget(self.settingLabel, 0, 1)
-        gridLayout.addWidget(downButton, 0, 2)
+        gridLayout.addWidget(upButton, 0, 2)
 
         right = self.GenericModeRight([panel], horizontal=False)
 
         self.setupMode(left, right)
     
+    def showTarget(self):
+        self.data['value'][self.data['index']]['content']['target'] = str(self.target)
+        self.settingLabel.setText(f'{self.target}°C')
+    
     def getSettinglabel(self):
         return self.settingLabel
+
+    def onModeSelected(self):
+        self.caller.onModeSelected()
+    
+    def onDown(self, _):
+        self.target -= 0.5
+        self.showTarget()
+    
+    def onUp(self, _):
+        self.target += 0.5
+        self.showTarget()
 
 ###############################################################################
 # The Off Mode widget
 class OffMode(GenericMode):
 
+    # The off button
+    class OffButton(TextButton):
+        def __init__(self, program, text, fcb):
+            super().__init__(program, text, 70, text)
+            self.setFixedHeight(136)
+            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setStyleSheet(defaultButtonStyle())
+            self.setFCB(self.onFCB)
+            self.fcb = fcb
+
+        def onFCB(self, name):
+            self.fcb()
+
     # The main class for the widget
-    def __init__(self, parent):
+    def __init__(self, program, caller):
         super().__init__()
-        self.parent = parent
+        self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Off')
@@ -816,21 +851,24 @@ class OffMode(GenericMode):
         bottom.setFixedHeight(70)
 
         # Create the left panel
-        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=parent.offModeSelected)
+        left = self.GenericModeLeft((top, bottom), horizontal=False, fcb=caller.offModeSelected)
         left.setFixedWidth(150)
 
         # Do the right-hand panel
-        right = self.BorderedLabel('Permanently\nOff')
+        # right = self.BorderedLabel('Permanently\nOff')
+        # right.setStyleSheet(defaultButtonStyle())
+        right = self.OffButton(program, 'Permanently\nOff', self.off)
 
         self.setupMode(left, right)
+    
+    def off(self, _):
+        self.caller.offModeSelected()
 
 ###############################################################################
 # The Operating Mode dialog
 class ModeDialog(QDialog):
-    def __init__(self, program):
-        super().__init__(program.parent.program.rbrwin)
-
-        self.program = program
+    def __init__(self, program, data):
+        super().__init__(program.rbrwin)
         self.setStyleSheet('''
             background-color: white;
         ''')
@@ -839,7 +877,6 @@ class ModeDialog(QDialog):
         self.setModal(True)
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
-        self.result = None
 
         # Add modes
         modes = []
@@ -849,49 +886,49 @@ class ModeDialog(QDialog):
         mode = BoostMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = OnMode(program, self)
+        mode = OnMode(program, data, self)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = OffMode(self)
+        mode = OffMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
 
         # Add Cancel button
         cancelButton = TextButton(program, 'Cancel', 40, 'Cancel')
-        cancelButton.setFCB(self.reject)
+        cancelButton.setFCB(self.closeDialog)
         layout.addWidget(cancelButton)
     
     def timedModeSelected(self):
-        self.accept('timed')
+        self.returnWith('timed')
     
     def boostModeSelected(self):
-        self.accept('boost')
+        self.returnWith('')
     
     def onModeSelected(self):
-        self.accept('on')
+        self.returnWith('on')
     
     def offModeSelected(self):
-        self.accept('off')
+        self.returnWith('off')
     
     def advanceSelected(self):
-        self.accept('advance')
+        self.returnWith('advance')
     
     def editSelected(self):
-        self.accept('edit')
+        self.returnWith('edit')
     
     def boostOffSelected(self):
-        self.accept('boost off')
+        self.returnWith('boost 0')
     
     def boost30Selected(self):
-        self.accept('boost 30')
+        self.returnWith('boost 30')
     
     def boost60Selected(self):
-        self.accept('boost 60')
+        self.returnWith('boost 60')
     
     def boost120Selected(self):
-        self.accept('boost 120')
+        self.returnWith('boost 120')
 
-    def accept(self, result):
+    def returnWith(self, result):
         self.result = result
         # Create a timer and wait for it
         timer = QTimer()
@@ -899,16 +936,16 @@ class ModeDialog(QDialog):
         timer.start(300)  # 300ms delay
         while timer.isActive():
             QApplication.processEvents()
-        super().accept()
-    
-    def reject(self, value):
-        super().reject()
+        self.accept()
 
-    def show(self):
+    def showDialog(self):
         # Show dialog and return result
         if self.exec() == QDialog.Accepted:
             return self.result
         return None
+    
+    def closeDialog(self, _):
+        self.reject()
 
 ###############################################################################
 # The keyboard
@@ -922,21 +959,20 @@ class Keyboard(QDialog):
         self.setFixedSize(500, 250)
         self.setStyleSheet("background-color: #ccc;")
         layout = QVBoxLayout(self)
-        self.result = None
 
         # Add the keyboard
-        layout.addWidget(VirtualKeyboard(42, receiver, self.onFinished))
+        layout.addWidget(VirtualKeyboard(42, receiver, self.reject))
         
         # Position at bottom of parent window
+        self.show()  # Ensure geometry is calculated
         if parent:
-            y = parent.y() + parent.height - 42
-            self.move(0, y)
+            parent_pos = parent.mapToGlobal(parent.rect().bottomLeft())
+            x = parent_pos.x()
+            y = parent_pos.y() - self.height()  # To place it above the bottom edge
+            self.move(x, y)
 
         self.exec()
     
-    def onFinished(self):
-        self.reject()
-
 ###############################################################################
 # The RBR Main Window
 class RBRWindow(QMainWindow):
