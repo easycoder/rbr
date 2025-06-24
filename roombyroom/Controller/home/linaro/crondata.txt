@@ -1,4 +1,0 @@
-* * * * * sh run.sh
-*/5 * * * * sh /home/orangepi/server.sh
-0 * * * * sh /home/orangepi/server.sh
-
