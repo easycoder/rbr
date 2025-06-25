@@ -5,7 +5,7 @@
 
     use graphics
     
-    import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
+    import plugin RBR_UI from /home/graham/dev/rbr/roombyroom/Controller/ui/rbr_ui.py
 
     rbrwin Window
     room Room
@@ -47,12 +47,19 @@
     divide WindowHeight by 12 giving RoomHeight
     put 0 into Tick
 
-    set Controller
-        host `192.168.1.236`
-        user `orangepi`
-        password `r00m8Yr00m`
-
     put `/mnt/data/` into RamDisk
+    if file RamDisk cat `map` exists
+    begin
+        log `Running locally`
+    end
+    else
+    begin
+        log `Running remotely`
+        set Controller
+            host `192.168.1.109`
+            user `linaro`
+            password `r00m8Yr00m`
+    end
 
     create Window title `xx` size WindowWidth WindowHeight
 

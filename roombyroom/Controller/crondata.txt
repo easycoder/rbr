@@ -1,0 +1,4 @@
+* * * * * cd /home/rbr; sh run.sh
+*/5 * * * * cd /home/rbr; sh server.sh
+0 * * * * cd /home/rbr; sh server.sh
+

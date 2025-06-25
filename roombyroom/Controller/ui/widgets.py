@@ -18,6 +18,9 @@ from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
 
 ###############################################################################
+def ICON_PATH():
+    return '/home/graham/dev/rbr/roombyroom/Controller/ui/img'
+
 # Some style definitions
 def defaultQFrameStyle():
     return '{' + f'''
@@ -305,7 +308,7 @@ class Room(QFrame):
         """)
         # label.setFixedSize(height * 1.2, height * 0.6)
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
-        icon = f'/home/graham/dev/rbr/ui/main/{mode}.png'
+        icon = f'{ICON_PATH()}/{mode}.png'
         self.modeButton = IconAndWidgetButton(self.program, name, height * 0.8, 2.5, mode, icon, label, index)
 
         # Room name label
@@ -328,7 +331,7 @@ class Room(QFrame):
         self.temperatureButton = temperatureButton
 
         # Icon 2: Tools
-        self.toolsButton = IconButton(self.program, height * 3 // 4, '/home/graham/dev/rbr/ui/main/edit.png', index)
+        self.toolsButton = IconButton(self.program, height * 3 // 4, f'{ICON_PATH()}/edit.png', index)
 
         # Add elements to the row layout
         modePanelLayout.addWidget(self.modeButton)
@@ -370,7 +373,7 @@ class Banner(QLabel):
         self.setFixedSize(width, height)
 
         # The gradient label
-        pixmap = QPixmap("/home/graham/dev/rbr/ui/main/gradient.png")
+        pixmap = QPixmap(f'{ICON_PATH()}/gradient.png')
         self.setPixmap(pixmap)
 
         layout = QHBoxLayout(self)
@@ -378,7 +381,7 @@ class Banner(QLabel):
         layout.setContentsMargins(0, 0, 0, 0)
 
         # The home buttom
-        homeButton = IconButton(program, height * 3 // 4, '/home/graham/dev/rbr/ui/main/RBRLogo.png')
+        homeButton = IconButton(program, height * 3 // 4, f'{ICON_PATH()}/RBRLogo.png')
         layout.addWidget(homeButton)
 
         # The title panel
@@ -404,7 +407,7 @@ class Banner(QLabel):
         layout.addWidget(titlePanel)
 
         #The Hamburger button
-        self.hamburgerButton = IconButton(program, height * 3 // 4, '/home/graham/dev/rbr/ui/main/hamburger.png')
+        self.hamburgerButton = IconButton(program, height * 3 // 4, f'{ICON_PATH()}/hamburger.png')
         layout.addWidget(self.hamburgerButton)
     
     def getElement(self, name):
@@ -647,7 +650,7 @@ class TimedMode(GenericMode):
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Timed')
         top.setFixedHeight(40)
-        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/timed.png', 50)
+        bottom = self.GenericModeIcon(f'{ICON_PATH()}/timed.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
@@ -663,7 +666,7 @@ class TimedMode(GenericMode):
         
         # Create the content
         advance = self.AdvanceButton(program, 'Advance', self.advance)
-        edit = self.EditIcon(program, '/home/graham/dev/rbr/ui/main/edit.png', self.edit)
+        edit = self.EditIcon(program, f'{ICON_PATH()}/edit.png', self.edit)
         
         # Add buttons to grid
         gridLayout.addWidget(advance, 0, 0)
@@ -703,7 +706,7 @@ class BoostMode(GenericMode):
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Boost')
         top.setFixedHeight(40)
-        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/boost.png', 50)
+        bottom = self.GenericModeIcon(f'{ICON_PATH()}/boost.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
@@ -774,7 +777,7 @@ class OnMode(GenericMode):
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('On')
         top.setFixedHeight(40)
-        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/on.png', 50)
+        bottom = self.GenericModeIcon(f'{ICON_PATH()}/on.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
@@ -789,11 +792,11 @@ class OnMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the buttons and text
-        downButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/blueminus.png', fcb=self.onDown)
+        downButton = self.PlusMinusButton(program, '{ICON_PATH()}/blueminus.png', fcb=self.onDown)
         self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
         self.target = float(data['value'][data['index']]['content']['target']) if data != None else 0.0
         self.settingLabel = self.SettingLabel(f'{self.target}°C')
-        upButton = self.PlusMinusButton(program, '/home/graham/dev/rbr/ui/main/redplus.png', fcb=self.onUp)
+        upButton = self.PlusMinusButton(program, '{ICON_PATH()}/redplus.png', fcb=self.onUp)
         
         # Add buttons to grid
         gridLayout.addWidget(downButton, 0, 0)
@@ -847,7 +850,7 @@ class OffMode(GenericMode):
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Off')
         top.setFixedHeight(40)
-        bottom = self.GenericModeIcon('/home/graham/dev/rbr/ui/main/off.png', 50)
+        bottom = self.GenericModeIcon(f'{ICON_PATH()}/off.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
@@ -988,7 +991,7 @@ class RBRWindow(QMainWindow):
 
         # Set the background image
         palette = QPalette()
-        background_pixmap = QPixmap('/home/graham/dev/rbr/ui/main/backdrop.jpg')
+        background_pixmap = QPixmap(f'{ICON_PATH()}/backdrop.png')
         palette.setBrush(QPalette.Window, QBrush(background_pixmap))
         self.setPalette(palette)
 
