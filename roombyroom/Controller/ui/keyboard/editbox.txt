@@ -1,5 +1,0 @@
-'''
-Use Pyside6 graphics to create a text field that willbe used with a virtual keyboard to enter text.
-It has functions to add a character, backspace and return the conts of the field.
-The field is not clickable and cannot be editged oher than with the supplied functions.
-'''

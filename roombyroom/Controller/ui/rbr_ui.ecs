@@ -1,11 +1,10 @@
-
 !   rbr-ui.ecs
 
     script RBR_UI
 
     use graphics
     
-    import plugin RBR_UI from /home/graham/dev/rbr/roombyroom/Controller/ui/rbr_ui.py
+    import plugin RBR_UI from rbr_ui.py
 
     rbrwin Window
     room Room
@@ -17,10 +16,12 @@
     modeDialog ModeDialog
     ssh Controller
     module Module
+    variable IsLocal
     variable RamDisk
     variable WindowWidth
     variable WindowHeight
     variable RoomHeight
+    variable Title
     variable Name
     variable Mode
     variable Map
@@ -42,8 +43,8 @@
 
     init graphics
 
-    put 1024 into WindowHeight
-    put 600 into WindowWidth
+    put 1000 into WindowHeight
+    put 582 into WindowWidth
     divide WindowHeight by 12 giving RoomHeight
     put 0 into Tick
 
@@ -51,17 +52,21 @@
     if file RamDisk cat `map` exists
     begin
         log `Running locally`
+        set IsLocal
+        put empty into Title
     end
     else
     begin
         log `Running remotely`
+        clear IsLocal
         set Controller
             host `192.168.1.109`
             user `linaro`
             password `r00m8Yr00m`
+        put `RBR` into Title
     end
 
-    create Window title `xx` size WindowWidth WindowHeight
+    create Window title Title size WindowWidth WindowHeight
 
     gosub to Refresh
 
@@ -77,11 +82,20 @@
 
 Refresh:
 
-    load Map from Controller RamDisk cat `map`
+    if IsLocal
+    begin
+        load Map from RamDisk cat `map`
+        load CurrentProfile from RamDisk cat `profile`
+        load SystemData from RamDisk cat `systemdata`
+    end
+    else
+    begin
+        load Map from Controller RamDisk cat `map`
+        load CurrentProfile from Controller RamDisk cat `profile`
+        load SystemData from Controller RamDisk cat `systemdata`
+    end
     put json Map into Map
-    load CurrentProfile from Controller RamDisk cat `profile`
     put the value of CurrentProfile into CurrentProfile
-    load SystemData from Controller RamDisk cat `systemdata`
     put json SystemData into SystemData
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
@@ -164,9 +178,11 @@ Nothing:
     stop
 
 SetSystemName:
-    run `systemName.ecs` as Module with Window and RamDisk
-        and Controller and NameAndProfiles and Result
-    log Result
+    run `systemName.ecs` as Module with Window and NameAndProfiles and Request
+    if Request is empty stop
+    log Request
+    if IsLocal save stringify Request to RamDisk cat `request`
+    else save stringify Request to Controller RamDisk cat `request`
     stop
 
 !   Handle a click on one of the Mode buttons
@@ -201,6 +217,7 @@ SetMode:
     set property `roomnumber` of Request to R
     set property `mode` of Request to Result
     log `Save ` cat Request
-    save stringify Request to Controller RamDisk cat `request`
+    if IsLocal save stringify Request to RamDisk cat `request`
+    else save stringify Request to Controller RamDisk cat `request`
     return
 

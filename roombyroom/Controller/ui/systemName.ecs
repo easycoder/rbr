@@ -6,34 +6,24 @@
     import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
 
     import rbrwin Window
-        and variable RamDisk
-        and ssh Controller
         and element NameAndProfiles
-        and variable Result
+        and variable Request
 
     element SystemName
-    variable Request
+    variable CurrentName
 
     attach SystemName to element `systemName` of NameAndProfiles
+    put SystemName into CurrentName
     create keyboard with SystemName in Window
-    put SystemName into Result
-!    log Result
-    put json `{}` into Request
-    set property `action` of Request to `SystemName`
-    set property `SystemName` of Request to Result
-    save stringify Request to Controller RamDisk cat `request`
-    or log `Can't save the updated name`
-    exit
-
-    variable Choices
-    variable Choice
-
-    log `Hello, world!`
-    put json `[]` into Choices
-    append `Option 1` to Choices
-    append `Option 2` to Choices
-    append `Option 3` to Choices
-
-    select Choice from menu `Test Menu` with Choices
-    log Choice
+    if SystemName is CurrentName
+    begin
+        put empty into Request
+        exit
+    end
+    else
+    begin
+        put json `{}` into Request
+        set property `action` of Request to `SystemName`
+        set property `SystemName` of Request to SystemName
+    end
     exit

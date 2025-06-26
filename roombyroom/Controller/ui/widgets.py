@@ -1,6 +1,13 @@
 import sys
 from collections import namedtuple
 from qwerty import VirtualKeyboard
+from PySide6.QtGui import (
+    QIcon,
+    QPixmap,
+    QFont,
+    QPalette,
+    QBrush
+)
 from PySide6.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -12,15 +19,17 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QDialog,
     QSizePolicy,
-    QGridLayout
+    QGridLayout,
+    QGraphicsDropShadowEffect
 )
-from PySide6.QtGui import QIcon, QPixmap, QFont, QPalette, QBrush
-from PySide6.QtCore import Qt, QTimer, QSize, Signal
+from PySide6.QtCore import (
+    Qt,
+    QTimer,
+    QSize,
+    Signal
+)
 
 ###############################################################################
-def ICON_PATH():
-    return '/home/graham/dev/rbr/roombyroom/Controller/ui/img'
-
 # Some style definitions
 def defaultQFrameStyle():
     return '{' + f'''
@@ -308,7 +317,7 @@ class Room(QFrame):
         """)
         # label.setFixedSize(height * 1.2, height * 0.6)
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
-        icon = f'{ICON_PATH()}/{mode}.png'
+        icon = f'img/{mode}.png'
         self.modeButton = IconAndWidgetButton(self.program, name, height * 0.8, 2.5, mode, icon, label, index)
 
         # Room name label
@@ -331,7 +340,7 @@ class Room(QFrame):
         self.temperatureButton = temperatureButton
 
         # Icon 2: Tools
-        self.toolsButton = IconButton(self.program, height * 3 // 4, f'{ICON_PATH()}/edit.png', index)
+        self.toolsButton = IconButton(self.program, height * 3 // 4, f'img/edit.png', index)
 
         # Add elements to the row layout
         modePanelLayout.addWidget(self.modeButton)
@@ -373,7 +382,7 @@ class Banner(QLabel):
         self.setFixedSize(width, height)
 
         # The gradient label
-        pixmap = QPixmap(f'{ICON_PATH()}/gradient.png')
+        pixmap = QPixmap(f'img/gradient.png')
         self.setPixmap(pixmap)
 
         layout = QHBoxLayout(self)
@@ -381,7 +390,7 @@ class Banner(QLabel):
         layout.setContentsMargins(0, 0, 0, 0)
 
         # The home buttom
-        homeButton = IconButton(program, height * 3 // 4, f'{ICON_PATH()}/RBRLogo.png')
+        homeButton = IconButton(program, height * 3 // 4, f'img/RBRLogo.png')
         layout.addWidget(homeButton)
 
         # The title panel
@@ -407,7 +416,7 @@ class Banner(QLabel):
         layout.addWidget(titlePanel)
 
         #The Hamburger button
-        self.hamburgerButton = IconButton(program, height * 3 // 4, f'{ICON_PATH()}/hamburger.png')
+        self.hamburgerButton = IconButton(program, height * 3 // 4, f'img/hamburger.png')
         layout.addWidget(self.hamburgerButton)
     
     def getElement(self, name):
@@ -472,22 +481,32 @@ class Profiles(QWidget):
 # A popup menu
 class Menu(QDialog):
     def __init__(self, program, height, parent=None, title="Select Action", actions=None):
-        super().__init__(parent)
+        super().__init__(program.rbrwin)
+        self.setWindowFlags(Qt.FramelessWindowHint)
+
+#        self.setWindowTitle(title)
         self.program = program
-        
-#        dialog = QDialog(parent)
-        self.setWindowTitle(title)
         self.setModal(True)
         self.setFixedWidth(300)
         layout = QVBoxLayout(self)
-#        self.dialog = dialog
         self.result = None
+        self.setStyleSheet('background: white;border: 1px solid black;')
+
+        # Add drop shadow
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(40)
+        shadow.setOffset(0, 4)
+        shadow.setColor(Qt.black)
+        self.setGraphicsEffect(shadow)
 
         # Add action buttons
-        for action in actions:
-            button = TextButton(program, action, height, action)
-            button.setFCB(self.accept)
-            layout.addWidget(button)
+        if actions != None:
+            for action in actions:
+                button = TextButton(program, action, height, action)
+                button.setFCB(self.accept)
+                layout.addWidget(button)
+
+        self.adjustSize()
 
     def accept(self, action):
         self.result = action
@@ -650,7 +669,7 @@ class TimedMode(GenericMode):
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Timed')
         top.setFixedHeight(40)
-        bottom = self.GenericModeIcon(f'{ICON_PATH()}/timed.png', 50)
+        bottom = self.GenericModeIcon(f'img/timed.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
@@ -659,14 +678,14 @@ class TimedMode(GenericMode):
 
         # Do the right-hand panel
         panel = QWidget()
-        panel.setStyleSheet('background: transparent;')
+        panel.setStyleSheet('background: transparent; border:none;')
         gridLayout = QGridLayout(panel)
         gridLayout.setSpacing(5)
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the content
         advance = self.AdvanceButton(program, 'Advance', self.advance)
-        edit = self.EditIcon(program, f'{ICON_PATH()}/edit.png', self.edit)
+        edit = self.EditIcon(program, f'img/edit.png', self.edit)
         
         # Add buttons to grid
         gridLayout.addWidget(advance, 0, 0)
@@ -706,7 +725,7 @@ class BoostMode(GenericMode):
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Boost')
         top.setFixedHeight(40)
-        bottom = self.GenericModeIcon(f'{ICON_PATH()}/boost.png', 50)
+        bottom = self.GenericModeIcon(f'img/boost.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
@@ -715,7 +734,7 @@ class BoostMode(GenericMode):
 
         # Do the right-hand panel
         panel = QWidget()
-        panel.setStyleSheet('background: transparent;')
+        panel.setStyleSheet('background: transparent; border:none;')
         gridLayout = QGridLayout(panel)
         gridLayout.setSpacing(5)
         gridLayout.setContentsMargins(0,0,0,0)
@@ -777,7 +796,7 @@ class OnMode(GenericMode):
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('On')
         top.setFixedHeight(40)
-        bottom = self.GenericModeIcon(f'{ICON_PATH()}/on.png', 50)
+        bottom = self.GenericModeIcon(f'img/on.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
@@ -786,17 +805,17 @@ class OnMode(GenericMode):
 
         # Do the right-hand panel
         panel = QWidget()
-        panel.setStyleSheet('background: transparent;')
+        panel.setStyleSheet('background: transparent; border:none;')
         gridLayout = QGridLayout(panel)
         gridLayout.setSpacing(0)
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the buttons and text
-        downButton = self.PlusMinusButton(program, '{ICON_PATH()}/blueminus.png', fcb=self.onDown)
+        downButton = self.PlusMinusButton(program, f'img/blueminus.png', fcb=self.onDown)
         self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
         self.target = float(data['value'][data['index']]['content']['target']) if data != None else 0.0
         self.settingLabel = self.SettingLabel(f'{self.target}°C')
-        upButton = self.PlusMinusButton(program, '{ICON_PATH()}/redplus.png', fcb=self.onUp)
+        upButton = self.PlusMinusButton(program, f'img/redplus.png', fcb=self.onUp)
         
         # Add buttons to grid
         gridLayout.addWidget(downButton, 0, 0)
@@ -850,7 +869,7 @@ class OffMode(GenericMode):
         # Do the left-hand panel, with a label and an icon
         top = self.GenericModeLabel('Off')
         top.setFixedHeight(40)
-        bottom = self.GenericModeIcon(f'{ICON_PATH()}/off.png', 50)
+        bottom = self.GenericModeIcon(f'img/off.png', 50)
         bottom.setFixedHeight(70)
 
         # Create the left panel
@@ -874,12 +893,21 @@ class ModeDialog(QDialog):
         super().__init__(program.rbrwin)
         self.setStyleSheet('''
             background-color: white;
+            border: 1px solid black;
         ''')
         
-        self.setWindowTitle('Operating mode')
+#        self.setWindowTitle('Operating mode')
+        self.setWindowFlags(Qt.FramelessWindowHint)
         self.setModal(True)
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
+
+        # Add drop shadow
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(40)
+        shadow.setOffset(0, 4)
+        shadow.setColor(Qt.black)
+        self.setGraphicsEffect(shadow)
 
         # Add modes
         modes = []
@@ -900,6 +928,8 @@ class ModeDialog(QDialog):
         cancelButton = TextButton(program, 'Cancel', 40, 'Cancel')
         cancelButton.setFCB(self.closeDialog)
         layout.addWidget(cancelButton)
+
+        self.adjustSize()
     
     def timedModeSelected(self):
         self.returnWith('timed')
@@ -957,21 +987,29 @@ class Keyboard(QDialog):
         super().__init__(parent)
         self.program = program
         
-        self.setWindowTitle('')
+#        self.setWindowTitle('')
+        self.setWindowFlags(Qt.FramelessWindowHint)
         self.setModal(True)
         self.setFixedSize(500, 250)
-        self.setStyleSheet("background-color: #ccc;")
-        layout = QVBoxLayout(self)
+        self.setStyleSheet('background-color: white;border:1px solid black;')
+
+        # Add drop shadow
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(40)
+        shadow.setOffset(0, 4)
+        shadow.setColor(Qt.black)
+        self.setGraphicsEffect(shadow)
 
         # Add the keyboard
+        layout = QVBoxLayout(self)
         layout.addWidget(VirtualKeyboard(42, receiver, self.reject))
         
         # Position at bottom of parent window
         self.show()  # Ensure geometry is calculated
         if parent:
             parent_pos = parent.mapToGlobal(parent.rect().bottomLeft())
-            x = parent_pos.x()
-            y = parent_pos.y() - self.height()  # To place it above the bottom edge
+            x = parent_pos.x() + (parent.width - self.width()) / 2
+            y = parent_pos.y() - self.height() - 40
             self.move(x, y)
 
         self.exec()
@@ -982,16 +1020,16 @@ class RBRWindow(QMainWindow):
     def __init__(self, program, title, x, y, w, h):
         super().__init__()
         self.program = program
-        self.setWindowTitle(title)
         self.setGeometry(x, y, w, h)
         self.width = w
         self.height = h
 
-        if title == '': self.setWindowFlags(Qt.borderlessWindowHint)
+        if title == '': self.setWindowFlags(Qt.FramelessWindowHint)
+        else: self.setWindowTitle(title)
 
         # Set the background image
         palette = QPalette()
-        background_pixmap = QPixmap(f'{ICON_PATH()}/backdrop.png')
+        background_pixmap = QPixmap(f'img/backdrop.png')
         palette.setBrush(QPalette.Window, QBrush(background_pixmap))
         self.setPalette(palette)
 

@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cd /home/rbr/ui
+ec rbr_ui.ecs
+

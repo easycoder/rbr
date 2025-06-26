@@ -134,7 +134,6 @@ class RBR_UI(Handler):
             command['varname'] = record['name']
             keyword = record['keyword']
             if keyword == 'rbrwin':
-                command['title'] = 'Default'
                 x = None
                 y = None
                 w = self.compileConstant(600)
@@ -203,16 +202,21 @@ class RBR_UI(Handler):
         record = self.getVariable(command['varname'])
         keyword = record['keyword']
         if keyword == 'rbrwin':
+            title = self.getRuntimeValue(command['title'])
             w = self.getRuntimeValue(command['w'])
             h = self.getRuntimeValue(command['h'])
             x = command['x']
             y = command['y']
-            if x == None: x = (self.program.screenWidth - w) / 2
-            else: x = self.getRuntimeValue(x)
-            if y == None: y = (self.program.screenHeight - h) / 2
-            else: y = self.getRuntimeValue(y)
+            if title == '':
+                x = 0
+                y = 0
+            else:
+                if x == None: x = (self.program.screenWidth - w) / 2
+                else: x = self.getRuntimeValue(x)
+                if y == None: y = (self.program.screenHeight - h) / 2
+                else: y = self.getRuntimeValue(y)
 
-            window = RBRWindow(self.program, self.getRuntimeValue(command['title']), x, y, w, h)
+            window = RBRWindow(self.program, title, x, y, w, h)
             record['window'] = window
             return self.nextPC()
         
