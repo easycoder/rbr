@@ -2,11 +2,7 @@ from easycoder import Handler, FatalError, RuntimeError
 from qwerty import TextReceiver
 from widgets import (
     RBRWindow,
-    IconButton,
-    IconAndWidgetButton,
     Room,
-    Banner,
-    Profiles,
     Menu,
     Keyboard,
     ModeDialog

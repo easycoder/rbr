@@ -6,7 +6,10 @@ from PySide6.QtGui import (
     QPixmap,
     QFont,
     QPalette,
-    QBrush
+    QBrush,
+    QPainter,
+    QColor,
+    QPen
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -26,6 +29,7 @@ from PySide6.QtCore import (
     Qt,
     QTimer,
     QSize,
+    QDate,
     Signal
 )
 
@@ -35,14 +39,14 @@ def defaultQFrameStyle():
     return '{' + f'''
         background-color: #ffc;
         border: 1px solid #888;
-        border-radius: 10px;
+        border-radius: 5px;
         ''' + '}'
 
 def defaultGrayFrameStyle():
     return '{' + f'''
         background-color: #ccc;
         border: 1px solid #888;
-        border-radius: 10px;
+        border-radius: 5px;
         ''' + '}'
 
 def borderlessQFrameStyle():
@@ -61,7 +65,7 @@ def defaultQLabelStyle(size):
     return '{' + f'''
         background-color: #ccc;
         border: 1px solid #888;
-        border-radius: 10px;
+        border-radius: 5px;
         padding: 10px;
         font-size: {size}px;
         font-weight: bold;
@@ -80,7 +84,7 @@ def defaultIconStyle():
     return '{' + f'''
         background-color: #ccc;
         border: 1px solid #888;
-        border-radius: 10px;
+        border-radius: 5px;
         ''' + '}'
 
 def borderlessIconStyle():
@@ -93,7 +97,7 @@ def defaultButtonStyle():
     return '''
         background-color: #ccc;
         border: 1px solid #888;
-        border-radius: 10px;
+        border-radius: 5px;
         font-size: 20px;
         font-weight: bold;
         '''
@@ -134,9 +138,9 @@ class TextButton(QPushButton):
         self.setStyleSheet(f"""
             QPushButton {{
                 padding: 5px;
-                background-color: #ccc;
+                background-color: #eee;
                 border: 1px solid black;
-                border-radius: {height // 5}px;
+                border-radius: 5px;
                 font-size: {height * 0.35}px;
                 font-weight: bold;
             }}
@@ -184,7 +188,7 @@ class IconButton(QPushButton):
                 QPushButton {{
                     background-color #ccc;
                     border:none;
-                    border-radius:{int(height * 0.2)}px;  /* Rounded corners */
+                    border-radius: 5px;
                 }}
             """)
             self.setIconSize(QSize(height * 0.8, height * 0.8))
@@ -214,9 +218,9 @@ class IconButton(QPushButton):
         return self.index
 
 ###############################################################################
-# A button with text/icon and a widget.
+# A button to show the current mode.
 
-class IconAndWidgetButton(QWidget):
+class ModeButton(QWidget):
     clicked = Signal()
 
     def __init__(self, program, name, height, widthFactor, text, image, widget, index=0):
@@ -248,6 +252,34 @@ class IconAndWidgetButton(QWidget):
 
         # Widget on the right
         mainLayout.addWidget(widget, alignment=Qt.AlignVCenter)
+
+        self.setStatus('Good')
+    
+    def setStatus(self, status):
+        self.status = status
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        radius = 5
+        x = 4 + radius
+        y = self.height() - 5 - radius
+        if self.status == 'Fail':
+            fillColor = '#f00'
+            borderColor = '#800'
+        elif self.status == 'Suspect':
+            fillColor = '#ff0'
+            borderColor = '#880'
+        else:
+            fillColor = '#0f0'
+            borderColor = '#080'
+        painter.setBrush(QColor(fillColor))
+        pen = QPen(QColor(borderColor))
+        pen.setWidth(1)
+        painter.setPen(pen)
+        painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
@@ -286,7 +318,7 @@ class Room(QFrame):
         self.setStyleSheet("""
             background-color: #ffc;
             border: 1px solid gray;
-            border-radius: 10px;
+            border-radius: 5px;
         """)
 
         self.setFixedHeight(height)  # Each row is 1/12 the height of the window
@@ -297,7 +329,7 @@ class Room(QFrame):
 
         modePanel = QWidget()
         modePanel.setStyleSheet('''
-            background-color: #ccc;
+            background-color: #eee;
             border: 1px solid gray;
         ''')
         roomsLayout.addWidget(modePanel)
@@ -318,7 +350,7 @@ class Room(QFrame):
         # label.setFixedSize(height * 1.2, height * 0.6)
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
         icon = f'img/{mode}.png'
-        self.modeButton = IconAndWidgetButton(self.program, name, height * 0.8, 2.5, mode, icon, label, index)
+        self.modeButton = ModeButton(self.program, name, height * 0.8, 2.5, mode, icon, label, index)
 
         # Room name label
         nameLabel = QLabel(name)
@@ -426,6 +458,32 @@ class Banner(QLabel):
 ###############################################################################
 # The Profiles bar
 class Profiles(QWidget):
+
+    class CalendarIcon(QWidget):
+        def __init__(self, image_path, height, day=None, parent=None):
+            super().__init__(parent)
+            self.setFixedSize(height, height)
+            self.pixmap = QPixmap(image_path).scaled(height, 50height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.day = day if day is not None else QDate.currentDate().day()
+
+        def setDay(self, day):
+            self.day = day
+            self.update()
+
+        def paintEvent(self, event):
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            # Draw the notepad image
+            painter.drawPixmap(0, 0, self.pixmap)
+            # Draw the day number
+            font = QFont("Arial", 22, QFont.Bold)
+            painter.setFont(font)
+            painter.setPen(QColor("black"))
+            # Fine-tune these values for perfect placement
+            text = str(self.day)
+            rect = self.rect().adjusted(0, 10, 0, -5)  # Move text down a bit
+            painter.drawText(rect, Qt.AlignHCenter | Qt.AlignTop, text)
+    
     def __init__(self, program, width):
         super().__init__()
         self.program = program
@@ -457,9 +515,10 @@ class Profiles(QWidget):
         profileButton = TextButton(program, '-', height * 0.7, 'Profile: Default')
         profileButton.setStyleSheet(f'''
             margin-right: 10px;
-            background-color: #ccc;
+            background-color: #eee;
             font-size: {height // 3}px;
             border: 1px solid black;
+            border-radius: 5px;
             margin-bottom: 5px;
             padding-left: 5px;
             padding-right: 5px;
