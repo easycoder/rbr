@@ -223,7 +223,49 @@ class IconButton(QPushButton):
 class ModeButton(QWidget):
     clicked = Signal()
 
-    def __init__(self, program, height, widthFactor, image, modeLabel, index=0):
+    class ModeLabel(QWidget):
+        def __init__(self, room):
+            super().__init__()
+            self.spec = room.spec
+            self.mode = room.mode
+            self.height = room.height
+            self.setMinimumHeight(self.height)
+            self.setMaximumHeight(self.height)
+            self.setMinimumWidth(100)  # Adjust as needed
+
+        def paintEvent(self, event):
+            with QPainter(self) as painter:
+                painter.setRenderHint(QPainter.Antialiasing)
+                w = self.width()
+                h = self.height
+
+                # First row font and rect
+                font1 = QFont("Arial", h // 5, QFont.Bold)
+                painter.setFont(font1)
+                painter.setPen(QColor("black"))
+                offset = 0.2 if self.mode == 'Off' else 0.4
+                rect1 = self.rect().adjusted(0, 0, 0, -h * offset)
+                painter.drawText(rect1, Qt.AlignCenter, self.mode)
+
+                # Second row font and rect (if present)
+                if self.mode == 'Timed':
+                    pass
+                elif self.mode == 'Boost':
+                    font2 = QFont("Arial", h // 7)
+                    painter.setFont(font2)
+                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
+                    boost = round((self.spec['boost'] - int(time.time())) / 60) + 1
+                    if boost == 1: boost = '1 min'
+                    else: boost = f'{boost} mins'
+                    painter.drawText(rect2, Qt.AlignCenter, boost)
+                elif self.mode == 'On':
+                    font2 = QFont("Arial", h // 7)
+                    painter.setFont(font2)
+                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
+                    painter.drawText(rect2, Qt.AlignCenter, f'{self.spec["target"]}°C')
+
+
+    def __init__(self, room, program, height, widthFactor, image, index=0):
         super().__init__()
 
         self.setStyleSheet("""
@@ -249,6 +291,7 @@ class ModeButton(QWidget):
         mainLayout.addWidget(label)
 
         # Mode Label on the right
+        modeLabel = self.ModeLabel(room)
         mainLayout.addWidget(modeLabel, alignment=Qt.AlignVCenter)
 
         mainLayout.addSpacing(15)
@@ -305,47 +348,6 @@ class ModeButton(QWidget):
 ###############################################################################
 # A row of room information
 class Room(QFrame):
-
-    class ModeLabel(QWidget):
-        def __init__(self, parent):
-            super().__init__()
-            self.spec = parent.spec
-            self.mode = parent.mode
-            self.height = parent.height
-            self.setMinimumHeight(self.height)
-            self.setMaximumHeight(self.height)
-            self.setMinimumWidth(100)  # Adjust as needed
-
-        def paintEvent(self, event):
-            with QPainter(self) as painter:
-                painter.setRenderHint(QPainter.Antialiasing)
-                w = self.width()
-                h = self.height
-
-                # First row font and rect
-                font1 = QFont("Arial", h // 5, QFont.Bold)
-                painter.setFont(font1)
-                painter.setPen(QColor("black"))
-                rect1 = self.rect().adjusted(0, 0, 0, -h * 0.4)
-                painter.drawText(rect1, Qt.AlignCenter, self.mode)
-
-                # Second row font and rect (if present)
-                if self.mode == 'Timed':
-                    pass
-                elif self.mode == 'Boost':
-                    font2 = QFont("Arial", h // 7)
-                    painter.setFont(font2)
-                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
-                    boost = round((self.spec['boost'] - int(time.time())) / 60) + 1
-                    if boost == 1: boost = '1 min'
-                    else: boost = f'{boost} mins'
-                    painter.drawText(rect2, Qt.AlignCenter, boost)
-                elif self.mode == 'On':
-                    font2 = QFont("Arial", h // 7)
-                    painter.setFont(font2)
-                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
-                    painter.drawText(rect2, Qt.AlignCenter, f'{self.spec["target"]}°C')
-
     def __init__(self, program, spec, height, index=0):
         super().__init__()
         self.program = program
@@ -380,9 +382,14 @@ class Room(QFrame):
 
         # Icon 1: Mode
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
+        image = f'img/{mode}.png'
         self.mode = f'{mode[0].upper()}{mode[1:]}'
-        modeLabel = self.ModeLabel(self)
-        self.modeButton = ModeButton(self.program, height * 0.8, 2.5, f'img/{mode}.png', modeLabel, index)
+        if self.mode == 'Timed':
+            advance = spec['advance']
+            if advance != '' and advance != '-' and advance != 'C':
+                image = 'img/advance.png'
+                self.mode = 'Advance'
+        self.modeButton = ModeButton(self, self.program, height * 0.8, 2.7, image, index)
 
         # Room name label
         nameLabel = QLabel(name)

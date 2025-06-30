@@ -34,6 +34,7 @@
     variable RoomData
     variable Choices
     variable Choice
+    variable Advance
     variable Tick
     variable Result
     variable Request
@@ -84,6 +85,7 @@
     stop
 
 Refresh:
+
     if IsLocal
     begin
         load Map from RamDisk cat `map`
@@ -113,9 +115,9 @@ Refresh:
     begin
         index RoomData to R
         put element R of Rooms into RoomSpec
-!        log prettify RoomSpec
-        gosub to CreateRoom
         put property `name` of RoomSpec into Name
+        put property `mode` of RoomSpec into Mode
+        gosub to CreateRoom
         put property Name of SystemData into RoomData
 !        log prettify RoomData
         if RoomData has property `temperature` set attribute `temperature` of Room to property `temperature` of RoomData
@@ -213,10 +215,17 @@ HandleMode:
         set property `target` of Request to property `target` of Data
         gosub to SetMode
     end
+    else if Result is `Advance`
+    begin
+        set property `mode` of Request to `timed`
+        put property `advance` of RoomSpec into Advance
+        if Advance is `-` set property `advance` of Request to `A`
+        else set property `advance` of Request to `C`
+        gosub to SetMode
+    end
     stop
 
 SetMode:
-log Result
     set property `action` of Request to `mode`
     set property `roomnumber` of Request to R
     set property `mode` of Request to Result
