@@ -157,12 +157,10 @@ class RBR_UI(Handler):
             elif keyword == 'room':
                 while True:
                     token = self.peek()
-                    if token in ['name', 'mode', 'height', 'index']:
+                    if token in ['spec', 'height', 'index']:
                         self.nextToken()
-                        if token == 'name':
-                            command['name'] = self.nextValue()
-                        elif token == 'mode':
-                            command['mode'] = self.nextValue()
+                        if token == 'spec':
+                            command['spec'] = self.nextValue()
                         elif token == 'height':
                             command['height'] = self.nextValue()
                         elif token == 'index':
@@ -192,7 +190,6 @@ class RBR_UI(Handler):
             field = self.getVariable(command['keyboard'])['widget']
             window = self.getVariable(command['window'])['window']
             Keyboard(self.program, receiver = TextReceiver(field), parent=window)
-#            print(field.text())
             return self.nextPC()
 
         record = self.getVariable(command['varname'])
@@ -217,11 +214,10 @@ class RBR_UI(Handler):
             return self.nextPC()
         
         elif keyword == 'room':
-            name = self.getRuntimeValue(command['name'])
-            mode = self.getRuntimeValue(command['mode'])
+            spec = self.getRuntimeValue(command['spec'])
             height = self.getRuntimeValue(command['height'])
             index = self.getRuntimeValue(command['index'])
-            room = Room(self.program, name, mode, height, index)
+            room = Room(self.program, spec, height, index)
             if not 'rooms' in record:
                 record['value'][record['index']] = room
             return self.nextPC()

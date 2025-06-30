@@ -7,6 +7,7 @@
 
     import plugin P100 from plugins/ec_p100.py
 
+    file Logger
     variable RamDisk
     variable RBRServer
     variable RegData
@@ -82,6 +83,7 @@
     variable Confirm
     variable Logs
     variable LogData
+    variable LogText
     variable Calendar
     variable Day
     variable WarningMessages
@@ -1066,6 +1068,8 @@ SendMailMessage:
 !   Process a request from the UI
 ProcessRequest:
     log `Request ` cat left 40 of Request
+    put Request into LogText
+    gosub to Log
     set Changed
     set Confirm
     put json Request into Request
@@ -1210,4 +1214,12 @@ ProcessRequest:
         log `Request to halt the system`
         set HaltRequested
     end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Log a message
+Log:
+    open Logger `log.txt` for appending
+    write LogText cat newline to Logger
+    close Logger
     return

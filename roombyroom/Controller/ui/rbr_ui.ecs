@@ -38,8 +38,11 @@
     variable Result
     variable Request
     variable Data
+    variable Value
     variable R
     variable T
+
+!    debug step
 
     init graphics
 
@@ -81,7 +84,6 @@
     stop
 
 Refresh:
-
     if IsLocal
     begin
         load Map from RamDisk cat `map`
@@ -111,11 +113,12 @@ Refresh:
     begin
         index RoomData to R
         put element R of Rooms into RoomSpec
-        put property `name` of RoomSpec into Name
-        put property `mode` of RoomSpec into Mode
+!        log prettify RoomSpec
         gosub to CreateRoom
+        put property `name` of RoomSpec into Name
         put property Name of SystemData into RoomData
-        set attribute `temperature` of Room to property `temperature` of RoomData
+!        log prettify RoomData
+        if RoomData has property `temperature` set attribute `temperature` of Room to property `temperature` of RoomData
         increment R
     end
     set attribute `system name` of Window to property `name` of Map
@@ -138,8 +141,7 @@ CreateRoom:
 !    log `Create ` cat Name cat `, mode ` cat Mode
     index Room to R
     create Room
-        name Name
-        mode Mode
+        spec RoomSpec
         height RoomHeight
         index R
     add Room to Window
@@ -205,14 +207,16 @@ HandleMode:
     end
     else if left 5 of Result is `boost`
     begin
-        put from 6 of Result into Result
-		set property `boost` of Request to `B` cat Result
+        put from 6 of Result into Value
+        put left 5 of Result into Result
+		set property `boost` of Request to `B` cat Value
         set property `target` of Request to property `target` of Data
         gosub to SetMode
     end
     stop
 
 SetMode:
+log Result
     set property `action` of Request to `mode`
     set property `roomnumber` of Request to R
     set property `mode` of Request to Result

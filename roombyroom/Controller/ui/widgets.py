@@ -1,4 +1,4 @@
-import sys
+import sys, time
 from collections import namedtuple
 from qwerty import VirtualKeyboard
 from PySide6.QtGui import (
@@ -223,7 +223,7 @@ class IconButton(QPushButton):
 class ModeButton(QWidget):
     clicked = Signal()
 
-    def __init__(self, program, name, height, widthFactor, text, image, widget, index=0):
+    def __init__(self, program, height, widthFactor, image, modeLabel, index=0):
         super().__init__()
 
         self.setStyleSheet("""
@@ -232,8 +232,6 @@ class ModeButton(QWidget):
         """)
 
         self.program = program
-        self.name = name
-        self.text = text
         self.index = index
         self.onClick = None
         self.clicked.connect(lambda: self.animate_button(self.index))
@@ -250,9 +248,10 @@ class ModeButton(QWidget):
         label.setPixmap(pixmap)
         mainLayout.addWidget(label)
 
-        # Widget on the right
-        mainLayout.addWidget(widget, alignment=Qt.AlignVCenter)
+        # Mode Label on the right
+        mainLayout.addWidget(modeLabel, alignment=Qt.AlignVCenter)
 
+        mainLayout.addSpacing(15)
         self.setStatus('Good')
     
     def setStatus(self, status):
@@ -307,11 +306,51 @@ class ModeButton(QWidget):
 # A row of room information
 class Room(QFrame):
 
-    def __init__(self, program, name, mode, height, index=0):
+    class ModeLabel(QWidget):
+        def __init__(self, parent):
+            super().__init__()
+            self.spec = parent.spec
+            self.mode = parent.mode
+            self.height = parent.height
+            self.setMinimumHeight(self.height)
+            self.setMaximumHeight(self.height)
+            self.setMinimumWidth(100)  # Adjust as needed
+
+        def paintEvent(self, event):
+            with QPainter(self) as painter:
+                painter.setRenderHint(QPainter.Antialiasing)
+                w = self.width()
+                h = self.height
+
+                # First row font and rect
+                font1 = QFont("Arial", h // 5, QFont.Bold)
+                painter.setFont(font1)
+                painter.setPen(QColor("black"))
+                rect1 = self.rect().adjusted(0, 0, 0, -h * 0.4)
+                painter.drawText(rect1, Qt.AlignCenter, self.mode)
+
+                # Second row font and rect (if present)
+                if self.mode == 'Timed':
+                    pass
+                elif self.mode == 'Boost':
+                    font2 = QFont("Arial", h // 7)
+                    painter.setFont(font2)
+                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
+                    boost = round((self.spec['boost'] - int(time.time())) / 60) + 1
+                    if boost == 1: boost = '1 min'
+                    else: boost = f'{boost} mins'
+                    painter.drawText(rect2, Qt.AlignCenter, boost)
+                elif self.mode == 'On':
+                    font2 = QFont("Arial", h // 7)
+                    painter.setFont(font2)
+                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
+                    painter.drawText(rect2, Qt.AlignCenter, f'{self.spec["target"]}°C')
+
+    def __init__(self, program, spec, height, index=0):
         super().__init__()
         self.program = program
-        self.name = name
-        self.mode = mode
+        self.spec = spec
+        self.height = height
         self.temperature = 0
         self.index = index
 
@@ -336,21 +375,14 @@ class Room(QFrame):
         modePanelLayout = QHBoxLayout(modePanel)
         modePanelLayout.setSpacing(0)
         modePanelLayout.setContentsMargins(5, 0, 0, 0)
-        # modePanelLayout.setAlignment(Qt.AlignTop)
+        name = spec['name']
+        mode = spec['mode']
 
         # Icon 1: Mode
-        label = QLabel(f'{mode[0].upper()}{mode[1:]}')
-        label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        label.setStyleSheet(f"""
-            background-color: none;
-            border: none;
-            font-size: {height // 5}px;
-            font-weight: bold;
-        """)
-        # label.setFixedSize(height * 1.2, height * 0.6)
         if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
-        icon = f'img/{mode}.png'
-        self.modeButton = ModeButton(self.program, name, height * 0.8, 2.5, mode, icon, label, index)
+        self.mode = f'{mode[0].upper()}{mode[1:]}'
+        modeLabel = self.ModeLabel(self)
+        self.modeButton = ModeButton(self.program, height * 0.8, 2.5, f'img/{mode}.png', modeLabel, index)
 
         # Room name label
         nameLabel = QLabel(name)
@@ -382,6 +414,7 @@ class Room(QFrame):
     
     def setTemperature(self, value):
         self.temperature = value
+        if value == '999.9': value = '--.-'
         self.temperatureButton.setText(f'{value}°C')
     
     def getName(self):
@@ -408,7 +441,6 @@ class Banner(QLabel):
             color: black;
             font-family: Times;
             font-weight: bold;
-            text-align: center;
         ''')
         height = width * 80 / 600
         self.setFixedSize(width, height)
@@ -460,11 +492,12 @@ class Banner(QLabel):
 class Profiles(QWidget):
 
     class CalendarIcon(QWidget):
-        def __init__(self, image_path, height, day=None, parent=None):
-            super().__init__(parent)
+        def __init__(self, height):
+            super().__init__()
+            self.height = height
             self.setFixedSize(height, height)
-            self.pixmap = QPixmap(image_path).scaled(height, 50height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.day = day if day is not None else QDate.currentDate().day()
+            self.pixmap = QPixmap(f'img/calendar.png').scaled(height, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.day = QDate.currentDate().day()
 
         def setDay(self, day):
             self.day = day
@@ -476,12 +509,12 @@ class Profiles(QWidget):
             # Draw the notepad image
             painter.drawPixmap(0, 0, self.pixmap)
             # Draw the day number
-            font = QFont("Arial", 22, QFont.Bold)
+            font = QFont("Arial", self.height // 3, QFont.Bold)
             painter.setFont(font)
             painter.setPen(QColor("black"))
             # Fine-tune these values for perfect placement
             text = str(self.day)
-            rect = self.rect().adjusted(0, 10, 0, -5)  # Move text down a bit
+            rect = self.rect().adjusted(0, self.height // 2, 0, 0)  # Move text down a bit
             painter.drawText(rect, Qt.AlignHCenter | Qt.AlignTop, text)
     
     def __init__(self, program, width):
@@ -511,6 +544,14 @@ class Profiles(QWidget):
         ''')
         layout.addWidget(systemName, 1)
         self.systemName = systemName
+
+        calendarLayout = QVBoxLayout()
+        layout.addLayout(calendarLayout)
+        calendarIcon = self.CalendarIcon(height // 2)
+        calendarLayout.addWidget(calendarIcon)
+        self.calendarIcon = calendarIcon
+        calendarLayout.addSpacing(5)
+        layout.addSpacing(5)
 
         profileButton = TextButton(program, '-', height * 0.7, 'Profile: Default')
         profileButton.setStyleSheet(f'''
@@ -777,8 +818,9 @@ class BoostMode(GenericMode):
             self.fcb()
 
     # The main class for the widget
-    def __init__(self, program, caller):
+    def __init__(self, program, data, caller):
         super().__init__()
+        self.data = data
         self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
@@ -973,7 +1015,7 @@ class ModeDialog(QDialog):
         mode = TimedMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = BoostMode(program, self)
+        mode = BoostMode(program, data, self)
         modes.append(mode)
         layout.addWidget(mode)
         mode = OnMode(program, data, self)
