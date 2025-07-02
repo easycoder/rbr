@@ -48,6 +48,7 @@
     variable Response
     variable Timestamp
     variable Temperature
+    variable Battery
     variable SystemData
     variable NPeriods
     variable Events
@@ -318,23 +319,7 @@ S2:
     put property `rooms` of Profile into Rooms
     if Password is empty go to SkipRequests
 
-    put empty into Request
-    if file RamDisk cat `request` exists
-    begin
-        load Request from RamDisk cat `request`
-        delete file RamDisk cat `request`
-    end
-    log `Got request: ` cat Request
-    if Request is empty
-    begin
-        get Request from url RBRServer cat `/request/` cat MAC cat `?v=` cat now
-        or begin
-            gosub to NetworkError
-            stop
-        end
-        gosub to ClearNetworkErrors
-    end
-    if Request is not empty gosub to ProcessRequest
+    gosub to ProcessRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process the map
@@ -490,7 +475,7 @@ ProcessRoom:
                 split Response on ` `
                 index Response to 1
                 set property `temperature` of RoomSpec to Response
-                set property `battery` of RoomSpec to 100
+!                set property `battery` of RoomSpec to `100`
                 if property `errors` of RoomStatus is not 0 set property `temperature` of RoomStatus to Response
                 index Response to 2
                 put `` cat Response into SensorRSS
@@ -500,10 +485,13 @@ ProcessRoom:
             begin
                 if RoomStatus has property `temperature`
                 begin
-                    set property `temperature` of RoomSpec
-                        to property `temperature` of RoomStatus
+                    set property `temperature` of RoomSpec to property `temperature` of RoomStatus
                 end
-                else set property `temperature` of RoomSpec to 0
+                else
+                begin
+                    set property `temperature` of RoomSpec to `0`
+                    set property `battery` of RoomSpec to `0`
+                end
                 gosub to BumpErrorCount
             end
         end
@@ -517,16 +505,22 @@ ProcessRoom:
                 take LastReported from the timestamp giving LastReported
                 if LastReported is greater than 1800
                 begin
+                    set property `temperature` of RoomSpec to `0`
+                    set property `battery` of RoomSpec to `0`
                     put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
                     gosub to AddWarning
                 end
-                set property `temperature` of RoomSpec to property `temp` of Item
-                set property `battery` of RoomSpec to property `batt` of Item
+                else
+                begin
+                    set property `temperature` of RoomSpec to property `temp` of Item
+                    set property `battery` of RoomSpec to property `batt` of Item
+                end
             end
             else
             begin
                 put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
-                set property `temperature` of RoomSpec to `9999`
+                set property `temperature` of RoomSpec to `0`
+                set property `battery` of RoomSpec to `0`
                 gosub to AddWarning
                 log WarningMessage
             end
@@ -535,6 +529,7 @@ ProcessRoom:
 !    log RoomSpec
     put property `target` of RoomSpec into Target
     if RoomSpec has property `temperature` put `` cat property `temperature` of RoomSpec into Temperature
+    if RoomSpec has property `battery` put `` cat property `battery` of RoomSpec into Battery
     else put `0` into Temperature
     put the value of Temperature into T
     put T modulo 10 into T1
@@ -553,6 +548,7 @@ GetAdvance:
     set property `advance` of RoomSpec to Advance
 
     if Temperature is empty put `0` into Temperature
+    if Battery is empty put `0` into Battery
 
     ! See if this room is set for winter protection
     if property `protect` of RoomSpec is empty set property `protect` of RoomSpec to `no`
@@ -758,6 +754,7 @@ UpdateRooms:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Turn a relay on or off
 TurnOnOrOff:
+    if Battery is `0` go to TurnOff
     if Advance is not `-`
     begin
         add 1 to E
@@ -781,6 +778,7 @@ TurnOn:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the log if the temperature has changed outside a 10-minute window
 UpdateLog:
+    set property `relay` of RoomSpec to OnOff
     put RamDisk cat `logs.json` into FileName
     if file FileName exists load Logs from FileName else put json `{}` into Logs
     if Logs has property RoomName
@@ -907,6 +905,7 @@ SetRelays:
         set property `relay` of RoomSpec to OnOff
         set property `advance` of RoomSpec to Advance
     end
+    set property RoomName of SystemData to RoomSpec
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1067,7 +1066,24 @@ SendMailMessage:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a request from the UI
 ProcessRequest:
-    log `Request ` cat left 40 of Request
+    put empty into Request
+    if file RamDisk cat `request` exists
+    begin
+        load Request from RamDisk cat `request`
+        delete file RamDisk cat `request`
+    end
+    if Request is empty
+    begin
+        get Request from url RBRServer cat `/request/` cat MAC cat `?v=` cat now
+        or begin
+            gosub to NetworkError
+            stop
+        end
+        gosub to ClearNetworkErrors
+    end
+    if Request is empty return
+
+    log `Request: ` cat Request
     put Request into LogText
     gosub to Log
     set Changed

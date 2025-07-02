@@ -249,6 +249,80 @@ class ModeButton(QWidget):
 
                 # Second row font and rect (if present)
                 if self.mode == 'Timed':
+                    '''if RoomStatus is `good`
+                    begin
+                        put `` cat Advance into Advance
+                        if Advance is not empty
+                        begin
+                            if Advance is `-`
+                            begin
+                                set attribute `src` of ModeIcon to `resources/icon/clock.png`
+                                set the content of ModeText to `Timed`
+                                set style `font-size` of ModeText to `1.2em`
+                            end
+                            else
+                            begin
+                                if Advance is not `C`
+                                begin
+                                    set attribute `src` of ModeIcon to `resources/icon/advance.png?v=12345`
+                                    set the content of ModeText to `Advance`
+                                    set style `font-size` of ModeText to `1.0em`
+                                end
+                            end
+                        end
+                    end
+
+                    put property `events` of RoomSpec into Events
+                    divide now by 60 giving N
+                    put N modulo 24*60 into N
+                    divide N by 60 giving H
+                    put N modulo 60 into M
+                    put 0 into E
+                    while E is less than the json count of Events
+                    begin
+                        put element E of Events into Event
+                        put property `until` of Event into UntilTime
+                        put property `temp` of Event into UntilTemp
+                        split UntilTime on `:` giving Finish
+                        
+                        if Advance is not `-`
+                        begin
+                            add 1 to E giving F
+                            if F is not less than the json count of Events put 0 into F
+                            put element F of Events into Event2
+                            put property `until` of Event2 into UntilTime
+                            put property `temp` of Event2 into UntilTemp
+                        end
+                        index Finish to 0
+                        put the value of Finish into FH
+                        if FH is 0 put 24 into FH
+                        if H is less than FH
+                        begin
+                            set the content of ModeInfo to UntilTemp
+                                cat `&deg;C->` cat UntilTime
+                            go to HandleClicks
+                        end
+                        else if H is FH
+                        begin
+                            index Finish to 1
+                            put the value of Finish into FM
+                            if M is less than FM
+                            begin
+                                set the content of ModeInfo to UntilTemp
+                                    cat `&deg;C->` cat UntilTime
+                                go to HandleClicks
+                            end
+                        end
+                        add 1 to E
+                    end
+                    put element 0 of Events into Event
+                    put property `until` of Event into Finish
+                    put property `temp` of Event into Temperature
+                    if property `linked` of RoomSpec is `yes`
+                        set the content of ModeInfo to Temperature cat `&deg;C->` cat Finish
+                    else set the content of ModeInfo to `->` cat Finish'''
+                    pass
+                elif self.mode == 'Advance':
                     pass
                 elif self.mode == 'Boost':
                     font2 = QFont("Arial", h // 7)
@@ -403,12 +477,14 @@ class Room(QFrame):
         font.setBold(True)  # Make the font bold
         nameLabel.setFont(font)
 
-        # Button with white text and blue background
+        # Button with white text and blue or red background
         temperatureButton = QPushButton('----°C')
-        temperatureButton.setStyleSheet('color: white; background-color: blue; border: none;')
+        color = 'red' if spec['relay'] == 'on' else 'blue'
+        temperatureButton.setStyleSheet(f'color: white; background-color: {color}; border: none;')
         temperatureButton.setFixedSize(height * 1.2, height * 0.6)  # Adjust button size
         temperatureButton.setFont(font)  # Use the same font as the label
         self.temperatureButton = temperatureButton
+        self.setTemperature()
 
         # Icon 2: Tools
         self.toolsButton = IconButton(self.program, height * 3 // 4, f'img/edit.png', index)
@@ -419,8 +495,8 @@ class Room(QFrame):
         roomsLayout.addWidget(temperatureButton)
         roomsLayout.addWidget(self.toolsButton)
     
-    def setTemperature(self, value):
-        self.temperature = value
+    def setTemperature(self):
+        value = self.spec['temperature']
         if value == '999.9': value = '--.-'
         self.temperatureButton.setText(f'{value}°C')
     

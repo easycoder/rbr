@@ -25,6 +25,7 @@
     variable Name
     variable Mode
     variable Map
+    variable Keys
     variable CurrentProfile
     variable Profiles
     variable Profile
@@ -80,7 +81,7 @@
     on tick
     begin
         put the ticker into Tick
-        if Tick modulo 1000 is 0 gosub to Refresh
+        if Tick modulo 200 is 0 gosub to Refresh
     end
     stop
 
@@ -109,20 +110,20 @@ Refresh:
     set the elements of ModeButton to the count of Rooms
     set the elements of ToolsButton to the count of Rooms
 
+debug step
     clear Window
     put 0 into R
     while R is less than the count of Rooms
     begin
-        index RoomData to R
         put element R of Rooms into RoomSpec
         put property `name` of RoomSpec into Name
-        put property `mode` of RoomSpec into Mode
-        gosub to CreateRoom
         put property Name of SystemData into RoomData
-!        log prettify RoomData
-        if RoomData has property `temperature` set attribute `temperature` of Room to property `temperature` of RoomData
+        set property `temperature` of RoomSpec to property `temperature` of RoomData
+        set property `relay` of RoomSpec to property `relay` of RoomData
+        gosub to CreateRoom
         increment R
     end
+debug stop
     set attribute `system name` of Window to property `name` of Map
     set attribute `profile` of Window to property `name` of Profile
 
