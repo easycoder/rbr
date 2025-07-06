@@ -6,6 +6,7 @@
     
     import plugin RBR_UI from rbr_ui.py
 
+    window HostWindow
     rbrwin Window
     room Room
     element Banner
@@ -14,8 +15,20 @@
     button ModeButton
     button ToolsButton
     modeDialog ModeDialog
+    layout Panel
+    layout Layout
+    label Label
+    lineinput HostInput
+    lineinput UserInput
+    lineinput PasswordInput
+    pushbutton OKButton
+    pushbutton CancelButton
     ssh Controller
     module Module
+    variable ControllerSpec
+    variable GraphicsStarted
+    variable HomeDir
+    variable Path
     variable IsLocal
     variable RamDisk
     variable WindowWidth
@@ -25,7 +38,6 @@
     variable Name
     variable Mode
     variable Map
-    variable Keys
     variable CurrentProfile
     variable Profiles
     variable Profile
@@ -48,11 +60,64 @@
 
     init graphics
 
-    put 1000 into WindowHeight
-    put 582 into WindowWidth
-    divide WindowHeight by 12 giving RoomHeight
-    put 0 into Tick
+    clear GraphicsStarted
+    put trim system `echo $HOME` into HomeDir
+    put HomeDir cat `/.controller.json` into Path
+    if file Path exists load ControllerSpec from Path
+    else
+    begin
+        create Panel type QVBoxLayout
+        create Layout type QHBoxLayout
+        add Layout to Panel
+        create Label text `Host:`
+        add Label to Layout
+        create HostInput size 30
+        set the width of HostInput to 200
+        add HostInput to Layout
+        create Layout type QHBoxLayout
+        add Layout to Panel
+        create Label text `User:`
+        add Label to Layout
+        create UserInput size 30
+        set the width of UserInput to 200
+        add UserInput to Layout
+        create Layout type QHBoxLayout
+        add Layout to Panel
+        create Label text `Password:`
+        add Label to Layout
+        create PasswordInput size 30
+        set the width of PasswordInput to 200
+        add PasswordInput to Layout
+        create Layout type QHBoxLayout
+        add Layout to Panel
+        create OKButton text `OK`
+        on click OKButton
+        begin
+            if HostInput is empty stop
+            if UserInput is empty stop
+            if PasswordInput is empty stop
+            put json `{}` into ControllerSpec
+            set property `host` of ControllerSpec to HostInput
+            set property `user` of ControllerSpec to UserInput
+            set property `password` of ControllerSpec to PasswordInput
+            save ControllerSpec to Path
+            fork to Start
+            wait 10 seconds
+            close HostWindow
+        end
+        add OKButton to Layout
+        create CancelButton text `Cancel`
+        on click CancelButton exit
+        add CancelButton to Layout
+        create HostWindow title `Host Details` size 300 200
+        set the layout of HostWindow to Panel
+        show HostWindow
+        start graphics
+        set GraphicsStarted
+        stop
+    end
 
+Start:
     put `/mnt/data/` into RamDisk
     if file RamDisk cat `map` exists
     begin
@@ -65,19 +130,27 @@
         log `Running remotely`
         clear IsLocal
         set Controller
-            host `192.168.1.109`
-            user `linaro`
-            password `r00m8Yr00m`
+!            host `192.168.1.109`
+!            user `linaro`
+!            password `r00m8Yr00m`
+            host property `host` of ControllerSpec
+            user property `user` of ControllerSpec
+            password property `password` of ControllerSpec
         put `RBR` into Title
     end
+    put 1000 into WindowHeight
+    put 582 into WindowWidth
+    divide WindowHeight by 12 giving RoomHeight
+    put 0 into Tick
 
     create Window title Title size WindowWidth WindowHeight
 
+    put empty into Path
     gosub to Refresh
 
     show Window
 
-    start graphics
+    if not GraphicsStarted start graphics
     on tick
     begin
         put the ticker into Tick
@@ -110,7 +183,6 @@ Refresh:
     set the elements of ModeButton to the count of Rooms
     set the elements of ToolsButton to the count of Rooms
 
-debug step
     clear Window
     put 0 into R
     while R is less than the count of Rooms
@@ -123,7 +195,6 @@ debug step
         gosub to CreateRoom
         increment R
     end
-debug stop
     set attribute `system name` of Window to property `name` of Map
     set attribute `profile` of Window to property `name` of Profile
 
@@ -198,25 +269,27 @@ HandleMode:
     put element R of Rooms into RoomSpec
     put property `mode` of RoomSpec into Mode
     set property `target` of Data to property `target` of RoomSpec
-    get Result from ModeDialog with Data
-    log property `name` of RoomSpec cat `: ` cat Result
+    get Result from ModeDialog with RoomSpec
+!    log property `name` of RoomSpec cat `: ` cat Result
     put json `{}` into Request
     if Result is `timed` gosub to SetMode
     else if Result is `off` gosub to SetMode
     else if Result is `on`
     begin
+        set property `mode` of Request to `on`
         set property `target` of Request to property `target` of Data
         gosub to SetMode
     end
     else if left 5 of Result is `boost`
     begin
+        set property `mode` of Request to `boost`
         put from 6 of Result into Value
         put left 5 of Result into Result
 		set property `boost` of Request to `B` cat Value
         set property `target` of Request to property `target` of Data
         gosub to SetMode
     end
-    else if Result is `Advance`
+    else if Result is `advance`
     begin
         set property `mode` of Request to `timed`
         put property `advance` of RoomSpec into Advance
@@ -229,7 +302,6 @@ HandleMode:
 SetMode:
     set property `action` of Request to `mode`
     set property `roomnumber` of Request to R
-    set property `mode` of Request to Result
     log `Save ` cat Request
     if IsLocal save stringify Request to RamDisk cat `request`
     else save stringify Request to Controller RamDisk cat `request`

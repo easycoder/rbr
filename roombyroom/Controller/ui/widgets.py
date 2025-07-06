@@ -867,7 +867,8 @@ class TimedMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the content
-        advance = self.AdvanceButton(program, 'Advance', self.advance)
+        text = 'Cancel\n' if caller.data['advance'] != '-' else ''
+        advance = self.AdvanceButton(program, f'{text}Advance', self.advance)
         edit = self.EditIcon(program, f'img/edit.png', self.edit)
         
         # Add buttons to grid
@@ -901,9 +902,8 @@ class BoostMode(GenericMode):
             self.fcb()
 
     # The main class for the widget
-    def __init__(self, program, data, caller):
+    def __init__(self, program, caller):
         super().__init__()
-        self.data = data
         self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
@@ -972,9 +972,8 @@ class OnMode(GenericMode):
             self.setObjectName('SettingLabel')
 
     # The main class for the widget
-    def __init__(self, program, data, caller):
+    def __init__(self, program, caller):
         super().__init__()
-        self.data = data
         self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
@@ -997,7 +996,7 @@ class OnMode(GenericMode):
         # Create the buttons and text
         downButton = self.PlusMinusButton(program, f'img/blueminus.png', fcb=self.onDown)
         self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
-        self.target = float(data['value'][data['index']]['content']['target']) if data != None else 0.0
+        self.target = float(caller.data['target']) if caller.data != None else 0.0
         self.settingLabel = self.SettingLabel(f'{self.target}°C')
         upButton = self.PlusMinusButton(program, f'img/redplus.png', fcb=self.onUp)
         
@@ -1079,6 +1078,7 @@ class ModeDialog(QDialog):
             background-color: white;
             border: 1px solid black;
         ''')
+        self.data = data
         
 #        self.setWindowTitle('Operating mode')
         self.setWindowFlags(Qt.FramelessWindowHint)
@@ -1098,10 +1098,10 @@ class ModeDialog(QDialog):
         mode = TimedMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = BoostMode(program, data, self)
+        mode = BoostMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
-        mode = OnMode(program, data, self)
+        mode = OnMode(program, self)
         modes.append(mode)
         layout.addWidget(mode)
         mode = OffMode(program, self)

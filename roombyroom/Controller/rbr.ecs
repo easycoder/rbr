@@ -475,7 +475,7 @@ ProcessRoom:
                 split Response on ` `
                 index Response to 1
                 set property `temperature` of RoomSpec to Response
-!                set property `battery` of RoomSpec to `100`
+                set property `battery` of RoomSpec to `100`
                 if property `errors` of RoomStatus is not 0 set property `temperature` of RoomStatus to Response
                 index Response to 2
                 put `` cat Response into SensorRSS
@@ -813,6 +813,9 @@ UpdateLog:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set the relay(s) in a single room
 SetRelays:
+    put property `temperature` of RoomSpec into Temperature
+    put property `battery` of RoomSpec into Battery
+    put property `relays` of RoomSpec into Relays
     put property `relays` of RoomSpec into Relays
     if Relays is empty put json `[]` into Relays
     if the count of Relays is 0 log `Sensor: ` cat Sensor cat ` ` cat Temperature cat ` ` cat SensorRSS

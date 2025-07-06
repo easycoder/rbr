@@ -544,8 +544,7 @@ GetConfigData:
     if SystemName is empty return
     log prettify SystemConfig
     log `Get the config data for ` cat SystemName
-    get Value from url `https://rbrheating.com/ui/resources/php/rest.php/config/`
-        cat SystemMAC cat `/` cat SystemPassword
+    get Value from url `https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
     or
     begin
         put `Can't read the config file for ` cat SystemName cat `(` cat MAC cat `/` cat Password cat `)` into StatusMessage
