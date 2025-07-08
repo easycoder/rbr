@@ -188,9 +188,12 @@ Refresh:
     while R is less than the count of Rooms
     begin
         put element R of Rooms into RoomSpec
+!        log RoomSpec
         put property `name` of RoomSpec into Name
         put property Name of SystemData into RoomData
-        set property `temperature` of RoomSpec to property `temperature` of RoomData
+        if RoomData has property `temperature`
+            set property `temperature` of RoomSpec to property `temperature` of RoomData
+        else set property `temperature` of RoomSpec to `0`
         set property `relay` of RoomSpec to property `relay` of RoomData
         gosub to CreateRoom
         increment R
@@ -225,12 +228,7 @@ CreateRoom:
     on click ModeButton go to HandleMode
     index ToolsButton to R
     attach ToolsButton to element `tools` of Room
-    on click ToolsButton
-    begin
-        put attribute `index` of ToolsButton into R
-        index Room to R
-        log `Tools for ` cat attribute `name` of Room
-    end
+    on click ToolsButton go to HandleTools
     return
 
 ShowMainMenu:
@@ -307,3 +305,24 @@ SetMode:
     else save stringify Request to Controller RamDisk cat `request`
     return
 
+HandleTools:
+    put attribute `index` of ToolsButton into R
+    index Room to R
+    put attribute `name` of Room into Name
+    put json `[]` into Choices
+    append `Move ` cat Name cat ` up` to Choices
+    append `Move ` cat Name cat ` down` to Choices
+    append `Show info for ` cat Name to Choices
+    append `Edit ` cat Name to Choices
+    append `Delete ` cat Name to Choices
+    append `Cancel` to Choices
+
+    select Choice from menu `Tools Menu` with Choices
+    log Choice
+    if Choice is element 0 of Choices go to Nothing
+    if Choice is element 1 of Choices go to Nothing
+    if Choice is element 2 of Choices go to Nothing
+    if Choice is element 3 of Choices go to Nothing
+    if Choice is element 4 of Choices go to Nothing
+    if Choice is element 5 of Choices stop
+    stop

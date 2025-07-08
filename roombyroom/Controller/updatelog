@@ -1,279 +1,0 @@
-Sun 14 Jul 2024 11:16:57 AM UTC ---- [0;32mStart the update[0m ----
-Sun 14 Jul 2024 11:16:57 AM UTC ---- [0;32mStop root cron[0m ----
-Sun 14 Jul 2024 11:16:57 AM UTC -- crontab empty.txt
-Sun 14 Jul 2024 11:16:57 AM UTC ---- [0;32mDo software updates[0m ----
-Sun 14 Jul 2024 11:16:57 AM UTC -- apt update
-
-WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-
-Hit:1 http://mirrors.tuna.tsinghua.edu.cn/debian bullseye InRelease
-Get:2 http://mirrors.tuna.tsinghua.edu.cn/debian bullseye-updates InRelease [44.1 kB]
-Get:3 http://mirrors.tuna.tsinghua.edu.cn/debian bullseye-backports InRelease [49.0 kB]
-Get:4 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security InRelease [48.4 kB]
-Get:5 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 Packages [354 kB]
-Get:6 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main armhf Packages [357 kB]
-Fetched 852 kB in 9s (91.6 kB/s)
-Reading package lists...
-Building dependency tree...
-Reading state information...
-8 packages can be upgraded. Run 'apt list --upgradable' to see them.
-Sun 14 Jul 2024 11:17:14 AM UTC -- apt upgrade
-
-WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-
-Reading package lists...
-Building dependency tree...
-Reading state information...
-Calculating upgrade...
-The following packages will be upgraded:
-  apache2 apache2-bin apache2-data apache2-utils libgssapi-krb5-2 libk5crypto3
-  libkrb5-3 libkrb5support0
-8 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
-Need to get 2,734 kB of archives.
-After this operation, 26.6 kB of additional disk space will be used.
-Get:1 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 apache2 arm64 2.4.61-1~deb11u1 [286 kB]
-Get:2 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 apache2-bin arm64 2.4.61-1~deb11u1 [1,335 kB]
-Get:3 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 apache2-data all 2.4.61-1~deb11u1 [160 kB]
-Get:4 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 apache2-utils arm64 2.4.61-1~deb11u1 [270 kB]
-Get:5 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 libk5crypto3 arm64 1.18.3-6+deb11u5 [115 kB]
-Get:6 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 libkrb5support0 arm64 1.18.3-6+deb11u5 [65.1 kB]
-Get:7 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 libkrb5-3 arm64 1.18.3-6+deb11u5 [347 kB]
-Get:8 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 libgssapi-krb5-2 arm64 1.18.3-6+deb11u5 [156 kB]
-Fetched 2,734 kB in 15s (186 kB/s)
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 42662 files and directories currently installed.)
-Preparing to unpack .../apache2_2.4.61-1~deb11u1_arm64.deb ...
-Unpacking apache2 (2.4.61-1~deb11u1) over (2.4.59-1~deb11u1) ...
-Preparing to unpack .../apache2-bin_2.4.61-1~deb11u1_arm64.deb ...
-Unpacking apache2-bin (2.4.61-1~deb11u1) over (2.4.59-1~deb11u1) ...
-Preparing to unpack .../apache2-data_2.4.61-1~deb11u1_all.deb ...
-Unpacking apache2-data (2.4.61-1~deb11u1) over (2.4.59-1~deb11u1) ...
-Preparing to unpack .../apache2-utils_2.4.61-1~deb11u1_arm64.deb ...
-Unpacking apache2-utils (2.4.61-1~deb11u1) over (2.4.59-1~deb11u1) ...
-Preparing to unpack .../libk5crypto3_1.18.3-6+deb11u5_arm64.deb ...
-Unpacking libk5crypto3:arm64 (1.18.3-6+deb11u5) over (1.18.3-6+deb11u4) ...
-Setting up libk5crypto3:arm64 (1.18.3-6+deb11u5) ...
-W: Operation was interrupted before it could finish
-W: APT had planned for dpkg to do more than it reported back (12 vs 33).
-   Affected packages: apache2-bin:arm64 apache2-data:arm64 apache2-utils:arm64 apache2:arm64 libgssapi-krb5-2:arm64 libkrb5-3:arm64 libkrb5support0:arm64
-Sun 14 Jul 2024 11:18:40 AM UTC ---- [0;32mStart the update[0m ----
-Sun 14 Jul 2024 11:18:40 AM UTC ---- [0;32mStop root cron[0m ----
-Sun 14 Jul 2024 11:18:40 AM UTC -- crontab empty.txt
-Sun 14 Jul 2024 11:18:40 AM UTC ---- [0;32mDo software updates[0m ----
-Sun 14 Jul 2024 11:18:40 AM UTC -- apt update
-
-WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-
-Hit:1 http://mirrors.tuna.tsinghua.edu.cn/debian bullseye InRelease
-Hit:2 http://mirrors.tuna.tsinghua.edu.cn/debian bullseye-updates InRelease
-Hit:3 http://mirrors.tuna.tsinghua.edu.cn/debian bullseye-backports InRelease
-Hit:4 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security InRelease
-Reading package lists...
-Building dependency tree...
-Reading state information...
-3 packages can be upgraded. Run 'apt list --upgradable' to see them.
-Sun 14 Jul 2024 11:18:51 AM UTC -- apt upgrade
-
-WARNING: apt does not have a stable CLI interface. Use with caution in scripts.
-
-Reading package lists...
-Building dependency tree...
-Reading state information...
-Calculating upgrade...
-The following packages will be upgraded:
-  libgssapi-krb5-2 libkrb5-3 libkrb5support0
-3 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
-4 not fully installed or removed.
-Need to get 568 kB of archives.
-After this operation, 0 B of additional disk space will be used.
-Get:1 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 libkrb5support0 arm64 1.18.3-6+deb11u5 [65.1 kB]
-Get:2 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 libkrb5-3 arm64 1.18.3-6+deb11u5 [347 kB]
-Get:3 http://mirrors.tuna.tsinghua.edu.cn/debian-security bullseye-security/main arm64 libgssapi-krb5-2 arm64 1.18.3-6+deb11u5 [156 kB]
-Fetched 568 kB in 5s (120 kB/s)
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 42662 files and directories currently installed.)
-Preparing to unpack .../libkrb5support0_1.18.3-6+deb11u5_arm64.deb ...
-Unpacking libkrb5support0:arm64 (1.18.3-6+deb11u5) over (1.18.3-6+deb11u4) ...
-Setting up libkrb5support0:arm64 (1.18.3-6+deb11u5) ...
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 42662 files and directories currently installed.)
-Preparing to unpack .../libkrb5-3_1.18.3-6+deb11u5_arm64.deb ...
-Unpacking libkrb5-3:arm64 (1.18.3-6+deb11u5) over (1.18.3-6+deb11u4) ...
-Setting up libkrb5-3:arm64 (1.18.3-6+deb11u5) ...
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 42662 files and directories currently installed.)
-Preparing to unpack .../libgssapi-krb5-2_1.18.3-6+deb11u5_arm64.deb ...
-Unpacking libgssapi-krb5-2:arm64 (1.18.3-6+deb11u5) over (1.18.3-6+deb11u4) ...
-Setting up libgssapi-krb5-2:arm64 (1.18.3-6+deb11u5) ...
-Setting up apache2-bin (2.4.61-1~deb11u1) ...
-Setting up apache2-data (2.4.61-1~deb11u1) ...
-Setting up apache2-utils (2.4.61-1~deb11u1) ...
-Setting up apache2 (2.4.61-1~deb11u1) ...
-apache-htcacheclean.service is a disabled or a static unit not running, not starting it.
-Processing triggers for man-db (2.9.4-2) ...
-Processing triggers for libc-bin (2.31-13+deb11u10) ...
-Sun 14 Jul 2024 11:19:13 AM UTC ---- [0;32mCreate the update folder and set its permissions[0m ----
-Sun 14 Jul 2024 11:19:13 AM UTC -- mkdir /home/update
-Sun 14 Jul 2024 11:19:13 AM UTC -- chmod a+rw /home/update
-Sun 14 Jul 2024 11:19:13 AM UTC ---- [0;32mMove to the update folder[0m ----
-Sun 14 Jul 2024 11:19:13 AM UTC -- cd /home/update
-Sun 14 Jul 2024 11:19:13 AM UTC ---- [0;32mDelete all files[0m ----
-Sun 14 Jul 2024 11:19:13 AM UTC -- rm -rf *
-Sun 14 Jul 2024 11:19:13 AM UTC ---- [0;32mDownload the update pack[0m ----
-Sun 14 Jul 2024 11:19:13 AM UTC -- sudo -u orangepi wget https://rbrheating.com/home/dist.tgz
---2024-07-14 11:19:13--  https://rbrheating.com/home/dist.tgz
-Resolving rbrheating.com (rbrheating.com)... 173.236.136.72
-Connecting to rbrheating.com (rbrheating.com)|173.236.136.72|:443... connected.
-HTTP request sent, awaiting response... 200 OK
-Length: 6701334 (6.4M) [application/x-gtar-compressed]
-Saving to: ‘dist.tgz’
-
-     0K .......... .......... .......... .......... ..........  0%  263K 25s
-    50K .......... .......... .......... .......... ..........  1%  688K 17s
-   100K .......... .......... .......... .......... ..........  2% 1.47M 13s
-   150K .......... .......... .......... .......... ..........  3%  679K 12s
-   200K .......... .......... .......... .......... ..........  3% 1.52M 10s
-   250K .......... .......... .......... .......... ..........  4%  504K 10s
-   300K .......... .......... .......... .......... ..........  5% 1.21M 10s
-   350K .......... .......... .......... .......... ..........  6%  290K 11s
-   400K .......... .......... .......... .......... ..........  6% 34.3M 10s
-   450K .......... .......... .......... .......... ..........  7%  562K 10s
-   500K .......... .......... .......... .......... ..........  8%  109K 14s
-   550K .......... .......... .......... .......... ..........  9% 1.23M 13s
-   600K .......... .......... .......... .......... ..........  9%  267K 14s
-   650K .......... .......... .......... .......... .......... 10%  233K 14s
-   700K .......... .......... .......... .......... .......... 11%  998K 14s
-   750K .......... .......... .......... .......... .......... 12%  164K 15s
-   800K .......... .......... .......... .......... .......... 12%  475K 15s
-   850K .......... .......... .......... .......... .......... 13%  578K 14s
-   900K .......... .......... .......... .......... .......... 14%  375K 14s
-   950K .......... .......... .......... .......... .......... 15%  599K 14s
-  1000K .......... .......... .......... .......... .......... 16%  738K 13s
-  1050K .......... .......... .......... .......... .......... 16%  525K 13s
-  1100K .......... .......... .......... .......... .......... 17%  969K 13s
-  1150K .......... .......... .......... .......... .......... 18%  625K 12s
-  1200K .......... .......... .......... .......... .......... 19%  635K 12s
-  1250K .......... .......... .......... .......... .......... 19% 1.71M 12s
-  1300K .......... .......... .......... .......... .......... 20% 2.36M 11s
-  1350K .......... .......... .......... .......... .......... 21%  166K 12s
-  1400K .......... .......... .......... .......... .......... 22% 1.04M 11s
-  1450K .......... .......... .......... .......... .......... 22% 13.3M 11s
-  1500K .......... .......... .......... .......... .......... 23% 1.27M 11s
-  1550K .......... .......... .......... .......... .......... 24%  634K 10s
-  1600K .......... .......... .......... .......... .......... 25% 1.35M 10s
-  1650K .......... .......... .......... .......... .......... 25%  665K 10s
-  1700K .......... .......... .......... .......... .......... 26% 1.97M 10s
-  1750K .......... .......... .......... .......... .......... 27%  663K 9s
-  1800K .......... .......... .......... .......... .......... 28% 1.22M 9s
-  1850K .......... .......... .......... .......... .......... 29%  634K 9s
-  1900K .......... .......... .......... .......... .......... 29% 2.87M 9s
-  1950K .......... .......... .......... .......... .......... 30%  256K 9s
-  2000K .......... .......... .......... .......... .......... 31% 2.92M 9s
-  2050K .......... .......... .......... .......... .......... 32%  620K 8s
-  2100K .......... .......... .......... .......... .......... 32% 2.41M 8s
-  2150K .......... .......... .......... .......... .......... 33%  404K 8s
-  2200K .......... .......... .......... .......... .......... 34% 3.98M 8s
-  2250K .......... .......... .......... .......... .......... 35% 1.87M 8s
-  2300K .......... .......... .......... .......... .......... 35%  648K 8s
-  2350K .......... .......... .......... .......... .......... 36% 3.74M 7s
-  2400K .......... .......... .......... .......... .......... 37%  501K 7s
-  2450K .......... .......... .......... .......... .......... 38%  768K 7s
-  2500K .......... .......... .......... .......... .......... 38% 1.25M 7s
-  2550K .......... .......... .......... .......... .......... 39% 2.51M 7s
-  2600K .......... .......... .......... .......... .......... 40%  718K 7s
-  2650K .......... .......... .......... .......... .......... 41% 1.12M 7s
-  2700K .......... .......... .......... .......... .......... 42% 1.08M 6s
-  2750K .......... .......... .......... .......... .......... 42%  976K 6s
-  2800K .......... .......... .......... .......... .......... 43%  839K 6s
-  2850K .......... .......... .......... .......... .......... 44% 1.02M 6s
-  2900K .......... .......... .......... .......... .......... 45% 3.84M 6s
-  2950K .......... .......... .......... .......... .......... 45%  894K 6s
-  3000K .......... .......... .......... .......... .......... 46% 1.31M 6s
-  3050K .......... .......... .......... .......... .......... 47%  875K 6s
-  3100K .......... .......... .......... .......... .......... 48% 1.24M 5s
-  3150K .......... .......... .......... .......... .......... 48% 2.13M 5s
-  3200K .......... .......... .......... .......... .......... 49%  706K 5s
-  3250K .......... .......... .......... .......... .......... 50% 1.62M 5s
-  3300K .......... .......... .......... .......... .......... 51%  626K 5s
-  3350K .......... .......... .......... .......... .......... 51% 1.59M 5s
-  3400K .......... .......... .......... .......... .......... 52% 1.21M 5s
-  3450K .......... .......... .......... .......... .......... 53%  875K 5s
-  3500K .......... .......... .......... .......... .......... 54% 1.13M 5s
-  3550K .......... .......... .......... .......... .......... 55% 1.11M 4s
-  3600K .......... .......... .......... .......... .......... 55%  843K 4s
-  3650K .......... .......... .......... .......... .......... 56% 1.52M 4s
-  3700K .......... .......... .......... .......... .......... 57% 1.63M 4s
-  3750K .......... .......... .......... .......... .......... 58%  747K 4s
-  3800K .......... .......... .......... .......... .......... 58% 2.20M 4s
-  3850K .......... .......... .......... .......... .......... 59%  647K 4s
-  3900K .......... .......... .......... .......... .......... 60% 4.38M 4s
-  3950K .......... .......... .......... .......... .......... 61% 1.74M 4s
-  4000K .......... .......... .......... .......... .......... 61%  613K 4s
-  4050K .......... .......... .......... .......... .......... 62% 2.39M 3s
-  4100K .......... .......... .......... .......... .......... 63%  685K 3s
-  4150K .......... .......... .......... .......... .......... 64%  884K 3s
-  4200K .......... .......... .......... .......... .......... 64% 1.97M 3s
-  4250K .......... .......... .......... .......... .......... 65%  360K 3s
-  4300K .......... .......... .......... .......... .......... 66% 1.47M 3s
-  4350K .......... .......... .......... .......... .......... 67%  787K 3s
-  4400K .......... .......... .......... .......... .......... 67% 1.04M 3s
-  4450K .......... .......... .......... .......... .......... 68%  770K 3s
-  4500K .......... .......... .......... .......... .......... 69% 1.31M 3s
-  4550K .......... .......... .......... .......... .......... 70% 4.75M 3s
-  4600K .......... .......... .......... .......... .......... 71%  454K 3s
-  4650K .......... .......... .......... .......... .......... 71% 1.41M 3s
-  4700K .......... .......... .......... .......... .......... 72%  195K 3s
-  4750K .......... .......... .......... .......... .......... 73% 3.94M 2s
-  4800K .......... .......... .......... .......... .......... 74%  501K 2s
-  4850K .......... .......... .......... .......... .......... 74% 1.91M 2s
-  4900K .......... .......... .......... .......... .......... 75% 1.32M 2s
-  4950K .......... .......... .......... .......... .......... 76%  610K 2s
-  5000K .......... .......... .......... .......... .......... 77% 5.05M 2s
-  5050K .......... .......... .......... .......... .......... 77%  639K 2s
-  5100K .......... .......... .......... .......... .......... 78% 1.02M 2s
-  5150K .......... .......... .......... .......... .......... 79% 1.81M 2s
-  5200K .......... .......... .......... .......... .......... 80%  341K 2s
-  5250K .......... .......... .......... .......... .......... 80% 2.58M 2s
-  5300K .......... .......... .......... .......... .......... 81%  374K 2s
-  5350K .......... .......... .......... .......... .......... 82%  372K 2s
-  5400K .......... .......... .......... .......... .......... 83% 4.14M 2s
-  5450K .......... .......... .......... .......... .......... 84% 20.0M 1s
-  5500K .......... .......... .......... .......... .......... 84%  573K 1s
-  5550K .......... .......... .......... .......... .......... 85% 2.89M 1s
-  5600K .......... .......... .......... .......... .......... 86%  484K 1s
-  5650K .......... .......... .......... .......... .......... 87%  799K 1s
-  5700K .......... .......... .......... .......... .......... 87%  978K 1s
-  5750K .......... .......... .......... .......... .......... 88%  689K 1s
-  5800K .......... .......... .......... .......... .......... 89% 1.36M 1s
-  5850K .......... .......... .......... .......... .......... 90%  382K 1s
-  5900K .......... .......... .......... .......... .......... 90%  866K 1s
-  5950K .......... .......... .......... .......... .......... 91%  525K 1s
-  6000K .......... .......... .......... .......... .......... 92% 1.67M 1s
-  6050K .......... .......... .......... .......... .......... 93%  627K 1s
-  6100K .......... .......... .......... .......... .......... 93% 1.73M 1s
-  6150K .......... .......... .......... .......... .......... 94%  664K 0s
-  6200K .......... .......... .......... .......... .......... 95% 1.87M 0s
-  6250K .......... .......... .......... .......... .......... 96% 1.19M 0s
-  6300K .......... .......... .......... .......... .......... 97%  938K 0s
-  6350K .......... .......... .......... .......... .......... 97%  613K 0s
-  6400K .......... .......... .......... .......... .......... 98%  302K 0s
-  6450K .......... .......... .......... .......... .......... 99% 2.18M 0s
-  6500K .......... .......... .......... .......... ....      100%  606K=9.1s
-
-2024-07-14 11:19:22 (721 KB/s) - ‘dist.tgz’ saved [6701334/6701334]
-
-Sun 14 Jul 2024 11:19:22 AM UTC ---- [0;32mUnpack the update pack[0m ----
-Sun 14 Jul 2024 11:19:22 AM UTC -- sudo -u orangepi tar zxf dist.tgz
-Sun 14 Jul 2024 11:19:23 AM UTC ---- [0;32mRemove unwanted files[0m ----
-Sun 14 Jul 2024 11:19:23 AM UTC -- rm -f dist.tgz backup mac map
-Sun 14 Jul 2024 11:19:23 AM UTC ---- [0;32mRestore root cron[0m ----
-Sun 14 Jul 2024 11:19:23 AM UTC -- crontab cronroot.txt
-Sun 14 Jul 2024 11:19:23 AM UTC ---- [0;32mSet the user cron[0m ----
-Sun 14 Jul 2024 11:19:23 AM UTC -- sudo -u orangepi crontab crondata.txt
-Sun 14 Jul 2024 11:19:23 AM UTC ---- [0;32mRemove the updater flag file[0m ----
-Sun 14 Jul 2024 11:19:23 AM UTC -- rm /mnt/data/version
-rm: cannot remove '/mnt/data/version': No such file or directory
-Sun 14 Jul 2024 11:19:23 AM UTC ---- [0;32mMove back to the home folder[0m ----
-Sun 14 Jul 2024 11:19:23 AM UTC -- cd /home/orangepi
-Sun 14 Jul 2024 11:19:23 AM UTC ---- [0;32mDelete everything[0m ----
-Sun 14 Jul 2024 11:19:23 AM UTC -- rm -rf README.md __pycache__ backup benchmark.eco benchmark.ecs benchmark.json ble config config.html crondata.txt cronroot.txt ec.py ec_classes.py ec_compiler.py ec_compress.py ec_condition.py ec_core.py ec_graphics.py ec_handler.py ec_p100.py ec_program.py ec_timestamp.py ec_value.py ecg.py empty.txt favicon.ico firmware flags.sh getStats.ecs getmac.py gui.ecs gui.py healthcheck.ecs index.html interfaces json lognames mac mijia.py mode.ecs pyctures.py rbr.ecs requests.ecs resources run.sh scripted.html server.sh server.txt servertest.sh setup showpy simulator.ecs simulator.py smartplug.py system test-g.ecs test-p.ecs test.ecs test.py test.txt update.sh version zip.sh
-Sun 14 Jul 2024 11:19:23 AM UTC ---- [0;32mCopy everything from the update folder[0m ----
-Sun 14 Jul 2024 11:19:23 AM UTC -- sudo -u orangepi cp -R ../update/README.md ../update/benchmark.eco ../update/benchmark.ecs ../update/benchmark.json ../update/ble ../update/config ../update/config.html ../update/crondata.txt ../update/cronroot.txt ../update/ec.py ../update/ec_classes.py ../update/ec_compiler.py ../update/ec_compress.py ../update/ec_condition.py ../update/ec_core.py ../update/ec_graphics.py ../update/ec_handler.py ../update/ec_p100.py ../update/ec_program.py ../update/ec_timestamp.py ../update/ec_value.py ../update/ecg.py ../update/empty.txt ../update/favicon.ico ../update/firmware ../update/flags.sh ../update/getStats.ecs ../update/getmac.py ../update/gui.ecs ../update/gui.py ../update/healthcheck.ecs ../update/index.html ../update/interfaces ../update/json ../update/lognames ../update/mijia.py ../update/mode.ecs ../update/pyctures.py ../update/rbr.ecs ../update/requests.ecs ../update/resources ../update/run.sh ../update/scripted.html ../update/server.sh ../update/server.txt ../update/servertest.sh ../update/setup ../update/showpy ../update/simulator.ecs ../update/simulator.py ../update/smartplug.py ../update/system ../update/test-g.ecs ../update/test-p.ecs ../update/test.ecs ../update/test.py ../update/test.txt ../update/update.sh ../update/version ../update/zip.sh .
-Sun 14 Jul 2024 11:19:23 AM UTC ---- [0;32mReboot[0m ----
-Sun 14 Jul 2024 11:19:23 AM UTC -- /usr/sbin/reboot

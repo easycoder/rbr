@@ -1,5 +1,5 @@
 #!/bin/sh
 
-cd /home/rbr/ui
+cd /userdata/rbr/ui
 ec rbr_ui.ecs
 

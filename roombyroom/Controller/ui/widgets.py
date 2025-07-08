@@ -451,13 +451,13 @@ class Room(QFrame):
         modePanelLayout = QHBoxLayout(modePanel)
         modePanelLayout.setSpacing(0)
         modePanelLayout.setContentsMargins(5, 0, 0, 0)
-        name = spec['name']
-        mode = spec['mode']
+        self.name = spec['name']
+        self.mode = spec['mode']
 
         # Icon 1: Mode
-        if not mode in ['timed', 'boost', 'advance', 'on', 'off']: mode = 'off'
-        image = f'img/{mode}.png'
-        self.mode = f'{mode[0].upper()}{mode[1:]}'
+        if not self.mode in ['timed', 'boost', 'advance', 'on', 'off']: self.mode = 'off'
+        image = f'img/{self.mode}.png'
+        self.mode = f'{self.mode[0].upper()}{self.mode[1:]}'
         if self.mode == 'Timed':
             advance = spec['advance']
             if advance != '' and advance != '-' and advance != 'C':
@@ -466,7 +466,7 @@ class Room(QFrame):
         self.modeButton = ModeButton(self, self.program, height * 0.8, 2.7, image, index)
 
         # Room name label
-        nameLabel = QLabel(name)
+        nameLabel = QLabel(self.name)
         nameLabel.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
         nameLabel.setStyleSheet('''
             background-color: transparent;

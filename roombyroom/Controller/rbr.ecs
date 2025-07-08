@@ -237,10 +237,6 @@
     begin
         log `Install update from ` cat Version cat ` to ` cat Value
         save `` cat Value to RamDisk cat `version`
-        if Map is not empty
-        begin
-            save Map to RamDisk cat `map`
-        end
     end
 
 !   Continue here if we are not connected to the RBR web server
