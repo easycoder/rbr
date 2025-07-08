@@ -15,6 +15,7 @@
     button ModeButton
     button ToolsButton
     modeDialog ModeDialog
+    dialog Dialog
     layout Panel
     layout Layout
     label Label
@@ -242,7 +243,7 @@ ShowMainMenu:
     select Choice from menu `Main Menu` with Choices
     log Choice
     if Choice is element 0 of Choices go to SetSystemName
-    if Choice is element 1 of Choices go to Nothing
+    if Choice is element 1 of Choices go to SetRequestRelay
     if Choice is element 2 of Choices go to Nothing
     if Choice is element 3 of Choices exit
     if Choice is element 4 of Choices stop
@@ -295,6 +296,14 @@ HandleMode:
         else set property `advance` of Request to `C`
         gosub to SetMode
     end
+    stop
+
+SetRequestRelay:
+    create Layout type QVBoxLayout
+    create Dialog on Window
+        title `Request Relay name:`
+        type lineinput
+    show Dialog
     stop
 
 SetMode:
