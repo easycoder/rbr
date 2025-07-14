@@ -38,15 +38,15 @@ class Server():
                 peer = None
                 msg=None
                 ack=False
-    #            print('handleClient:',request[1])
+#                print('handleClient:',request[1])
                 request=request[1].split('?')
                 if len(request)<2:
                     return await self.sendDefaultResponse(writer)
                 items=request[1].split('&')
                 for n in range(0, len(items)):
                     item = items[n].split('=')
-                    if len(item)<2:
-                        response=handler.handleMessage(item[0])
+                    if len(item)<2 or item[0]=='channel':
+                        response=handler.handleMessage(items[n])
                         return await self.respond(response,writer)
                     if item[0]=='mac': peer=item[1]
                     elif item[0]=='msg': espmsg=item[1]

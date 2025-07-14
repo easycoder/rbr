@@ -57,7 +57,7 @@
     variable R
     variable T
 
-!    debug step
+!   debug step
 
     init graphics
 

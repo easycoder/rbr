@@ -45,12 +45,18 @@ class Handler():
                 response=f'OK {self.relay.getState()}'
             except:
                 response='No relay'
-        elif msg == 'reset':
+        elif msg=='reset':
             self.config.reset()
             response='OK'
         elif msg == 'ipaddr':
             response=f'OK {self.config.getIPAddr()}'
-        elif msg == 'temp':
+        elif msg=='channel':
+            response=f'OK {self.config.getChannel()}'
+        elif msg[0:8]=='channel=':
+            channel=msg[8:]
+            self.config.setChannel(channel)
+            response=f'OK {channel}'
+        elif msg=='temp':
             response=f'OK {self.config.getTemperature()}'
         elif msg=='pause':
             self.config.pause()

@@ -27,6 +27,7 @@
     pushbutton RBRNowDirectoryButton
     pushbutton ScanDevicesButton
     pushbutton ClearSystemButton
+    pushbutton SetMasterAddressButton
     pushbutton RemoveSlaveButton
     pushbutton UpdateFileButton
     pushbutton UpdateAllFilesButton
@@ -79,6 +80,10 @@
     create ClearSystemButton text `Clear the selected system`
     on click ClearSystemButton go to ClearSystemClick
     add ClearSystemButton to LeftPanel
+
+    create SetMasterAddressButton text `Set the master IP address`
+    on click SetMasterAddressButton go to SetMasterAddressClick
+    add SetMasterAddressButton to LeftPanel
 
     add stretch to LeftPanel
 
@@ -672,6 +677,19 @@ ClearSystemClick:
         gosub to PostConfigData
     end
     gosub to OK
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set the master IP address
+SetMasterAddressClick:
+    put `Master IP Address:` into Prompt
+    put empty into Value
+    put `Master IP Address` into Title
+    put 20 into Length
+    put MasterIPAddr into Value
+    gosub to GetRequestedText
+    if ReturnValue is not empty put ReturnValue into MasterIPAddr
+    gosub to SetButtonStates
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1789,7 +1807,7 @@ PauseSystemController:
     if SystemIPAddr is not empty
         get Response from url `http://` cat SystemIPAddr cat `:17348/cgi-bin/pause.py`
         or begin
-            put `Unable to contact server at ` cat IPAddr into StatusMessage
+            put `Unable to contact server at ` cat SystemIPAddr into StatusMessage
             goto Working
         end
     return
@@ -1800,7 +1818,7 @@ ResumeSystemController:
     if SystemIPAddr is not empty
         get Response from url `http://` cat SystemIPAddr cat `:17348/cgi-bin/resume.py`
         or begin
-            put `Unable to contact server at ` cat IPAddr into StatusMessage
+            put `Unable to contact server at ` cat SystemIPAddr into StatusMessage
             goto Working
         end
     return

@@ -189,7 +189,7 @@
     get Config from url RBRServer cat `/config/` cat MAC cat `/` cat Password
     put json Config into Config
 !    load Config from `.config.json`
-!    log `Config: ` cat Config
+    log `Config: ` cat prettify Config
     put empty into MasterDevice
     put empty into MasterIPAddr
     if Config has property `devices`
@@ -1047,7 +1047,7 @@ MessageESPDevice:
 !        log `!!!!!!!! Message to '` cat Name cat `' failed`
         put empty into Response
     end
-!    log URL cat ` -> ` cat Response
+    log URL cat ` -> ` cat Response
     if left 2 of Response is not `OK`
     begin
 !        log `Bad response: ` cat Response

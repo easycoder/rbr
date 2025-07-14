@@ -68,6 +68,9 @@ class Config():
     def setAP(self,ap): self.ap=ap
     def setSTA(self,sta): self.sta=sta
     def setMAC(self,mac): self.mac=mac
+    def setChannel(self,channel):
+        self.config['channel']=channel
+        writeFile('config.json',json.dumps(self.config))
     def setIPAddr(self,ipaddr): self.ipaddr=ipaddr
     def setHandler(self,handler): self.handler=handler
     def setESPComms(self,espComms): self.espComms=espComms
