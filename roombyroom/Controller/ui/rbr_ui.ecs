@@ -299,11 +299,11 @@ HandleMode:
     stop
 
 SetRequestRelay:
-    create Layout type QVBoxLayout
     create Dialog on Window
         title `Request Relay name:`
         type lineinput
     show Dialog
+    log Dialog
     stop
 
 SetMode:

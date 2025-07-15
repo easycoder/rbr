@@ -1010,7 +1010,7 @@ class OnMode(GenericMode):
         self.setupMode(left, right)
     
     def showTarget(self):
-        self.data['value'][self.data['index']]['content']['target'] = str(self.target)
+        self.caller.data['value'][self.caller.data['index']]['content']['target'] = str(self.target)
         self.settingLabel.setText(f'{self.target}°C')
     
     def getSettinglabel(self):

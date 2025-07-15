@@ -5,6 +5,7 @@
     script Flash
 
     variable Port       ! the port used by the device, e.g. /dev/ttyUSB0 or /dev/ttyACM0
+    variable RBR        ! the RBR base directory
     variable URL        ! the URL of the downloadable Micropython binary
     variable Binary     ! the path and name of the file to save the Micropython binary
     variable Scripts    ! the path to the RBR-Now scripts directory (without a terminating /)
@@ -12,10 +13,11 @@
     variable N
 
     ! Set things up:
+    put `/home/graham/dev/rbr/` into RBR
     put `/dev/ttyUSB0` into Port
     put `https://micropython.org/resources/firmware/ESP32_GENERIC_C3-20250415-v1.25.0.bin` into URL
-    put `ESP32-C3.bin` into Binary
-    put `RBRNow` into Scripts
+    put RBR cat `ESP/ESP32-C3.bin` into Binary
+    put RBR cat `RBRNow` into Scripts
 
     ! Erase the device and install MicroPython
     download binary URL to Binary
