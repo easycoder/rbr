@@ -321,17 +321,22 @@ class ModeButton(QWidget):
                     if property `linked` of RoomSpec is `yes`
                         set the content of ModeInfo to Temperature cat `&deg;C->` cat Finish
                     else set the content of ModeInfo to `->` cat Finish'''
-                    pass
+                    font2 = QFont("Arial", h // 7)
+                    painter.setFont(font2)
+                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
+                    painter.drawText(rect2, Qt.AlignCenter, 'under dev')
                 elif self.mode == 'Advance':
                     pass
                 elif self.mode == 'Boost':
                     font2 = QFont("Arial", h // 7)
                     painter.setFont(font2)
                     rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
-                    boost = round((self.spec['boost'] - int(time.time())) / 60) + 1
-                    if boost == 1: boost = '1 min'
-                    else: boost = f'{boost} mins'
-                    painter.drawText(rect2, Qt.AlignCenter, boost)
+                    try:
+                        boost = round((self.spec['boost'] - int(time.time())) / 60) + 1
+                        if boost == 1: boost = '1 min'
+                        else: boost = f'{boost} mins'
+                        painter.drawText(rect2, Qt.AlignCenter, boost)
+                    except: pass
                 elif self.mode == 'On':
                     font2 = QFont("Arial", h // 7)
                     painter.setFont(font2)
@@ -867,7 +872,8 @@ class TimedMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the content
-        text = 'Cancel\n' if caller.data['advance'] != '-' else ''
+        # text = 'Cancel\n' if caller.data['advance'] != '-' else ''
+        text = 'Cancel\n' if caller.data['value'][caller.data['index']]['content']['advance'] != '-' else ''
         advance = self.AdvanceButton(program, f'{text}Advance', self.advance)
         edit = self.EditIcon(program, f'img/edit.png', self.edit)
         
@@ -996,7 +1002,7 @@ class OnMode(GenericMode):
         # Create the buttons and text
         downButton = self.PlusMinusButton(program, f'img/blueminus.png', fcb=self.onDown)
         self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
-        self.target = float(caller.data['target']) if caller.data != None else 0.0
+        self.target = float(caller.data['value'][caller.data['index']]['content']['target']) if caller.data != None else 0.0
         self.settingLabel = self.SettingLabel(f'{self.target}°C')
         upButton = self.PlusMinusButton(program, f'img/redplus.png', fcb=self.onUp)
         
@@ -1011,6 +1017,7 @@ class OnMode(GenericMode):
     
     def showTarget(self):
         self.caller.data['value'][self.caller.data['index']]['content']['target'] = str(self.target)
+        self.caller.data['target'] = str(self.target)
         self.settingLabel.setText(f'{self.target}°C')
     
     def getSettinglabel(self):

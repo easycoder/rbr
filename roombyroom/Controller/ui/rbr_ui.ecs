@@ -267,12 +267,16 @@ HandleMode:
     index Room to R
     put element R of Rooms into RoomSpec
     put property `mode` of RoomSpec into Mode
-    set property `target` of Data to property `target` of RoomSpec
     get Result from ModeDialog with RoomSpec
+    set property `target` of Data to property `target` of RoomSpec
 !    log property `name` of RoomSpec cat `: ` cat Result
     put json `{}` into Request
     if Result is `timed` gosub to SetMode
-    else if Result is `off` gosub to SetMode
+    else if Result is `off`
+    begin
+        set property `mode` of Request to `off`
+        gosub to SetMode
+    end
     else if Result is `on`
     begin
         set property `mode` of Request to `on`

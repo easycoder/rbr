@@ -241,7 +241,7 @@ class RBR_UI(Handler):
                             if self.nextIsSymbol():
                                 record = self.getSymbolRecord()
                                 if not record['hasValue']: return False
-                                command['with'] = self.getValue()
+                                command['with'] = record['name']
                             else: return False
                         self.add(command)
                         return True
@@ -250,10 +250,9 @@ class RBR_UI(Handler):
     def r_get(self, command):
         target = self.getVariable(command['target'])
         dialog = self.getVariable(command['dialog'])
-        data = self.getRuntimeValue(command['with']) if 'with' in command else None
+        data = self.getVariable(command['with']) if 'with' in command else None
         keyword = dialog['keyword']
-        if keyword == 'modeDialog':
-            value = ModeDialog(self.program, data).showDialog()
+        value = ModeDialog(self.program, data).showDialog() if keyword == 'modeDialog' else ''
         v = {}
         v['type'] = 'text'
         v['content'] = value
