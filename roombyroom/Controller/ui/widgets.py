@@ -1,7 +1,6 @@
 import sys, time
 from collections import namedtuple
 from datetime import datetime
-from pytz import timezone
 from qwerty import VirtualKeyboard
 from PySide6.QtGui import (
     QIcon,
@@ -262,9 +261,10 @@ class ModeButton(QWidget):
                     roomSpec = self.spec
                     advance = str(roomSpec['advance'])
                     
-                    t = (now() / 60) % 24*60
-                    h = int(t / 60)
-                    m = int(t % 60)
+                    timestamp = time.time()
+                    dt = datetime.fromtimestamp(timestamp)
+                    hour = dt.hour
+                    minute = dt.minute
 
                     text = ''
                     events = roomSpec['events']
@@ -280,12 +280,12 @@ class ModeButton(QWidget):
                         finish = untilTime.split(':')
                         fh = int(finish[0])
                         if fh == 0: fh = 24
-                        if h < fh:
+                        if hour < fh:
                             text = f'{untilTemp}°C->{untilTime}'
                             break
-                        elif h == fh:
+                        elif hour == fh:
                             fm = int(finish[1])
-                            if m < fm:
+                            if minute < fm:
                                 text = f'{untilTemp}°C->{untilTime}'
                                 break
                     
@@ -296,7 +296,7 @@ class ModeButton(QWidget):
                         if roomSpec['linked'] == 'yes':  text = f'{untilTemp}°C->{untilTime}'
                         else: text = f'->{untilTime}'
 
-                    font2 = QFont("Arial", height // 7)
+                    font2 = QFont("Arial", height // 8)
                     painter.setFont(font2)
                     rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
                     painter.drawText(rect2, Qt.AlignCenter, text)
