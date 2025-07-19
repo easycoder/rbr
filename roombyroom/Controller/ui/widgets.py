@@ -1,5 +1,7 @@
 import sys, time
 from collections import namedtuple
+from datetime import datetime
+from pytz import timezone
 from qwerty import VirtualKeyboard
 from PySide6.QtGui import (
     QIcon,
@@ -101,6 +103,14 @@ def defaultButtonStyle():
         font-size: 20px;
         font-weight: bold;
         '''
+
+###############################################################################
+# Utility functions
+def now():
+    t = time.time()
+    tz = timezone('GB') # Localize this!
+    dt = datetime.fromtimestamp(t)
+    return int(t) + tz.dst(dt).seconds
 
 ###############################################################################
 # An expanding label
@@ -237,98 +247,63 @@ class ModeButton(QWidget):
             with QPainter(self) as painter:
                 painter.setRenderHint(QPainter.Antialiasing)
                 w = self.width()
-                h = self.height
+                height = self.height
 
                 # First row font and rect
-                font1 = QFont("Arial", h // 5, QFont.Bold)
+                font1 = QFont("Arial", height // 5, QFont.Bold)
                 painter.setFont(font1)
                 painter.setPen(QColor("black"))
                 offset = 0.2 if self.mode == 'Off' else 0.4
-                rect1 = self.rect().adjusted(0, 0, 0, -h * offset)
+                rect1 = self.rect().adjusted(0, 0, 0, -height * offset)
                 painter.drawText(rect1, Qt.AlignCenter, self.mode)
 
                 # Second row font and rect (if present)
                 if self.mode == 'Timed':
-                    '''if RoomStatus is `good`
-                    begin
-                        put `` cat Advance into Advance
-                        if Advance is not empty
-                        begin
-                            if Advance is `-`
-                            begin
-                                set attribute `src` of ModeIcon to `resources/icon/clock.png`
-                                set the content of ModeText to `Timed`
-                                set style `font-size` of ModeText to `1.2em`
-                            end
-                            else
-                            begin
-                                if Advance is not `C`
-                                begin
-                                    set attribute `src` of ModeIcon to `resources/icon/advance.png?v=12345`
-                                    set the content of ModeText to `Advance`
-                                    set style `font-size` of ModeText to `1.0em`
-                                end
-                            end
-                        end
-                    end
+                    roomSpec = self.spec
+                    advance = str(roomSpec['advance'])
+                    
+                    t = (now() / 60) % 24*60
+                    h = int(t / 60)
+                    m = int(t % 60)
 
-                    put property `events` of RoomSpec into Events
-                    divide now by 60 giving N
-                    put N modulo 24*60 into N
-                    divide N by 60 giving H
-                    put N modulo 60 into M
-                    put 0 into E
-                    while E is less than the json count of Events
-                    begin
-                        put element E of Events into Event
-                        put property `until` of Event into UntilTime
-                        put property `temp` of Event into UntilTemp
-                        split UntilTime on `:` giving Finish
-                        
-                        if Advance is not `-`
-                        begin
-                            add 1 to E giving F
-                            if F is not less than the json count of Events put 0 into F
-                            put element F of Events into Event2
-                            put property `until` of Event2 into UntilTime
-                            put property `temp` of Event2 into UntilTemp
-                        end
-                        index Finish to 0
-                        put the value of Finish into FH
-                        if FH is 0 put 24 into FH
-                        if H is less than FH
-                        begin
-                            set the content of ModeInfo to UntilTemp
-                                cat `&deg;C->` cat UntilTime
-                            go to HandleClicks
-                        end
-                        else if H is FH
-                        begin
-                            index Finish to 1
-                            put the value of Finish into FM
-                            if M is less than FM
-                            begin
-                                set the content of ModeInfo to UntilTemp
-                                    cat `&deg;C->` cat UntilTime
-                                go to HandleClicks
-                            end
-                        end
-                        add 1 to E
-                    end
-                    put element 0 of Events into Event
-                    put property `until` of Event into Finish
-                    put property `temp` of Event into Temperature
-                    if property `linked` of RoomSpec is `yes`
-                        set the content of ModeInfo to Temperature cat `&deg;C->` cat Finish
-                    else set the content of ModeInfo to `->` cat Finish'''
-                    font2 = QFont("Arial", h // 7)
+                    text = ''
+                    events = roomSpec['events']
+                    for e, event in enumerate(events):
+
+                        if advance != '-':
+                            f = e + 1
+                            if f >= len(events): f = 0
+                            event = events[f]
+
+                        untilTime = event['until']
+                        untilTemp = event['temp']
+                        finish = untilTime.split(':')
+                        fh = int(finish[0])
+                        if fh == 0: fh = 24
+                        if h < fh:
+                            text = f'{untilTemp}°C->{untilTime}'
+                            break
+                        elif h == fh:
+                            fm = int(finish[1])
+                            if m < fm:
+                                text = f'{untilTemp}°C->{untilTime}'
+                                break
+                    
+                    if text == '':
+                        event = events[0]
+                        untilTime = event['until']
+                        untilTemp = event['temp']
+                        if roomSpec['linked'] == 'yes':  text = f'{untilTemp}°C->{untilTime}'
+                        else: text = f'->{untilTime}'
+
+                    font2 = QFont("Arial", height // 7)
                     painter.setFont(font2)
-                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
-                    painter.drawText(rect2, Qt.AlignCenter, 'under dev')
+                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
+                    painter.drawText(rect2, Qt.AlignCenter, text)
                 elif self.mode == 'Advance':
                     pass
                 elif self.mode == 'Boost':
-                    font2 = QFont("Arial", h // 7)
+                    font2 = QFont("Arial", height // 7)
                     painter.setFont(font2)
                     rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
                     try:
@@ -338,7 +313,7 @@ class ModeButton(QWidget):
                         painter.drawText(rect2, Qt.AlignCenter, boost)
                     except: pass
                 elif self.mode == 'On':
-                    font2 = QFont("Arial", h // 7)
+                    font2 = QFont("Arial", height // 7)
                     painter.setFont(font2)
                     rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
                     painter.drawText(rect2, Qt.AlignCenter, f'{self.spec["target"]}°C')
