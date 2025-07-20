@@ -47,6 +47,7 @@
     variable RoomSpec
     variable RoomData
     variable Choices
+    variable ChoicesShown
     variable Choice
     variable Advance
     variable Tick
@@ -54,7 +55,9 @@
     variable Request
     variable Data
     variable Value
+    variable C
     variable R
+    variable RR
     variable T
 
 !   debug step
@@ -237,7 +240,9 @@ ShowMainMenu:
     append `Set the system name` to Choices
     append `Set the request relay` to Choices
     append `Power off` to Choices
+    append empty to Choices
     append `Exit Application` to Choices
+    append empty to Choices
     append `Cancel` to Choices
 
     select Choice from menu `Main Menu` with Choices
@@ -245,11 +250,8 @@ ShowMainMenu:
     if Choice is element 0 of Choices go to SetSystemName
     if Choice is element 1 of Choices go to SetRequestRelay
     if Choice is element 2 of Choices go to Nothing
-    if Choice is element 3 of Choices exit
-    if Choice is element 4 of Choices stop
-    stop
-
-Nothing:
+    if Choice is element 4 of Choices exit
+    if Choice is element 6 of Choices stop
     stop
 
 SetSystemName:
@@ -271,7 +273,12 @@ HandleMode:
     set property `target` of Data to property `target` of RoomSpec
 !    log property `name` of RoomSpec cat `: ` cat Result
     put json `{}` into Request
-    if Result is `timed` gosub to SetMode
+    if Result is empty stop
+    else if Result is `timed`
+    begin
+        set property `mode` of Request to `timed`
+        gosub to SetMode
+    end
     else if Result is `off`
     begin
         set property `mode` of Request to `off`
@@ -328,14 +335,34 @@ HandleTools:
     append `Show info for ` cat Name to Choices
     append `Edit ` cat Name to Choices
     append `Delete ` cat Name to Choices
+    append empty to Choices
     append `Cancel` to Choices
 
-    select Choice from menu `Tools Menu` with Choices
+    put the count of Rooms into RR
+    decrement RR
+    put json `[]` into ChoicesShown
+    if R is 0 append element 1 of Choices to ChoicesShown
+    else if R is RR append element 0 of Choices to ChoicesShown
+    else
+    begin
+        append element 0 of Choices to ChoicesShown
+        append element 1 of Choices to ChoicesShown
+    end
+    put 2 into C
+    while C is less than the count of Choices
+    begin
+        append element C of Choices to ChoicesShown
+        increment C
+    end
+
+    select Choice from menu `Tools Menu` with ChoicesShown
     log Choice
     if Choice is element 0 of Choices go to Nothing
     if Choice is element 1 of Choices go to Nothing
     if Choice is element 2 of Choices go to Nothing
     if Choice is element 3 of Choices go to Nothing
     if Choice is element 4 of Choices go to Nothing
-    if Choice is element 5 of Choices stop
+    if Choice is element 6 of Choices stop
+
+Nothing:
     stop

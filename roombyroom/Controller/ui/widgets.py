@@ -305,7 +305,7 @@ class ModeButton(QWidget):
                 elif self.mode == 'Boost':
                     font2 = QFont("Arial", height // 7)
                     painter.setFont(font2)
-                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
+                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
                     try:
                         boost = round((self.spec['boost'] - int(time.time())) / 60) + 1
                         if boost == 1: boost = '1 min'
@@ -315,7 +315,7 @@ class ModeButton(QWidget):
                 elif self.mode == 'On':
                     font2 = QFont("Arial", height // 7)
                     painter.setFont(font2)
-                    rect2 = self.rect().adjusted(0, h * 0.1, 0, 0)
+                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
                     painter.drawText(rect2, Qt.AlignCenter, f'{self.spec["target"]}°C')
 
 
@@ -665,9 +665,11 @@ class Menu(QDialog):
         # Add action buttons
         if actions != None:
             for action in actions:
-                button = TextButton(program, action, height, action)
-                button.setFCB(self.accept)
-                layout.addWidget(button)
+                if action == '': layout.addSpacing(20)
+                else:
+                    button = TextButton(program, action, height, action)
+                    button.setFCB(self.accept)
+                    layout.addWidget(button)
 
         self.adjustSize()
 
