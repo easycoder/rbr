@@ -189,7 +189,7 @@
     get Config from url RBRServer cat `/config/` cat MAC cat `/` cat Password
     put json Config into Config
 !    load Config from `.config.json`
-    log `Config: ` cat prettify Config
+!    log `Config: ` cat prettify Config
     put empty into MasterDevice
     put empty into MasterIPAddr
     if Config has property `devices`
@@ -243,6 +243,8 @@
 SkipServerInteraction:
     save Password to RamDisk cat `password`
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Main start, where we load the map
 Start:
     print empty
     add 9 to now giving Timestamp
@@ -258,8 +260,9 @@ Start:
         log `Get the map from the server`
         get Map from url RBRServer cat `/map/` cat MAC cat `?v=` cat now
         or begin
-            put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
             gosub to NetworkError
+            put empty into Map
+            go to S1
         end
         gosub to ClearNetworkErrors
         save Map to RamDisk cat `map`
@@ -267,8 +270,13 @@ Start:
     end
 !    log Map
 
+S1:
     if Map is empty
+    begin
         put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
+        save Map to RamDisk cat `map`
+        save Map to `backup`
+    end
     put json Map into MapObject
     put property `profiles` of MapObject into Profiles
     put property `profile` of MapObject into CurrentProfile
@@ -486,7 +494,6 @@ ProcessRoom:
                 else
                 begin
                     set property `temperature` of RoomSpec to `0`
-                    set property `battery` of RoomSpec to `0`
                 end
                 gosub to BumpErrorCount
             end
@@ -502,7 +509,6 @@ ProcessRoom:
                 if LastReported is greater than 1800
                 begin
                     set property `temperature` of RoomSpec to `0`
-                    set property `battery` of RoomSpec to `0`
                     put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
                     gosub to AddWarning
                 end
@@ -516,7 +522,6 @@ ProcessRoom:
             begin
                 put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
                 set property `temperature` of RoomSpec to `0`
-                set property `battery` of RoomSpec to `0`
                 gosub to AddWarning
                 log WarningMessage
             end
@@ -531,6 +536,7 @@ ProcessRoom:
     put T modulo 10 into T1
     divide T by 10
     set property `temperature` of RoomSpec to T cat `.` cat T1
+    if RoomSpec does not have property `battery` set property `battery` of RoomSpec to `0`
 
     ! Get the advance data for this room
 GetAdvance:

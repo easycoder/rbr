@@ -46,6 +46,10 @@
     variable Rooms
     variable RoomSpec
     variable RoomData
+    variable RoomIndex
+    variable ThisRoom
+    variable ThatRoom
+    variable NewRooms
     variable Choices
     variable ChoicesShown
     variable Choice
@@ -57,7 +61,6 @@
     variable Value
     variable C
     variable R
-    variable RR
     variable T
 
 !   debug step
@@ -188,17 +191,26 @@ Refresh:
     set the elements of ToolsButton to the count of Rooms
 
     clear Window
+!    log Rooms
     put 0 into R
     while R is less than the count of Rooms
     begin
         put element R of Rooms into RoomSpec
 !        log RoomSpec
         put property `name` of RoomSpec into Name
-        put property Name of SystemData into RoomData
-        if RoomData has property `temperature`
-            set property `temperature` of RoomSpec to property `temperature` of RoomData
-        else set property `temperature` of RoomSpec to `0`
-        set property `relay` of RoomSpec to property `relay` of RoomData
+        if SystemData has property Name
+        begin
+            put property Name of SystemData into RoomData
+            if RoomData has property `temperature`
+                set property `temperature` of RoomSpec to property `temperature` of RoomData
+            else set property `temperature` of RoomSpec to `0`
+            set property `relay` of RoomSpec to property `relay` of RoomData
+        end
+        else
+        begin
+            set property `temperature` of RoomSpec to `0`
+            set property `relay` of RoomSpec to `off`
+        end
         gosub to CreateRoom
         increment R
     end
@@ -239,7 +251,7 @@ ShowMainMenu:
     put json `[]` into Choices
     append `Set the system name` to Choices
     append `Set the request relay` to Choices
-    append `Power off` to Choices
+    append `Add a room` to Choices
     append empty to Choices
     append `Exit Application` to Choices
     append empty to Choices
@@ -249,7 +261,7 @@ ShowMainMenu:
     log Choice
     if Choice is element 0 of Choices go to SetSystemName
     if Choice is element 1 of Choices go to SetRequestRelay
-    if Choice is element 2 of Choices go to Nothing
+    if Choice is element 2 of Choices go to AddRoom
     if Choice is element 4 of Choices exit
     if Choice is element 6 of Choices stop
     stop
@@ -257,9 +269,31 @@ ShowMainMenu:
 SetSystemName:
     run `systemName.ecs` as Module with Window and NameAndProfiles and Request
     if Request is empty stop
-    log Request
-    if IsLocal save stringify Request to RamDisk cat `request`
-    else save stringify Request to Controller RamDisk cat `request`
+    gosub to SendRequest
+    stop
+
+SetRequestRelay:
+    create Dialog on Window
+        type lineedit
+        title `Request relay`
+        value property `request` of Map
+        prompt `Type the name of the request relay:`
+    show Dialog
+    put json `{}` into Request
+    set property `action` of Request to `request`
+    set property `request` of Request to Dialog
+    gosub to SendRequest
+    stop
+
+AddRoom:
+    put `{"name": "Unnamed", "sensor": "", "relays": [], "mode": "off", "target": 20, `
+        cat `"events": [{"until": "07:00", "temp": 15}], "relayType":"none", "protect": "no", "relay": "off"}`
+        into ThisRoom
+    append json ThisRoom to Rooms
+    put json `{}` into Request
+    set property `action` of Request to `rooms`
+    set property `rooms` of Request to Rooms
+    gosub to SendRequest
     stop
 
 !   Handle a click on one of the Mode buttons
@@ -309,25 +343,15 @@ HandleMode:
     end
     stop
 
-SetRequestRelay:
-    create Dialog on Window
-        title `Request Relay name:`
-        type lineinput
-    show Dialog
-    log Dialog
-    stop
-
 SetMode:
     set property `action` of Request to `mode`
     set property `roomnumber` of Request to R
     log `Save ` cat Request
-    if IsLocal save stringify Request to RamDisk cat `request`
-    else save stringify Request to Controller RamDisk cat `request`
-    return
+    go to SendRequest
 
 HandleTools:
-    put attribute `index` of ToolsButton into R
-    index Room to R
+    put attribute `index` of ToolsButton into RoomIndex
+    index Room to RoomIndex
     put attribute `name` of Room into Name
     put json `[]` into Choices
     append `Move ` cat Name cat ` up` to Choices
@@ -338,11 +362,11 @@ HandleTools:
     append empty to Choices
     append `Cancel` to Choices
 
-    put the count of Rooms into RR
-    decrement RR
+    put the count of Rooms into R
+    decrement R
     put json `[]` into ChoicesShown
-    if R is 0 append element 1 of Choices to ChoicesShown
-    else if R is RR append element 0 of Choices to ChoicesShown
+    if RoomIndex is 0 append element 1 of Choices to ChoicesShown
+    else if RoomIndex is R append element 0 of Choices to ChoicesShown
     else
     begin
         append element 0 of Choices to ChoicesShown
@@ -357,12 +381,65 @@ HandleTools:
 
     select Choice from menu `Tools Menu` with ChoicesShown
     log Choice
-    if Choice is element 0 of Choices go to Nothing
-    if Choice is element 1 of Choices go to Nothing
-    if Choice is element 2 of Choices go to Nothing
-    if Choice is element 3 of Choices go to Nothing
-    if Choice is element 4 of Choices go to Nothing
+    put json `{}` into Request
+    if Choice is element 0 of Choices go to MoveRoomUp
+    if Choice is element 1 of Choices go to MoveRoomDown
+    if Choice is element 2 of Choices stop
+    if Choice is element 3 of Choices stop
+    if Choice is element 4 of Choices goto DeleteRoom
     if Choice is element 6 of Choices stop
 
-Nothing:
+MoveRoomUp:
+    put element RoomIndex of Rooms into ThisRoom
+    take 1 from RoomIndex
+    put element RoomIndex of Rooms into ThatRoom
+    set element RoomIndex of Rooms to ThisRoom
+    add 1 to RoomIndex
+    set element RoomIndex of Rooms to ThatRoom
+    set property `action` of Request to `rooms`
+    set property `rooms` of Request to Rooms
+    gosub to SendRequest
     stop
+
+MoveRoomDown:
+    put element RoomIndex of Rooms into ThisRoom
+    add 1 to RoomIndex
+    put element RoomIndex of Rooms into ThatRoom
+    set element RoomIndex of Rooms to ThisRoom
+    take 1 from RoomIndex
+    set element RoomIndex of Rooms to ThatRoom
+    set property `action` of Request to `rooms`
+    set property `rooms` of Request to Rooms
+    gosub to SendRequest
+    stop
+
+DeleteRoom:
+    create Dialog on Window
+        type confirm
+        prompt `Are you sure you want to delete ` cat Name cat `?`
+    show Dialog
+    if not Dialog stop
+
+    put json `[]` into NewRooms
+    put 0 into R
+    while R is less than RoomIndex
+    begin
+        append element R of Rooms to NewRooms
+        increment R
+    end
+    add 1 to R
+    while R is less than the count of Rooms
+    begin
+        append element R of Rooms to NewRooms
+        increment R
+    end
+    set property `action` of Request to `rooms`
+    set property `rooms` of Request to NewRooms
+    gosub to SendRequest
+    stop
+
+SendRequest:
+! log Request
+    if IsLocal save stringify Request to RamDisk cat `request`
+    else save stringify Request to Controller RamDisk cat `request`
+    return
