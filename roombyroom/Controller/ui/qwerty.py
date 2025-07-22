@@ -20,7 +20,7 @@ class TextReceiver():
     def add_character(self, char):
         """
         Add a character to the text field.
-        
+
         :param char: A single character to add to the field.
         """
         char = char.replace('&&', '&')
@@ -41,11 +41,11 @@ class TextReceiver():
     def get_content(self):
         """
         Return the current content of the text field.
-        
+
         :return: The current text in the field.
         """
         return self.field.text()
-        
+
 class KeyboardButton(QPushButton):
     def __init__(self, width, height, onClick, text=None, icon=None):
         if text != None: text = text.replace('&','&&')
@@ -368,7 +368,7 @@ if __name__ == "__main__":
 
     # Create the text field
     textField = QLineEdit()
-    
+
     textField.setReadOnly(True)  # Make the field non-editable by the user
     textField.setFixedHeight(height)  # Set the height of the field
 
@@ -394,4 +394,3 @@ if __name__ == "__main__":
     # Show the main window
     mainWindow.show()
     app.exec()
-    

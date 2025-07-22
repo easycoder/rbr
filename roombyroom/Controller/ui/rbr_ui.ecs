@@ -2,7 +2,8 @@
 
     script RBR_UI
 
-    use graphics
+    use plugin graphics
+    use virtual keyboard
     
     import plugin RBR_UI from rbr_ui.py
 

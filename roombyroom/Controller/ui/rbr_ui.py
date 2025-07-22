@@ -1,10 +1,9 @@
-from easycoder import Handler, FatalError, RuntimeError
+from easycoder import Handler, FatalError, RuntimeError, Keyboard
 from qwerty import TextReceiver
 from widgets import (
     RBRWindow,
     Room,
     Menu,
-    Keyboard,
     ModeDialog
 )
 

@@ -2,7 +2,7 @@
 
     script RBRConfigurator
 
-    use graphics
+    use plugin graphics
 
 !    debug compile
 
