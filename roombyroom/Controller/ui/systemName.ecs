@@ -2,7 +2,8 @@
 
     script SystemName
 
-    use graphics
+    use plugin graphics
+
     import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
 
     import rbrwin Window
@@ -14,7 +15,9 @@
 
     attach SystemName to element `systemName` of NameAndProfiles
     put SystemName into CurrentName
+    set attribute `color` of SystemName to `#c00`
     create keyboard with SystemName in Window
+    set attribute `color` of SystemName to `black`
     if SystemName is CurrentName
     begin
         put empty into Request

@@ -1,5 +1,5 @@
-from easycoder import Handler, FatalError, RuntimeError, Keyboard
-from qwerty import TextReceiver
+import re
+from easycoder import Handler, RuntimeError, Keyboard, TextReceiver
 from widgets import (
     RBRWindow,
     Room,
@@ -169,11 +169,15 @@ class RBR_UI(Handler):
                 return True
 
         elif token == 'keyboard':
+            if self.peek() == 'type':
+                self.nextToken()
+                command['type'] = self.nextToken()
+            else: command['type'] = 'line'
             self.skip('with')
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                if record['keyword'] == 'element':
-                    command['keyboard'] = record['name']
+                if record['keyword'] in ['element', 'lineinput']:
+                    command['receiver'] = record['name']
                     self.skip('in')
                     if self.nextIsSymbol():
                         record = self.getSymbolRecord()
@@ -185,10 +189,10 @@ class RBR_UI(Handler):
         return False
 
     def r_create(self, command):
-        if 'keyboard' in command:
-            field = self.getVariable(command['keyboard'])['widget']
+        if 'receiver' in command:
+            receiver = self.getVariable(command['receiver'])['widget']
             window = self.getVariable(command['window'])['window']
-            Keyboard(self.program, receiver = TextReceiver(field), parent=window)
+            Keyboard(self.program, command['type'], receiver = TextReceiver(receiver), parent=window)
             return self.nextPC()
 
         record = self.getVariable(command['varname'])
@@ -256,6 +260,27 @@ class RBR_UI(Handler):
         v['type'] = 'text'
         v['content'] = value
         self.putSymbolValue(target, v)
+        return self.nextPC()
+
+    # hide {rbrwin}/{element}
+    def k_hide(self, command):
+        if self.nextIsSymbol():
+            record = self.getSymbolRecord()
+            keyword = record['keyword']
+            command[keyword] = record['name']
+            if keyword in ['rbrwin', 'element']:
+                self.add(command)
+                return True
+        return False
+        
+    def r_hide(self, command):
+        if 'rbrwin' in command:
+            window = self.getVariable(command['rbrwin'])['window']
+            self.program.rbrwin = window
+            window.hide()
+        elif 'element' in command:
+            variable = self.getVariable(command['element'])
+            variable['widget'].hide()
         return self.nextPC()
 
     def k_modeDialog(self, command):
@@ -365,7 +390,7 @@ class RBR_UI(Handler):
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
                 keyword = record['keyword']
-                if keyword in ['rbrwin', 'room']:
+                if keyword in ['rbrwin', 'room', 'element', 'lineinput']:
                     command['name'] = record['name']
                     self.skip('to')
                     command['value'] = self.nextValue()
@@ -391,16 +416,23 @@ class RBR_UI(Handler):
                 room = record['value'][record['index']]
                 if attribute == 'temperature':
                     room.setTemperature(value)
+            elif keyword in ['element', 'lineinput']:
+                if attribute =='color':
+                    widget = record['widget']
+                    style = widget.styleSheet()
+                    style = re.sub(r'color:\s*[^;]+;', '', style)
+                    style += f'color: {value};\n'
+                    widget.setStyleSheet(style)
             return self.nextPC()
         return 0
 
-    # show {rbrwin}
+    # show {rbrwin}/{element}
     def k_show(self, command):
         if self.nextIsSymbol():
             record = self.getSymbolRecord()
             keyword = record['keyword']
             command[keyword] = record['name']
-            if keyword in ['rbrwin']:
+            if keyword in ['rbrwin', 'element']:
                 self.add(command)
                 return True
         return False
@@ -410,6 +442,9 @@ class RBR_UI(Handler):
             window = self.getVariable(command['rbrwin'])['window']
             self.program.rbrwin = window
             window.show()
+        elif 'element' in command:
+            variable = self.getVariable(command['element'])
+            variable['widget'].show()
         return self.nextPC()
 
     #############################################################################

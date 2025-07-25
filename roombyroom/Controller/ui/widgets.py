@@ -641,6 +641,28 @@ class Profiles(QWidget):
         self.profileButton.setText(f'Profile: {name}')
 
 ###############################################################################
+# A popout panel
+class Popout(QWidget):
+    def __init__(self, program, width):
+        super().__init__()
+        self.layout = QVBoxLayout(self)
+        self.hide()
+        
+    def clear(self, layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+            # If it's a layout (nested), clear it recursively
+            elif item.layout():
+                self.clear(item.layout())
+    
+    def addLayout(self, layout):
+        self.clear(self.layout)
+        self.layout.addLayout(layout)
+
+###############################################################################
 # A popup menu
 class Menu(QDialog):
     def __init__(self, program, height, parent=None, title="Select Action", actions=None):
@@ -1147,40 +1169,6 @@ class ModeDialog(QDialog):
     
     def closeDialog(self, _):
         self.reject()
-
-###############################################################################
-# The keyboard
-class Keyboard(QDialog):
-    def __init__(self, program, receiver, parent=None):
-        super().__init__(parent)
-        self.program = program
-        
-#        self.setWindowTitle('')
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setModal(True)
-        self.setFixedSize(500, 250)
-        self.setStyleSheet('background-color: white;border:1px solid black;')
-
-        # Add drop shadow
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(40)
-        shadow.setOffset(0, 4)
-        shadow.setColor(Qt.black)
-        self.setGraphicsEffect(shadow)
-
-        # Add the keyboard
-        layout = QVBoxLayout(self)
-        layout.addWidget(VirtualKeyboard(42, receiver, self.reject))
-        
-        # Position at bottom of parent window
-        self.show()  # Ensure geometry is calculated
-        if parent:
-            parent_pos = parent.mapToGlobal(parent.rect().bottomLeft())
-            x = parent_pos.x() + (parent.width - self.width()) / 2
-            y = parent_pos.y() - self.height() - 40
-            self.move(x, y)
-
-        self.exec()
     
 ###############################################################################
 # The RBR Main Window
@@ -1234,6 +1222,11 @@ class RBRWindow(QMainWindow):
         self.contentLayout.addWidget(profiles)
         self.profiles = profiles
 
+        # Add a pop-out panel for interactions
+        popout = Popout(self.program, self.width)
+        self.contentLayout.addWidget(popout)
+        self.popout = popout
+
         # Panel for rows
         panel = QWidget()
         panel.setStyleSheet('''
@@ -1252,4 +1245,5 @@ class RBRWindow(QMainWindow):
         if name == 'banner': return self.banner
         elif name == 'profiles': return self.profiles
         elif name == 'rooms': return self.rooms
+        elif name == 'popout': return self.popout
         else: return None

@@ -3,7 +3,6 @@
     script RBR_UI
 
     use plugin graphics
-    use virtual keyboard
     
     import plugin RBR_UI from rbr_ui.py
 
@@ -12,6 +11,7 @@
     room Room
     element Banner
     element NameAndProfiles
+    element Popout
     button Hamburger
     button ModeButton
     button ToolsButton
@@ -23,6 +23,7 @@
     lineinput HostInput
     lineinput UserInput
     lineinput PasswordInput
+    lineinput Input
     pushbutton OKButton
     pushbutton CancelButton
     ssh Controller
@@ -60,7 +61,14 @@
     variable Request
     variable Data
     variable Value
+    variable Locked
+    variable Timestamp
+    variable Temperature
+    variable Text
+    variable Responses
+    variable Response
     variable C
+    variable N
     variable R
     variable T
 
@@ -154,7 +162,8 @@ Start:
     create Window title Title size WindowWidth WindowHeight
 
     put empty into Path
-    gosub to Refresh
+    clear Locked
+    gosub to RefreshScreen
 
     show Window
 
@@ -162,27 +171,39 @@ Start:
     on tick
     begin
         put the ticker into Tick
-        if Tick modulo 200 is 0 gosub to Refresh
+        if Tick modulo 200 is 0 gosub to RefreshScreen
     end
     stop
 
-Refresh:
-
-    if IsLocal
+RefreshScreen:
+    if Locked return
+    put empty into SystemData
+    put 1 into N
+    while SystemData is empty
     begin
-        load Map from RamDisk cat `map`
-        load CurrentProfile from RamDisk cat `profile`
-        load SystemData from RamDisk cat `systemdata`
-    end
-    else
-    begin
-        load Map from Controller RamDisk cat `map`
-        load CurrentProfile from Controller RamDisk cat `profile`
-        load SystemData from Controller RamDisk cat `systemdata`
+        if N is greater than 1 log `Loading system files (` cat N cat `)`
+        if IsLocal
+        begin
+            load Map from RamDisk cat `map`
+            load CurrentProfile from RamDisk cat `profile`
+            load SystemData from RamDisk cat `systemdata`
+        end
+        else
+        begin
+            load Map from Controller RamDisk cat `map`
+            load CurrentProfile from Controller RamDisk cat `profile`
+            load SystemData from Controller RamDisk cat `systemdata`
+        end
+        put json SystemData into SystemData
+        or begin
+            log SystemData
+            log `Can't convert SystemData to JSON`
+        end
+        if SystemData is empty wait 1 second
+        increment N
     end
     put json Map into Map
     put the value of CurrentProfile into CurrentProfile
-    put json SystemData into SystemData
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
@@ -202,6 +223,7 @@ Refresh:
         if SystemData has property Name
         begin
             put property Name of SystemData into RoomData
+            set property `timestamp` of RoomSpec to property `timestamp` of RoomData
             if RoomData has property `temperature`
                 set property `temperature` of RoomSpec to property `temperature` of RoomData
             else set property `temperature` of RoomSpec to `0`
@@ -223,6 +245,7 @@ Refresh:
     on click Hamburger go to ShowMainMenu
 
     attach NameAndProfiles to element `profiles` of Window
+    attach Popout to element `popout` of Window
     return
 
 ReadError:
@@ -274,15 +297,27 @@ SetSystemName:
     stop
 
 SetRequestRelay:
-    create Dialog on Window
-        type lineedit
-        title `Request relay`
-        value property `request` of Map
-        prompt `Type the name of the request relay:`
-    show Dialog
+    create Panel type QVBoxLayout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `Type the name of the request relay:`
+    add Label to Layout
+    create Input size 30
+    set the width of Input to 200
+    set the text of Input to property `request` of Map
+    add Input to Layout
+    add Panel to Popout
+    set Locked
+    show Popout
+    set attribute `color` of Input to `#c00`
+    create keyboard type line with Input in Window
+    set attribute `color` of Input to `black`
+    hide Popout
+    clear Locked
     put json `{}` into Request
     set property `action` of Request to `request`
-    set property `request` of Request to Dialog
+    set property `request` of Request to Input
+    log Request
     gosub to SendRequest
     stop
 
@@ -385,7 +420,7 @@ HandleTools:
     put json `{}` into Request
     if Choice is element 0 of Choices go to MoveRoomUp
     if Choice is element 1 of Choices go to MoveRoomDown
-    if Choice is element 2 of Choices stop
+    if Choice is element 2 of Choices go to ShowInfo
     if Choice is element 3 of Choices stop
     if Choice is element 4 of Choices goto DeleteRoom
     if Choice is element 6 of Choices stop
@@ -412,6 +447,43 @@ MoveRoomDown:
     set property `action` of Request to `rooms`
     set property `rooms` of Request to Rooms
     gosub to SendRequest
+    stop
+
+ShowInfo:
+    put property Name of SystemData into RoomSpec
+    create Panel type QVBoxLayout
+    create Label text `-- ` cat Name cat ` Sensor --`
+    add Label to Panel
+    put the value of property `timestamp` of RoomSpec into Timestamp
+    put property `temperature` of RoomSpec into Temperature
+    put `Last reading: ` cat datime Timestamp into Text
+    put Text cat newline cat `Temperature: ` cat Temperature cat `ºC` into Text
+    create Label text Text
+    add Label to Panel
+    create Label text `-- ` cat Name cat ` Relay(s) --`
+    add Label to Panel
+    put property `responses` of RoomSpec into Responses
+    put 0 into N
+    while N is less than the count of Responses
+    begin
+        put element N of Responses into Response
+        put `State: ` cat property `state` of Response into Text
+        put Text cat newline cat `Uptime: ` cat property `uptime` of Response into Text
+        put Text cat ` seconds` into Text
+        create Label text Text
+        add Label to Panel
+        increment N
+    end
+    create OKButton text `OK`
+    add OKButton to Panel
+    on click OKButton
+    begin
+        hide Popout
+        clear Locked
+    end
+    add Panel to Popout
+    set Locked
+    show Popout
     stop
 
 DeleteRoom:

@@ -8,7 +8,8 @@ from PySide6.QtWidgets import (
     QWidget,
     QStackedWidget,
     QSpacerItem,
-    QSizePolicy
+    QSizePolicy,
+    QGraphicsDropShadowEffect
 )
 from PySide6.QtGui import QFont, QIcon
 from PySide6.QtCore import Qt, QTimer
