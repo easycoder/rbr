@@ -67,6 +67,10 @@
     variable Text
     variable Responses
     variable Response
+    variable Uptime
+    variable HH
+    variable MM
+    variable SS
     variable C
     variable N
     variable R
@@ -450,29 +454,51 @@ MoveRoomDown:
     stop
 
 ShowInfo:
+    set Locked
     put property Name of SystemData into RoomSpec
     create Panel type QVBoxLayout
     create Label text `-- ` cat Name cat ` Sensor --`
     add Label to Panel
     put the value of property `timestamp` of RoomSpec into Timestamp
+    multiply Timestamp by 1000
     put property `temperature` of RoomSpec into Temperature
     put `Last reading: ` cat datime Timestamp into Text
     put Text cat newline cat `Temperature: ` cat Temperature cat `ºC` into Text
     create Label text Text
     add Label to Panel
-    create Label text `-- ` cat Name cat ` Relay(s) --`
-    add Label to Panel
-    put property `responses` of RoomSpec into Responses
-    put 0 into N
-    while N is less than the count of Responses
+    if RoomSpec has property `responses`
     begin
-        put element N of Responses into Response
-        put `State: ` cat property `state` of Response into Text
-        put Text cat newline cat `Uptime: ` cat property `uptime` of Response into Text
-        put Text cat ` seconds` into Text
+        put property `responses` of RoomSpec into Responses
+        put `-- ` cat Name cat ` Relay` into Text
+        if the count of Responses is greater than 1 put Text cat `s` into Text
+        put Text cat ` --` into Text
         create Label text Text
         add Label to Panel
-        increment N
+        put 0 into N
+        while N is less than the count of Responses
+        begin
+            put element N of Responses into Response
+            if Response has property `state` put `State: ` cat property `state` of Response into Text
+            else put empty into Text
+            if Response has property `uptime`
+            begin
+                put the value of property `uptime` of Response into Uptime
+                divide Uptime by 3600 giving HH
+                put Uptime modulo 3600 into MM
+                divide MM by 60
+                put Uptime modulo 60 into SS
+                if HH is less than 10 put `0` cat HH into HH
+                if MM is less than 10 put `0` cat MM into MM
+                if SS is less than 10 put `0` cat SS into SS
+                put Text cat newline cat `Uptime: ` cat HH cat `:` cat MM cat `:` cat SS into Text
+            end
+            if Text is not empty
+            begin
+                create Label text Text
+                add Label to Panel
+            end
+            increment N
+        end
     end
     create OKButton text `OK`
     add OKButton to Panel
@@ -482,7 +508,6 @@ ShowInfo:
         clear Locked
     end
     add Panel to Popout
-    set Locked
     show Popout
     stop
 
