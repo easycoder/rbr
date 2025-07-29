@@ -2,7 +2,7 @@
 
     script RBRConfigurator
 
-    use plugin graphics
+    use graphics
 
 !    debug compile
 
@@ -376,7 +376,7 @@ Start:
     put `Connected to ` cat HostSSID into StatusMessage
     gosub to Idle
 
-    gosub to CheckFirmware
+!    gosub to CheckFirmware
 
 !   Get the list of systems from Config, or create an empty list. Then populate the combo box
     if Config has property `systems` put property `systems` of Config into Systems

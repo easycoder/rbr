@@ -1,0 +1,12 @@
+!   RBR-Now configuration
+
+   script Loader
+
+   variable Script
+   module RBRConfig
+
+   get Script from url `https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/rbrconf.ecs`
+   save Script to `.rbrconf.ecs`
+   run `.rbrconf.ecs` as RBRConfig
+   delete file `.rbrconf.ecs`
+   exit

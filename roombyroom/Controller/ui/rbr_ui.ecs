@@ -3,7 +3,7 @@
     script RBR_UI
 
     use plugin graphics
-    
+
     import plugin RBR_UI from rbr_ui.py
 
     window HostWindow
@@ -60,6 +60,7 @@
     variable Result
     variable Request
     variable Data
+    variable Prompt
     variable Value
     variable Locked
     variable Timestamp
@@ -231,7 +232,9 @@ RefreshScreen:
             if RoomData has property `temperature`
                 set property `temperature` of RoomSpec to property `temperature` of RoomData
             else set property `temperature` of RoomSpec to `0`
-            set property `relay` of RoomSpec to property `relay` of RoomData
+            if RoomData has property `relay`
+                set property `relay` of RoomSpec to property `relay` of RoomData
+            else set property `relay` of RoomSpec to `off`
         end
         else
         begin
@@ -308,7 +311,8 @@ SetRequestRelay:
     add Label to Layout
     create Input size 30
     set the width of Input to 200
-    set the text of Input to property `request` of Map
+    if Map has property `request` set the text of Input to property `request` of Map
+    else set the text of Input to empty
     add Input to Layout
     add Panel to Popout
     set Locked
@@ -397,7 +401,9 @@ HandleTools:
     append `Move ` cat Name cat ` up` to Choices
     append `Move ` cat Name cat ` down` to Choices
     append `Show info for ` cat Name to Choices
-    append `Edit ` cat Name to Choices
+    append `Edit room name` to Choices
+    append `Edit device parameters` to Choices
+    append `Edit timing schedule` to Choices
     append `Delete ` cat Name to Choices
     append empty to Choices
     append `Cancel` to Choices
@@ -425,9 +431,11 @@ HandleTools:
     if Choice is element 0 of Choices go to MoveRoomUp
     if Choice is element 1 of Choices go to MoveRoomDown
     if Choice is element 2 of Choices go to ShowInfo
-    if Choice is element 3 of Choices stop
-    if Choice is element 4 of Choices goto DeleteRoom
-    if Choice is element 6 of Choices stop
+    if Choice is element 3 of Choices go to EditRoomName
+    if Choice is element 4 of Choices go to EditDeviceParams
+    if Choice is element 5 of Choices go to EditSchedule
+    if Choice is element 6 of Choices go to DeleteRoom
+    if Choice is element 8 of Choices stop
 
 MoveRoomUp:
     put element RoomIndex of Rooms into ThisRoom
@@ -511,6 +519,58 @@ ShowInfo:
     show Popout
     stop
 
+EditRoomName:
+    put `Type the room name:` into Prompt
+    put Name into Value
+    gosub to GetSingleItem
+    put json `{}` into Request
+    set property `action` of Request to `roomname`
+    set property `roomnumber` of Request to RoomIndex
+    set property `name` of Request to Input
+    log Request
+    gosub to SendRequest
+    stop
+
+EditDeviceParams:
+    put json `[]` into Choices
+    append `Sensor` to Choices
+    append `Relay(s)` to Choices
+    append `Other...` to Choices
+    append empty to Choices
+    append `Cancel` to Choices
+
+    select Choice from menu `Device Menu` with Choices
+    log Choice
+    put json `{}` into Request
+    if Choice is element 0 of Choices go to EditSensor
+    if Choice is element 1 of Choices go to EditRelays
+    if Choice is element 2 of Choices go to EditOther
+    if Choice is element 4 of Choices stop
+    stop
+
+EditSensor:
+    put `Type the sensor identifier:` into Prompt
+    put property Name of SystemData into RoomSpec
+    put property `sensor` of RoomSpec into Value
+    gosub to GetSingleItem
+stop
+    put json `{}` into Request
+    set property `action` of Request to `roomname`
+    set property `roomnumber` of Request to RoomIndex
+    set property `name` of Request to Input
+    log Request
+    gosub to SendRequest
+    stop
+
+EditRelays:
+    stop
+
+EditOther:
+    stop
+
+EditSchedule:
+    stop
+
 DeleteRoom:
     create Dialog on Window
         type confirm
@@ -535,6 +595,26 @@ DeleteRoom:
     set property `rooms` of Request to NewRooms
     gosub to SendRequest
     stop
+
+GetSingleItem:
+    create Panel type QVBoxLayout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text Prompt
+    add Label to Layout
+    create Input size 30
+    set the width of Input to 200
+    set the text of Input to Value
+    add Input to Layout
+    add Panel to Popout
+    set Locked
+    show Popout
+    set attribute `color` of Input to `#c00`
+    create keyboard type line with Input in Window
+    set attribute `color` of Input to `black`
+    hide Popout
+    clear Locked
+    return
 
 SendRequest:
 ! log Request

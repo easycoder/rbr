@@ -871,7 +871,8 @@ class TimedMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the content
-        # text = 'Cancel\n' if caller.data['advance'] != '-' else ''
+        if not 'advance' in caller.data['value'][caller.data['index']]['content']:
+            caller.data['value'][caller.data['index']]['content']['advance'] = '-'
         text = 'Cancel\n' if caller.data['value'][caller.data['index']]['content']['advance'] != '-' else ''
         advance = self.AdvanceButton(program, f'{text}Advance', self.advance)
         edit = self.EditIcon(program, f'img/edit.png', self.edit)
