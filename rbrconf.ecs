@@ -6,6 +6,7 @@
 
 !    debug compile
 
+    window HostWindow
     window Window
     window Dialog
     layout MainPanel
@@ -17,6 +18,7 @@
     layout Layout
     layout VLayout
     layout HLayout
+    layout Panel
     groupbox Group
     label Label
     label RelayStateLabel
@@ -42,6 +44,9 @@
     pushbutton TemperatureButton
     pushbutton OKButton
     pushbutton CancelButton
+    lineinput HostInput
+    lineinput UserInput
+    lineinput PasswordInput
     lineinput LineInput
     lineinput DeviceNameInput
     lineinput LEDPinInput
@@ -59,6 +64,7 @@
 
     log `Starting`
     init graphics
+
     create MainPanel type QHBoxLayout
 
     ! Do the left-hand panel
@@ -255,6 +261,10 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+    ssh Controller
+    variable RamDisk
+    variable HomeDir
+    variable ControllerSpec
     variable Config
     variable ConfigFile
     variable Hosts
@@ -296,6 +306,7 @@
     variable SlaveDevices
     variable CurrentSSID
     variable Previous
+    variable IsLocal
     variable IsMaster
     variable FileName
     variable FileSize
@@ -328,6 +339,38 @@
     variable T2
 
 !    debug step
+
+    put trim system `echo $HOME` into HomeDir
+    put `/mnt/data/` into RamDisk
+    if file RamDisk cat `map` does not exist
+    begin
+        put HomeDir cat `/.controller.json` into Path
+        if file Path exists load ControllerSpec from Path
+        else
+        begin
+            put empty into SystemIPAddr
+            put json `{}` into ControllerSpec
+            gosub to GetSSH
+        end
+    end
+
+    if file RamDisk cat `map` exists
+    begin
+        log `Running locally`
+        set IsLocal
+        put empty into Title
+    end
+    else
+    begin
+        log `Running remotely`
+        clear IsLocal
+        put property `current` of ControllerSpec into SystemIPAddr
+        put property SystemIPAddr of ControllerSpec into Item
+        set Controller
+            host SystemIPAddr
+            user property `user` of Item
+            password property `password` of Item
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main program starts here
@@ -607,6 +650,12 @@ SelectSystem:
     put property `ipaddr` of SystemConfig into SystemIPAddr
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
+    if ControllerSpec does not have property SystemIPAddr gosub to GetSSH
+    else
+    begin
+        set property `current` of ControllerSpec to SystemIPAddr
+        save ControllerSpec to HomeDir cat `/.controller.json`
+    end
     gosub to PopulateSystemInfo
     gosub to PostConfigData
     gosub to PauseSystemController
@@ -1899,4 +1948,60 @@ SetBusy:
     disable RelayPinInput
     disable DHT22PinInput
     wait 10 ticks
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Get the SSH configuration data
+GetSSH:
+    create Panel type QVBoxLayout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `Host:`
+    add Label to Layout
+    create HostInput size 30
+    set the width of HostInput to 200
+    set the text of HostInput to SystemIPAddr
+    add HostInput to Layout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `User:`
+    add Label to Layout
+    create UserInput size 30
+    set the width of UserInput to 200
+    add UserInput to Layout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `Password:`
+    add Label to Layout
+    create PasswordInput size 30
+    set the width of PasswordInput to 200
+    add PasswordInput to Layout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create OKButton text `OK`
+    on click OKButton
+    begin
+        if HostInput is empty stop
+        if UserInput is empty stop
+        if PasswordInput is empty stop
+        put json `{}` into Item
+        set property `user` of Item to UserInput
+        set property `password` of Item to PasswordInput
+        set property HostInput of ControllerSpec to Item
+        set property `current` of ControllerSpec to HostInput
+        put HostInput into SystemIPAddr
+        save ControllerSpec to Path
+        fork to GSSH2
+        wait 1
+        close HostWindow
+    end
+    add OKButton to Layout
+    create CancelButton text `Cancel`
+    on click CancelButton exit
+    add CancelButton to Layout
+    create HostWindow title `Host SSH Parameters` size 300 200
+    set the layout of HostWindow to Panel
+    show HostWindow
+    stop
+GSSH2:
     return

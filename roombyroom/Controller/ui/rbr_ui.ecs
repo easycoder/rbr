@@ -69,6 +69,7 @@
     variable Responses
     variable Response
     variable Uptime
+    variable Item
     variable HH
     variable MM
     variable SS
@@ -90,6 +91,7 @@
         if file Path exists load ControllerSpec from Path
         else
         begin
+            put json `{}` into ControllerSpec
             create Panel type QVBoxLayout
             create Layout type QHBoxLayout
             add Layout to Panel
@@ -120,10 +122,11 @@
                 if HostInput is empty stop
                 if UserInput is empty stop
                 if PasswordInput is empty stop
-                put json `{}` into ControllerSpec
+                put json `{}` into Item
+                set property `user` of Item to UserInput
+                set property `password` of Item to PasswordInput
                 set property `host` of ControllerSpec to HostInput
-                set property `user` of ControllerSpec to UserInput
-                set property `password` of ControllerSpec to PasswordInput
+                set property HostInput of ControllerSpec to Item
                 save ControllerSpec to Path
                 fork to Start
                 wait 10 seconds
@@ -133,7 +136,7 @@
             create CancelButton text `Cancel`
             on click CancelButton exit
             add CancelButton to Layout
-            create HostWindow title `Host Details` size 300 200
+            create HostWindow title `Host SSH Parameters` size 300 200
             set the layout of HostWindow to Panel
             show HostWindow
             start graphics
@@ -153,10 +156,12 @@ Start:
     begin
         log `Running remotely`
         clear IsLocal
+        put property `host` of ControllerSpec into Value
+        put property Value of ControllerSpec into Item
         set Controller
             host property `host` of ControllerSpec
-            user property `user` of ControllerSpec
-            password property `password` of ControllerSpec
+            user property `user` of Item
+            password property `password` of Item
         put `RBR` into Title
     end
     put 1000 into WindowHeight
