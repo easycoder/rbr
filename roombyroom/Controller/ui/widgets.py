@@ -1,7 +1,6 @@
 import sys, time
 from collections import namedtuple
 from datetime import datetime
-from qwerty import VirtualKeyboard
 from PySide6.QtGui import (
     QIcon,
     QPixmap,
