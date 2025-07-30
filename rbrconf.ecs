@@ -644,7 +644,16 @@ SystemsComboSelect:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Select a system
 SelectSystem:
+    if SystemName is property `current-system` of Config return
     log `Select system ` cat SystemName
+    ! Update the current system
+    if not IsLocal
+    begin
+        put property `current-system` of Config into Value
+        put property Value of Systems into SystemConfig
+        gosub to PostConfigData
+    end
+    ! Select the new system
     set property `current-system` of Config to SystemName
     put property SystemName of Systems into SystemConfig
     put property `ipaddr` of SystemConfig into SystemIPAddr
@@ -1780,6 +1789,8 @@ PostConfigData:
 !    log `Config: ` cat prettify Config
     if SystemMAC is empty return
     if SystemConfig is empty return
+    put property `mac` of SystemConfig into SystemMAC
+    put property `password` of SystemConfig into SystemPassword
     put `https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword into URL
 !    log URL cat ` ` cat prettify SystemConfig
 !    log `Posting SystemConfig to ` cat URL

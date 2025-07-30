@@ -29,6 +29,7 @@
     ssh Controller
     module Module
     variable ControllerSpec
+    variable ControllerIPAddr
     variable GraphicsStarted
     variable HomeDir
     variable Path
@@ -156,10 +157,10 @@ Start:
     begin
         log `Running remotely`
         clear IsLocal
-        put property `host` of ControllerSpec into Value
-        put property Value of ControllerSpec into Item
+        put property `current` of ControllerSpec into ControllerIPAddr
+        put property ControllerIPAddr of ControllerSpec into Item
         set Controller
-            host property `host` of ControllerSpec
+            host ControllerIPAddr
             user property `user` of Item
             password property `password` of Item
         put `RBR` into Title
