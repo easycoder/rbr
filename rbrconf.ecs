@@ -261,7 +261,7 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-    ssh Controller
+    ssh SSH
     variable RamDisk
     variable HomeDir
     variable ControllerSpec
@@ -366,7 +366,7 @@
         clear IsLocal
         put property `current` of ControllerSpec into SystemIPAddr
         put property SystemIPAddr of ControllerSpec into Item
-        set Controller
+        set SSH
             host SystemIPAddr
             user property `user` of Item
             password property `password` of Item

@@ -306,7 +306,7 @@ class ModeButton(QWidget):
                     painter.setFont(font2)
                     rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
                     try:
-                        boost = round((self.spec['boost'] - int(time.time())) / 60) + 1
+                        boost = round((self.spec['boost'] - int(time.time())) / 60)
                         if boost == 1: boost = '1 min'
                         else: boost = f'{boost} mins'
                         painter.drawText(rect2, Qt.AlignCenter, boost)
@@ -640,7 +640,7 @@ class Profiles(QWidget):
         self.profileButton.setText(f'Profile: {name}')
 
 ###############################################################################
-# A popout panel
+# A popout panel. This sits near the top of the screen
 class Popout(QWidget):
     def __init__(self, program, width):
         super().__init__()

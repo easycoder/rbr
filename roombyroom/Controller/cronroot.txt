@@ -1,2 +1,2 @@
 * * * * * sh /home/linaro/rbr/flags.sh
-@reboot mount -t tmpfs -o size=1M tmpfs /mnt/data
+@reboot sh /home/linaro/rbr/reboot.sh

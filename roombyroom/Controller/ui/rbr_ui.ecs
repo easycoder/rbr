@@ -142,6 +142,7 @@
             show HostWindow
             start graphics
             set GraphicsStarted
+            log ControllerSpec
             stop
         end
     end
@@ -157,6 +158,7 @@ Start:
     begin
         log `Running remotely`
         clear IsLocal
+        log ControllerSpec
         put property `current` of ControllerSpec into ControllerIPAddr
         put property ControllerIPAddr of ControllerSpec into Item
         set Controller
@@ -559,11 +561,10 @@ EditSensor:
     put property Name of SystemData into RoomSpec
     put property `sensor` of RoomSpec into Value
     gosub to GetSingleItem
-stop
     put json `{}` into Request
-    set property `action` of Request to `roomname`
-    set property `roomnumber` of Request to RoomIndex
-    set property `name` of Request to Input
+    set property `action` of Request to `sensor`
+    set property `room` of Request to Name
+    set property `sensor` of Request to Input
     log Request
     gosub to SendRequest
     stop

@@ -186,6 +186,7 @@
     log `Password: ` cat Password
 !    if RegData has property `reboot` go to RestartSystemController
 
+    ! The system config data is kept on the server and is managed by rbrconfig
     get Config from url RBRServer cat `/config/` cat MAC cat `/` cat Password
     put json Config into Config
 !    load Config from `.config.json`
@@ -393,6 +394,7 @@ SkipRequests:
                     if Response is empty log Name cat `: No response`
                     else gosub to RecordMijia
                 end
+                else log `No request relay called ` cat Name
             end
         end
     end
@@ -938,9 +940,9 @@ SaveErrorCount:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Post data to the RBR server. This also posts the IP address
 PostToServer:
+    save stringify SystemData to RamDisk cat `systemdata`
     if Password is not empty
     begin
-        save stringify SystemData to RamDisk cat `systemdata`
         post stringify SystemData to RBRServer cat `/sensors/` cat MAC cat `/` cat Password cat `/` cat IPAddr
         or begin
             log `Unable to post sensor data`
@@ -1000,6 +1002,19 @@ RecordMijia:
         end
         set the elements of Value to 1
     end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Select a room by name
+GetRoomByName:
+    put 0 into RoomNumber
+    while RoomNumber is less than the count of Rooms
+    begin
+        put element RoomNumber of Rooms into RoomSpec
+        if RoomName is property `name` of RoomSpec return
+        increment RoomNumber
+    end
+    put -1 into RoomNumber
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1115,6 +1130,16 @@ ProcessRequest:
     begin
         put property `rooms` of Request into Rooms
         gosub to UpdateRooms
+    end
+    else if Action is `sensor`
+    begin
+        put property `room` of Request into RoomName
+        gosub to GetRoomByName
+        if RoomNumber is not -1
+        begin
+            set property `sensor` of RoomSpec to property `sensor` of Request
+            gosub to UpdateRoom
+        end
     end
     else if Action is `backup`
     begin
