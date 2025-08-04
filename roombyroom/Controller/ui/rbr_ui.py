@@ -176,7 +176,7 @@ class RBR_UI(Handler):
             self.skip('with')
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                if record['keyword'] in ['element', 'lineinput']:
+                if record['keyword'] in ['element', 'lineinput', 'multiline']:
                     command['receiver'] = record['name']
                     self.skip('in')
                     if self.nextIsSymbol():
@@ -390,7 +390,7 @@ class RBR_UI(Handler):
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
                 keyword = record['keyword']
-                if keyword in ['rbrwin', 'room', 'element', 'lineinput']:
+                if keyword in ['rbrwin', 'room', 'element', 'lineinput', 'multiline']:
                     command['name'] = record['name']
                     self.skip('to')
                     command['value'] = self.nextValue()
@@ -416,7 +416,7 @@ class RBR_UI(Handler):
                 room = record['value'][record['index']]
                 if attribute == 'temperature':
                     room.setTemperature(value)
-            elif keyword in ['element', 'lineinput']:
+            elif keyword in ['element', 'lineinput', 'multiline']:
                 if attribute =='color':
                     widget = record['widget']
                     style = widget.styleSheet()

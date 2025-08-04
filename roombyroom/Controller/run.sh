@@ -9,11 +9,11 @@ if test -f "/mnt/data/version"; then
 fi
 
 # Make sure we have the MAC address
-if ! [ -s mac ]
-then
-   ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'>interfaces
-   python3 getmac.py >mac
-fi
+#if ! [ -s /mnt/data/mac ]
+#then
+#   ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'>interfaces
+#   python3 getmac.py >/mnt/data/mac
+#fi
 # Look for a running instance of rbr.ecs
 p=$(ps -eaf | grep "[r]br.ecs")
 # Get the second item; the process number

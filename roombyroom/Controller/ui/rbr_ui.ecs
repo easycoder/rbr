@@ -24,6 +24,7 @@
     lineinput UserInput
     lineinput PasswordInput
     lineinput Input
+    multiline MultiLine
     pushbutton OKButton
     pushbutton CancelButton
     ssh Controller
@@ -63,6 +64,7 @@
     variable Data
     variable Prompt
     variable Value
+    variable Values
     variable Locked
     variable Timestamp
     variable Temperature
@@ -158,7 +160,6 @@ Start:
     begin
         log `Running remotely`
         clear IsLocal
-        log ControllerSpec
         put property `current` of ControllerSpec into ControllerIPAddr
         put property ControllerIPAddr of ControllerSpec into Item
         set Controller
@@ -570,6 +571,24 @@ EditSensor:
     stop
 
 EditRelays:
+    put `Type the relay name/ids, one per line:` into Prompt
+    put property Name of SystemData into RoomSpec
+    put property `relays` of RoomSpec into Values
+    put empty into Value
+    put 0 into R
+    while R is less than the count of Values
+    begin
+        if Value is not empty put Value cat newline into Value
+        put Value cat element R of Values into Value
+        increment R
+    end
+    gosub to GetMultiLine
+    put json `{}` into Request
+    set property `action` of Request to `relays`
+    set property `room` of Request to Name
+    set property `relays` of Request to MultiLine
+    log Request
+!    gosub to SendRequest
     stop
 
 EditOther:
@@ -619,6 +638,25 @@ GetSingleItem:
     set attribute `color` of Input to `#c00`
     create keyboard type line with Input in Window
     set attribute `color` of Input to `black`
+    hide Popout
+    clear Locked
+    return
+
+GetMultiLine:
+    create Panel type QVBoxLayout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text Prompt
+    add Label to Layout
+    create MultiLine
+    set the text of MultiLine to Value
+    add MultiLine to Layout
+    add Panel to Popout
+    set Locked
+    show Popout
+    set attribute `color` of MultiLine to `#c00`
+    create keyboard type line with MultiLine in Window
+    set attribute `color` of MultiLine to `black`
     hide Popout
     clear Locked
     return

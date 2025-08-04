@@ -80,6 +80,7 @@
     variable Key
     variable Keys
     variable Value
+    variable Values
     variable Changed
     variable Confirm
     variable Logs
@@ -159,10 +160,28 @@
         stop
     end
 
-    put 0 into RepeatCount
-    load MAC from `mac`
-    put trim MAC into MAC
+    ! Get the system MAC address
+    put system `ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'` into Values
+    split Values
+    put the elements of Values into N
+    while N is greater than 0
+    begin
+        decrement N
+        index Values to N
+        put Values into Value
+        split Value on ` `
+        if left 4 of Value is `wlan`
+        begin
+            index Value to 1
+            put Value into MAC
+            put 0 into N
+        end
+    end
+
+!    load MAC from RamDisk cat `mac`
+!    put trim MAC into MAC
     log `MAC: ` cat MAC
+    put 0 into RepeatCount
 
     clear Changed
     clear Confirm
