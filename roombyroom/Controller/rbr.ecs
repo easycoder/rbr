@@ -12,6 +12,7 @@
     variable RBRServer
     variable RegData
     variable Version
+    variable ECVersion
     variable Config
     variable RepeatCount
     variable CurrentProfile
@@ -118,6 +119,20 @@
         log `Paused`
         exit
     end
+
+    load ECVersion from `ecversion`
+    put trim ECVersion into ECVersion
+    put system `ec` into Version
+    split Version on ` `
+    index Version to 2
+    put trim Version into Version
+    log ECVersion cat ` ` cat Version
+    if ECVersion is not Version
+    begin
+        log `Update easycoder`
+        system `pip install -U easycoder`
+    end
+    set the elements of Version to 1
 
     put system `hostname -I` into IPAddr
     log `My IP address is ` cat IPAddr
@@ -1169,6 +1184,10 @@ ProcessRequest:
         load Map from `backup`
         save Map to RamDisk cat `map`
         put json Map into MapObject
+    end
+    else if Action is `reset`
+    begin
+        delete file RamDisk cat `map`
     end
     else if Action is `profiles`
     begin
