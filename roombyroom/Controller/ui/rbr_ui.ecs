@@ -29,6 +29,7 @@
     pushbutton CancelButton
     ssh Controller
     module Module
+    variable UserName
     variable ControllerSpec
     variable ControllerIPAddr
     variable GraphicsStarted
@@ -85,10 +86,22 @@
 
     init graphics
 
+    put `linaro` into UserName
+    if system `whoami` is UserName
+    begin
+        log `Running locally`
+        set IsLocal
+    end
+    else
+    begin
+        log `Running remotely`
+        clear IsLocal
+    end
+
     clear GraphicsStarted
     put trim system `echo $HOME` into HomeDir
     put `/mnt/data/` into RamDisk
-    if file RamDisk cat `map` does not exist
+    if not isLocal
     begin
         put HomeDir cat `/.controller.json` into Path
         if file Path exists load ControllerSpec from Path
@@ -150,16 +163,9 @@
     end
 
 Start:
-    if file RamDisk cat `map` exists
-    begin
-        log `Running locally`
-        set IsLocal
-        put empty into Title
-    end
+    if IsLocal put empty into Title
     else
     begin
-        log `Running remotely`
-        clear IsLocal
         put property `current` of ControllerSpec into ControllerIPAddr
         put property ControllerIPAddr of ControllerSpec into Item
         set Controller
@@ -198,13 +204,13 @@ RefreshScreen:
         if N is greater than 1 log `Loading system files (` cat N cat `)`
         if IsLocal
         begin
-            load Map from RamDisk cat `map`
+            load Map from `RamDisk` cat `map`
             load CurrentProfile from RamDisk cat `profile`
             load SystemData from RamDisk cat `systemdata`
         end
         else
         begin
-            load Map from Controller RamDisk cat `map`
+            load Map from Controller RamDisk cat `map` or return
             load CurrentProfile from Controller RamDisk cat `profile`
             load SystemData from Controller RamDisk cat `systemdata`
         end
@@ -293,6 +299,7 @@ ShowMainMenu:
     append `Set the request relay` to Choices
     append `Add a room` to Choices
     append empty to Choices
+    append `Reset` to Choices
     append `Exit Application` to Choices
     append empty to Choices
     append `Cancel` to Choices
@@ -302,8 +309,9 @@ ShowMainMenu:
     if Choice is element 0 of Choices go to SetSystemName
     if Choice is element 1 of Choices go to SetRequestRelay
     if Choice is element 2 of Choices go to AddRoom
-    if Choice is element 4 of Choices exit
-    if Choice is element 6 of Choices stop
+    if Choice is element 4 of Choices go to Reset
+    if Choice is element 5 of Choices exit
+    if Choice is element 7 of Choices stop
     stop
 
 SetSystemName:
@@ -346,6 +354,12 @@ AddRoom:
     put json `{}` into Request
     set property `action` of Request to `rooms`
     set property `rooms` of Request to Rooms
+    gosub to SendRequest
+    stop
+
+Reset:
+    put json `{}` into Request
+    set property `action` of Request to `reset`
     gosub to SendRequest
     stop
 
