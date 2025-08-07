@@ -2,9 +2,8 @@
 
     script RBR_UI
 
-    use plugin graphics
-
-    import plugin RBR_UI from rbr_ui.py
+    use graphics
+    use plugin RBR_UI from rbr_ui.py
 
     window HostWindow
     rbrwin Window

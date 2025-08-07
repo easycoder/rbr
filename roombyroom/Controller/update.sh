@@ -41,6 +41,9 @@ if test -f "dist.tgz"; then
     echo `date` ---- "${GREEN}Remove the updater flag file${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- rm /mnt/data/version >> /home/linaro/updatelog
     rm /mnt/data/version >> /home/linaro/updatelog 2>&1
+    echo `date` ---- "${GREEN}Force an update of EasyCoder${NOCOLOR}" ---- >> /home/linaro/updatelog
+    echo `date` -- rm ecversion >> /home/linaro/updatelog
+    rm ecversion >> /home/linaro/updatelog 2>&1
     echo `date` ---- "${GREEN}Move back to the home folder${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- cd /home/linaro/rbr >> /home/linaro/updatelog
     cd /home/linaro/rbr >> /home/linaro/updatelog 2>&1
@@ -69,5 +72,7 @@ else
     echo `date` ---- "${GREEN}Remove the updater flag file${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- rm /mnt/data/version >> /home/linaro/updatelog
     rm /mnt/data/version >> /home/linaro/updatelog 2>&1
+    echo `date` -- rm ecversion >> /home/linaro/updatelog
+    rm ecversion >> /home/linaro/updatelog 2>&1
     echo `date` ---- "${GREEN}Update failed${NOCOLOR}" ---- >> /home/linaro/updatelog
 fi
