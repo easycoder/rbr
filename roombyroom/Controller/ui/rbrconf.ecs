@@ -6,6 +6,7 @@
 
 !    debug compile
 
+    window HostWindow
     window Window
     window Dialog
     layout MainPanel
@@ -17,6 +18,7 @@
     layout Layout
     layout VLayout
     layout HLayout
+    layout Panel
     groupbox Group
     label Label
     label RelayStateLabel
@@ -24,9 +26,9 @@
     label UptimeLabel
     label TemperatureLabel
     pushbutton ResetConfigButton
-    pushbutton RBRNowDirectoryButton
     pushbutton ScanDevicesButton
     pushbutton ClearSystemButton
+    pushbutton SetMasterAddressButton
     pushbutton RemoveSlaveButton
     pushbutton UpdateFileButton
     pushbutton UpdateAllFilesButton
@@ -42,6 +44,9 @@
     pushbutton TemperatureButton
     pushbutton OKButton
     pushbutton CancelButton
+    lineinput HostInput
+    lineinput UserInput
+    lineinput PasswordInput
     lineinput LineInput
     lineinput DeviceNameInput
     lineinput LEDPinInput
@@ -59,6 +64,7 @@
 
     log `Starting`
     init graphics
+
     create MainPanel type QHBoxLayout
 
     ! Do the left-hand panel
@@ -72,13 +78,13 @@
     on click ResetConfigButton go to ResetConfigFileClick
     add ResetConfigButton to LeftPanel
 
-    create RBRNowDirectoryButton text `Get the RBR-Now directory`
-    on click RBRNowDirectoryButton go to RBRNowDirectoryClick
-    add RBRNowDirectoryButton to LeftPanel
-
     create ClearSystemButton text `Clear the selected system`
     on click ClearSystemButton go to ClearSystemClick
     add ClearSystemButton to LeftPanel
+
+    create SetMasterAddressButton text `Set the master IP address`
+    on click SetMasterAddressButton go to SetMasterAddressClick
+    add SetMasterAddressButton to LeftPanel
 
     add stretch to LeftPanel
 
@@ -255,9 +261,12 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+    ssh SSH
+    variable RamDisk
+    variable HomeDir
+    variable ControllerSpec
     variable Config
     variable ConfigFile
-    variable FirmwareDirectory
     variable Hosts
     variable Name
     variable Value
@@ -297,8 +306,8 @@
     variable SlaveDevices
     variable CurrentSSID
     variable Previous
+    variable IsLocal
     variable IsMaster
-    variable FilePath
     variable FileName
     variable FileSize
     variable ErrorFlag
@@ -330,6 +339,38 @@
     variable T2
 
 !    debug step
+
+    put trim system `echo $HOME` into HomeDir
+    put `/mnt/data/` into RamDisk
+    if file RamDisk cat `map` does not exist
+    begin
+        put HomeDir cat `/.controller.json` into Path
+        if file Path exists load ControllerSpec from Path
+        else
+        begin
+            put empty into SystemIPAddr
+            put json `{}` into ControllerSpec
+            gosub to GetSSH
+        end
+    end
+
+    if file RamDisk cat `map` exists
+    begin
+        log `Running locally`
+        set IsLocal
+        put empty into Title
+    end
+    else
+    begin
+        log `Running remotely`
+        clear IsLocal
+        put property `current` of ControllerSpec into SystemIPAddr
+        put property SystemIPAddr of ControllerSpec into Item
+        set SSH
+            host SystemIPAddr
+            user property `user` of Item
+            password property `password` of Item
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main program starts here
@@ -375,8 +416,6 @@ Start:
     save prettify Config to ConfigFile
     put `Connected to ` cat HostSSID into StatusMessage
     gosub to Idle
-
-!    gosub to CheckFirmware
 
 !   Get the list of systems from Config, or create an empty list. Then populate the combo box
     if Config has property `systems` put property `systems` of Config into Systems
@@ -544,8 +583,7 @@ GetConfigData:
     if SystemName is empty return
     log prettify SystemConfig
     log `Get the config data for ` cat SystemName
-    get Value from url `https://rbrheating.com/ui/resources/php/rest.php/config/`
-        cat SystemMAC cat `/` cat SystemPassword
+    get Value from url `https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword
     or
     begin
         put `Can't read the config file for ` cat SystemName cat `(` cat MAC cat `/` cat Password cat `)` into StatusMessage
@@ -591,7 +629,8 @@ RefreshSystemsCombo:
         add Name to SystemsCombo
         increment S
     end
-    return
+    put property `current-system` of Config into SystemName
+    go to SelectSystem2
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Select a system from the combo box
@@ -606,12 +645,28 @@ SystemsComboSelect:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Select a system
 SelectSystem:
+    if SystemName is property `current-system` of Config return
+SelectSystem2:
     log `Select system ` cat SystemName
+    ! Update the current system
+    if not IsLocal
+    begin
+        put property `current-system` of Config into Value
+        put property Value of Systems into SystemConfig
+        gosub to PostConfigData
+    end
+    ! Select the new system
     set property `current-system` of Config to SystemName
     put property SystemName of Systems into SystemConfig
     put property `ipaddr` of SystemConfig into SystemIPAddr
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
+    if ControllerSpec does not have property SystemIPAddr gosub to GetSSH
+    else
+    begin
+        set property `current` of ControllerSpec to SystemIPAddr
+        save ControllerSpec to HomeDir cat `/.controller.json`
+    end
     gosub to PopulateSystemInfo
     gosub to PostConfigData
     gosub to PauseSystemController
@@ -676,40 +731,17 @@ ClearSystemClick:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Get the RBR-Now directory and save it.
-RBRNowDirectoryClick:
-    gosub to GetFirmware
-    gosub to CheckFirmware3
+!   Set the master IP address
+SetMasterAddressClick:
+    put `Master IP Address:` into Prompt
+    put empty into Value
+    put `Master IP Address` into Title
+    put 20 into Length
+    put MasterIPAddr into Value
+    gosub to GetRequestedText
+    if ReturnValue is not empty put ReturnValue into MasterIPAddr
+    gosub to SetButtonStates
     stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Check if we have a valid firmware directory.
-CheckFirmware:
-    if Config has property `firmware` put property `firmware` of Config into FirmwareDirectory
-    else put empty into FirmwareDirectory
-CheckFirmware2:
-    if file FirmwareDirectory cat `/files.txt` exists
-    begin
-        set property `firmware` of Config to FirmwareDirectory
-        save prettify Config to ConfigFile
-        go to OK
-    end
-    put `Firmware directory is missing or unspecified` into StatusMessage
-    gosub to Error
-    gosub to GetFirmware
-CheckFirmware3:
-    if ReturnValue is empty return
-    put ReturnValue into FirmwareDirectory
-    go to CheckFirmware2
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Get the RBR-Now firmware
-GetFirmware:
-    put `RBR-Now firmware` into Title
-    put `Get the directory containing the RBR-Now firmware` into Prompt
-    put FirmwareDirectory into Value
-    put 80 into Length
-    go to GetRequestedText
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Scan the local network for new devices
@@ -934,6 +966,7 @@ SetupDevice:
         put the position of ` ` in Name into N
         increment N
         put SSID cat ` ` cat from N of Name into Item
+        log Item
         if SlaveDevices does not include Item
         begin
             append Item to SlaveDevices
@@ -1045,6 +1078,7 @@ PopulateSystemInfo:
         else
         begin
             put property `ssid` of Device into SSID
+!            log Name
             append SSID cat ` ` cat Name to SlaveDevices
             add SSID cat ` ` cat Name to SlaveList
         end
@@ -1105,10 +1139,10 @@ SelectSlaveClick:
     set DeviceSelected
     clear IsMaster
     put SlaveList into Item
-    split Item on ` `
-    index Item to 1
+    put the position of ` ` in Item into S
+    increment S
+    put from S of Item into Item
     put property Item of Devices into Device
-    set the elements of Item to 1
     gosub to PopulateDeviceInfo
     gosub to SetButtonStates
     stop
@@ -1117,11 +1151,9 @@ SelectSlaveClick:
 !   Remove a slave device from the list
 RemoveSlaveClick:
     put SlaveList into Name
-    put Name into Item
-    split Item on ` `
-    index Item to 1
-    put Item into Name
-    set the elements of Item to 1
+    put the position of ` ` in Name into S
+    increment S
+    put from S of Name into Name
     put the keys of Devices into Keys
     put 0 into D
     while D is less than the count of Keys
@@ -1357,8 +1389,8 @@ UpdateAllFilesClick:
     put `pause` into Message
     gosub to SendRBRMessage
 
-    put FirmwareDirectory cat `/files.txt` into Path
-    load Files from Path
+    get Files from url `https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/RBRNow/files.txt`
+
     split Files
     put 0 into F
     while F is less than the elements of Files
@@ -1410,14 +1442,7 @@ UpdateFileClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update a single file
 UpdateOneFile:
-    put FirmwareDirectory cat `/` cat FileName into FilePath
-    if file FilePath exists begin end
-    else
-    begin
-        put `File ` cat FilePath cat ` does not exist` into StatusMessage
-        go to Error
-    end
-    if right 1 of FilePath is `/`
+    if right 1 of FileName is `/`
     begin
         put the length of FileName into S
         decrement S
@@ -1436,7 +1461,11 @@ UpdateOneFile:
     end
 
     ! Send a regular file
-    load Content from FilePath
+    get Content from url `https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/RBRNow/` cat FileName
+    or begin
+        put `Failed to get ` cat FileName cat ` from GitHub` into StatusMessage
+        go to Error
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a single file with multiple attempts
@@ -1476,6 +1505,7 @@ SendFileToDevice:
         gosub to Working
         put `part:`  cat Sequence cat `,text:` cat Segment into Message
         gosub to SendMessageToDevice
+        log Message cat ` -> ` cat Response
         if Response is empty
         begin
             put `Failed to send part ` cat Sequence into StatusMessage
@@ -1569,8 +1599,9 @@ TemperatureRequest:
         put `Failed to get temperature from ` cat Name into StatusMessage
         go to Error
     end
-    split Response on ` `
-    index Response to 1
+    put the position of the last ` ` in Response into S
+    increment S
+    put from S of Response into Response
     put the value of Response into T1
     put T1 modulo 10 into T2
     divide T1 by 10
@@ -1695,7 +1726,6 @@ RelayOnClick:
 SendRBRMessage:
     gosub to SetBusy
     gosub to SendMessageToDevice
-    log URL cat ` -> ` cat Response
     if left 2 of Response is `OK` return
     put `Bad response '` cat Response cat `' from ` cat Name into StatusMessage
     gosub to Error
@@ -1740,7 +1770,7 @@ SMTD2:
         put empty into Path
         go to SMTD2
     end
-!    log URL cat ` - ` cat Response
+!    log URL cat ` -> ` cat Response
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1761,6 +1791,8 @@ PostConfigData:
 !    log `Config: ` cat prettify Config
     if SystemMAC is empty return
     if SystemConfig is empty return
+    put property `mac` of SystemConfig into SystemMAC
+    put property `password` of SystemConfig into SystemPassword
     put `https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword into URL
 !    log URL cat ` ` cat prettify SystemConfig
 !    log `Posting SystemConfig to ` cat URL
@@ -1790,7 +1822,7 @@ PauseSystemController:
     if SystemIPAddr is not empty
         get Response from url `http://` cat SystemIPAddr cat `:17348/cgi-bin/pause.py`
         or begin
-            put `Unable to contact server at ` cat IPAddr into StatusMessage
+            put `Unable to contact server at ` cat SystemIPAddr into StatusMessage
             goto Working
         end
     return
@@ -1801,7 +1833,7 @@ ResumeSystemController:
     if SystemIPAddr is not empty
         get Response from url `http://` cat SystemIPAddr cat `:17348/cgi-bin/resume.py`
         or begin
-            put `Unable to contact server at ` cat IPAddr into StatusMessage
+            put `Unable to contact server at ` cat SystemIPAddr into StatusMessage
             goto Working
         end
     return
@@ -1929,4 +1961,60 @@ SetBusy:
     disable RelayPinInput
     disable DHT22PinInput
     wait 10 ticks
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Get the SSH configuration data
+GetSSH:
+    create Panel type QVBoxLayout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `Host:`
+    add Label to Layout
+    create HostInput size 30
+    set the width of HostInput to 200
+    set the text of HostInput to SystemIPAddr
+    add HostInput to Layout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `User:`
+    add Label to Layout
+    create UserInput size 30
+    set the width of UserInput to 200
+    add UserInput to Layout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `Password:`
+    add Label to Layout
+    create PasswordInput size 30
+    set the width of PasswordInput to 200
+    add PasswordInput to Layout
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create OKButton text `OK`
+    on click OKButton
+    begin
+        if HostInput is empty stop
+        if UserInput is empty stop
+        if PasswordInput is empty stop
+        put json `{}` into Item
+        set property `user` of Item to UserInput
+        set property `password` of Item to PasswordInput
+        set property HostInput of ControllerSpec to Item
+        set property `current` of ControllerSpec to HostInput
+        put HostInput into SystemIPAddr
+        save ControllerSpec to Path
+        fork to GSSH2
+        wait 1
+        close HostWindow
+    end
+    add OKButton to Layout
+    create CancelButton text `Cancel`
+    on click CancelButton exit
+    add CancelButton to Layout
+    create HostWindow title `Host SSH Parameters` size 300 200
+    set the layout of HostWindow to Panel
+    show HostWindow
+    stop
+GSSH2:
     return
