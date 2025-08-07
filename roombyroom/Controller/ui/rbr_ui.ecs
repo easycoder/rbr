@@ -86,7 +86,7 @@
     init graphics
 
     put `linaro` into UserName
-    if system `whoami` is UserName
+    if UserName is trim system `whoami`
     begin
         log `Running locally`
         set IsLocal
@@ -100,7 +100,7 @@
     clear GraphicsStarted
     put trim system `echo $HOME` into HomeDir
     put `/mnt/data/` into RamDisk
-    if not isLocal
+    if not IsLocal
     begin
         put HomeDir cat `/.controller.json` into Path
         if file Path exists load ControllerSpec from Path
@@ -203,7 +203,7 @@ RefreshScreen:
         if N is greater than 1 log `Loading system files (` cat N cat `)`
         if IsLocal
         begin
-            load Map from `RamDisk` cat `map`
+            load Map from RamDisk cat `map`
             load CurrentProfile from RamDisk cat `profile`
             load SystemData from RamDisk cat `systemdata`
         end

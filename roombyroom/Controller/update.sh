@@ -11,6 +11,9 @@ echo `date` -- apt update >> /home/linaro/updatelog
 apt update >> /home/linaro/updatelog 2>&1
 echo `date` -- apt upgrade >> /home/linaro/updatelog
 apt -y upgrade >> /home/linaro/updatelog 2>&1
+echo `date` ---- "${GREEN}Update EasyCoder${NOCOLOR}" ---- >> /home/linaro/updatelog
+echo `date` -- sudo -u linaro pip install -U easycoder >> /home/linaro/updatelog
+sudo -u linaro pip install -U easycoder
 echo `date` ---- "${GREEN}Create the update folder and set its permissions${NOCOLOR}" ---- >> /home/linaro/updatelog
 echo `date` -- mkdir /home/linaro/update >> /home/linaro/updatelog
 mkdir /home/linaro/update >> /home/linaro/updatelog 2>&1
@@ -41,9 +44,6 @@ if test -f "dist.tgz"; then
     echo `date` ---- "${GREEN}Remove the updater flag file${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- rm /mnt/data/version >> /home/linaro/updatelog
     rm /mnt/data/version >> /home/linaro/updatelog 2>&1
-    echo `date` ---- "${GREEN}Force an update of EasyCoder${NOCOLOR}" ---- >> /home/linaro/updatelog
-    echo `date` -- rm ecversion >> /home/linaro/updatelog
-    rm ecversion >> /home/linaro/updatelog 2>&1
     echo `date` ---- "${GREEN}Move back to the home folder${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- cd /home/linaro/rbr >> /home/linaro/updatelog
     cd /home/linaro/rbr >> /home/linaro/updatelog 2>&1
