@@ -629,7 +629,8 @@ RefreshSystemsCombo:
         add Name to SystemsCombo
         increment S
     end
-    return
+    put property `current-system` of Config into SystemName
+    go to SelectSystem2
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Select a system from the combo box
@@ -645,6 +646,7 @@ SystemsComboSelect:
 !   Select a system
 SelectSystem:
     if SystemName is property `current-system` of Config return
+SelectSystem2:
     log `Select system ` cat SystemName
     ! Update the current system
     if not IsLocal
