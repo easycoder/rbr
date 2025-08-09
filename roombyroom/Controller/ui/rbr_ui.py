@@ -121,7 +121,7 @@ class RBR_UI(Handler):
 
     # create {rbrwin} at {left} {top} size {width} {height}
     # create {room} {name} {mode} {height}
-    # create keyboard with {field}
+    # create keyboard with layout {layout} and receiver {field} [and receiver {field]...]}] in {window}
     def k_create(self, command):
         token = self.nextToken()
         if self.isSymbol():
@@ -174,25 +174,37 @@ class RBR_UI(Handler):
                 command['type'] = self.nextToken()
             else: command['type'] = 'line'
             self.skip('with')
-            if self.nextIsSymbol():
-                record = self.getSymbolRecord()
-                if record['keyword'] in ['element', 'lineinput', 'multiline']:
-                    command['receiver'] = record['name']
-                    self.skip('in')
-                    if self.nextIsSymbol():
-                        record = self.getSymbolRecord()
-                        if record['keyword'] == 'rbrwin':
-                            command['window'] = record['name']
-                            self.add(command)
-                            return True
-
+            if self.nextIs('layout'):
+                if self.nextIsSymbol():
+                    record = self.getSymbolRecord()
+                    if record['keyword'] == 'layout':
+                        command['layout'] = record['name']
+                        command['receivers'] = []
+                        while self.peek() == 'and':
+                            self.nextToken()
+                            if self.nextIs('receiver'):
+                                if self.nextIsSymbol():
+                                    record = self.getSymbolRecord()
+                                    if record['keyword'] in ['element', 'lineinput', 'multiline']:
+                                        command['receivers'].append(record['name'])
+                            else: return False
+                        self.skip('in')
+                        if self.nextIsSymbol():
+                            record = self.getSymbolRecord()
+                            if record['keyword'] == 'rbrwin':
+                                command['window'] = record['name']
+                                self.add(command)
+                                return True
         return False
 
     def r_create(self, command):
-        if 'receiver' in command:
-            receiver = self.getVariable(command['receiver'])['widget']
+        if 'receivers' in command:
+            layout = self.getVariable(command['layout'])['widget']
+            receiverNames = command['receivers']
+            receivers = []
+            for name in receiverNames: receivers.append(TextReceiver(self.getVariable(name)['widget']))
             window = self.getVariable(command['window'])['window']
-            Keyboard(self.program, command['type'], receiver = TextReceiver(receiver), parent=window)
+            Keyboard(self.program, command['type'], receiverLayout=layout, receivers=receivers, parent=window)
             return self.nextPC()
 
         record = self.getVariable(command['varname'])
@@ -226,6 +238,12 @@ class RBR_UI(Handler):
             return self.nextPC()
 
         return 0
+
+    def k_element(self, command):
+        return self.compileVariable(command, 'gui')
+
+    def r_element(self, command):
+        return self.nextPC()
 
     # get {variable} from {dialog} [with {value}]
     def k_get(self, command):
@@ -287,12 +305,6 @@ class RBR_UI(Handler):
         return self.compileVariable(command)
 
     def r_modeDialog(self, command):
-        return self.nextPC()
-
-    def k_element(self, command):
-        return self.compileVariable(command)
-
-    def r_element(self, command):
         return self.nextPC()
 
     # on click {pushbutton}
@@ -414,7 +426,9 @@ class RBR_UI(Handler):
                     profiles.setProfile(value)
             elif keyword == 'room':
                 room = record['value'][record['index']]
-                if attribute == 'temperature':
+                if attribute == 'name':
+                    room.setName(value)
+                elif attribute == 'temperature':
                     room.setTemperature(value)
             elif keyword in ['element', 'lineinput', 'multiline']:
                 if attribute =='color':

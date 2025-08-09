@@ -2,31 +2,36 @@
 
     script SystemName
 
-    use plugin graphics
-
-    import plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
+    use graphics
+    use plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
 
     import rbrwin Window
         and element NameAndProfiles
         and variable Request
 
+    layout Layout
+    label Label
+    lineinput Input
     element SystemName
-    variable CurrentName
 
     attach SystemName to element `systemName` of NameAndProfiles
-    put SystemName into CurrentName
-    set attribute `color` of SystemName to `#c00`
-    create keyboard with SystemName in Window
-    set attribute `color` of SystemName to `black`
-    if SystemName is CurrentName
+
+    create Layout type QHBoxLayout
+    create Label text `System Name:` size 12 align right
+    add Label to Layout
+    create Input text SystemName
+    add Input to Layout
+    create keyboard with layout Layout and receiver Input in Window
+    if SystemName is Input
     begin
         put empty into Request
         exit
     end
     else
     begin
+        set the text of SystemName to Input
         put json `{}` into Request
         set property `action` of Request to `SystemName`
-        set property `SystemName` of Request to SystemName
+        set property `SystemName` of Request to Input
     end
     exit

@@ -455,6 +455,7 @@ class Room(QFrame):
         font.setPointSize(16)  # Adjust font size to fit at least 20 characters
         font.setBold(True)  # Make the font bold
         nameLabel.setFont(font)
+        self.nameLabel = nameLabel
 
         # Button with white text and blue or red background
         temperatureButton = QPushButton('----°C')
@@ -473,6 +474,9 @@ class Room(QFrame):
         roomsLayout.addWidget(nameLabel, 1)  # Expand the name label to use all spare space
         roomsLayout.addWidget(temperatureButton)
         roomsLayout.addWidget(self.toolsButton)
+    
+    def setName(self, name):
+        self.nameLabel.setText(name)
     
     def setTemperature(self):
         value = self.spec['temperature']

@@ -69,6 +69,8 @@
     variable Timestamp
     variable Temperature
     variable Text
+    variable SensorID
+    variable RelayNames
     variable Responses
     variable Response
     variable Uptime
@@ -320,24 +322,14 @@ SetSystemName:
     stop
 
 SetRequestRelay:
-    create Panel type QVBoxLayout
     create Layout type QHBoxLayout
-    add Layout to Panel
     create Label text `Type the name of the request relay:`
     add Label to Layout
     create Input size 30
-    set the width of Input to 200
     if Map has property `request` set the text of Input to property `request` of Map
     else set the text of Input to empty
     add Input to Layout
-    add Panel to Popout
-    set Locked
-    show Popout
-    set attribute `color` of Input to `#c00`
-    create keyboard type line with Input in Window
-    set attribute `color` of Input to `black`
-    hide Popout
-    clear Locked
+    create keyboard layout Layout and receiver Input in Window
     put json `{}` into Request
     set property `action` of Request to `request`
     set property `request` of Request to Input
@@ -542,9 +534,14 @@ ShowInfo:
     stop
 
 EditRoomName:
-    put `Type the room name:` into Prompt
-    put Name into Value
-    gosub to GetSingleItem
+    create Layout type QHBoxLayout
+    create Label text `Type the room name:`
+    add Label to Layout
+    create Input size 30 text Name
+    set the width of Input to 200
+    add Input to Layout
+    create keyboard layout Layout and receiver Input in Window
+    set attribute `name` of Room to Input
     put json `{}` into Request
     set property `action` of Request to `roomname`
     set property `roomnumber` of Request to RoomIndex
@@ -554,51 +551,48 @@ EditRoomName:
     stop
 
 EditDeviceParams:
-    put json `[]` into Choices
-    append `Sensor` to Choices
-    append `Relay(s)` to Choices
-    append `Other...` to Choices
-    append empty to Choices
-    append `Cancel` to Choices
-
-    select Choice from menu `Device Menu` with Choices
-    log Choice
-    put json `{}` into Request
-    if Choice is element 0 of Choices go to EditSensor
-    if Choice is element 1 of Choices go to EditRelays
-    if Choice is element 2 of Choices go to EditOther
-    if Choice is element 4 of Choices stop
-    stop
-
-EditSensor:
-    put `Type the sensor identifier:` into Prompt
-    put property Name of SystemData into RoomSpec
-    put property `sensor` of RoomSpec into Value
-    gosub to GetSingleItem
-    put json `{}` into Request
-    set property `action` of Request to `sensor`
-    set property `room` of Request to Name
-    set property `sensor` of Request to Input
-    log Request
-    gosub to SendRequest
-    stop
-
-EditRelays:
     put `Type the relay name/ids, one per line:` into Prompt
     put property Name of SystemData into RoomSpec
     put property `relays` of RoomSpec into Values
-    put empty into Value
+    put empty into RelayNames
     put 0 into R
     while R is less than the count of Values
     begin
-        if Value is not empty put Value cat newline into Value
-        put Value cat element R of Values into Value
+        if RelayNames is not empty put RelayNames cat newline into RelayNames
+        put RelayNames cat element R of Values into RelayNames
         increment R
     end
-    gosub to GetMultiLine
+
+    create Panel type QVBoxLayout
+
+    ! Get the sensor
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `Type the sensor name or MAC:`
+    add Label to Layout
+    create Input size 30
+    set the width of Input to 200
+    put property Name of SystemData into RoomSpec
+    put property `sensor` of RoomSpec into SensorID
+    set the text of Input to SensorID
+    add Input to Layout
+
+    ! Get the multiline
+    create Layout type QHBoxLayout
+    add Layout to Panel
+    create Label text `Type the relay name/ids, one per line:`
+    add Label to Layout
+    create MultiLine
+    set the text of MultiLine to RelayNames
+    add MultiLine to Layout
+    on click Input log `Input`
+    on click MultiLine log `MultiLine`
+
+    create keyboard layout Panel and receiver Input and receiver MultiLine in Window
+
     put json `{}` into Request
-    set property `action` of Request to `relays`
-    set property `room` of Request to Name
+    set property `action` of Request to `devices`
+    set property `sensor` of Request to Input
     set property `relays` of Request to MultiLine
     log Request
 !    gosub to SendRequest
@@ -635,47 +629,11 @@ DeleteRoom:
     gosub to SendRequest
     stop
 
-GetSingleItem:
-    create Panel type QVBoxLayout
-    create Layout type QHBoxLayout
-    add Layout to Panel
-    create Label text Prompt
-    add Label to Layout
-    create Input size 30
-    set the width of Input to 200
-    set the text of Input to Value
-    add Input to Layout
-    add Panel to Popout
-    set Locked
-    show Popout
-    set attribute `color` of Input to `#c00`
-    create keyboard type line with Input in Window
-    set attribute `color` of Input to `black`
-    hide Popout
-    clear Locked
-    return
-
-GetMultiLine:
-    create Panel type QVBoxLayout
-    create Layout type QHBoxLayout
-    add Layout to Panel
-    create Label text Prompt
-    add Label to Layout
-    create MultiLine
-    set the text of MultiLine to Value
-    add MultiLine to Layout
-    add Panel to Popout
-    set Locked
-    show Popout
-    set attribute `color` of MultiLine to `#c00`
-    create keyboard type line with MultiLine in Window
-    set attribute `color` of MultiLine to `black`
-    hide Popout
-    clear Locked
-    return
-
 SendRequest:
 ! log Request
+    set Locked
     if IsLocal save stringify Request to RamDisk cat `request`
     else save stringify Request to Controller RamDisk cat `request`
+    wait 5
+    clear Locked
     return
