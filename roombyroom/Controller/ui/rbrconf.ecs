@@ -19,7 +19,7 @@
     layout VLayout
     layout HLayout
     layout Panel
-    groupbox Group
+    group Group
     label Label
     label RelayStateLabel
     label StatusLabel

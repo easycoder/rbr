@@ -16,9 +16,12 @@
     button ToolsButton
     modeDialog ModeDialog
     dialog Dialog
+    group Group
     layout Panel
     layout Layout
+    layout Grid
     label Label
+    label Header
     lineinput HostInput
     lineinput UserInput
     lineinput PasswordInput
@@ -26,6 +29,7 @@
     multiline MultiLine
     pushbutton OKButton
     pushbutton CancelButton
+    checkbox Checkbox
     ssh Controller
     module Module
     variable UserName
@@ -62,7 +66,6 @@
     variable Result
     variable Request
     variable Data
-    variable Prompt
     variable Value
     variable Values
     variable Locked
@@ -294,6 +297,8 @@ CreateRoom:
     on click ToolsButton go to HandleTools
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   The Main menu - the hamburger at the top right
 ShowMainMenu:
     put json `[]` into Choices
     append `Set the system name` to Choices
@@ -407,6 +412,8 @@ SetMode:
     log `Save ` cat Request
     go to SendRequest
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   The Tools menu on the right of each room row
 HandleTools:
     put attribute `index` of ToolsButton into RoomIndex
     index Room to RoomIndex
@@ -550,6 +557,8 @@ EditRoomName:
     gosub to SendRequest
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Edit the sensor and relay information for a room
 EditDeviceParams:
     put property Name of SystemData into RoomSpec
     put property `relays` of RoomSpec into Values
@@ -563,29 +572,46 @@ EditDeviceParams:
     end
 
     create Panel type QVBoxLayout
+    create Header text `Sensor and relays for ` cat property `name` of RoomSpec
+    set the width of Header to 470
+    set the alignment of Header to hcenter
+    set the style of Header to `font-size: 14px; font-weight: bold; border:none;`
+    add Header to Panel
+    create Grid type QGridLayout
+    add Grid to Panel
 
     ! Get the sensor
-    create Layout type QHBoxLayout
-    add Layout to Panel
     create Label text `Type the sensor name or MAC:`
-    add Label to Layout
+    add Label at 0 0 in Grid
     create Input size 30
-    set the width of Input to 200
     put property Name of SystemData into RoomSpec
     put property `sensor` of RoomSpec into SensorID
     set the text of Input to SensorID
-    add Input to Layout
+    add Input at 0 1 in Grid
 
     ! Get the multiline
-    create Layout type QHBoxLayout
-    add Layout to Panel
     create Label text `Type the relay names or ids,<br>one per line:`
-    add Label to Layout
+    add Label at 1 0 in Grid
     create MultiLine cols 30 rows 4
     set the text of MultiLine to RelayNames
-    add MultiLine to Layout
+    add MultiLine at 1 1 in Grid
     on click Input log `Input`
     on click MultiLine log `MultiLine`
+
+    ! Get the 'linked' checkbox
+    create Label text `Sensor is linked to relay(s)`
+    add Label at 2 0 in Grid
+    create Checkbox
+    add Checkbox at 2 1 in Grid
+
+    ! Create the Frost Protection group
+    create Group title `Frost Protection`
+    set the height of Group to 150
+    add Group to Panel
+    create Layout type QHBoxLayout
+    add Layout to Group
+    create Label text `Temp`
+    add Label to Layout
 
     create keyboard layout Panel and receiver Input and receiver MultiLine in Window
 
@@ -607,12 +633,11 @@ EditDeviceParams:
 !    gosub to SendRequest
     stop
 
-EditOther:
-    stop
-
 EditSchedule:
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Delete a room
 DeleteRoom:
     create Dialog on Window
         type confirm
@@ -638,6 +663,8 @@ DeleteRoom:
     gosub to SendRequest
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send a request to the system controller
 SendRequest:
 ! log Request
     set Locked
