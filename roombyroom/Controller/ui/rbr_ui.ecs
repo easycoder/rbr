@@ -551,7 +551,6 @@ EditRoomName:
     stop
 
 EditDeviceParams:
-    put `Type the relay name/ids, one per line:` into Prompt
     put property Name of SystemData into RoomSpec
     put property `relays` of RoomSpec into Values
     put empty into RelayNames
@@ -580,9 +579,9 @@ EditDeviceParams:
     ! Get the multiline
     create Layout type QHBoxLayout
     add Layout to Panel
-    create Label text `Type the relay name/ids, one per line:`
+    create Label text `Type the relay names or ids,<br>one per line:`
     add Label to Layout
-    create MultiLine
+    create MultiLine cols 30 rows 4
     set the text of MultiLine to RelayNames
     add MultiLine to Layout
     on click Input log `Input`
@@ -593,7 +592,17 @@ EditDeviceParams:
     put json `{}` into Request
     set property `action` of Request to `devices`
     set property `sensor` of Request to Input
-    set property `relays` of Request to MultiLine
+    put MultiLine into RelayNames
+    split RelayNames
+    put json `[]` into Value
+    put 0 into N
+    while N is less than the elements of RelayNames
+    begin
+        index RelayNames to N
+        append RelayNames to Value
+        increment N
+    end
+    set property `relays` of Request to Value
     log Request
 !    gosub to SendRequest
     stop
