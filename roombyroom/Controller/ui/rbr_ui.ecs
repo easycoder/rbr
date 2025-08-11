@@ -26,10 +26,13 @@
     lineinput UserInput
     lineinput PasswordInput
     lineinput Input
+    lineinput Input2
     multiline MultiLine
     pushbutton OKButton
     pushbutton CancelButton
-    checkbox Checkbox
+    checkbox CheckBox
+    checkbox CheckBox2
+    combobox ComboBox
     ssh Controller
     module Module
     variable UserName
@@ -61,6 +64,7 @@
     variable Choices
     variable ChoicesShown
     variable Choice
+    variable List
     variable Advance
     variable Tick
     variable Result
@@ -572,7 +576,7 @@ EditDeviceParams:
     end
 
     create Panel type QVBoxLayout
-    create Header text `Sensor and relays for ` cat property `name` of RoomSpec
+    create Header text `Sensor and relay(s) for ` cat property `name` of RoomSpec
     set the width of Header to 470
     set the alignment of Header to hcenter
     set the style of Header to `font-size: 14px; font-weight: bold; border:none;`
@@ -598,22 +602,49 @@ EditDeviceParams:
     on click Input log `Input`
     on click MultiLine log `MultiLine`
 
+    ! Get the relay type
+    create Label text `Select the relay type:`
+    add Label at 2 0 in Grid
+    create ComboBox
+    add `none` to ComboBox
+    add `RBR-Now` to ComboBox
+    add `Shelly One` to ComboBox
+    add `Tasmota` to ComboBox
+    add `TP-Link P100` to ComboBox
+    add `Manual` to ComboBox
+    select property `relayType` of RoomSpec in ComboBox
+    add ComboBox at 2 1 in Grid
+
     ! Get the 'linked' checkbox
     create Label text `Sensor is linked to relay(s)`
-    add Label at 2 0 in Grid
-    create Checkbox
-    add Checkbox at 2 1 in Grid
+    add Label at 3 0 in Grid
+    create CheckBox
+    if property `linked` of RoomSpec is `yes` set the state of CheckBox to checked
+    else set the state of CheckBox to unchecked
+    add CheckBox at 3 1 in Grid
 
-    ! Create the Frost Protection group
-    create Group title `Frost Protection`
-    set the height of Group to 150
-    add Group to Panel
+    ! Get the 'Frost Protect' line
     create Layout type QHBoxLayout
-    add Layout to Group
-    create Label text `Temp`
+    add Layout at 4 0 in Grid
+    create Label text `Protect below`
     add Label to Layout
+    create Input2 size 5
+    if RoomSpec has property `ptemp` set the text of Input2 to property `ptemp` of RoomSpec
+    add Input2 to Layout
+    create Label text `°C`
+    add Label to Layout
+    add stretch to Layout
 
-    create keyboard layout Panel and receiver Input and receiver MultiLine in Window
+    create CheckBox2 text `Enable protection`
+    if property `protect` of RoomSpec is `yes` set the state of CheckBox2 to checked
+    else set the state of CheckBox2 to unchecked
+    add CheckBox2 at 4 1 in Grid
+
+    create keyboard layout Panel 
+        and receiver Input 
+        and receiver Input2 
+        and receiver MultiLine 
+        in Window
 
     put json `{}` into Request
     set property `action` of Request to `devices`
@@ -629,6 +660,9 @@ EditDeviceParams:
         increment N
     end
     set property `relays` of Request to Value
+    set property `linked` of Request to CheckBox
+    set property `protect` of Request to CheckBox2
+    set property `ptemp` of Request to Input2
     log Request
 !    gosub to SendRequest
     stop
