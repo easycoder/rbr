@@ -16,7 +16,6 @@
     button ToolsButton
     modeDialog ModeDialog
     dialog Dialog
-    group Group
     layout Panel
     layout Layout
     layout Grid
@@ -64,7 +63,6 @@
     variable Choices
     variable ChoicesShown
     variable Choice
-    variable List
     variable Advance
     variable Tick
     variable Result
@@ -213,12 +211,20 @@ RefreshScreen:
         if IsLocal
         begin
             load Map from RamDisk cat `map`
+            or begin
+                log `Could not read /mnt/data/map`
+                return
+            end
             load CurrentProfile from RamDisk cat `profile`
             load SystemData from RamDisk cat `systemdata`
         end
         else
         begin
-            load Map from Controller RamDisk cat `map` or return
+            load Map from Controller RamDisk cat `map`
+            or begin
+                log `Could not read /mnt/data/map`
+                return
+            end
             load CurrentProfile from Controller RamDisk cat `profile`
             load SystemData from Controller RamDisk cat `systemdata`
         end

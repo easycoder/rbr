@@ -542,7 +542,7 @@ ProcessRoom:
             else
             begin
                 put `Sensor for ` cat RoomName cat ` has not reported` into WarningMessage
-                set property `temperature` of RoomSpec to `0`
+                set property `temperature` of RoomSpec to empty
                 gosub to AddWarning
                 log WarningMessage
             end
@@ -551,13 +551,17 @@ ProcessRoom:
 !    log RoomSpec
     put property `target` of RoomSpec into Target
     if RoomSpec has property `temperature` put `` cat property `temperature` of RoomSpec into Temperature
+    else put empty into Temperature
+    if Temperature is empty set property `temperature` of RoomSpec to empty
+    else
+    begin
+        put the value of Temperature into T
+        put T modulo 10 into T1
+        divide T by 10
+        set property `temperature` of RoomSpec to T cat `.` cat T1
+    end
     if RoomSpec has property `battery` put `` cat property `battery` of RoomSpec into Battery
-    else put `0` into Temperature
-    put the value of Temperature into T
-    put T modulo 10 into T1
-    divide T by 10
-    set property `temperature` of RoomSpec to T cat `.` cat T1
-    if RoomSpec does not have property `battery` set property `battery` of RoomSpec to `0`
+    else set property `battery` of RoomSpec to `0`
 
     ! Get the advance data for this room
 GetAdvance:
@@ -570,7 +574,6 @@ GetAdvance:
     else put json `{}` into AdvanceData
     set property `advance` of RoomSpec to Advance
 
-    if Temperature is empty put `0` into Temperature
     if Battery is empty put `0` into Battery
 
     ! See if this room is set for winter protection
@@ -801,6 +804,7 @@ TurnOn:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the log if the temperature has changed outside a 10-minute window
 UpdateLog:
+    if Temperature is empty put `off` into OnOff
     set property `relay` of RoomSpec to OnOff
     put RamDisk cat `logs.json` into FileName
     if file FileName exists load Logs from FileName else put json `{}` into Logs
@@ -823,7 +827,6 @@ UpdateLog:
 
 !   Test if the temperature has changed
     if `` cat T is `` cat Temperature go to SetRelays
-!    if T is Temperature go to SetRelays
 
 !   There's been a change, so write a log and update the data file
     log `Temperature change in ` cat RoomName
@@ -1150,13 +1153,17 @@ ProcessRequest:
         put property `rooms` of Request into Rooms
         gosub to UpdateRooms
     end
-    else if Action is `sensor`
+    else if Action is `devices`
     begin
         put property `room` of Request into RoomName
         gosub to GetRoomByName
         if RoomNumber is not -1
         begin
             set property `sensor` of RoomSpec to property `sensor` of Request
+            set property `relays` of RoomSpec to property `relays` of Request
+            set property `linked` of RoomSpec to property `linked` of Request
+            set property `protect` of RoomSpec to property `protect` of Request
+            set property `ptemp` of RoomSpec to property `ptemp` of Request
             gosub to UpdateRoom
         end
     end
@@ -1169,10 +1176,6 @@ ProcessRequest:
         load Map from `backup`
         save Map to RamDisk cat `map`
         put json Map into MapObject
-    end
-    else if Action is `reset`
-    begin
-        delete file RamDisk cat `map`
     end
     else if Action is `profiles`
     begin
@@ -1273,6 +1276,10 @@ ProcessRequest:
         put element RoomNumber of Rooms into RoomSpec
         set property `events` of RoomSpec to property `periods` of Request
         gosub to UpdateRoom
+    end
+    else if Action is `reload`
+    begin
+        delete file RamDisk cat `map`
     end
     else if Action is `request`
     begin

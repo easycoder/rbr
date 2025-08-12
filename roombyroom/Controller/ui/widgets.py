@@ -480,7 +480,7 @@ class Room(QFrame):
     
     def setTemperature(self):
         value = self.spec['temperature']
-        if value == '999.9': value = '--.-'
+        if value == '': value = '--.-'
         self.temperatureButton.setText(f'{value}°C')
     
     def getName(self):
