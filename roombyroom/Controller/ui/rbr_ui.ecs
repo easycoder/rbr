@@ -576,7 +576,7 @@ EditDeviceParams:
     end
 
     create Panel type QVBoxLayout
-    create Header text `Sensor and relay(s) for ` cat property `name` of RoomSpec
+    create Header text `Sensor and relay(s) for ` cat Name
     set the width of Header to 470
     set the alignment of Header to hcenter
     set the style of Header to `font-size: 14px; font-weight: bold; border:none;`
@@ -648,6 +648,7 @@ EditDeviceParams:
 
     put json `{}` into Request
     set property `action` of Request to `devices`
+    set property `room` of Request to Name
     set property `sensor` of Request to Input
     put MultiLine into RelayNames
     split RelayNames
@@ -660,11 +661,11 @@ EditDeviceParams:
         increment N
     end
     set property `relays` of Request to Value
-    set property `linked` of Request to CheckBox
-    set property `protect` of Request to CheckBox2
+    if CheckBox set property `linked` of Request to `yes` else set property `linked` of Request to `no`
+    if CheckBox2 set property `protect` of Request to `yes` else set property `protect` of Request to `no`
     set property `ptemp` of Request to Input2
     log Request
-!    gosub to SendRequest
+    gosub to SendRequest
     stop
 
 EditSchedule:

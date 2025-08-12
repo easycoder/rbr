@@ -172,7 +172,7 @@ class RBR_UI(Handler):
             if self.peek() == 'type':
                 self.nextToken()
                 command['type'] = self.nextToken()
-            else: command['type'] = 'line'
+            else: command['type'] = 'qwerty'
             self.skip('with')
             if self.nextIs('layout'):
                 if self.nextIsSymbol():
