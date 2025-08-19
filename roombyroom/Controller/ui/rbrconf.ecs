@@ -1350,6 +1350,7 @@ UpdateWidgetDataClick:
     set property `pins` of Device to Pins
     put `config.json` into FileName
     put stringify Device into Content
+!    log Content
     gosub to SendOneFile
     if not ErrorFlag
     begin
@@ -1505,7 +1506,7 @@ SendFileToDevice:
         gosub to Working
         put `part:`  cat Sequence cat `,text:` cat Segment into Message
         gosub to SendMessageToDevice
-        log Message cat ` -> ` cat Response
+!        log Message cat ` -> ` cat Response
         if Response is empty
         begin
             put `Failed to send part ` cat Sequence into StatusMessage

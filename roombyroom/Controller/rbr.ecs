@@ -857,7 +857,11 @@ SetRelays:
         put json `{}` into Response
         if RelayType is `RBR-Now`
         begin
-            if Devices does not have property RoomName go to SR2
+            if Devices does not have property RoomName
+            begin
+                log `No relay info available for ` cat RoomName
+                go to SR2
+            end
             put property RoomName of Devices into Device
             put OnOff into Message
             gosub to MessageESPDevice
