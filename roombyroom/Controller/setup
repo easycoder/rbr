@@ -15,9 +15,10 @@ sudo apt install -y ufw cron python3-dev python3-pip libglib2.0-dev
 echo "Install python libraries"
 sudo pip3 install requests pytz PyP100 psutil bluepy
 pip install -U easycoder
-sudo ln -s /usr/bin/ec /home/linaro/.local/bin/easycoder
 
-LOCAL_BIN=".local/bin"
+LOCAL_BIN="/home/linaro/.local/bin"
+sudo ln -s $LOCAL_BIN/easycoder /usr/bin/easycoder
+sudo ln -s $LOCAL_BIN/easycoder /usr/bin/ec
 
 # Check if the path is already in .profile
 if grep -Fxq "export PATH=\$PATH:$LOCAL_BIN" ~/.profile; then

@@ -1350,7 +1350,6 @@ UpdateWidgetDataClick:
     set property `pins` of Device to Pins
     put `config.json` into FileName
     put stringify Device into Content
-!    log Content
     gosub to SendOneFile
     if not ErrorFlag
     begin
@@ -1506,7 +1505,7 @@ SendFileToDevice:
         gosub to Working
         put `part:`  cat Sequence cat `,text:` cat Segment into Message
         gosub to SendMessageToDevice
-!        log Message cat ` -> ` cat Response
+        log Message cat ` -> ` cat Response
         if Response is empty
         begin
             put `Failed to send part ` cat Sequence into StatusMessage
@@ -1600,9 +1599,9 @@ TemperatureRequest:
         put `Failed to get temperature from ` cat Name into StatusMessage
         go to Error
     end
-    put from 3 of Response into Response
-    put the position of ` ` in Response into S
-    put left S of Response into Response
+    put the position of the last ` ` in Response into S
+    increment S
+    put from S of Response into Response
     put the value of Response into T1
     put T1 modulo 10 into T2
     divide T1 by 10

@@ -5,7 +5,6 @@
     use graphics
     use plugin RBR_UI from rbr_ui.py
 
-    window HostWindow
     rbrwin Window
     room Room
     element Banner
@@ -21,14 +20,10 @@
     layout Grid
     label Label
     label Header
-    lineinput HostInput
-    lineinput UserInput
-    lineinput PasswordInput
     lineinput Input
     lineinput Input2
     multiline MultiLine
     pushbutton OKButton
-    pushbutton CancelButton
     checkbox CheckBox
     checkbox CheckBox2
     combobox ComboBox
@@ -107,93 +102,32 @@
     clear GraphicsStarted
     put trim system `echo $HOME` into HomeDir
     put `/mnt/data/` into RamDisk
-    if not IsLocal
-    begin
-        put HomeDir cat `/.controller.json` into Path
-        if file Path exists load ControllerSpec from Path
-        else
-        begin
-            put json `{}` into ControllerSpec
-            create Panel type QVBoxLayout
-            create Layout type QHBoxLayout
-            add Layout to Panel
-            create Label text `Host:`
-            add Label to Layout
-            create HostInput size 30
-            set the width of HostInput to 200
-            add HostInput to Layout
-            create Layout type QHBoxLayout
-            add Layout to Panel
-            create Label text `User:`
-            add Label to Layout
-            create UserInput size 30
-            set the width of UserInput to 200
-            add UserInput to Layout
-            create Layout type QHBoxLayout
-            add Layout to Panel
-            create Label text `Password:`
-            add Label to Layout
-            create PasswordInput size 30
-            set the width of PasswordInput to 200
-            add PasswordInput to Layout
-            create Layout type QHBoxLayout
-            add Layout to Panel
-            create OKButton text `OK`
-            on click OKButton
-            begin
-                if HostInput is empty stop
-                if UserInput is empty stop
-                if PasswordInput is empty stop
-                put json `{}` into Item
-                set property `user` of Item to UserInput
-                set property `password` of Item to PasswordInput
-                set property `host` of ControllerSpec to HostInput
-                set property HostInput of ControllerSpec to Item
-                save ControllerSpec to Path
-                fork to Start
-                wait 10 seconds
-                close HostWindow
-            end
-            add OKButton to Layout
-            create CancelButton text `Cancel`
-            on click CancelButton exit
-            add CancelButton to Layout
-            create HostWindow title `Host SSH Parameters` size 300 200
-            set the layout of HostWindow to Panel
-            show HostWindow
-            start graphics
-            set GraphicsStarted
-            log ControllerSpec
-            stop
-        end
-    end
 
 Start:
-    if IsLocal put empty into Title
-    else
-    begin
-        put property `current` of ControllerSpec into ControllerIPAddr
-        put property ControllerIPAddr of ControllerSpec into Item
-        set Controller
-            host ControllerIPAddr
-            user property `user` of Item
-            password property `password` of Item
-        put `RBR` into Title
-    end
+    if IsLocal put empty into Title else put `RBR` into Title
     put 1000 into WindowHeight
     put 582 into WindowWidth
     divide WindowHeight by 12 giving RoomHeight
     put 0 into Tick
 
     create Window title Title size WindowWidth WindowHeight
+    show Window
+    start graphics
+
+    if not IsLocal
+    begin
+        run `controller.ecs` as Module with HomeDir and ControllerSpec
+        put property `current` of ControllerSpec into ControllerIPAddr
+        put property ControllerIPAddr of ControllerSpec into Item
+        set Controller
+            host ControllerIPAddr
+            user property `user` of Item
+            password property `password` of Item
+    end
 
     put empty into Path
     clear Locked
     gosub to RefreshScreen
-
-    show Window
-
-    if not GraphicsStarted start graphics
     on tick
     begin
         put the ticker into Tick
@@ -315,7 +249,7 @@ ShowMainMenu:
     append `Set the request relay` to Choices
     append `Add a room` to Choices
     append empty to Choices
-    append `Reload map` to Choices
+    append `Reset` to Choices
     append `Exit Application` to Choices
     append empty to Choices
     append `Cancel` to Choices
@@ -325,7 +259,7 @@ ShowMainMenu:
     if Choice is element 0 of Choices go to SetSystemName
     if Choice is element 1 of Choices go to SetRequestRelay
     if Choice is element 2 of Choices go to AddRoom
-    if Choice is element 4 of Choices go to Reload
+    if Choice is element 4 of Choices go to Reset
     if Choice is element 5 of Choices exit
     if Choice is element 7 of Choices stop
     stop
@@ -363,9 +297,9 @@ AddRoom:
     gosub to SendRequest
     stop
 
-Reload:
+Reset:
     put json `{}` into Request
-    set property `action` of Request to `reload`
+    set property `action` of Request to `reset`
     gosub to SendRequest
     stop
 
