@@ -60,7 +60,7 @@
             set property HostInput of ControllerSpec to Item
             set property `current` of ControllerSpec to HostInput
             save ControllerSpec to Path
-            wait 1 second
+            wait 20 ticks
             close HostWindow
             exit
         end

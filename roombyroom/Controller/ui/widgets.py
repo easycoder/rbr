@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QVBoxLayout,
+    QStackedWidget,
     QDialog,
     QSizePolicy,
     QGridLayout,
@@ -106,7 +107,7 @@ def defaultButtonStyle():
 # Utility functions
 def now():
     t = time.time()
-    tz = timezone('GB') # Localize this!
+    tz = time.timezone('GB') # Localize this!
     dt = datetime.fromtimestamp(t)
     return int(t) + tz.dst(dt).seconds
 
@@ -802,7 +803,7 @@ class GenericMode(QWidget):
             super().__init__(widgets, horizontal, margins, spacing)
             self.setObjectName('GenericModeRight')
 
-    # Create a lwyout and add left and right widgets
+    # Create a layout and add left and right widgets
     def setupMode(self, left, right):
         mainLayout = QHBoxLayout(self)
         mainLayout.setContentsMargins(0, 0, 0, 0)
@@ -1183,6 +1184,7 @@ class RBRWindow(QMainWindow):
         self.setGeometry(x, y, w, h)
         self.width = w
         self.height = h
+        self.currentIndex = 0
 
         if title == '': self.setWindowFlags(Qt.FramelessWindowHint)
         else: self.setWindowTitle(title)
@@ -1203,6 +1205,9 @@ class RBRWindow(QMainWindow):
         contentLayout.setSpacing(0)
         self.contentLayout = contentLayout
         self.content = content
+
+        # Panel for anything else that needs to be rendered
+        self.otherPanel = QWidget()
 
         self.initContent()
 
@@ -1231,23 +1236,54 @@ class RBRWindow(QMainWindow):
         self.contentLayout.addWidget(popout)
         self.popout = popout
 
+        # The main container, which has 2 views
+        self.container = QStackedWidget()
+
         # Panel for rows
-        panel = QWidget()
-        panel.setStyleSheet('''
+        rowsPanel = QWidget()
+        rowsPanel.setStyleSheet('''
             background: transparent;
             border: none;
             margin: 5px;
             padding: 0;
         ''')
-        roomsLayout = QVBoxLayout(panel)
+        roomsLayout = QVBoxLayout(rowsPanel)
         roomsLayout.setSpacing(0)
         roomsLayout.setContentsMargins(0, 0, 0, 0)
-        self.contentLayout.addWidget(panel)
+        self.contentLayout.addWidget(self.container)
         self.rooms = roomsLayout
+        self.container.addWidget(rowsPanel)
+        self.container.addWidget(self.otherPanel)
+        self.container.setCurrentIndex(self.currentIndex)
     
     def getElement(self, name):
         if name == 'banner': return self.banner
         elif name == 'profiles': return self.profiles
         elif name == 'rooms': return self.rooms
+        elif name == 'other': return self.other
         elif name == 'popout': return self.popout
         else: return None
+    
+    def setOtherPanel(self, layout):
+        self.otherPanel = QWidget()
+        otherLayout = QVBoxLayout(self.otherPanel)
+        otherLayout.setSpacing(0)
+        otherLayout.setContentsMargins(0, 0, 0, 0)
+        self.otherPanel.setLayout(otherLayout)
+        otherLayout.addLayout(layout)
+        self.container.addWidget(self.otherPanel)
+
+    def showRowsPanel(self):
+        self.container.setCurrentIndex(0)
+        self.currentIndex = 0
+
+    def showMainPanel(self):
+        self.container.setCurrentIndex(0)
+        self.currentIndex = 0
+
+    def showOtherPanel(self):
+        self.container.setCurrentIndex(1)
+        self.currentIndex = 1
+
+    def getOtherPanel(self):
+        return self.container.widget(1)

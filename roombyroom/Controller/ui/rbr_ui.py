@@ -61,12 +61,27 @@ class RBR_UI(Handler):
             window.rooms.addWidget(room)
         return self.nextPC()
 
-    # attach {element} [to element] {name} of {rbrwin}/{widget}
+    # attach {layout} to other view of {rbrwin}
+    # attach {element} [to element] {value} of {rbrwin}/{widget}
     def k_attach(self, command):
         if self.nextIsSymbol():
             record = self.getSymbolRecord()
-            if record['keyword'] in ['element', 'button']:
-                command['target'] = record['name']
+            keyword = record['keyword']
+            if keyword == 'widget':
+                command['item'] = record['name']
+                self.skip('to')
+                self.skip('other')
+                self.skip('view')
+                command['other'] = True
+                self.skip('of')
+                if self.nextIsSymbol():
+                    record = self.getSymbolRecord()
+                    if record['keyword'] == 'rbrwin':
+                        command['rbrwin'] = record['name']
+                        self.add(command)
+                        return True
+            elif keyword in ['element', 'pushbutton']:
+                command['item'] = record['name']
                 self.skip('to')
                 self.skip('element')
                 command['value'] = self.nextValue()
@@ -74,32 +89,33 @@ class RBR_UI(Handler):
                 if self.nextIsSymbol():
                     record = self.getSymbolRecord()
                     if record['keyword'] in ['rbrwin', 'element', 'room']:
-                        command['item'] = record['name']
+                        command['target'] = record['name']
                         self.add(command)
                         return True
         return False
     
     def r_attach(self, command):
-        target = self.getVariable(command['target'])
-        value = self.getRuntimeValue(command['value'])
-        item = self.getVariable(command['item'])
-        keyword = item['keyword']
-        if keyword == 'rbrwin':
-            window = item['window']
-            target['widget'] = window.getElement(value)
-        elif keyword == 'element':
-            target['widget'] = item['widget'].getElement(value)
-        elif keyword == 'room':
-            if value == 'mode':
-                target['widget'] = item['value'][item['index']].modeButton
-            elif value == 'tools':
-                target['widget'] = item['value'][item['index']].toolsButton
-        return self.nextPC()
-
-    def k_button(self, command):
-        return self.compileVariable(command)
-
-    def r_button(self, command):
+        if 'other' in command:
+            window = self.getVariable(command['rbrwin'])['window']
+            item = self.getVariable(command['item'])
+            widget= window.getOtherPanel()
+            item['widget'] = widget
+            return self.nextPC()
+        else:
+            item = self.getVariable(command['item'])
+            value = self.getRuntimeValue(command['value'])
+            target = self.getVariable(command['target'])
+            keyword = target['keyword']
+            if keyword == 'rbrwin':
+                window = target['window']
+                item['widget'] = window.getElement(value)
+            elif keyword == 'element':
+                item['widget'] = target['widget'].getElement(value)
+            elif keyword == 'room':
+                if value == 'mode':
+                    item['widget'] = target['value'][target['index']].modeButton
+                elif value == 'tools':
+                    item['widget'] = target['value'][target['index']].toolsButton
         return self.nextPC()
 
     # clear {rbrwin}
@@ -338,7 +354,7 @@ class RBR_UI(Handler):
         if token == 'click':
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                if record['keyword'] == 'button':
+                if record['keyword'] == 'pushbutton':
                     command['name'] = record['name']
                     setupOn()
                     return True
@@ -348,7 +364,7 @@ class RBR_UI(Handler):
         record = self.getVariable(command['name'])
         widget = record['widget']
         keyword = record['keyword']
-        if keyword == 'button':
+        if keyword == 'pushbutton':
             widget.onClick = (command['goto'])
         return self.nextPC()
 
@@ -394,20 +410,36 @@ class RBR_UI(Handler):
         self.putSymbolValue(target, v)
         return self.nextPC()
 
-   # set attribute {attr} [of] {window}/{room} [to] {value}
+   # set attribute {attr} [of] {rbrwin}/{room} [to] {value}
+   # set other [panel] of {rbrwin} to {layout}
     def k_set(self, command):
-        if self.nextIs('attribute'):
+        token = self.nextToken()
+        if token == 'attribute':
             command['attribute'] = self.nextValue()
             self.skip('of')
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                keyword = record['keyword']
-                if keyword in ['rbrwin', 'room', 'element', 'lineinput', 'multiline']:
+                elementType = record['keyword']
+                if elementType in ['rbrwin', 'room', 'element', 'lineinput', 'multiline']:
                     command['name'] = record['name']
                     self.skip('to')
                     command['value'] = self.nextValue()
                     self.add(command)
                     return True
+        elif token == 'other':
+            self.skip('panel')
+            self.skip('of')
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if record['keyword'] == 'rbrwin':
+                    command['other'] = record['name']
+                    self.skip('to')
+                    if self.nextIsSymbol():
+                        record = self.getSymbolRecord()
+                        if record['keyword'] == 'layout':
+                            command['layout'] = record['name']
+                            self.add(command)
+                            return True
         return False
     
     def r_set(self, command):
@@ -424,6 +456,9 @@ class RBR_UI(Handler):
                 elif attribute == 'profile':
                     profiles = window.profiles
                     profiles.setProfile(value)
+                elif attribute == 'other':
+                    layout = self.getVariable(command['layout'])['widget']
+                    window.setOtherPanel(layout)
             elif keyword == 'room':
                 room = record['value'][record['index']]
                 if attribute == 'name':
@@ -438,9 +473,17 @@ class RBR_UI(Handler):
                     style += f'color: {value};\n'
                     widget.setStyleSheet(style)
             return self.nextPC()
+        elif 'other' in command:
+            record = self.getVariable(command['other'])
+            if record['keyword'] == 'rbrwin':
+                window = record['window']
+                layout = self.getVariable(command['layout'])['widget']
+                window.setOtherPanel(layout)
+            return self.nextPC()
         return 0
 
     # show {rbrwin}/{element}
+    # show view {name} of {rbrwin}
     def k_show(self, command):
         if self.nextIsSymbol():
             record = self.getSymbolRecord()
@@ -449,10 +492,28 @@ class RBR_UI(Handler):
             if keyword in ['rbrwin', 'element']:
                 self.add(command)
                 return True
+        elif self.tokenIs('view'):
+            command['view'] = self.nextValue()
+            self.skip('of')
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if record['keyword'] == 'rbrwin':
+                    command['rbrwin'] = record['name']
+                    self.add(command)
+                    return True
         return False
         
     def r_show(self, command):
-        if 'rbrwin' in command:
+        if 'view' in command:
+            window = self.getVariable(command['rbrwin'])['window']
+            viewName = self.getRuntimeValue(command['view'])
+            if viewName == 'rows':
+                window.selectRowsPanel()
+            elif viewName == 'main':
+                window.showMainPanel()
+            elif viewName == 'other':
+                window.showOtherPanel()
+        elif 'rbrwin' in command:
             window = self.getVariable(command['rbrwin'])['window']
             self.program.rbrwin = window
             window.show()
@@ -484,7 +545,7 @@ class RBR_UI(Handler):
             self.skip('of')
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                if record['keyword'] in ['room', 'button']:
+                if record['keyword'] in ['room', 'pushbutton']:
                     value['name'] = record['name']
                     return value
 
