@@ -1206,9 +1206,6 @@ class RBRWindow(QMainWindow):
         self.contentLayout = contentLayout
         self.content = content
 
-        # Panel for anything else that needs to be rendered
-        self.otherPanel = QWidget()
-
         self.initContent()
 
         # Main layout
@@ -1240,19 +1237,23 @@ class RBRWindow(QMainWindow):
         self.container = QStackedWidget()
 
         # Panel for rows
-        rowsPanel = QWidget()
-        rowsPanel.setStyleSheet('''
+        self.mainPanel = QWidget()
+        self.mainPanel.setStyleSheet('''
             background: transparent;
             border: none;
             margin: 5px;
             padding: 0;
         ''')
-        roomsLayout = QVBoxLayout(rowsPanel)
+
+        # Panel for anything else that needs to be rendered
+        self.otherPanel = QWidget()
+
+        roomsLayout = QVBoxLayout(self.mainPanel)
         roomsLayout.setSpacing(0)
         roomsLayout.setContentsMargins(0, 0, 0, 0)
         self.contentLayout.addWidget(self.container)
         self.rooms = roomsLayout
-        self.container.addWidget(rowsPanel)
+        self.container.addWidget(self.mainPanel)
         self.container.addWidget(self.otherPanel)
         self.container.setCurrentIndex(self.currentIndex)
     
@@ -1260,22 +1261,20 @@ class RBRWindow(QMainWindow):
         if name == 'banner': return self.banner
         elif name == 'profiles': return self.profiles
         elif name == 'rooms': return self.rooms
-        elif name == 'other': return self.other
+        elif name == 'other': return self.otherPanel
         elif name == 'popout': return self.popout
         else: return None
     
-    def setOtherPanel(self, layout):
-        self.otherPanel = QWidget()
-        otherLayout = QVBoxLayout(self.otherPanel)
-        otherLayout.setSpacing(0)
-        otherLayout.setContentsMargins(0, 0, 0, 0)
-        self.otherPanel.setLayout(otherLayout)
-        otherLayout.addLayout(layout)
-        self.container.addWidget(self.otherPanel)
+    def setOtherPanel(self, widget):
+        oldWidget = self.otherPanel
+        self.container.removeWidget(self.otherPanel)
+        oldWidget.deleteLater()
+        # Add the new widget
+        self.container.insertWidget(1, widget)
+        self.otherPanel = widget
 
-    def showRowsPanel(self):
-        self.container.setCurrentIndex(0)
-        self.currentIndex = 0
+    def getOtherPanel(self):
+        return self.otherPanel
 
     def showMainPanel(self):
         self.container.setCurrentIndex(0)
@@ -1284,6 +1283,3 @@ class RBRWindow(QMainWindow):
     def showOtherPanel(self):
         self.container.setCurrentIndex(1)
         self.currentIndex = 1
-
-    def getOtherPanel(self):
-        return self.container.widget(1)

@@ -31,6 +31,11 @@ class RBR_UI(Handler):
                     child_layout = item.layout()
                     if child_layout is not None:
                         self.clearWidget(child_layout)
+    
+    def hasAttributes(self, command, attributes):
+        for attr in attributes:
+            if not attr in command: return False
+        return True
 
     #############################################################################
     # Keyword handlers
@@ -108,14 +113,22 @@ class RBR_UI(Handler):
             keyword = target['keyword']
             if keyword == 'rbrwin':
                 window = target['window']
-                item['widget'] = window.getElement(value)
+                if item['keyword'] == 'pushbutton':
+                    self.putSymbolValue(item, window.getElement(value))
+                else:
+                    item['widget'] = window.getElement(value)
             elif keyword == 'element':
-                item['widget'] = target['widget'].getElement(value)
+                if item['keyword'] == 'pushbutton':
+                    self.putSymbolValue(item, target['widget'].getElement(value))
+                else:
+                    item['widget'] = target['widget'].getElement(value)
             elif keyword == 'room':
+                roomValue = target['value'][target['index']]
                 if value == 'mode':
-                    item['widget'] = target['value'][target['index']].modeButton
+                    self.putSymbolValue(item, roomValue.modeButton)
+#                    item['widget'] = target['value'][target['index']].modeButton
                 elif value == 'tools':
-                    item['widget'] = target['value'][target['index']].toolsButton
+                    self.putSymbolValue(item, roomValue.toolsButton)
         return self.nextPC()
 
     # clear {rbrwin}
@@ -410,8 +423,8 @@ class RBR_UI(Handler):
         self.putSymbolValue(target, v)
         return self.nextPC()
 
-   # set attribute {attr} [of] {rbrwin}/{room} [to] {value}
-   # set other [panel] of {rbrwin} to {layout}
+    # set attribute {attr} [of] {rbrwin}/{room} [to] {value}
+    # set {widget} as other view of {rbrwin}
     def k_set(self, command):
         token = self.nextToken()
         if token == 'attribute':
@@ -426,20 +439,21 @@ class RBR_UI(Handler):
                     command['value'] = self.nextValue()
                     self.add(command)
                     return True
-        elif token == 'other':
-            self.skip('panel')
-            self.skip('of')
-            if self.nextIsSymbol():
-                record = self.getSymbolRecord()
-                if record['keyword'] == 'rbrwin':
-                    command['other'] = record['name']
-                    self.skip('to')
-                    if self.nextIsSymbol():
-                        record = self.getSymbolRecord()
-                        if record['keyword'] == 'layout':
-                            command['layout'] = record['name']
-                            self.add(command)
-                            return True
+        elif self.isSymbol():
+            record = self.getSymbolRecord()
+            keyword = record['keyword']
+            if keyword in ['element', 'widget', 'label', 'pushbutton', 'lineinput', 'multiline']:
+                command['widget'] = record['name']
+                self.skip('as')
+                self.skip('other')
+                self.skip('view')
+                self.skip('of')
+                if self.nextIsSymbol():
+                    record = self.getSymbolRecord()
+                    if record['keyword'] == 'rbrwin':
+                        command['window'] = record['name']
+                        self.add(command)
+                        return True
         return False
     
     def r_set(self, command):
@@ -473,12 +487,10 @@ class RBR_UI(Handler):
                     style += f'color: {value};\n'
                     widget.setStyleSheet(style)
             return self.nextPC()
-        elif 'other' in command:
-            record = self.getVariable(command['other'])
-            if record['keyword'] == 'rbrwin':
-                window = record['window']
-                layout = self.getVariable(command['layout'])['widget']
-                window.setOtherPanel(layout)
+        elif self.hasAttributes(command, ['widget', 'window']):
+            widget = self.getVariable(command['widget'])['widget']
+            window = self.getVariable(command['window'])['window']
+            window.setOtherPanel(widget)
             return self.nextPC()
         return 0
 

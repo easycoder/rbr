@@ -1,6 +1,6 @@
 !   rbr-ui.ecs
 
-    script RBR_UI
+    script UI
 
     use graphics
     use plugin RBR_UI from rbr_ui.py
@@ -13,12 +13,9 @@
     pushbutton Hamburger
     pushbutton ModeButton
     pushbutton ToolsButton
-    pushbutton ScheduleButton
     pushbutton OKButton
-    pushbutton CancelButton
     modeDialog ModeDialog
     dialog Dialog
-    widget Container
     layout Panel
     layout Layout
     layout Grid
@@ -78,7 +75,6 @@
     variable Response
     variable Uptime
     variable Item
-    variable Style
     variable HH
     variable MM
     variable SS
@@ -355,47 +351,12 @@ HandleMode:
     end
     else if Result is `edit`
     begin
-    log Name
-        attach Container to other view of Window
-        clear Container
-        set the style of Container to `background: #ffc;border: 1px solid gray;`
-        create Layout type QVBoxLayout
-        set the layout of Container to Layout
-        create Panel type QHBoxLayout
-        add Panel to Layout
-        add stretch to Panel
-        create Label text `Schedule for ` cat Name
-        set the style of Label to `border: none; margin-top: 1px; font-weight: bold; font-size: 20px; color: blue`
-        add Label to Panel
-        add stretch to Panel
-        put `background: #ffc;border: 1px solid gray; background: white; height: 30px; `
-        cat `border-radius: 5px;` into Style
-        create ScheduleButton text `Period 1`
-        set the style of ScheduleButton to Style
-        add ScheduleButton to Layout
-        create ScheduleButton text `Period 2`
-        set the style of ScheduleButton to Style
-        add ScheduleButton to Layout
-        create ScheduleButton text `Period 3`
-        set the style of ScheduleButton to Style
-        add ScheduleButton to Layout
-        create ScheduleButton text `Period 4`
-        set the style of ScheduleButton to Style
-        add ScheduleButton to Layout
-        add stretch to Layout
-        create Panel type QHBoxLayout
-        add Panel to Layout
-        create OKButton text `OK`
-        set the style of OKButton to Style
-        add OKButton to Panel
-        create CancelButton text `Cancel`
-        set the style of CancelButton to Style
-        add CancelButton to Panel
-        add spacer 10 to Layout
-        show view `other` of Window
-        on click OKButton show view `main` of Window
-        on click CancelButton show view `main` of Window
-    end
+        set Locked
+        run `events.ecs` as Module with Window and RoomSpec and Request
+        if Request is empty stop
+        gosub to SendRequest
+        clear Locked
+    end 
     stop
 
 SetMode:

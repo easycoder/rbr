@@ -529,7 +529,7 @@ ProcessRoom:
                 take LastReported from the timestamp giving LastReported
                 if LastReported is greater than 1800
                 begin
-                    set property `temperature` of RoomSpec to `0`
+                    set property `temperature` of RoomSpec to empty
                     put `Sensor for ` cat RoomName cat ` has not reported recently` into WarningMessage
                     gosub to AddWarning
                 end
@@ -682,6 +682,7 @@ GetAdvance:
         gosub to MultiplyTT
         put Target into TargetTemp
         if RoomName is `Kitchen` log Temperature cat `-` cat Target
+        if Temperature is empty go to TurnOff
         if Temperature is less than Target go to TurnOn else go to TurnOff
     end
     take 1 from the count of Events giving NPeriods
