@@ -1144,20 +1144,23 @@ PopulateDeviceInfo:
     begin
         log `Populate device ` cat property `name` of Device
         gosub to CheckDevice
-        set the text of DeviceNameInput to property `name` of Device
-        set the text of RelayStateLabel to `???`
-        set the text of PathInput to property `path` of Device
-        put property `pins` of Device into Pins
-        put property `led` of Pins into Pin
-        set the text of LEDPinInput to property `pin` of Pin
-        set the state of LEDInvertCheckbox to property `invert` of Pin
-        put property `relay` of Pins into Pin
-        set the text of RelayPinInput to property `pin` of Pin
-        set the state of RelayInvertCheckbox to property `invert` of Pin
-        put property `dht22` of Pins into Pin
-        set the text of DHT22PinInput to property `pin` of Pin
-        enable UpdateAllFilesButton
-        enable DeleteFileButton
+        if not Silent
+        begin
+            set the text of DeviceNameInput to property `name` of Device
+            set the text of RelayStateLabel to `???`
+            set the text of PathInput to property `path` of Device
+            put property `pins` of Device into Pins
+            put property `led` of Pins into Pin
+            set the text of LEDPinInput to property `pin` of Pin
+            set the state of LEDInvertCheckbox to property `invert` of Pin
+            put property `relay` of Pins into Pin
+            set the text of RelayPinInput to property `pin` of Pin
+            set the state of RelayInvertCheckbox to property `invert` of Pin
+            put property `dht22` of Pins into Pin
+            set the text of DHT22PinInput to property `pin` of Pin
+            enable UpdateAllFilesButton
+            enable DeleteFileButton
+        end
     end
     go to OK
 
@@ -1873,13 +1876,15 @@ OK:
     put `OK` into StatusMessage
 
 Idle:
-    if not Silent log `*** ` cat StatusMessage cat ` ***`
+    if Silent return
+    log `*** ` cat StatusMessage cat ` ***`
     set the text of StatusLabel to `<font color="#008000">` cat StatusMessage cat `</font>`
     clear ErrorFlag
     go to SetButtonStates
 
 Working:
-    if not Silent log `*** ` cat StatusMessage cat ` ***`
+    if Silent return
+    log `*** ` cat StatusMessage cat ` ***`
     set the text of StatusLabel to `<font color="#0000e0">` cat StatusMessage cat `</font>`
     clear ErrorFlag
     wait 50 ticks
