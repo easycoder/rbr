@@ -4,6 +4,7 @@ from pin import PIN
 from server import Server
 from dht22 import DHT22
 from blescan import BLEScan
+from espcomms import ESPComms
 
 class Config():
 
@@ -64,20 +65,21 @@ class Config():
     
     def resume(self):
         if self.dht22!=None: self.dht22.resume()
+    
+    def doFinalInitTasks(self):
+        self.espComms=ESPComms(self)
+        if not self.isMaster():
+            asyncio.create_task(self.espComms.receive())
+        asyncio.create_task(self.bleScan.scan())
 
     def setAP(self,ap): self.ap=ap
     def setSTA(self,sta): self.sta=sta
     def setMAC(self,mac): self.mac=mac
-    def setChannel(self,channel):
-        self.config['channel']=channel
-        writeFile('config.json',json.dumps(self.config))
     def setIPAddr(self,ipaddr): self.ipaddr=ipaddr
     def setHandler(self,handler): self.handler=handler
-    def setESPComms(self,espComms): self.espComms=espComms
     def addUptime(self,t): self.uptime+=t
     
     def isMaster(self): return self.config['master']
-    def isESP8266(self): return False
     def getDevice(self): return self.config['device']
     def getName(self): return self.config['name']
     def getSSID(self): return self.config['hostssid']

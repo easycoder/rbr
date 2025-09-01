@@ -7,7 +7,6 @@ from ap import AP
 from sta import STA
 from machine import reset
 from binascii import hexlify,unhexlify
-from espcomms import ESPComms
 
 class RBRNow():
 
@@ -23,13 +22,9 @@ class RBRNow():
             sta.connect()
         else: print('Starting as slave')
         config.startServer()
-        espComms=ESPComms(config)
-        config.setESPComms(espComms)
         asyncio.create_task(self.startBlink())
         asyncio.create_task(self.stopAP())
-        if not config.isMaster():
-            asyncio.create_task(espComms.receive())
-        asyncio.create_task(self.config.bleScan.scan())
+        self.config.doFinalInitTasks()
 
     async def blink(self):
         while True:

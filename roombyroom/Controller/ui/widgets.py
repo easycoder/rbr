@@ -639,7 +639,7 @@ class Profiles(QWidget):
         return None
     
     def setSystemName(self, name):
-        self.systemName.setText(name)
+        self.systemName.setText(name.replace('%20', ' '))
     
     def setProfile(self, name):
         self.profileButton.setText(f'Profile: {name}')

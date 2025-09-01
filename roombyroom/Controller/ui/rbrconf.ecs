@@ -29,6 +29,7 @@
     pushbutton ScanDevicesButton
     pushbutton ClearSystemButton
     pushbutton SetMasterAddressButton
+    pushbutton ReconfigureMasterButton
     pushbutton RemoveSlaveButton
     pushbutton UpdateFileButton
     pushbutton UpdateAllFilesButton
@@ -85,6 +86,10 @@
     create SetMasterAddressButton text `Set the master IP address`
     on click SetMasterAddressButton go to SetMasterAddressClick
     add SetMasterAddressButton to LeftPanel
+
+    create ReconfigureMasterButton text `Reconfigure the master device`
+    on click ReconfigureMasterButton go to ReconfigureMasterClick
+    add ReconfigureMasterButton to LeftPanel
 
     add stretch to LeftPanel
 
@@ -262,6 +267,7 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     ssh SSH
+    stack Stack
     variable RamDisk
     variable HomeDir
     variable ControllerSpec
@@ -304,6 +310,7 @@
     variable MasterIPAddr
     variable MasterDeviceName
     variable SlaveDevices
+    variable SlaveMAC
     variable CurrentSSID
     variable Previous
     variable IsLocal
@@ -329,6 +336,7 @@
     variable URL
     variable Pins
     variable Pin
+    variable Silent
     variable D
     variable F
     variable K
@@ -396,6 +404,7 @@ Start:
     put empty into SystemHostSSID
     put empty into SystemIPAddr
     clear DeviceSelected
+    clear Silent
 
     gosub to SetBusy
 
@@ -441,6 +450,7 @@ Start:
 
     gosub to SetButtonStates
     on select SystemsCombo go to SystemsComboSelect
+    fork to TickleSlaves
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -860,6 +870,23 @@ SelectSSIDFromList:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Reconfigure the master device
+ReconfigureMasterClick:
+    create MessageBox on Window
+        style question
+        title `Master reset`
+        message `This will reconfigure the master device,` cat newline
+            cat `for example if the system router has changed.` cat newline cat `Continue?`
+    show MessageBox giving Value
+    if Value is `Yes`
+    begin
+        put MasterSSID into SSID
+        clear IsMaster
+        gosub to SetupDevice
+    end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Set up the device identified by SSID
 SetupDevice:
     if SSID is HostSSID
@@ -899,66 +926,7 @@ SetupDevice:
     put Info into MAC
 
     ! Check if this is the first device to be configured. If so, make it the master.
-    if MasterSSID is empty
-    begin
-        set IsMaster
-        log `Deal with master ` cat Name
-        put SSID into MasterSSID
-        put Name into MasterDeviceName
-        gosub to CreateDevice
-        if ErrorFlag return
-        put Device into MasterDevice
-        put MAC into MasterMAC
-        put IPAddr into MasterIPAddr
-
-        ! Send the config data to the device
-        put `config.json` into FileName
-        put stringify Device into Content
-        gosub to SendOneFile
-        if ErrorFlag return
-
-        ! Reboot the device
-        gosub to RequestReset
-        if ErrorFlag return
-        put `Give the device a few seconds to reboot` into StatusMessage
-        gosub to Working
-        wait 10
-        gosub to ConnectToDevice
-        if ErrorFlag return
-        put MasterSSID cat ` ` cat MasterName into StatusMessage
-        gosub to Working
-        disable MasterDeviceButton
-
-        ! Get the master IP address
-        put `http://` cat MasterIPAddr cat `/?mac=` cat MasterMAC cat `&msg=ipaddr` into URL
-        put `Interrogate the master device` into StatusMessage
-        gosub to Working
-        get Response from url URL
-        or begin
-            put `Failed to get Master ip address of ` cat MasterSSID into StatusMessage
-            go to Error
-        end
-        log `ipaddr: ` cat Response
-        if left 2 of Response is `OK`
-        begin
-            put from 3 of Response into MasterIPAddr
-            put `Master ip address is ` cat MasterIPAddr into StatusMessage
-            gosub to Working
-            gosub to SetMasterDeviceButtonText
-            set property `ipaddr` of MasterDevice to MasterIPAddr
-            set property MasterDeviceName of Devices to MasterDevice
-            gosub to UpdateSystemConfig
-        end
-        else
-        begin
-            put `Failed to get Master ip address` into StatusMessage
-            go to Error
-        end
-        enable MasterDeviceButton
-        put MasterDevice into Device
-        gosub to ConnectToHost
-        gosub to PopulateDeviceInfo
-    end
+    if MasterSSID is empty gosub to ConfigureMasterDevice
     else
     begin
         clear IsMaster
@@ -977,13 +945,74 @@ SetupDevice:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Configure the master device
+ConfigureMasterDevice:
+    set IsMaster
+    log `Deal with master ` cat Name
+    put SSID into MasterSSID
+    put Name into MasterDeviceName
+    gosub to CreateDevice
+    if ErrorFlag return
+    put Device into MasterDevice
+    put MAC into MasterMAC
+    put IPAddr into MasterIPAddr
+
+    ! Send the config data to the device
+    put `config.json` into FileName
+    put stringify Device into Content
+    gosub to SendOneFile
+    if ErrorFlag return
+
+    ! Reboot the device
+    gosub to RequestReset
+    if ErrorFlag return
+    put `Give the device a few seconds to reboot` into StatusMessage
+    gosub to Working
+    wait 10
+    gosub to ConnectToDevice
+    if ErrorFlag return
+    put MasterSSID cat ` ` cat MasterName into StatusMessage
+    gosub to Working
+    disable MasterDeviceButton
+
+    ! Get the master IP address
+    put `http://` cat MasterIPAddr cat `/?mac=` cat MasterMAC cat `&msg=ipaddr` into URL
+    put `Interrogate the master device` into StatusMessage
+    gosub to Working
+    get Response from url URL
+    or begin
+        put `Failed to get Master ip address of ` cat MasterSSID into StatusMessage
+        go to Error
+    end
+    log `ipaddr: ` cat Response
+    if left 2 of Response is `OK`
+    begin
+        put from 3 of Response into MasterIPAddr
+        put `Master ip address is ` cat MasterIPAddr into StatusMessage
+        gosub to Working
+        gosub to SetMasterDeviceButtonText
+        set property `ipaddr` of MasterDevice to MasterIPAddr
+        set property MasterDeviceName of Devices to MasterDevice
+        gosub to UpdateSystemConfig
+    end
+    else
+    begin
+        put `Failed to get Master ip address` into StatusMessage
+        go to Error
+    end
+    enable MasterDeviceButton
+    put MasterDevice into Device
+    gosub to ConnectToHost
+    go to PopulateDeviceInfo
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Create a device entry in the config file
 CreateDevice:
     log `Create Device`
     put json `{}` into Device
     if IsMaster
     begin
-        log `Create master device ` cat MastertDeviceName
+        log `Create master device ` cat MasterDeviceName
         set property `hostssid` of Device to HostSSID
         set property `hostpass` of Device to HostPassword
         set property `ipaddr` of Device to empty
@@ -1593,15 +1622,15 @@ TemperatureRequest:
     gosub to Working
     put `temp` into Message
     gosub to SendRBRMessage
-    log Response
+    if not Silent log Response
     if left 2 of Response is not `OK`
     begin
         put `Failed to get temperature from ` cat Name into StatusMessage
         go to Error
     end
     put the position of the last ` ` in Response into S
-    increment S
-    put from S of Response into Response
+    put left S of Response into Response
+    put from 3 of Response into Response
     put the value of Response into T1
     put T1 modulo 10 into T2
     divide T1 by 10
@@ -1637,7 +1666,7 @@ RequestReset:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Check a device
 CheckDevice:
-    log `Get uptime`
+    if not Silent log `Get uptime`
     put `uptime` into Message
     gosub to SendRBRMessage
     if Response is empty
@@ -1652,7 +1681,7 @@ CheckDevice:
     put the position of ` ` in Uptime into P
     if P is greater than 0 put left P of Uptime into Uptime
     set the text of UptimeLabel to Uptime cat ` sec`
-    log Name cat ` uptime: ` cat Uptime
+    if not Silent log Name cat ` uptime: ` cat Uptime
     put property `pins` of Device into Pins
     put property `dht22` of Pins into Pin
     put property `pin` of Pin into Value
@@ -1760,7 +1789,7 @@ SendMessageToDevice:
 SMTD2:
     put empty into Response
     put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=` cat Message2 into URL
-!    log URL
+    if not Silent log URL
     get Response from url URL
     or begin
         put `Could not message ` cat Name into StatusMessage
@@ -1844,13 +1873,13 @@ OK:
     put `OK` into StatusMessage
 
 Idle:
-    log `*** ` cat StatusMessage cat ` ***`
+    if not Silent log `*** ` cat StatusMessage cat ` ***`
     set the text of StatusLabel to `<font color="#008000">` cat StatusMessage cat `</font>`
     clear ErrorFlag
     go to SetButtonStates
 
 Working:
-    log `*** ` cat StatusMessage cat ` ***`
+    if not Silent log `*** ` cat StatusMessage cat ` ***`
     set the text of StatusLabel to `<font color="#0000e0">` cat StatusMessage cat `</font>`
     clear ErrorFlag
     wait 50 ticks
@@ -1876,6 +1905,10 @@ SetButtonStates:
     if the count of SystemsCombo is 0 disable ClearSystemButton else enable ClearSystemButton
 ! ScanSystemsButton
     enable ScanSystemsButton
+! SetMasterAddressButton
+    enable SetMasterAddressButton
+! ReconfigureMasterButton
+    enable ReconfigureMasterButton
 ! RemoveSystemButton
     if SystemsCombo is empty disable RemoveSystemButton else enable RemoveSystemButton
 ! MasterDeviceButton
@@ -1944,6 +1977,8 @@ SetBusy:
     disable ScanDevicesButton
     disable ClearSystemButton
     disable RemoveSlaveButton
+    disable SetMasterAddressButton
+    disable ReconfigureMasterButton
     disable UpdateFileButton
     disable UpdateAllFilesButton
     disable DeleteFileButton
@@ -2018,3 +2053,39 @@ GetSSH:
     stop
 GSSH2:
     return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Tickle the slave devices so they don't change channels
+TickleSlaves:
+    while true
+    begin
+        set Silent
+        put 0 into S
+        while S is less than the count of SlaveDevices
+        begin
+            push Name onto Stack
+            push Device onto Stack
+            push SSID onto Stack
+            push MAC onto Stack
+            push Message onto Stack
+            push Response onto Stack
+
+            put element S of SlaveDevices into Name
+            put the position of ` ` in Name into P
+            increment P
+            put from P of Name into Name
+            put property Name of Devices into Device
+            gosub to CheckDevice
+
+            pop Response from Stack
+            pop Message from Stack
+            pop MAC from Stack
+            pop SSID from Stack
+            pop Device from Stack
+            pop Name from Stack
+            increment S
+        end
+        clear Silent
+        wait 10 seconds
+    end
+    stop

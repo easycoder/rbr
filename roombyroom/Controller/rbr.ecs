@@ -120,6 +120,8 @@
     end
 
     put system `hostname -I` into IPAddr
+    put the position of ` ` in IPAddr into P
+    if P is greater than 0  put left P of IPAddr into IPAddr
     log `My IP address is ` cat IPAddr
 
     load RBRServer from `server.txt`
@@ -268,34 +270,25 @@ SkipServerInteraction:
 Start:
     print empty
     add 9 to now giving Timestamp
-    ! Load the map
-    if file RamDisk cat `map` exists
-    begin
-        load Map from RamDisk cat `map`
+
+    ! Try to get the map from the RBR server
+    log `Get the map from the server`
+    get Map from url RBRServer cat `/map/` cat MAC cat `?v=` cat now
+    or begin
+        gosub to NetworkError
+        ! Try the local copy
+        if file RamDisk cat `map` exists load Map from RamDisk cat `map`
+        else put empty into Map
+        go to S1
     end
-    else put empty into Map
-    if Map is empty
-    begin
-        ! Try to get the map from the RBR server
-        log `Get the map from the server`
-        get Map from url RBRServer cat `/map/` cat MAC cat `?v=` cat now
-        or begin
-            gosub to NetworkError
-            put empty into Map
-            go to S1
-        end
-        gosub to ClearNetworkErrors
-        save Map to RamDisk cat `map`
-        save Map to `backup`
-    end
-!    log Map
+    gosub to ClearNetworkErrors
+    save Map to RamDisk cat `map`
 
 S1:
     if Map is empty
     begin
         put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
         save Map to RamDisk cat `map`
-        save Map to `backup`
     end
     put json Map into MapObject
     put property `profiles` of MapObject into Profiles
@@ -1171,16 +1164,6 @@ ProcessRequest:
             set property `ptemp` of RoomSpec to property `ptemp` of Request
             gosub to UpdateRoom
         end
-    end
-    else if Action is `backup`
-    begin
-        save Map to `backup`
-    end
-    else if Action is `restore`
-    begin
-        load Map from `backup`
-        save Map to RamDisk cat `map`
-        put json Map into MapObject
     end
     else if Action is `profiles`
     begin

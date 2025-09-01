@@ -6,15 +6,15 @@ class ESPComms():
     
     def __init__(self,config):
         self.config=config
-        config.setESPComms(self)
         E().active(True)
         self.peers=[]
+        self.channel=config.getChannel()
         print('ESP-Now initialised')
     
     def checkPeer(self,peer):
         if not peer in self.peers:
             self.peers.append(peer)
-            E().add_peer(peer)
+            E().add_peer(peer,channel=self.channel)
 
     async def send(self,mac,espmsg):
         peer=unhexlify(mac.encode())
@@ -45,14 +45,14 @@ class ESPComms():
         return result
 
     async def receive(self):
-        print('Starting ESPNow receiver on channel',self.config.getChannel())
-        self.waiting=False
+        print('Starting ESPNow receiver')
+        messaged=False
         while True:
             if E().any():
                 mac,msg=E().recv()
                 sender=hexlify(mac).decode()
                 msg=msg.decode()
-#                print(f'Message from {sender}: {msg[0:30]}...')
+#                print(f'Message from {sender} to {mac}: {msg[0:30]}...')
                 if msg[0]=='!':
                     # It's a message to be relayed
                     comma=msg.index(',')
@@ -67,6 +67,8 @@ class ESPComms():
                 print(f'Response to {sender}: {response}')
                 self.checkPeer(mac)
                 E().send(mac,response)
+                self.config.resetCounter()
+                messaged=True
             await asyncio.sleep(.1)
             self.config.kickWatchdog()
 

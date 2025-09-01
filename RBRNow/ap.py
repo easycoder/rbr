@@ -22,3 +22,5 @@ class AP():
         self.ap.config(essid='-',password=password)
 
     def getChannel(self): return self.ap.config('channel')
+    
+    def setChannel(self,channel):self.ap.config(channel=channel)
