@@ -1,4 +1,3 @@
-ap.py
 blescan.py
 boot.py
 config.py
@@ -9,5 +8,3 @@ handler.py
 main.py
 pin.py
 server.py
-sta.py
-

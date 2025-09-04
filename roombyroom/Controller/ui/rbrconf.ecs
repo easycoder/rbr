@@ -450,7 +450,8 @@ Start:
 
     gosub to SetButtonStates
     on select SystemsCombo go to SystemsComboSelect
-    fork to TickleSlaves
+    put `Ready` into StatusMessage
+    gosub to Idle
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1679,6 +1680,7 @@ CheckDevice:
         put `0` into Uptime
     end
     else put from 3 of Response into Uptime
+    if Silent return
     put the position of `-` in Uptime into P
     if P is greater than 0 put left P of Uptime into Uptime
     put the position of ` ` in Uptime into P
@@ -1876,15 +1878,17 @@ OK:
     put `OK` into StatusMessage
 
 Idle:
-    if Silent return
     log `*** ` cat StatusMessage cat ` ***`
-    set the text of StatusLabel to `<font color="#008000">` cat StatusMessage cat `</font>`
+    if not Silent
+    begin
+        set the text of StatusLabel to `<font color="#008000">` cat StatusMessage cat `</font>`
+    end
     clear ErrorFlag
     go to SetButtonStates
 
 Working:
-    if Silent return
     log `*** ` cat StatusMessage cat ` ***`
+    if Silent return
     set the text of StatusLabel to `<font color="#0000e0">` cat StatusMessage cat `</font>`
     clear ErrorFlag
     wait 50 ticks
@@ -1895,7 +1899,10 @@ Abort:
 
 Error:
     log `*** ` cat StatusMessage cat ` ***`
-    set the text of StatusLabel to `<font color="#ff0000">` cat StatusMessage cat `</font>`
+    if not Silent
+    begin
+        set the text of StatusLabel to `<font color="#ff0000">` cat StatusMessage cat `</font>`
+    end
     set ErrorFlag
     go to SetButtonStates
 
@@ -2058,39 +2065,3 @@ GetSSH:
     stop
 GSSH2:
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Tickle the slave devices so they don't change channels
-TickleSlaves:
-    while true
-    begin
-        set Silent
-        put 0 into S
-        while S is less than the count of SlaveDevices
-        begin
-            push Name onto Stack
-            push Device onto Stack
-            push SSID onto Stack
-            push MAC onto Stack
-            push Message onto Stack
-            push Response onto Stack
-
-            put element S of SlaveDevices into Name
-            put the position of ` ` in Name into P
-            increment P
-            put from P of Name into Name
-            put property Name of Devices into Device
-            gosub to CheckDevice
-
-            pop Response from Stack
-            pop Message from Stack
-            pop MAC from Stack
-            pop SSID from Stack
-            pop Device from Stack
-            pop Name from Stack
-            increment S
-        end
-        clear Silent
-        wait 10 seconds
-    end
-    stop
