@@ -83,6 +83,7 @@ class Config():
     def setMAC(self,mac): self.mac=mac
     def setIPAddr(self,ipaddr): self.ipaddr=ipaddr
     def setChannel(self,channel):
+        self.channel=channel
         self.config['channel']=channel
         writeFile('config.json',json.dumps(self.config))
     def setHandler(self,handler): self.handler=handler
