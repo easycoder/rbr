@@ -31,7 +31,7 @@ class Config():
             pin['pin']=''
             self.config['pins']['dht22']=pin
             writeFile('config.json',json.dumps(self.config))
-        self.channel=self.config['channel']
+        self.channel=int(self.config['channel'])
         pin,invert=self.getPinInfo('led')
         self.led=PIN(self,pin,invert)
         pin,invert=self.getPinInfo('relay')
@@ -97,7 +97,7 @@ class Config():
     def stopAP(self): self.espComms.stopAP()
     def startServer(self): self.server.startup()
     def getIPAddr(self): return self.ipaddr
-    def getChannel(self): return self.config['channel']
+    def getChannel(self): return self.channel
     def getHandler(self): return self.handler
     def getESPComms(self): return self.espComms
     def getBLEScan(self): return self.bleScan

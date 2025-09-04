@@ -1145,6 +1145,7 @@ PopulateDeviceInfo:
     begin
         log `Populate device ` cat property `name` of Device
         gosub to CheckDevice
+        if ErrorFlag return
         if not Silent
         begin
             set the text of DeviceNameInput to property `name` of Device
@@ -1670,17 +1671,13 @@ RequestReset:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Check a device
 CheckDevice:
+    clear ErrorFlag
     if not Silent log `Get uptime`
     put `uptime` into Message
     gosub to SendRBRMessage
-    if Response is empty
-    begin
-        put `No response from ` cat Name into StatusMessage
-        gosub to Error
-        put `0` into Uptime
-    end
-    else put from 3 of Response into Uptime
+    if ErrorFlag return
     if Silent return
+    if Response is not empty put from 3 of Response into Uptime
     put the position of `-` in Uptime into P
     if P is greater than 0 put left P of Uptime into Uptime
     put the position of ` ` in Uptime into P
