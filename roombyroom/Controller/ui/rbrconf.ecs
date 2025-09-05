@@ -268,9 +268,12 @@
 
     ssh SSH
     stack Stack
+    module Module
+    variable ControllerSpec
+    variable ControllerIPAddr
+    variable UserName
     variable RamDisk
     variable HomeDir
-    variable ControllerSpec
     variable Config
     variable ConfigFile
     variable Hosts
@@ -348,10 +351,22 @@
 
 !    debug step
 
-    put trim system `echo $HOME` into HomeDir
-    put `/mnt/data/` into RamDisk
-    if file RamDisk cat `map` does not exist
+    put `linaro` into Name
+    if Name is trim system `whoami`
     begin
+        log `Running locally`
+        set IsLocal
+    end
+    else
+    begin
+        log `Running remotely`
+        clear IsLocal
+    end
+
+    put `/mnt/data/` into RamDisk
+    if not IsLocal
+    begin
+        put trim system `echo $HOME` into HomeDir
         put HomeDir cat `/.controller.json` into Path
         if file Path exists load ControllerSpec from Path
         else
@@ -362,16 +377,14 @@
         end
     end
 
-    if file RamDisk cat `map` exists
+    if IsLocal
     begin
         log `Running locally`
-        set IsLocal
         put empty into Title
     end
     else
     begin
         log `Running remotely`
-        clear IsLocal
         put property `current` of ControllerSpec into SystemIPAddr
         put property SystemIPAddr of ControllerSpec into Item
         set SSH
@@ -672,15 +685,14 @@ SelectSystem2:
     put property `ipaddr` of SystemConfig into SystemIPAddr
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
-    if ControllerSpec does not have property SystemIPAddr gosub to GetSSH
-    else
+    if ControllerSpec has property SystemIPAddr
     begin
         set property `current` of ControllerSpec to SystemIPAddr
         save ControllerSpec to HomeDir cat `/.controller.json`
     end
+    else gosub to GetSSH
     gosub to PopulateSystemInfo
     gosub to PostConfigData
-    gosub to PauseSystemController
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1133,6 +1145,9 @@ MasterDeviceClick:
         set IsMaster
         put MasterDevice into Device
         gosub to PopulateDeviceInfo
+        put `channel` into Message
+        gosub to SendRBRMessage
+        log Response
     end
     gosub to SetButtonStates
     stop
@@ -1143,7 +1158,8 @@ PopulateDeviceInfo:
     gosub to GetDeviceData
     if Device has property `name`
     begin
-        log `Populate device ` cat property `name` of Device
+        put property `name` of Device into Name
+        log `Populate device ` cat Name
         gosub to CheckDevice
         if ErrorFlag return
         if not Silent
@@ -1163,6 +1179,8 @@ PopulateDeviceInfo:
             enable UpdateAllFilesButton
             enable DeleteFileButton
         end
+        if IsLocal save Name to RamDisk cat `pause`
+        else save Name to SSH RamDisk cat `pause`
     end
     go to OK
 
@@ -1845,17 +1863,6 @@ UpdateSystems:
     set property SystemName of Systems to SystemConfig
 UpdateConfig:
     set property `systems` of Config to Systems
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Pause the system controller
-PauseSystemController:
-    if SystemIPAddr is not empty
-        get Response from url `http://` cat SystemIPAddr cat `:17348/cgi-bin/pause.py`
-        or begin
-            put `Unable to contact server at ` cat SystemIPAddr into StatusMessage
-            goto Working
-        end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

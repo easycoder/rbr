@@ -92,13 +92,12 @@ class ESPComms():
                     mac,msg=self.e.recv()
                     sender=mac.hex()
                     msg=msg.decode()
-    #                print(f'Message from {sender} to {mac}: {msg[0:30]}...')
                     if msg[0]=='!':
                         # It's a message to be relayed
                         comma=msg.index(',')
                         slave=msg[1:comma]
                         msg=msg[comma+1:]
-    #                    print(f'Slave: {slave}, msg: {msg}')
+#                        print(f'Slave: {slave}, msg: {msg}')
                         response=await self.send(slave,msg)
                     else:
                         # It's a message for me
@@ -107,9 +106,10 @@ class ESPComms():
                         self.messageCount=0
                         self.idleCount=0
                         self.hopping=False
-                    print('Response:',response)
+                    print(f'{msg[0:30]}... {response}')
                     self.checkPeer(mac)
-                    self.e.send(mac,response)
+                    try: self.e.send(mac,response)
+                    except: print('Can\'t respond')
             await asyncio.sleep(.1)
             self.config.kickWatchdog()
 
@@ -126,25 +126,20 @@ class ESPComms():
             self.messageCount+=1
             if self.hopping: self.idleCount+=1
             
-            limit=30 if self.hopping else 3600
+            limit=30 # if self.hopping else 1200
             if self.messageCount>limit:
                 async with self.espnowLock:
                     for index,value in enumerate(channels):
                         if value==self.channel:
                             self.channel=channels[(index+1)%len(channels)]
                             break
-                    # COMPLETELY reset the connection
                     self.e.active(False)
-                    await asyncio.sleep(.2)
-                    
-                    # Re-initialize the AP interface too for clean slate
+                    await asyncio.sleep(.2)            
                     self.ap.active(False)
                     await asyncio.sleep(.1)
                     self.ap.active(True)
                     self.ap.config(channel=self.channel)
-                    self.config.setChannel(self.channel)
-                    
-                    # Create new ESPNow instance
+                    self.config.setChannel(self.channel)   
                     self.e = ESPNow()
                     self.e.active(True)
                     self.peers=[]

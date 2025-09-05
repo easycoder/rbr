@@ -43,6 +43,7 @@
     variable Relays
     variable Relay
     variable RelayType
+    variable Pause
     variable BadResponses
     variable Responses
     variable Response
@@ -113,11 +114,11 @@
 !    debug step
 
     put `/mnt/data/` into RamDisk
-    if file RamDisk cat `pause` exists
-    begin
-        log `Paused`
-        exit
-    end
+!    if file RamDisk cat `pause` exists
+!    begin
+!        log `Paused`
+!        exit
+!    end
 
     put system `hostname -I` into IPAddr
     put the position of ` ` in IPAddr into P
@@ -232,11 +233,7 @@
             increment N
         end
     end
-    if MasterDevice is not empty
-    begin
-        log `Master device: ` cat property `name` of MasterDevice
-        put property `ipaddr` of MasterDevice into MasterIPAddr
-    end
+    if MasterDevice is not empty put property `ipaddr` of MasterDevice into MasterIPAddr
     else print `No master device`
 
 !   See if we have the latest system software
@@ -401,10 +398,14 @@ SkipRequests:
                 begin
                     put Name into RoomName
                     put property Name of Devices into Device
-                    put OnOff into Message
-                    gosub to MessageESPDevice
-                    if Response is empty log Name cat `: No response`
-                    else gosub to RecordMijia
+                    gosub to CheckPause
+                    if not Pause
+                    begin
+                        put OnOff into Message
+                        gosub to MessageESPDevice
+                        if Response is empty log Name cat `: No response`
+                        else gosub to RecordMijia
+                    end
                 end
                 else log `No request relay called ` cat Name
             end
@@ -485,31 +486,35 @@ ProcessRoom:
             end
 
             put property Sensor of Devices into Device
-            put `temp` into Message
-            gosub to MessageESPDevice
-!            log `Sensor: ` cat Response
-            if left 3 of Response is `OK `
+            gosub to CheckPause
+            if not Pause
             begin
-                split Response on ` `
-                index Response to 1
-                set property `temperature` of RoomSpec to Response
-                set property `battery` of RoomSpec to `100`
-                if property `errors` of RoomStatus is not 0 set property `temperature` of RoomStatus to Response
-                index Response to 2
-                put `` cat Response into SensorRSS
-                gosub to ResetErrorCount
-            end
-            else
-            begin
-                if RoomStatus has property `temperature`
+                put `temp` into Message
+                gosub to MessageESPDevice
+!                log `Sensor: ` cat Response
+                if left 3 of Response is `OK `
                 begin
-                    set property `temperature` of RoomSpec to property `temperature` of RoomStatus
+                    split Response on ` `
+                    index Response to 1
+                    set property `temperature` of RoomSpec to Response
+                    set property `battery` of RoomSpec to `100`
+                    if property `errors` of RoomStatus is not 0 set property `temperature` of RoomStatus to Response
+                    index Response to 2
+                    put `` cat Response into SensorRSS
+                    gosub to ResetErrorCount
                 end
                 else
                 begin
-                    set property `temperature` of RoomSpec to `0`
+                    if RoomStatus has property `temperature`
+                    begin
+                        set property `temperature` of RoomSpec to property `temperature` of RoomStatus
+                    end
+                    else
+                    begin
+                        set property `temperature` of RoomSpec to `0`
+                    end
+                    gosub to BumpErrorCount
                 end
-                gosub to BumpErrorCount
             end
         end
         else
@@ -857,26 +862,29 @@ SetRelays:
                 go to SR2
             end
             put property RoomName of Devices into Device
-            put OnOff into Message
-            gosub to MessageESPDevice
-            if Response is empty log Name cat `: No response`
-            else
+            gosub to CheckPause
+            if not Pause
             begin
-                gosub to RecordMijia
-                put Response into Value
-                put json `{}` into Response
-                split Value on ` `
-                if the elements of Value is not less than 4
+                put OnOff into Message
+                gosub to MessageESPDevice
+                if Response is not empty
                 begin
-                    index Value to 1
-                    set property `uptime` of Response to Value
-                    index Value to 2
-                    if Value is 1 set property `state` of Response to `on` else set property `state` of Response to `off`
-                    index Value to 3
-                    set property `RSS` of Response to Value
+                    gosub to RecordMijia
+                    put Response into Value
+                    put json `{}` into Response
+                    split Value on ` `
+                    if the elements of Value is not less than 4
+                    begin
+                        index Value to 1
+                        set property `uptime` of Response to Value
+                        index Value to 2
+                        if Value is 1 set property `state` of Response to `on` else set property `state` of Response to `off`
+                        index Value to 3
+                        set property `RSS` of Response to Value
+                    end
                 end
+                set the elements of Value to 1
             end
-            set the elements of Value to 1
         end
         else if RelayType is `Shelly One`
         begin
@@ -1060,10 +1068,27 @@ NetworkError:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Check if pause is set for the current device
+CheckPause:
+    put property `name` of Device into Name
+    put RamDisk cat `pause` into FileName
+    if file FileName exists
+    begin
+        load Value from FileName
+        if Value is Name
+        begin
+            log Name cat ` ` cat Value
+            set Pause
+            return
+        end
+    end
+    clear Pause
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a message to an ESP-Now device
 MessageESPDevice:
     if MasterIPAddr is empty return
-    put property `name` of Device into Name
 !    log `Send ` cat Message cat ` to ` cat Name
     put property `ssid` of Device into DeviceMAC
     put from 8 of DeviceMAC into DeviceMAC
