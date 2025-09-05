@@ -43,7 +43,7 @@
     variable Relays
     variable Relay
     variable RelayType
-    variable Pause
+    variable Locked
     variable BadResponses
     variable Responses
     variable Response
@@ -114,11 +114,6 @@
 !    debug step
 
     put `/mnt/data/` into RamDisk
-!    if file RamDisk cat `pause` exists
-!    begin
-!        log `Paused`
-!        exit
-!    end
 
     put system `hostname -I` into IPAddr
     put the position of ` ` in IPAddr into P
@@ -398,8 +393,8 @@ SkipRequests:
                 begin
                     put Name into RoomName
                     put property Name of Devices into Device
-                    gosub to CheckPause
-                    if not Pause
+                    gosub to CheckLock
+                    if not Locked
                     begin
                         put OnOff into Message
                         gosub to MessageESPDevice
@@ -486,8 +481,12 @@ ProcessRoom:
             end
 
             put property Sensor of Devices into Device
-            gosub to CheckPause
-            if not Pause
+            gosub to CheckLock
+            if Locked
+            begin
+                set property `temperature` of RoomSpec to `0`
+            end
+            else
             begin
                 put `temp` into Message
                 gosub to MessageESPDevice
@@ -862,10 +861,11 @@ SetRelays:
                 go to SR2
             end
             put property RoomName of Devices into Device
-            gosub to CheckPause
-            if not Pause
+            gosub to CheckLock
+            if not Locked
             begin
                 put OnOff into Message
+
                 gosub to MessageESPDevice
                 if Response is not empty
                 begin
@@ -1068,21 +1068,19 @@ NetworkError:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Check if pause is set for the current device
-CheckPause:
+!   Check if lock is set for the current device
+CheckLock:
     put property `name` of Device into Name
-    put RamDisk cat `pause` into FileName
+    put RamDisk cat `lock` into FileName
     if file FileName exists
     begin
+        set the elements of Value to 1
         load Value from FileName
-        if Value is Name
-        begin
-            log Name cat ` ` cat Value
-            set Pause
-            return
-        end
+        if Value is empty clear Locked
+        else if Value is `all` set Locked
+        else if Value is Name set Locked
     end
-    clear Pause
+    else clear Locked
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -393,6 +393,8 @@
             password property `password` of Item
     end
 
+    gosub to ResumeSystemController
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main program starts here
 Start:
@@ -1179,8 +1181,8 @@ PopulateDeviceInfo:
             enable UpdateAllFilesButton
             enable DeleteFileButton
         end
-        if IsLocal save Name to RamDisk cat `pause`
-        else save Name to SSH RamDisk cat `pause`
+        if IsLocal save Name to RamDisk cat `lock`
+        else save Name to SSH RamDisk cat `lock`
     end
     go to OK
 
@@ -1536,6 +1538,8 @@ SOF2:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a file to a device
 SendFileToDevice:
+    if IsLocal save `all` to RamDisk cat `lock`
+    else save `all` to SSH RamDisk cat `lock`
     gosub to SetBusy
     put the length of Content into FileSize
     put `Update device file ` cat FileName cat ` (size=` cat FileSize cat ` chars)` into StatusMessage
@@ -1546,6 +1550,7 @@ SendFileToDevice:
     put 0 into Total
     while Start is less than FileSize
     begin
+        wait 1
         if Finish is greater than FileSize put FileSize into Finish
         add 100 to Start giving Finish
         put from Start to Finish of Content into Segment
@@ -1563,7 +1568,6 @@ SendFileToDevice:
             put `Failed to send part ` cat Sequence into StatusMessage
             go to SendFileFail
         end
-        log `Part ` cat Sequence cat `: ` cat Response
         split Response on ` `
         index Response to 0
         if Response is not Sequence
@@ -1593,6 +1597,9 @@ SendFileToDevice:
     end
     put `File ` cat FileName cat ` saved` into StatusMessage
     gosub to Working
+    put property `name` of Device into Name
+    if IsLocal save Name to RamDisk cat `lock`
+    else save Name to SSH RamDisk cat `lock`
     return
 
 SendFileFail:
@@ -1809,7 +1816,7 @@ SendMessageToDevice:
 SMTD2:
     put empty into Response
     put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=` cat Message2 into URL
-    if not Silent log URL
+!    if not Silent log URL
     get Response from url URL
     or begin
         put `Could not message ` cat Name into StatusMessage
@@ -1868,12 +1875,14 @@ UpdateConfig:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Resume the system controller
 ResumeSystemController:
-    if SystemIPAddr is not empty
-        get Response from url `http://` cat SystemIPAddr cat `:17348/cgi-bin/resume.py`
-        or begin
-            put `Unable to contact server at ` cat SystemIPAddr into StatusMessage
-            goto Working
-        end
+    if IsLocal save empty to RamDisk cat `lock`
+    else save empty to SSH RamDisk cat `lock`
+!    if SystemIPAddr is not empty
+!        get Response from url `http://` cat SystemIPAddr cat `:17348/cgi-bin/resume.py`
+!        or begin
+!            put `Unable to contact server at ` cat SystemIPAddr into StatusMessage
+!            goto Working
+!        end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

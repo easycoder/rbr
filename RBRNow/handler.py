@@ -88,14 +88,13 @@ class Handler():
                     self.saveError=False
                 else:
                     if self.saveError:
-                        return 'Error'
+                        return 'Save error'
                     else:
                         if part==self.pp+1:
-                            self.pp+=1
+                            self.pp=part
                         else:
                             self.saveError=True
-                            print('Sequence error')
-                            return 'Sequence error'
+                            return f'Sequence error: {part} {self.pp+1}'
                 self.buffer.append(text)
                 response=f'{part} {str(len(text))}'
         elif msg[0:4]=='save':

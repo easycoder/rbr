@@ -103,12 +103,13 @@ class ESPComms():
                         # It's a message for me
                         response=self.config.getHandler().handleMessage(msg)
                         response=f'{response} {self.getRSS(sender)}'
+                    print(f'{msg[0:30]}... {response}')
+                    self.checkPeer(mac)
+                    try:
+                        self.e.send(mac,response)
                         self.messageCount=0
                         self.idleCount=0
                         self.hopping=False
-                    print(f'{msg[0:30]}... {response}')
-                    self.checkPeer(mac)
-                    try: self.e.send(mac,response)
                     except: print('Can\'t respond')
             await asyncio.sleep(.1)
             self.config.kickWatchdog()
