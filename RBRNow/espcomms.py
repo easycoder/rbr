@@ -1,4 +1,5 @@
 import asyncio,network,time,random,machine
+from channels import Channels
 from espnow import ESPNow
 
 class ESPComms():
@@ -7,22 +8,22 @@ class ESPComms():
     def __init__(self,config):
         self.config=config
         
-        sta=network.WLAN(network.WLAN.IF_STA)
-        sta.active(True)
+        self.sta=network.WLAN(network.WLAN.IF_STA)
+        self.sta.active(True)
         if config.isMaster():
             print('Starting as master')
             ssid=self.config.getSSID()
             password=self.config.getPassword()
             print(ssid,password)
             print('Connecting...',end='')
-            sta.connect(ssid,password)
-            while not sta.isconnected():
+            self.sta.connect(ssid,password)
+            while not self.sta.isconnected():
                 time.sleep(1)
                 print('.',end='')
-            ipaddr=sta.ifconfig()[0]
-            self.channel=sta.config('channel')
+            ipaddr=self.sta.ifconfig()[0]
+            self.channel=self.sta.config('channel')
             self.config.setIPAddr(ipaddr)
-            print(f'{ipaddr} ch {self.channel}')
+            print(f'{ipaddr}')
         else:
             print('Starting as slave')
             self.channel=config.getChannel()
@@ -36,13 +37,15 @@ class ESPComms():
         ap.ifconfig(('192.168.9.1','255.255.255.0','192.168.9.1','8.8.8.8'))
         self.ap=ap
         config.setAP(ap)
-        print('AP:',mac,config.getName(),'channel',self.channel)
+        print(config.getName(),mac,'channel',self.channel)
         config.startServer()
         
         self.espnowLock=asyncio.Lock()
         self.e.active(True)
         self.peers=[]
         print('ESP-Now initialised')
+        
+        self.channels = Channels(self)
 
     def stopAP(self):
         password=str(random.randrange(100000,999999))
@@ -84,8 +87,7 @@ class ESPComms():
 
     async def receive(self):
         print('Starting ESPNow receiver')
-        self.messageCount=0
-        self.idleCount=0
+        self.channels.resetCounters()
         while True:
             if self.e.active() and self.e.any():
                 async with self.espnowLock:
@@ -107,9 +109,7 @@ class ESPComms():
                     self.checkPeer(mac)
                     try:
                         self.e.send(mac,response)
-                        self.messageCount=0
-                        self.idleCount=0
-                        self.hopping=False
+                        self.channels.resetCounters()
                     except: print('Can\'t respond')
             await asyncio.sleep(.1)
             self.config.kickWatchdog()
@@ -118,38 +118,3 @@ class ESPComms():
         peer=bytes.fromhex(mac)
         try: return self.e.peers_table[peer][0]
         except: return 0
-
-    async def checkChannels(self):
-        print('Look out for channel changes')
-        channels=[1,6,11]
-        self.hopping=False
-        while True:
-            await asyncio.sleep(1)
-            self.messageCount+=1
-            if self.hopping: self.idleCount+=1
-            
-            limit=30 # if self.hopping else 1200
-            if self.messageCount>limit:
-                async with self.espnowLock:
-                    for index,value in enumerate(channels):
-                        if value==self.channel:
-                            self.channel=channels[(index+1)%len(channels)]
-                            break
-                    self.e.active(False)
-                    await asyncio.sleep(.2)            
-                    self.ap.active(False)
-                    await asyncio.sleep(.1)
-                    self.ap.active(True)
-                    self.ap.config(channel=self.channel)
-                    self.config.setChannel(self.channel)   
-                    self.e = ESPNow()
-                    self.e.active(True)
-                    self.peers=[]
-                    print('Switched to channel',self.channel)
-                    self.messageCount=0
-                    self.hopping=True
-
-            if self.idleCount>300:
-                print('No messages after 3 minutes')
-                asyncio.get_event_loop().stop()
-                machine.reset()

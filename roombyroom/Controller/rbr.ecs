@@ -115,6 +115,12 @@
 
     put `/mnt/data/` into RamDisk
 
+    if file RamDisk cat `block` exists
+    begin
+        log `Blocked`
+        exit
+    end
+
     put system `hostname -I` into IPAddr
     put the position of ` ` in IPAddr into P
     if P is greater than 0  put left P of IPAddr into IPAddr
@@ -243,7 +249,7 @@
         save `` cat Version to `version`
     end
     if Version is empty put `0` into Version
-    log `Version ` cat Version
+    log `My version: ` cat Version
 ! log RegData
     put property `version` of RegData into Value
     log `Current version: ` cat Version
@@ -1114,6 +1120,24 @@ MessageESPDevice:
     log URL cat ` -> ` cat Response
     if left 2 of Response is not `OK`
     begin
+        if the position of `ESP_ERR_ESPNOW_CHAN` in Response is greater than 0
+        begin
+            put RamDisk cat `channel` into FileName
+            if file FileName exists load Value from FileName else put `0` into Value
+            put the value of Value into Value
+            increment Value
+            save `` cat Value to FileName
+            log Value cat ` channel errors`
+            if Value is greater than 20
+            begin
+                save `0` to FileName
+                put MasterDevice into Device
+                put `reset` into Message
+                gosub to MessageESPDevice
+                wait 5
+                exit
+            end
+        end
 !        log `Bad response: ` cat Response
         put empty into Response
     end
