@@ -1877,12 +1877,6 @@ UpdateConfig:
 ResumeSystemController:
     if IsLocal save empty to RamDisk cat `lock`
     else save empty to SSH RamDisk cat `lock`
-!    if SystemIPAddr is not empty
-!        get Response from url `http://` cat SystemIPAddr cat `:17348/cgi-bin/resume.py`
-!        or begin
-!            put `Unable to contact server at ` cat SystemIPAddr into StatusMessage
-!            goto Working
-!        end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

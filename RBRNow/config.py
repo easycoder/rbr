@@ -86,6 +86,8 @@ class Config():
         self.channel=channel
         self.config['channel']=channel
         writeFile('config.json',json.dumps(self.config))
+    def getChannel(self):
+        return self.espComms.channel if self.isMaster() else self.channel
     def setHandler(self,handler): self.handler=handler
     def addUptime(self,t): self.uptime+=t
     
@@ -98,7 +100,6 @@ class Config():
     def stopAP(self): self.espComms.stopAP()
     def startServer(self): self.server.startup()
     def getIPAddr(self): return self.ipaddr
-    def getChannel(self): return self.channel
     def getHandler(self): return self.handler
     def getESPComms(self): return self.espComms
     def getBLEScan(self): return self.bleScan

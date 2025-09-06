@@ -120,6 +120,7 @@ class ESPComms():
         except: return 0
 
     async def checkChannels(self):
+        print('Look out for channel changes')
         channels=[1,6,11]
         self.hopping=False
         while True:
