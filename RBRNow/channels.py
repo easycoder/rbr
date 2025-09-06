@@ -7,10 +7,10 @@ class Channels():
         self.channels=[1,6,11]
         self.ssid=espComms.sta.config('ssid')
         self.resetCounters()
-        if not self.espComms.config.isMaster():
-            asyncio.create_task(self.countMissingMessages())
-        asyncio.create_task(self.checkRouterChannel())
-    
+        if self.espComms.config.isMaster():
+            asyncio.create_task(self.checkRouterChannel())
+        asyncio.create_task(self.countMissingMessages())
+
     def resetCounters(self):
         self.messageCount=0
         self.idleCount=0
@@ -27,7 +27,7 @@ class Channels():
             self.idleCount+=1
             
             limit=30
-            if self.messageCount>limit:
+            if not espComms.config.isMaster() and self.messageCount>limit:
                 async with espComms.espnowLock:
                     for index,value in enumerate(self.channels):
                         if value==espComms.channel:
@@ -52,6 +52,7 @@ class Channels():
                 machine.reset()
 
     async def checkRouterChannel(self):
+        print('Check router channel')
         while True:
             await asyncio.sleep(60)
             currentChannel=self.getRouterChannel()
