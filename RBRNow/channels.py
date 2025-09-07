@@ -30,14 +30,12 @@ class Channels():
             limit=30
             if self.messageCount>limit and not espComms.config.isMaster():
                 print('No messages for 30 seconds')
+                for index,value in enumerate(self.channels):
+                    if value==espComms.channel:
+                        espComms.channel=self.channels[(index+1)%len(self.channels)]
+                        break
                 async with espComms.espnowLock:
-                    for index,value in enumerate(self.channels):
-                        if value==espComms.channel:
-                            espComms.channel=self.channels[(index+1)%len(self.channels)]
-                            break
                     self.restartESPNow()
-                    print('Switched to channel',espComms.channel)
-                    self.messageCount=0
 
             if self.idleCount>300:
                 print('No messages after 3 minutes')
@@ -58,6 +56,8 @@ class Channels():
         e=ESPNow()
         e.active(True)
         self.peers=[]
+        self.messageCount=0
+        print('Switched to channel',espComms.channel)
 
     async def checkRouterChannel(self):
         while True:
