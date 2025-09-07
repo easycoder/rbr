@@ -8,6 +8,7 @@ class Handler():
         self.config=config
         config.setHandler(self)
         self.relay=config.getRelay()
+        self.saveError=False
 
     def checkFile(self, buf, file):
         try:
