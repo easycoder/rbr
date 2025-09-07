@@ -29,20 +29,19 @@ class Channels():
             
             limit=30
             if self.messageCount>limit and not espComms.config.isMaster():
-                print('No messages for 30 seconds')
-                for index,value in enumerate(self.channels):
-                    if value==espComms.channel:
-                        espComms.channel=self.channels[(index+1)%len(self.channels)]
-                        break
                 async with espComms.espnowLock:
-                    self.restartESPNow()
+                    for index,value in enumerate(self.channels):
+                        if value==espComms.channel:
+                            espComms.channel=self.channels[(index+1)%len(self.channels)]
+                            await self.restartESPNow()
+                            break
 
             if self.idleCount>300:
                 print('No messages after 3 minutes')
                 asyncio.get_event_loop().stop()
                 machine.reset()
     
-    def restartESPNow(self):
+    async def restartESPNow(self):
         espComms=self.espComms
         ap=espComms.ap
         e=espComms.e
@@ -77,5 +76,4 @@ class Channels():
                 asyncio.get_event_loop().stop()
                 machine.reset()
             print(' no channel change')
-    
-        
+
