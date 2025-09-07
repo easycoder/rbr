@@ -63,7 +63,7 @@ class ESPComms():
         while self.e.any(): _,_=self.e.irecv()
         self.checkPeer(peer)
         try:
-            print(f'Send {espmsg[0:20]}... to {mac} on channel {self.channel}')
+#            print(f'Send {espmsg[0:20]}... to {mac} on channel {self.channel}')
             result=self.e.send(peer,espmsg)
 #            print(f'Result: {result}')
             if result:
@@ -77,8 +77,8 @@ class ESPComms():
                             break
                     await asyncio.sleep(.1)
                     counter-=1
-                if counter==0:
-                    result='Response timeout'
+                if counter==0: result='Response timeout'
+                else: self.channels.resetCounters()
             else: result='Fail (no result)'
         except Exception as e:
             print(e)
