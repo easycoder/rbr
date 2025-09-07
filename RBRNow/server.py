@@ -17,7 +17,7 @@ class Server():
             writer.close()
             await writer.wait_closed()
         except Exception as e:
-            print(f'server.respond: {e}')
+            print(f'Server response: {e}')
         return None
 
     async def sendDefaultResponse(self,writer):
