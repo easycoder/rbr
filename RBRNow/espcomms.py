@@ -23,7 +23,7 @@ class ESPComms():
             ipaddr=self.sta.ifconfig()[0]
             self.channel=self.sta.config('channel')
             self.config.setIPAddr(ipaddr)
-            print(f'{ipaddr}')
+            print(f'{ipaddr} ch {self.channel}')
         else:
             print('Starting as slave')
             self.channel=config.getChannel()
@@ -45,7 +45,7 @@ class ESPComms():
         self.peers=[]
         print('ESP-Now initialised')
         
-        self.channels = Channels(self)
+        self.channels=Channels(self)
 
     def stopAP(self):
         password=str(random.randrange(100000,999999))
@@ -63,7 +63,7 @@ class ESPComms():
         while self.e.any(): _,_=self.e.irecv()
         self.checkPeer(peer)
         try:
-#            print(f'Send {espmsg[0:20]}... to {mac} on channel {self.channel}')
+            print(f'Send {espmsg[0:20]}... to {mac} on channel {self.channel}')
             result=self.e.send(peer,espmsg)
 #            print(f'Result: {result}')
             if result:

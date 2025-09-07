@@ -74,7 +74,6 @@ class Config():
     def doFinalInitTasks(self):
         if not self.isMaster():
             asyncio.create_task(self.espComms.receive())
-            asyncio.create_task(self.espComms.checkChannels())
         asyncio.create_task(self.bleScan.scan())
 
     def setAP(self,ap): self.ap=ap

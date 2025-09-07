@@ -5,11 +5,11 @@ class Channels():
     def __init__(self,espComms):
         self.espComms=espComms
         self.channels=[1,6,11]
-        self.ssid=espComms.config.getSSID()
-        self.password=espComms.config.getPassword()
-        self.resetCounters()
         if self.espComms.config.isMaster():
+            self.ssid=espComms.config.getSSID()
+            self.password=espComms.config.getPassword()
             asyncio.create_task(self.checkRouterChannel())
+        self.resetCounters()
         asyncio.create_task(self.countMissingMessages())
 
     def resetCounters(self):
