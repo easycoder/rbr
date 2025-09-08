@@ -300,6 +300,7 @@
     variable SystemPassword
     variable SystemIPAddr
     variable StatusMessage
+    variable SendingFile
     variable Message
     variable Message2
     variable Response
@@ -340,6 +341,7 @@
     variable Pins
     variable Pin
     variable Silent
+    variable Tickling
     variable D
     variable F
     variable K
@@ -463,11 +465,45 @@ Start:
         end
     end
 
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     on select SystemsCombo go to SystemsComboSelect
     put `Ready` into StatusMessage
     gosub to Idle
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Tickle all the devices to stop them changing chanels
+TickleDevices:
+    while true
+    begin
+        wait 10 ticks
+        if not SendingFile
+        begin
+            set Tickling
+            set Silent
+            push Device onto Stack
+            push Keys onto Stack
+            push Name onto Stack
+            push K onto Stack
+            put the keys of Devices into Keys
+            put 0 into K
+            while K is less than the count of Keys
+            begin
+                put element K of Keys into Name
+                log Name
+                put property Name of Devices into Device
+                gosub to CheckDevice
+                increment K
+            end
+            pop K from Stack
+            pop Name from Stack
+            pop Keys from Stack
+            pop Device from Stack
+            clear Silent
+            clear Tickling
+            wait 10 seconds
+        end
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Reset the entire system
@@ -517,7 +553,7 @@ ScanSystemsClick:
         begin
             put `The system did not respond to the scan` into StatusMessage
             gosub to Error
-            gosub to SetButtonStates
+            gosub to SetUnBusy
             stop
         end
     end
@@ -535,13 +571,13 @@ ScanSystemsClick:
 
     else
     begin  ! The Cancel button was clicked
-        gosub to SetButtonStates
+        gosub to SetUnBusy
         stop 
     end
 
     gosub to RefreshSystemsCombo
     gosub to PostConfigData
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -661,10 +697,9 @@ RefreshSystemsCombo:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Select a system from the combo box
 SystemsComboSelect:
-    gosub to ResumeSystemController
     put SystemsCombo into SystemName
     if SystemName is not empty gosub to SelectSystem
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     if not ErrorFlag gosub to OK
     stop
 
@@ -675,6 +710,7 @@ SelectSystem:
 SelectSystem2:
     log `Select system ` cat SystemName
     ! Update the current system
+    gosub to ResumeSystemController
     if not IsLocal
     begin
         put property `current-system` of Config into Value
@@ -695,6 +731,8 @@ SelectSystem2:
     else gosub to GetSSH
     gosub to PopulateSystemInfo
     gosub to PostConfigData
+    gosub to LockSystemController
+    log `System ` cat SystemName cat ` selected`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -726,7 +764,7 @@ RemoveSystemClick:
     begin
         select index 0 of SystemsCombo
     end
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -765,7 +803,7 @@ SetMasterAddressClick:
     put MasterIPAddr into Value
     gosub to GetRequestedText
     if ReturnValue is not empty put ReturnValue into MasterIPAddr
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -841,7 +879,7 @@ ScanForDevicesClick:
         gosub to PostConfigData
     end
 SFDC3:
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1151,7 +1189,7 @@ MasterDeviceClick:
         gosub to SendRBRMessage
         log Response
     end
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1181,8 +1219,6 @@ PopulateDeviceInfo:
             enable UpdateAllFilesButton
             enable DeleteFileButton
         end
-        if IsLocal save Name to RamDisk cat `lock`
-        else save Name to SSH RamDisk cat `lock`
     end
     go to OK
 
@@ -1197,8 +1233,10 @@ SelectSlaveClick:
     increment S
     put from S of Item into Item
     put property Item of Devices into Device
+    put property `name` of Device into Name
+SSC2:
     gosub to PopulateDeviceInfo
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1431,7 +1469,7 @@ UpdateWidgetDataClick:
         gosub to PostConfigData
     end
     gosub to Idle
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1456,12 +1494,12 @@ UpdateAllFilesClick:
         begin
             put `File updates did not succeed` into StatusMessage
             gosub to Error
-            gosub to SetButtonStates
+            gosub to SetUnBusy
             stop
         end
         increment F
     end
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     put `All files updated` into StatusMessage
     gosub to Idle
     stop
@@ -1490,7 +1528,7 @@ UpdateFileClick:
             end
         end
     end
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1538,8 +1576,6 @@ SOF2:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a file to a device
 SendFileToDevice:
-    if IsLocal save `all` to RamDisk cat `lock`
-    else save `all` to SSH RamDisk cat `lock`
     gosub to SetBusy
     put the length of Content into FileSize
     put `Update device file ` cat FileName cat ` (size=` cat FileSize cat ` chars)` into StatusMessage
@@ -1548,9 +1584,10 @@ SendFileToDevice:
     put 0 into Sequence
     put 0 into Start
     put 0 into Total
+    set SendingFile
     while Start is less than FileSize
     begin
-        wait 1
+        wait 20 ticks
         if Finish is greater than FileSize put FileSize into Finish
         add 100 to Start giving Finish
         put from Start to Finish of Content into Segment
@@ -1588,6 +1625,7 @@ SendFileToDevice:
     end
     put `save:` cat FileName into Message
     gosub to SendMessageToDevice
+    clear SendingFile
     split Response on ` `
     index Response to 0
     if Response is not Total
@@ -1641,7 +1679,7 @@ TemperatureButtonClick:
     log `Get temperature`
     gosub to TemperatureRequest
     gosub to Idle
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1673,7 +1711,7 @@ TemperatureRequest:
 ResetDeviceButtonClick:
     gosub to RequestReset
     gosub to Idle
-    gosub to SetButtonStates
+    gosub to SetUnBusy
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1782,11 +1820,15 @@ RelayOnClick:
 SendRBRMessage:
     gosub to SetBusy
     gosub to SendMessageToDevice
-    if left 2 of Response is `OK` return
+    if left 2 of Response is `OK`
+    begin
+        gosub to SetUnBusy
+        return
+    end
     put `Bad response '` cat Response cat `' from ` cat Name into StatusMessage
     gosub to Error
     put empty into Response
-    return
+    go to SetUnBusy
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a message to a RBR-Now device
@@ -1873,6 +1915,13 @@ UpdateConfig:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Lock the system controller
+LockSystemController:
+    if IsLocal save `lock` to RamDisk cat `lock`
+    else save `lock` to SSH RamDisk cat `lock`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Resume the system controller
 ResumeSystemController:
     if IsLocal save empty to RamDisk cat `lock`
@@ -1891,7 +1940,7 @@ Idle:
         set the text of StatusLabel to `<font color="#008000">` cat StatusMessage cat `</font>`
     end
     clear ErrorFlag
-    go to SetButtonStates
+    go to SetUnBusy
 
 Working:
     log `*** ` cat StatusMessage cat ` ***`
@@ -1911,11 +1960,12 @@ Error:
         set the text of StatusLabel to `<font color="#ff0000">` cat StatusMessage cat `</font>`
     end
     set ErrorFlag
-    go to SetButtonStates
+    clear SendingFile
+    go to SetUnBusy
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Enable or disable the various buttons
-SetButtonStates:
+SetUnBusy:
     if SystemHostSSID is not empty
         if SystemHostSSID is not HostSSID go to SetBusy
 ! ScanDevicesButton
@@ -1988,6 +2038,7 @@ SetButtonStates:
         if property `pin` of Pin is not empty enable TemperatureButton
     end
     wait 10 ticks
+    log `Not busy`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2015,6 +2066,7 @@ SetBusy:
     disable RelayPinInput
     disable DHT22PinInput
     wait 10 ticks
+    log `Busy`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

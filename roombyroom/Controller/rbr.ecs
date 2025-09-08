@@ -234,7 +234,21 @@
             increment N
         end
     end
-    if MasterDevice is not empty put property `ipaddr` of MasterDevice into MasterIPAddr
+    if MasterDevice is not empty
+    begin
+        put property `ipaddr` of MasterDevice into MasterIPAddr
+        put MasterDevice into Device
+        put `channel` into Message
+        gosub to MessageESPDevice
+        if Response is not empty
+        begin
+            if left 3 of Response is `OK `
+            begin
+                put from 3 of Response into Value
+                log `Channel ` cat Value
+            end
+        end
+    end
     else print `No master device`
 
 !   See if we have the latest system software
@@ -1117,7 +1131,8 @@ MessageESPDevice:
 !        log `!!!!!!!! Message to '` cat Name cat `' failed`
         put empty into Response
     end
-    log URL cat ` -> ` cat Response
+    put from 6 of DeviceMAC into DeviceMAC
+    log `?mac=` cat DeviceMAC cat `&msg=` cat Message cat ` -> ` cat Response
     if left 2 of Response is not `OK`
     begin
         if the position of `ESP_ERR_ESPNOW_CHAN` in Response is greater than 0

@@ -1,0 +1,6 @@
+#!/bin/sh
+
+cd ~/bin
+rm rbrconf.ecs
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/roombyroom/Controller/ui/rbrconf.ecs
+ec rbrconf.ecs
