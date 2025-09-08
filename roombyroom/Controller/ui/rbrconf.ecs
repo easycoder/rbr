@@ -341,7 +341,6 @@
     variable Pins
     variable Pin
     variable Silent
-    variable Tickling
     variable D
     variable F
     variable K
@@ -470,40 +469,6 @@ Start:
     put `Ready` into StatusMessage
     gosub to Idle
     stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Tickle all the devices to stop them changing chanels
-TickleDevices:
-    while true
-    begin
-        wait 10 ticks
-        if not SendingFile
-        begin
-            set Tickling
-            set Silent
-            push Device onto Stack
-            push Keys onto Stack
-            push Name onto Stack
-            push K onto Stack
-            put the keys of Devices into Keys
-            put 0 into K
-            while K is less than the count of Keys
-            begin
-                put element K of Keys into Name
-                log Name
-                put property Name of Devices into Device
-                gosub to CheckDevice
-                increment K
-            end
-            pop K from Stack
-            pop Name from Stack
-            pop Keys from Stack
-            pop Device from Stack
-            clear Silent
-            clear Tickling
-            wait 10 seconds
-        end
-    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Reset the entire system
@@ -1234,7 +1199,6 @@ SelectSlaveClick:
     put from S of Item into Item
     put property Item of Devices into Device
     put property `name` of Device into Name
-SSC2:
     gosub to PopulateDeviceInfo
     gosub to SetUnBusy
     stop
@@ -1587,7 +1551,7 @@ SendFileToDevice:
     set SendingFile
     while Start is less than FileSize
     begin
-        wait 20 ticks
+        wait 10 ticks
         if Finish is greater than FileSize put FileSize into Finish
         add 100 to Start giving Finish
         put from Start to Finish of Content into Segment
@@ -1858,7 +1822,7 @@ SendMessageToDevice:
 SMTD2:
     put empty into Response
     put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=` cat Message2 into URL
-!    if not Silent log URL
+    if not Silent log URL
     get Response from url URL
     or begin
         put `Could not message ` cat Name into StatusMessage
@@ -1868,7 +1832,7 @@ SMTD2:
         put empty into Path
         go to SMTD2
     end
-!    log URL cat ` -> ` cat Response
+    log URL cat ` -> ` cat Response
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2038,7 +2002,6 @@ SetUnBusy:
         if property `pin` of Pin is not empty enable TemperatureButton
     end
     wait 10 ticks
-    log `Not busy`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2066,7 +2029,6 @@ SetBusy:
     disable RelayPinInput
     disable DHT22PinInput
     wait 10 ticks
-    log `Busy`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

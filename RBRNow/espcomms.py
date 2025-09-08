@@ -46,7 +46,6 @@ class ESPComms():
         print('ESP-Now initialised')
         
         self.channels=Channels(self)
-        if self.config.isMaster(): asyncio.create_task(self.tickle())
 
     def stopAP(self):
         password=str(random.randrange(100000,999999))
@@ -59,12 +58,9 @@ class ESPComms():
             self.e.add_peer(peer,channel=self.channel)
 
     async def send(self,mac,espmsg):
-        if not self.e.active():
-            print("ESP-Now inactive, reactivating...")
-            self.e.active(True)
+        peer=bytes.fromhex(mac)
         # Flush any incoming messages
         while self.e.any(): _,_=self.e.irecv()
-        peer=bytes.fromhex(mac)
         self.checkPeer(peer)
         try:
 #            print(f'Send {espmsg[0:20]}... to {mac} on channel {self.channel}')
@@ -99,30 +95,24 @@ class ESPComms():
                 async with self.espnowLock:
                     mac,msg=self.e.recv()
                     sender=mac.hex()
-                    msg = msg.decode()
-                    print(f'Received from {sender}: {msg}')
-                    if msg=='tickle':
-                        self.channels.resetCounters()
+                    msg=msg.decode()
+                    if msg[0]=='!':
+                        # It's a message to be relayed
+                        comma=msg.index(',')
+                        slave=msg[1:comma]
+                        msg=msg[comma+1:]
+#                        print(f'Slave: {slave}, msg: {msg}')
+                        response=await self.send(slave,msg)
                     else:
-                        if msg[0]=='!':
-                            # It's a message to be relayed
-                            comma=msg.index(',')
-                            slave=msg[1:comma]
-                            msg=msg[comma+1:]
-    #                        print(f'Slave: {slave}, msg: {msg}')
-                            response=await self.send(slave,msg)
-                        else:
-                            # It's a message for me
-                            response=self.config.getHandler().handleMessage(msg)
-                            response=f'{response} {self.getRSS(sender)}'
-                        print(f'{msg[0:30]}... {response}')
-                        self.checkPeer(mac)
-                        try:
-                            self.e.send(mac,response)
-                            self.channels.resetCounters()
-                        except Exception as ex:
-                            print(ex)
-                            self.config.reset()
+                        # It's a message for me
+                        response=self.config.getHandler().handleMessage(msg)
+                        response=f'{response} {self.getRSS(sender)}'
+                    print(f'{msg[0:30]}... {response}')
+                    self.checkPeer(mac)
+                    try:
+                        self.e.send(mac,response)
+                        self.channels.resetCounters()
+                    except: print('Can\'t respond')
             await asyncio.sleep(.1)
             self.config.kickWatchdog()
 
@@ -130,15 +120,3 @@ class ESPComms():
         peer=bytes.fromhex(mac)
         try: return self.e.peers_table[peer][0]
         except: return 0
-    
-    async def tickle(self):
-        peer=b'\xff\xff\xff\xff\xff\xff'
-        self.e.add_peer(peer,channel=self.channel)
-        while True:
-            await asyncio.sleep(10)
-            async with self.espnowLock:
-                try:
-                    result=self.e.send(peer,'tickle')
-                    print('Tickle sent at',time.ticks_ms())
-                except OSError as e:
-                    print('Broadcast failed:',e)
