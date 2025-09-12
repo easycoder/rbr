@@ -7,6 +7,5 @@ espcomms.py
 files.py
 handler.py
 main.py
-queue.py
 pin.py
 server.py

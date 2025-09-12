@@ -151,9 +151,8 @@ class ESPComms():
                 await asyncio.sleep(.1)
                 self.config.kickWatchdog()
 
-    def getRSS(self,mac):
-        peer=bytes.fromhex(mac)
-        try: return self.e.peers_table[peer][0]
+    def getRSS(self):
+        try: return self.e.peers_table[self.sender][0]
         except: return 0
 
     def resetCounters(self):
