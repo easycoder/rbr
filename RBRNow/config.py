@@ -32,7 +32,7 @@ class Config():
             self.config['pins']['dht22']=pin
             writeFile('config.json',json.dumps(self.config))
         self.channel=int(self.config['channel'])
-        if 'myMaster' in config: self.myMaster=config['myMaster']
+        if 'myMaster' in self.config: self.myMaster=self.config['myMaster']
         else: self.myMaster=None
         pin,invert=self.getPinInfo('led')
         self.led=PIN(self,pin,invert)
