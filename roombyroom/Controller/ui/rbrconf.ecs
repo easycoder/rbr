@@ -300,7 +300,6 @@
     variable SystemPassword
     variable SystemIPAddr
     variable StatusMessage
-    variable SendingFile
     variable Message
     variable Message2
     variable Response
@@ -316,6 +315,7 @@
     variable SlaveDevices
     variable SlaveMAC
     variable CurrentSSID
+    variable Channel
     variable Previous
     variable IsLocal
     variable IsMaster
@@ -388,6 +388,7 @@
         log `Running remotely`
         put property `current` of ControllerSpec into SystemIPAddr
         put property SystemIPAddr of ControllerSpec into Item
+        log SystemIPAddr cat ` ` cat Item
         set SSH
             host SystemIPAddr
             user property `user` of Item
@@ -463,6 +464,8 @@ Start:
             gosub to SelectSystem
         end
     end
+    gosub to GetChannel
+    log `Channel ` cat Channel
 
     gosub to SetUnBusy
     on select SystemsCombo go to SystemsComboSelect
@@ -958,7 +961,29 @@ SetupDevice:
             append Item to SlaveDevices
             set SlaveList to SlaveDevices
             gosub to CreateDevice
+            gosub to SendChannelToSlave
         end
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send the channel and master MAC to a slave device
+SendChannelToSlave:
+    put `http://` cat IPAddr cat `?environ-` cat Channel cat `-` cat MasterMAC into URL
+    put `Send channel/master to ` cat SSID cat ` - ` cat URL into StatusMessage
+    gosub to Working
+    get Response from url URL
+    or begin
+        put `Failed to send to ` cat SSID into StatusMessage
+        go to Error
+    end
+    put `http://` cat IPAddr cat `?reset` into URL
+    put `Reset ` cat SSID cat ` - ` cat URL into StatusMessage
+    gosub to Working
+    get Response from url URL
+    or begin
+        put `Failed to reset ` cat SSID into StatusMessage
+        go to Error
     end
     return
 
@@ -976,13 +1001,7 @@ ConfigureMasterDevice:
     put IPAddr into MasterIPAddr
 
     ! Send the config data to the device
-    put `config.json` into FileName
-    put stringify Device into Content
-    gosub to SendOneFile
-    if ErrorFlag return
-
-    ! Reboot the device
-    gosub to RequestReset
+    gosub to SendConfigToMaster
     if ErrorFlag return
     put `Give the device a few seconds to reboot` into StatusMessage
     gosub to Working
@@ -1024,6 +1043,16 @@ ConfigureMasterDevice:
     go to PopulateDeviceInfo
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send the config file to the master device
+SendConfigToMaster:
+    put `config.json` into FileName
+    put stringify Device into Content
+    gosub to SendOneFile
+    if ErrorFlag return
+    gosub to RequestReset
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Create a device entry in the config file
 CreateDevice:
     log `Create Device`
@@ -1038,9 +1067,15 @@ CreateDevice:
     else log `Create slave device ` cat Name
     set property `path` of Device to empty
     set property `master` of Device to IsMaster
+    if not IsMaster
+    begin
+        put from 8 of property `ssid` of MasterDevice into MasterMAC
+        log MasterMAC 
+        set property `myMaster` of Device to MasterMAC
+    end
     set property `name` of Device to Name
     set property `ssid` of Device to SSID
-    set property `channel` of Device to 1
+    set property `channel` of Device to Channel
     put json `{}` into Pins
     put json `{}` into Pin
     set property `pin` of Pin to empty
@@ -1150,9 +1185,9 @@ MasterDeviceClick:
         set IsMaster
         put MasterDevice into Device
         gosub to PopulateDeviceInfo
-        put `channel` into Message
-        gosub to SendRBRMessage
-        log Response
+!        put `channel` into Message
+!        gosub to SendRBRMessage
+!        log Response
     end
     gosub to SetUnBusy
     stop
@@ -1406,6 +1441,7 @@ UpdateWidgetDataClick:
     set property `pins` of Device to Pins
     put `config.json` into FileName
     put stringify Device into Content
+    log prettify Device
     gosub to SendOneFile
     if not ErrorFlag
     begin
@@ -1548,7 +1584,6 @@ SendFileToDevice:
     put 0 into Sequence
     put 0 into Start
     put 0 into Total
-    set SendingFile
     while Start is less than FileSize
     begin
         wait 10 ticks
@@ -1589,7 +1624,6 @@ SendFileToDevice:
     end
     put `save:` cat FileName into Message
     gosub to SendMessageToDevice
-    clear SendingFile
     split Response on ` `
     index Response to 0
     if Response is not Total
@@ -1780,6 +1814,21 @@ RelayOnClick:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Get the current channel
+GetChannel:
+    put MasterDevice into Device
+    put `channel` into Message
+    gosub to SendRBRMessage
+    log Response
+    if left 3 of Response is not `OK `
+    begin
+        put `Can't get the current channel` into StatusMessage
+        go to Error
+    end
+    put the value of from 3 of Response into Channel
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send an RBR-Now message to a device
 SendRBRMessage:
     gosub to SetBusy
@@ -1825,6 +1874,7 @@ SMTD2:
     if not Silent log URL
     get Response from url URL
     or begin
+        log `Response: ` cat Response
         put `Could not message ` cat Name into StatusMessage
         gosub to Working
         if Path is empty return
@@ -1924,7 +1974,6 @@ Error:
         set the text of StatusLabel to `<font color="#ff0000">` cat StatusMessage cat `</font>`
     end
     set ErrorFlag
-    clear SendingFile
     go to SetUnBusy
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

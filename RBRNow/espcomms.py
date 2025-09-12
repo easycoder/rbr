@@ -42,32 +42,39 @@ class ESPComms():
         
         self.espnowLock=asyncio.Lock()
         self.e.active(True)
-        self.peers=[]
+        self.sending=False
         print('ESP-Now initialised')
         
-        self.channels=Channels(self)
+        if not config.isMaster() and config.getMyMaster()!=None: self.channels=Channels(self)
 
-    def stopAP(self):
+    def closeAP(self):
         password=str(random.randrange(100000,999999))
         print('Password:',password)
         self.ap.config(essid='-',password=password)
     
-    def checkPeer(self,peer):
-        if not peer in self.peers:
-            self.peers.append(peer)
+    def addPeer(self,peer):
+        h=peer.hex()
+        if not hasattr(self,'peers'): self.peers=[]
+#        c=int(h[-1],16)
+#        if c%2==0: c+=1
+#        h=f'{h[:-1]}{hex(c)[2:]}'
+        if not h in self.peers:
+            self.peers.append(h)
             self.e.add_peer(peer,channel=self.channel)
+            print('Added',h,'to peers')
 
     async def send(self,mac,espmsg):
+        self.sending=True
         peer=bytes.fromhex(mac)
         # Flush any incoming messages
         while self.e.any(): _,_=self.e.irecv()
-        self.checkPeer(peer)
+        self.addPeer(peer)
         try:
 #            print(f'Send {espmsg[0:20]}... to {mac} on channel {self.channel}')
             result=self.e.send(peer,espmsg)
 #            print(f'Result: {result}')
             if result:
-                counter=50
+                counter=100
                 while counter>0:
                     if self.e.any():
                         _,response = self.e.irecv()
@@ -77,46 +84,77 @@ class ESPComms():
                             break
                     await asyncio.sleep(.1)
                     counter-=1
-                if counter==0: result='Response timeout'
+                if counter==0: result='Fail (no reply)'
                 else:
-                    print(f'Response from {espmsg[0:20]} to {mac}: {result}')
-                    self.channels.resetCounters()
+                    print(f'{espmsg[0:20]} to {mac}: {result}')
+                    self.resetCounters()
             else: result='Fail (no result)'
         except Exception as e:
             print(e)
             result=f'Fail ({e})'
+        self.sending=False
         return result
 
     async def receive(self):
         print('Starting ESPNow receiver')
-        self.channels.resetCounters()
-        while True:
-            if self.e.active() and self.e.any():
-                async with self.espnowLock:
-                    mac,msg=self.e.recv()
-                    sender=mac.hex()
-                    msg=msg.decode()
-                    if msg[0]=='!':
-                        # It's a message to be relayed
-                        comma=msg.index(',')
-                        slave=msg[1:comma]
-                        msg=msg[comma+1:]
-#                        print(f'Slave: {slave}, msg: {msg}')
-                        response=await self.send(slave,msg)
-                    else:
-                        # It's a message for me
-                        response=self.config.getHandler().handleMessage(msg)
-                        response=f'{response} {self.getRSS(sender)}'
-                    print(f'{msg[0:30]}... {response}')
-                    self.checkPeer(mac)
-                    try:
-                        self.e.send(mac,response)
-                        self.channels.resetCounters()
-                    except: print('Can\'t respond')
-            await asyncio.sleep(.1)
-            self.config.kickWatchdog()
+        tick=0
+        if self.config.isMaster():
+            while True:
+                if self.e.active():
+                    if self.e.any():
+                        mac,msg=self.e.recv()
+                        msg=msg.decode()
+#                        print('Message:',msg)
+                        if msg=='ping':
+                            try:
+                                self.addPeer(mac)
+                                self.e.send(mac,'pong')
+                            except Exception as ex: print('ping:',ex)
+                else: print('Not active')
+                await asyncio.sleep(.1)
+                tick+=1
+                if tick>600:
+                    print('tick')
+                    tick=0
 
-    def getRSS(self,mac):
-        peer=bytes.fromhex(mac)
-        try: return self.e.peers_table[peer][0]
+        else:
+            self.resetCounters()
+            while True:
+                if self.e.active() and self.e.any():
+                    async with self.espnowLock:
+                        mac,msg=self.e.recv()
+                        msg=msg.decode()
+                        if msg=='ping':
+                            try:
+                                checkPeer(mac)
+                                self.e.send(mac,'pong')
+                            except Exception as ex: print('ping:',ex)
+                        else:
+                            if msg[0]=='!':
+                                # It's a message to be relayed
+                                comma=msg.index(',')
+                                slave=msg[1:comma]
+                                msg=msg[comma+1:]
+    #                            print(f'Slave: {slave}, msg: {msg}')
+                                response=await self.send(slave,msg)
+                            else:
+                                # It's a message for me
+                                response=self.config.getHandler().handleMessage(msg)
+                                response=f'{response} {self.getRSS()}'
+                            print(f'{msg[0:30]}... {response}')
+                            self.addPeer(mac)
+                            try:
+                                self.e.send(mac,response)
+                                self.resetCounters()
+                            except Exception as ex: print('Can\'t respond',ex)
+                await asyncio.sleep(.1)
+                self.config.kickWatchdog()
+
+    def getRSS(self):
+        try: return self.e.peers_table[self.sender][0]
         except: return 0
+
+    def resetCounters(self):
+        if hasattr(self,'channels'): self.channels.resetCounters()
+
+

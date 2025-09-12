@@ -7,18 +7,19 @@ class Server():
 
     async def respond(self,response,writer):
         try:
-            responseBytes = str(response).encode()
-            await writer.awrite(b'HTTP/1.0 200 OK\r\n')
-            await writer.awrite(b'Content-Type: text/plain\r\n')
-            await writer.awrite(f'Content-Length: {len(responseBytes)}\r\n'.encode())
-            await writer.awrite(b'\r\n')
-            await writer.awrite(str(response).encode())
-            await writer.drain()
+            responseBytes=str(response).encode()
+            async with asyncio.timeout(8):
+                await writer.awrite(b'HTTP/1.0 200 OK\r\n')
+                await writer.awrite(b'Content-Type: text/plain\r\n')
+                await writer.awrite(f'Content-Length: {len(responseBytes)}\r\n'.encode())
+                await writer.awrite(b'\r\n')
+                await writer.awrite(responseBytes)
+                await writer.drain()
             writer.close()
             await writer.wait_closed()
         except Exception as e:
-            print(f'Server response: {e}')
-        return None
+            pass
+#            print(f'Error "{e}" sending {response}')
 
     async def sendDefaultResponse(self,writer):
         ms='M' if self.config.isMaster() else 'S'
@@ -60,13 +61,13 @@ class Server():
                         # This is for one of my peers
                         if espmsg!=None:
                             response=await(self.messagePeer(peer,espmsg))
-    #                        print('sta response:',response)
                         else:
                             print('Can\'t send message')
                             response='Can\'t send message'
             else: response=''
             self.config.kickWatchdog()
-            return await self.config.respond(response,writer)
+#            print('Server response:',response)
+            return await self.respond(response,writer)
         except Exception as e:
             print("Error in client handler:", e)
         finally:
@@ -78,3 +79,4 @@ class Server():
 
     def startup(self):
         self.server=asyncio.create_task(asyncio.start_server(self.handleClient,'0.0.0.0',80))
+
