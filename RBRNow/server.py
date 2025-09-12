@@ -8,18 +8,17 @@ class Server():
     async def respond(self,response,writer):
         try:
             responseBytes=str(response).encode()
-            async with asyncio.timeout(8):
-                await writer.awrite(b'HTTP/1.0 200 OK\r\n')
-                await writer.awrite(b'Content-Type: text/plain\r\n')
-                await writer.awrite(f'Content-Length: {len(responseBytes)}\r\n'.encode())
-                await writer.awrite(b'\r\n')
-                await writer.awrite(responseBytes)
-                await writer.drain()
+#            async with asyncio.timeout(8):
+            await writer.awrite(b'HTTP/1.0 200 OK\r\n')
+            await writer.awrite(b'Content-Type: text/plain\r\n')
+            await writer.awrite(f'Content-Length: {len(responseBytes)}\r\n'.encode())
+            await writer.awrite(b'\r\n')
+            await writer.awrite(responseBytes)
+            await writer.drain()
             writer.close()
             await writer.wait_closed()
-        except Exception as e:
-            pass
-#            print(f'Error "{e}" sending {response}')
+        except Exception as e:#
+            print(f'Error "{e}" sending {response}')
 
     async def sendDefaultResponse(self,writer):
         ms='M' if self.config.isMaster() else 'S'
@@ -79,4 +78,3 @@ class Server():
 
     def startup(self):
         self.server=asyncio.create_task(asyncio.start_server(self.handleClient,'0.0.0.0',80))
-
