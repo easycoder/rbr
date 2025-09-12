@@ -59,5 +59,6 @@ if __name__ == '__main__':
     RBRNow().init()
     try: asyncio.get_event_loop().run_forever()
     except: pass
+    print('Finished')
     machine.reset()
 

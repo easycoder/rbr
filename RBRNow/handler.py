@@ -33,7 +33,7 @@ class Handler():
             return False
 
     def handleMessage(self,msg):
-#        print('handleMessage:',msg)
+#        print('Message:',msg)
         response=f'OK {self.config.getUptime()} :{self.config.getBLEValues()}'
         if msg == 'uptime':
             pass
@@ -53,6 +53,10 @@ class Handler():
             response=f'OK {self.config.getIPAddr()}'
         elif msg=='channel':
             response=f'OK {self.config.getChannel()}'
+        elif msg[0:8]=='channel=':
+            channel=msg[8:]
+            self.config.setChannel(channel)
+            response=f'OK {channel}'
         elif msg[0:7]=='environ':
             environ=msg[8:]
             print('Set environ to',environ)
@@ -107,7 +111,7 @@ class Handler():
                 f = open(file,'w')
                 for n in range(0, len(self.buffer)):
                     f.write(self.buffer[n])
-                    size+=len(self.buffer[n])
+                    size+= len(self.buffer[n])
                 f.close()
                 # Check the file against the buffer
                 if self.checkFile(self.buffer, file): response=str(size) 

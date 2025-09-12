@@ -11,28 +11,27 @@ class Config():
 
     def __init__(self):
         if fileExists('config.json'):
-            config=json.loads(readFile('config.json'))
+            self.config=json.loads(readFile('config.json'))
         else:
-            config={}
-            config['name']='(none)'
-            config['master']=False
-            config['path']=''
-            config['channel']=1
-            config['pins']={}
+            self.config={}
+            self.config['name']='(none)'
+            self.config['master']=False
+            self.config['path']=''
+            self.config['channel']=1
+            self.config['pins']={}
             pin={}
             pin['pin']=''
             pin['invert']=False
-            config['pins']['led']=pin
+            self.config['pins']['led']=pin
             pin={}
             pin['pin']=''
             pin['invert']=False
-            config['pins']['relay']=pin
+            self.config['pins']['relay']=pin
             pin={}
             pin['pin']=''
-            config['pins']['dht22']=pin
-            writeFile('config.json',json.dumps(config))
-        self.config=config
-        self.channel=int(config['channel'])
+            self.config['pins']['dht22']=pin
+            writeFile('config.json',json.dumps(self.config))
+        self.channel=int(self.config['channel'])
         if 'myMaster' in config: self.myMaster=config['myMaster']
         else: self.myMaster=None
         pin,invert=self.getPinInfo('led')
@@ -103,7 +102,6 @@ class Config():
     def setHandler(self,handler): self.handler=handler
     def addUptime(self,t): self.uptime+=t
     
-    def isConfigured(self): return self.config['configured']
     def isMaster(self): return self.config['master']
     def apIsOpen(self): return self.espComms.apIsOpen()
     def getDevice(self): return self.config['device']
