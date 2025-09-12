@@ -39,7 +39,7 @@ class Channels():
     
     async def ping(self):
         peer=bytes.fromhex(self.myMaster)
-        self.espComms.checkPeer(peer)
+        self.espComms.addPeer(peer)
         self.espComms.e.send(peer,'ping')
         _,msg=self.espComms.e.recv(1000)
         print('Ping response from',self.myMaster,':',msg)
@@ -106,3 +106,4 @@ class Channels():
                 asyncio.get_event_loop().stop()
                 machine.reset()
             print(' no channel change')
+
