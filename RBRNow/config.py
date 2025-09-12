@@ -53,10 +53,6 @@ class Config():
         self.espComms=ESPComms(self)
         asyncio.create_task(self.runWatchdog())
 
-    async def respond(self,response,writer):
-        await self.server.respond(response,writer)
-    async def sendDefaultResponse(self,writer):
-        await self.server.sendDefaultResponse(writer)
     async def handleClient(self,reader,writer):
         await self.server.handleClient(reader,writer)
 

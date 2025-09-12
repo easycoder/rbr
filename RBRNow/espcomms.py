@@ -44,7 +44,6 @@ class ESPComms():
         self.e.active(True)
         print('ESP-Now initialised')
         
-        self.channels=Channels(self)
         if not config.isMaster() and config.getMyMaster()!=None: self.channels=Channels(self)
         self.requestToSend=False
         self.sending=False
