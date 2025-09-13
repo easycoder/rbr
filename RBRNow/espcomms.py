@@ -95,29 +95,7 @@ class ESPComms():
     async def receive(self):
         print('Starting ESPNow receiver')
         tick=0
-        if self.config.isMaster():
-            while True:
-                if self.e.active():
-                    while self.e.any():
-                        mac,msg=self.e.recv()
-                        msg=msg.decode()
-#                        print('Message:',msg)
-                        if msg=='ping':
-                            try:
-                                self.addPeer(mac)
-                                self.e.send(mac,'pong')
-                            except Exception as ex: print('ping:',ex)
-                    if self.requestToSend:
-                        self.sending=True
-                        while self.sending: await asyncio.sleep(.1)
-                else: print('Not active')
-                await asyncio.sleep(.1)
-                tick+=1
-                if tick>600:
-                    print('tick')
-                    tick=0
-
-        else:
+        while True:
             self.resetCounters()
             while True:
                 if self.e.active():
@@ -126,7 +104,7 @@ class ESPComms():
                         msg=msg.decode()
                         if msg=='ping':
                             try:
-                                checkPeer(mac)
+                                self.addPeer(mac)
                                 self.e.send(mac,'pong')
                             except Exception as ex: print('ping:',ex)
                         else:
