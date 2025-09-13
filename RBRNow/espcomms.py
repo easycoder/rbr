@@ -125,6 +125,9 @@ class ESPComms():
                                 self.e.send(mac,response)
                                 self.resetCounters()
                             except Exception as ex: print('Can\'t respond',ex)
+                if self.requestToSend:
+                    self.sending=True
+                    while self.sending: await asyncio.sleep(.1)
                 await asyncio.sleep(.1)
                 self.config.kickWatchdog()
 
