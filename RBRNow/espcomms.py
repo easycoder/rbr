@@ -124,6 +124,8 @@ class ESPComms():
                             try:
                                 self.e.send(mac,response)
                                 self.resetCounters()
+                                if self.config.getMyMaster()==None and not self.config.isMaster():
+                                    self.config.setMyMaster(mac.hex())
                             except Exception as ex: print('Can\'t respond',ex)
                 if self.requestToSend:
                     self.sending=True

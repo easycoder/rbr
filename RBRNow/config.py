@@ -94,6 +94,11 @@ class Config():
         writeFile('config.json',json.dumps(self.config))
     def getChannel(self):
         return self.espComms.channel if self.isMaster() else self.channel
+    def setMyMaster(self,myMaster):
+        print('Setting myMaster to',myMaster)
+        self.myMaster=myMaster
+        self.config['myMaster']=myMaster
+        writeFile('config.json',json.dumps(self.config))
     def getMyMaster(self): return self.myMaster
     def setHandler(self,handler): self.handler=handler
     def addUptime(self,t): self.uptime+=t
