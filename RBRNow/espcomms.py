@@ -69,7 +69,7 @@ class ESPComms():
         return True
     
     def send(self,mac,msg):
-        print(f'Send {msg[0:20]}... to {mac} on channel {self.channel}')
+#        print(f'Send {msg[0:20]}... to {mac} on channel {self.channel}')
         self.requestToSend=True
         while not self.sending: await asyncio.sleep(.1)
         self.requestToSend=False
@@ -78,22 +78,23 @@ class ESPComms():
             try:
                 result=self.e.send(peer,msg)
                 if result:
+                    result=None
                     counter=100
                     while counter>0:
-                        reply=None
                         while self.e.any():
                             _,reply=self.e.irecv()
                             if reply:
                                 reply=reply.decode()
                                 if reply=='ping': continue
-                                print(f"Received reply: {reply}")
+#                                print(f"Received reply: {reply}")
+                                result=reply
                                 break
-                        if reply: break;
+                        if result: break
                         await asyncio.sleep(.1)
                         counter-=1
                     if counter==0: result='Fail (no reply)'
                     else:
-                        print(f'{msg[0:20]} to {mac}: {reply}')
+                        print(f'{msg[0:20]} to {mac}: {result}')
                         self.resetCounters()
                 else: result='Fail (no result)'
             except Exception as ex:
@@ -137,9 +138,10 @@ class ESPComms():
                             try:
                                 self.addPeer(mac)
                                 self.e.send(mac,response)
+                                print(response)
                                 self.resetCounters()
-#                                if not self.config.getMyMaster() and not self.config.isMaster():
-#                                    self.config.setMyMaster(mac.hex())
+                                if not self.config.getMyMaster() and not self.config.isMaster():
+                                    self.config.setMyMaster(mac.hex())
                             except Exception as ex: print('Can\'t respond',ex)
                 if self.requestToSend:
                     self.sending=True
@@ -153,4 +155,5 @@ class ESPComms():
 
     def resetCounters(self):
         if hasattr(self,'channels'): self.channels.resetCounters()
+
 
