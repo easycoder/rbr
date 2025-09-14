@@ -7,6 +7,7 @@ class Channels():
         self.espComms=espComms
         self.config=self.espComms.config
         self.channels=[1,6,11]
+        self.myMaster=self.config.getMyMaster()
         if self.config.isMaster():
             self.ssid=self.config.getSSID()
             self.password=self.config.getPassword()
@@ -20,23 +21,19 @@ class Channels():
         self.idleCount=0
 
     async def findMyMaster(self):
-        self.foundMaster=False
-        self.myMaster=self.config.getMyMaster()
-        print('Looking for',self.myMaster)
-        if self.myMaster==None:
-            # Wait 10 seconds for a message
+        if self.myMaster:
+            if await self.ping(): return
+        else:
+            print('Waiting for master')
             for count in range(100):
                 self.myMaster=self.config.getMyMaster()
-                if self.myMaster!=None:
+                if self.myMaster:
                     print('Found master',self.myMaster,'on channel',self.espComms.channel)
-                    self.foundMaster=True
                     return
                 await asyncio.sleep(.1)
-        else:
-            if await self.ping(): return
-            self.hopToNextChannel()
-            asyncio.get_event_loop().stop()
-            machine.reset()
+        self.hopToNextChannel()
+        asyncio.get_event_loop().stop()
+        machine.reset()
     
     async def ping(self):
         peer=bytes.fromhex(self.myMaster)
@@ -46,7 +43,6 @@ class Channels():
         print('Ping response from',self.myMaster,':',msg)
         if msg!=None:# and msg.decode()=='pong':
             print('Found master on channel',self.espComms.channel)
-            self.foundMaster=True
             return True
         return False
 
@@ -57,7 +53,7 @@ class Channels():
         e=espComms.e
         while True:
             await asyncio.sleep(1)
-            if not self.foundMaster: continue
+            if not self.myMaster: continue
 
             self.messageCount+=1
             self.idleCount+=1
@@ -107,4 +103,3 @@ class Channels():
                 asyncio.get_event_loop().stop()
                 machine.reset()
             print(' no channel change')
-

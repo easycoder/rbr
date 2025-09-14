@@ -94,7 +94,6 @@ class ESPComms():
 
     async def receive(self):
         print('Starting ESPNow receiver')
-        tick=0
         while True:
             self.resetCounters()
             while True:
@@ -124,7 +123,7 @@ class ESPComms():
                             try:
                                 self.e.send(mac,response)
                                 self.resetCounters()
-                                if self.config.getMyMaster()==None and not self.config.isMaster():
+                                if not self.config.getMyMaster() and not self.config.isMaster():
                                     self.config.setMyMaster(mac.hex())
                             except Exception as ex: print('Can\'t respond',ex)
                 if self.requestToSend:
@@ -139,3 +138,4 @@ class ESPComms():
 
     def resetCounters(self):
         if hasattr(self,'channels'): self.channels.resetCounters()
+

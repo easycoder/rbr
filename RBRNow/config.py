@@ -16,6 +16,7 @@ class Config():
             self.config={}
             self.config['name']='(none)'
             self.config['master']=False
+            self.config['myMaster']=''
             self.config['path']=''
             self.config['channel']=1
             self.config['pins']={}
@@ -32,8 +33,8 @@ class Config():
             self.config['pins']['dht22']=pin
             writeFile('config.json',json.dumps(self.config))
         self.channel=int(self.config['channel'])
-        if 'myMaster' in self.config: self.myMaster=self.config['myMaster']
-        else: self.myMaster=None
+        self.master=self.config['master']
+        self.myMaster=self.config['myMaster']
         pin,invert=self.getPinInfo('led')
         self.led=PIN(self,pin,invert)
         pin,invert=self.getPinInfo('relay')
@@ -89,6 +90,7 @@ class Config():
         writeFile('config.json',json.dumps(self.config))
         print('envron:',json.dumps(self.config))
     def setChannel(self,channel):
+        print('Set channel',channel)
         self.channel=channel
         self.config['channel']=channel
         writeFile('config.json',json.dumps(self.config))
@@ -103,7 +105,7 @@ class Config():
     def setHandler(self,handler): self.handler=handler
     def addUptime(self,t): self.uptime+=t
     
-    def isMaster(self): return self.config['master']
+    def isMaster(self): return self.master
     def apIsOpen(self): return self.espComms.apIsOpen()
     def getDevice(self): return self.config['device']
     def getName(self): return self.config['name']
