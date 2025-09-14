@@ -71,17 +71,19 @@ class ESPComms():
             if result:
                 counter=100
                 while counter>0:
-                    if self.e.any():
-                        _,reply = self.e.irecv()
+                    while self.e.any():
+                        _,reply=self.e.irecv()
                         if reply:
-#                           print(f"Received reply: {reply.decode()}")
-                            result=reply.decode()
+                            reply=reply.decode()
+                            if reply=='ping': continue
+#                           print(f"Received reply: {reply}")
                             break
+                    if reply break;
                     await asyncio.sleep(.1)
                     counter-=1
                 if counter==0: result='Fail (no reply)'
                 else:
-                    print(f'{msg[0:20]} to {mac}: {result}')
+                    print(f'{msg[0:20]} to {mac}: {reply}')
                     self.resetCounters()
             else: result='Fail (no result)'
         except Exception as e:
