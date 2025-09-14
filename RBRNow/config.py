@@ -34,7 +34,8 @@ class Config():
             writeFile('config.json',json.dumps(self.config))
         self.channel=int(self.config['channel'])
         self.master=self.config['master']
-        self.myMaster=self.config['myMaster']
+        if self.master: self.myMaster=''
+        else: self.myMaster=self.config['myMaster']
         pin,invert=self.getPinInfo('led')
         self.led=PIN(self,pin,invert)
         pin,invert=self.getPinInfo('relay')
@@ -72,7 +73,7 @@ class Config():
     def doFinalInitTasks(self):
         self.server.startup()
         asyncio.create_task(self.espComms.receive())
-        if self.myMaster!=None:
+        if self.myMaster!='':
             self.bleScan=BLEScan()
             asyncio.create_task(self.bleScan.scan())
 
@@ -142,4 +143,3 @@ class Config():
 
     def kickWatchdog(self):
         self.active=True
-
