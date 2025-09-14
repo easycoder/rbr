@@ -88,9 +88,7 @@ class ESPComms():
                                 if reply=='ping': continue
                                 print(f"Received reply: {reply}")
                                 break
-                        if reply:
-                            result=reply
-                            break;
+                        if reply: break;
                         await asyncio.sleep(.1)
                         counter-=1
                     if counter==0: result='Fail (no reply)'
@@ -135,10 +133,8 @@ class ESPComms():
                                 # It's a message for me
                                 response=self.config.getHandler().handleMessage(msg)
                                 response=f'{response} {self.getRSS(mac)}'
-                            print(f'{msg[0:30]}... {response}')
                             self.addPeer(mac)
                             try:
-                                print(mac,response)
                                 self.addPeer(mac)
                                 self.e.send(mac,response)
                                 self.resetCounters()
@@ -157,5 +153,4 @@ class ESPComms():
 
     def resetCounters(self):
         if hasattr(self,'channels'): self.channels.resetCounters()
-
 

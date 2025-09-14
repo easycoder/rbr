@@ -11,10 +11,10 @@ class Handler():
         self.saveError=False
 
     def handleMessage(self,msg):
-#        print('Message:',msg)
+#        print('Handler:',msg)
         bleValues=self.config.getBLEValues()
         response=f'OK {self.config.getUptime()} :{bleValues}'
-        if msg == 'uptime':
+        if msg=='uptime':
             pass
         elif msg == 'on':
             response=f'{response} ON' if self.relay.on() else 'No relay'
@@ -102,7 +102,7 @@ class Handler():
             print(f'mkdir {path}')
             response='OK' if createDirectory(path) else 'Fail'
         else: response=f'Unknown message: {msg}'
-#        print('Handler:',response)
+#        print('Handler response:',response)
         return response
 
     def checkFile(self, buf, file):
