@@ -6,6 +6,7 @@ from dht22 import DHT22
 from handler import Handler
 from blescan import BLEScan
 from espcomms import ESPComms
+from channels import Channels
 
 class Config():
 
@@ -73,9 +74,11 @@ class Config():
     def doFinalInitTasks(self):
         self.server.startup()
         asyncio.create_task(self.espComms.receive())
-        if self.myMaster!='':
-            self.bleScan=BLEScan()
-            asyncio.create_task(self.bleScan.scan())
+        self.bleScan=BLEScan()
+        asyncio.create_task(self.bleScan.scan())
+        if self.myMaster:
+            self.channels=Channels(self.espComms)
+            self.channels.init()
 
     def setAP(self,ap): self.ap=ap
     def setSTA(self,sta): self.sta=sta
@@ -143,3 +146,4 @@ class Config():
 
     def kickWatchdog(self):
         self.active=True
+

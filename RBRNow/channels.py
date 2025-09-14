@@ -5,7 +5,7 @@ class Channels():
     def __init__(self,espComms):
         print('Starting Channels')
         self.espComms=espComms
-        self.config=self.espComms.config
+        self.config=espComms.config
         self.channels=[1,6,11]
         self.myMaster=self.config.getMyMaster()
         if self.config.isMaster():
@@ -13,6 +13,8 @@ class Channels():
             self.password=self.config.getPassword()
             asyncio.create_task(self.checkRouterChannel())
         self.resetCounters()
+    
+    def init(self):
         asyncio.create_task(self.findMyMaster())
         asyncio.create_task(self.countMissingMessages())
 
@@ -37,8 +39,7 @@ class Channels():
     
     async def ping(self):
         peer=bytes.fromhex(self.myMaster)
-        self.espComms.addPeer(peer)
-        self.espComms.e.send(peer,'ping')
+        self.espComms.espSend(peer,'ping')
         _,msg=self.espComms.e.recv(1000)
         print('Ping response from',self.myMaster,':',msg)
         if msg!=None:# and msg.decode()=='pong':
@@ -103,3 +104,4 @@ class Channels():
                 asyncio.get_event_loop().stop()
                 machine.reset()
             print(' no channel change')
+

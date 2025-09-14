@@ -1,5 +1,4 @@
 import asyncio,network,time,random,machine
-from channels import Channels
 from espnow import ESPNow
 
 class ESPComms():
@@ -8,10 +7,10 @@ class ESPComms():
     def __init__(self,config):
         self.config=config
         
-        self.sta=network.WLAN(network.WLAN.IF_STA)
-        self.sta.active(True)
         if config.isMaster():
             print('Starting as master')
+            self.sta=network.WLAN(network.WLAN.IF_STA)
+            self.sta.active(True)
             ssid=self.config.getSSID()
             password=self.config.getPassword()
             print(ssid,password)
@@ -25,8 +24,8 @@ class ESPComms():
             self.config.setIPAddr(ipaddr)
             print(f'{ipaddr} ch {self.channel}')
         else:
-            print('Starting as slave')
             self.channel=config.getChannel()
+            print('Starting as slave on channel',self.channel)
         ap=network.WLAN(network.AP_IF)
         ap.active(True)
         ap.config(channel=self.channel)
@@ -37,12 +36,15 @@ class ESPComms():
         ap.ifconfig(('192.168.9.1','255.255.255.0','192.168.9.1','8.8.8.8'))
         self.ap=ap
         config.setAP(ap)
-        print(config.getName(),mac,'channel',self.channel)
+        print(config.getName(),mac)
+        if not config.isMaster():
+            self.sta=network.WLAN(network.WLAN.IF_STA)
+            self.sta.active(True)
+            self.sta.config(channel=self.channel)
         
         self.e.active(True)
         print('ESP-Now initialised')
         
-        if not config.isMaster() and config.getMyMaster()!=None: self.channels=Channels(self)
         self.requestToSend=False
         self.sending=False
 
@@ -50,47 +52,62 @@ class ESPComms():
         password=str(random.randrange(100000,999999))
         print('Password:',password)
         self.ap.config(essid='-',password=password)
-    
+            
     def addPeer(self,peer):
         h=peer.hex()
-        if not hasattr(self,'peers'): self.peers=[]
-        if not h in self.peers:
-            self.peers.append(h)
+        if not hasattr(self,'peers'):
+            self.peers=[]
+        if h in self.peers:
+            return True
+        try:
             self.e.add_peer(peer,channel=self.channel)
-            print('Added',h,'to peers')
-
+        except OSError as ex:
+            print(f'Failed to add peer {h} to ESP-NOW: {ex}')
+            return False
+        self.peers.append(h)
+        print('Added',h,'to peers on channel',self.channel)
+        return True
+    
     def send(self,mac,msg):
-#        print(f'Send {msg[0:20]}... to {mac} on channel {self.channel}')
+        print(f'Send {msg[0:20]}... to {mac} on channel {self.channel}')
         self.requestToSend=True
         while not self.sending: await asyncio.sleep(.1)
         self.requestToSend=False
         peer=bytes.fromhex(mac)
-        self.addPeer(peer)
-        try:
-            result=self.e.send(peer,msg)
-            if result:
-                counter=100
-                while counter>0:
-                    while self.e.any():
-                        _,reply=self.e.irecv()
+        if self.addPeer(peer):
+            try:
+                result=self.e.send(peer,msg)
+                if result:
+                    counter=100
+                    while counter>0:
+                        reply=None
+                        while self.e.any():
+                            _,reply=self.e.irecv()
+                            if reply:
+                                reply=reply.decode()
+                                if reply=='ping': continue
+                                print(f"Received reply: {reply}")
+                                break
                         if reply:
-                            reply=reply.decode()
-                            if reply=='ping': continue
-#                           print(f"Received reply: {reply}")
-                            break
-                    if reply break;
-                    await asyncio.sleep(.1)
-                    counter-=1
-                if counter==0: result='Fail (no reply)'
-                else:
-                    print(f'{msg[0:20]} to {mac}: {reply}')
-                    self.resetCounters()
-            else: result='Fail (no result)'
-        except Exception as e:
-            print(e)
-            result=f'Fail ({e})'
+                            result=reply
+                            break;
+                        await asyncio.sleep(.1)
+                        counter-=1
+                    if counter==0: result='Fail (no reply)'
+                    else:
+                        print(f'{msg[0:20]} to {mac}: {reply}')
+                        self.resetCounters()
+                else: result='Fail (no result)'
+            except Exception as ex:
+                result=f'Fail ({ex})'
+                print(result)
+        else: result='Fail (adding peer)'
         self.sending=False
         return result
+
+    def espSend(self,peer,msg):
+        if self.addPeer(peer):
+            self.e.send(peer,'ping')
 
     async def receive(self):
         print('Starting ESPNow receiver')
@@ -121,10 +138,12 @@ class ESPComms():
                             print(f'{msg[0:30]}... {response}')
                             self.addPeer(mac)
                             try:
+                                print(mac,response)
+                                self.addPeer(mac)
                                 self.e.send(mac,response)
                                 self.resetCounters()
-                                if not self.config.getMyMaster() and not self.config.isMaster():
-                                    self.config.setMyMaster(mac.hex())
+#                                if not self.config.getMyMaster() and not self.config.isMaster():
+#                                    self.config.setMyMaster(mac.hex())
                             except Exception as ex: print('Can\'t respond',ex)
                 if self.requestToSend:
                     self.sending=True
@@ -138,4 +157,5 @@ class ESPComms():
 
     def resetCounters(self):
         if hasattr(self,'channels'): self.channels.resetCounters()
+
 
