@@ -10,28 +10,6 @@ class Handler():
         self.relay=config.getRelay()
         self.saveError=False
 
-    def checkFile(self, buf, file):
-        try:
-            with open(file, 'r') as f:
-                i = 0  # index in lst
-                pos = 0  # position in current list item
-                while True:
-                    c = f.read(1)
-                    if not c:
-                        # End of file: check if we've also finished the list
-                        while i < len(buf) and pos == len(buf[i]):
-                            i += 1
-                            pos = 0
-                        return i == len(buf)
-                    if i >= len(buf) or pos >= len(buf[i]) or c != buf[i][pos]:
-                        return False
-                    pos += 1
-                    if pos == len(buf[i]):
-                        i += 1
-                        pos = 0
-        except OSError:
-            return False
-
     def handleMessage(self,msg):
 #        print('Message:',msg)
         bleValues=self.config.getBLEValues()
@@ -126,3 +104,25 @@ class Handler():
         else: response=f'Unknown message: {msg}'
 #        print('Handler:',response)
         return response
+
+    def checkFile(self, buf, file):
+        try:
+            with open(file, 'r') as f:
+                i = 0  # index in lst
+                pos = 0  # position in current list item
+                while True:
+                    c = f.read(1)
+                    if not c:
+                        # End of file: check if we've also finished the list
+                        while i < len(buf) and pos == len(buf[i]):
+                            i += 1
+                            pos = 0
+                        return i == len(buf)
+                    if i >= len(buf) or pos >= len(buf[i]) or c != buf[i][pos]:
+                        return False
+                    pos += 1
+                    if pos == len(buf[i]):
+                        i += 1
+                        pos = 0
+        except OSError:
+            return False

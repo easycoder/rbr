@@ -77,4 +77,5 @@ class Server():
         return response
 
     def startup(self):
+        print('Starting the server')
         self.server=asyncio.create_task(asyncio.start_server(self.handleClient,'0.0.0.0',80))

@@ -70,6 +70,7 @@ class Config():
         if self.dht22!=None: self.dht22.resume()
     
     def doFinalInitTasks(self):
+        self.server.startup()
         asyncio.create_task(self.espComms.receive())
         if self.myMaster!=None:
             self.bleScan=BLEScan()
@@ -113,7 +114,6 @@ class Config():
     def getPassword(self): return self.config['hostpass']
     def getMAC(self): return self.mac
     def closeAP(self): self.espComms.closeAP()
-    def startServer(self): self.server.startup()
     def getIPAddr(self): return self.ipaddr
     def getHandler(self): return self.handler
     def getESPComms(self): return self.espComms

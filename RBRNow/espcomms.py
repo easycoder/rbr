@@ -38,9 +38,7 @@ class ESPComms():
         self.ap=ap
         config.setAP(ap)
         print(config.getName(),mac,'channel',self.channel)
-        config.startServer()
         
-        self.espnowLock=asyncio.Lock()
         self.e.active(True)
         print('ESP-Now initialised')
         
@@ -117,7 +115,7 @@ class ESPComms():
                             else:
                                 # It's a message for me
                                 response=self.config.getHandler().handleMessage(msg)
-                                response=f'{response} {self.getRSS()}'
+                                response=f'{response} {self.getRSS(mac)}'
                             print(f'{msg[0:30]}... {response}')
                             self.addPeer(mac)
                             try:
@@ -132,8 +130,8 @@ class ESPComms():
                 await asyncio.sleep(.1)
                 self.config.kickWatchdog()
 
-    def getRSS(self):
-        try: return self.e.peers_table[self.sender][0]
+    def getRSS(self,mac):
+        try: return self.e.peers_table[mac][0]
         except: return 0
 
     def resetCounters(self):
