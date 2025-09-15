@@ -106,7 +106,7 @@ class ESPComms():
 
     def espSend(self,peer,msg):
         if self.addPeer(peer):
-            self.e.send(peer,'ping')
+            self.e.send(peer,msg)
 
     async def receive(self):
         print('Starting ESPNow receiver')

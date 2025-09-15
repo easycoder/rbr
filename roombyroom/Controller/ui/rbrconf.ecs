@@ -159,7 +159,7 @@
     add Layout to Group
     create SlaveList
     add SlaveList to Layout
-    on select SlaveList go to SelectSlaveClick
+    on select SlaveList go to SlaveDeviceClick
 
     ! Create the Selected Device group
     create Group title `Selected device`
@@ -1200,8 +1200,6 @@ PopulateDeviceInfo:
     begin
         put property `name` of Device into Name
         log `Populate device ` cat Name
-        gosub to CheckDevice
-        if ErrorFlag return
         if not Silent
         begin
             set the text of DeviceNameInput to property `name` of Device
@@ -1219,12 +1217,14 @@ PopulateDeviceInfo:
             enable UpdateAllFilesButton
             enable DeleteFileButton
         end
+        gosub to CheckDevice
+        if ErrorFlag return
     end
     go to OK
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Show information about a slave device
-SelectSlaveClick:
+SlaveDeviceClick:
     log `Select ` cat SlaveList
     set DeviceSelected
     clear IsMaster
