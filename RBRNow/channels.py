@@ -90,7 +90,7 @@ class Channels():
     async def checkRouterChannel(self):
         print('Check the router channel')
         while True:
-            await asyncio.sleep(60)
+            await asyncio.sleep(300)
             sta=self.espComms.sta
             sta.disconnect()
             time.sleep(1)
