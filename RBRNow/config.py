@@ -74,6 +74,7 @@ class Config():
         if self.dht22!=None: self.dht22.resume()
     
     def doFinalInitTasks(self):
+        print('Final startup tasks')
         self.server.startup()
         asyncio.create_task(self.espComms.receive())
         self.bleScan=BLEScan()

@@ -158,5 +158,3 @@ class ESPComms():
 
     def resetCounters(self):
         if hasattr(self,'channels'): self.channels.resetCounters()
-
-
