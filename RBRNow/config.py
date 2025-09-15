@@ -36,7 +36,9 @@ class Config():
         self.channel=int(self.config['channel'])
         self.master=self.config['master']
         if self.master: self.myMaster=''
-        else: self.myMaster=self.config['myMaster']
+        elif 'myMaster' in self.config:
+            self.myMaster=self.config['myMaster']
+        else: self.myMaster=''
         pin,invert=self.getPinInfo('led')
         self.led=PIN(self,pin,invert)
         pin,invert=self.getPinInfo('relay')

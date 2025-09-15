@@ -19,6 +19,7 @@ class Channels():
         asyncio.create_task(self.countMissingMessages())
 
     def resetCounters(self):
+        print('Resetting counters')
         self.messageCount=0
         self.idleCount=0
 

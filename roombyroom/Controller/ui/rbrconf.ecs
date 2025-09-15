@@ -307,6 +307,7 @@
     variable DeviceSelected
     variable Devices
     variable Device
+    variable Device2
     variable MasterDevice
     variable MasterSSID
     variable MasterMAC
@@ -329,7 +330,8 @@
     variable Total
     variable Segment
     variable Length
-    variable Path
+    variable ControllerSpecPath
+    variable SlavePath
     variable Files
     variable Count
     variable Content
@@ -368,8 +370,8 @@
     if not IsLocal
     begin
         put trim system `echo $HOME` into HomeDir
-        put HomeDir cat `/.controller.json` into Path
-        if file Path exists load ControllerSpec from Path
+        put HomeDir cat `/.controller.json` into ControllerSpecPath
+        if file ControllerSpecPath exists load ControllerSpec from ControllerSpecPath
         else
         begin
             put empty into SystemIPAddr
@@ -1852,20 +1854,22 @@ SendMessageToDevice:
     put left 30 of Message into Message2
     if the length of Message is greater than 30 put Message2 cat `...` into Message2
     put Message into Message2
-    if Path is not empty
+    if SlavePath is not empty
     begin
-        put the position of `,` in Path into P
+        put the position of `,` in SlavePath into P
         if P is greater than 0
         begin
-            put left P of Path into MAC
+            put left P of SlavePath into Name
+            gosub to GetSlavePathMAC
             add 1 to P
-            put from P of Path into Path
-            put `!` cat Path cat `,` cat Message into Message2
+            put from P of SlavePath into SlavePath
+            put `!` cat SlavePath cat `,` cat Message into Message2
         end
         else
         begin
             put `!` cat MAC cat `,` cat Message into Message2
-            put Path into MAC
+            put SlavePath into Name
+            gosub to GetSlavePathMAC
         end
     end
 SMTD2:
@@ -1877,12 +1881,19 @@ SMTD2:
         log `Response: ` cat Response
         put `Could not message ` cat Name into StatusMessage
         gosub to Working
-        if Path is empty return
+        if SlavePath is empty return
         ! Try direct communication
-        put empty into Path
+        put empty into SlavePath
         go to SMTD2
     end
     log URL cat ` -> ` cat Response
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Get the MAC address of the named device
+GetSlavePathMAC:
+    put property Name of Devices into Device2
+    put from 8 of property `ssid` of Device2 into MAC
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1891,8 +1902,8 @@ GetDeviceData:
     put property `name` of Device into Name
     put property `ssid` of Device into SSID
     put from 8 of SSID into MAC
-    if Device has property `path` put property `path` of Device into Path
-    else put empty into Path
+    if Device has property `path` put property `path` of Device into SlavePath
+    else put empty into SlavePath
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2120,7 +2131,7 @@ GetSSH:
         set property HostInput of ControllerSpec to Item
         set property `current` of ControllerSpec to HostInput
         put HostInput into SystemIPAddr
-        save ControllerSpec to Path
+        save ControllerSpec to ControllerSpecPath
         fork to GSSH2
         wait 1
         close HostWindow

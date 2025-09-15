@@ -67,6 +67,11 @@ class ESPComms():
         self.peers.append(h)
         print('Added',h,'to peers on channel',self.channel)
         return True
+
+    def espSend(self,peer,msg):
+        if self.addPeer(peer):
+            try: self.e.send(peer,msg)
+            except Exception as ex: print('espSend:',ex)
     
     def send(self,mac,msg):
 #        print(f'Send {msg[0:20]}... to {mac} on channel {self.channel}')
@@ -104,10 +109,6 @@ class ESPComms():
         self.sending=False
         return result
 
-    def espSend(self,peer,msg):
-        if self.addPeer(peer):
-            self.e.send(peer,msg)
-
     async def receive(self):
         print('Starting ESPNow receiver')
         while True:
@@ -117,6 +118,7 @@ class ESPComms():
                     while self.e.any():
                         mac,msg=self.e.recv()
                         msg=msg.decode()
+                        print('Received',msg)
                         if msg=='ping':
                             try:
                                 self.addPeer(mac)
@@ -143,9 +145,10 @@ class ESPComms():
                                 if not self.config.getMyMaster() and not self.config.isMaster():
                                     self.config.setMyMaster(mac.hex())
                             except Exception as ex: print('Can\'t respond',ex)
-                if self.requestToSend:
-                    self.sending=True
-                    while self.sending: await asyncio.sleep(.1)
+                    if self.requestToSend:
+                        self.sending=True
+                        while self.sending: await asyncio.sleep(.1)
+                else: print('Not active')
                 await asyncio.sleep(.1)
                 self.config.kickWatchdog()
 
