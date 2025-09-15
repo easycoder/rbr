@@ -14,7 +14,7 @@ class Channels():
             asyncio.create_task(self.checkRouterChannel())
         self.resetCounters()
     
-    def init(self):
+    def setupSlaveTasks(self):
         asyncio.create_task(self.findMyMaster())
         asyncio.create_task(self.countMissingMessages())
 
