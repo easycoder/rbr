@@ -88,6 +88,7 @@ class Channels():
         self.config.setChannel(self.espComms.channel)
     
     async def checkRouterChannel(self):
+        print('Check the router channel')
         while True:
             await asyncio.sleep(60)
             sta=self.espComms.sta
