@@ -99,7 +99,7 @@ class Channels():
             while not sta.isconnected():
                 time.sleep(1)
                 print('.',end='')
-            self.restartESPNow()
+            self.espComms.restartESPNow()
             channel=sta.config('channel')
             if channel!=self.espComms.channel:
                 print(' router changed channel from',self.espComms.channel,'to',channel)

@@ -154,3 +154,7 @@ class ESPComms():
     def getRSS(self,mac):
         try: return self.e.peers_table[mac][0]
         except: return 0
+
+    def restartESPNow(self):
+        self.e=ESPNow()
+        self.e.active(True)
