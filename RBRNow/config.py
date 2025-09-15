@@ -83,6 +83,9 @@ class Config():
             self.channels=Channels(self.espComms)
             self.channels.init()
 
+    def resetCounters(self):
+        if hasattr(self,'channels'): self.channels.resetCounters()
+
     def setAP(self,ap): self.ap=ap
     def setSTA(self,sta): self.sta=sta
     def setESPComms(self,espComms): self.espComms=espComms 

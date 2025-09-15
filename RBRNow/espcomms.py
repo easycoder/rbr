@@ -100,7 +100,7 @@ class ESPComms():
                     if counter==0: result='Fail (no reply)'
                     else:
                         print(f'{msg[0:20]} to {mac}: {result}')
-                        self.resetCounters()
+                        self.config.resetCounters()
                 else: result='Fail (no result)'
             except Exception as ex:
                 result=f'Fail ({ex})'
@@ -112,7 +112,6 @@ class ESPComms():
     async def receive(self):
         print('Starting ESPNow receiver')
         while True:
-            self.resetCounters()
             while True:
                 if self.e.active():
                     while self.e.any():
@@ -141,7 +140,7 @@ class ESPComms():
                                 self.addPeer(mac)
                                 self.e.send(mac,response)
                                 print(response)
-                                self.resetCounters()
+                                self.config.resetCounters()
                                 if not self.config.getMyMaster() and not self.config.isMaster():
                                     self.config.setMyMaster(mac.hex())
                             except Exception as ex: print('Can\'t respond',ex)
@@ -155,6 +154,3 @@ class ESPComms():
     def getRSS(self,mac):
         try: return self.e.peers_table[mac][0]
         except: return 0
-
-    def resetCounters(self):
-        if hasattr(self,'channels'): self.channels.resetCounters()
