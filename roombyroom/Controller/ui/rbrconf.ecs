@@ -944,10 +944,14 @@ SetupDevice:
         put `Bad response from device: ` cat APInfo into StatusMessage
         go to Error
     end
-    index Info to 2
-    put Info into Name
     index Info to 0
     put Info into MAC
+    put the position of the last ` ` in Info into P
+    put left P of Info into Info
+    put the position of the last ` ` in Info into P
+    put left P of Info into Info
+    index Info to 2
+    put Info into Name
 
     ! Check if this is the first device to be configured. If so, make it the master.
     if MasterSSID is empty gosub to ConfigureMasterDevice
@@ -1606,6 +1610,12 @@ SendFileToDevice:
         if Response is empty
         begin
             put `Failed to send part ` cat Sequence into StatusMessage
+            go to SendFileFail
+        end
+        if the position of `ESP_ERR_ESPNOW_CHAN` in Response is greater than 0
+        begin
+            put `Channel error` into StatusMessage
+            put 10 into Attempt
             go to SendFileFail
         end
         split Response on ` `

@@ -123,7 +123,7 @@ class Config():
     def isMaster(self): return self.master
     def apIsOpen(self): return self.espComms.apIsOpen()
     def getDevice(self): return self.config['device']
-    def getName(self): return self.config['name']
+    def getName(self): return self.config['name'].replace(' ','_')
     def getSSID(self): return self.config['hostssid']
     def getPassword(self): return self.config['hostpass']
     def getMAC(self): return self.mac
