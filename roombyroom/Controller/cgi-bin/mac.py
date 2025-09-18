@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-f = open('mac', 'r')
+f = open('/mnt/data/mac', 'r')
 mac = f.read().strip()
 f.close()
 f = open('/mnt/data/password', 'r')

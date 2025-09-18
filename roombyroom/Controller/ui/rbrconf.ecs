@@ -29,7 +29,6 @@
     pushbutton ScanDevicesButton
     pushbutton ClearSystemButton
     pushbutton SetMasterAddressButton
-    pushbutton ReconfigureMasterButton
     pushbutton RemoveSlaveButton
     pushbutton UpdateFileButton
     pushbutton UpdateAllFilesButton
@@ -86,10 +85,6 @@
     create SetMasterAddressButton text `Set the master IP address`
     on click SetMasterAddressButton go to SetMasterAddressClick
     add SetMasterAddressButton to LeftPanel
-
-    create ReconfigureMasterButton text `Reconfigure the master device`
-    on click ReconfigureMasterButton go to ReconfigureMasterClick
-    add ReconfigureMasterButton to LeftPanel
 
     add stretch to LeftPanel
 
@@ -270,8 +265,6 @@
     stack Stack
     module Module
     variable ControllerSpec
-    variable ControllerIPAddr
-    variable UserName
     variable RamDisk
     variable HomeDir
     variable Config
@@ -314,7 +307,6 @@
     variable MasterIPAddr
     variable MasterDeviceName
     variable SlaveDevices
-    variable SlaveMAC
     variable CurrentSSID
     variable Channel
     variable Previous
@@ -387,7 +379,7 @@
     end
     else
     begin
-        log `Running remotely`
+        log `Running remotely: ` cat ControllerSpec
         put property `current` of ControllerSpec into SystemIPAddr
         put property SystemIPAddr of ControllerSpec into Item
         log SystemIPAddr cat ` ` cat Item
@@ -396,6 +388,9 @@
             user property `user` of Item
             password property `password` of Item
     end
+
+    put json `{}` into SystemConfig
+    put json `{}` into Devices
 
     gosub to ResumeSystemController
 
@@ -422,6 +417,7 @@ Start:
 
     put empty into SystemHostSSID
     put empty into SystemIPAddr
+    put empty into MasterDevice
     clear DeviceSelected
     clear Silent
 
@@ -465,9 +461,9 @@ Start:
 !            log prettify SystemConfig
             gosub to SelectSystem
         end
+        gosub to GetChannel
+        log `Channel ` cat Channel
     end
-    gosub to GetChannel
-    log `Channel ` cat Channel
 
     gosub to SetUnBusy
     on select SystemsCombo go to SystemsComboSelect
@@ -577,6 +573,7 @@ ScanSystems:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Scan a supplied IP address
 ScanIPAddress:
+    log `Scan ` cat IPAddr
     gosub to Working
     put empty into Result
     get Result from url `http://` cat IPAddr cat `:17348/cgi-bin/mac.py` timeout 1 or go to SIA2
@@ -653,6 +650,8 @@ RefreshSystemsCombo:
     log `Refresh SystemsCombo`
     clear SystemsCombo
     put the keys of Systems into Keys
+    log Keys
+    if the count of Keys is 0 return
     put 0 into S
     while S is less than the count of Keys
     begin
@@ -676,15 +675,17 @@ SystemsComboSelect:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Select a system
 SelectSystem:
-    if SystemName is property `current-system` of Config return
+    log SystemName cat ` ` cat  property `current-system` of Config
 SelectSystem2:
+    if SystemName is empty return
     log `Select system ` cat SystemName
     ! Update the current system
     gosub to ResumeSystemController
     if not IsLocal
     begin
-        put property `current-system` of Config into Value
-        put property Value of Systems into SystemConfig
+        put property `current-system` of Config into SystemName
+        if SystemName is empty return
+        put property SystemName of Systems into SystemConfig
         gosub to PostConfigData
     end
     ! Select the new system
@@ -710,6 +711,7 @@ SelectSystem2:
 RemoveSystemClick:
     gosub to SetBusy
     put SystemsCombo into Name
+    log ControllerSpec cat ` ` cat IPAddr
     log `Remove ` cat Name cat `?`
     create MessageBox on Window
         style question
@@ -721,13 +723,24 @@ RemoveSystemClick:
         remove the current item from SystemsCombo
         delete property SystemName of Systems
         put empty into SystemName
-        put empty into SystemConfig
         set the text of MasterDeviceButton to empty
         clear SlaveList
+        put json `{}` into SystemConfig
         set property `current-system` of Config to SystemsCombo
         set property `systems` of Config to Systems
         put empty into SystemHostSSID
+        log SystemConfig
         gosub to PostConfigData
+        put the keys of ControllerSpec into Keys
+        put 0 into K
+        while K is less than the count of Keys
+        begin
+            put element K of Keys into Value
+            if Value is not `current`
+            begin
+            end
+            increment K
+        end
     end
     if the count of SystemsCombo is 0 disable RemoveSystemButton
     else
@@ -805,19 +818,24 @@ ScanForDevicesClick:
             begin
                 log `Found ` cat SSID
                 ! Check if this one already exists
-                put the keys of Devices into Keys
-                put 0 into D
-                while D is less than the count of Keys
+                if Devices is empty put json `{}` into Devices
+                else 
                 begin
-                    put element D of Keys into Name
-                    put property Name of Devices into Device
-                    if SSID is property `ssid` of Device
+                    put the keys of Devices into Keys
+                    put 0 into D
+                    while D is less than the count of Keys
                     begin
-                        log SSID cat ` exists already`
-                        go to SFDC2
+                        put element D of Keys into Name
+                        put property Name of Devices into Device
+                        if SSID is property `ssid` of Device
+                        begin
+                            log SSID cat ` exists already`
+                            go to SFDC2
+                        end
+                        increment D
                     end
-                    increment D
                 end
+                log `Add ` cat SSID
                 append SSID to List
             end
         end
@@ -890,23 +908,6 @@ SelectSSIDFromList:
     set the layout of Dialog to Layout
     center Dialog on Window
     show Dialog
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Reconfigure the master device
-ReconfigureMasterClick:
-    create MessageBox on Window
-        style question
-        title `Master reset`
-        message `This will reconfigure the master device,` cat newline
-            cat `for example if the system router has changed.` cat newline cat `Continue?`
-    show MessageBox giving Value
-    if Value is `Yes`
-    begin
-        put MasterSSID into SSID
-        clear IsMaster
-        gosub to SetupDevice
-    end
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1049,6 +1050,7 @@ ConfigureMasterDevice:
 SendConfigToMaster:
     put `config.json` into FileName
     put stringify Device into Content
+    log `Send ` cat Content cat ` to master`
     gosub to SendOneFile
     if ErrorFlag return
     gosub to RequestReset
@@ -1282,8 +1284,8 @@ ExitClick:
 !   Get the host password
 GetHostPassword:
     log `Get the host password`
-    put `Type the host password:` into Prompt
-    put `Host password` into Title
+    put `Type your router password:` into Prompt
+    put `Router password` into Title
     put empty into Value
     put 40 into Length
     gosub to GetRequestedText
@@ -1635,9 +1637,11 @@ SendFileToDevice:
     end
     put `File ` cat FileName cat ` saved` into StatusMessage
     gosub to Working
-    put property `name` of Device into Name
-    if IsLocal save Name to RamDisk cat `lock`
-    else save Name to SSH RamDisk cat `lock`
+    if SSID is not MasterSSID
+    begin
+        if IsLocal save `lock` to RamDisk cat `lock`
+        else save `lock` to SSH RamDisk cat `lock`
+    end
     return
 
 SendFileFail:
@@ -1818,6 +1822,7 @@ RelayOnClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Get the current channel
 GetChannel:
+    if MasterDevice is empty return
     put MasterDevice into Device
     put `channel` into Message
     gosub to SendRBRMessage
@@ -2000,8 +2005,6 @@ SetUnBusy:
     enable ScanSystemsButton
 ! SetMasterAddressButton
     enable SetMasterAddressButton
-! ReconfigureMasterButton
-    enable ReconfigureMasterButton
 ! RemoveSystemButton
     if SystemsCombo is empty disable RemoveSystemButton else enable RemoveSystemButton
 ! MasterDeviceButton
@@ -2071,7 +2074,6 @@ SetBusy:
     disable ClearSystemButton
     disable RemoveSlaveButton
     disable SetMasterAddressButton
-    disable ReconfigureMasterButton
     disable UpdateFileButton
     disable UpdateAllFilesButton
     disable DeleteFileButton
@@ -2097,7 +2099,7 @@ GetSSH:
     create Panel type QVBoxLayout
     create Layout type QHBoxLayout
     add Layout to Panel
-    create Label text `Host:`
+    create Label text `SHH Host IP:`
     add Label to Layout
     create HostInput size 30
     set the width of HostInput to 200
@@ -2105,14 +2107,14 @@ GetSSH:
     add HostInput to Layout
     create Layout type QHBoxLayout
     add Layout to Panel
-    create Label text `User:`
+    create Label text `SSH User:`
     add Label to Layout
     create UserInput size 30
     set the width of UserInput to 200
     add UserInput to Layout
     create Layout type QHBoxLayout
     add Layout to Panel
-    create Label text `Password:`
+    create Label text `SSH Password:`
     add Label to Layout
     create PasswordInput size 30
     set the width of PasswordInput to 200

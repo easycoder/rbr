@@ -181,10 +181,8 @@
             put 0 into N
         end
     end
+    save MAC to `/mnt/data/mac`
 
-!    load MAC from RamDisk cat `mac`
-!    put trim MAC into MAC
-    log `MAC: ` cat MAC
     put 0 into RepeatCount
 
     clear Changed

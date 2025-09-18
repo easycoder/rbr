@@ -1,5 +1,5 @@
 import json,asyncio,machine
-from files import readFile,writeFile,fileExists
+from files import readFile,writeFile,fileExists,deleteFile
 from pin import PIN
 from server import Server
 from dht22 import DHT22
@@ -33,7 +33,8 @@ class Config():
             pin['pin']=''
             self.config['pins']['dht22']=pin
             writeFile('config.json',json.dumps(self.config))
-        self.channel=int(self.config['channel'])
+        try: self.channel=int(self.config['channel'])
+        except: self.channel=1
         self.master=self.config['master']
         if self.master: self.myMaster=''
         elif 'myMaster' in self.config:
@@ -67,6 +68,10 @@ class Config():
         print('Reset requested')
         self.resetRequested=True
     
+    def clearAndReset(self):
+        deleteFile('config.json')
+        machine.reset()
+    
     def pause(self):
         if self.dht22!=None: self.dht22.pause()
     
@@ -80,7 +85,7 @@ class Config():
         self.bleScan=BLEScan()
         asyncio.create_task(self.bleScan.scan())
         self.channels=Channels(self.espComms)
-        if not self.master: self.channels.setupSlaveTasks()
+        if self.master: self.channels.setupSlaveTasks()
 
     def resetCounters(self):
         if hasattr(self,'channels'): self.channels.resetCounters()

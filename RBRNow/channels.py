@@ -9,13 +9,12 @@ class Channels():
         self.channels=[1,6,11]
         self.myMaster=self.config.getMyMaster()
         if self.config.isMaster():
-            self.ssid=self.config.getSSID()
-            self.password=self.config.getPassword()
             asyncio.create_task(self.checkRouterChannel())
         self.resetCounters()
     
     def setupSlaveTasks(self):
         asyncio.create_task(self.findMyMaster())
+        await asyncio.sleep(30)
         asyncio.create_task(self.countMissingMessages())
 
     def resetCounters(self):
@@ -89,13 +88,15 @@ class Channels():
     
     async def checkRouterChannel(self):
         print('Check the router channel')
+        ssid=self.config.getSSID()
+        password=self.config.getPassword()
         while True:
-            await asyncio.sleep(300)
+            await asyncio.sleep(180)
             sta=self.espComms.sta
             sta.disconnect()
             time.sleep(1)
             print('Reconnecting...',end='')
-            sta.connect(self.ssid,self.password)
+            sta.connect(ssid,password)
             while not sta.isconnected():
                 time.sleep(1)
                 print('.',end='')

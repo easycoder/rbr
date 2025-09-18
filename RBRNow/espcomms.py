@@ -9,20 +9,27 @@ class ESPComms():
         
         if config.isMaster():
             print('Starting as master')
-            self.sta=network.WLAN(network.WLAN.IF_STA)
-            self.sta.active(True)
-            ssid=self.config.getSSID()
-            password=self.config.getPassword()
-            print(ssid,password)
-            print('Connecting...',end='')
-            self.sta.connect(ssid,password)
-            while not self.sta.isconnected():
-                time.sleep(1)
-                print('.',end='')
-            ipaddr=self.sta.ifconfig()[0]
-            self.channel=self.sta.config('channel')
-            self.config.setIPAddr(ipaddr)
-            print(f'{ipaddr} ch {self.channel}')
+            try:
+                self.sta=network.WLAN(network.WLAN.IF_STA)
+                self.sta.active(True)
+                ssid=self.config.getSSID()
+                password=self.config.getPassword()
+                print(ssid,password)
+                t=0
+                print('Connecting...',end='')
+                self.sta.connect(ssid,password)
+                while not self.sta.isconnected():
+                    time.sleep(1)
+                    t+=1
+                    if t>30:
+                        print('Timeout')
+                        config.clearAndReset()
+                    print('.',end='')
+                ipaddr=self.sta.ifconfig()[0]
+                self.channel=self.sta.config('channel')
+                self.config.setIPAddr(ipaddr)
+                print(f'{ipaddr} ch {self.channel}')
+            except: machine.reset()
         else:
             self.channel=config.getChannel()
             print('Starting as slave on channel',self.channel)
