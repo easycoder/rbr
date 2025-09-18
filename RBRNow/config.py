@@ -85,10 +85,13 @@ class Config():
         self.bleScan=BLEScan()
         asyncio.create_task(self.bleScan.scan())
         self.channels=Channels(self.espComms)
-        if self.master: self.channels.setupSlaveTasks()
+        print('myMaster',self.myMaster)
+        if self.myMaster:
+            print('doit')
+            self.channels.setupSlaveTasks()
 
-    def resetCounters(self):
-        if hasattr(self,'channels'): self.channels.resetCounters()
+    def resetCounter(self):
+        if hasattr(self,'channels'): self.channels.resetCounter()
 
     def setAP(self,ap): self.ap=ap
     def setSTA(self,sta): self.sta=sta

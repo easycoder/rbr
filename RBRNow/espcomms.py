@@ -106,7 +106,7 @@ class ESPComms():
                     if counter==0: result='Fail (no reply)'
                     else:
                         print(f'{msg[0:20]} to {mac}: {result}')
-                        self.config.resetCounters()
+                        self.config.resetCounter()
                 else: result='Fail (no result)'
             except Exception as ex:
                 result=f'Fail ({ex})'
