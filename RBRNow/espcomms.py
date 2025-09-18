@@ -47,7 +47,6 @@ class ESPComms():
         if not config.isMaster():
             self.sta=network.WLAN(network.WLAN.IF_STA)
             self.sta.active(True)
-            self.sta.config(channel=self.channel)
         
         self.e.active(True)
         print('ESP-Now initialised')

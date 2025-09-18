@@ -946,12 +946,11 @@ SetupDevice:
     end
     index Info to 0
     put Info into MAC
-    put the position of the last ` ` in Info into P
-    put left P of Info into Info
-    put the position of the last ` ` in Info into P
-    put left P of Info into Info
     index Info to 2
     put Info into Name
+    log Name
+    replace `_` with ` ` in Name
+    log Name
 
     ! Check if this is the first device to be configured. If so, make it the master.
     if MasterSSID is empty gosub to ConfigureMasterDevice
@@ -959,11 +958,9 @@ SetupDevice:
     begin
         clear IsMaster
         log `Deal with slave ` cat Name
-        put the position of ` ` in Name into N
-        increment N
-        put SSID cat ` ` cat from N of Name into Item
+        put SSID cat ` ` cat Name into Item
         log Item
-        if SlaveDevices does not include Item
+        if SlaveDevices does not include Name
         begin
             append Item to SlaveDevices
             set SlaveList to SlaveDevices
