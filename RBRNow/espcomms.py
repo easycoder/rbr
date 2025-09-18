@@ -146,7 +146,7 @@ class ESPComms():
                                 self.addPeer(mac)
                                 self.e.send(mac,response)
                                 print(response)
-                                self.config.resetCounters()
+                                self.config.resetCounter()
                                 if not self.config.getMyMaster() and not self.config.isMaster():
                                     self.config.setMyMaster(mac.hex())
                             except Exception as ex: print('Can\'t respond',ex)
