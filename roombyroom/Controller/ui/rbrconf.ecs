@@ -262,8 +262,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     ssh SSH
-    stack Stack
-    module Module
     variable ControllerSpec
     variable RamDisk
     variable HomeDir
@@ -344,6 +342,7 @@
     variable T1
     variable T2
 
+!    debug compile
 !    debug step
 
     put `linaro` into Name
@@ -371,6 +370,7 @@
             gosub to GetSSH
         end
     end
+    put trim system `echo $HOME` cat `/.rbr.conf` into ConfigFile
 
     if IsLocal
     begin
@@ -379,14 +379,21 @@
     end
     else
     begin
-        log `Running remotely: ` cat ControllerSpec
+        log `Running remotely`
         put property `current` of ControllerSpec into SystemIPAddr
         put property SystemIPAddr of ControllerSpec into Item
-        log SystemIPAddr cat ` ` cat Item
+        put `Set up SSH to ` cat SystemIPAddr into StatusMessage
+        gosub to Working
         set SSH
             host SystemIPAddr
             user property `user` of Item
             password property `password` of Item
+        if error in SSH
+        begin
+            put `SSH error: ` cat the error of SSH into StatusMessage
+            gosub to Error
+            stop
+        end
     end
 
     put json `{}` into SystemConfig
@@ -401,7 +408,6 @@ Start:
     set the encoding to `hex`
 
 !   Load the main config file or create one if there is none
-    put trim system `echo $HOME` cat `/.rbr.conf` into ConfigFile
     if file ConfigFile exists load Config from ConfigFile
     else put empty into Config
     if Config is empty
@@ -481,7 +487,9 @@ ResetConfigFileClick:
     show MessageBox giving Value
     if Value is `Yes`
     begin
+        log ConfigFile
         delete file ConfigFile
+        delete file ControllerSpecPath
         disable RemoveSystemButton
         set the text of MasterDeviceButton to empty
         put empty into SystemMAC
@@ -1962,7 +1970,7 @@ LockSystemController:
 !   Resume the system controller
 ResumeSystemController:
     if IsLocal save empty to RamDisk cat `lock`
-    else save empty to SSH RamDisk cat `lock`
+    else if not error in SSH save empty to SSH RamDisk cat `lock`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
