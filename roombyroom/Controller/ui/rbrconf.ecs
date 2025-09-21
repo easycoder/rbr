@@ -400,8 +400,8 @@ Restart:
 
     put json `{}` into SystemConfig
     put json `{}` into Devices
-
-    gosub to ResumeSystemController
+    
+    gosub to LockSystemController
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main program starts here
