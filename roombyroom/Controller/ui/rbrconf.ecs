@@ -1207,11 +1207,9 @@ MasterDeviceClick:
         log `Select the master device`
         set DeviceSelected
         set IsMaster
+        put property MasterDeviceName of Devices into MasterDevice
         put MasterDevice into Device
         gosub to PopulateDeviceInfo
-!        put `channel` into Message
-!        gosub to SendRBRMessage
-!        log Response
     end
     gosub to SetUnBusy
     stop
