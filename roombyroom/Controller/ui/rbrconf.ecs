@@ -286,6 +286,7 @@
     variable Prompt
     variable SystemConfig
     variable SystemCallResult
+    variable SystemNames
     variable SystemName
     variable SystemMAC
     variable SystemPassword
@@ -345,6 +346,7 @@
 !    debug compile
 !    debug step
 
+Restart:
     put `linaro` into Name
     if Name is trim system `whoami`
     begin
@@ -419,8 +421,16 @@ Start:
     if Config does not have property `hosts` set property `hosts` of Config to json `{}`
     if Config does not have property `systems` set property `systems` of Config to json `{}`
     if Config does not have property `current-system` set property `current-system` of Config to empty
+    if property `current-system` of Config is empty
+    begin
+        put property `systems` of Config into Systems
+        put the keys of Systems into Keys
+        if the count of Keys is 0 put empty into SystemName else put element 0 of Keys into SystemName
+        set property `current-system` of Config to SystemName
+        save stringify Config to ConfigFile
+    end
     put property `hosts` of Config into Hosts
-
+ 
     put empty into SystemHostSSID
     put empty into SystemIPAddr
     put empty into MasterDevice
@@ -487,14 +497,17 @@ ResetConfigFileClick:
     show MessageBox giving Value
     if Value is `Yes`
     begin
-        log ConfigFile
+        log `Deleting ` cat ConfigFile
         delete file ConfigFile
+        log `Deleting ` cat ControllerSpecPath
         delete file ControllerSpecPath
         disable RemoveSystemButton
         set the text of MasterDeviceButton to empty
         put empty into SystemMAC
         clear SlaveList
-        go to Start
+        log prettify SystemConfig
+        gosub to PostConfigData
+        go to Restart
     end
     stop
 
@@ -603,6 +616,7 @@ ScanIPAddress:
     set property `mac` of SystemConfig to SystemMAC
     set property `password` of SystemConfig to SystemPassword
     set property `devices` of SystemConfig to json `{}`
+    set property `current-system` of Config to SystemName
     log `Adding ` cat SystemName cat ` to Systems`
     gosub to GetConfigData
 !    log prettify SystemConfig
@@ -686,6 +700,12 @@ SelectSystem:
     log SystemName cat ` ` cat  property `current-system` of Config
 SelectSystem2:
     if SystemName is empty return
+    if Systems does not have property SystemName
+    begin
+        put the keys of Systems into Keys
+        put element 0 of Keys into SystemName
+        set property `current-system` of Config to SystemName
+    end
     log `Select system ` cat SystemName
     ! Update the current system
     gosub to ResumeSystemController
@@ -699,6 +719,7 @@ SelectSystem2:
     ! Select the new system
     set property `current-system` of Config to SystemName
     put property SystemName of Systems into SystemConfig
+    log SystemConfig
     put property `ipaddr` of SystemConfig into SystemIPAddr
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
@@ -729,7 +750,7 @@ RemoveSystemClick:
     if Value is `Yes`
     begin
         remove the current item from SystemsCombo
-        delete property SystemName of Systems
+        delete property Name of Systems
         put empty into SystemName
         set the text of MasterDeviceButton to empty
         clear SlaveList
@@ -737,18 +758,8 @@ RemoveSystemClick:
         set property `current-system` of Config to SystemsCombo
         set property `systems` of Config to Systems
         put empty into SystemHostSSID
-        log SystemConfig
+        save prettify Config to ConfigFile
         gosub to PostConfigData
-        put the keys of ControllerSpec into Keys
-        put 0 into K
-        while K is less than the count of Keys
-        begin
-            put element K of Keys into Value
-            if Value is not `current`
-            begin
-            end
-            increment K
-        end
     end
     if the count of SystemsCombo is 0 disable RemoveSystemButton
     else
@@ -1285,6 +1296,7 @@ RemoveSlaveClick:
 !   Close the application and exit
 ExitClick:
     log `Exit the configurator`
+    gosub to PostConfigData
     gosub to ResumeSystemController
     close Window
     exit
@@ -1937,8 +1949,8 @@ PostConfigData:
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
     put `https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword into URL
-!    log URL cat ` ` cat prettify SystemConfig
-!    log `Posting SystemConfig to ` cat URL
+    log `Posting SystemConfig to ` cat URL
+!    log prettify SystemConfig
     post stringify SystemConfig to URL
     or begin
         put `I couldn't post the config file` into StatusMessage
@@ -1951,9 +1963,6 @@ PostConfigData:
 UpdateSystemConfig:
     set property `devices` of SystemConfig to Devices
 UpdateSystems:
-!   Bug fix
-!    put `Ur4nXVQKJPrQcJ` into HostPassword
-!    set property `host-password` of SystemConfig to HostPassword
     set property SystemName of Systems to SystemConfig
 UpdateConfig:
     set property `systems` of Config to Systems
@@ -2114,7 +2123,7 @@ GetSSH:
     create Panel type QVBoxLayout
     create Layout type QHBoxLayout
     add Layout to Panel
-    create Label text `SHH Host IP:`
+    create Label text `SSH Host IP:`
     add Label to Layout
     create HostInput size 30
     set the width of HostInput to 200
