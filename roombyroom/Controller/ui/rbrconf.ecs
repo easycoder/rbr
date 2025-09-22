@@ -502,12 +502,7 @@ ResetConfigFileClick:
         log `Deleting ` cat ControllerSpecPath
         delete file ControllerSpecPath
         put `Restarted the configurator` into StatusMessage
-        gosub to OK
-!        disable RemoveSystemButton
-!        set the text of MasterDeviceButton to empty
-!        put empty into SystemMAC
-!        clear SlaveList
-!        gosub to PostConfigData
+        gosub to Idle
         go to Restart
     end
     stop
@@ -1250,11 +1245,19 @@ MasterDeviceClick:
     if MasterDeviceButton is not empty
     begin
         log `Select the master device`
-        set DeviceSelected
-        set IsMaster
-        put property MasterDeviceName of Devices into MasterDevice
-        put MasterDevice into Device
-        gosub to PopulateDeviceInfo
+        if Devices has property MasterDeviceName
+        begin
+            set DeviceSelected
+            set IsMaster
+            put property MasterDeviceName of Devices into MasterDevice
+            put MasterDevice into Device
+            gosub to PopulateDeviceInfo
+        end
+        else
+        begin
+            put `Can't select the master device` into StatusMessage
+            gosub to Error
+        end
     end
     gosub to SetUnBusy
     stop
@@ -1299,9 +1302,17 @@ SlaveDeviceClick:
     put the position of ` ` in Item into S
     increment S
     put from S of Item into Item
-    put property Item of Devices into Device
-    put property `name` of Device into Name
-    gosub to PopulateDeviceInfo
+    if Devices has property Item
+    begin
+        put property Item of Devices into Device
+        put property `name` of Device into Name
+        gosub to PopulateDeviceInfo
+    end
+    else
+    begin
+        put `Can't select the device` into StatusMessage
+        gosub to Error
+    end
     gosub to SetUnBusy
     stop
 
