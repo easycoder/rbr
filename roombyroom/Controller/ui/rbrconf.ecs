@@ -371,6 +371,7 @@ Restart:
             gosub to GetSSH
         end
     end
+    log ControllerSpec
     put trim system `echo $HOME` cat `/.rbr.conf` into ConfigFile
 
     if IsLocal
@@ -500,13 +501,14 @@ ResetConfigFileClick:
         delete file ConfigFile
         log `Deleting ` cat ControllerSpecPath
         delete file ControllerSpecPath
-        disable RemoveSystemButton
-        set the text of MasterDeviceButton to empty
-        put empty into SystemMAC
-        clear SlaveList
-        log prettify SystemConfig
-        gosub to PostConfigData
-!        go to Restart
+        put `Restarted the configurator` into StatusMessage
+        gosub to OK
+!        disable RemoveSystemButton
+!        set the text of MasterDeviceButton to empty
+!        put empty into SystemMAC
+!        clear SlaveList
+!        gosub to PostConfigData
+        go to Restart
     end
     stop
 
@@ -1983,8 +1985,8 @@ GetDeviceData:
 !   Post the config data
 PostConfigData:
     if CurrentSSID is not HostSSID gosub to ConnectToHost
-    save prettify Config to ConfigFile
 !    log `Config: ` cat prettify Config
+    save prettify Config to ConfigFile
     if SystemMAC is empty return
     if SystemConfig is empty return
     put property `mac` of SystemConfig into SystemMAC

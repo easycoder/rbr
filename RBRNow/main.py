@@ -47,6 +47,7 @@ class RBRNow():
         while True:
             print('2-min config window')
             await asyncio.sleep(120)
+            print('Close the AP')
             if self.config.isMaster():
                 self.blinkCycle='master'
                 break
