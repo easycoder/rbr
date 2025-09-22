@@ -286,7 +286,6 @@
     variable Prompt
     variable SystemConfig
     variable SystemCallResult
-    variable SystemNames
     variable SystemName
     variable SystemMAC
     variable SystemPassword
@@ -414,10 +413,12 @@ Start:
     else put empty into Config
     if Config is empty
     begin
+        log `No config file`
         put `{}` into Config
         save Config to ConfigFile
     end
     put json Config into Config
+    log Config
     if Config does not have property `hosts` set property `hosts` of Config to json `{}`
     if Config does not have property `systems` set property `systems` of Config to json `{}`
     if Config does not have property `current-system` set property `current-system` of Config to empty
