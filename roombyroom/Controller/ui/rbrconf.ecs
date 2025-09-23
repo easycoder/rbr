@@ -1443,7 +1443,7 @@ ConnectToHost:
     put `Connect to host ` cat HostSSID cat ` with password ` cat HostPassword into StatusMessage
     gosub to Working
     system `nmcli connection delete ` cat HostSSID
-    put system `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword into SystemCallResult
+    put system `nmcli dev wifi connect ` cat HostSSID cat ` password "` cat HostPassword cat `"` into SystemCallResult
     split SystemCallResult on ` `
     if the elements of SystemCallResult is greater than 2
     begin
