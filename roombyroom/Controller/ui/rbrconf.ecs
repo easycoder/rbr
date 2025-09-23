@@ -832,6 +832,8 @@ ReconnectMasterClick:
             set property `hostssid` of Device to HostSSID
             set property `hostpass` of Device to HostPassword
             set property `ipaddr` of Device to empty
+            set property Name of Devices to Device
+            gosub to UpdateSystemConfig
             put stringify Device into Content
             put `192.168.9.1` into MasterIPAddr
             gosub to SendConfigToMaster
