@@ -50,6 +50,7 @@ class RBRNow():
             print('Close the AP')
             if self.config.isMaster():
                 self.blinkCycle='master'
+                self.config.closeAP()
                 break
             if self.config.getMyMaster()!=None:
                 self.blinkCycle='slave'
