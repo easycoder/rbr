@@ -52,7 +52,7 @@ class RBRNow():
                 self.blinkCycle='master'
                 self.config.closeAP()
                 break
-            if self.config.getMyMaster()!=None:
+            if self.config.getMyMaster()!='':
                 self.blinkCycle='slave'
                 self.config.closeAP()
                 break
