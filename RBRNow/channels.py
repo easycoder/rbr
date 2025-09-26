@@ -19,7 +19,6 @@ class Channels():
         asyncio.create_task(self.countMissingMessages())
 
     def resetCounter(self):
-        print('Resetting counter')
         self.idleCount=0
 
     async def findMyMaster(self):
