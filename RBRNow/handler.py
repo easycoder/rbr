@@ -11,7 +11,7 @@ class Handler():
         self.saveError=False
 
     def handleMessage(self,msg):
-        print('Handler:',msg)
+#        print('Handler:',msg)
         bleValues=self.config.getBLEValues()
         response=f'OK {self.config.getUptime()} :{bleValues}'
         if msg=='uptime':
@@ -38,7 +38,6 @@ class Handler():
             response=f'OK {channel}'
         elif msg[0:7]=='environ':
             environ=msg[8:]
-            print('Set environ to',environ)
             self.config.setEnviron(environ)
             response=f'OK {environ}'
         elif msg=='temp':
@@ -84,16 +83,20 @@ class Handler():
                 response=f'{part} {str(len(text))}'
         elif msg[0:4]=='save':
             if len(self.buffer[0])>0:
-                file=msg[5:]
-                print(f'Save {file}')
+                fname=msg[5:]
+                tname=f't-{fname}'
+                print(f'Save {tname}')
                 size=0
-                f = open(file,'w')
+                f = open(tname,'w')
                 for n in range(0, len(self.buffer)):
                     f.write(self.buffer[n])
                     size+= len(self.buffer[n])
                 f.close()
                 # Check the file against the buffer
-                if self.checkFile(self.buffer, file): response=str(size) 
+                if self.checkFile(self.buffer, file):
+                    print(f'Rename to {fname}')
+                    renameFile(tname,fname)
+                    response=str(size) 
                 else: response='Bad save'
             else: response='No update'
             text=None
