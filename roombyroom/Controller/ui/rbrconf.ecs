@@ -382,20 +382,7 @@ Restart:
     else
     begin
         log `Running remotely`
-        put property `current` of ControllerSpec into SystemIPAddr
-        put property SystemIPAddr of ControllerSpec into Item
-        put `Set up SSH to ` cat SystemIPAddr into StatusMessage
-        gosub to Working
-        set SSH
-            host SystemIPAddr
-            user property `user` of Item
-            password property `password` of Item
-        if error in SSH
-        begin
-            put `SSH error: ` cat the error of SSH into StatusMessage
-            gosub to Error
-            stop
-        end
+        gosub to SetupSSH
     end
 
     put json `{}` into SystemConfig
@@ -486,6 +473,25 @@ Start:
     put `Ready` into StatusMessage
     gosub to Idle
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set up SSH on the current system controller
+SetupSSH:
+    put property `current` of ControllerSpec into SystemIPAddr
+    put property SystemIPAddr of ControllerSpec into Item
+    put `Set up SSH to ` cat SystemIPAddr into StatusMessage
+    gosub to Working
+    set SSH
+        host SystemIPAddr
+        user property `user` of Item
+        password property `password` of Item
+    if error in SSH
+    begin
+        put `SSH error: ` cat the error of SSH into StatusMessage
+        gosub to Error
+        clear SSH
+    end
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Reset the entire system
@@ -707,47 +713,58 @@ SelectSystem2:
     gosub to ResumeSystemController
     if not IsLocal
     begin
-        put property `current-system` of Config into SystemName
-        if SystemName is empty return
-        put property SystemName of Systems into SystemConfig
-        gosub to PostConfigData
+        if SSH
+        begin
+            put property `current-system` of Config into SystemName
+            if SystemName is empty return
+            put property SystemName of Systems into SystemConfig
+            gosub to PostConfigData
+            clear SSH
+        end
     end
     ! Select the new system
+    log `Set up ` cat SystemName
     set property `current-system` of Config to SystemName
     put property SystemName of Systems into SystemConfig
-!    log SystemConfig
+    log SystemConfig
     put property `ipaddr` of SystemConfig into SystemIPAddr
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
-!    log ControllerSpec
+    log ControllerSpec
     if ControllerSpec has property SystemIPAddr
     begin
         set property `current` of ControllerSpec to SystemIPAddr
         save ControllerSpec to HomeDir cat `/.controller.json`
     end
-!    else gosub to GetSSH
     else
     begin
-        put `Different host SSID: ` cat SystemHostSSID into StatusMessage
-        gosub to Working
-        put property `host-ssid` of SystemConfig into SSID
-        put property `host-password` of SystemConfig into Password
-        put property `ipaddr` of SystemConfig into IPAddr
-        create MessageBox on Window
-            style question
-            title `Change network`
-            message `System '` cat SystemName cat `' is registered on a different network ` cat newline
-                cat `(` cat SSID cat ` / ` cat Password cat ` / ` cat IPAddr
-                cat `).` cat newline cat ` Would you like to move it to your current network?`
-        show MessageBox giving Value
-        if Value is `Yes`
+        gosub to GetSSH
+        log SystemConfig
+        log ControllerSpec
+        if property `host-ssid` of SystemConfig is not HostSSID
         begin
-            set property `host-ssid` of SystemConfig to HostSSID
-            set property `host-password` of SystemConfig to HostPassword
-            set property `ipaddr` of SystemConfig to property `current` of ControllerSpec
-            set property SystemName of Systems to SystemConfig
+            put `Different host SSID: ` cat SystemHostSSID into StatusMessage
+            gosub to Working
+            put property `host-ssid` of SystemConfig into SSID
+            put property `host-password` of SystemConfig into Password
+            put property `ipaddr` of SystemConfig into IPAddr
+            create MessageBox on Window
+                style question
+                title `Change network`
+                message `System '` cat SystemName cat `' is registered on a different network ` cat newline
+                    cat `(` cat SSID cat ` / ` cat Password cat ` / ` cat IPAddr
+                    cat `).` cat newline cat ` Would you like to move it to your current network?`
+            show MessageBox giving Value
+            if Value is `Yes`
+            begin
+                set property `host-ssid` of SystemConfig to HostSSID
+                set property `host-password` of SystemConfig to HostPassword
+                set property `ipaddr` of SystemConfig to property `current` of ControllerSpec
+                set property SystemName of Systems to SystemConfig
+            end
         end
     end
+    if not IsLocal gosub to SetupSSH
     gosub to PopulateSystemInfo
     gosub to PostConfigData
     gosub to LockSystemController
@@ -1466,11 +1483,6 @@ ConnectToHost:
     set property `host-ssid` of Config to HostSSID
     if Config does not have property `host-password` gosub to GetHostPassword
     set property `host-password` of Config to HostPassword
-    if HostPassword is not `Ur4nXVQKJPrQcJ`
-    begin
-        log `******** I just set the host password for ` cat HostSSID cat ` to ` cat HostPassword cat `************`
-        print prettify Config
-    end
     go to ConnectToHost
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2028,14 +2040,15 @@ UpdateConfig:
 !   Lock the system controller
 LockSystemController:
     if IsLocal save `lock` to RamDisk cat `lock`
-    else save `lock` to SSH RamDisk cat `lock`
+    else if SSH save `lock` to SSH RamDisk cat `lock`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Resume the system controller
 ResumeSystemController:
     if IsLocal save empty to RamDisk cat `lock`
-    else if not error in SSH save empty to SSH RamDisk cat `lock`
+    else if SSH
+        if not error in SSH save empty to SSH RamDisk cat `lock`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
