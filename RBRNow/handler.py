@@ -93,7 +93,7 @@ class Handler():
                     size+= len(self.buffer[n])
                 f.close()
                 # Check the file against the buffer
-                if self.checkFile(self.buffer, file):
+                if self.checkFile(self.buffer, tname):
                     print(f'Rename to {fname}')
                     renameFile(tname,fname)
                     response=str(size) 
