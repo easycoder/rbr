@@ -1,4 +1,4 @@
-import asyncio,machine
+import asyncio,machine,os
 from binascii import unhexlify
 from files import readFile,writeFile,renameFile,deleteFile,createDirectory
 
@@ -94,13 +94,21 @@ class Handler():
                 f.close()
                 # Check the file against the buffer
                 if self.checkFile(self.buffer, tname):
-                    print(f'Rename to {fname}')
-                    deleteFile(fname)
-                    renameFile(tname,fname)
+                    print(f'save {tname}')
+#                    deleteFile(fname)
+#                    renameFile(tname,fname)
                     response=str(size) 
                 else: response='Bad save'
             else: response='No update'
             text=None
+        elif msg=='update':
+            for tname in os.listdir('.'):
+                    if tname[0:2]=='t-':
+                        fname=tname[2:]
+                        print(f'Rename to {fname}')
+#                        deleteFile(fname)
+#                        renameFile(tname,fname)
+            response='OK'
         elif msg[0:5]=='mkdir':
             path=msg[6:]
             print(f'mkdir {path}')
