@@ -94,8 +94,6 @@ class Handler():
                 f.close()
                 # Check the file against the buffer
                 if self.checkFile(self.buffer, tname):
-                    deleteFile(fname)
-                    renameFile(tname,fname)
                     response=str(size)
                     print('File saved')
                 else: response='Bad save'

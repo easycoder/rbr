@@ -371,7 +371,7 @@ Restart:
             gosub to GetSSH
         end
     end
-    log ControllerSpec
+!    log ControllerSpec
     put trim system `echo $HOME` cat `/.rbr.conf` into ConfigFile
 
     if IsLocal
@@ -726,11 +726,9 @@ SelectSystem2:
     log `Set up ` cat SystemName
     set property `current-system` of Config to SystemName
     put property SystemName of Systems into SystemConfig
-    log SystemConfig
     put property `ipaddr` of SystemConfig into SystemIPAddr
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
-    log ControllerSpec
     if ControllerSpec has property SystemIPAddr
     begin
         set property `current` of ControllerSpec to SystemIPAddr
@@ -769,7 +767,6 @@ SelectSystem2:
     gosub to PostConfigData
     gosub to LockSystemController
     log `System ` cat SystemName cat ` selected`
-    log Devices
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
