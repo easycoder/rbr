@@ -94,20 +94,20 @@ class Handler():
                 f.close()
                 # Check the file against the buffer
                 if self.checkFile(self.buffer, tname):
-                    print(f'save {tname}')
-#                    deleteFile(fname)
-#                    renameFile(tname,fname)
-                    response=str(size) 
+                    deleteFile(fname)
+                    renameFile(tname,fname)
+                    response=str(size)
+                    print('File saved')
                 else: response='Bad save'
-            else: response='No update'
+            else: response='No data'
             text=None
         elif msg=='update':
             for tname in os.listdir('.'):
                     if tname[0:2]=='t-':
                         fname=tname[2:]
-                        print(f'Rename to {fname}')
-#                        deleteFile(fname)
-#                        renameFile(tname,fname)
+                        print(f'Update {fname}')
+                        deleteFile(fname)
+                        renameFile(tname,fname)
             response='OK'
         elif msg[0:5]=='mkdir':
             path=msg[6:]

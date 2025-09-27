@@ -1592,6 +1592,8 @@ UpdateAllFilesClick:
         end
         increment F
     end
+    put `update` into Message
+    gosub to SendMessageToDevice
     gosub to SetUnBusy
     put `All files updated` into StatusMessage
     gosub to Idle
