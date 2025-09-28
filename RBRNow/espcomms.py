@@ -118,44 +118,43 @@ class ESPComms():
     async def receive(self):
         print('Starting ESPNow receiver')
         while True:
-            while True:
-                if self.e.active():
-                    while self.e.any():
-                        mac,msg=self.e.recv()
-                        msg=msg.decode()
-                        print('Received',msg)
-                        if msg=='ping':
-                            try:
-                                self.addPeer(mac)
-                                self.e.send(mac,'pong')
-                            except Exception as ex: print('ping:',ex)
-                        else:
-                            if msg[0]=='!':
-                                # It's a message to be relayed
-                                comma=msg.index(',')
-                                slave=msg[1:comma]
-                                msg=msg[comma+1:]
-    #                            print(f'Slave: {slave}, msg: {msg}')
-                                response=await self.send(slave,msg)
-                            else:
-                                # It's a message for me
-                                response=self.config.getHandler().handleMessage(msg)
-                                response=f'{response} {self.getRSS(mac)}'
+            if self.e.active():
+                while self.e.any():
+                    mac,msg=self.e.recv()
+                    msg=msg.decode()
+                    print('Received',msg)
+                    if msg=='ping':
+                        try:
                             self.addPeer(mac)
-                            try:
-                                self.addPeer(mac)
-                                self.e.send(mac,response)
-                                print(response)
-                                self.config.resetCounter()
-                                if not self.config.getMyMaster() and not self.config.isMaster():
-                                    self.config.setMyMaster(mac.hex())
-                            except Exception as ex: print('Can\'t respond',ex)
-                    if self.requestToSend:
-                        self.sending=True
-                        while self.sending: await asyncio.sleep(.1)
-                else: print('Not active')
-                await asyncio.sleep(.1)
-                self.config.kickWatchdog()
+                            self.e.send(mac,'pong')
+                        except Exception as ex: print('ping:',ex)
+                    else:
+                        if msg[0]=='!':
+                            # It's a message to be relayed
+                            comma=msg.index(',')
+                            slave=msg[1:comma]
+                            msg=msg[comma+1:]
+#                            print(f'Slave: {slave}, msg: {msg}')
+                            response=await self.send(slave,msg)
+                        else:
+                            # It's a message for me
+                            response=self.config.getHandler().handleMessage(msg)
+                            response=f'{response} {self.getRSS(mac)}'
+                        self.addPeer(mac)
+                        try:
+                            self.addPeer(mac)
+                            self.e.send(mac,response)
+                            print(response)
+                            self.config.resetCounter()
+                            if not self.config.getMyMaster() and not self.config.isMaster():
+                                self.config.setMyMaster(mac.hex())
+                        except Exception as ex: print('Can\'t respond',ex)
+                if self.requestToSend:
+                    self.sending=True
+                    while self.sending: await asyncio.sleep(.1)
+            else: print('Not active')
+            await asyncio.sleep(.1)
+            self.config.kickWatchdog()
 
     def getRSS(self,mac):
         try: return self.e.peers_table[mac][0]

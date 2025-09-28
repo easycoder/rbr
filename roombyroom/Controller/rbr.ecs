@@ -115,10 +115,14 @@
 
     put `/mnt/data/` into RamDisk
 
-    if file RamDisk cat `block` exists
+    if file RamDisk cat `lock` exists
     begin
-        log `Blocked`
-        exit
+        load Locked from RamDisk cat `lock`
+        if Locked is not empty
+        begin
+            log `Locked`
+            exit
+        end
     end
 
     put system `hostname -I` into IPAddr
@@ -411,14 +415,10 @@ SkipRequests:
                 begin
                     put Name into RoomName
                     put property Name of Devices into Device
-                    gosub to CheckLock
-                    if not Locked
-                    begin
-                        put OnOff into Message
-                        gosub to MessageESPDevice
-                        if Response is empty log Name cat `: No response`
-                        else gosub to RecordMijia
-                    end
+                    put OnOff into Message
+                    gosub to MessageESPDevice
+                    if Response is empty log Name cat `: No response`
+                    else gosub to RecordMijia
                 end
                 else log `No request relay called ` cat Name
             end
@@ -493,45 +493,39 @@ ProcessRoom:
             begin
                 if property `errors` of RoomStatus is not 0
                 begin
-                    set property `temperature` of RoomSpec to property `temperature` of RoomStatus
+                    if RoomStatus has property `temperature`
+                        set property `temperature` of RoomSpec to property `temperature` of RoomStatus
+                    else set property `temperature` of RoomSpec to 0
                     return
                 end
             end
 
             put property Sensor of Devices into Device
-            gosub to CheckLock
-            if Locked
+            put `temp` into Message
+            gosub to MessageESPDevice
+!            log `Sensor: ` cat Response
+            if left 3 of Response is `OK `
             begin
-                set property `temperature` of RoomSpec to `0`
+                split Response on ` `
+                index Response to 1
+                set property `temperature` of RoomSpec to Response
+                set property `battery` of RoomSpec to `100`
+                if property `errors` of RoomStatus is not 0 set property `temperature` of RoomStatus to Response
+                index Response to 2
+                put `` cat Response into SensorRSS
+                gosub to ResetErrorCount
             end
             else
             begin
-                put `temp` into Message
-                gosub to MessageESPDevice
-!                log `Sensor: ` cat Response
-                if left 3 of Response is `OK `
+                if RoomStatus has property `temperature`
                 begin
-                    split Response on ` `
-                    index Response to 1
-                    set property `temperature` of RoomSpec to Response
-                    set property `battery` of RoomSpec to `100`
-                    if property `errors` of RoomStatus is not 0 set property `temperature` of RoomStatus to Response
-                    index Response to 2
-                    put `` cat Response into SensorRSS
-                    gosub to ResetErrorCount
+                    set property `temperature` of RoomSpec to property `temperature` of RoomStatus
                 end
                 else
                 begin
-                    if RoomStatus has property `temperature`
-                    begin
-                        set property `temperature` of RoomSpec to property `temperature` of RoomStatus
-                    end
-                    else
-                    begin
-                        set property `temperature` of RoomSpec to `0`
-                    end
-                    gosub to BumpErrorCount
+                    set property `temperature` of RoomSpec to `0`
                 end
+                gosub to BumpErrorCount
             end
         end
         else
@@ -880,30 +874,26 @@ SetRelays:
                 go to SR2
             end
             put property RoomName of Devices into Device
-            gosub to CheckLock
-            if not Locked
-            begin
-                put OnOff into Message
+            put OnOff into Message
 
-                gosub to MessageESPDevice
-                if Response is not empty
+            gosub to MessageESPDevice
+            if Response is not empty
+            begin
+                gosub to RecordMijia
+                put Response into Value
+                put json `{}` into Response
+                split Value on ` `
+                if the elements of Value is not less than 4
                 begin
-                    gosub to RecordMijia
-                    put Response into Value
-                    put json `{}` into Response
-                    split Value on ` `
-                    if the elements of Value is not less than 4
-                    begin
-                        index Value to 1
-                        set property `uptime` of Response to Value
-                        index Value to 2
-                        if Value is 1 set property `state` of Response to `on` else set property `state` of Response to `off`
-                        index Value to 3
-                        set property `RSS` of Response to Value
-                    end
+                    index Value to 1
+                    set property `uptime` of Response to Value
+                    index Value to 2
+                    if Value is 1 set property `state` of Response to `on` else set property `state` of Response to `off`
+                    index Value to 3
+                    set property `RSS` of Response to Value
                 end
-                set the elements of Value to 1
             end
+            set the elements of Value to 1
         end
         else if RelayType is `Shelly One`
         begin
@@ -1084,22 +1074,6 @@ ClearNetworkErrors:
 NetworkError:
     add 1 to NetworkErrors
     save  `` cat NetworkErrors to RamDisk cat `network-errors`
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Check if lock is set for the current device
-CheckLock:
-    put property `name` of Device into Name
-    put RamDisk cat `lock` into FileName
-    if file FileName exists
-    begin
-        set the elements of Value to 1
-        load Value from FileName
-        if Value is empty clear Locked else set Locked
-!        else if Value is `all` set Locked
-!        else if Value is Name set Locked
-    end
-    else clear Locked
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

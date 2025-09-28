@@ -28,7 +28,7 @@
     pushbutton ResetConfigButton
     pushbutton ScanDevicesButton
     pushbutton ClearSystemButton
-    pushbutton ReconnectMasterButton
+    pushbutton SetMasterAddressButton
     pushbutton RemoveSlaveButton
     pushbutton UpdateFileButton
     pushbutton UpdateAllFilesButton
@@ -82,9 +82,9 @@
     on click ClearSystemButton go to ClearSystemClick
     add ClearSystemButton to LeftPanel
 
-    create ReconnectMasterButton text `Reconnect the master`
-    on click ReconnectMasterButton go to ReconnectMasterClick
-    add ReconnectMasterButton to LeftPanel
+    create SetMasterAddressButton text `Set the master IP address`
+    on click SetMasterAddressButton go to SetMasterAddressClick
+    add SetMasterAddressButton to LeftPanel
 
     add stretch to LeftPanel
 
@@ -345,7 +345,6 @@
 !    debug compile
 !    debug step
 
-Restart:
     put `linaro` into Name
     if Name is trim system `whoami`
     begin
@@ -371,7 +370,6 @@ Restart:
             gosub to GetSSH
         end
     end
-!    log ControllerSpec
     put trim system `echo $HOME` cat `/.rbr.conf` into ConfigFile
 
     if IsLocal
@@ -382,13 +380,26 @@ Restart:
     else
     begin
         log `Running remotely`
-        gosub to SetupSSH
+        put property `current` of ControllerSpec into SystemIPAddr
+        put property SystemIPAddr of ControllerSpec into Item
+        put `Set up SSH to ` cat SystemIPAddr into StatusMessage
+        gosub to Working
+        set SSH
+            host SystemIPAddr
+            user property `user` of Item
+            password property `password` of Item
+        if error in SSH
+        begin
+            put `SSH error: ` cat the error of SSH into StatusMessage
+            gosub to Error
+            stop
+        end
     end
 
     put json `{}` into SystemConfig
     put json `{}` into Devices
-    
-    gosub to LockSystemController
+
+    gosub to ResumeSystemController
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main program starts here
@@ -401,7 +412,6 @@ Start:
     else put empty into Config
     if Config is empty
     begin
-        log `No config file`
         put `{}` into Config
         save Config to ConfigFile
     end
@@ -409,16 +419,8 @@ Start:
     if Config does not have property `hosts` set property `hosts` of Config to json `{}`
     if Config does not have property `systems` set property `systems` of Config to json `{}`
     if Config does not have property `current-system` set property `current-system` of Config to empty
-    if property `current-system` of Config is empty
-    begin
-        put property `systems` of Config into Systems
-        put the keys of Systems into Keys
-        if the count of Keys is 0 put empty into SystemName else put element 0 of Keys into SystemName
-        set property `current-system` of Config to SystemName
-        save stringify Config to ConfigFile
-    end
     put property `hosts` of Config into Hosts
- 
+
     put empty into SystemHostSSID
     put empty into SystemIPAddr
     put empty into MasterDevice
@@ -462,6 +464,7 @@ Start:
         if SystemName is not empty
         begin
             select SystemName in SystemsCombo
+!            log prettify SystemConfig
             gosub to SelectSystem
         end
         gosub to GetChannel
@@ -475,25 +478,6 @@ Start:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Set up SSH on the current system controller
-SetupSSH:
-    put property `current` of ControllerSpec into SystemIPAddr
-    put property SystemIPAddr of ControllerSpec into Item
-    put `Set up SSH to ` cat SystemIPAddr into StatusMessage
-    gosub to Working
-    set SSH
-        host SystemIPAddr
-        user property `user` of Item
-        password property `password` of Item
-    if error in SSH
-    begin
-        put `SSH error: ` cat the error of SSH into StatusMessage
-        gosub to Error
-        clear SSH
-    end
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Reset the entire system
 ResetConfigFileClick:
     create MessageBox on Window
@@ -503,13 +487,14 @@ ResetConfigFileClick:
     show MessageBox giving Value
     if Value is `Yes`
     begin
-        log `Deleting ` cat ConfigFile
+        log ConfigFile
         delete file ConfigFile
-        log `Deleting ` cat ControllerSpecPath
         delete file ControllerSpecPath
-        put `Restarted the configurator` into StatusMessage
-        gosub to Idle
-        go to Restart
+        disable RemoveSystemButton
+        set the text of MasterDeviceButton to empty
+        put empty into SystemMAC
+        clear SlaveList
+        go to Start
     end
     stop
 
@@ -618,7 +603,6 @@ ScanIPAddress:
     set property `mac` of SystemConfig to SystemMAC
     set property `password` of SystemConfig to SystemPassword
     set property `devices` of SystemConfig to json `{}`
-    set property `current-system` of Config to SystemName
     log `Adding ` cat SystemName cat ` to Systems`
     gosub to GetConfigData
 !    log prettify SystemConfig
@@ -702,28 +686,17 @@ SelectSystem:
     log SystemName cat ` ` cat  property `current-system` of Config
 SelectSystem2:
     if SystemName is empty return
-    if Systems does not have property SystemName
-    begin
-        put the keys of Systems into Keys
-        put element 0 of Keys into SystemName
-        set property `current-system` of Config to SystemName
-    end
     log `Select system ` cat SystemName
     ! Update the current system
     gosub to ResumeSystemController
     if not IsLocal
     begin
-        if SSH
-        begin
-            put property `current-system` of Config into SystemName
-            if SystemName is empty return
-            put property SystemName of Systems into SystemConfig
-            gosub to PostConfigData
-            clear SSH
-        end
+        put property `current-system` of Config into SystemName
+        if SystemName is empty return
+        put property SystemName of Systems into SystemConfig
+        gosub to PostConfigData
     end
     ! Select the new system
-    log `Set up ` cat SystemName
     set property `current-system` of Config to SystemName
     put property SystemName of Systems into SystemConfig
     put property `ipaddr` of SystemConfig into SystemIPAddr
@@ -734,35 +707,7 @@ SelectSystem2:
         set property `current` of ControllerSpec to SystemIPAddr
         save ControllerSpec to HomeDir cat `/.controller.json`
     end
-    else
-    begin
-        gosub to GetSSH
-        log SystemConfig
-        log ControllerSpec
-        if property `host-ssid` of SystemConfig is not HostSSID
-        begin
-            put `Different host SSID: ` cat SystemHostSSID into StatusMessage
-            gosub to Working
-            put property `host-ssid` of SystemConfig into SSID
-            put property `host-password` of SystemConfig into Password
-            put property `ipaddr` of SystemConfig into IPAddr
-            create MessageBox on Window
-                style question
-                title `Change network`
-                message `System '` cat SystemName cat `' is registered on a different network ` cat newline
-                    cat `(` cat SSID cat ` / ` cat Password cat ` / ` cat IPAddr
-                    cat `).` cat newline cat ` Would you like to move it to your current network?`
-            show MessageBox giving Value
-            if Value is `Yes`
-            begin
-                set property `host-ssid` of SystemConfig to HostSSID
-                set property `host-password` of SystemConfig to HostPassword
-                set property `ipaddr` of SystemConfig to property `current` of ControllerSpec
-                set property SystemName of Systems to SystemConfig
-            end
-        end
-    end
-    if not IsLocal gosub to SetupSSH
+    else gosub to GetSSH
     gosub to PopulateSystemInfo
     gosub to PostConfigData
     gosub to LockSystemController
@@ -784,7 +729,7 @@ RemoveSystemClick:
     if Value is `Yes`
     begin
         remove the current item from SystemsCombo
-        delete property Name of Systems
+        delete property SystemName of Systems
         put empty into SystemName
         set the text of MasterDeviceButton to empty
         clear SlaveList
@@ -792,11 +737,24 @@ RemoveSystemClick:
         set property `current-system` of Config to SystemsCombo
         set property `systems` of Config to Systems
         put empty into SystemHostSSID
-        save prettify Config to ConfigFile
+        log SystemConfig
         gosub to PostConfigData
+        put the keys of ControllerSpec into Keys
+        put 0 into K
+        while K is less than the count of Keys
+        begin
+            put element K of Keys into Value
+            if Value is not `current`
+            begin
+            end
+            increment K
+        end
     end
     if the count of SystemsCombo is 0 disable RemoveSystemButton
-    else select index 0 of SystemsCombo
+    else
+    begin
+        select index 0 of SystemsCombo
+    end
     gosub to SetUnBusy
     stop
 
@@ -827,35 +785,15 @@ ClearSystemClick:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Reconnect the master after a network change
-ReconnectMasterClick:
-    gosub to SetBusy
-    put the keys of Devices into Keys
-    put 0 into K
-    while K is less than the count of Keys
-    begin
-        put element K of Keys into Name
-        put property Name of Devices into Device
-        if property `master` of Device is true
-        begin
-            put from 8 of MasterSSID into MasterMAC
-            put property `ssid` of Device into SSID
-            gosub to InterrogateDevice
-            if ErrorFlag go to RMC2
-            put `config.json` into FileName
-            set property `hostssid` of Device to HostSSID
-            set property `hostpass` of Device to HostPassword
-            set property `ipaddr` of Device to empty
-            set property Name of Devices to Device
-            gosub to UpdateSystemConfig
-            put stringify Device into Content
-            put `192.168.9.1` into MasterIPAddr
-            gosub to SendConfigToMaster
-            go to RMC2
-        end
-        increment K
-    end
-RMC2:
+!   Set the master IP address
+SetMasterAddressClick:
+    put `Master IP Address:` into Prompt
+    put empty into Value
+    put `Master IP Address` into Title
+    put 20 into Length
+    put MasterIPAddr into Value
+    gosub to GetRequestedText
+    if ReturnValue is not empty put ReturnValue into MasterIPAddr
     gosub to SetUnBusy
     stop
 
@@ -990,30 +928,6 @@ SetupDevice:
     end
 
     ! Connect to the device's AP and get basic data
-    gosub to InterrogateDevice
-    if ErrorFlag return
-
-    ! Check if this is the first device to be configured. If so, make it the master.
-    if MasterSSID is empty gosub to ConfigureMasterDevice
-    else
-    begin
-        clear IsMaster
-        log `Deal with slave ` cat Name
-        put SSID cat ` ` cat Name into Item
-        log Item
-        if SlaveDevices does not include Name
-        begin
-            append Item to SlaveDevices
-            set SlaveList to SlaveDevices
-            gosub to CreateDevice
-            gosub to SendChannelToSlave
-        end
-    end
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Interrogate a device on its AP
-InterrogateDevice:
     gosub to ConnectToDevice
     if ErrorFlag return
     put system `hostname -I` into IPAddr
@@ -1042,7 +956,26 @@ InterrogateDevice:
     put Info into MAC
     index Info to 2
     put Info into Name
+    log Name
     replace `_` with ` ` in Name
+    log Name
+
+    ! Check if this is the first device to be configured. If so, make it the master.
+    if MasterSSID is empty gosub to ConfigureMasterDevice
+    else
+    begin
+        clear IsMaster
+        log `Deal with slave ` cat Name
+        put SSID cat ` ` cat Name into Item
+        log Item
+        if SlaveDevices does not include Name
+        begin
+            append Item to SlaveDevices
+            set SlaveList to SlaveDevices
+            gosub to CreateDevice
+            gosub to SendChannelToSlave
+        end
+    end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1082,19 +1015,6 @@ ConfigureMasterDevice:
     ! Send the config data to the device
     gosub to SendConfigToMaster
     if ErrorFlag return
-    go to PopulateDeviceInfo
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Send the config file to the master device
-SendConfigToMaster:
-    put `config.json` into FileName
-    put stringify Device into Content
-    log `Send ` cat Content cat ` to master`
-    gosub to SendOneFile
-    if ErrorFlag return
-    put `update` into Message
-    gosub to SendMessageToDevice
-    gosub to RequestReset
     put `Give the device a few seconds to reboot` into StatusMessage
     gosub to Working
     wait 10
@@ -1132,6 +1052,17 @@ SendConfigToMaster:
     enable MasterDeviceButton
     put MasterDevice into Device
     gosub to ConnectToHost
+    go to PopulateDeviceInfo
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send the config file to the master device
+SendConfigToMaster:
+    put `config.json` into FileName
+    put stringify Device into Content
+    log `Send ` cat Content cat ` to master`
+    gosub to SendOneFile
+    if ErrorFlag return
+    gosub to RequestReset
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1263,19 +1194,13 @@ MasterDeviceClick:
     if MasterDeviceButton is not empty
     begin
         log `Select the master device`
-        if Devices has property MasterDeviceName
-        begin
-            set DeviceSelected
-            set IsMaster
-            put property MasterDeviceName of Devices into MasterDevice
-            put MasterDevice into Device
-            gosub to PopulateDeviceInfo
-        end
-        else
-        begin
-            put `Can't select the master device` into StatusMessage
-            gosub to Error
-        end
+        set DeviceSelected
+        set IsMaster
+        put MasterDevice into Device
+        gosub to PopulateDeviceInfo
+!        put `channel` into Message
+!        gosub to SendRBRMessage
+!        log Response
     end
     gosub to SetUnBusy
     stop
@@ -1320,17 +1245,9 @@ SlaveDeviceClick:
     put the position of ` ` in Item into S
     increment S
     put from S of Item into Item
-    if Devices has property Item
-    begin
-        put property Item of Devices into Device
-        put property `name` of Device into Name
-        gosub to PopulateDeviceInfo
-    end
-    else
-    begin
-        put `Can't select the device` into StatusMessage
-        gosub to Error
-    end
+    put property Item of Devices into Device
+    put property `name` of Device into Name
+    gosub to PopulateDeviceInfo
     gosub to SetUnBusy
     stop
 
@@ -1368,7 +1285,6 @@ RemoveSlaveClick:
 !   Close the application and exit
 ExitClick:
     log `Exit the configurator`
-    gosub to PostConfigData
     gosub to ResumeSystemController
     close Window
     exit
@@ -1461,7 +1377,7 @@ ConnectToHost:
     put `Connect to host ` cat HostSSID cat ` with password ` cat HostPassword into StatusMessage
     gosub to Working
     system `nmcli connection delete ` cat HostSSID
-    put system `nmcli dev wifi connect ` cat HostSSID cat ` password "` cat HostPassword cat `"` into SystemCallResult
+    put system `nmcli dev wifi connect ` cat HostSSID cat ` password ` cat HostPassword into SystemCallResult
     split SystemCallResult on ` `
     if the elements of SystemCallResult is greater than 2
     begin
@@ -1482,6 +1398,11 @@ ConnectToHost:
     set property `host-ssid` of Config to HostSSID
     if Config does not have property `host-password` gosub to GetHostPassword
     set property `host-password` of Config to HostPassword
+    if HostPassword is not `Ur4nXVQKJPrQcJ`
+    begin
+        log `******** I just set the host password for ` cat HostSSID cat ` to ` cat HostPassword cat `************`
+        print prettify Config
+    end
     go to ConnectToHost
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1533,12 +1454,9 @@ UpdateWidgetDataClick:
     set property `pins` of Device to Pins
     put `config.json` into FileName
     put stringify Device into Content
-    log prettify Device
     gosub to SendOneFile
     if not ErrorFlag
     begin
-        put `update` into Message
-        gosub to SendMessageToDevice
         set property DeviceNameInput of Devices to Device
         if IsMaster
         begin
@@ -1593,8 +1511,6 @@ UpdateAllFilesClick:
         end
         increment F
     end
-    put `update` into Message
-    gosub to SendMessageToDevice
     gosub to SetUnBusy
     put `All files updated` into StatusMessage
     gosub to Idle
@@ -2013,15 +1929,15 @@ GetDeviceData:
 !   Post the config data
 PostConfigData:
     if CurrentSSID is not HostSSID gosub to ConnectToHost
-!    log `Config: ` cat prettify Config
     save prettify Config to ConfigFile
+!    log `Config: ` cat prettify Config
     if SystemMAC is empty return
     if SystemConfig is empty return
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
     put `https://rbrheating.com/ui/resources/php/rest.php/config/` cat SystemMAC cat `/` cat SystemPassword into URL
-    log `Posting SystemConfig to ` cat URL
-!    log prettify SystemConfig
+!    log URL cat ` ` cat prettify SystemConfig
+!    log `Posting SystemConfig to ` cat URL
     post stringify SystemConfig to URL
     or begin
         put `I couldn't post the config file` into StatusMessage
@@ -2043,15 +1959,14 @@ UpdateConfig:
 !   Lock the system controller
 LockSystemController:
     if IsLocal save `lock` to RamDisk cat `lock`
-    else if SSH save `lock` to SSH RamDisk cat `lock`
+    else save `lock` to SSH RamDisk cat `lock`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Resume the system controller
 ResumeSystemController:
     if IsLocal save empty to RamDisk cat `lock`
-    else if SSH
-        if not error in SSH save empty to SSH RamDisk cat `lock`
+    else if not error in SSH save empty to SSH RamDisk cat `lock`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2099,8 +2014,8 @@ SetUnBusy:
     if the count of SystemsCombo is 0 disable ClearSystemButton else enable ClearSystemButton
 ! ScanSystemsButton
     enable ScanSystemsButton
-! ReconnectMasterButton
-    enable ReconnectMasterButton
+! SetMasterAddressButton
+    enable SetMasterAddressButton
 ! RemoveSystemButton
     if SystemsCombo is empty disable RemoveSystemButton else enable RemoveSystemButton
 ! MasterDeviceButton
@@ -2169,7 +2084,7 @@ SetBusy:
     disable ScanDevicesButton
     disable ClearSystemButton
     disable RemoveSlaveButton
-    disable ReconnectMasterButton
+    disable SetMasterAddressButton
     disable UpdateFileButton
     disable UpdateAllFilesButton
     disable DeleteFileButton

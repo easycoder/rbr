@@ -101,11 +101,11 @@ class Handler():
             text=None
         elif msg=='update':
             for tname in os.listdir('.'):
-                    if tname[0:2]=='t-':
-                        fname=tname[2:]
-                        print(f'Update {fname}')
-                        deleteFile(fname)
-                        renameFile(tname,fname)
+                if tname[0:2]=='t-':
+                    fname=tname[2:]
+                    print(f'Update {fname}')
+                    deleteFile(fname)
+                    renameFile(tname,fname)
             response='OK'
         elif msg[0:5]=='mkdir':
             path=msg[6:]

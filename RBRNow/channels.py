@@ -1,5 +1,4 @@
 import asyncio,machine,time
-from espnow import ESPNow
 
 class Channels():
     def __init__(self,espComms):
