@@ -1078,8 +1078,15 @@ SendConfigToMaster:
     log `Send ` cat Content cat ` to master`
     gosub to SendOneFile
     if ErrorFlag return
-    put `update:` cat FileName into Message
+    put `update` into Message
     gosub to SendMessageToDevice
+    if left 2 of Response is not `OK`
+    begin
+        put `Device not updated` into StatusMessage
+        gosub to Error
+        gosub to SetUnBusy
+        stop
+    end
     gosub to RequestReset
     put `Give the device a few seconds to reboot` into StatusMessage
     gosub to Working
@@ -1528,8 +1535,15 @@ UpdateWidgetDataClick:
     gosub to SendOneFile
     if not ErrorFlag
     begin
-        put `update:` cat FileName into Message
+        put `update` into Message
         gosub to SendMessageToDevice
+        if left 2 of Response is not `OK`
+        begin
+            put `Device not updated` into StatusMessage
+            gosub to Error
+            gosub to SetUnBusy
+            stop
+        end
         set property DeviceNameInput of Devices to Device
         if IsMaster
         begin
@@ -1584,8 +1598,15 @@ UpdateAllFilesClick:
         end
         increment F
     end
-    put `update:` cat FileName into Message
+    put `update` into Message
     gosub to SendMessageToDevice
+    if left 2 of Response is not `OK`
+    begin
+        put `Files not updated` into StatusMessage
+        gosub to Error
+        gosub to SetUnBusy
+        stop
+    end
     gosub to SetUnBusy
     put `All files updated` into StatusMessage
     gosub to Idle
