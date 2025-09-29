@@ -37,8 +37,7 @@
     pushbutton ScanSystemsButton
     pushbutton RemoveSystemButton
     pushbutton MasterDeviceButton
-    pushbutton RelayOffButton
-    pushbutton RelayOnButton
+    pushbutton RelayToggleButton
     pushbutton UpdateWidgetDataButton
     pushbutton ResetDeviceButton
     pushbutton TemperatureButton
@@ -197,13 +196,10 @@
     add RelayPinInput to Layout
     create RelayInvertCheckbox text `Inverted`
     add RelayInvertCheckbox to Layout
-    create RelayOffButton size 5 text `-`
-    on click RelayOffButton go to RelayOffClick
-    add RelayOffButton to Layout
-    create RelayOnButton size 5 text `+`
-    on click RelayOnButton go to RelayOnClick
-    add RelayOnButton to Layout
-    create RelayStateLabel size 5 text `???`
+    create RelayToggleButton size 5 text `Toggle`
+    on click RelayToggleButton go to RelayToggleClick
+    add RelayToggleButton to Layout
+    create RelayStateLabel size 5 text empty
     add RelayStateLabel to Layout
     add stretch to Layout
 
@@ -333,6 +329,7 @@
     variable Pins
     variable Pin
     variable Silent
+    variable RelayState
     variable D
     variable F
     variable K
@@ -752,7 +749,7 @@ SelectSystem2:
     gosub to PostConfigData
     gosub to LockSystemController
     log `System ` cat SystemName cat ` selected`
-    log Devices
+!    log Devices
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1284,7 +1281,7 @@ PopulateDeviceInfo:
         if not Silent
         begin
             set the text of DeviceNameInput to property `name` of Device
-            set the text of RelayStateLabel to `???`
+            gosub to GetRelayState
             set the text of PathInput to property `path` of Device
             put property `pins` of Device into Pins
             put property `led` of Pins into Pin
@@ -1856,14 +1853,14 @@ CheckDevice:
     if P is greater than 0 put left P of Uptime into Uptime
     set the text of UptimeLabel to Uptime cat ` sec`
     if not Silent log Name cat ` uptime: ` cat Uptime
-    put property `pins` of Device into Pins
+    gosub to GetRelayState
     put property `dht22` of Pins into Pin
     put property `pin` of Pin into Value
-    if Value is empty  set the text of TemperatureLabel to empty
+    if Value is empty set the text of TemperatureLabel to empty
     else gosub to TemperatureRequest
     go to OK
 
-CheckDevice2:
+ShowUptime:
     put the position of ` ` in Uptime into P
     if P is greater than 0
     begin
@@ -1878,50 +1875,63 @@ CheckDevice2:
     go to OK
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Turn a relay OFF
-RelayOffClick:
-    log `Turn the relay OFF`
-    put `off` into Message
-    gosub to SendRBRMessage
-    log `ON: ` cat Response
-    if Response is empty
+! Get the relay state
+GetRelayState:
+    put empty into RelayState
+    put property `pins` of Device into Pins
+    put property `relay` of Pins into Pin
+    put property `pin` of Pin into Value
+    if Value is not empty
     begin
-        put `No response from ` cat Name into StatusMessage
-        gosub to Error
-        put `0` into Uptime
+        if not Silent log `Get relay state`
+        put `relay` into Message
+        gosub to SendRBRMessage
+        if left 3 of Response is `OK `
+        begin
+            split Response on ` `
+            index Response to 2
+            put Response into RelayState
+            set the elements of Response to 1
+        end
     end
-    begin
-        put from 3 of Response into Uptime
-        put the position of ` ` in Uptime into P
-        if P is greater than 0 put left P of Uptime into Uptime
-        put Uptime cat ` sec` into Uptime
-        set the text of RelayStateLabel to `OFF`
-    end
-    gosub to CheckDevice2
-    stop
+    set the text of RelayStateLabel to RelayState
+    return
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Turn a relay ON
-RelayOnClick:
-    log `Turn the relay ON`
-    put `on` into Message
-    gosub to SendRBRMessage
-    log `ON: ` cat Response
-    if Response is empty
+! Toggle a relay
+RelayToggleClick:
+    gosub to GetRelayState
+    if RelayState is `OFF` put `on` into Message
+    else if RelayState is `ON` put `off` into Message
+    else put empty into Message
+    if Message is not empty
     begin
-        put `No response from ` cat Name into StatusMessage
-        gosub to Error
-        put `0` into Uptime
+        gosub to SendRBRMessage
+        if Response is empty
+        begin
+            put `No response from ` cat Name into StatusMessage
+            gosub to Error
+        end
+        else
+        begin
+            if left 3 of Response is `OK `
+            begin
+                split Response on ` `
+                index Response to 2
+                put Response into RelayState
+                set the text of RelayStateLabel to RelayState
+                put `Relay ` cat Response into StatusMessage
+                set the elements of Response to 1
+                gosub to Idle
+            end
+            else
+            begin
+                put `No relay` into StatusMessage
+                gosub to Error
+            end
+        end
     end
-    else
-    begin
-        put from 3 of Response into Uptime
-        put the position of ` ` in Uptime into P
-        if P is greater than 0 put left P of Uptime into Uptime
-        put Uptime cat ` sec` into Uptime
-        set the text of RelayStateLabel to `ON`
-    end
-    gosub to CheckDevice2
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2111,10 +2121,8 @@ SetUnBusy:
     if SystemsCombo is empty disable RemoveSystemButton else enable RemoveSystemButton
 ! MasterDeviceButton
     if MasterDeviceButton is empty disable MasterDeviceButton else enable MasterDeviceButton
-! RelayOffButton
-    enable RelayOffButton
-! RelayOnButton
-    enable RelayOnButton
+! RelayToggleButton
+    enable RelayToggleButton
 ! NameInput
 ! LEDInput
 ! RelayInput
@@ -2182,8 +2190,7 @@ SetBusy:
     disable ScanSystemsButton
     disable RemoveSystemButton
     disable MasterDeviceButton
-    disable RelayOffButton
-    disable RelayOnButton
+    disable RelayToggleButton
     disable UpdateWidgetDataButton
     disable ResetDeviceButton
     disable TemperatureButton

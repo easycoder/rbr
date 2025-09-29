@@ -11,20 +11,22 @@ class Handler():
         self.saveError=False
 
     def handleMessage(self,msg):
-#        print('Handler:',msg)
+        print('Handler:',msg)
         bleValues=self.config.getBLEValues()
-        response=f'OK {self.config.getUptime()} :{bleValues}'
+        response=f'OK {self.config.getUptime()}'
+        if bleValues!='': response=f'{response}:{bleValues}'
         if msg=='uptime':
             pass
         elif msg == 'on':
-            response=f'{response} ON' if self.relay.on() else 'No relay'
+            value='ON' if self.relay.on() else 'No relay'
+            response=f'{response} {value}'
         elif msg == 'off':
-            response=f'{response} OFF' if self.relay.off() else 'No relay'
+            value='OFF' if self.relay.off() else 'No relay'
+            response=f'{response} {value}'
         elif msg == 'relay':
-            try:
-                response=f'OK {self.relay.getState()}'
-            except:
-                response='No relay'
+            state=self.relay.getState()
+            value=state if state!=None else 'No relay'
+            response=f'{response} {value}'
         elif msg=='reset':
             self.config.reset()
             response='OK'
