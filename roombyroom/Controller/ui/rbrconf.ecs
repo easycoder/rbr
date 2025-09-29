@@ -1889,8 +1889,11 @@ GetRelayState:
         if left 3 of Response is `OK `
         begin
             split Response on ` `
-            index Response to 2
-            put Response into RelayState
+            if the elements of Response is greater than 2
+            begin
+                index Response to 2
+                put Response into RelayState
+            end
             set the elements of Response to 1
         end
     end
