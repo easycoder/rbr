@@ -13,20 +13,17 @@ class Handler():
     def handleMessage(self,msg):
         print('Handler:',msg)
         bleValues=self.config.getBLEValues()
-        response=f'OK {self.config.getUptime()}'
-        if bleValues!='': response=f'{response}:{bleValues}'
+        uptime=f'{self.config.getUptime()}+'
+        if bleValues!='': uptime=f'{uptime}{bleValues}'
         if msg=='uptime':
-            pass
-        elif msg == 'on':
-            value='ON' if self.relay.on() else 'No relay'
-            response=f'{response} {value}'
-        elif msg == 'off':
-            value='OFF' if self.relay.off() else 'No relay'
-            response=f'{response} {value}'
-        elif msg == 'relay':
             state=self.relay.getState()
-            value=state if state!=None else 'No relay'
-            response=f'{response} {value}'
+            response=f'OK {state} {uptime}'
+        elif msg == 'on':
+            value='ON' if self.relay.on() else 'None'
+            response=f'OK {value} {uptime}'
+        elif msg == 'off':
+            value='OFF' if self.relay.off() else 'None'
+            response=f'OK {value} {uptime}'
         elif msg=='reset':
             self.config.reset()
             response='OK'

@@ -150,7 +150,7 @@ RefreshScreen:
                 return
             end
             load CurrentProfile from RamDisk cat `profile`
-            load SystemData from RamDisk cat `systemdata`
+            load SystemData from RamDisk cat `systemdata.json`
         end
         else
         begin
@@ -160,12 +160,12 @@ RefreshScreen:
                 return
             end
             load CurrentProfile from Controller RamDisk cat `profile`
-            load SystemData from Controller RamDisk cat `systemdata`
-        end
-        put json SystemData into SystemData
-        or begin
-            log SystemData
-            log `Can't convert SystemData to JSON`
+            load SystemData from Controller RamDisk cat `systemdata.json`
+            put json SystemData into SystemData
+            or begin
+                log SystemData
+                log `Can't convert SystemData to JSON`
+            end
         end
         if SystemData is empty wait 1 second
         increment N
