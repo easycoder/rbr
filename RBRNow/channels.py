@@ -14,6 +14,7 @@ class Channels():
         self.resetCounter()
 
     def setupSlaveTasks(self):
+        print('Set up slave tasks')
         asyncio.create_task(self.findMyMaster())
         asyncio.create_task(self.countMissingMessages())
 
@@ -52,8 +53,8 @@ class Channels():
                 if await self.ping():
                     self.idleCount=0
                     continue
+                print(f'Master not found on channel {self.espComms.channel}\n')
                 self.hopToNextChannel()
-                channel=self.hopToNextChannel()
                 asyncio.get_event_loop().stop()
                 machine.reset()
 
