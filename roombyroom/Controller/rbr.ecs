@@ -589,15 +589,18 @@ GetAdvance:
     if property `protect` of RoomSpec is empty set property `protect` of RoomSpec to `no`
     if property `protect` of RoomSpec is `yes`
     begin
-        put float property `ptemp` of RoomSpec into Target
-        gosub to MultiplyTT
-        if Temperature is not greater than Target
+        set property `protect` of SystemData to empty
+        if property `temperature` of RoomSpec is not empty
         begin
-            log `Frost protect ON`
-            add 1 to RequestCount
-            set property `protect` of SystemData to Sensor
+            put float property `ptemp` of RoomSpec into Target
+            gosub to MultiplyTT
+            if Temperature is not greater than Target
+            begin
+                log `Frost protect ON`
+                add 1 to RequestCount
+                set property `protect` of SystemData to Sensor
+            end
         end
-        else set property `protect` of SystemData to empty
     end
 
     ! Deal with mode requests
@@ -943,7 +946,7 @@ SetRelays:
         add 1 to R
     end
     set property `relay` of RoomSpec to OnOff
-    set property `responses` of RoomSpec to Responses
+!    set property `responses` of RoomSpec to Responses
     if RelayType is not `Manual`
     begin
         set property `relay` of RoomSpec to OnOff

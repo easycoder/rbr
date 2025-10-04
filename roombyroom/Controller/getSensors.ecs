@@ -1,12 +1,12 @@
-!   getMap.ecs
+!   getSensors.ecs
 
-    script GetMap
+    script GetSensors
 
     variable RamDisk
     variable MAC
     variable Password
     variable URL
-    variable Map
+    variable Sensors
 
     put `/mnt/data/` into RamDisk
 
@@ -16,8 +16,8 @@
     load Password from RamDisk cat `password`
     put trim Password into Password
 
-    put `https://rbrheating.com/ui/resources/php/rest.php/map/` cat MAC cat `/` cat Password into URL
-    get Map from url URL
-    print prettify json Map
+    put `https://rbrheating.com/ui/resources/php/rest.php/sensors/` cat MAC into URL
+    get Sensors from url URL
+    print prettify json Sensors
 
     exit
