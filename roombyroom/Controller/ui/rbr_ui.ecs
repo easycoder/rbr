@@ -168,6 +168,7 @@ RefreshScreen:
             end
         end
         if SystemData is empty wait 1 second
+        log prettify SystemData
         increment N
     end
     put json Map into Map

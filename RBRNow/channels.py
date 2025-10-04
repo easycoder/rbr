@@ -31,7 +31,7 @@ class Channels():
         peer=bytes.fromhex(self.myMaster)
         self.espComms.espSend(peer,'ping')
         _,msg=self.espComms.e.recv(1000)
-        print('Ping response from',self.myMaster,':',msg)
+        print('Ping response from',self.myMaster)
         if msg:
             print('Found master on channel',self.espComms.channel)
             return True

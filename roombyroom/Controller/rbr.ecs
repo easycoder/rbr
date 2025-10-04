@@ -81,6 +81,7 @@
     variable Key
     variable Keys
     variable Value
+    variable Value2
     variable Values
     variable Changed
     variable Confirm
@@ -533,7 +534,6 @@ ProcessRoom:
             if Mijia has property Sensor
             begin
                 put property Sensor of Mijia into Item
-                log Item
                 put property `ts` of Item into LastReported
                 take LastReported from the timestamp giving LastReported
                 if LastReported is greater than 1800
@@ -980,7 +980,7 @@ SaveErrorCount:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Post data to the RBR server. This also posts the IP address
 PostToServer:
-    save stringify SystemData to RamDisk cat `systemdata`
+    save SystemData to RamDisk cat `systemdata.json`
     if Password is not empty
     begin
         post stringify SystemData to RBRServer cat `/sensors/` cat MAC cat `/` cat Password cat `/` cat IPAddr
@@ -1021,24 +1021,27 @@ RecordMijia:
     put Response into Value
     split Value on ` `
     index Value to 2
-    if Value is not `:`
+    put Value into Value2
+    split Value2 on `+`
+    index Value2 to 1
+    if Value2 is not empty
     begin
-        log `Mijia: ` cat  RoomName cat ` ` cat from 1 of Value
-        split Value on `;`
-        if the elements of Value is not less than 5
+        log `Mijia: ` cat  RoomName cat ` ` cat Value2
+        split Value2 on `;`
+        if the elements of Value2 is not less than 5
         begin
             put json `{}` into Item
             set property `ts` of Item to now
-            index Value to 1
-            set property `rssi` of Item to Value
-            index Value to 2
-            set property `temp` of Item to Value
-            index Value to 3
-            set property `hum` of Item to Value
-            index Value to 4
-            set property `batt` of Item to Value
-            index Value to 0
-            set property `a4:c1:38` cat Value of Mijia to Item
+            index Value2 to 1
+            set property `rssi` of Item to Value2
+            index Value2 to 2
+            set property `temp` of Item to Value2
+            index Value2 to 3
+            set property `hum` of Item to Value2
+            index Value2 to 4
+            set property `batt` of Item to Value2
+            index Value2 to 0
+            set property `a4:c1:38:` cat Value2 of Mijia to Item
         end
         set the elements of Value to 1
     end
