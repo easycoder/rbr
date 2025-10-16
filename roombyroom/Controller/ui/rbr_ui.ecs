@@ -83,10 +83,13 @@
     variable R
     variable T
 
-!   debug step
+!    debug step
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Some preliminary stuff
     init graphics
 
+    ! Figure out where we're running
     put `linaro` into UserName
     if UserName is trim system `whoami`
     begin
@@ -103,6 +106,8 @@
     put trim system `echo $HOME` into HomeDir
     put `/mnt/data/` into RamDisk
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Main start
 Start:
     if IsLocal put empty into Title else put `RBR` into Title
     put 1000 into WindowHeight
@@ -114,6 +119,7 @@ Start:
     show Window
     start graphics
 
+    ! If we're running remotely, set up SSH to access the controller
     if not IsLocal
     begin
         run `controller.ecs` as Module with HomeDir and ControllerSpec
@@ -125,6 +131,7 @@ Start:
             password property `password` of Item
     end
 
+    ! Refresh the UI regularly
     put empty into Path
     clear Locked
     gosub to RefreshScreen
@@ -135,12 +142,16 @@ Start:
     end
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Refresh the screen. This is called every 2 seconds (200 graphics ticks).
+!   See r_start in ex_pyside.py
 RefreshScreen:
     if Locked return
     put empty into SystemData
-    put 1 into N
+    put 0 into N
     while SystemData is empty
     begin
+        increment N
         if N is greater than 1 log `Loading system files (` cat N cat `)`
         if IsLocal
         begin
@@ -168,21 +179,20 @@ RefreshScreen:
             end
         end
         if SystemData is empty wait 1 second
-        log prettify SystemData
-        increment N
     end
     put json Map into Map
     put the value of CurrentProfile into CurrentProfile
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
+!    log Rooms
     set the elements of Room to the count of Rooms
     set the elements of RoomData to the count of Rooms
     set the elements of ModeButton to the count of Rooms
     set the elements of ToolsButton to the count of Rooms
 
+!   Build the screen
     clear Window
-!    log Rooms
     put 0 into R
     while R is less than the count of Rooms
     begin
@@ -211,10 +221,12 @@ RefreshScreen:
     set attribute `system name` of Window to property `name` of Map
     set attribute `profile` of Window to property `name` of Profile
 
+    ! Set up the banner at the top of the screen
     attach Banner to element `banner` of Window
     attach Hamburger to element `hamburger` of Banner
     on click Hamburger go to ShowMainMenu
 
+    ! Set up the name and profiles strip below the banner
     attach NameAndProfiles to element `profiles` of Window
     attach Popout to element `popout` of Window
     return
@@ -225,6 +237,8 @@ ReadError:
     log `Read failure at ` cat T
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Create a room from the spec and display it.
 CreateRoom:
 !    log `Create ` cat Name cat `, mode ` cat Mode
     index Room to R
@@ -265,12 +279,16 @@ ShowMainMenu:
     if Choice is element 7 of Choices stop
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Here when the user clicks to set the system name. Use an external module
 SetSystemName:
     run `systemName.ecs` as Module with Window and NameAndProfiles and Request
     if Request is empty stop
     gosub to SendRequest
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Provide information about the request relay, if there is one
 SetRequestRelay:
     create Layout type QHBoxLayout
     create Label text `Type the name of the request relay:`
@@ -287,6 +305,8 @@ SetRequestRelay:
     gosub to SendRequest
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Add a new room to the displayed list
 AddRoom:
     put `{"name": "Unnamed", "sensor": "", "relays": [], "mode": "off", "target": 20, `
         cat `"events": [{"until": "07:00", "temp": 15}], "relayType":"none", "protect": "no", "relay": "off"}`
@@ -298,12 +318,15 @@ AddRoom:
     gosub to SendRequest
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Reset the controller
 Reset:
     put json `{}` into Request
     set property `action` of Request to `reset`
     gosub to SendRequest
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Handle a click on one of the Mode buttons
 HandleMode:
     put json `{}` into Data
@@ -353,7 +376,7 @@ HandleMode:
     else if Result is `edit`
     begin
         set Locked
-        run `events.ecs` as Module with Window and RoomSpec and Request
+        run `schedule.ecs` as Module with Window and RoomSpec and Request
         if Request is empty stop
         gosub to SendRequest
         clear Locked
@@ -412,6 +435,8 @@ HandleTools:
     if Choice is element 6 of Choices go to DeleteRoom
     if Choice is element 8 of Choices stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!    Move the selected room up in the list
 MoveRoomUp:
     put element RoomIndex of Rooms into ThisRoom
     take 1 from RoomIndex
@@ -424,6 +449,9 @@ MoveRoomUp:
     gosub to SendRequest
     stop
 
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Move the selected room down in the list
 MoveRoomDown:
     put element RoomIndex of Rooms into ThisRoom
     add 1 to RoomIndex
@@ -436,6 +464,8 @@ MoveRoomDown:
     gosub to SendRequest
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show information about the selected room
 ShowInfo:
     set Locked
     put property Name of SystemData into RoomSpec
@@ -475,6 +505,8 @@ ShowInfo:
                 if SS is less than 10 put `0` cat SS into SS
                 put Text cat newline cat `Uptime: ` cat HH cat `:` cat MM cat `:` cat SS into Text
             end
+            if Response has property `RSS`
+                put Text cat newline cat `RSS: ` cat property `RSS` of Response into Text
             if Text is not empty
             begin
                 create Label text Text
@@ -484,6 +516,7 @@ ShowInfo:
         end
     end
     create OKButton text `OK`
+    set the height of OKButton to 40
     add OKButton to Panel
     on click OKButton
     begin
@@ -494,6 +527,8 @@ ShowInfo:
     show Popout
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Edit a room name
 EditRoomName:
     create Layout type QHBoxLayout
     create Label text `Type the room name:`
@@ -590,6 +625,7 @@ EditDeviceParams:
     else set the state of CheckBox2 to unchecked
     add CheckBox2 at 4 1 in Grid
 
+!   Create an on-screen keyboard for the above text elements
     create keyboard layout Panel 
         and receiver Input 
         and receiver Input2 

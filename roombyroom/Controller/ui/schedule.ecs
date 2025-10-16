@@ -1,0 +1,211 @@
+!   schedule.ecs
+
+    script Schedule
+
+    use graphics
+    use plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
+
+    import rbrwin Window
+        and variable RoomSpec
+        and variable Request
+    
+    widget Container
+    widget Editor
+    layout Layout
+    layout Panel
+    layout EditLayout
+    label Label
+    label TimeLabel
+    label TempLabel
+    pushbutton PeriodButton
+    pushbutton SaveButton
+    pushbutton CancelButton
+    pushbutton HourUpButton
+    pushbutton HourDownButton
+    pushbutton MinuteUpButton
+    pushbutton MinuteDownButton
+    pushbutton TempUpButton
+    pushbutton TempDownButton
+    lineinput Input
+    lineinput Input2
+    variable ListStyle
+    variable IconStyle
+    variable Periods
+    variable Period
+    variable NPeriods
+    variable Time
+    variable Temp
+    variable Text
+    variable P
+    variable Q
+
+    debug step
+
+    put property `events` of RoomSpec into Periods
+    log Periods
+    
+    ! Convert 'until' to 'from' for all periods
+    put the count of Periods into NPeriods
+	if NPeriods is not 1
+    begin
+    	set the elements of Temp to NPeriods
+        put 0 into P
+        while P is less than NPeriods
+        begin
+        	add 1 to P giving Q
+            if Q is NPeriods put 0 into Q
+            put element Q of Periods into Period
+            index Temp to P
+            put property `temp` of Period into Temp
+            put element P of Periods into Period
+            add 1 to P
+        end
+        put 0 into  P
+        while P is less than NPeriods
+        begin
+        	put element P of Periods into Period
+        	index Temp to P
+            set property `temp` of Period to Temp
+            set element P of Periods to Period
+        	add 1 to P
+        end
+    end
+!    log Periods
+    
+    ! Draw the panel
+    set the elements of PeriodButton to NPeriods
+    set the elements of Editor to NPeriods
+    create Container
+    set Container as other view of Window
+    set the style of Container to `background: #ffc;border: 1px solid gray;`
+    create Layout type QVBoxLayout
+    set the layout of Container to Layout
+    create Panel type QHBoxLayout
+    add Panel to Layout
+    add stretch to Panel
+    create Label text `Schedule for ` cat property `name` of RoomSpec
+    set the style of Label to `border: none; margin-top: 1px; font-weight: bold; font-size: 20px; color: blue`
+    add Label to Panel
+    add stretch to Panel
+    put `border: 1px solid gray; background: white; height: 40px; border-radius: 5px;` into ListStyle
+    put `border: none; background: none; height: 40px;` into IconStyle
+    put 0 into P
+    while P is less than NPeriods
+    begin
+        put element P of Periods into Period
+        index PeriodButton to P
+        put property `until` of Period into Time
+        put property `temp` of Period into Temp
+        put `From ` cat Time cat `: Target = ` cat Temp cat `ºC` into Text
+        create PeriodButton text Text
+        set the style of PeriodButton to ListStyle
+        on click PeriodButton go to EditPeriod
+        add PeriodButton to Layout
+        index Editor to P
+        create Editor
+        set the style of Editor to ListStyle
+        create EditLayout type QHBoxLayout
+        set the layout of Editor to EditLayout
+        
+        create HourUpButton icon `img/up.png` size 28
+        set the style of HourUpButton to IconStyle
+        add HourUpButton to EditLayout
+        create HourDownButton icon `img/down.png` size 28
+        set the style of HourDownButton to IconStyle
+        add HourDownButton to EditLayout
+        create TimeLabel text Time
+        add TimeLabel to EditLayout
+        create MinuteUpButton icon `img/up.png` size 28
+        set the style of MinuteUpButton to IconStyle
+        add MinuteUpButton to EditLayout
+        create MinuteDownButton icon `img/down.png` size 28
+        set the style of MinuteDownButton to IconStyle
+        add MinuteDownButton to EditLayout
+        create TempUpButton icon `img/up.png` size 28
+        set the style of TempUpButton to IconStyle
+        add TempUpButton to EditLayout
+        create TempDownButton icon `img/down.png` size 28
+        set the style of TempDownButton to IconStyle
+        add TempDownButton to EditLayout
+        create TempLabel text Temp cat `ºC`
+        add TempLabel to EditLayout
+
+        on click HourUpButton go to HourUp
+        on click HourDownButton go to HourDown
+        on click MinuteUpButton go to MinuteUp
+        on click MinuteDownButton go to MinuteDown
+        on click TempUpButton go to TempUp
+        on click TempDownButton go to TempDown
+        add Editor to Layout
+    if P is 1 hide PeriodButton else hide Editor
+        increment P
+    end
+    add stretch to Layout
+    create Panel type QHBoxLayout
+    add Panel to Layout
+    create SaveButton text `Save`
+    set the style of SaveButton to Style
+    add SaveButton to Panel
+    create CancelButton text `Cancel`
+    set the style of CancelButton to Style
+    add CancelButton to Panel
+    add spacer 10 to Layout
+    show view `other` of Window
+    on click SaveButton go to ResumeAfterEdit
+    on click CancelButton go to ResumeAfterEdit
+    stop
+
+HourUp:
+    stop
+
+HourDown:
+    stop
+
+MinuteUp:
+    stop
+
+MinuteDown:
+    stop
+
+TempUp:
+    stop
+
+TempDown:
+    stop
+
+ResumeAfterEdit:
+    show view `main` of Window
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Edit the selected period
+EditPeriod:
+    put the index of PeriodButton into P
+    log `Edit period ` cat the index of PeriodButton
+    put element P of Periods into Period
+    put property `until` of Period into Time
+    put property `temp` of Period into Temp
+
+    create Panel type QGridLayout
+
+    ! Do the time
+    create Label text `Time (24H):`
+    add Label at 0 0 in Panel
+    create Input size 10
+    set the text of Input to Time
+    add Input at 0 1 in Panel
+
+    ! Do the temperature
+    create Label text `Temp:`
+    add Label at 1 0 in Panel
+    create Input2 size 10
+    set the text of Input2 to Temp
+    add Input2 at 1 1 in Panel
+
+!   Create an on-screen keyboard for the above text elements
+    create keyboard layout Panel 
+        and receiver Input 
+        and receiver Input2 
+        in Window
+
+    stop

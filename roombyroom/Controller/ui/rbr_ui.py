@@ -1,5 +1,5 @@
 import re
-from easycoder import Handler, RuntimeError, Keyboard, TextReceiver
+from easycoder import Handler, FatalError, RuntimeError, Keyboard, TextReceiver
 from widgets import (
     RBRWindow,
     Room,
@@ -336,7 +336,7 @@ class RBR_UI(Handler):
     def r_modeDialog(self, command):
         return self.nextPC()
 
-    # on click {pushbutton}
+    # on click {pushbutton}                            !!!!!!!! Redundant!!!!!!!!!!!!!!!!!
     def k_on(self, command):
         def setupOn():
             command['goto'] = self.getPC() + 2
@@ -362,6 +362,7 @@ class RBR_UI(Handler):
             # Fixup the goto
             self.getCommandAt(pcNext)['goto'] = self.getPC()
 
+        FatalError(self.compiler, 'Redundant code - on click is now handled in pyside.py')
         token = self.nextToken()
         command['type'] = token
         if token == 'click':
@@ -374,6 +375,7 @@ class RBR_UI(Handler):
         return False
     
     def r_on(self, command):
+        RuntimeError(self.program, 'Redundant code - on click is now handled in pyside.py')
         record = self.getVariable(command['name'])
         widget = record['widget']
         keyword = record['keyword']

@@ -50,7 +50,7 @@ if test -f "dist.tgz"; then
     echo `date` ---- "${GREEN}Delete everything${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- rm -rf * >> /home/linaro/updatelog
     rm -rf * >> /home/linaro/updatelog 2>&1
-    echo `date` ---- "${GREEN}Copy everything from the update folder" ---- >> /home/linaro/updatelog
+    echo `date` ---- "${GREEN}Copy everything from the update folder${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- sudo -u linaro cp -R /home/linaro/update/* . >> /home/linaro/updatelog
     sudo -u linaro cp -R /home/linaro/update/* . >> /home/linaro/updatelog 2>&1
     echo `date` ---- "${GREEN}Reboot${NOCOLOR}" ---- >> /home/linaro/updatelog

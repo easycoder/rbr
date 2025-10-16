@@ -885,15 +885,22 @@ SetRelays:
                 gosub to RecordMijia
                 put Response into Value
                 put json `{}` into Response
+                set property `response` of Response to Value
                 split Value on ` `
-                if the elements of Value is not less than 4
+                if the elements of Value is not less than 3
                 begin
                     index Value to 1
-                    set property `uptime` of Response to Value
+                    if Value is `ON` set property `state` of Response to `on`
+                    else set property `state` of Response to `off`
                     index Value to 2
-                    if Value is 1 set property `state` of Response to `on` else set property `state` of Response to `off`
-                    index Value to 3
-                    set property `RSS` of Response to Value
+                    put the position of `+` in Value into P
+                    set property `uptime` of Response to left P of Value
+                    if the elements of Value is greater than 3
+                    begin
+                        index Value to 3
+                        set property `RSS` of Response to Value
+                    end
+                    else set property `RSS` of Response to empty
                 end
             end
             set the elements of Value to 1
@@ -912,7 +919,8 @@ SetRelays:
             set property `uptime` of Response to 0
             if Value has property `ison`
             begin
-                if property `ison` of Value is true set property `state` of Response to `on`
+                if property `ison` of Value is true
+                    set property `state` of Response to `on`
                 else set property `state` of Response to `off`
                 gosub to ClearNetworkErrors
             end
@@ -940,13 +948,14 @@ SetRelays:
             relay Relay TPEmail TPPassword OnOff
         end
     SR1:
-        if Response is empty log RoomName cat `: No response` else log `Relay: ` cat Response
+        if Response is empty log RoomName cat `: No response`
+        else log `Relay: ` cat Response
         append Response to Responses
     SR2:
         add 1 to R
     end
     set property `relay` of RoomSpec to OnOff
-!    set property `responses` of RoomSpec to Responses
+    set property `responses` of RoomSpec to Responses
     if RelayType is not `Manual`
     begin
         set property `relay` of RoomSpec to OnOff
@@ -1023,6 +1032,7 @@ RecordMijia:
     index Value to 2
     put Value into Value2
     split Value2 on `+`
+    if the elements of Value2 is 1 return
     index Value2 to 1
     if Value2 is not empty
     begin

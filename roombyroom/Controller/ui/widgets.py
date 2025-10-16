@@ -130,7 +130,7 @@ class GenericIcon(ExpandingLabel):
         self.setPixmap(pixmap)
 
 ###############################################################################
-# A button just containing tezt
+# A button just containing text
 
 class TextButton(QPushButton):
     def __init__(self, program, name, height, text, index=0):
