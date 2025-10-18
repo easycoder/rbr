@@ -392,7 +392,6 @@ RotatePeriods:
     end
     pop Q
     pop P
-print `RotatePeriods2: ` cat Periods
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

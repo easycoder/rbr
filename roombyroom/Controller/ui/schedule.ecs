@@ -17,17 +17,12 @@
     label Label
     label TimeLabel
     label TempLabel
+    pushbutton Button
     pushbutton PeriodButton
+    pushbutton SavePeriodButton
+    pushbutton AddButton
     pushbutton SaveButton
     pushbutton CancelButton
-    pushbutton HourUpButton
-    pushbutton HourDownButton
-    pushbutton MinuteUpButton
-    pushbutton MinuteDownButton
-    pushbutton TempUpButton
-    pushbutton TempDownButton
-    lineinput Input
-    lineinput Input2
     variable ListStyle
     variable IconStyle
     variable Periods
@@ -36,6 +31,7 @@
     variable Time
     variable Temp
     variable Text
+    variable N
     variable P
     variable Q
 
@@ -75,6 +71,7 @@
     ! Draw the panel
     set the elements of PeriodButton to NPeriods
     set the elements of Editor to NPeriods
+    set the elements of SavePeriodButton to NPeriods
     create Container
     set Container as other view of Window
     set the style of Container to `background: #ffc;border: 1px solid gray;`
@@ -99,7 +96,25 @@
         put `From ` cat Time cat `: Target = ` cat Temp cat `ºC` into Text
         create PeriodButton text Text
         set the style of PeriodButton to ListStyle
-        on click PeriodButton go to EditPeriod
+        on click PeriodButton
+        begin
+            put the index of PeriodButton into N
+            log `Button ` cat N cat ` clicked`
+            put 0 into P
+            while P is less than NPeriods
+            begin
+                log P
+                index Editor to P
+                hide Editor
+                index PeriodButton to P
+                show PeriodButton
+                increment P
+            end
+            index PeriodButton to N
+            index Editor to N
+            hide PeriodButton
+            show Editor
+        end
         add PeriodButton to Layout
         index Editor to P
         create Editor
@@ -107,47 +122,65 @@
         create EditLayout type QHBoxLayout
         set the layout of Editor to EditLayout
         
-        create HourUpButton icon `img/up.png` size 28
-        set the style of HourUpButton to IconStyle
-        add HourUpButton to EditLayout
-        create HourDownButton icon `img/down.png` size 28
-        set the style of HourDownButton to IconStyle
-        add HourDownButton to EditLayout
+        add spacer size 40 to EditLayout
+        create Button icon `img/down-green.png` size 28
+        set the style of Button to IconStyle
+        add Button to EditLayout
+        on click Button go to HourDown
+        create Button icon `img/up-green.png` size 28
+        set the style of Button to IconStyle
+        add Button to EditLayout
+        on click Button go to HourUp
         create TimeLabel text Time
         add TimeLabel to EditLayout
-        create MinuteUpButton icon `img/up.png` size 28
-        set the style of MinuteUpButton to IconStyle
-        add MinuteUpButton to EditLayout
-        create MinuteDownButton icon `img/down.png` size 28
-        set the style of MinuteDownButton to IconStyle
-        add MinuteDownButton to EditLayout
-        create TempUpButton icon `img/up.png` size 28
-        set the style of TempUpButton to IconStyle
-        add TempUpButton to EditLayout
-        create TempDownButton icon `img/down.png` size 28
-        set the style of TempDownButton to IconStyle
-        add TempDownButton to EditLayout
+        create Button icon `img/down-green.png` size 28
+        set the style of Button to IconStyle
+        add Button to EditLayout
+        on click Button go to MinuteDown
+        create Button icon `img/up-green.png` size 28
+        set the style of Button to IconStyle
+        add Button to EditLayout
+        on click Button go to MinuteUp
+        add spacer size 50 to EditLayout
+        create Button icon `img/up-green.png` size 28
+        set the style of Button to IconStyle
+        add Button to EditLayout
+        on click Button go to TempUp
         create TempLabel text Temp cat `ºC`
         add TempLabel to EditLayout
+        create Button icon `img/down-green.png` size 28
+        set the style of Button to IconStyle
+        add Button to EditLayout
+        on click Button go to TempDown
+        add spacer size 50 to EditLayout
+        index SavePeriodButton to P
+        create SavePeriodButton icon `img/save.png` size 28
+        set the style of SavePeriodButton to IconStyle
+        add SavePeriodButton to EditLayout
+        on click SavePeriodButton go to SavePeriod
+        add spacer size 20 to EditLayout
+        create Button icon `img/delete.png` size 28
+        set the style of Button to IconStyle
+        add Button to EditLayout
+        on click Button go to DeletePeriod
+        add spacer size 40 to EditLayout
 
-        on click HourUpButton go to HourUp
-        on click HourDownButton go to HourDown
-        on click MinuteUpButton go to MinuteUp
-        on click MinuteDownButton go to MinuteDown
-        on click TempUpButton go to TempUp
-        on click TempDownButton go to TempDown
         add Editor to Layout
-    if P is 1 hide PeriodButton else hide Editor
+        hide Editor
         increment P
     end
     add stretch to Layout
     create Panel type QHBoxLayout
     add Panel to Layout
+    create AddButton icon `img/boost.png`
+    set the style of AddButton to IconStyle
+    set the width of AddButton to 50
+    add AddButton to Panel
     create SaveButton text `Save`
-    set the style of SaveButton to Style
+    set the style of SaveButton to ListStyle
     add SaveButton to Panel
     create CancelButton text `Cancel`
-    set the style of CancelButton to Style
+    set the style of CancelButton to ListStyle
     add CancelButton to Panel
     add spacer 10 to Layout
     show view `other` of Window
@@ -173,39 +206,17 @@ TempUp:
 TempDown:
     stop
 
+SavePeriod:
+    log `Period ` cat the index of SavePeriodButton
+    index PeriodButton to the index of SavePeriodButton
+    index Editor to the index of SavePeriodButton
+    hide Editor
+    show PeriodButton
+    stop
+
+DeletePeriod:
+    stop
+
 ResumeAfterEdit:
     show view `main` of Window
     exit
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Edit the selected period
-EditPeriod:
-    put the index of PeriodButton into P
-    log `Edit period ` cat the index of PeriodButton
-    put element P of Periods into Period
-    put property `until` of Period into Time
-    put property `temp` of Period into Temp
-
-    create Panel type QGridLayout
-
-    ! Do the time
-    create Label text `Time (24H):`
-    add Label at 0 0 in Panel
-    create Input size 10
-    set the text of Input to Time
-    add Input at 0 1 in Panel
-
-    ! Do the temperature
-    create Label text `Temp:`
-    add Label at 1 0 in Panel
-    create Input2 size 10
-    set the text of Input2 to Temp
-    add Input2 at 1 1 in Panel
-
-!   Create an on-screen keyboard for the above text elements
-    create keyboard layout Panel 
-        and receiver Input 
-        and receiver Input2 
-        in Window
-
-    stop

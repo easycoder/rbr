@@ -118,17 +118,15 @@ class RBR_UI(Handler):
                 else:
                     item['widget'] = window.getElement(value)
             elif keyword == 'element':
-                if item['keyword'] == 'pushbutton':
-                    self.putSymbolValue(item, target['widget'].getElement(value))
-                else:
-                    item['widget'] = target['widget'].getElement(value)
+                if not 'widget' in item:
+                    item['widget'] = [None] * item['elements']
+                item['widget'][item['index']] = target['widget'].getElement(value)
             elif keyword == 'room':
                 roomValue = target['value'][target['index']]
-                if value == 'mode':
-                    self.putSymbolValue(item, roomValue.modeButton)
-#                    item['widget'] = target['value'][target['index']].modeButton
-                elif value == 'tools':
-                    self.putSymbolValue(item, roomValue.toolsButton)
+                if value in ['mode', 'tools']:
+                    if not 'widget' in item:
+                        item['widget'] = [None] * item['elements']
+                    item['widget'][item['index']] = roomValue.modeButton if value == 'mode' else roomValue.toolsButton
         return self.nextPC()
 
     # clear {rbrwin}
@@ -490,7 +488,8 @@ class RBR_UI(Handler):
                     widget.setStyleSheet(style)
             return self.nextPC()
         elif self.hasAttributes(command, ['widget', 'window']):
-            widget = self.getVariable(command['widget'])['widget']
+            record = self.getVariable(command['widget'])
+            widget = record['widget'][record['index']]
             window = self.getVariable(command['window'])['window']
             window.setOtherPanel(widget)
             return self.nextPC()

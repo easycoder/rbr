@@ -2,4 +2,4 @@
 
 from easycoder import Program
 
-Program('/home/graham/dev/rbr/rbrconf.ecs').start()
+Program('/home/graham/dev/rbr/roombyroom/Controller/ui/rbrconf.ecs').start()

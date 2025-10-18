@@ -36,6 +36,7 @@
     variable HomeDir
     variable Path
     variable IsLocal
+    variable FirstTime
     variable RamDisk
     variable WindowWidth
     variable WindowHeight
@@ -83,7 +84,7 @@
     variable R
     variable T
 
-!    debug step
+    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
@@ -134,7 +135,10 @@ Start:
     ! Refresh the UI regularly
     put empty into Path
     clear Locked
+    set FirstTime
     gosub to RefreshScreen
+    clear FirstTime
+stop
     on tick
     begin
         put the ticker into Tick
@@ -192,7 +196,7 @@ RefreshScreen:
     set the elements of ToolsButton to the count of Rooms
 
 !   Build the screen
-    clear Window
+    if not FirstTime clear Window
     put 0 into R
     while R is less than the count of Rooms
     begin

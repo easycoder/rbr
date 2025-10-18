@@ -400,103 +400,6 @@ class ModeButton(QWidget):
         return self.index
 
 ###############################################################################
-# A row of room information
-class Room(QFrame):
-    def __init__(self, program, spec, height, index=0):
-        super().__init__()
-        self.program = program
-        self.spec = spec
-        self.height = height
-        self.temperature = 0
-        self.index = index
-
-        self.setStyleSheet("""
-            background-color: #ffc;
-            border: 1px solid gray;
-            border-radius: 5px;
-        """)
-
-        self.setFixedHeight(height)  # Each row is 1/12 the height of the window
-
-        roomsLayout = QHBoxLayout(self)
-        roomsLayout.setSpacing(0)  # No spacing between elements
-        roomsLayout.setContentsMargins(0, 0, 0, 0)
-
-        modePanel = QWidget()
-        modePanel.setStyleSheet('''
-            background-color: #eee;
-            border: 1px solid gray;
-        ''')
-        roomsLayout.addWidget(modePanel)
-        modePanelLayout = QHBoxLayout(modePanel)
-        modePanelLayout.setSpacing(0)
-        modePanelLayout.setContentsMargins(5, 0, 0, 0)
-        self.name = spec['name']
-        self.mode = spec['mode']
-
-        # Icon 1: Mode
-        if not self.mode in ['timed', 'boost', 'advance', 'on', 'off']: self.mode = 'off'
-        image = f'img/{self.mode}.png'
-        self.mode = f'{self.mode[0].upper()}{self.mode[1:]}'
-        if self.mode == 'Timed':
-            advance = spec['advance']
-            if advance != '' and advance != '-' and advance != 'C':
-                image = 'img/advance.png'
-                self.mode = 'Advance'
-        self.modeButton = ModeButton(self, self.program, height * 0.8, 2.7, image, index)
-
-        # Room name label
-        nameLabel = QLabel(self.name)
-        nameLabel.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
-        nameLabel.setStyleSheet('''
-            background-color: transparent;
-            border: none;
-        ''')
-        font = QFont()
-        font.setPointSize(16)  # Adjust font size to fit at least 20 characters
-        font.setBold(True)  # Make the font bold
-        nameLabel.setFont(font)
-        self.nameLabel = nameLabel
-
-        # Button with white text and blue or red background
-        temperatureButton = QPushButton('----°C')
-        color = 'red' if spec['relay'] == 'on' else 'blue'
-        temperatureButton.setStyleSheet(f'color: white; background-color: {color}; border: none;')
-        temperatureButton.setFixedSize(height * 1.2, height * 0.6)  # Adjust button size
-        temperatureButton.setFont(font)  # Use the same font as the label
-        self.temperatureButton = temperatureButton
-        self.setTemperature()
-
-        # Icon 2: Tools
-        self.toolsButton = IconButton(self.program, height * 3 // 4, f'img/edit.png', index)
-
-        # Add elements to the row layout
-        modePanelLayout.addWidget(self.modeButton)
-        roomsLayout.addWidget(nameLabel, 1)  # Expand the name label to use all spare space
-        roomsLayout.addWidget(temperatureButton)
-        roomsLayout.addWidget(self.toolsButton)
-    
-    def setName(self, name):
-        self.nameLabel.setText(name)
-    
-    def setTemperature(self):
-        value = self.spec['temperature']
-        if value == '': value = '--.-'
-        self.temperatureButton.setText(f'{value}°C')
-    
-    def getName(self):
-        return self.name
-    
-    def getMode(self):
-        return self.mode
-    
-    def getTemperature(self):
-        return self.temperature
-
-    def getIndex(self):
-        return self.index
-
-###############################################################################
 # The banner at the top of the window
 class Banner(QLabel):
     def __init__(self, program, width):
@@ -643,6 +546,103 @@ class Profiles(QWidget):
     
     def setProfile(self, name):
         self.profileButton.setText(f'Profile: {name}')
+
+###############################################################################
+# A row of room information
+class Room(QFrame):
+    def __init__(self, program, spec, height, index=0):
+        super().__init__()
+        self.program = program
+        self.spec = spec
+        self.height = height
+        self.temperature = 0
+        self.index = index
+
+        self.setStyleSheet("""
+            background-color: #ffc;
+            border: 1px solid gray;
+            border-radius: 5px;
+        """)
+
+        self.setFixedHeight(height)  # Each row is 1/12 the height of the window
+
+        roomsLayout = QHBoxLayout(self)
+        roomsLayout.setSpacing(0)  # No spacing between elements
+        roomsLayout.setContentsMargins(0, 0, 0, 0)
+
+        modePanel = QWidget()
+        modePanel.setStyleSheet('''
+            background-color: #eee;
+            border: 1px solid gray;
+        ''')
+        roomsLayout.addWidget(modePanel)
+        modePanelLayout = QHBoxLayout(modePanel)
+        modePanelLayout.setSpacing(0)
+        modePanelLayout.setContentsMargins(5, 0, 0, 0)
+        self.name = spec['name']
+        self.mode = spec['mode']
+
+        # Icon 1: Mode
+        if not self.mode in ['timed', 'boost', 'advance', 'on', 'off']: self.mode = 'off'
+        image = f'img/{self.mode}.png'
+        self.mode = f'{self.mode[0].upper()}{self.mode[1:]}'
+        if self.mode == 'Timed':
+            advance = spec['advance']
+            if advance != '' and advance != '-' and advance != 'C':
+                image = 'img/advance.png'
+                self.mode = 'Advance'
+        self.modeButton = ModeButton(self, self.program, height * 0.8, 2.7, image, index)
+
+        # Room name label
+        nameLabel = QLabel(self.name)
+        nameLabel.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        nameLabel.setStyleSheet('''
+            background-color: transparent;
+            border: none;
+        ''')
+        font = QFont()
+        font.setPointSize(16)  # Adjust font size to fit at least 20 characters
+        font.setBold(True)  # Make the font bold
+        nameLabel.setFont(font)
+        self.nameLabel = nameLabel
+
+        # Button with white text and blue or red background
+        temperatureButton = QPushButton('----°C')
+        color = 'red' if spec['relay'] == 'on' else 'blue'
+        temperatureButton.setStyleSheet(f'color: white; background-color: {color}; border: none;')
+        temperatureButton.setFixedSize(height * 1.2, height * 0.6)  # Adjust button size
+        temperatureButton.setFont(font)  # Use the same font as the label
+        self.temperatureButton = temperatureButton
+        self.setTemperature()
+
+        # Icon 2: Tools
+        self.toolsButton = IconButton(self.program, height * 3 // 4, f'img/edit.png', index)
+
+        # Add elements to the row layout
+        modePanelLayout.addWidget(self.modeButton)
+        roomsLayout.addWidget(nameLabel, 1)  # Expand the name label to use all spare space
+        roomsLayout.addWidget(temperatureButton)
+        roomsLayout.addWidget(self.toolsButton)
+    
+    def setName(self, name):
+        self.nameLabel.setText(name)
+    
+    def setTemperature(self):
+        value = self.spec['temperature']
+        if value == '': value = '--.-'
+        self.temperatureButton.setText(f'{value}°C')
+    
+    def getName(self):
+        return self.name
+    
+    def getMode(self):
+        return self.mode
+    
+    def getTemperature(self):
+        return self.temperature
+
+    def getIndex(self):
+        return self.index
 
 ###############################################################################
 # A popout panel. This sits near the top of the screen
