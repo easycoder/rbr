@@ -11,7 +11,7 @@ class Handler():
         self.saveError=False
 
     def handleMessage(self,msg):
-        print('Handler:',msg)
+#        print('Handler:',msg)
         bleValues=self.config.getBLEValues()
         uptime=f'{self.config.getUptime()}+'
         if bleValues!='': uptime=f'{uptime}{bleValues}'

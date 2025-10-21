@@ -50,9 +50,11 @@
     variable Profile
     variable SystemData
     variable Rooms
+    variable RoomName
     variable RoomSpec
     variable RoomData
     variable RoomIndex
+    variable Periods
     variable ThisRoom
     variable ThatRoom
     variable NewRooms
@@ -84,7 +86,7 @@
     variable R
     variable T
 
-    debug step
+!    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
@@ -138,7 +140,7 @@ Start:
     set FirstTime
     gosub to RefreshScreen
     clear FirstTime
-stop
+!stop
     on tick
     begin
         put the ticker into Tick
@@ -380,8 +382,11 @@ HandleMode:
     else if Result is `edit`
     begin
         set Locked
-        run `schedule.ecs` as Module with Window and RoomSpec and Request
+        put property `events` of RoomSpec into Periods
+        put property `name` of RoomSpec into RoomName
+        run `schedule.ecs` as Module with RoomName and Window and Periods and Request
         if Request is empty stop
+        set property `roomnumber` of Request to R
         gosub to SendRequest
         clear Locked
     end 
@@ -691,7 +696,8 @@ DeleteRoom:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
 SendRequest:
-! log Request
+    log Request
+    return
     set Locked
     if IsLocal save stringify Request to RamDisk cat `request`
     else save stringify Request to Controller RamDisk cat `request`

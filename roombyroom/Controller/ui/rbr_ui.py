@@ -328,57 +328,98 @@ class RBR_UI(Handler):
             variable['widget'].hide()
         return self.nextPC()
 
+    # lower time/temp {variable} {count} hours/minutes/tenths
+    def k_lower(self, command):
+        token = self.nextToken()
+        if token in ['time', 'temp']:
+            command['type'] = token
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if record['hasValue']:
+                    command['variable'] = record['name']
+                    command['count'] = self.nextValue()
+                    unit = self.nextToken()
+                    if unit in ['hours', 'hour', 'minutes', 'minute', 'tenths']:
+                        command['unit'] = unit
+                        self.add(command)
+                        return True
+        return False
+        
+    def r_lower(self, command):
+        var = self.getVariable(command['variable'])
+        count = self.getRuntimeValue(command['count'])
+        unit = command['unit']
+        v = self.getSymbolValue(var)
+        content = v['content']
+        if command['type'] == 'time':
+            content = content.split(':')
+            value = int(content[0]) * 60 + int(content[1])
+            if unit in ['hours', 'hour']:
+                value -= count * 60
+            elif unit in ['minutes', 'minute']:
+                value -= count
+            if value >= 1440:
+                value -= 1440
+            elif value < 0:
+                value += 1440
+            value = f'{value // 60}:{value % 60:02d}'
+        elif command['type'] == 'temp':
+            value = float(content) * 10.0
+            if unit == 'tenths':
+                value -= count
+            value = str(value / 10.0)
+        v['content'] = value
+        self.putSymbolValue(var, v)
+        return self.nextPC()
+
     def k_modeDialog(self, command):
         return self.compileVariable(command)
 
     def r_modeDialog(self, command):
         return self.nextPC()
 
-    # on click {pushbutton}                            !!!!!!!! Redundant!!!!!!!!!!!!!!!!!
-    def k_on(self, command):
-        def setupOn():
-            command['goto'] = self.getPC() + 2
-            self.add(command)
-            self.nextToken()
-            # Step over the click handler
-            pcNext = self.getPC()
-            cmd = {}
-            cmd['domain'] = 'core'
-            cmd['lino'] = command['lino']
-            cmd['keyword'] = 'gotoPC'
-            cmd['goto'] = 0
-            cmd['debug'] = False
-            self.add(cmd)
-            # This is the click handler
-            self.compileOne()
-            cmd = {}
-            cmd['domain'] = 'core'
-            cmd['lino'] = command['lino']
-            cmd['keyword'] = 'stop'
-            cmd['debug'] = False
-            self.add(cmd)
-            # Fixup the goto
-            self.getCommandAt(pcNext)['goto'] = self.getPC()
-
-        FatalError(self.compiler, 'Redundant code - on click is now handled in pyside.py')
+    # raise time/temp {variable} {count} hours/minutes/tenths
+    def k_raise(self, command):
         token = self.nextToken()
-        command['type'] = token
-        if token == 'click':
+        if token in ['time', 'temp']:
+            command['type'] = token
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
-                if record['keyword'] == 'pushbutton':
-                    command['name'] = record['name']
-                    setupOn()
-                    return True
+                if record['hasValue']:
+                    command['variable'] = record['name']
+                    command['count'] = self.nextValue()
+                    unit = self.nextToken()
+                    if unit in ['hours', 'hour', 'minutes', 'minute', 'tenths']:
+                        command['unit'] = unit
+                        self.add(command)
+                        return True
         return False
-    
-    def r_on(self, command):
-        RuntimeError(self.program, 'Redundant code - on click is now handled in pyside.py')
-        record = self.getVariable(command['name'])
-        widget = record['widget']
-        keyword = record['keyword']
-        if keyword == 'pushbutton':
-            widget.onClick = (command['goto'])
+        
+    def r_raise(self, command):
+        var = self.getVariable(command['variable'])
+        count = self.getRuntimeValue(command['count'])
+        unit = command['unit']
+        v = self.getSymbolValue(var)
+        content = v['content']
+        if command['type'] == 'time':
+            content = content.split(':')
+            value = int(content[0]) * 60 + int(content[1])
+            if unit in ['hours', 'hour']:
+                value += count * 60
+            elif unit in ['minutes', 'minute']:
+                value += count
+            if value >= 1440:
+                value -= 1440
+            elif value < 0:
+                value += 1440
+            value = f'{value // 60}:{value % 60:02d}'
+        elif command['type'] == 'temp':
+            value = float(content) * 10.0
+            if unit == 'tenths':
+                value += count
+            value = str(value / 10.0)
+        v['content'] = value
+        self.putSymbolValue(var, v)
         return self.nextPC()
 
     def k_rbrwin(self, command):

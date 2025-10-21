@@ -5,8 +5,9 @@
     use graphics
     use plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
 
-    import rbrwin Window
-        and variable RoomSpec
+    import variable RoomName
+        and rbrwin Window
+        and variable Periods
         and variable Request
     
     widget Container
@@ -17,70 +18,225 @@
     label Label
     label TimeLabel
     label TempLabel
-    pushbutton Button
+    pushbutton HourUpButton
+    pushbutton HourDownButton
+    pushbutton MinuteUpButton
+    pushbutton MinuteDownButton
+    pushbutton TempUpButton
+    pushbutton TempDownButton
     pushbutton PeriodButton
-    pushbutton SavePeriodButton
+    pushbutton DeletePeriodButton
     pushbutton AddButton
     pushbutton SaveButton
     pushbutton CancelButton
     variable ListStyle
     variable IconStyle
-    variable Periods
     variable Period
     variable NPeriods
+    variable SelectedPeriod
     variable Time
     variable Temp
     variable Text
-    variable N
+    variable Changed
     variable P
     variable Q
+    variable T
+    variable T2
 
-    debug step
+!    debug step
 
-    put property `events` of RoomSpec into Periods
     log Periods
-    
-    ! Convert 'until' to 'from' for all periods
-    put the count of Periods into NPeriods
-	if NPeriods is not 1
-    begin
-    	set the elements of Temp to NPeriods
-        put 0 into P
-        while P is less than NPeriods
-        begin
-        	add 1 to P giving Q
-            if Q is NPeriods put 0 into Q
-            put element Q of Periods into Period
-            index Temp to P
-            put property `temp` of Period into Temp
-            put element P of Periods into Period
-            add 1 to P
-        end
-        put 0 into  P
-        while P is less than NPeriods
-        begin
-        	put element P of Periods into Period
-        	index Temp to P
-            set property `temp` of Period to Temp
-            set element P of Periods to Period
-        	add 1 to P
-        end
-    end
-!    log Periods
-    
-    ! Draw the panel
-    set the elements of PeriodButton to NPeriods
-    set the elements of Editor to NPeriods
-    set the elements of SavePeriodButton to NPeriods
+    clear Changed
+    gosub to ConvertUntilToFrom
     create Container
     set Container as other view of Window
     set the style of Container to `background: #ffc;border: 1px solid gray;`
+    gosub to DrawPanel
+    stop
+
+HourUp:
+    put element SelectedPeriod of Periods into Period
+    raise time Time 1 hour
+    set the text of TimeLabel to Time
+    set property `from` of Period to Time
+    set element SelectedPeriod of Periods to Period
+    set Changed
+    stop
+
+HourDown:
+    put element SelectedPeriod of Periods into Period
+    lower time Time 1 hour
+    set the text of TimeLabel to Time
+    set property `from` of Period to Time
+    set element SelectedPeriod of Periods to Period
+    set Changed
+    stop
+
+MinuteUp:
+    put element SelectedPeriod of Periods into Period
+    raise time Time 5 minutes
+    set the text of TimeLabel to Time
+    set property `from` of Period to Time
+    set element SelectedPeriod of Periods to Period
+    set Changed
+    stop
+
+MinuteDown:
+    put element SelectedPeriod of Periods into Period
+    lower time Time 5 minutes
+    set the text of TimeLabel to Time
+    set property `from` of Period to Time
+    set element SelectedPeriod of Periods to Period
+    set Changed
+    stop
+
+TempUp:
+    put element SelectedPeriod of Periods into Period
+    raise temp Temp 5 tenths
+    set the text of TempLabel to Temp cat `ºC`
+    set property `temp` of Period to Temp
+    set element SelectedPeriod of Periods to Period
+    set Changed
+    stop
+
+TempDown:
+    lower temp Temp 5 tenths
+    set the text of TempLabel to Temp cat `ºC`
+    set property `temp` of Period to Temp
+    set element SelectedPeriod of Periods to Period
+    set Changed
+    stop
+
+DeletePeriod:
+    log `Delete this period`
+    put SelectedPeriod into P
+    put P into Q
+    increment Q
+    while Q is less than NPeriods
+    begin
+        set element P of Periods to element Q of Periods
+        increment P
+        increment Q
+    end
+    delete element SelectedPeriod of Periods
+    decrement NPeriods
+    log NPeriods cat ` - ` cat prettify Periods
+    clear Container
+    wait 10 ticks
+    gosub to DrawPanel
+    stop
+
+SaveAndExit:
+    log `Save and exit`
+	if Changed
+    begin
+        set element SelectedPeriod of Periods to Period
+        log Periods
+        gosub to ConvertFromToUntil
+        log Periods
+	    put json `{}` into Request
+       	set property `action` of Request to `periods`
+        set property `periods` of Request to Periods
+    end
+    else put empty into Request
+
+Cancel:
+    show view `main` of Window
+    exit
+
+! Convert 'until' to 'from' for all periods
+ConvertUntilToFrom:
+    put the count of Periods into NPeriods
+    if NPeriods is greater than 1
+    begin
+        put empty into T2
+        put 0 into P
+        while P is less than NPeriods
+        begin
+            put element P of Periods into Period
+            if T2 is empty put property `temp` of Period into T2
+            put P into Q
+            increment P
+            if P is NPeriods put T2 into T
+            else
+            begin
+                put element P of Periods into Period
+                put property `temp` of Period into T
+            end
+            put element Q of Periods into Period
+            set property `temp` of Period to T
+            set element Q of Periods to Period
+        end
+    end
+    ! Change 'until' to 'from' (helps when debugging)
+    put 0 into P
+    while P is less than NPeriods
+    begin
+        put element P of Periods into Period
+        set property `from` of Period to property `until` of Period
+        delete property `until` of Period
+        set element P of Periods to Period
+        increment P
+    end
+    return
+
+! Convert 'from' to 'until' for all periods
+ConvertFromToUntil:
+    put the count of Periods into NPeriods
+    if NPeriods is greater than 1
+    begin
+        put empty into T2
+        put NPeriods into P
+        while P is greater than 0
+        begin
+            decrement P
+            put element P of Periods into Period
+            if T2 is empty put property `temp` of Period into T2
+            take 1 from P giving Q
+            if P is 0 put T2 into T
+            else
+            begin
+                put element Q of Periods into Period
+                put property `temp` of Period into T
+            end
+            put element P of Periods into Period
+            set property `temp` of Period to T
+            set element P of Periods to Period
+        end
+    end
+    ! Change 'from' back to 'until'
+    put 0 into P
+    while P is less than NPeriods
+    begin
+        put element P of Periods into Period
+        set property `until` of Period to property `from` of Period
+        delete property `from` of Period
+        set element P of Periods to Period
+        increment P
+    end
+    return
+
+! Draw the panel
+DrawPanel:
+    set the elements of PeriodButton to NPeriods
+    set the elements of Editor to NPeriods
+    set the elements of HourUpButton to NPeriods
+    set the elements of HourDownButton to NPeriods
+    set the elements of MinuteUpButton to NPeriods
+    set the elements of MinuteDownButton to NPeriods
+    set the elements of TempUpButton to NPeriods
+    set the elements of TempDownButton to NPeriods
+    set the elements of TimeLabel to NPeriods
+    set the elements of TempLabel to NPeriods
+    set the elements of DeletePeriodButton to NPeriods
+    set the elements of Time to NPeriods
+    set the elements of Temp to NPeriods
     create Layout type QVBoxLayout
     set the layout of Container to Layout
     create Panel type QHBoxLayout
     add Panel to Layout
     add stretch to Panel
-    create Label text `Schedule for ` cat property `name` of RoomSpec
+    create Label text `Schedule for ` cat RoomName
     set the style of Label to `border: none; margin-top: 1px; font-weight: bold; font-size: 20px; color: blue`
     add Label to Panel
     add stretch to Panel
@@ -91,27 +247,35 @@
     begin
         put element P of Periods into Period
         index PeriodButton to P
-        put property `until` of Period into Time
+        index TimeLabel to P
+        index TempLabel to P
+        index Time to P
+        index Temp to P
+        put property `from` of Period into Time
         put property `temp` of Period into Temp
         put `From ` cat Time cat `: Target = ` cat Temp cat `ºC` into Text
         create PeriodButton text Text
         set the style of PeriodButton to ListStyle
         on click PeriodButton
         begin
-            put the index of PeriodButton into N
-            log `Button ` cat N cat ` clicked`
+            put the index of PeriodButton into SelectedPeriod
+            if Changed set element SelectedPeriod of Periods to Period
             put 0 into P
             while P is less than NPeriods
             begin
-                log P
                 index Editor to P
                 hide Editor
                 index PeriodButton to P
                 show PeriodButton
                 increment P
             end
-            index PeriodButton to N
-            index Editor to N
+            index PeriodButton to SelectedPeriod
+            index Editor to SelectedPeriod
+            index TimeLabel to SelectedPeriod
+            index TempLabel to SelectedPeriod
+            index Time to SelectedPeriod
+            index Temp to SelectedPeriod
+            index DeletePeriodButton to SelectedPeriod
             hide PeriodButton
             show Editor
         end
@@ -123,46 +287,47 @@
         set the layout of Editor to EditLayout
         
         add spacer size 40 to EditLayout
-        create Button icon `img/down-green.png` size 28
-        set the style of Button to IconStyle
-        add Button to EditLayout
-        on click Button go to HourDown
-        create Button icon `img/up-green.png` size 28
-        set the style of Button to IconStyle
-        add Button to EditLayout
-        on click Button go to HourUp
+        index HourDownButton to P
+        create HourDownButton icon `img/down-green.png` size 28
+        set the style of HourDownButton to IconStyle
+        add HourDownButton to EditLayout
+        on click HourDownButton go to HourDown
+        index HourUpButton to P
+        create HourUpButton icon `img/up-green.png` size 28
+        set the style of HourUpButton to IconStyle
+        add HourUpButton to EditLayout
+        on click HourUpButton go to HourUp
         create TimeLabel text Time
         add TimeLabel to EditLayout
-        create Button icon `img/down-green.png` size 28
-        set the style of Button to IconStyle
-        add Button to EditLayout
-        on click Button go to MinuteDown
-        create Button icon `img/up-green.png` size 28
-        set the style of Button to IconStyle
-        add Button to EditLayout
-        on click Button go to MinuteUp
+        index MinuteDownButton to P
+        create MinuteDownButton icon `img/down-green.png` size 28
+        set the style of MinuteDownButton to IconStyle
+        add MinuteDownButton to EditLayout
+        on click MinuteDownButton go to MinuteDown
+        index MinuteUpButton to P
+        create MinuteUpButton icon `img/up-green.png` size 28
+        set the style of MinuteUpButton to IconStyle
+        add MinuteUpButton to EditLayout
+        on click MinuteUpButton go to MinuteUp
         add spacer size 50 to EditLayout
-        create Button icon `img/up-green.png` size 28
-        set the style of Button to IconStyle
-        add Button to EditLayout
-        on click Button go to TempUp
+        index TempUpButton to P
+        create TempUpButton icon `img/up-green.png` size 28
+        set the style of TempUpButton to IconStyle
+        add TempUpButton to EditLayout
+        on click TempUpButton go to TempUp
         create TempLabel text Temp cat `ºC`
         add TempLabel to EditLayout
-        create Button icon `img/down-green.png` size 28
-        set the style of Button to IconStyle
-        add Button to EditLayout
-        on click Button go to TempDown
+        index TempDownButton to P
+        create TempDownButton icon `img/down-green.png` size 28
+        set the style of TempDownButton to IconStyle
+        add TempDownButton to EditLayout
+        on click TempDownButton go to TempDown
         add spacer size 50 to EditLayout
-        index SavePeriodButton to P
-        create SavePeriodButton icon `img/save.png` size 28
-        set the style of SavePeriodButton to IconStyle
-        add SavePeriodButton to EditLayout
-        on click SavePeriodButton go to SavePeriod
-        add spacer size 20 to EditLayout
-        create Button icon `img/delete.png` size 28
-        set the style of Button to IconStyle
-        add Button to EditLayout
-        on click Button go to DeletePeriod
+        index DeletePeriodButton to P
+        create DeletePeriodButton icon `img/delete.png` size 28
+        set the style of DeletePeriodButton to IconStyle
+        add DeletePeriodButton to EditLayout
+        on click DeletePeriodButton go to DeletePeriod
         add spacer size 40 to EditLayout
 
         add Editor to Layout
@@ -184,39 +349,6 @@
     add CancelButton to Panel
     add spacer 10 to Layout
     show view `other` of Window
-    on click SaveButton go to ResumeAfterEdit
-    on click CancelButton go to ResumeAfterEdit
-    stop
-
-HourUp:
-    stop
-
-HourDown:
-    stop
-
-MinuteUp:
-    stop
-
-MinuteDown:
-    stop
-
-TempUp:
-    stop
-
-TempDown:
-    stop
-
-SavePeriod:
-    log `Period ` cat the index of SavePeriodButton
-    index PeriodButton to the index of SavePeriodButton
-    index Editor to the index of SavePeriodButton
-    hide Editor
-    show PeriodButton
-    stop
-
-DeletePeriod:
-    stop
-
-ResumeAfterEdit:
-    show view `main` of Window
-    exit
+    on click SaveButton go to SaveAndExit
+    on click CancelButton go to Cancel
+    return
