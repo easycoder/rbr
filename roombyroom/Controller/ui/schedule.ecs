@@ -32,21 +32,27 @@
     variable ListStyle
     variable IconStyle
     variable Period
+    variable PeriodP
+    variable PeriodQ
     variable NPeriods
     variable SelectedPeriod
     variable Time
     variable Temp
     variable Text
     variable Changed
+    variable Sorted
+    variable Reordered
     variable P
     variable Q
     variable T
+    variable T1
     variable T2
 
 !    debug step
 
     log Periods
     clear Changed
+    clear Reordered
     gosub to ConvertUntilToFrom
     create Container
     set Container as other view of Window
@@ -57,37 +63,28 @@
 HourUp:
     put element SelectedPeriod of Periods into Period
     raise time Time 1 hour
-    set the text of TimeLabel to Time
-    set property `from` of Period to Time
-    set element SelectedPeriod of Periods to Period
-    set Changed
-    stop
+    go to TimeChanged
 
 HourDown:
     put element SelectedPeriod of Periods into Period
     lower time Time 1 hour
-    set the text of TimeLabel to Time
-    set property `from` of Period to Time
-    set element SelectedPeriod of Periods to Period
-    set Changed
-    stop
+    go to TimeChanged
 
 MinuteUp:
     put element SelectedPeriod of Periods into Period
     raise time Time 5 minutes
-    set the text of TimeLabel to Time
-    set property `from` of Period to Time
-    set element SelectedPeriod of Periods to Period
-    set Changed
-    stop
+    go to TimeChanged
 
 MinuteDown:
     put element SelectedPeriod of Periods into Period
     lower time Time 5 minutes
+
+TimeChanged:
     set the text of TimeLabel to Time
     set property `from` of Period to Time
     set element SelectedPeriod of Periods to Period
     set Changed
+    gosub to SortPeriods
     stop
 
 TempUp:
@@ -121,19 +118,14 @@ DeletePeriod:
     delete element SelectedPeriod of Periods
     decrement NPeriods
     log NPeriods cat ` - ` cat prettify Periods
-    clear Container
-    wait 10 ticks
-    gosub to DrawPanel
+    gosub to RedrawPanel
     stop
 
 SaveAndExit:
     log `Save and exit`
 	if Changed
     begin
-        set element SelectedPeriod of Periods to Period
-        log Periods
         gosub to ConvertFromToUntil
-        log Periods
 	    put json `{}` into Request
        	set property `action` of Request to `periods`
         set property `periods` of Request to Periods
@@ -147,7 +139,7 @@ Cancel:
 ! Convert 'until' to 'from' for all periods
 ConvertUntilToFrom:
     put the count of Periods into NPeriods
-    if NPeriods is greater than 1
+    if NPeriods is not 0
     begin
         put empty into T2
         put 0 into P
@@ -183,7 +175,7 @@ ConvertUntilToFrom:
 ! Convert 'from' to 'until' for all periods
 ConvertFromToUntil:
     put the count of Periods into NPeriods
-    if NPeriods is greater than 1
+    if NPeriods is not 0
     begin
         put empty into T2
         put NPeriods into P
@@ -192,10 +184,10 @@ ConvertFromToUntil:
             decrement P
             put element P of Periods into Period
             if T2 is empty put property `temp` of Period into T2
-            take 1 from P giving Q
             if P is 0 put T2 into T
             else
             begin
+                take 1 from P giving Q
                 put element Q of Periods into Period
                 put property `temp` of Period into T
             end
@@ -216,7 +208,40 @@ ConvertFromToUntil:
     end
     return
 
+!   Sort the periods into ascending time order
+SortPeriods:
+    clear Reordered
+    while true
+    begin
+        set Sorted
+        put 0 into P
+        put 1 into Q
+        while Q is less than NPeriods
+        begin
+            put element P of Periods into PeriodP
+            put property `from` of PeriodP into T1
+            put element Q of Periods into PeriodQ
+            put property `from` of PeriodQ into T2
+            if time T1 is after T2
+            begin
+                set element P of Periods to PeriodQ
+                set element Q of Periods to PeriodP
+                set Reordered
+            end
+            increment P
+            increment Q
+        end
+        if Sorted
+        begin
+            if Reordered go to RedrawPanel
+            return
+        end
+    end
+
 ! Draw the panel
+RedrawPanel:
+    clear Container
+    wait 10 ticks
 DrawPanel:
     set the elements of PeriodButton to NPeriods
     set the elements of Editor to NPeriods
@@ -258,8 +283,8 @@ DrawPanel:
         set the style of PeriodButton to ListStyle
         on click PeriodButton
         begin
-            put the index of PeriodButton into SelectedPeriod
             if Changed set element SelectedPeriod of Periods to Period
+            put the index of PeriodButton into SelectedPeriod
             put 0 into P
             while P is less than NPeriods
             begin

@@ -1,5 +1,5 @@
 import re
-from easycoder import Handler, FatalError, RuntimeError, Keyboard, TextReceiver
+from easycoder import Handler, FatalError, RuntimeError, Keyboard, TextReceiver, Object
 from widgets import (
     RBRWindow,
     Room,
@@ -654,8 +654,39 @@ class RBR_UI(Handler):
     #############################################################################
     # Compile a condition
     def compileCondition(self):
-        condition = {}
-        return condition
+        condition = Object()
+        condition.negate = False
+
+        token = self.getToken()
+        condition.type = token
+
+        if token == 'time':
+            condition.time1 = self.nextValue()
+            self.skip('is')
+            token = self.nextToken()
+            if token in ['before', 'after', 'equals']:  
+                condition.operator = token
+                condition.time2 = self.nextValue()
+                return condition
+
+        return None
 
     #############################################################################
     # Condition handlers
+
+    def c_time(self, condition):
+        time1 = self.getRuntimeValue(condition.time1)
+        time2 = self.getRuntimeValue(condition.time2)
+        operator = condition.operator
+        comparison = False
+        v = time1.split(':')
+        t1 = int(v[0]) * 60 + int(v[1])
+        v = time2.split(':')
+        t2 = int(v[0]) * 60 + int(v[1])
+        if operator == 'before':
+            comparison = t1 < t2
+        elif operator == 'after':
+            comparison = t1 > t2
+        elif operator == 'equals':
+            comparison = t1 == t2
+        return not comparison if condition.negate else comparison
