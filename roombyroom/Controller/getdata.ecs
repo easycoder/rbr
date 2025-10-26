@@ -1,0 +1,12 @@
+!   getData.ecs
+
+    script GetData
+
+    variable URL
+    variable Data
+
+    put `https://rbrheating.com/ui/resources/php/rest.php/sensors/38:54:39:34:62:9f/633412` into URL
+    get Data from url URL
+    print prettify json Data
+
+    exit

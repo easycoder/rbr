@@ -697,7 +697,6 @@ DeleteRoom:
 !   Send a request to the system controller
 SendRequest:
     log Request
-    return
     set Locked
     if IsLocal save stringify Request to RamDisk cat `request`
     else save stringify Request to Controller RamDisk cat `request`

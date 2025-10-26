@@ -40,8 +40,8 @@
     variable Temp
     variable Text
     variable Changed
-    variable Sorted
     variable Reordered
+    variable Sorted
     variable P
     variable Q
     variable T
@@ -119,6 +119,17 @@ DeletePeriod:
     decrement NPeriods
     log NPeriods cat ` - ` cat prettify Periods
     gosub to RedrawPanel
+    set Changed
+    stop
+
+AddPeriod:
+    log `Add period`
+    put json `{}` into Period
+    set property `temp` of Period to `10.0`
+    set property `from` of Period to `0:00`
+    append Period to Periods
+    increment NPeriods
+    gosub to SortPeriods
     stop
 
 SaveAndExit:
@@ -210,10 +221,11 @@ ConvertFromToUntil:
 
 !   Sort the periods into ascending time order
 SortPeriods:
+    clear Sorted
+SortPeriods2:
     clear Reordered
     while true
     begin
-        set Sorted
         put 0 into P
         put 1 into Q
         while Q is less than NPeriods
@@ -227,15 +239,14 @@ SortPeriods:
                 set element P of Periods to PeriodQ
                 set element Q of Periods to PeriodP
                 set Reordered
+                set Sorted
+                set Changed
             end
             increment P
             increment Q
         end
-        if Sorted
-        begin
-            if Reordered go to RedrawPanel
-            return
-        end
+        if Reordered go to SortPeriods2
+        if Sorted go to RedrawPanel else return
     end
 
 ! Draw the panel
@@ -374,6 +385,7 @@ DrawPanel:
     add CancelButton to Panel
     add spacer 10 to Layout
     show view `other` of Window
+    on click AddButton go to AddPeriod
     on click SaveButton go to SaveAndExit
     on click CancelButton go to Cancel
     return
