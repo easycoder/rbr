@@ -149,12 +149,12 @@ class ESPComms():
                             if not self.config.getMyMaster() and not self.config.isMaster():
                                 self.config.setMyMaster(mac.hex())
                         except Exception as ex: print('Can\'t respond',ex)
+                    self.config.kickWatchdog()
                 if self.requestToSend:
                     self.sending=True
                     while self.sending: await asyncio.sleep(.1)
             else: print('Not active')
             await asyncio.sleep(.1)
-            self.config.kickWatchdog()
 
     def getRSS(self,mac):
         try: return self.e.peers_table[mac][0]
