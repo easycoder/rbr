@@ -622,6 +622,7 @@ GetAdvance:
             set property `advance` of RoomSpec to Advance
             gosub to WriteAdvance
             put property `target` of RoomSpec into TargetTemp
+            set property `target` of RoomSpec to TargetTemp
         end
         else if Boost is empty      ! Cancel the boost
         begin
@@ -673,6 +674,7 @@ GetAdvance:
     begin
         gosub to MultiplyTT
         put 0 into TargetTemp
+        set property `target` of RoomSpec to `0.0`
         go to TurnOff
     end
 
@@ -682,6 +684,7 @@ GetAdvance:
         else
             gosub to MultiplyTT
 !            log RoomName cat `: ` cat Temperature cat ` ` cat Target
+            set property `target` of RoomSpec to Target
             if Temperature is less than Target go to TurnOn
             go to TurnOff
         end
@@ -751,6 +754,7 @@ CheckAdvance:
 !    log `CheckAdvance`
 !    if RoomName is `Sunroom` log Now cat `/` cat the timestamp cat `/` cat Boundary
     put `` cat E into EE
+    set property `target` of RoomSpec to property `temp` of Event
     put property `advance` of RoomSpec into Advance
     if RoomSpec has property `advance-rq` put property `advance-rq` of RoomSpec into RA
     else put `-` into RA
