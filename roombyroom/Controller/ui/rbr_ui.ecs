@@ -236,6 +236,9 @@ RefreshScreen:
     ! Set up the name and profiles strip below the banner
     attach NameAndProfiles to element `profiles` of Window
     attach Popout to element `popout` of Window
+    
+    if IsLocal while file RamDisk cat `request` exists gosub to FlashHourglass
+    else while file RamDisk cat `request` on Controller exists gosub to FlashHourglass
     return
 
 ReadError:
