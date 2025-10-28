@@ -506,11 +506,11 @@ class RBR_UI(Handler):
             if keyword == 'rbrwin':
                 window = record['window']
                 if attribute == 'system name':
-                    profiles = window.profiles
-                    profiles.setSystemName(value)
+                    window.profiles.handleRequest({'setSystemName': value})
                 elif attribute == 'profile':
-                    profiles = window.profiles
-                    profiles.setProfile(value)
+                    window.profiles.handleRequest({'setProfile': value})
+                elif attribute == 'hourglass':
+                    window.profiles.handleRequest({'setHourglass': value})
                 elif attribute == 'other':
                     layout = self.getVariable(command['layout'])['widget']
                     window.setOtherPanel(layout)

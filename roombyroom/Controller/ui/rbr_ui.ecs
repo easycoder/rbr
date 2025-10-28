@@ -226,6 +226,7 @@ RefreshScreen:
     end
     set attribute `system name` of Window to property `name` of Map
     set attribute `profile` of Window to property `name` of Profile
+    set attribute `hourglass` of Window to false
 
     ! Set up the banner at the top of the screen
     attach Banner to element `banner` of Window
@@ -457,7 +458,6 @@ MoveRoomUp:
     set property `rooms` of Request to Rooms
     gosub to SendRequest
     stop
-
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Move the selected room down in the list
@@ -698,8 +698,22 @@ DeleteRoom:
 SendRequest:
     log Request
     set Locked
-    if IsLocal save stringify Request to RamDisk cat `request`
-    else save stringify Request to Controller RamDisk cat `request`
-    wait 5
+    if IsLocal
+    begin
+        save stringify Request to RamDisk cat `request`
+        while file RamDisk cat `request` exists gosub to FlashHourglass
+    end
+    else
+    begin
+        save stringify Request to Controller RamDisk cat `request`
+        while file RamDisk cat `request` on Controller exists gosub to FlashHourglass
+    end
     clear Locked
+    return
+
+FlashHourglass:
+    set attribute `hourglass` of Window to true
+    wait 50 ticks
+    set attribute `hourglass` of Window to false
+    wait 50 ticks
     return

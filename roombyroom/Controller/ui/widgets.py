@@ -486,7 +486,19 @@ class Profiles(QWidget):
             text = str(self.day)
             rect = self.rect().adjusted(0, self.height // 2, 0, 0)  # Move text down a bit
             painter.drawText(rect, Qt.AlignHCenter | Qt.AlignTop, text)
-    
+
+    class HourglassIcon(QWidget):
+        def __init__(self, height):
+            super().__init__()
+            self.height = height
+            self.setFixedSize(height, height)
+            self.pixmap = QPixmap(f'img/hourglass.png').scaled(height, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        def paintEvent(self, event):
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.Antialiasing)
+            painter.drawPixmap(0, 0, self.pixmap)
+
     def __init__(self, program, width):
         super().__init__()
         self.program = program
@@ -512,18 +524,20 @@ class Profiles(QWidget):
             font-size: {height * 0.4}px;
             margin-left: 10px;
         ''')
-        layout.addWidget(systemName, 1)
         self.systemName = systemName
+        layout.addWidget(systemName, 1)
+
+        self.hourglassIcon = self.HourglassIcon(height // 2)
+        layout.addWidget(self.hourglassIcon)
 
         calendarLayout = QVBoxLayout()
         layout.addLayout(calendarLayout)
-        calendarIcon = self.CalendarIcon(height // 2)
-        calendarLayout.addWidget(calendarIcon)
-        self.calendarIcon = calendarIcon
+        self.calendarIcon = self.CalendarIcon(height // 2)
+        calendarLayout.addWidget(self.calendarIcon)
         calendarLayout.addSpacing(5)
         layout.addSpacing(5)
 
-        profileButton = TextButton(program, '-', height * 0.7, 'Profile: Default')
+        profileButton = TextButton(program, '-', height * 0.7, 'Default profile')
         profileButton.setStyleSheet(f'''
             margin-right: 10px;
             background-color: #eee;
@@ -536,16 +550,18 @@ class Profiles(QWidget):
         ''')
         layout.addWidget(profileButton)
         self.profileButton = profileButton
+    
+    def handleRequest(self, request):
+        if 'setSystemName' in request:
+            self.systemName.setText(request['setSystemName'].replace('%20', ' '))
+        elif 'setProfile' in request:
+            self.profileButton.setText(request['setProfile'])
+        elif 'setHourglass' in request:
+            self.hourglassIcon.setVisible(request['setHourglass'])
 
-    def getElement(self, name):
-        if name == 'systemName': return self.systemName
-        return None
-    
-    def setSystemName(self, name):
-        self.systemName.setText(name.replace('%20', ' '))
-    
-    def setProfile(self, name):
-        self.profileButton.setText(f'Profile: {name}')
+    # def getElement(self, name):
+    #     if name == 'systemName': return self.systemName
+    #     return None
 
 ###############################################################################
 # A row of room information
