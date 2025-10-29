@@ -3,7 +3,7 @@
 # This script runs every minute as a cron task
 
 # If an update is under way, do nothing
-if test -f "/mnt/data/version"; then
+if test -f "/mnt/data/update"; then
    echo "Update under way"
    exit
 fi

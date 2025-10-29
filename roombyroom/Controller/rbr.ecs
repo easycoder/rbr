@@ -126,6 +126,19 @@
         end
     end
 
+    save system `uptime | awk -F'( |,|:)+' '{
+    `d=h=m=0;
+    `if ($7=="min")
+    `    m=$6;
+    `else {
+    `    if ($7~/^day/) { d=$6; h=$8; m=$9}
+    `    else {h=$6;m=$7}
+    `    }
+    `}
+    `{
+    `    print d+0,"days,",h+0,"hours,",m+0,"minutes."
+    `}'` to RamDisk cat `uptime`
+
     put system `hostname -I` into IPAddr
     put the position of ` ` in IPAddr into P
     if P is greater than 0  put left P of IPAddr into IPAddr
@@ -267,13 +280,14 @@
     end
     if Version is empty put `0` into Version
     log `My version: ` cat Version
+    save Version to RamDisk cat `version`
 ! log RegData
     put property `version` of RegData into Value
     log `Current version: ` cat Version
     if the value of Value is greater than the value of Version
     begin
         log `Install update from ` cat Version cat ` to ` cat Value
-        save `` cat Value to RamDisk cat `version`
+        save `` cat Value to RamDisk cat `update`
     end
 
 !   Continue here if we are not connected to the RBR web server
@@ -1026,6 +1040,7 @@ PostToServer:
             clear Changed
         end
     end
+    delete file RamDisk cat `request`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1165,7 +1180,7 @@ ProcessRequest:
     if file RamDisk cat `request` exists
     begin
         load Request from RamDisk cat `request`
-        delete file RamDisk cat `request`
+!        delete file RamDisk cat `request`
     end
     if Request is empty
     begin

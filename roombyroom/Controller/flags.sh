@@ -19,7 +19,7 @@ then
    ./ecrun.py router.ecs
 fi
 
-if test -f "/mnt/data/version"
+if test -f "/mnt/data/update"
 then
    rm /home/linaro/updatelog
    cd /home/linaro/rbr/

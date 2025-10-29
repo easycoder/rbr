@@ -76,6 +76,7 @@
     variable RelayNames
     variable Responses
     variable Response
+    variable Version
     variable Uptime
     variable Item
     variable HH
@@ -275,6 +276,7 @@ ShowMainMenu:
     append `Add a room` to Choices
     append empty to Choices
     append `Reset` to Choices
+    append `System Info` to Choices
     append `Exit Application` to Choices
     append empty to Choices
     append `Cancel` to Choices
@@ -285,8 +287,9 @@ ShowMainMenu:
     if Choice is element 1 of Choices go to SetRequestRelay
     if Choice is element 2 of Choices go to AddRoom
     if Choice is element 4 of Choices go to Reset
-    if Choice is element 5 of Choices exit
-    if Choice is element 7 of Choices stop
+    if Choice is element 5 of Choices go to ShowSystemInfo
+    if Choice is element 6 of Choices exit
+    if Choice is element 8 of Choices stop
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -334,6 +337,40 @@ Reset:
     put json `{}` into Request
     set property `action` of Request to `reset`
     gosub to SendRequest
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show system info
+ShowSystemInfo:
+    set Locked
+    put property Name of SystemData into RoomSpec
+    create Panel type QVBoxLayout
+    create Label text `-- System information --`
+    add Label to Panel
+    if IsLocal
+    begin
+        load Version from RamDisk cat `version`
+        load Uptime from RamDisk cat `uptime`
+    end
+    else
+    begin
+        load Version from Controller RamDisk cat `version`
+        load Uptime from Controller RamDisk cat `uptime`
+    end
+    create Label text `Version: ` cat Version
+    add Label to Panel
+    create Label text `Uptime: ` cat Uptime
+    add Label to Panel
+    create OKButton text `OK`
+    set the height of OKButton to 40
+    add OKButton to Panel
+    on click OKButton
+    begin
+        hide Popout
+        clear Locked
+    end
+    add Panel to Popout
+    show Popout
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -441,7 +478,7 @@ HandleTools:
     put json `{}` into Request
     if Choice is element 0 of Choices go to MoveRoomUp
     if Choice is element 1 of Choices go to MoveRoomDown
-    if Choice is element 2 of Choices go to ShowInfo
+    if Choice is element 2 of Choices go to ShowRoomInfo
     if Choice is element 3 of Choices go to EditRoomName
     if Choice is element 4 of Choices go to EditDeviceParams
     if Choice is element 5 of Choices go to EditSchedule
@@ -478,7 +515,7 @@ MoveRoomDown:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Show information about the selected room
-ShowInfo:
+ShowRoomInfo:
     set Locked
     put property Name of SystemData into RoomSpec
     create Panel type QVBoxLayout
