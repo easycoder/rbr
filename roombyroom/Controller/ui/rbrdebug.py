@@ -15,6 +15,9 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtCore import Qt, QTimer
+	
+class Object():
+    pass
 
 class DebugMainWindow(QMainWindow):
 
@@ -61,7 +64,7 @@ class DebugMainWindow(QMainWindow):
 
         def addLine(self, spec):
             class Label(QLabel):
-                def __init__(self, text, fixed_width=None, align=Qt.AlignLeft, on_click=spec['onClick']):
+                def __init__(self, text, fixed_width=None, align=Qt.AlignLeft, on_click=spec.onClick):
                     super().__init__()
                     self.setText(text)
                     # remove QLabel's internal margins/padding to reduce top/bottom space
@@ -87,7 +90,7 @@ class DebugMainWindow(QMainWindow):
                             pass
                     super().mousePressEvent(event)
 
-            spec['label'] = self
+            spec.label = self
             panel = QWidget()
             # ensure the panel itself has no margins
             try:
@@ -119,29 +122,30 @@ class DebugMainWindow(QMainWindow):
                 # force repaint
                 widget.update()
 
-            # attach methods to this blob so callers can toggle it via spec['label']
+            # attach methods to this blob so callers can toggle it via spec.label
             blob.showBlob = lambda: set_blob_visible(blob, True)
             blob.hideBlob = lambda: set_blob_visible(blob, False)
 
             # initialize according to spec flag
-            if spec.get('bp'):
+            if spec.bp:
                 blob.showBlob()
             else:
                 blob.hideBlob()
 
             # expose the blob to the outside via spec['label'] so onClick can call showBlob/hideBlob
-            spec['label'] = blob
+            spec.label = blob
 
             # create the line-number label; clicking it reports back to the caller
-            lino_label = Label(str(spec['lino']+1), fixed_width=width_4, align=Qt.AlignRight,
-                               on_click=lambda: spec['onClick'](spec['lino']))
+            lino_label = Label(str(spec.lino+1), fixed_width=width_4, align=Qt.AlignRight,
+                               on_click=lambda: spec.onClick(spec.lino))
             lino_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-            text_label = Label(spec['line'], fixed_width=None, align=Qt.AlignLeft)
+            # create the text label for the line itself
+            text_label = Label(spec.line, fixed_width=None, align=Qt.AlignLeft)
             text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
             layout.addWidget(lino_label)
             layout.addSpacing(10)
             layout.addWidget(blob, 0, Qt.AlignVCenter)
-            layout.addSpacing(10)
+            layout.addSpacing(3)
             layout.addWidget(text_label)
             self.inner_layout.addWidget(panel)
             return panel
@@ -314,24 +318,47 @@ class DebugMainWindow(QMainWindow):
         # Parse and add new lines
         lino = 0
         for line in script.splitlines():
-            line = line.replace("\t", " " * 3)
-            lineSpec = {
-                "lino": lino,
-                "line": line,
-                "bp": False,
-                "onClick": self.onClickLino
-            }
+            if len(line) > 0:
+                line = line.replace("\t", "   ")
+                line = self.coloriseLine(line)
+            lineSpec = Object()
+            lineSpec.lino = lino
+            lineSpec.line = line
+            lineSpec.bp = False
+            lineSpec.onClick = self.onClickLino
             lino += 1
             self.scriptLines.append(lineSpec)
-            lineSpec['panel'] = self.rightColumn.addLine(lineSpec)
+            lineSpec.panel = self.rightColumn.addLine(lineSpec)
         self.rightColumn.addStretch()
+    
+    def coloriseLine(self, line):
+        output = ''
+        if line[0] == ' ':
+            output += '<span>'
+            n = 0
+            while line[n] == ' ': n += 1
+            output += '&nbsp;' * (n - 1)
+            output += '</span>'
+        line = ' '.join(line.split()) 
+        for token in line.split(' '):
+            if token[0] == '!':
+                output += f'<span style="color: peru;">&nbsp;{line}</span>'
+                break
+            elif token[0].isupper():
+                output += f'<span style="color: blue; font-weight: bold;">&nbsp;{token}</span>'
+            elif token[0].isdigit():
+                output += f'<span style="color: green;">&nbsp;{token}</span>'
+            else:
+                output += f'<span>&nbsp;{token}</span>'
+
+        return output
     
     # Here when the user clicks a line number
     def onClickLino(self, lino):
         lineSpec = self.scriptLines[lino]
-        lineSpec['bp'] = not lineSpec['bp']
-        if lineSpec['bp']: lineSpec['label'].showBlob()
-        else: lineSpec['label'].hideBlob()
+        lineSpec.bp = not lineSpec.bp
+        if lineSpec.bp: lineSpec.label.showBlob()
+        else: lineSpec.label.hideBlob()
 
     def closeEvent(self, event):
         """Save window position and size to ~/.rbrdebug.conf as JSON on exit."""
