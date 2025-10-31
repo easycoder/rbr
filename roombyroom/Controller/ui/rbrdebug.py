@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (
     QMainWindow,
     QWidget,
     QFrame,
+    QHBoxLayout,
     QVBoxLayout,
     QLabel,
     QSplitter,
@@ -13,7 +14,7 @@ from PySide6.QtWidgets import (
     QSizePolicy
 )
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 
 class DebugMainWindow(QMainWindow):
 
@@ -58,15 +59,23 @@ class DebugMainWindow(QMainWindow):
             # ensure the scroll area gets the stretch so it fills the parent
             main_layout.setStretch(0, 1)
 
-        def addLine(self, text):
-            lbl = QLabel(text)
-            # remove QLabel's internal margins/padding to reduce top/bottom space
-            lbl.setMargin(0)
-            lbl.setContentsMargins(0, 0, 0, 0)
-            lbl.setStyleSheet("padding:0px; margin:0px")
-            fm = lbl.fontMetrics()
-            lbl.setFixedHeight(fm.height())
-            self.inner_layout.addWidget(lbl)
+        def addLine(self, lino, line):
+            class Label(QLabel):
+                def __init__(self, text):
+                    super().__init__()
+                    self.setText(text)
+                    # remove QLabel's internal margins/padding to reduce top/bottom space
+                    self.setMargin(0)
+                    self.setContentsMargins(0, 0, 0, 0)
+                    self.setStyleSheet("padding:0px; margin:0px; background:yellow")
+                    fm = self.fontMetrics()
+                    self.setFixedHeight(fm.height())
+
+            panel = QWidget()
+            layout = QHBoxLayout(panel)
+            layout.addWidget(Label(str(lino)))
+            layout.addWidget(Label(line))
+            self.inner_layout.addWidget(panel)
 
         def addStretch(self):
             self.inner_layout.addStretch()
@@ -127,7 +136,8 @@ class DebugMainWindow(QMainWindow):
             from PySide6.QtWidgets import QMessageBox
             QMessageBox.information(self.parent, "About", "RBR Debugger")
 
-    def __init__(self, width=800, height=600):
+    # Initialiser for main window
+    def __init__(self, width=800, height=600, ratio=0.2):
         super().__init__()
         self.setWindowTitle("RBR Debugger")
         self.setMinimumSize(width, height)
@@ -143,6 +153,7 @@ class DebugMainWindow(QMainWindow):
                 y = int(cfg.get("y", 0))
                 w = int(cfg.get("width", width))
                 h = int(cfg.get("height", height))
+                ratio =float(cfg.get("ratio", ratio))
                 # Apply loaded geometry
                 self.setGeometry(x, y, w, h)
                 initial_width = w
@@ -153,7 +164,7 @@ class DebugMainWindow(QMainWindow):
         self.MainMenus(self)
 
         # Keep a ratio so proportions are preserved when window is resized
-        self._left_ratio = 0.2
+        self.ratio = ratio
 
         # Central splitter (horizontal -> two columns)
         self.splitter = QSplitter(Qt.Horizontal, self)
@@ -184,7 +195,7 @@ class DebugMainWindow(QMainWindow):
 
         # Initial sizes (proportional)
         total = initial_width
-        self.splitter.setSizes([int(self._left_ratio * total), int((1 - self._left_ratio) * total)])
+        self.splitter.setSizes([int(self.ratio * total), int((1 - self.ratio) * total)])
 
         self.setCentralWidget(self.splitter)
 
@@ -192,12 +203,12 @@ class DebugMainWindow(QMainWindow):
         # Update stored ratio when user drags the splitter
         left_width = self.splitter.widget(0).width()
         total = max(1, sum(w.width() for w in (self.splitter.widget(0), self.splitter.widget(1))))
-        self._left_ratio = left_width / total
+        self.ratio = left_width / total
 
     def resizeEvent(self, event):
         # Preserve the proportional widths when the window is resized
         total_width = max(1, self.width())
-        left_w = max(0, int(self._left_ratio * total_width))
+        left_w = max(0, int(self.ratio * total_width))
         right_w = max(0, total_width - left_w)
         self.splitter.setSizes([left_w, right_w])
         super().resizeEvent(event)
@@ -205,9 +216,13 @@ class DebugMainWindow(QMainWindow):
     def file_open(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "ECS Files (*.ecs)")
         if path:
+            def process():
+                with open(path, "r", encoding="utf-8") as f:
+                    self.parse(f.read())
+                self.statusBar().showMessage("")
             try:
-                with open(path, "r", encoding="utf-8") as f: self.parse(f.read())
-                self.statusBar().showMessage(f"Opened: {path}", 4000)
+                self.statusBar().showMessage(f"Opening: {path}")
+                QTimer.singleShot(10, process)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Could not open file:\n{e}")
 
@@ -222,11 +237,13 @@ class DebugMainWindow(QMainWindow):
                 widget.deleteLater()
 
         # Parse and add new lines
+        lino = 0
         for line in script.splitlines():
+            lino += 1
             line = line.replace("\t", " " * 3)
             # print(line)
             self.scriptLines.append(line)
-            self.rightColumn.addLine(line)
+            self.rightColumn.addLine(lino, line)
         self.rightColumn.addStretch()
 
     def closeEvent(self, event):
@@ -235,7 +252,8 @@ class DebugMainWindow(QMainWindow):
             "x": self.x(),
             "y": self.y(),
             "width": self.width(),
-            "height": self.height()
+            "height": self.height(),
+            "ratio": self.ratio
         }
         try:
             cfg_path = os.path.join(os.path.expanduser("~"), ".rbrdebug.conf")
