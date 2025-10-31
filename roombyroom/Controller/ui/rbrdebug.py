@@ -59,26 +59,101 @@ class DebugMainWindow(QMainWindow):
             # ensure the scroll area gets the stretch so it fills the parent
             main_layout.setStretch(0, 1)
 
-        def addLine(self, lino, line):
+        def addLine(self, spec):
             class Label(QLabel):
-                def __init__(self, text):
+                def __init__(self, text, fixed_width=None, align=Qt.AlignLeft, on_click=spec['onClick']):
                     super().__init__()
                     self.setText(text)
                     # remove QLabel's internal margins/padding to reduce top/bottom space
                     self.setMargin(0)
                     self.setContentsMargins(0, 0, 0, 0)
-                    self.setStyleSheet("padding:0px; margin:0px; background:yellow")
+                    self.setStyleSheet("padding:0px; margin:0px; font-family: mono")
                     fm = self.fontMetrics()
+                    # set a compact fixed height based on font metrics
                     self.setFixedHeight(fm.height())
+                    # optional fixed width (used for the lino column)
+                    if fixed_width is not None:
+                        self.setFixedWidth(fixed_width)
+                    # align horizontally (keep vertically centered)
+                    self.setAlignment(align | Qt.AlignVCenter)
+                    # optional click callback
+                    self._on_click = on_click
 
+                def mousePressEvent(self, event):
+                    if self._on_click:
+                        try:
+                            self._on_click()
+                        except Exception:
+                            pass
+                    super().mousePressEvent(event)
+
+            spec['label'] = self
             panel = QWidget()
+            # ensure the panel itself has no margins
+            try:
+                panel.setContentsMargins(0, 0, 0, 0)
+            except Exception:
+                pass
+            # tidy layout: remove spacing/margins so lines sit flush
             layout = QHBoxLayout(panel)
-            layout.addWidget(Label(str(lino)))
-            layout.addWidget(Label(line))
-            self.inner_layout.addWidget(panel)
+            layout.setSpacing(0)
+            layout.setContentsMargins(0, 0, 0, 0)
+            self.layout = layout
+            # make panel take minimal vertical space
+            panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            # compute width to fit a 4-digit line number using this widget's font
+            fm_main = self.fontMetrics()
+            width_4 = fm_main.horizontalAdvance('0000') + 8
 
+            # create the red blob (always present). We'll toggle its opacity
+            # by changing the stylesheet (rgba alpha 255/0). Do NOT store it
+            # on the MainRightColumn instance — keep it per-line.
+            blob = QLabel()
+            blob_size = 10
+            blob.setFixedSize(blob_size, blob_size)
+
+            def set_blob_visible(widget, visible):
+                alpha = 255 if visible else 0
+                widget.setStyleSheet(f"background-color: rgba(255,0,0,{alpha}); border-radius: {blob_size//2}px; margin:0px; padding:0px;")
+                widget._blob_visible = visible
+                # force repaint
+                widget.update()
+
+            # attach methods to this blob so callers can toggle it via spec['label']
+            blob.showBlob = lambda: set_blob_visible(blob, True)
+            blob.hideBlob = lambda: set_blob_visible(blob, False)
+
+            # initialize according to spec flag
+            if spec.get('bp'):
+                blob.showBlob()
+            else:
+                blob.hideBlob()
+
+            # expose the blob to the outside via spec['label'] so onClick can call showBlob/hideBlob
+            spec['label'] = blob
+
+            # create the line-number label; clicking it reports back to the caller
+            lino_label = Label(str(spec['lino']+1), fixed_width=width_4, align=Qt.AlignRight,
+                               on_click=lambda: spec['onClick'](spec['lino']))
+            lino_label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            text_label = Label(spec['line'], fixed_width=None, align=Qt.AlignLeft)
+            text_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+            layout.addWidget(lino_label)
+            layout.addSpacing(10)
+            layout.addWidget(blob, 0, Qt.AlignVCenter)
+            layout.addSpacing(10)
+            layout.addWidget(text_label)
+            self.inner_layout.addWidget(panel)
+            return panel
+        
+        def showBlob(self):
+            self.blob.setStyleSheet("background-color: red; border-radius: 5px; margin:0px; padding:0px;")
+        
+        def hideBlob(self):
+            self.blob.setStyleSheet("background-color: none; border-radius: 5px; margin:0px; padding:0px;")
+        
         def addStretch(self):
-            self.inner_layout.addStretch()
+            self.layout.addStretch()
 
     ###########################################################################
     # The main window menus
@@ -239,12 +314,24 @@ class DebugMainWindow(QMainWindow):
         # Parse and add new lines
         lino = 0
         for line in script.splitlines():
-            lino += 1
             line = line.replace("\t", " " * 3)
-            # print(line)
-            self.scriptLines.append(line)
-            self.rightColumn.addLine(lino, line)
+            lineSpec = {
+                "lino": lino,
+                "line": line,
+                "bp": False,
+                "onClick": self.onClickLino
+            }
+            lino += 1
+            self.scriptLines.append(lineSpec)
+            lineSpec['panel'] = self.rightColumn.addLine(lineSpec)
         self.rightColumn.addStretch()
+    
+    # Here when the user clicks a line number
+    def onClickLino(self, lino):
+        lineSpec = self.scriptLines[lino]
+        lineSpec['bp'] = not lineSpec['bp']
+        if lineSpec['bp']: lineSpec['label'].showBlob()
+        else: lineSpec['label'].hideBlob()
 
     def closeEvent(self, event):
         """Save window position and size to ~/.rbrdebug.conf as JSON on exit."""
