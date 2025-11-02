@@ -188,7 +188,7 @@ RefreshScreen:
         end
         if SystemData is empty wait 1 second
     end
-    put json Map into Map
+    put json Map into Map or return
     put the value of CurrentProfile into CurrentProfile
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile

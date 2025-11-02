@@ -18,6 +18,7 @@
 	put now into Finish
 	take Start from Finish giving N
 	print N cat ` seconds`
+	wait 1 tick
 
 	print `Compare 500,000 long integers for equality`
 	put now into Start
@@ -30,10 +31,11 @@
 	put now into Finish
 	take Start from Finish giving N
 	print N cat ` seconds`
+	wait 1 tick
 
 	print `Allocate and initialize a 500,000 element array`
 	put now into Start
-	set the elements of Array to 500000
+	set the elements of Array to 500000 ! uses implicit (non-JSON) arrays
 	put 0 into N
 	while N is less than 500000
 	begin
@@ -44,6 +46,7 @@
 	put now into Finish
 	take Start from Finish giving N
 	print N cat ` seconds`
+	wait 1 tick
 
 	print `Allocate and initialize a 5000 element dictionary`
 	put json `{}` into Dictionary
@@ -62,4 +65,5 @@
 	put now into Finish
 	take Start from Finish giving N
 	print N cat ` seconds`
+	wait 1
 	exit
