@@ -9,9 +9,11 @@
         and rbrwin Window
         and variable Periods
         and variable Request
+
+    debug compile
     
-    widget Container
-    widget Editor
+    panel Container
+    panel Editor
     layout Layout
     layout Panel
     layout EditLayout
@@ -48,7 +50,7 @@
     variable T1
     variable T2
 
-!    debug step
+    debug step
 
     log Periods
     clear Changed

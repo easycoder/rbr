@@ -1,0 +1,159 @@
+{
+    "#doc": "Choose a system / Add a new system",
+    "#element": "div",
+    "background": "white",
+    "border": "1px solid gray",
+    "margin-top": "0.5em",
+    "padding": "0 0.5em 0.5e 0.5em",
+    "box-shadow": "0.5em 0.5em 0.5em #444",
+    "text-align": "center",
+    "#": ["$Title", "$Version", "$Select", "$Login", "$Buttons"],
+
+    "$Title": {
+        "#element": "div",
+        "font-weight": "bold",
+        "#content": "System Manager"
+    },
+
+    "$Version": {
+        "#element": "div",
+        "font-size": "75%",
+        "margin-top": "1em",
+        "@id": "system-version"
+    },
+
+    "$Select": {
+        "#element": "div",
+        "@id": "system-select",
+        "#": ["$Text", "$Names"],
+
+        "$Text": {
+            "#element": "div",
+            "margin": "1em",
+            "#content": "Choose the system you want to manage"
+        },
+
+        "$Names": {
+            "#element": "div",
+            "@id": "system-names",
+            "width": "80%",
+            "border": "1px solid gray",
+            "background": "#ffc",
+            "margin": "auto"
+        }
+    },
+
+    "$Login": {
+        "#element": "div",
+        "@id": "login",
+        "width": "80%",
+        "margin": "1em auto",
+        "padding-bottom": "1em",
+        "background": "#ffc",
+        "border": "1px solid gray",
+        "#": ["$MACTitle", "$MACInput", "$PWDTitle", "$PWDInput", "$AddThis"],
+
+        "$MACTitle": {
+            "#element": "div",
+            "#content": "Controller MAC address<br>(cat mac)",
+            "margin-top": "0.5em",
+            "font-size": "80%",
+            "font-weight": "bold"
+        },
+
+        "$MACInput": {
+            "#element": "input",
+            "@id": "getmac-input",
+            "width": "90%",
+            "margin-top": "0.5em"
+        },
+
+        "$PWDTitle": {
+            "#element": "div",
+            "#content": "Controller password<br>(cat /mnt/data/password)",
+            "margin-top": "0.5em",
+            "font-size": "80%",
+            "font-weight": "bold"
+        },
+
+        "$PWDInput": {
+            "#element": "input",
+            "@id": "getpassword-input",
+            "width": "90%",
+            "margin-top": "0.5em"
+        },
+
+        "$AddThis": {
+            "#element": "button",
+            "@id": "addthis-button",
+            "#content": "Add this system",
+            "width": "90%",
+            "margin-top": "1em"
+        }
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "row",
+        "margin": "1em 0",
+        "#": ["$LRPadding", "$OK", "$OKPadding", "$Add", "$FixedPadding", "$Remove",
+            "$RemovePadding", "$Help", "$FixedPadding", "$Cancel", "$LRPadding"],
+
+        "$OK": {
+            "#element": "button",
+            "@id": "ok-button",
+            "display": "none",
+            "#content": "OK"
+        },
+
+        "$Add": {
+            "#element": "button",
+            "@id": "add-button",
+            "#content": "Add"
+        },
+
+        "$Remove": {
+            "#element": "button",
+            "@id": "remove-button",
+            "display": "none",
+            "#content": "Remove"
+        },
+
+        "$Help": {
+            "#element": "button",
+            "@id": "help-button",
+            "#content": "Help"
+        },
+
+        "$Cancel": {
+            "#element": "button",
+            "@id": "cancel-button",
+            "#content": "Cancel"
+        },
+
+        "$LRPadding": {
+            "#element": "div",
+            "flex": 1
+        },
+
+        "$FixedPadding": {
+            "#element": "div",
+            "width": "1em"
+        },
+
+        "$OKPadding": {
+            "#element": "div",
+            "@id": "ok-padding",
+            "display": "none",
+            "width": "1em"
+        },
+
+        "$RemovePadding": {
+            "#element": "div",
+            "@id": "remove-padding",
+            "display": "none",
+            "width": "1em"
+        }
+    }
+}

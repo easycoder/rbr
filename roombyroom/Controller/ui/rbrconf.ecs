@@ -4,7 +4,7 @@
 
     use graphics
 
-!    debug compile
+    debug compile
 
     window HostWindow
     window Window
@@ -59,10 +59,9 @@
     checkbox RelayInvertCheckbox
     messagebox MessageBox
 
-!    debug step
+    debug step
 
     log `Starting`
-    init graphics
 
     create MainPanel type QHBoxLayout
 
@@ -253,8 +252,6 @@
     set the layout of Window to MainPanel
     show Window
 
-    start graphics
-
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     ssh SSH
@@ -274,6 +271,7 @@
     variable HostSSID
     variable HostPassword
     variable SystemHostSSID
+    variable CurrentSSID
     variable SSID
     variable MAC
     variable Password
@@ -301,7 +299,6 @@
     variable MasterIPAddr
     variable MasterDeviceName
     variable SlaveDevices
-    variable CurrentSSID
     variable Channel
     variable Previous
     variable IsLocal
@@ -360,7 +357,11 @@ Restart:
     begin
         put trim system `echo $HOME` into HomeDir
         put HomeDir cat `/.controller.json` into ControllerSpecPath
-        if file ControllerSpecPath exists load ControllerSpec from ControllerSpecPath
+        if file ControllerSpecPath exists
+        begin
+            load ControllerSpec from ControllerSpecPath
+            put json ControllerSpec into ControllerSpec
+        end
         else
         begin
             put empty into SystemIPAddr
@@ -429,6 +430,7 @@ Start:
     end
     put property `hosts` of Config into Hosts
 
+    put empty into CurrentSSID
     put empty into SystemHostSSID
     put empty into SystemIPAddr
     put empty into MasterDevice
@@ -716,11 +718,10 @@ SelectSystem2:
     put property `ipaddr` of SystemConfig into SystemIPAddr
     put property `mac` of SystemConfig into SystemMAC
     put property `password` of SystemConfig into SystemPassword
-!    log ControllerSpec
     if ControllerSpec has property SystemIPAddr
     begin
         set property `current` of ControllerSpec to SystemIPAddr
-        save ControllerSpec to HomeDir cat `/.controller.json`
+        save stringify ControllerSpec to HomeDir cat `/.controller.json`
     end
 !    else gosub to GetSSH
     else
@@ -734,8 +735,9 @@ SelectSystem2:
             style question
             title `Change network`
             message `System '` cat SystemName cat `' is registered on a different network ` cat newline
-                cat `(` cat SSID cat ` / ` cat Password cat ` / ` cat IPAddr
-                cat `).` cat newline cat ` Would you like to move it to your current network?`
+                cat `(` cat SSID cat ` / ` cat Password cat ` / ` cat IPAddr cat `).` cat newline
+                cat ` Would you like to move it to your current network` cat newline
+                cat `(` cat HostSSID cat ` / ` cat HostPassword cat ` / ` cat IPAddr cat `)?`
         show MessageBox giving Value
         if Value is `Yes`
         begin
@@ -1306,6 +1308,8 @@ SlaveDeviceClick:
     log `Select ` cat SlaveList
     set DeviceSelected
     clear IsMaster
+    set breakpoint
+    log SlaveList
     put SlaveList into Item
     put the position of ` ` in Item into S
     increment S
@@ -2002,6 +2006,7 @@ GetDeviceData:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Post the config data
 PostConfigData:
+log CurrentSSID cat ` - ` cat HostSSID
     if CurrentSSID is not HostSSID gosub to ConnectToHost
 !    log `Config: ` cat prettify Config
     save prettify Config to ConfigFile

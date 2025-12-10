@@ -1,19 +1,22 @@
-!   rbr-ui.ecs
+!   rbr_ui.ecs
 
     script UI
 
     use graphics
     use plugin RBR_UI from rbr_ui.py
 
+    debug compile
+    debug step
+
     rbrwin Window
     room Room
-    element Banner
-    element NameAndProfiles
-    element Popout
-    pushbutton Hamburger
-    pushbutton ModeButton
-    pushbutton ToolsButton
-    pushbutton OKButton
+    profiles ProfilesBar
+    banner Banner
+    popout Popout
+    button Hamburger
+    button ModeButton
+    button ToolsButton
+    button OKButton
     modeDialog ModeDialog
     dialog Dialog
     layout Panel
@@ -62,13 +65,13 @@
     variable ChoicesShown
     variable Choice
     variable Advance
-    variable Tick
+    variable Ticks
     variable Result
     variable Request
+    variable RequestRelay
     variable Data
     variable Value
     variable Values
-    variable Locked
     variable Timestamp
     variable Temperature
     variable Text
@@ -79,6 +82,8 @@
     variable Version
     variable Uptime
     variable Item
+    variable Refreshing
+    variable Locked
     variable HH
     variable MM
     variable SS
@@ -88,11 +93,11 @@
     variable R
     variable T
 
+!    debug compile
 !    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
-    init graphics
 
     ! Figure out where we're running
     put `linaro` into UserName
@@ -118,18 +123,18 @@ Start:
     put 1000 into WindowHeight
     put 582 into WindowWidth
     divide WindowHeight by 12 giving RoomHeight
-    put 0 into Tick
 
     create Window title Title size WindowWidth WindowHeight
     show Window
-    start graphics
 
     ! If we're running remotely, set up SSH to access the controller
     if not IsLocal
     begin
         run `controller.ecs` as Module with HomeDir and ControllerSpec
+        log ControllerSpec
         put property `current` of ControllerSpec into ControllerIPAddr
         put property ControllerIPAddr of ControllerSpec into Item
+        log Item
         set Controller
             host ControllerIPAddr
             user property `user` of Item
@@ -139,14 +144,20 @@ Start:
     ! Refresh the UI regularly
     put empty into Path
     clear Locked
+gosub to RefreshScreen
+stop
     set FirstTime
-    gosub to RefreshScreen
-    clear FirstTime
-!stop
+    put 0 into Ticks
     on tick
     begin
-        put the ticker into Tick
-        if Tick modulo 200 is 0 gosub to RefreshScreen
+        if Refreshing stop
+        if Locked stop
+        if the ticker is greater than Ticks
+        begin
+            add 200 to the ticker giving Ticks
+            gosub to RefreshScreen
+            clear FirstTime
+        end
     end
     stop
 
@@ -154,7 +165,8 @@ Start:
 !   Refresh the screen. This is called every 2 seconds (200 graphics ticks).
 !   See r_start in ex_pyside.py
 RefreshScreen:
-    if Locked return
+    set Refreshing
+!    log `Refresh`
     put empty into SystemData
     put 0 into N
     while SystemData is empty
@@ -188,12 +200,16 @@ RefreshScreen:
         end
         if SystemData is empty wait 1 second
     end
+!    log prettify Map
+!    log prettify SystemData
     put json Map into Map or return
+!    log property `request` of Map
     put the value of CurrentProfile into CurrentProfile
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
-!    log Rooms
+    log Rooms
+    log the count of Rooms
     set the elements of Room to the count of Rooms
     set the elements of RoomData to the count of Rooms
     set the elements of ModeButton to the count of Rooms
@@ -236,17 +252,12 @@ RefreshScreen:
     on click Hamburger go to ShowMainMenu
 
     ! Set up the name and profiles strip below the banner
-    attach NameAndProfiles to element `profiles` of Window
+    attach ProfilesBar to element `profiles` of Window
     attach Popout to element `popout` of Window
     
     if IsLocal while file RamDisk cat `request` exists gosub to FlashHourglass
     else while file RamDisk cat `request` on Controller exists gosub to FlashHourglass
-    return
-
-ReadError:
-    put Tick into T
-    divide T by 100
-    log `Read failure at ` cat T
+    clear Refreshing
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -254,6 +265,7 @@ ReadError:
 CreateRoom:
 !    log `Create ` cat Name cat `, mode ` cat Mode
     index Room to R
+!    log prettify RoomSpec
     create Room
         spec RoomSpec
         height RoomHeight
@@ -296,7 +308,7 @@ ShowMainMenu:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks to set the system name. Use an external module
 SetSystemName:
-    run `systemName.ecs` as Module with Window and NameAndProfiles and Request
+    run `systemName.ecs` as Module with Window and ProfilesBar and Request
     if Request is empty stop
     gosub to SendRequest
     stop
@@ -308,10 +320,13 @@ SetRequestRelay:
     create Label text `Type the name of the request relay:`
     add Label to Layout
     create Input size 30
-    if Map has property `request` set the text of Input to property `request` of Map
-    else set the text of Input to empty
+    if Map has property `request` put property `request` of Map into RequestRelay
+    else put empty into RequestRelay
+    set the text of Input to RequestRelay
     add Input to Layout
     create keyboard layout Layout and receiver Input in Window
+    log Input cat ` ` cat RequestRelay
+    if Input is RequestRelay stop
     put json `{}` into Request
     set property `action` of Request to `request`
     set property `request` of Request to Input
@@ -378,7 +393,7 @@ ShowSystemInfo:
 !   Handle a click on one of the Mode buttons
 HandleMode:
     put json `{}` into Data
-    put attribute `index` of ModeButton into R
+    put the index of ModeButton into R
     index Room to R
     put element R of Rooms into RoomSpec
     put property `name` of RoomSpec into Name
@@ -437,13 +452,13 @@ HandleMode:
 SetMode:
     set property `action` of Request to `mode`
     set property `roomnumber` of Request to R
-    log `Save ` cat Request
+    log Request
     go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   The Tools menu on the right of each room row
+!   The Tools button on the right of each room row
 HandleTools:
-    put attribute `index` of ToolsButton into RoomIndex
+    put the index of ToolsButton into RoomIndex
     index Room to RoomIndex
     put attribute `name` of Room into Name
     put json `[]` into Choices
@@ -517,6 +532,7 @@ MoveRoomDown:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Show information about the selected room
 ShowRoomInfo:
+    log `ShowRoomInfo`
     set Locked
     put property Name of SystemData into RoomSpec
     create Panel type QVBoxLayout
@@ -566,7 +582,7 @@ ShowRoomInfo:
         end
     end
     create OKButton text `OK`
-    set the height of OKButton to 40
+    set the height of OKButton to 30
     add OKButton to Panel
     on click OKButton
     begin
@@ -700,7 +716,7 @@ EditDeviceParams:
     if CheckBox set property `linked` of Request to `yes` else set property `linked` of Request to `no`
     if CheckBox2 set property `protect` of Request to `yes` else set property `protect` of Request to `no`
     set property `ptemp` of Request to Input2
-    log Request
+!    log Request
     gosub to SendRequest
     stop
 
@@ -737,7 +753,6 @@ DeleteRoom:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
 SendRequest:
-    log Request
     set Locked
     if IsLocal
     begin
@@ -749,6 +764,8 @@ SendRequest:
         save stringify Request to Controller RamDisk cat `request`
         while file RamDisk cat `request` on Controller exists gosub to FlashHourglass
     end
+    log `Request acknowledged`
+!    log `Request: ` cat prettify Request
     clear Locked
     return
 

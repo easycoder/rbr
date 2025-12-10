@@ -1,4 +1,4 @@
-* * * * * cd /home/linaro/rbr; sh run.sh
+* * * * * cd /home/linaro/rbr; python3 run.py
 */5 * * * * cd /home/linaro/rbr; sh server.sh
 10 0 * * * cd /home/linaro/rbr; sh backup.sh
 0 * * * * cd /home/linaro/rbr; sh server.sh
