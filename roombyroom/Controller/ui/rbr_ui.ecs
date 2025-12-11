@@ -5,8 +5,8 @@
     use graphics
     use plugin RBR_UI from rbr_ui.py
 
-    debug compile
-    debug step
+!    debug compile
+!    debug step
 
     rbrwin Window
     room Room
@@ -208,7 +208,7 @@ RefreshScreen:
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
-    log Rooms
+!    log Rooms
     log the count of Rooms
     set the elements of Room to the count of Rooms
     set the elements of RoomData to the count of Rooms
@@ -439,10 +439,13 @@ HandleMode:
     else if Result is `edit`
     begin
         set Locked
-        put property `events` of RoomSpec into Periods
         put property `name` of RoomSpec into RoomName
+        put property `events` of RoomSpec into Periods
+        log `Schedule: ` cat Periods
         run `schedule.ecs` as Module with RoomName and Window and Periods and Request
+!        log Request
         if Request is empty stop
+        set property `events` of RoomSpec to Periods
         set property `roomnumber` of Request to R
         gosub to SendRequest
         clear Locked
@@ -765,7 +768,7 @@ SendRequest:
         while file RamDisk cat `request` on Controller exists gosub to FlashHourglass
     end
     log `Request acknowledged`
-!    log `Request: ` cat prettify Request
+    log `Request: ` cat prettify Request
     clear Locked
     return
 

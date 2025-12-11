@@ -564,8 +564,8 @@ class RBR_UI(Handler):
         return self.nextPC()
 
     # set attribute {attr} [of] {rbrwin}/{room} [to] {value}
-    # set {panel} as other view of {rbrwin}
     # set [the] width/height of {widget} to {value}
+    # set second view of {window} to {widget}
     def k_set(self, command):
         self.skip('the')
         token = self.nextToken()
@@ -591,20 +591,20 @@ class RBR_UI(Handler):
                     command['value'] = self.nextValue()
                     self.add(command)
                     return True
-        elif self.isSymbol():
-            record = self.getSymbolRecord()
-            if self.isObjectType(self.getObject(record), ECPanel):
-                command['widget'] = record['name']
-                self.skip('as')
-                self.skip('other')
-                self.skip('view')
-                self.skip('of')
-                if self.nextIsSymbol():
-                    record = self.getSymbolRecord()
-                    if self.isObjectType(self.getObject(record), RBRMainWindow):
-                        command['window'] = record['name']
-                        self.add(command)
-                        return True
+        elif token == 'second':
+            self.skip('view')
+            self.skip('of')
+            if self.nextIsSymbol():
+                record = self.getSymbolRecord()
+                if self.isObjectType(self.getObject(record), RBRMainWindow):
+                    command['window'] = record['name']
+                    self.skip('to')
+                    if self.nextIsSymbol():
+                        record = self.getSymbolRecord()
+                        if self.isObjectType(record, ECPanel):
+                            command['widget'] = record['name']
+                            self.add(command)
+                            return True
         return False
     
     def r_set(self, command):
@@ -647,43 +647,41 @@ class RBR_UI(Handler):
                     style += f'color: {value};\n'
                     widget.setStyleSheet(style)
         elif self.hasAttributes(command, ['widget', 'window']):
+            record = self.getVariable(command['window'])
+            window = self.getInnerObject(record)
             record = self.getVariable(command['widget'])
-            widget = record['widget'][record['index']]
-            window = self.getVariable(command['window'])['window']
-            window.setOtherPanel(widget)
+            window.setSecondPanel(self.getInnerObject(record))
         else: return 0
         return self.nextPC()
 
     # show {rbrwin}/{element}
-    # show view {name} of {rbrwin}
+    # show main/second view of {rbrwin}
     def k_show(self, command):
-        if self.nextIsSymbol():
+        token = self.nextToken()
+        if self.isSymbol():
             record = self.getSymbolRecord()
             if self.isObjectType(record, (RBRMainWindow, RBRWidget)):
                 command['name'] = record['name']
                 self.add(command)
                 return True
-        elif self.tokenIs('view'):
-            command['view'] = self.nextValue()
+        elif token in ['main', 'second']:
+            self.skip('view')
             self.skip('of')
             if self.nextIsSymbol():
                 record = self.getSymbolRecord()
                 if self.isObjectType(record, RBRMainWindow):
-                    command['rbrwin'] = record['name']
+                    command[token] = record['name']
                     self.add(command)
                     return True
         return False
         
     def r_show(self, command):
-        if 'view' in command:
-            window = self.getVariable(command['rbrwin'])['window']
-            viewName = self.textify(command['view'])
-            if viewName == 'rows':
-                window.selectRowsPanel()
-            elif viewName == 'main':
-                window.showMainPanel()
-            elif viewName == 'other':
-                window.showOtherPanel()
+        if 'main' in command: key = 'main'
+        elif 'second' in command: key = 'second'
+        else: key = None
+        if key:
+            window = self.getInnerObject(self.getVariable(command[key]))
+            window.showMainPanel() if key == 'main' else window.showSecondPanel()
         elif 'name' in command:
             record = self.getVariable(command['name'])
             object = record['object']

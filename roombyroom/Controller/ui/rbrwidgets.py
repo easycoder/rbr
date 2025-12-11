@@ -1377,7 +1377,7 @@ class MainWindow(QMainWindow):
         ''')
 
         # Panel for anything else that needs to be rendered
-        self.otherPanel = QWidget()
+        self.secondPanel = QWidget()
 
         roomsLayout = QVBoxLayout(self.mainPanel)
         roomsLayout.setSpacing(0)
@@ -1385,7 +1385,7 @@ class MainWindow(QMainWindow):
         self.contentLayout.addWidget(self.container)
         self.rooms = roomsLayout
         self.container.addWidget(self.mainPanel)
-        self.container.addWidget(self.otherPanel)
+        self.container.addWidget(self.secondPanel)
         self.container.setCurrentIndex(self.currentIndex)
     
     def setAttribute(self, name, value):
@@ -1397,25 +1397,25 @@ class MainWindow(QMainWindow):
         if name == 'banner': return self.banner
         elif name == 'profiles': return self.profiles
         elif name == 'rooms': return self.rooms
-        elif name == 'other': return self.otherPanel
+        elif name == 'second': return self.secondPanel
         elif name == 'popout': return self.popout
         else: return None
     
-    def setOtherPanel(self, widget):
-        oldWidget = self.otherPanel
-        self.container.removeWidget(self.otherPanel)
-        oldWidget.deleteLater()
+    def setSecondPanel(self, widget):
+        oldPanel = self.secondPanel
+        self.container.removeWidget(oldPanel)
+        oldPanel.deleteLater()
         # Add the new widget
         self.container.insertWidget(1, widget)
-        self.otherPanel = widget
+        self.secondPanel = widget
 
-    def getOtherPanel(self):
-        return self.otherPanel
+    def getSecondPanel(self):
+        return self.secondPanel
 
     def showMainPanel(self):
         self.container.setCurrentIndex(0)
         self.currentIndex = 0
 
-    def showOtherPanel(self):
+    def showSecondPanel(self):
         self.container.setCurrentIndex(1)
         self.currentIndex = 1
