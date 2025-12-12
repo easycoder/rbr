@@ -4,7 +4,7 @@
 
     use graphics
 
-    debug compile
+!    debug compile
 
     window HostWindow
     window Window
@@ -59,7 +59,7 @@
     checkbox RelayInvertCheckbox
     messagebox MessageBox
 
-    debug step
+!    debug step
 
     log `Starting`
 
@@ -649,7 +649,7 @@ GetConfigData:
         while K is less than the count of Keys
         begin
             put element K of Keys into Name
-            log `Adding ` cat Name cat ` ` cat property Name of Value
+            log `Adding ` cat Name cat ` to config data`
 !            if Name is `ssid` set property `host-ssid` of SystemConfig to property Name of Value
 !            else if Name is `password` set property `host-password` of SystemConfig to property Name of Value
 !            else
@@ -1308,7 +1308,6 @@ SlaveDeviceClick:
     log `Select ` cat SlaveList
     set DeviceSelected
     clear IsMaster
-    set breakpoint
     log SlaveList
     put SlaveList into Item
     put the position of ` ` in Item into S
@@ -1692,6 +1691,7 @@ SendFileToDevice:
     wait 1
     put 0 into Sequence
     put 0 into Start
+    put 0 into Finish
     put 0 into Total
     while Start is less than FileSize
     begin
@@ -1793,7 +1793,7 @@ TemperatureButtonClick:
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Send a reset message to a device
+!   Send a temperature request message to a device
 TemperatureRequest:
     gosub to GetDeviceData
     put `Request temperature from ` cat Name into StatusMessage
@@ -1972,7 +1972,7 @@ SendMessageToDevice:
 SMTD2:
     put empty into Response
     put `http://` cat MasterIPAddr cat `/?mac=` cat MAC cat `&msg=` cat Message2 into URL
-    if not Silent log URL
+!    if not Silent log URL
     get Response from url URL
     or begin
         log `Response: ` cat Response
