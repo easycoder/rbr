@@ -236,7 +236,7 @@ class IconButton(ECPushButtonWidget):
             self.setFixedSize(int(height), int(height))
             self.setStyleSheet(f"""
                 QPushButton {{
-                    background-color: #ccc;
+                    background-color: none;
                     border:none;
                     border-radius: 5px;
                 }}
@@ -664,7 +664,7 @@ class Room(QFrame):
         self.height = height
         self.temperature = 0
         self.index = index
-        print(spec['name'])
+        # print(spec['name'])
 
         self.setStyleSheet("""
             background-color: #ffc;
@@ -1103,6 +1103,7 @@ class OnMode(GenericMode):
     # The main class for the widget
     def __init__(self, program, caller):
         super().__init__()
+        self.program = program
         self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
@@ -1140,8 +1141,12 @@ class OnMode(GenericMode):
         self.setupMode(left, right)
     
     def showTarget(self):
-        self.caller.data['value'][self.caller.data['index']]['content']['target'] = str(self.target)
-        self.caller.data['target'] = str(self.target)
+        record = self.program.getVariable(self.caller.data)
+        object = self.program.getObject(record)
+        value = self.program.evaluate(object)
+        items = self.program.textify(value)
+        items['target'] = str(self.target)
+        value.setContent(items)
         self.settingLabel.setText(f'{self.target}°C')
     
     def getSettinglabel(self):

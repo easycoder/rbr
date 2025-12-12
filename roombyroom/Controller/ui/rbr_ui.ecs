@@ -144,8 +144,8 @@ Start:
     ! Refresh the UI regularly
     put empty into Path
     clear Locked
-gosub to RefreshScreen
-stop
+!gosub to RefreshScreen
+!stop
     set FirstTime
     put 0 into Ticks
     on tick
@@ -209,7 +209,6 @@ RefreshScreen:
     put element CurrentProfile of Profiles into Profile
     put property `rooms` of Profile into Rooms
 !    log Rooms
-    log the count of Rooms
     set the elements of Room to the count of Rooms
     set the elements of RoomData to the count of Rooms
     set the elements of ModeButton to the count of Rooms
