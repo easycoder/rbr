@@ -5,10 +5,12 @@
 
     script RBR
 
+    use psutil
     use plugin P100 from plugins/ec_p100.py
 
     file Logger
     variable RamDisk
+    variable NetworkName
     variable RBRServer
     variable RegData
     variable Version
@@ -102,6 +104,7 @@
     variable RA
     variable E
     variable EE
+    variable L
     variable N
     variable P
     variable R
@@ -115,6 +118,7 @@
 !    debug step
 
     put `/mnt/data/` into RamDisk
+    put `wlo1` into NetworkName ! Set this to your network interface name
 
     if file RamDisk cat `lock` exists
     begin
@@ -183,22 +187,10 @@
     end
 
     ! Get the system MAC address
-    put system `ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'` into Values
-    split Values
-    put the elements of Values into N
-    while N is greater than 0
-    begin
-        decrement N
-        index Values to N
-        put Values into Value
-        split Value on ` `
-        if left 4 of Value is `wlan`
-        begin
-            index Value to 1
-            put Value into MAC
-            put 0 into N
-        end
-    end
+    put system `nmcli -g GENERAL.HWADDR device show ` cat NetworkName
+        cat ` | tr -d '\\' | tr '[:upper:]' '[:lower:]'` into MAC
+    log `MAC address is ` cat MAC
+    put trim MAC into MAC
     save MAC to `/mnt/data/mac`
 
     put 0 into RepeatCount
@@ -209,7 +201,8 @@
 
     ! Ask the server for our password and other data
     put empty into RegData
-    get RegData from url RBRServer cat `/register/` cat MAC cat `?v=` cat now
+    get RegData from url RBRServer cat `/register/` cat MAC
+    ! cat `?v=` cat now
     or begin
         log `Server did not respond`
         gosub to NetworkError
@@ -219,7 +212,7 @@
     end
     gosub to ClearNetworkErrors
     log `Server ` cat RBRServer cat ` connected successfully`
-
+    log RegData
     put json RegData into RegData
     put property `password` of RegData into Password
     log `Password: ` cat Password
@@ -227,6 +220,7 @@
 
     ! The system config data is kept on the server and is managed by rbrconfig
     get Config from url RBRServer cat `/config/` cat MAC cat `/` cat Password
+    if Config is empty put `{}` into Config
     put json Config into Config
 !    load Config from `.config.json`
 !    log `Config: ` cat prettify Config
@@ -367,7 +361,6 @@ S2:
 
     gosub to ProcessRequest
     delete file RamDisk cat `request`
-    log `Request deleted`
     if Changed
     begin
         gosub to PostMapToServer
@@ -1018,8 +1011,10 @@ SaveErrorCount:
 !   Post data to the RBR server. This also posts the IP address
 PostSensorData:
     save SystemData to RamDisk cat `systemdata.json`
+!    log SystemData
     if Password is not empty
     begin
+!        log `Post to ` cat RBRServer cat `/sensors/` cat MAC cat `/` cat Password cat `/` cat IPAddr
         post stringify SystemData to RBRServer cat `/sensors/` cat MAC cat `/` cat Password cat `/` cat IPAddr
         or begin
             log `Unable to post sensor data`
