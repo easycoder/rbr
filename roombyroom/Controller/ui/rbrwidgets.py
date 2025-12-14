@@ -12,11 +12,9 @@ from PySide6.QtGui import (
     QPen
 )
 from PySide6.QtWidgets import (
+    QWidget,
     QApplication,
     QMainWindow,
-    QWidget,
-    QLabel,
-    QPushButton,
     QFrame,
     QHBoxLayout,
     QVBoxLayout,
@@ -33,6 +31,34 @@ from PySide6.QtCore import (
     QDate,
     Signal
 )
+from easycoder.ec_graphics import (
+    ECLabelWidget,
+    ECPushButtonWidget,
+    ECCheckBoxWidget,
+    ECLineEditWidget,
+    ECPlainTextEditWidget,
+    ECListBoxWidget,
+    ECComboBoxWidget
+)
+from easycoder.ec_gclasses import ECGElement, ECWidget
+
+# Enum shortcuts to reduce verbosity
+Align = Qt.AlignmentFlag
+WindowType = Qt.WindowType
+MouseButton = Qt.MouseButton
+AspectRatioMode = Qt.AspectRatioMode
+TransformationMode = Qt.TransformationMode
+
+# QtGui enum shortcuts
+RenderHint = QPainter.RenderHint
+Weight = QFont.Weight
+ColorRole = QPalette.ColorRole
+
+# QtWidgets enum shortcuts
+Policy = QSizePolicy.Policy
+FrameShape = QFrame.Shape
+FrameShadow = QFrame.Shadow
+DialogCode = QDialog.DialogCode
 
 ###############################################################################
 # Some style definitions
@@ -112,28 +138,43 @@ def now():
     return int(t) + tz.dst(dt).seconds
 
 ###############################################################################
+# This is the package that handles the RBR user interface.
+###############################################################################
+# The RBR generic EC widget
+class RBRWidget(ECWidget):
+    def __init__(self):
+        super().__init__()
+        self.properties = {}
+
+###############################################################################
+# An RBR generic pushbutton
+class RBRButton(RBRWidget):
+    def __init__(self):
+        super().__init__()
+        self.properties = {}
+
+###############################################################################
 # An expanding label
-class ExpandingLabel(QLabel):
+class ExpandingLabel(ECLabelWidget):
     def __init__(self, text=''):
         super().__init__(text)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setAlignment(Qt.AlignCenter)
+        self.setSizePolicy(Policy.Expanding, Policy.Expanding)
+        self.setAlignment(Align.AlignCenter)
 
 ###############################################################################
 # A generic icon
 class GenericIcon(ExpandingLabel):
     def __init__(self, icon, size):
         super().__init__()
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.setAlignment(Qt.AlignCenter)
+        self.setSizePolicy(Policy.Expanding, Policy.Expanding)
+        self.setAlignment(Align.AlignCenter)
         pixmap = QPixmap(icon).scaled(size, size)
         self.setPixmap(pixmap)
 
 ###############################################################################
 # A button just containing text
-
-class TextButton(QPushButton):
-    def __init__(self, program, name, height, text, index=0):
+class TextButton(ECPushButtonWidget):
+    def __init__(self, program, name='textbutton', height=50, text='', index=0):
         super().__init__()
         self.program = program
         self.name = name
@@ -143,7 +184,7 @@ class TextButton(QPushButton):
         self.fcb = None
         self.clicked.connect(lambda: self.animate_button())
 
-        self.setFixedHeight(height)
+        self.setFixedHeight(int(height))
         self.setStyleSheet(f"""
             QPushButton {{
                 padding: 5px;
@@ -174,7 +215,7 @@ class TextButton(QPushButton):
         self.move(self.x() + 2, self.y() + 2)
         QTimer.singleShot(200, lambda: self.moveBack())  # Move back after 200ms
         if self.onClick != None: self.program.run(self.onClick)
-        elif self.fcb != None: self.fcb(self.name)
+        elif self.fcb != None: self.fcb(self.text)
 
     def getIndex(self):
         return self.index
@@ -182,7 +223,7 @@ class TextButton(QPushButton):
 ###############################################################################
 # A button containing an icon
 
-class IconButton(QPushButton):
+class IconButton(ECPushButtonWidget):
     def __init__(self, program, height, icon, index=0):
         super().__init__()
         self.program = program
@@ -192,15 +233,15 @@ class IconButton(QPushButton):
         self.clicked.connect(lambda: self.animate_button(self.index))
 
         if height != None:
-            self.setFixedSize(height, height)
+            self.setFixedSize(int(height), int(height))
             self.setStyleSheet(f"""
                 QPushButton {{
-                    background-color #ccc;
+                    background-color: none;
                     border:none;
                     border-radius: 5px;
                 }}
             """)
-            self.setIconSize(QSize(height * 0.8, height * 0.8))
+            self.setIconSize(QSize(int(height * 0.8), int(height * 0.8)))
 
         self.setIcon(QIcon(icon))
     
@@ -227,181 +268,15 @@ class IconButton(QPushButton):
         return self.index
 
 ###############################################################################
-# A button to show the current mode.
-
-class ModeButton(QWidget):
-    clicked = Signal()
-
-    class ModeLabel(QWidget):
-        def __init__(self, room):
-            super().__init__()
-            self.spec = room.spec
-            self.mode = room.mode
-            self.height = room.height
-            self.setMinimumHeight(self.height)
-            self.setMaximumHeight(self.height)
-            self.setMinimumWidth(100)  # Adjust as needed
-
-        def paintEvent(self, event):
-            with QPainter(self) as painter:
-                painter.setRenderHint(QPainter.Antialiasing)
-                w = self.width()
-                height = self.height
-
-                # First row font and rect
-                font1 = QFont("Arial", height // 5, QFont.Bold)
-                painter.setFont(font1)
-                painter.setPen(QColor("black"))
-                offset = 0.2 if self.mode == 'Off' else 0.4
-                rect1 = self.rect().adjusted(0, 0, 0, -height * offset)
-                painter.drawText(rect1, Qt.AlignCenter, self.mode)
-
-                # Second row font and rect (if present)
-                if self.mode == 'Timed':
-                    roomSpec = self.spec
-                    advance = str(roomSpec['advance'])
-                    
-                    timestamp = time.time()
-                    dt = datetime.fromtimestamp(timestamp)
-                    hour = dt.hour
-                    minute = dt.minute
-
-                    text = ''
-                    events = roomSpec['events']
-                    for e, event in enumerate(events):
-
-                        if advance != '-':
-                            f = e + 1
-                            if f >= len(events): f = 0
-                            event = events[f]
-
-                        untilTime = event['until']
-                        untilTemp = event['temp']
-                        finish = untilTime.split(':')
-                        fh = int(finish[0])
-                        if fh == 0: fh = 24
-                        if hour < fh:
-                            text = f'{untilTemp}°C->{untilTime}'
-                            break
-                        elif hour == fh:
-                            fm = int(finish[1])
-                            if minute < fm:
-                                text = f'{untilTemp}°C->{untilTime}'
-                                break
-                    
-                    if text == '':
-                        event = events[0]
-                        untilTime = event['until']
-                        untilTemp = event['temp']
-                        if roomSpec['linked'] == 'yes':  text = f'{untilTemp}°C->{untilTime}'
-                        else: text = f'->{untilTime}'
-
-                    font2 = QFont("Arial", height // 8)
-                    painter.setFont(font2)
-                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
-                    painter.drawText(rect2, Qt.AlignCenter, text)
-                elif self.mode == 'Advance':
-                    pass
-                elif self.mode == 'Boost':
-                    font2 = QFont("Arial", height // 7)
-                    painter.setFont(font2)
-                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
-                    try:
-                        boost = round((self.spec['boost'] - int(time.time())) / 60)
-                        if boost == 1: boost = '1 min'
-                        else: boost = f'{boost} mins'
-                        painter.drawText(rect2, Qt.AlignCenter, boost)
-                    except: pass
-                elif self.mode == 'On':
-                    font2 = QFont("Arial", height // 7)
-                    painter.setFont(font2)
-                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
-                    painter.drawText(rect2, Qt.AlignCenter, f'{self.spec["target"]}°C')
-
-
-    def __init__(self, room, program, height, widthFactor, image, index=0):
+# The banner ECWidget
+class RBRBanner(RBRWidget):
+    def __init__(self):
         super().__init__()
-
-        self.setStyleSheet("""
-            background-color: transparent;
-            border: none;
-        """)
-
-        self.program = program
-        self.index = index
-        self.onClick = None
-        self.clicked.connect(lambda: self.animate_button(self.index))
-
-        self.setFixedSize(height*widthFactor, height)
-        mainLayout = QHBoxLayout(self)
-        mainLayout.setContentsMargins(0, 0, 0, 0)
-        mainLayout.setSpacing(0)
-
-        # icon on the left
-        label = ExpandingLabel()
-        label.setFixedSize(height, height)
-        pixmap = QPixmap(image).scaled(height * 0.75, height * 0.75)
-        label.setPixmap(pixmap)
-        mainLayout.addWidget(label)
-
-        # Mode Label on the right
-        modeLabel = self.ModeLabel(room)
-        mainLayout.addWidget(modeLabel, alignment=Qt.AlignVCenter)
-
-        mainLayout.addSpacing(15)
-        self.setStatus('Good')
-    
-    def setStatus(self, status):
-        self.status = status
-        self.update()
-
-    def paintEvent(self, event):
-        super().paintEvent(event)
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        radius = 5
-        x = 4 + radius
-        y = self.height() - 5 - radius
-        if self.status == 'Fail':
-            fillColor = '#f00'
-            borderColor = '#800'
-        elif self.status == 'Suspect':
-            fillColor = '#ff0'
-            borderColor = '#880'
-        else:
-            fillColor = '#0f0'
-            borderColor = '#080'
-        painter.setBrush(QColor(fillColor))
-        pen = QPen(QColor(borderColor))
-        pen.setWidth(1)
-        painter.setPen(pen)
-        painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.clicked.emit()
-        super().mousePressEvent(event)
-    
-    def setOnClick(self, onClick):
-        self.onClick = onClick
-    
-    def moveBack(self):
-        try: self.move(self.x() - 2, self.y() - 2)
-        except: pass
-
-    def animate_button(self, index):
-        self.program.roomIndex = index
-        # Move the button 2 pixels down and right
-        self.move(self.x() + 2, self.y() + 2)
-        QTimer.singleShot(200, lambda: self.moveBack())
-        if self.onClick != None: self.program.run(self.onClick)
-
-    def getIndex(self):
-        return self.index
+        self.properties = {}
 
 ###############################################################################
 # The banner at the top of the window
-class Banner(QLabel):
+class Banner(ECLabelWidget):
     def __init__(self, program, width):
         super().__init__()
         self.setStyleSheet(f'''
@@ -413,7 +288,7 @@ class Banner(QLabel):
             font-weight: bold;
         ''')
         height = width * 80 / 600
-        self.setFixedSize(width, height)
+        self.setFixedSize(int(width), int(height))
 
         # The gradient label
         pixmap = QPixmap(f'img/gradient.png')
@@ -458,6 +333,13 @@ class Banner(QLabel):
         return None
 
 ###############################################################################
+# The Profiles bar EC object
+class RBRProfiles(RBRWidget):
+    def __init__(self):
+        super().__init__()
+        self.properties = {}
+
+###############################################################################
 # The Profiles bar
 class Profiles(QWidget):
 
@@ -466,7 +348,7 @@ class Profiles(QWidget):
             super().__init__()
             self.height = height
             self.setFixedSize(height, height)
-            self.pixmap = QPixmap(f'img/calendar.png').scaled(height, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.pixmap = QPixmap(f'img/calendar.png').scaled(height, height, AspectRatioMode.KeepAspectRatio, TransformationMode.SmoothTransformation)
             self.day = QDate.currentDate().day()
 
         def setDay(self, day):
@@ -475,28 +357,28 @@ class Profiles(QWidget):
 
         def paintEvent(self, event):
             painter = QPainter(self)
-            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setRenderHint(RenderHint.Antialiasing)
             # Draw the notepad image
             painter.drawPixmap(0, 0, self.pixmap)
             # Draw the day number
-            font = QFont("Arial", self.height // 3, QFont.Bold)
+            font = QFont("Arial", self.height // 3, Weight.Bold)
             painter.setFont(font)
             painter.setPen(QColor("black"))
             # Fine-tune these values for perfect placement
             text = str(self.day)
             rect = self.rect().adjusted(0, self.height // 2, 0, 0)  # Move text down a bit
-            painter.drawText(rect, Qt.AlignHCenter | Qt.AlignTop, text)
+            painter.drawText(rect, Align.AlignHCenter | Align.AlignTop, text)
 
     class HourglassIcon(QWidget):
         def __init__(self, height):
             super().__init__()
             self.height = height
             self.setFixedSize(height, height)
-            self.pixmap = QPixmap(f'img/hourglass.png').scaled(height, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.pixmap = QPixmap(f'img/hourglass.png').scaled(height, height, AspectRatioMode.KeepAspectRatio, TransformationMode.SmoothTransformation)
 
         def paintEvent(self, event):
             painter = QPainter(self)
-            painter.setRenderHint(QPainter.Antialiasing)
+            painter.setRenderHint(RenderHint.Antialiasing)
             painter.drawPixmap(0, 0, self.pixmap)
 
     def __init__(self, program, width):
@@ -518,8 +400,8 @@ class Profiles(QWidget):
         layout.setSpacing(0)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        systemName = QLabel('System')
-        systemName.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        systemName = ECLabelWidget('System')
+        systemName.setAlignment(Align.AlignVCenter | Align.AlignLeft)
         systemName.setStyleSheet(f'''
             font-size: {height * 0.4}px;
             margin-left: 10px;
@@ -537,7 +419,7 @@ class Profiles(QWidget):
         calendarLayout.addSpacing(5)
         layout.addSpacing(5)
 
-        profileButton = TextButton(program, '-', height * 0.7, 'Default profile')
+        profileButton = TextButton(program, '-', height=height * 0.7, text='Default profile')
         profileButton.setStyleSheet(f'''
             margin-right: 10px;
             background-color: #eee;
@@ -551,6 +433,7 @@ class Profiles(QWidget):
         layout.addWidget(profileButton)
         self.profileButton = profileButton
     
+    # Handle a request to change something in the profiles bar
     def handleRequest(self, request):
         if 'setSystemName' in request:
             self.systemName.setText(request['setSystemName'].replace('%20', ' '))
@@ -558,10 +441,218 @@ class Profiles(QWidget):
             self.profileButton.setText(request['setProfile'])
         elif 'setHourglass' in request:
             self.hourglassIcon.setVisible(request['setHourglass'])
+    
+    # Get an element of the profiles bar
+    def getElement(self, name):
+        if name == 'systemName': return self.systemName
+        elif name == 'profileButton': return self.profileButton
+        return None
 
-    # def getElement(self, name):
-    #     if name == 'systemName': return self.systemName
-    #     return None
+###############################################################################
+# A button to show the current mode.
+
+class ModeButton(QWidget):
+    clicked = Signal()
+
+    class ModeLabel(QWidget):
+        def __init__(self, room):
+            super().__init__()
+            self.spec = room.spec
+            self.mode = room.mode
+            self.height = room.height
+            self.setMinimumHeight(self.height)
+            self.setMaximumHeight(self.height)
+            self.setMinimumWidth(100)  # Adjust as needed
+
+        def paintEvent(self, event):
+            with QPainter(self) as painter:
+                painter.setRenderHint(RenderHint.Antialiasing)
+                w = self.width()
+                height = self.height
+
+                # First row font and rect
+                font1 = QFont("Arial", height // 5, Weight.Bold)
+                painter.setFont(font1)
+                painter.setPen(QColor("black"))
+                offset = 0.2 if self.mode == 'Off' else 0.4
+                rect1 = self.rect().adjusted(0, 0, 0, -height * offset)
+                painter.drawText(rect1, Align.AlignCenter, self.mode)
+
+                # Second row font and rect (if present)
+                if self.mode == 'Timed':
+                    roomSpec = self.spec
+                    advance = str(roomSpec['advance'])
+                    
+                    timestamp = time.time()
+                    dt = datetime.fromtimestamp(timestamp)
+                    hour = dt.hour
+                    minute = dt.minute
+
+                    text = ''
+                    events = roomSpec['events']
+                    for e, event in enumerate(events):
+
+                        if advance != '-':
+                            f = e + 1
+                            if f >= len(events): f = 0
+                            event = events[f]
+
+                        untilTime = event['until']
+                        untilTemp = event['temp']
+                        finish = untilTime.split(':')
+                        fh = int(finish[0])
+                        if fh == 0: fh = 24
+                        if hour < fh:
+                            text = f'{untilTemp}°C->{untilTime}'
+                            break
+                        elif hour == fh:
+                            fm = int(finish[1])
+                            if minute < fm:
+                                text = f'{untilTemp}°C->{untilTime}'
+                                break
+                    
+                    if text == '':
+                        event = events[0]
+                        untilTime = event['until']
+                        untilTemp = event['temp']
+                        if roomSpec['linked'] == 'yes':  text = f'{untilTemp}°C->{untilTime}'
+                        else: text = f'->{untilTime}'
+
+                    font2 = QFont("Arial", height // 8)
+                    painter.setFont(font2)
+                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
+                    painter.drawText(rect2, Align.AlignCenter, text)
+                elif self.mode == 'Advance':
+                    pass
+                elif self.mode == 'Boost':
+                    font2 = QFont("Arial", height // 7)
+                    painter.setFont(font2)
+                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
+                    try:
+                        boost = round((self.spec['boost'] - int(time.time())) / 60)
+                        if boost == 1: boost = '1 min'
+                        else: boost = f'{boost} mins'
+                        painter.drawText(rect2, Align.AlignCenter, boost)
+                    except:
+                        pass
+                elif self.mode == 'On':
+                    font2 = QFont("Arial", height // 7)
+                    painter.setFont(font2)
+                    rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
+                    painter.drawText(rect2, Align.AlignCenter, f'{self.spec["target"]}°C')
+
+    ###########################################################################
+    # Initialize the Mode button
+    def __init__(self, room, program, height, widthFactor, image, index=0):
+        super().__init__()
+
+        self.setStyleSheet("""
+            background-color: transparent;
+            border: none;
+        """)
+
+        self.program = program
+        self.index = index
+        self.onClick = None
+        self.clicked.connect(lambda: self.animate_button(self.index))
+
+        self.setFixedSize(int(height * widthFactor), int(height))
+        mainLayout = QHBoxLayout(self)
+        mainLayout.setContentsMargins(0, 0, 0, 0)
+        mainLayout.setSpacing(0)
+
+        # icon on the left
+        label = ExpandingLabel()
+        label.setFixedSize(int(height), int(height))
+        pixmap = QPixmap(image).scaled(int(height * 0.75), int(height * 0.75))
+        label.setPixmap(pixmap)
+        mainLayout.addWidget(label)
+
+        # Mode Label on the right
+        modeLabel = self.ModeLabel(room)
+        mainLayout.addWidget(modeLabel, alignment=Align.AlignVCenter)
+
+        mainLayout.addSpacing(15)
+        self.setStatus('Good')
+    
+    def setStatus(self, status):
+        self.status = status
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        painter = QPainter(self)
+        painter.setRenderHint(RenderHint.Antialiasing)
+        radius = 5
+        x = 4 + radius
+        y = self.height() - 5 - radius
+        if self.status == 'Fail':
+            fillColor = '#f00'
+            borderColor = '#800'
+        elif self.status == 'Suspect':
+            fillColor = '#ff0'
+            borderColor = '#880'
+        else:
+            fillColor = '#0f0'
+            borderColor = '#080'
+        painter.setBrush(QColor(fillColor))
+        pen = QPen(QColor(borderColor))
+        pen.setWidth(1)
+        painter.setPen(pen)
+        painter.drawEllipse(x - radius, y - radius, radius * 2, radius * 2)
+
+    def mousePressEvent(self, event):
+        if event.button() == MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+    
+    def setOnClick(self, onClick):
+        self.onClick = onClick
+    
+    def moveBack(self):
+        try: self.move(self.x() - 2, self.y() - 2)
+        except: pass
+
+    def animate_button(self, index):
+        self.program.roomIndex = index
+        # Move the button 2 pixels down and right
+        self.move(self.x() + 2, self.y() + 2)
+        QTimer.singleShot(200, lambda: self.moveBack())
+        if self.onClick != None: self.program.run(self.onClick)
+
+    def getIndex(self):
+        return self.index
+    
+###############################################################################
+# The RBR Room EC widget
+class RBRRoom(RBRWidget):
+    def __init__(self):
+        super().__init__()
+
+    # Set the content of the value at the current index
+    def setContent(self, content):
+        if self.values is None:
+            self.index = 0
+            self.elements = 1
+            self.values = [None]
+        self.values[self.index] = content # type: ignore
+
+    # Set the room widget
+    def setRoom(self, room):
+        super().setValue(room)
+
+    # Get the room widget
+    def getRoom(self):
+        return super().getValue()
+    
+    def getName(self):
+        return self.getRoom().getName()
+    
+    def getMode(self):
+        return self.getRoom().getMode()
+    
+    def getTemperature(self):
+        return self.getRoom().getTemperature()
 
 ###############################################################################
 # A row of room information
@@ -573,6 +664,7 @@ class Room(QFrame):
         self.height = height
         self.temperature = 0
         self.index = index
+        # print(spec['name'])
 
         self.setStyleSheet("""
             background-color: #ffc;
@@ -604,14 +696,14 @@ class Room(QFrame):
         self.mode = f'{self.mode[0].upper()}{self.mode[1:]}'
         if self.mode == 'Timed':
             advance = spec['advance']
-            if advance != '' and advance != '-' and advance != 'C':
+            if not advance in ['', '-', 'C']:
                 image = 'img/advance.png'
                 self.mode = 'Advance'
         self.modeButton = ModeButton(self, self.program, height * 0.8, 2.7, image, index)
 
         # Room name label
-        nameLabel = QLabel(self.name)
-        nameLabel.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        nameLabel = ECLabelWidget(self.name)
+        nameLabel.setAlignment(Align.AlignVCenter | Align.AlignLeft)
         nameLabel.setStyleSheet('''
             background-color: transparent;
             border: none;
@@ -623,10 +715,13 @@ class Room(QFrame):
         self.nameLabel = nameLabel
 
         # Button with white text and blue or red background
-        temperatureButton = QPushButton('----°C')
+        temperatureButton = ECPushButtonWidget('----°C')
         color = 'red' if spec['relay'] == 'on' else 'blue'
-        temperatureButton.setStyleSheet(f'color: white; background-color: {color}; border: none;')
-        temperatureButton.setFixedSize(height * 1.2, height * 0.6)  # Adjust button size
+        temperatureButton.setStyleSheet(f'''
+                color: white; 
+                background-color: {color}; border: none;
+        ''')
+        temperatureButton.setFixedSize(int(height * 1.2), int(height * 0.6))  # Adjust button size
         temperatureButton.setFont(font)  # Use the same font as the label
         self.temperatureButton = temperatureButton
         self.setTemperature()
@@ -661,6 +756,13 @@ class Room(QFrame):
         return self.index
 
 ###############################################################################
+# The popout panel ECWidget
+class RBRPopout(RBRWidget):
+    def __init__(self):
+        super().__init__()
+        self.properties = {}
+
+###############################################################################
 # A popout panel. This sits near the top of the screen
 class Popout(QWidget):
     def __init__(self, program, width):
@@ -687,7 +789,7 @@ class Popout(QWidget):
 class Menu(QDialog):
     def __init__(self, program, height, parent=None, title="Select Action", actions=None):
         super().__init__(program.rbrwin)
-        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setWindowFlags(WindowType.FramelessWindowHint)
 
 #        self.setWindowTitle(title)
         self.program = program
@@ -709,7 +811,7 @@ class Menu(QDialog):
             for action in actions:
                 if action == '': layout.addSpacing(20)
                 else:
-                    button = TextButton(program, action, height, action)
+                    button = TextButton(program, '-', height=height, text=action)
                     button.setFCB(self.accept)
                     layout.addWidget(button)
 
@@ -727,7 +829,7 @@ class Menu(QDialog):
 
     def show(self):
         # Show dialog and return result
-        if self.exec() == QDialog.Accepted:
+        if self.exec() == DialogCode.Accepted:
             return self.result
         return None
 
@@ -738,7 +840,7 @@ class WidgetSet(QFrame):
         super().__init__()
 
         # Set frame properties
-        self.setFrameStyle(QFrame.Box | QFrame.Plain)
+        self.setFrameStyle(FrameShape.Box | FrameShadow.Plain)
         self.setLineWidth(1)
         
         # Main widget layout
@@ -760,9 +862,9 @@ class GenericMode(QWidget):
         # Set the styles of each widget type in the set.
         # Don't forget that a base style includes all subclasses,
         # so a separate definition must be provided for each subclass type.
-        # For example, QLabel is a subclass of QFrame so it needs its own definition
+        # For example, ECLabelWidget is a subclass of QFrame so it needs its own definition
         if not 'QFrame' in self.styles: self.styles['QFrame'] = defaultQFrameStyle()
-        if not 'QLabel' in self.styles: self.styles['QLabel'] = defaultQLabelStyle(20)
+        if not 'ECLabelWidget' in self.styles: self.styles['ECLabelWidget'] = defaultQLabelStyle(20)
 
         stylesheet = '\n'.join(f"{key} {value}" for key, value in self.styles.items())
         self.setStyleSheet(stylesheet)
@@ -780,7 +882,7 @@ class GenericMode(QWidget):
 
         # Generate a signal when the widget is clicked
         def mousePressEvent(self, event):
-            if event.button() == Qt.LeftButton:
+            if event.button() == MouseButton.LeftButton:
                 self.clicked.emit()
             super().mousePressEvent(event)
         
@@ -826,9 +928,9 @@ class GenericMode(QWidget):
         mainLayout.setSpacing(0)
         
         self.styles['QFrame#GenericModeLeft'] = defaultGrayFrameStyle()
-        self.styles['QLabel#GenericModeLabel'] = borderlessQLabelStyle(20)
-        self.styles['QLabel#BorderedLabel'] = defaultQLabelStyle(20)
-        self.styles['QLabel#GenericModeIcon'] = borderlessIconStyle()
+        self.styles['ECLabelWidget#GenericModeLabel'] = borderlessQLabelStyle(20)
+        self.styles['ECLabelWidget#BorderedLabel'] = defaultQLabelStyle(20)
+        self.styles['ECLabelWidget#GenericModeIcon'] = borderlessIconStyle()
         self.styles['QFrame#GenericModeRight'] = invisibleQFrameStyle()
 
         content = WidgetSet((left, right), horizontal=True)
@@ -844,9 +946,9 @@ class TimedMode(GenericMode):
     # The advance button
     class AdvanceButton(TextButton):
         def __init__(self, program, text, fcb):
-            super().__init__(program, text, 70, text)
+            super().__init__(program, name='advancebutton', height=70, text=text)
             self.setFixedHeight(136)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setSizePolicy(Policy.Expanding, Policy.Expanding)
             self.setStyleSheet(defaultButtonStyle())
             self.setFCB(self.onFCB)
             self.fcb = fcb
@@ -859,7 +961,7 @@ class TimedMode(GenericMode):
         def __init__(self, program, icon, fcb):
             super().__init__(program, height=None, icon=icon)
             self.setFixedHeight(136)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setSizePolicy(Policy.Expanding, Policy.Expanding)
             self.setStyleSheet(defaultButtonStyle())
             self.setIconSize(QSize(50, 50))
             self.setFCB(self.onFCB)
@@ -891,15 +993,16 @@ class TimedMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the content
-        if not 'advance' in caller.data['value'][caller.data['index']]['content']:
-            caller.data['value'][caller.data['index']]['content']['advance'] = '-'
-        text = 'Cancel\n' if caller.data['value'][caller.data['index']]['content']['advance'] != '-' else ''
-        advance = self.AdvanceButton(program, f'{text}Advance', self.advance)
-        edit = self.EditIcon(program, f'img/edit.png', self.edit)
+        object = program.getObject(caller.data)
+        roomSpec = program.textify(object)
+        advance = roomSpec['advance'] if 'advance' in roomSpec else '-'
+        text = '' if advance == '-' else 'Cancel\n'
+        advanceButton = self.AdvanceButton(program, f'{text}Advance', self.advance)
+        editButton = self.EditIcon(program, f'img/edit.png', self.edit)
         
         # Add buttons to grid
-        gridLayout.addWidget(advance, 0, 0)
-        gridLayout.addWidget(edit, 0, 1)
+        gridLayout.addWidget(advanceButton, 0, 0)
+        gridLayout.addWidget(editButton, 0, 1)
 
         right = self.GenericModeRight([panel], horizontal=False)
 
@@ -918,8 +1021,8 @@ class BoostMode(GenericMode):
     # A generic boost button
     class BoostButton(TextButton):
         def __init__(self, program, text, fcb):
-            super().__init__(program, text, 65, text)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            super().__init__(program, name=text, height=65, text=text)
+            self.setSizePolicy(Policy.Expanding, Policy.Expanding)
             self.setStyleSheet(defaultButtonStyle())
             self.setFCB(self.onFCB)
             self.fcb = fcb
@@ -986,7 +1089,7 @@ class OnMode(GenericMode):
         def __init__(self, program, icon, fcb):
             super().__init__(program, height=None, icon=icon)
             self.setFixedHeight(136)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setSizePolicy(Policy.Expanding, Policy.Expanding)
             self.setStyleSheet(defaultButtonStyle())
             self.setIconSize(QSize(50, 50))
             self.setFCB(fcb)
@@ -1000,6 +1103,7 @@ class OnMode(GenericMode):
     # The main class for the widget
     def __init__(self, program, caller):
         super().__init__()
+        self.program = program
         self.caller = caller
 
         # Do the left-hand panel, with a label and an icon
@@ -1021,8 +1125,9 @@ class OnMode(GenericMode):
         
         # Create the buttons and text
         downButton = self.PlusMinusButton(program, f'img/blueminus.png', fcb=self.onDown)
-        self.styles['QLabel#SettingLabel'] = borderlessQLabelStyle(20)
-        self.target = float(caller.data['value'][caller.data['index']]['content']['target']) if caller.data != None else 0.0
+        self.styles['ECLabelWidget#SettingLabel'] = borderlessQLabelStyle(20)
+        roomSpec = program.textify(program.getObject(caller.data))
+        self.target = float(roomSpec['target']) if roomSpec != None else 0.0
         self.settingLabel = self.SettingLabel(f'{self.target}°C')
         upButton = self.PlusMinusButton(program, f'img/redplus.png', fcb=self.onUp)
         
@@ -1036,8 +1141,12 @@ class OnMode(GenericMode):
         self.setupMode(left, right)
     
     def showTarget(self):
-        self.caller.data['value'][self.caller.data['index']]['content']['target'] = str(self.target)
-        self.caller.data['target'] = str(self.target)
+        record = self.program.getVariable(self.caller.data)
+        object = self.program.getObject(record)
+        value = self.program.evaluate(object)
+        items = self.program.textify(value)
+        items['target'] = str(self.target)
+        value.setContent(items)
         self.settingLabel.setText(f'{self.target}°C')
     
     def getSettinglabel(self):
@@ -1061,9 +1170,9 @@ class OffMode(GenericMode):
     # The off button
     class OffButton(TextButton):
         def __init__(self, program, text, fcb):
-            super().__init__(program, text, 70, text)
+            super().__init__(program, name='offbutton', height=70, text=text)
             self.setFixedHeight(136)
-            self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.setSizePolicy(Policy.Expanding, Policy.Expanding)
             self.setStyleSheet(defaultButtonStyle())
             self.setFCB(self.onFCB)
             self.fcb = fcb
@@ -1108,7 +1217,7 @@ class ModeDialog(QDialog):
         self.data = data
         
 #        self.setWindowTitle('Operating mode')
-        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setWindowFlags(WindowType.FramelessWindowHint)
         self.setModal(True)
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
@@ -1136,7 +1245,7 @@ class ModeDialog(QDialog):
         layout.addWidget(mode)
 
         # Add Cancel button
-        cancelButton = TextButton(program, 'Cancel', 40, 'Cancel')
+        cancelButton = TextButton(program, name='cancelbutton', height=40, text='Cancel')
         cancelButton.setFCB(self.closeDialog)
         layout.addWidget(cancelButton)
 
@@ -1184,7 +1293,7 @@ class ModeDialog(QDialog):
 
     def showDialog(self):
         # Show dialog and return result
-        if self.exec() == QDialog.Accepted:
+        if self.exec() == DialogCode.Accepted:
             return self.result
         return None
     
@@ -1192,23 +1301,33 @@ class ModeDialog(QDialog):
         self.reject()
     
 ###############################################################################
+# An RBR MainWindow EC object
+class RBRMainWindow(ECGElement):
+    def __init__(self):
+        super().__init__()
+    
+    # This type of widget is clearable
+    def isClearable(self):
+         return True
+    
+###############################################################################
 # The RBR Main Window
-class RBRWindow(QMainWindow):
-    def __init__(self, program, title, x, y, w, h):
+class MainWindow(QMainWindow):
+    def __init__(self, program=None, title='', x=0, y=0, w=800, h=600):
         super().__init__()
         self.program = program
         self.setGeometry(x, y, w, h)
-        self.width = w
-        self.height = h
+        self.width = w # type: ignore
+        self.height = h # type: ignore
         self.currentIndex = 0
 
-        if title == '': self.setWindowFlags(Qt.FramelessWindowHint)
+        if title == '': self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         else: self.setWindowTitle(title)
 
         # Set the background image
         palette = QPalette()
         background_pixmap = QPixmap(f'img/backdrop.png')
-        palette.setBrush(QPalette.Window, QBrush(background_pixmap))
+        palette.setBrush(ColorRole.Window, QBrush(background_pixmap))
         self.setPalette(palette)
 
         # Panel for the main components
@@ -1233,6 +1352,7 @@ class RBRWindow(QMainWindow):
 
         self.setCentralWidget(mainWidget)
 
+    # Initialize the content of the main window
     def initContent(self):
         # Add the main banner
         banner = Banner(self.program, self.width)
@@ -1262,7 +1382,7 @@ class RBRWindow(QMainWindow):
         ''')
 
         # Panel for anything else that needs to be rendered
-        self.otherPanel = QWidget()
+        self.secondPanel = QWidget()
 
         roomsLayout = QVBoxLayout(self.mainPanel)
         roomsLayout.setSpacing(0)
@@ -1270,32 +1390,37 @@ class RBRWindow(QMainWindow):
         self.contentLayout.addWidget(self.container)
         self.rooms = roomsLayout
         self.container.addWidget(self.mainPanel)
-        self.container.addWidget(self.otherPanel)
+        self.container.addWidget(self.secondPanel)
         self.container.setCurrentIndex(self.currentIndex)
+    
+    def setAttribute(self, name, value):
+        if name == 'currentIndex':
+            self.currentIndex = int(value)
+            self.container.setCurrentIndex(self.currentIndex)
     
     def getElement(self, name):
         if name == 'banner': return self.banner
         elif name == 'profiles': return self.profiles
         elif name == 'rooms': return self.rooms
-        elif name == 'other': return self.otherPanel
+        elif name == 'second': return self.secondPanel
         elif name == 'popout': return self.popout
         else: return None
     
-    def setOtherPanel(self, widget):
-        oldWidget = self.otherPanel
-        self.container.removeWidget(self.otherPanel)
-        oldWidget.deleteLater()
+    def setSecondPanel(self, widget):
+        oldPanel = self.secondPanel
+        self.container.removeWidget(oldPanel)
+        oldPanel.deleteLater()
         # Add the new widget
         self.container.insertWidget(1, widget)
-        self.otherPanel = widget
+        self.secondPanel = widget
 
-    def getOtherPanel(self):
-        return self.otherPanel
+    def getSecondPanel(self):
+        return self.secondPanel
 
     def showMainPanel(self):
         self.container.setCurrentIndex(0)
         self.currentIndex = 0
 
-    def showOtherPanel(self):
+    def showSecondPanel(self):
         self.container.setCurrentIndex(1)
         self.currentIndex = 1

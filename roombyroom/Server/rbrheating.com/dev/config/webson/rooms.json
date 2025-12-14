@@ -1,0 +1,47 @@
+{
+    "#doc": "Get room information",
+    "#element": "div",
+    "position": "absolute",
+    "left": 0,
+    "top": 0,
+    "width": "100%",
+    "height": "100%",
+    "#": ["$Text1", "$Rooms", "$AddRoom", "$Text2"],
+
+    "$Text1": {
+        "#element": "div",
+        "margin": "1em 1em 0 1em",
+        "color": "green",
+        "font-size": "1.4em",
+        "#content": "Room names"
+    },
+
+    "$Rooms": {
+        "#element": "div",
+        "@id": "cf-rooms",
+        "height": "20em",
+        "overflow-y": "scroll",
+        "font-size": "1.2em",
+        "border": "1px solid black",
+        "margin": "0 auto",
+        "padding": "1px"
+    },
+
+    "$AddRoom": {
+        "#element": "button",
+        "@id": "cf-add-room",
+        "margin": "0.5em 0 1em",
+        "font-size": "1.2em",
+        "#content": "Add a room"
+    },
+
+    "$Text2": {
+        "#element": "div",
+        "@id": "cf-text2",
+        "margin": "1em 0.5em 0 0.5em",
+        "color": "indigo",
+        "font-weight": "bold",
+        "display": "none",
+        "#content": "Type the room name and tap the edit icon to configure the room"
+    }
+}

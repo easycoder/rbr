@@ -1,0 +1,241 @@
+{
+    "#doc": "The monthly statistics, day by day",
+    "#position": "relative",
+    "text-align": "center",
+    "#": ["$TopPanel", "$MainPanel", "$ColumnLabels"],
+
+    "$TopPanel": {
+        "#element": "div",
+        "width": "10em",
+        "margin": "0 auto 1em auto",
+        "display": "flex",
+        "flex-direction": "row",
+        "font-weight": 900,
+        "#": ["$LT", "$Month", "$GT"],
+
+        "$LT": {
+            "#element": "div",
+            "@id": "month-lt",
+            "#content": "<<",
+            "font-weight": "inherit",
+            "cursor": "default"
+        },
+
+        "$Month": {
+            "#element": "div",
+            "@id": "month-name",
+            "#content": "month",
+            "flex": 1,
+            "font-weight": "inherit"
+        },
+
+        "$GT": {
+            "#element": "div",
+            "@id": "month-gt",
+            "#content": ">>",
+            "font-weight": "inherit",
+            "cursor": "default"
+        }
+    },
+
+    "$MainPanel": {
+        "#element": "div",
+        "@id": "stats-panel",
+        "position": "relative",
+        "width": "100%",
+        "#": ["$Header", "$Row7", "$Row6", "$Row5", "$Row4", "$Row3", "$Row2", "$Row1"],
+
+        "$Header": {
+            "#element": "div",
+            "position": "absolute",
+            "top": "-1em",
+            "left": 0,
+            "width": "3em",
+            "font-size": "50%",
+            "text-align": "right",
+            "padding-right": "0.5em",
+            "#content": "Mins"
+        },
+
+        "$Row7": {
+            "#element": "div",
+            "$Index": 6,
+            "width": "100%",
+            "position": "relative",
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$Label", "$Outline"],
+
+            "$Label": {
+                "#": "$LabelTemplate"
+            }
+        },
+
+        "$Row6": {
+            "#element": "div",
+            "$Index": 5,
+            "width": "100%",
+            "position": "relative",
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$Label", "$Outline"],
+
+            "$Label": {
+                "#": "$LabelTemplate"
+            }
+        },
+
+        "$Row5": {
+            "#element": "div",
+            "$Index": 4,
+            "width": "100%",
+            "position": "relative",
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$Label", "$Outline"],
+
+            "$Label": {
+                "#": "$LabelTemplate"
+            }
+        },
+
+        "$Row4": {
+            "#element": "div",
+            "$Index": 3,
+            "width": "100%",
+            "position": "relative",
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$Label", "$Outline"],
+
+            "$Label": {
+                "#": "$LabelTemplate"
+            }
+        },
+
+        "$Row3": {
+            "#element": "div",
+            "$Index": 2,
+            "width": "100%",
+            "position": "relative",
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$Label", "$Outline"],
+
+            "$Label": {
+                "#": "$LabelTemplate"
+            }
+        },
+
+        "$Row2": {
+            "#element": "div",
+            "$Index": 1,
+            "width": "100%",
+            "position": "relative",
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$Label", "$Outline"],
+
+            "$Label": {
+                "#": "$LabelTemplate"
+            }
+        },
+
+        "$Row1": {
+            "#element": "div",
+            "$Index": 0,
+            "width": "100%",
+            "position": "relative",
+            "display": "flex",
+            "flex-direction": "row",
+            "#": ["$Label", "$Outline"],
+
+            "$Label": {
+                "#": "$LabelTemplate"
+            }
+        },
+
+        "$LabelTemplate": {
+            "#doc": "The Y axis labels",
+            "#element": "div",
+            "@id": "stats-minutes-$Index",
+            "position": "relative",
+            "top": "3em",
+            "width": "3em",
+            "font-size": "50%",
+            "text-align": "right",
+            "padding-right": "0.5em",
+            "#content": "12345"
+        },
+
+        "$Outline": {
+            "#doc": "The outline of a row",
+            "#element": "div",
+            "flex": 1,
+            "height": "2em",
+            "border-left": "1px solid lightgray",
+            "border-right": "1px solid lightgray",
+            "border-bottom": "1px solid lightgray"
+        }
+    },
+
+    "$ColumnLabels": {
+        "#element": "div",
+        "position": "relative",
+        "top": "0.25em",
+        "font-size": "50%",
+        "text-align": "right",
+        "#": ["$Label1", "$Label2", "$Label3", "$Label4", "$Label5", "$Label6", "$Label7"],
+
+        "$Label1": {
+            "$Date": 1,
+            "$Label": "&nbsp;1",
+            "#": "$LabelTemplate"
+        },
+
+        "$Label2": {
+            "$Date": 6,
+            "$Label": "&nbsp;6",
+            "#": "$LabelTemplate"
+        },
+
+        "$Label3": {
+            "$Date": 11,
+            "$Label": "&nbsp;11",
+            "#": "$LabelTemplate"
+        },
+
+        "$Label4": {
+            "$Date": 16,
+            "$Label": "&nbsp;16",
+            "#": "$LabelTemplate"
+        },
+
+        "$Label5": {
+            "$Date": 21,
+            "$Label": "&nbsp;21",
+            "#": "$LabelTemplate"
+        },
+
+        "$Label6": {
+            "$Date": 26,
+            "$Label": "&nbsp;26",
+            "#": "$LabelTemplate"
+        },
+
+        "$Label7": {
+            "$Date": 31,
+            "$Label": "&nbsp;31",
+            "#": "$LabelTemplate"
+        },
+
+        "$LabelTemplate": {
+            "#element": "div",
+            "@id": "stats-date-$Date",
+            "position": "absolute",
+            "display": "inline-block",
+            "text-align": "center",
+            "#content": "$Label"
+        }
+    }
+}

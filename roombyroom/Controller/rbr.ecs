@@ -5,10 +5,12 @@
 
     script RBR
 
+    use psutil
     use plugin P100 from plugins/ec_p100.py
 
     file Logger
     variable RamDisk
+    variable NetworkName
     variable RBRServer
     variable RegData
     variable Version
@@ -102,6 +104,7 @@
     variable RA
     variable E
     variable EE
+    variable L
     variable N
     variable P
     variable R
@@ -115,6 +118,7 @@
 !    debug step
 
     put `/mnt/data/` into RamDisk
+    put `wlo1` into NetworkName ! Set this to your network interface name
 
     if file RamDisk cat `lock` exists
     begin
@@ -183,22 +187,10 @@
     end
 
     ! Get the system MAC address
-    put system `ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'` into Values
-    split Values
-    put the elements of Values into N
-    while N is greater than 0
-    begin
-        decrement N
-        index Values to N
-        put Values into Value
-        split Value on ` `
-        if left 4 of Value is `wlan`
-        begin
-            index Value to 1
-            put Value into MAC
-            put 0 into N
-        end
-    end
+    put system `nmcli -g GENERAL.HWADDR device show ` cat NetworkName
+        cat ` | tr -d '\\' | tr '[:upper:]' '[:lower:]'` into MAC
+    log `MAC address is ` cat MAC
+    put trim MAC into MAC
     save MAC to `/mnt/data/mac`
 
     put 0 into RepeatCount
@@ -209,7 +201,8 @@
 
     ! Ask the server for our password and other data
     put empty into RegData
-    get RegData from url RBRServer cat `/register/` cat MAC cat `?v=` cat now
+    get RegData from url RBRServer cat `/register/` cat MAC
+    ! cat `?v=` cat now
     or begin
         log `Server did not respond`
         gosub to NetworkError
@@ -219,7 +212,7 @@
     end
     gosub to ClearNetworkErrors
     log `Server ` cat RBRServer cat ` connected successfully`
-
+    log RegData
     put json RegData into RegData
     put property `password` of RegData into Password
     log `Password: ` cat Password
@@ -227,6 +220,7 @@
 
     ! The system config data is kept on the server and is managed by rbrconfig
     get Config from url RBRServer cat `/config/` cat MAC cat `/` cat Password
+    if Config is empty put `{}` into Config
     put json Config into Config
 !    load Config from `.config.json`
 !    log `Config: ` cat prettify Config
@@ -366,6 +360,12 @@ S2:
     if Password is empty go to SkipRequests
 
     gosub to ProcessRequest
+    delete file RamDisk cat `request`
+    if Changed
+    begin
+        gosub to PostMapToServer
+        go to Start
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process the map
@@ -453,7 +453,7 @@ Repeat:
 
     log `Memory used: ` cat memory cat ` MB`
 
-    gosub to PostToServer
+    gosub to PostSensorData
     save Mijia to RamDisk cat `mijia.json`
 
     add 1 to RepeatCount
@@ -798,12 +798,15 @@ WriteAdvance:
     set property `advance-rq` of RoomSpec to `-`
     set property RoomName of SystemData to RoomSpec
 
+!   Update various parts of the map
 UpdateRoom:
     set element RoomNumber of Rooms to RoomSpec
 UpdateRooms:
     set property `rooms` of Profile to Rooms
+UpdateProfiles:
     set element CurrentProfile of Profiles to Profile
     set property `profiles` of MapObject to Profiles
+UpdateMap:
     put stringify MapObject into Map
     save Map to RamDisk cat `map`
     set Changed
@@ -925,8 +928,8 @@ SetRelays:
         end
         else if RelayType is `Shelly One`
         begin
-            put `http://` cat Relay cat `/relay/0?turn=` cat OnOff into Request
-            get Response from url Request
+            put `http://` cat Relay cat `/relay/0?turn=` cat OnOff into URL
+            get Response from url URL
             or begin
                 put empty into Response
                 gosub to NetworkError
@@ -946,8 +949,8 @@ SetRelays:
         end
         else if RelayType is `Tasmota`
         begin
-            put `http://` cat Relay cat `/cm?cmnd=power%20` cat OnOff into Request
-            get Response from url Request
+            put `http://` cat Relay cat `/cm?cmnd=power%20` cat OnOff into URL
+            get Response from url URL
             or begin
                 put empty into Response
                 gosub to NetworkError
@@ -1006,18 +1009,24 @@ SaveErrorCount:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Post data to the RBR server. This also posts the IP address
-PostToServer:
+PostSensorData:
     save SystemData to RamDisk cat `systemdata.json`
+!    log SystemData
     if Password is not empty
     begin
+!        log `Post to ` cat RBRServer cat `/sensors/` cat MAC cat `/` cat Password cat `/` cat IPAddr
         post stringify SystemData to RBRServer cat `/sensors/` cat MAC cat `/` cat Password cat `/` cat IPAddr
         or begin
             log `Unable to post sensor data`
-            go to PTS2
+            go to PostMapToServer
         end
+    end
 
-        ! If the map has changed, write it back to the RBR server.
-    PTS2:
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! If the map has changed, write it back to the RBR server.
+PostMapToServer:
+    if Password is not empty
+    begin
         if Changed
         begin
             put stringify MapObject into Map
@@ -1040,7 +1049,6 @@ PostToServer:
             clear Changed
         end
     end
-    delete file RamDisk cat `request`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1180,7 +1188,6 @@ ProcessRequest:
     if file RamDisk cat `request` exists
     begin
         load Request from RamDisk cat `request`
-!        delete file RamDisk cat `request`
     end
     if Request is empty
     begin
@@ -1196,7 +1203,6 @@ ProcessRequest:
     log `Request: ` cat Request
     put Request into LogText
     gosub to Log
-    set Changed
     set Confirm
     put json Request into Request
     put property `action` of Request into Action
@@ -1243,8 +1249,7 @@ ProcessRequest:
         set property `profile` of MapObject to CurrentProfile
         set property `calendar` of MapObject to property `calendar` of Request
         set property `calendar-data` of MapObject to property `calendar-data` of Request
-        put stringify MapObject into Map
-        save Map to RamDisk cat `map`
+        gosub to UpdateMap
     end
     else if Action is `mode`
     begin
@@ -1252,13 +1257,13 @@ ProcessRequest:
         put property `roomnumber` of Request into RoomNumber
         put element RoomNumber of Rooms into RoomSpec
         put property `name` of RoomSpec into RoomName
+        set property `advance-rq` of RoomSpec to `-`
         if Mode is `timed`
         begin
             if Request has property `advance`
             begin
                 set property `advance-rq` of RoomSpec to property `advance` of Request
             end
-            else set property `advance-rq` of RoomSpec to `-`
         end
         else if Mode is `on`
         begin
@@ -1274,10 +1279,10 @@ ProcessRequest:
             set property `boost` of RoomSpec to property `boost` of Request
         end
         set property `mode` of RoomSpec to Mode
+        put `Mode ` cat Mode cat ` set in ` cat RoomName into LogText
+        gosub to Log
+        save stringify Request to `/mnt/data/confirm.txt`
         gosub to UpdateRoom
-    end
-    else if Action is `profiles`
-    begin
     end
     else if Action is `roomname`
     begin
@@ -1307,7 +1312,6 @@ ProcessRequest:
         set property `address` of MapObject to property `address` of Request
         set property `ssid` of MapObject to property `ssid` of Request
         set property `password` of MapObject to property `password` of Request
-        set property `extenders` of MapObject to property `extenders` of Request
         put property `names` of Request into RoomNames
         put property `ssids` of Request into RoomSSIDs
         put element 0 of Profiles into Profile
@@ -1342,12 +1346,14 @@ ProcessRequest:
     else if Action is `request`
     begin
         set property `request` of MapObject to property `request` of Request
+        gosub to UpdateMap
     end
     else if Action is `halt`
     begin
         log `Request to halt the system`
         set HaltRequested
     end
+!    delete file RamDisk cat `request`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

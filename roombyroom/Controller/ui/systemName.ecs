@@ -6,15 +6,15 @@
     use plugin RBR_UI from /home/graham/dev/rbr/rbr_ui.py
 
     import rbrwin Window
-        and element NameAndProfiles
+        and profiles ProfilesBar
         and variable Request
 
     layout Layout
     label Label
+    label SystemName
     lineinput Input
-    element SystemName
 
-    attach SystemName to element `systemName` of NameAndProfiles
+    attach SystemName to element `systemName` of ProfilesBar
 
     create Layout type QHBoxLayout
     create Label text `System Name:` size 12 align right

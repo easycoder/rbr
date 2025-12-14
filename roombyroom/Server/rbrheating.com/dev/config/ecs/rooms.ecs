@@ -1,0 +1,127 @@
+!   Provide details for all the rooms in this system
+
+	script Rooms
+
+    import variable Result
+
+    div LeftButton
+    div RightButton
+    div RoomList
+    div Text2
+    button AddRoom
+    image EditRoom
+    image DeleteRoom
+    input NameInput
+    variable Map
+    variable Rooms
+    variable Room
+    variable RoomCount
+    variable RoomWebson
+    variable Webson
+    variable N
+    variable M
+
+!    debug step
+
+    attach LeftButton to `left-button`
+    attach RightButton to `right-button`
+    attach RoomList to `cf-rooms`
+    attach AddRoom to `cf-add-room`
+    attach Text2 to `cf-text2`
+    rest get RoomWebson from `/webson/room.json?v=` cat now
+
+    get Map from storage as `map`
+    put property `rooms` of Map into Rooms
+    if Rooms is empty put `[]` into Rooms
+    put the json count of Rooms into RoomCount
+    set the elements of EditRoom to RoomCount
+    set the elements of DeleteRoom to RoomCount
+
+    gosub to BuildList
+
+    on click AddRoom
+    begin
+        gosub to CaptureFields
+        put `{}` into Room
+        set property `name` of Room to empty
+        append Room to Rooms
+        gosub to BuildList
+        set style `display` of Text2 to `block`
+    end
+
+    on click LeftButton
+    begin
+        put `back` into Result
+        exit
+    end
+
+    on click RightButton
+    begin
+        set style `display` of LeftButton to `none`
+        set style `display` of RightButton to `none`
+        set property `rooms` of Map to Rooms
+        put Map into storage as `map`
+
+        put `relay-info` into Result
+        exit
+    end
+
+    set style `display` of LeftButton to `block`
+    set style `display` of RightButton to `block`
+
+    stop
+
+OnEditRoom:
+    set property `rooms` of Map to Rooms
+    put Map into storage as `map`
+    put the index of EditRoom into storage as `current-room`
+
+    set style `display` of LeftButton to `none`
+    set style `display` of RightButton to `none`
+    put `config-room` into Result
+    exit
+
+OnDeleteRoom:
+    put the index of DeleteRoom into N
+    json delete element N of Rooms
+    gosub to BuildList
+    stop
+
+CaptureFields:
+    put 0 into N
+    while N is less than RoomCount
+    begin
+        put element N of Rooms into Room
+        attach NameInput to `cf-room-` cat N cat `-name`
+        set property `name` of Room to the content of NameInput
+        set element N of Rooms to Room
+        add 1 to N
+    end
+    set element `rooms` of Map to Rooms
+    return
+
+BuildList:
+    clear RoomList
+    put the json count of Rooms into RoomCount
+    set the elements of EditRoom to RoomCount
+    set the elements of DeleteRoom to RoomCount
+    put 0 into N
+    while N is less than RoomCount
+    begin
+        put element N of Rooms into Room
+        put RoomWebson into Webson
+        replace `<ID>` with N in Webson
+        add 1 to N giving M
+        replace `<INDEX>` with M in Webson
+        render Webson in RoomList
+        attach NameInput to `cf-room-` cat N cat `-name`
+        set the content of NameInput to property `name` of Room
+        index EditRoom to N
+        attach EditRoom to `cf-room-` cat N cat `-edit`
+        index DeleteRoom to N
+        attach DeleteRoom to `cf-room-` cat N cat `-delete`
+        add 1 to N
+    end
+    on click EditRoom go to OnEditRoom
+    on click DeleteRoom go to OnDeleteRoom
+    return
