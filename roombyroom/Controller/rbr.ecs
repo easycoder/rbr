@@ -5,7 +5,7 @@
 
     script RBR
 
-    use psutil
+!    use psutil
     use plugin P100 from plugins/ec_p100.py
 
     file Logger
@@ -118,7 +118,7 @@
 !    debug step
 
     put `/mnt/data/` into RamDisk
-    put `wlo1` into NetworkName ! Set this to your network interface name
+    put `wlan0` into NetworkName ! Set this to your network interface name
 
     if file RamDisk cat `lock` exists
     begin
@@ -169,7 +169,11 @@
         gosub to NetworkError
     end
 
-    if file RamDisk cat `mijia.json` exists load Mijia from RamDisk cat `mijia.json`
+    if file RamDisk cat `mijia.json` exists
+    begin
+        load Mijia from RamDisk cat `mijia.json`
+        put json Mijia into Mijia
+    end
     else
     begin
         put json `{}` into Mijia
@@ -223,6 +227,7 @@
     if Config is empty put `{}` into Config
     put json Config into Config
 !    load Config from `.config.json`
+!    put json Config into Config
 !    log `Config: ` cat prettify Config
     put empty into MasterDevice
     put empty into MasterIPAddr
@@ -451,8 +456,6 @@ Repeat:
         exit
     end
 
-    log `Memory used: ` cat memory cat ` MB`
-
     gosub to PostSensorData
     save Mijia to RamDisk cat `mijia.json`
 
@@ -478,7 +481,13 @@ ProcessRoom:
 
     ! Get the room status
     put RamDisk cat `status.json` into FileName
-    if file FileName exists load Status from FileName else put json `{}` into Status
+    if file FileName exists
+    begin
+        load Status from FileName
+        if Status is empty put `{}` into Status
+        put json Status into Status
+    end
+    else put json `{}` into Status
     if Status has property RoomName put property RoomName of Status into RoomStatus
     else
     begin
@@ -592,6 +601,7 @@ GetAdvance:
     if file RamDisk cat `advance.json` exists
     begin
         load AdvanceData from RamDisk cat `advance.json`
+        put json AdvanceData into AdvanceData
         if AdvanceData has property RoomName put property RoomName of AdvanceData into Advance
     end
     else put json `{}` into AdvanceData
@@ -747,10 +757,7 @@ MultiplyTT:
     if `` cat Target is empty put `16` into Target
     else put `` cat Target into Target
     put the position of `.` in Target into P1
-    if P1 is less than 0
-    begin
-        multiply Target by 10
-    end
+    if P1 is less than 0 multiply Target by 10
     else
     begin
         put left P1 of Target into T1
@@ -823,6 +830,7 @@ TurnOnOrOff:
         log `Advance to period ` cat E
     end
     put element E of Events into Event
+    log `Event: ` cat Event
     put float property `temp` of Event into Target
     gosub to MultiplyTT
     put Target into TargetTemp
@@ -842,7 +850,12 @@ UpdateLog:
     if Temperature is empty put `off` into OnOff
     set property `relay` of RoomSpec to OnOff
     put RamDisk cat `logs.json` into FileName
-    if file FileName exists load Logs from FileName else put json `{}` into Logs
+    if file FileName exists
+    begin
+        load Logs from FileName
+        put json Logs into Logs
+    end
+    else put json `{}` into Logs
     if Logs has property RoomName
     begin
         put property RoomName of Logs into LogData
@@ -880,8 +893,11 @@ SetRelays:
     put property `relays` of RoomSpec into Relays
     if Relays is empty put json `[]` into Relays
     if the count of Relays is 0 log `Sensor: ` cat Sensor cat ` ` cat Temperature cat ` ` cat SensorRSS
-    else log `Sensor: ` cat Sensor cat ` T:A=` cat Target cat `:` cat Temperature cat ` ` cat Mode cat `:`
+    else
+    begin
+        log `Sensor: ` cat Sensor cat ` T:A=` cat Target cat `:` cat Temperature cat ` ` cat Mode cat `:`
         cat OnOff cat ` ` cat SensorRSS
+    end
     if RelayType is empty put `RBR-Now` into RelayType
 ! log RoomName cat ` Relays: ` cat Relays
     put json `[]` into Responses
