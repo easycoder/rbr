@@ -5,8 +5,7 @@
     use graphics
     use plugin RBR_UI from rbr_ui.py
 
-!    debug compile
-!    debug step
+    debug compile
 
     rbrwin Window
     room Room
@@ -32,10 +31,27 @@
     combobox ComboBox
     ssh Controller
     module Module
+    dictionary ControllerSpec
+    dictionary SystemData
+    dictionary Profile
+    dictionary RoomSpec
+    dictionary RoomData
+    dictionary Request
+    dictionary Response
+    dictionary Map
+    dictionary Data
+    dictionary Dict
+    list Profiles
+    list Rooms
+    list NewRooms
+    list Choices
+    list ChoicesShown
+    list Responses
+    list Values
+    list Value
     variable UserName
-    variable ControllerSpec
-    variable ControllerIPAddr
     variable GraphicsStarted
+    variable ControllerIPAddr
     variable HomeDir
     variable Path
     variable IsLocal
@@ -47,38 +63,22 @@
     variable Title
     variable Name
     variable Mode
-    variable Map
     variable CurrentProfile
-    variable Profiles
-    variable Profile
-    variable SystemData
-    variable Rooms
     variable RoomName
-    variable RoomSpec
-    variable RoomData
     variable RoomIndex
     variable Periods
     variable ThisRoom
     variable ThatRoom
-    variable NewRooms
-    variable Choices
-    variable ChoicesShown
     variable Choice
     variable Advance
     variable Ticks
     variable Result
-    variable Request
     variable RequestRelay
-    variable Data
-    variable Value
-    variable Values
     variable Timestamp
     variable Temperature
     variable Text
     variable SensorID
     variable RelayNames
-    variable Responses
-    variable Response
     variable Version
     variable Uptime
     variable Item
@@ -93,8 +93,7 @@
     variable R
     variable T
 
-!    debug compile
-!    debug step
+    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
@@ -132,13 +131,13 @@ Start:
     begin
         run `controller.ecs` as Module with HomeDir and ControllerSpec
         log ControllerSpec
-        put property `current` of ControllerSpec into ControllerIPAddr
-        put property ControllerIPAddr of ControllerSpec into Item
-        log Item
+        put entry `current` of ControllerSpec into ControllerIPAddr
+        put entry ControllerIPAddr of ControllerSpec into Dict
+        log Dict
         set Controller
             host ControllerIPAddr
-            user property `user` of Item
-            password property `password` of Item
+            user entry `user` of Dict
+            password entry `password` of Dict
     end
 
     ! Refresh the UI regularly
@@ -167,7 +166,7 @@ Start:
 RefreshScreen:
     set Refreshing
 !    log `Refresh`
-    put empty into SystemData
+    reset SystemData
     put 0 into N
     while SystemData is empty
     begin
@@ -195,6 +194,7 @@ RefreshScreen:
                 return
             end
             load CurrentProfile from Controller RamDisk cat `profile`
+            log CurrentProfile
             load SystemData from Controller RamDisk cat `systemdata.json`
             put json SystemData into SystemData or return
         end
@@ -203,11 +203,11 @@ RefreshScreen:
 !    log prettify Map
 !    log prettify SystemData
     put json Map into Map or return
-!    log property `request` of Map
+!    log entry `request` of Map
     put the value of CurrentProfile into CurrentProfile
-    put property `profiles` of Map into Profiles
+    put entry `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms
+    put entry `rooms` of Profile into Rooms
 !    log Rooms
     set the elements of Room to the count of Rooms
     set the elements of RoomData to the count of Rooms
@@ -221,28 +221,28 @@ RefreshScreen:
     begin
         put element R of Rooms into RoomSpec
 !        log RoomSpec
-        put property `name` of RoomSpec into Name
-        if SystemData has property Name
+        put entry `name` of RoomSpec into Name
+        if SystemData has entry Name
         begin
-            put property Name of SystemData into RoomData
-            set property `timestamp` of RoomSpec to property `timestamp` of RoomData
-            if RoomData has property `temperature`
-                set property `temperature` of RoomSpec to property `temperature` of RoomData
-            else set property `temperature` of RoomSpec to `0`
-            if RoomData has property `relay`
-                set property `relay` of RoomSpec to property `relay` of RoomData
-            else set property `relay` of RoomSpec to `off`
+            put entry Name of SystemData into RoomData
+            set entry `timestamp` of RoomSpec to entry `timestamp` of RoomData
+            if RoomData has entry `temperature`
+                set entry `temperature` of RoomSpec to entry `temperature` of RoomData
+            else set entry `temperature` of RoomSpec to `0`
+            if RoomData has entry `relay`
+                set entry `relay` of RoomSpec to entry `relay` of RoomData
+            else set entry `relay` of RoomSpec to `off`
         end
         else
         begin
-            set property `temperature` of RoomSpec to `0`
-            set property `relay` of RoomSpec to `off`
+            set entry `temperature` of RoomSpec to `0`
+            set entry `relay` of RoomSpec to `off`
         end
         gosub to CreateRoom
         increment R
     end
-    set attribute `system name` of Window to property `name` of Map
-    set attribute `profile` of Window to property `name` of Profile
+    set attribute `system name` of Window to entry `name` of Map
+    set attribute `profile` of Window to entry `name` of Profile
     set attribute `hourglass` of Window to false
 
     ! Set up the banner at the top of the screen
@@ -282,7 +282,7 @@ CreateRoom:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The Main menu - the hamburger at the top right
 ShowMainMenu:
-    put json `[]` into Choices
+    reset Choices
     append `Set the system name` to Choices
     append `Set the request relay` to Choices
     append `Add a room` to Choices
@@ -319,16 +319,16 @@ SetRequestRelay:
     create Label text `Type the name of the request relay:`
     add Label to Layout
     create Input size 30
-    if Map has property `request` put property `request` of Map into RequestRelay
+    if Map has entry `request` put entry `request` of Map into RequestRelay
     else put empty into RequestRelay
     set the text of Input to RequestRelay
     add Input to Layout
     create keyboard layout Layout and receiver Input in Window
     log Input cat ` ` cat RequestRelay
     if Input is RequestRelay stop
-    put json `{}` into Request
-    set property `action` of Request to `request`
-    set property `request` of Request to Input
+    reset Request
+    set entry `action` of Request to `request`
+    set entry `request` of Request to Input
     log Request
     gosub to SendRequest
     stop
@@ -340,17 +340,17 @@ AddRoom:
         cat `"events": [{"until": "07:00", "temp": 15}], "relayType":"none", "protect": "no", "relay": "off"}`
         into ThisRoom
     append json ThisRoom to Rooms
-    put json `{}` into Request
-    set property `action` of Request to `rooms`
-    set property `rooms` of Request to Rooms
+    reset Request
+    set entry `action` of Request to `rooms`
+    set entry `rooms` of Request to Rooms
     gosub to SendRequest
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Reset the controller
 Reset:
-    put json `{}` into Request
-    set property `action` of Request to `reset`
+    reset Request
+    set entry `action` of Request to `reset`
     gosub to SendRequest
     stop
 
@@ -358,7 +358,7 @@ Reset:
 !   Show system info
 ShowSystemInfo:
     set Locked
-    put property Name of SystemData into RoomSpec
+    put entry Name of SystemData into RoomSpec
     create Panel type QVBoxLayout
     create Label text `-- System information --`
     add Label to Panel
@@ -391,69 +391,69 @@ ShowSystemInfo:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Handle a click on one of the Mode buttons
 HandleMode:
-    put json `{}` into Data
+    reset Data
     put the index of ModeButton into R
     index Room to R
     put element R of Rooms into RoomSpec
-    put property `name` of RoomSpec into Name
-    put property `mode` of RoomSpec into Mode
+    put entry `name` of RoomSpec into Name
+    put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
-    set property `target` of Data to property `target` of RoomSpec
+    set entry `target` of Data to entry `target` of RoomSpec
     log Name cat `: ` cat Result
-    put json `{}` into Request
+    reset Request
     if Result is empty stop
     else if Result is `timed`
     begin
-        set property `mode` of Request to `timed`
+        set entry `mode` of Request to `timed`
         gosub to SetMode
     end
     else if Result is `off`
     begin
-        set property `mode` of Request to `off`
+        set entry `mode` of Request to `off`
         gosub to SetMode
     end
     else if Result is `on`
     begin
-        set property `mode` of Request to `on`
-        set property `target` of Request to property `target` of Data
+        set entry `mode` of Request to `on`
+        set entry `target` of Request to entry `target` of Data
         gosub to SetMode
     end
     else if left 5 of Result is `boost`
     begin
-        set property `mode` of Request to `boost`
+        set entry `mode` of Request to `boost`
         put from 6 of Result into Value
         put left 5 of Result into Result
-		set property `boost` of Request to `B` cat Value
-        set property `target` of Request to property `target` of Data
+		set entry `boost` of Request to `B` cat Value
+        set entry `target` of Request to entry `target` of Data
         gosub to SetMode
     end
     else if Result is `advance`
     begin
-        set property `mode` of Request to `timed`
-        put property `advance` of RoomSpec into Advance
-        if Advance is `-` set property `advance` of Request to `A`
-        else set property `advance` of Request to `C`
+        set entry `mode` of Request to `timed`
+        put entry `advance` of RoomSpec into Advance
+        if Advance is `-` set entry `advance` of Request to `A`
+        else set entry `advance` of Request to `C`
         gosub to SetMode
     end
     else if Result is `edit`
     begin
         set Locked
-        put property `name` of RoomSpec into RoomName
-        put property `events` of RoomSpec into Periods
+        put entry `name` of RoomSpec into RoomName
+        put entry `events` of RoomSpec into Periods
         log `Schedule: ` cat Periods
         run `schedule.ecs` as Module with RoomName and Window and Periods and Request
 !        log Request
         if Request is empty stop
-        set property `events` of RoomSpec to Periods
-        set property `roomnumber` of Request to R
+        set entry `events` of RoomSpec to Periods
+        set entry `roomnumber` of Request to R
         gosub to SendRequest
         clear Locked
     end 
     stop
 
 SetMode:
-    set property `action` of Request to `mode`
-    set property `roomnumber` of Request to R
+    set entry `action` of Request to `mode`
+    set entry `roomnumber` of Request to R
     log Request
     go to SendRequest
 
@@ -463,7 +463,7 @@ HandleTools:
     put the index of ToolsButton into RoomIndex
     index Room to RoomIndex
     put attribute `name` of Room into Name
-    put json `[]` into Choices
+    reset Choices
     append `Move ` cat Name cat ` up` to Choices
     append `Move ` cat Name cat ` down` to Choices
     append `Show info for ` cat Name to Choices
@@ -476,7 +476,7 @@ HandleTools:
 
     put the count of Rooms into R
     decrement R
-    put json `[]` into ChoicesShown
+    reset ChoicesShown
     if RoomIndex is 0 append element 1 of Choices to ChoicesShown
     else if RoomIndex is R append element 0 of Choices to ChoicesShown
     else
@@ -493,7 +493,7 @@ HandleTools:
 
     select Choice from menu `Tools Menu` with ChoicesShown
     log Choice
-    put json `{}` into Request
+    reset Request
     if Choice is element 0 of Choices go to MoveRoomUp
     if Choice is element 1 of Choices go to MoveRoomDown
     if Choice is element 2 of Choices go to ShowRoomInfo
@@ -512,8 +512,8 @@ MoveRoomUp:
     set element RoomIndex of Rooms to ThisRoom
     add 1 to RoomIndex
     set element RoomIndex of Rooms to ThatRoom
-    set property `action` of Request to `rooms`
-    set property `rooms` of Request to Rooms
+    set entry `action` of Request to `rooms`
+    set entry `rooms` of Request to Rooms
     gosub to SendRequest
     stop
 
@@ -526,8 +526,8 @@ MoveRoomDown:
     set element RoomIndex of Rooms to ThisRoom
     take 1 from RoomIndex
     set element RoomIndex of Rooms to ThatRoom
-    set property `action` of Request to `rooms`
-    set property `rooms` of Request to Rooms
+    set entry `action` of Request to `rooms`
+    set entry `rooms` of Request to Rooms
     gosub to SendRequest
     stop
 
@@ -536,20 +536,20 @@ MoveRoomDown:
 ShowRoomInfo:
     log `ShowRoomInfo`
     set Locked
-    put property Name of SystemData into RoomSpec
+    put entry Name of SystemData into RoomSpec
     create Panel type QVBoxLayout
     create Label text `-- ` cat Name cat ` Sensor --`
     add Label to Panel
-    put the value of property `timestamp` of RoomSpec into Timestamp
+    put the value of entry `timestamp` of RoomSpec into Timestamp
     multiply Timestamp by 1000
-    put property `temperature` of RoomSpec into Temperature
+    put entry `temperature` of RoomSpec into Temperature
     put `Last reading: ` cat datime Timestamp into Text
     put Text cat newline cat `Temperature: ` cat Temperature cat `ºC` into Text
     create Label text Text
     add Label to Panel
-    if RoomSpec has property `responses`
+    if RoomSpec has entry `responses`
     begin
-        put property `responses` of RoomSpec into Responses
+        put entry `responses` of RoomSpec into Responses
         put `-- ` cat Name cat ` Relay` into Text
         if the count of Responses is greater than 1 put Text cat `s` into Text
         put Text cat ` --` into Text
@@ -559,11 +559,11 @@ ShowRoomInfo:
         while N is less than the count of Responses
         begin
             put element N of Responses into Response
-            if Response has property `state` put `State: ` cat property `state` of Response into Text
+            if Response has entry `state` put `State: ` cat entry `state` of Response into Text
             else put empty into Text
-            if Response has property `uptime`
+            if Response has entry `uptime`
             begin
-                put the value of property `uptime` of Response into Uptime
+                put the value of entry `uptime` of Response into Uptime
                 divide Uptime by 3600 giving HH
                 put Uptime modulo 3600 into MM
                 divide MM by 60
@@ -573,8 +573,8 @@ ShowRoomInfo:
                 if SS is less than 10 put `0` cat SS into SS
                 put Text cat newline cat `Uptime: ` cat HH cat `:` cat MM cat `:` cat SS into Text
             end
-            if Response has property `RSS`
-                put Text cat newline cat `RSS: ` cat property `RSS` of Response into Text
+            if Response has entry `RSS`
+                put Text cat newline cat `RSS: ` cat entry `RSS` of Response into Text
             if Text is not empty
             begin
                 create Label text Text
@@ -606,10 +606,10 @@ EditRoomName:
     add Input to Layout
     create keyboard layout Layout and receiver Input in Window
     set attribute `name` of Room to Input
-    put json `{}` into Request
-    set property `action` of Request to `roomname`
-    set property `roomnumber` of Request to RoomIndex
-    set property `name` of Request to Input
+    reset Request
+    set entry `action` of Request to `roomname`
+    set entry `roomnumber` of Request to RoomIndex
+    set entry `name` of Request to Input
     log Request
     gosub to SendRequest
     stop
@@ -617,8 +617,8 @@ EditRoomName:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Edit the sensor and relay information for a room
 EditDeviceParams:
-    put property Name of SystemData into RoomSpec
-    put property `relays` of RoomSpec into Values
+    put entry Name of SystemData into RoomSpec
+    put entry `relays` of RoomSpec into Values
     put empty into RelayNames
     put 0 into R
     while R is less than the count of Values
@@ -641,8 +641,8 @@ EditDeviceParams:
     create Label text `Type the sensor name or MAC:`
     add Label at 0 0 in Grid
     create Input size 30
-    put property Name of SystemData into RoomSpec
-    put property `sensor` of RoomSpec into SensorID
+    put entry Name of SystemData into RoomSpec
+    put entry `sensor` of RoomSpec into SensorID
     set the text of Input to SensorID
     add Input at 0 1 in Grid
 
@@ -665,14 +665,14 @@ EditDeviceParams:
     add `Tasmota` to ComboBox
     add `TP-Link P100` to ComboBox
     add `Manual` to ComboBox
-    select property `relayType` of RoomSpec in ComboBox
+    select entry `relayType` of RoomSpec in ComboBox
     add ComboBox at 2 1 in Grid
 
     ! Get the 'linked' checkbox
     create Label text `Sensor is linked to relay(s)`
     add Label at 3 0 in Grid
     create CheckBox
-    if property `linked` of RoomSpec is `yes` set the state of CheckBox to checked
+    if entry `linked` of RoomSpec is `yes` set the state of CheckBox to checked
     else set the state of CheckBox to unchecked
     add CheckBox at 3 1 in Grid
 
@@ -682,14 +682,14 @@ EditDeviceParams:
     create Label text `Protect below`
     add Label to Layout
     create Input2 size 5
-    if RoomSpec has property `ptemp` set the text of Input2 to property `ptemp` of RoomSpec
+    if RoomSpec has entry `ptemp` set the text of Input2 to entry `ptemp` of RoomSpec
     add Input2 to Layout
     create Label text `°C`
     add Label to Layout
     add stretch to Layout
 
     create CheckBox2 text `Enable protection`
-    if property `protect` of RoomSpec is `yes` set the state of CheckBox2 to checked
+    if entry `protect` of RoomSpec is `yes` set the state of CheckBox2 to checked
     else set the state of CheckBox2 to unchecked
     add CheckBox2 at 4 1 in Grid
 
@@ -700,13 +700,13 @@ EditDeviceParams:
         and receiver MultiLine 
         in Window
 
-    put json `{}` into Request
-    set property `action` of Request to `devices`
-    set property `room` of Request to Name
-    set property `sensor` of Request to Input
+    reset Request
+    set entry `action` of Request to `devices`
+    set entry `room` of Request to Name
+    set entry `sensor` of Request to Input
     put MultiLine into RelayNames
     split RelayNames
-    put json `[]` into Value
+    reset Value
     put 0 into N
     while N is less than the elements of RelayNames
     begin
@@ -714,10 +714,10 @@ EditDeviceParams:
         append RelayNames to Value
         increment N
     end
-    set property `relays` of Request to Value
-    if CheckBox set property `linked` of Request to `yes` else set property `linked` of Request to `no`
-    if CheckBox2 set property `protect` of Request to `yes` else set property `protect` of Request to `no`
-    set property `ptemp` of Request to Input2
+    set entry `relays` of Request to Value
+    if CheckBox set entry `linked` of Request to `yes` else set entry `linked` of Request to `no`
+    if CheckBox2 set entry `protect` of Request to `yes` else set entry `protect` of Request to `no`
+    set entry `ptemp` of Request to Input2
 !    log Request
     gosub to SendRequest
     stop
@@ -734,7 +734,7 @@ DeleteRoom:
     show Dialog
     if not Dialog stop
 
-    put json `[]` into NewRooms
+    reset NewRooms
     put 0 into R
     while R is less than RoomIndex
     begin
@@ -747,8 +747,8 @@ DeleteRoom:
         append element R of Rooms to NewRooms
         increment R
     end
-    set property `action` of Request to `rooms`
-    set property `rooms` of Request to NewRooms
+    set entry `action` of Request to `rooms`
+    set entry `rooms` of Request to NewRooms
     gosub to SendRequest
     stop
 

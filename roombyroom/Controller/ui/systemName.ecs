@@ -7,7 +7,7 @@
 
     import rbrwin Window
         and profiles ProfilesBar
-        and variable Request
+        and dictionary Request
 
     layout Layout
     label Label
@@ -22,16 +22,9 @@
     create Input text SystemName
     add Input to Layout
     create keyboard with layout Layout and receiver Input in Window
-    if SystemName is Input
-    begin
-        put empty into Request
-        exit
-    end
-    else
-    begin
-        set the text of SystemName to Input
-        put json `{}` into Request
-        set property `action` of Request to `SystemName`
-        set property `SystemName` of Request to Input
-    end
+    reset Request
+    if SystemName is Input exit
+    set the text of SystemName to Input
+    set property `action` of Request to `SystemName`
+    set property `SystemName` of Request to Input
     exit
