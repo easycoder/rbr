@@ -368,7 +368,7 @@ class RBR_UI(Handler):
         data = self.getVariable(command['with']) if 'with' in command else None
         keyword = dialog['keyword']
         value = ModeDialog(self.program, data).showDialog() if keyword == 'modeDialog' else ''
-        v = ECValue(type='str', content=value)
+        v = ECValue(type=str, content=value)
         self.putSymbolValue(target, v)
         return self.nextPC()
 
@@ -559,7 +559,7 @@ class RBR_UI(Handler):
         var = self.getVariable(command['choices'])
         choices = self.textify(var)
         choice = Menu(self.program, 50, self.program.rbrwin, title, choices).show()
-        v = ECValue(type='str', content=choice)
+        v = ECValue(type=str, content=choice)
         self.putSymbolValue(target, v)
         return self.nextPC()
 
@@ -730,7 +730,7 @@ class RBR_UI(Handler):
     # Value handlers
 
     def v_symbol(self, value):
-        v = ECValue(type='str')
+        v = ECValue(type=str)
         record = self.getVariable(value.name)
         if self.isObjectType(record, RBRRoom):
             object = self.getObject(record)
@@ -748,13 +748,13 @@ class RBR_UI(Handler):
         attr = self.textify(value.attr)
         v = ECValue()
         if attr == 'index':
-            v.type = 'int'
+            v.type = int
             v.content = self.program.roomIndex
         else:
             if self.isObjectType(record, RBRRoom):
                 object = self.getObject(record)
                 room = self.getInnerObject(object)
-                v.type = 'str'
+                v.type = str
                 if attr == 'name':
                     content = room.getName()
                 elif attr == 'temperature':

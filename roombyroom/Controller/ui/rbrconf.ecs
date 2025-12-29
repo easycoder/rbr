@@ -4,7 +4,7 @@
 
     use graphics
 
-!    debug compile
+    debug compile
 
     window HostWindow
     window Window
@@ -59,7 +59,7 @@
     checkbox RelayInvertCheckbox
     messagebox MessageBox
 
-!    debug step
+    debug step
 
     log `Starting`
 
@@ -336,8 +336,8 @@
     variable T1
     variable T2
 
-    debug compile
-    debug step
+!    debug compile
+!    debug step
 !    system `rm /home/graham/.rbr.conf`
 !    system `rm /home/graham/.controller.json`
 
@@ -380,7 +380,7 @@
         if the count of Keys is 0
             reset SystemName
         else
-            put element 0 of Keys into SystemName
+            put item 0 of Keys into SystemName
         set entry `current-system` of Config to SystemName
         save stringify Config to ConfigFile
     end
@@ -646,7 +646,7 @@ GetConfigData:
         put 0 into K
         while K is less than the count of Keys
         begin
-            put element K of Keys into Name
+            put item K of Keys into Name
             log `Adding ` cat Name cat ` to config data`
 !            if Name is `ssid` set entry `host-ssid` of SystemConfig to entry Name of Dict
 !            else if Name is `password` set entry `host-password` of SystemConfig to entry Name of Dict
@@ -670,7 +670,7 @@ RefreshSystemsCombo:
     put 0 into S
     while S is less than the count of Keys
     begin
-        put element S of Keys into Name
+        put item S of Keys into Name
         log `Add ` cat Name cat ` to SystemsCombo`
         add Name to SystemsCombo
         if Name is SystemName put S into N
@@ -699,7 +699,7 @@ SelectSystem2:
     if Systems does not have entry SystemName
     begin
         put the keys of Systems into Keys
-        put element 0 of Keys into SystemName
+        put item 0 of Keys into SystemName
         set entry `current-system` of Config to SystemName
     end
     log `Select system ` cat SystemName
@@ -801,7 +801,7 @@ ReconnectMasterClick:
     put 0 into K
     while K is less than the count of Keys
     begin
-        put element K of Keys into Name
+        put item K of Keys into Name
         put entry Name of Devices into Device
         if entry `master` of Device is true
         begin
@@ -838,7 +838,7 @@ ScanForDevicesClick:
     split SystemCallResult
     reset List
     put 1 into N
-    while N is less than the elements of SystemCallResult
+    while N is less than the items in SystemCallResult
     begin
         index SystemCallResult to N
         put SystemCallResult into SSID
@@ -863,7 +863,7 @@ ScanForDevicesClick:
                     put 0 into D
                     while D is less than the count of Keys
                     begin
-                        put element D of Keys into Name
+                        put item D of Keys into Name
                         put entry Name of Devices into Device
                         if SSID is entry `ssid` of Device
                         begin
@@ -918,7 +918,7 @@ SelectSSIDFromList:
     put 0 into N
     while N is less than the count of List
     begin
-        add element N of List to ListBox
+        add item N of List to ListBox
         increment N
     end
     on select ListBox
@@ -1206,7 +1206,7 @@ PopulateSystemInfo:
     put 0 into D
     while D is less than the count of Keys
     begin
-        put element D of Keys into Name
+        put item D of Keys into Name
         put entry Name of Devices into Device
         if entry `master` of Device
         begin
@@ -1327,7 +1327,7 @@ RemoveSlaveClick:
     if Value is not `Yes` stop
     delete entry Name of Devices
     put the selected index of SlaveList into S
-    delete element S of SlaveDevices
+    delete item S of SlaveDevices
     set SlaveList to SlaveDevices
     gosub to UpdateSystemConfig
     gosub to PostConfigData
@@ -1401,7 +1401,7 @@ GetAccessPoints:
     split Result
     put json `[]` into List
     put 1 into N
-    while N is less than the elements of Result
+    while N is less than the items of Result
     begin
         index Result to N
         put Result into SSID
@@ -1525,7 +1525,7 @@ UpdateWidgetDataClick:
         end
         else
         begin
-            delete element SlaveList of SlaveDevices
+            delete item SlaveList of SlaveDevices
             put SlaveList into Item
             split Item on ` `
             append Item cat ` ` cat DeviceNameInput to SlaveDevices
