@@ -305,7 +305,6 @@
     variable MasterDeviceName
     variable Channel
     variable Previous
-    variable IsLocal
     variable IsMaster
     variable FileName
     variable FileSize
@@ -339,85 +338,16 @@
 
     debug compile
     debug step
+!    system `rm /home/graham/.rbr.conf`
+!    system `rm /home/graham/.controller.json`
 
     put `/mnt/data/` into RamDisk
-
-Restart:
-    put `linaro` into Name
-    if Name is trim system `whoami`
-    begin
-        log `Running locally`
-        set IsLocal
-    end
-    else
-    begin
-        log `Running remotely`
-        clear IsLocal
-    end
-
-    if not IsLocal
-    begin
-        put trim system `echo $HOME` into HomeDir
-        put HomeDir cat `/.controller.json` into ControllerSpecPath
-        if file ControllerSpecPath exists
-        begin
-            load ControllerSpec from ControllerSpecPath
-!            put json ControllerSpec into ControllerSpec
-        end
-        else
-        begin
-            reset SystemIPAddr
-            reset ControllerSpec
-            gosub to GetSSH
-        end
-    end
-    log ControllerSpec
-    put trim system `echo $HOME` cat `/.rbr.conf` into ConfigFile
-
-    if IsLocal
-    begin
-        log `Running locally`
-        reset Title
-    end
-    else
-    begin
-        log `Running remotely`
-        put entry `current` of ControllerSpec into SystemIPAddr
-        log SystemIPAddr
-        put entry SystemIPAddr of ControllerSpec into Dict
-        log Dict
-        if Dict has entry `user`
-            if Dict has entry `password`
-            begin
-                put `Set up SSH to ` cat SystemIPAddr into StatusMessage
-                gosub to Working
-                set SSH
-                    host SystemIPAddr
-                    user entry `user` of Dict
-                    password entry `password` of Dict
-                if error in SSH
-                begin
-                    put `SSH error: ` cat the error of SSH into StatusMessage
-                    gosub to Error
-                    stop
-                end
-            end
-            else
-            begin
-                put `Incomplete SSH login data` into StatusMessage
-                gosub to Error
-                stop
-            end
-    end
-
-    reset SystemConfig
-    reset Devices
-
-    gosub to LockSystemController
+    put trim system `echo $HOME` into HomeDir
+    put HomeDir cat `/.controller.json` into ControllerSpecPath
+    put HomeDir cat `/.rbr.conf` into ConfigFile
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main program starts here
-Start:
     set the encoding to `hex`
 
 !   Load the main config file or create one if there is none
@@ -463,6 +393,7 @@ Start:
     clear DeviceSelected
     clear Silent
 
+Restart:
     gosub to SetBusy
 
 !   Get the host SSID
@@ -482,6 +413,31 @@ Start:
     end
     save prettify Config to ConfigFile
     put `Connected to ` cat HostSSID into StatusMessage
+    gosub to Working
+
+    if file ControllerSpecPath exists
+    begin
+        load ControllerSpec from ControllerSpecPath
+        gosub to SetupSSH
+    end
+    else
+    begin
+        reset SystemIPAddr
+        reset ControllerSpec
+        gosub to GetSSH
+        gosub to SetupSSH
+        put HostSSID into CurrentSSID
+        put SystemIPAddr into IPAddr
+        put 0 into Count
+        gosub to ScanIPAddress
+        gosub to RefreshSystemsCombo
+    end
+    log ControllerSpec
+
+    reset SystemConfig
+    reset Devices
+
+    gosub to LockSystemController
 
 !   Get the list of systems from Config, or create an empty list. Then populate the combo box
     if Config has entry `systems` put entry `systems` of Config into Systems
@@ -492,27 +448,41 @@ Start:
     end
     gosub to RefreshSystemsCombo
 
-!   Select the current system
-    if the count of SystemsCombo is 0 reset SystemName
-    else
-    begin
-        put `Set up the current system` into StatusMessage
-        gosub to Working
-        put entry `current-system` of Config into SystemName
-        if SystemName is not empty
-        begin
-            select SystemName in SystemsCombo
-            gosub to SelectSystem
-        end
-        gosub to GetChannel
-        log `Channel ` cat Channel
-    end
-
     gosub to SetUnBusy
     on select SystemsCombo go to SystemsComboSelect
     put `Ready` into StatusMessage
     gosub to Idle
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SetupSSH:
+    put entry `current` of ControllerSpec into SystemIPAddr
+    log SystemIPAddr
+    put entry SystemIPAddr of ControllerSpec into Dict
+    log Dict
+    if Dict has entry `user`
+        if Dict has entry `password`
+        begin
+            put `Set up SSH to ` cat SystemIPAddr into StatusMessage
+            gosub to Working
+            set SSH
+                host SystemIPAddr
+                user entry `user` of Dict
+                password entry `password` of Dict
+            if error in SSH
+            begin
+                put `SSH error: ` cat the error of SSH into StatusMessage
+                gosub to Error
+                stop
+            end
+        end
+        else
+        begin
+            put `Incomplete SSH login data` into StatusMessage
+            gosub to Error
+            stop
+        end
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Reset the entire system
@@ -537,6 +507,7 @@ ResetConfigFileClick:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Scan the local network for system controllers
 ScanSystemsClick:
+    put 0 into Count
     gosub to SetBusy
     log `Scan for system controllers`
     disable ScanSystemsButton
@@ -556,7 +527,6 @@ ScanSystemsClick:
         put 20 into Length
         gosub to GetRequestedText
         put ReturnValue into IPAddr
-        put 0 into Count
         gosub to ScanIPAddress
         log `Result: ` cat Result
         if Result is not `OK`
@@ -608,7 +578,7 @@ ScanSystems:
         wait 10 ticks
         increment N
     end
-    set entry `current-system` of Config to SystemName
+!    set entry `current-system` of Config to SystemName
     gosub to UpdateSystems
 !    log `After scan: ` cat prettify Config
     gosub to PostConfigData
@@ -693,6 +663,7 @@ GetConfigData:
 RefreshSystemsCombo:
     log `Refresh SystemsCombo`
     clear SystemsCombo
+    put entry `current-system` of Config into SystemName
     put the keys of Systems into Keys
     log Keys
     if the count of Keys is 0 return
@@ -702,10 +673,13 @@ RefreshSystemsCombo:
         put element S of Keys into Name
         log `Add ` cat Name cat ` to SystemsCombo`
         add Name to SystemsCombo
+        if Name is SystemName put S into N
         increment S
     end
-    put entry `current-system` of Config into SystemName
+    select index N of SystemsCombo
+    log `Select ` cat SystemName
     go to SelectSystem2
+
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Select a system from the combo box
@@ -731,13 +705,9 @@ SelectSystem2:
     log `Select system ` cat SystemName
     ! Update the current system
     gosub to ResumeSystemController
-    if not IsLocal
-    begin
-        put entry `current-system` of Config into SystemName
-        if SystemName is empty return
-        put entry SystemName of Systems into SystemConfig
-        gosub to PostConfigData
-    end
+!    put entry `current-system` of Config into SystemName
+    if SystemName is empty return
+    put entry SystemName of Systems into SystemConfig
     ! Select the new system
     set entry `current-system` of Config to SystemName
     put entry SystemName of Systems into SystemConfig
@@ -745,40 +715,23 @@ SelectSystem2:
     put entry `ipaddr` of SystemConfig into SystemIPAddr
     put entry `mac` of SystemConfig into SystemMAC
     put entry `password` of SystemConfig into SystemPassword
-    log ControllerSpec
-    log SystemIPAddr
     if ControllerSpec has entry SystemIPAddr
     begin
         set entry `current` of ControllerSpec to SystemIPAddr
-        save stringify ControllerSpec to HomeDir cat `/.controller.json`
+        save ControllerSpec to HomeDir cat `/.controller.json`
     end
-!    else gosub to GetSSH
     else
     begin
-        put `Different host SSID: ` cat SystemHostSSID into StatusMessage
+        put `Unknown system controller` into StatusMessage
         gosub to Working
-        put entry `host-ssid` of SystemConfig into SSID
-        put entry `host-password` of SystemConfig into Password
-        put entry `ipaddr` of SystemConfig into IPAddr
-        create MessageBox on Window
-            style question
-            title `Change network`
-            message `System '` cat SystemName cat `' is registered on a different network ` cat newline
-                cat `(` cat SSID cat ` / ` cat Password cat ` / ` cat IPAddr cat `).` cat newline
-                cat ` Would you like to move it to your current network` cat newline
-                cat `(` cat HostSSID cat ` / ` cat HostPassword cat ` / ` cat IPAddr cat `)?`
-        show MessageBox giving Value
-        if Value is `Yes`
-        begin
-            set entry `host-ssid` of SystemConfig to HostSSID
-            set entry `host-password` of SystemConfig to HostPassword
-            set entry `ipaddr` of SystemConfig to entry `current` of ControllerSpec
-            set entry SystemName of Systems to SystemConfig
-        end
+        gosub to GetSSH
     end
+    put entry `devices` of SystemConfig into Devices
+    if Devices is empty reset MasterSSID
     gosub to PopulateSystemInfo
     gosub to PostConfigData
     gosub to LockSystemController
+    save ControllerSpec to HomeDir cat `/.controller.json`
     log `System ` cat SystemName cat ` selected`
 !    log Devices
     return
@@ -877,6 +830,7 @@ RMC2:
 !   Scan the local network for new devices
 ScanForDevicesClick:
     gosub to SetBusy
+    gosub to GetChannel
     put `Scanning for new devices...` into StatusMessage
     gosub to Working
     put system `nmcli device wifi list` into SystemCallResult
@@ -1276,7 +1230,6 @@ PopulateSystemInfo:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update text on MasterDeviceButton
 SetMasterDeviceButtonText:
-!    set the text of MasterDeviceButton to MasterSSID cat ` ` cat MasterIPAddr cat ` ` cat MasterDeviceName
     set the text of MasterDeviceButton to MasterSSID cat ` ` cat MasterDeviceName
     return
 
@@ -1378,34 +1331,6 @@ RemoveSlaveClick:
     set SlaveList to SlaveDevices
     gosub to UpdateSystemConfig
     gosub to PostConfigData
-    stop
-   
-    put the position of ` ` in Name into S
-    increment S
-    put from S of Name into Name
-    put the keys of Devices into Keys
-    put 0 into D
-    while D is less than the count of Keys
-    begin
-        put element D of Keys into Item
-        put entry Item of Devices into Device
-        if entry `master` of Device is false
-        begin
-            if entry `name` of Device is Name
-            begin
-                log `Deleting ` cat Name cat ` ` cat D cat ` ` cat Device
-                delete entry Item of Devices
-                delete element SlaveList of SlaveDevices
-                log SlaveDevices
-                set SlaveList to SlaveDevices
-                stop
-                gosub to UpdateSystemConfig
-                gosub to PostConfigData
-                stop
-            end
-        end
-        increment D
-    end
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2054,7 +1979,6 @@ GetDeviceData:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Post the config data
 PostConfigData:
-    debug skip
     if CurrentSSID is not HostSSID gosub to ConnectToHost
 !    log `Config: ` cat prettify Config
     save prettify Config to ConfigFile
@@ -2070,7 +1994,7 @@ PostConfigData:
         put `I couldn't post the config file` into StatusMessage
         go to Error
     end
-    return
+    go to OK
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The usual chain of JSON updates
@@ -2085,16 +2009,13 @@ UpdateConfig:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Lock the system controller
 LockSystemController:
-    if IsLocal save `lock` to RamDisk cat `lock`
-    else save `lock` to SSH RamDisk cat `lock`
+    save `lock` to SSH RamDisk cat `lock`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Resume the system controller
 ResumeSystemController:
-    debug skip
-    if IsLocal save empty to RamDisk cat `lock`
-    else if not error in SSH save empty to SSH RamDisk cat `lock`
+    if not error in SSH save empty to SSH RamDisk cat `lock`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2234,6 +2155,17 @@ SetBusy:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Get the SSH configuration data
 GetSSH:
+    if ControllerSpec has entry `current`
+    begin
+        put entry `current` of ControllerSpec into IPAddr
+        put entry IPAddr of ControllerSpec into Dict
+    end
+    else
+    begin
+        reset Dict
+        set entry `user` of Dict to empty
+        set entry `password` of Dict to empty
+    end
     create Panel type QVBoxLayout
     create Layout type QHBoxLayout
     add Layout to Panel
@@ -2249,6 +2181,7 @@ GetSSH:
     add Label to Layout
     create UserInput size 30
     set the width of UserInput to 200
+    set the text of UserInput to entry `user` of Dict
     add UserInput to Layout
     create Layout type QHBoxLayout
     add Layout to Panel
@@ -2256,6 +2189,7 @@ GetSSH:
     add Label to Layout
     create PasswordInput size 30
     set the width of PasswordInput to 200
+    set the text of PasswordInput to entry `password` of Dict
     add PasswordInput to Layout
     create Layout type QHBoxLayout
     add Layout to Panel
@@ -2272,9 +2206,8 @@ GetSSH:
         set entry `current` of ControllerSpec to HostInput
         put HostInput into SystemIPAddr
         save ControllerSpec to ControllerSpecPath
-        fork to GSSH2
-        wait 1
         close HostWindow
+        return
     end
     add OKButton to Layout
     create CancelButton text `Cancel`
@@ -2284,5 +2217,3 @@ GetSSH:
     set the layout of HostWindow to Panel
     show HostWindow
     stop
-GSSH2:
-    return
