@@ -592,7 +592,11 @@ ProcessRoom:
         divide T by 10
         set property `temperature` of RoomSpec to T cat `.` cat T1
     end
-    if RoomSpec has property `battery` put `` cat property `battery` of RoomSpec into Battery
+    if RoomSpec has property `battery`
+    begin
+        put property `battery` of RoomSpec into Battery
+        put `` cat Battery into Battery
+    end
     else set property `battery` of RoomSpec to `0`
 
     ! Get the advance data for this room
@@ -834,6 +838,7 @@ TurnOnOrOff:
     put float property `temp` of Event into Target
     gosub to MultiplyTT
     put Target into TargetTemp
+    if `` cat Temperature is empty go to TurnOff
     if Temperature is less than TargetTemp go to TurnOn
 
 TurnOff:

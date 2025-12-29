@@ -6,7 +6,7 @@ from easycoder import (
     Keyboard,
     TextReceiver
 )
-from easycoder.ec_classes import ECValue, ECVariable
+from easycoder.ec_classes import ECValue, ECVariable, ECList, ECDictionary
 from easycoder.ec_gclasses import (
     ECWidget,
     ECLayout,
@@ -355,7 +355,7 @@ class RBR_UI(Handler):
                             self.nextToken()
                             if self.nextIsSymbol():
                                 record = self.getSymbolRecord()
-                                if self.isObjectType(record, ECVariable):
+                                if self.isObjectType(record, ECDictionary):
                                     command['with'] = record['name']
                             else: return False
                         self.add(command)
@@ -368,7 +368,7 @@ class RBR_UI(Handler):
         data = self.getVariable(command['with']) if 'with' in command else None
         keyword = dialog['keyword']
         value = ModeDialog(self.program, data).showDialog() if keyword == 'modeDialog' else ''
-        v = ECValue(domain='core', type='str', content=value)
+        v = ECValue(type='str', content=value)
         self.putSymbolValue(target, v)
         return self.nextPC()
 
@@ -547,7 +547,7 @@ class RBR_UI(Handler):
                         self.skip('with')
                         if self.nextIsSymbol():
                             record = self.getSymbolRecord()
-                            if self.isObjectType(record, ECVariable):
+                            if self.isObjectType(record, ECList):
                                 command['choices'] = record['name']
                                 self.add(command)
                                 return True
@@ -559,7 +559,7 @@ class RBR_UI(Handler):
         var = self.getVariable(command['choices'])
         choices = self.textify(var)
         choice = Menu(self.program, 50, self.program.rbrwin, title, choices).show()
-        v = ECValue(domain='core', type='str', content=choice)
+        v = ECValue(type='str', content=choice)
         self.putSymbolValue(target, v)
         return self.nextPC()
 
@@ -730,7 +730,7 @@ class RBR_UI(Handler):
     # Value handlers
 
     def v_symbol(self, value):
-        v = ECValue(domain='core', type='str')
+        v = ECValue(type='str')
         record = self.getVariable(value.name)
         if self.isObjectType(record, RBRRoom):
             object = self.getObject(record)
@@ -746,7 +746,7 @@ class RBR_UI(Handler):
     def v_attribute(self, value):
         record = self.getVariable(value.name)
         attr = self.textify(value.attr)
-        v = ECValue(domain='core')
+        v = ECValue()
         if attr == 'index':
             v.type = 'int'
             v.content = self.program.roomIndex

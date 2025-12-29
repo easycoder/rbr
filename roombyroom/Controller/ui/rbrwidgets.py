@@ -1,4 +1,4 @@
-import sys, time
+import sys, time, json
 from collections import namedtuple
 from datetime import datetime
 from PySide6.QtGui import (
@@ -660,11 +660,11 @@ class Room(QFrame):
     def __init__(self, program, spec, height, index=0):
         super().__init__()
         self.program = program
-        self.spec = spec
+        self.spec = json.loads(spec)
         self.height = height
         self.temperature = 0
         self.index = index
-        # print(spec['name'])
+        # print(self.spec['name'])
 
         self.setStyleSheet("""
             background-color: #ffc;
@@ -687,15 +687,15 @@ class Room(QFrame):
         modePanelLayout = QHBoxLayout(modePanel)
         modePanelLayout.setSpacing(0)
         modePanelLayout.setContentsMargins(5, 0, 0, 0)
-        self.name = spec['name']
-        self.mode = spec['mode']
+        self.name = self.spec['name']
+        self.mode = self.spec['mode']
 
         # Icon 1: Mode
         if not self.mode in ['timed', 'boost', 'advance', 'on', 'off']: self.mode = 'off'
         image = f'img/{self.mode}.png'
         self.mode = f'{self.mode[0].upper()}{self.mode[1:]}'
         if self.mode == 'Timed':
-            advance = spec['advance']
+            advance = self.spec['advance']
             if not advance in ['', '-', 'C']:
                 image = 'img/advance.png'
                 self.mode = 'Advance'
@@ -716,7 +716,7 @@ class Room(QFrame):
 
         # Button with white text and blue or red background
         temperatureButton = ECPushButtonWidget('----°C')
-        color = 'red' if spec['relay'] == 'on' else 'blue'
+        color = 'red' if self.spec['relay'] == 'on' else 'blue'
         temperatureButton.setStyleSheet(f'''
                 color: white; 
                 background-color: {color}; border: none;
@@ -993,9 +993,9 @@ class TimedMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the content
-        object = program.getObject(caller.data)
-        roomSpec = program.textify(object)
-        advance = roomSpec['advance'] if 'advance' in roomSpec else '-'
+        roomSpec = program.getObject(caller.data)
+        # roomSpec = program.textify(object)
+        advance = roomSpec.getEntry('advance') if roomSpec.hasEntry('advance') else '-'
         text = '' if advance == '-' else 'Cancel\n'
         advanceButton = self.AdvanceButton(program, f'{text}Advance', self.advance)
         editButton = self.EditIcon(program, f'img/edit.png', self.edit)
@@ -1126,8 +1126,8 @@ class OnMode(GenericMode):
         # Create the buttons and text
         downButton = self.PlusMinusButton(program, f'img/blueminus.png', fcb=self.onDown)
         self.styles['ECLabelWidget#SettingLabel'] = borderlessQLabelStyle(20)
-        roomSpec = program.textify(program.getObject(caller.data))
-        self.target = float(roomSpec['target']) if roomSpec != None else 0.0
+        roomSpec = program.getObject(caller.data)
+        self.target = float(roomSpec.getEntry('target')) if roomSpec != None else 0.0
         self.settingLabel = self.SettingLabel(f'{self.target}°C')
         upButton = self.PlusMinusButton(program, f'img/redplus.png', fcb=self.onUp)
         
