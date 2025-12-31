@@ -174,9 +174,9 @@ RefreshScreen:
         if N is greater than 1 log `Loading system files (` cat N cat `)`
         if IsLocal
         begin
-            load Map from RamDisk cat `map`
+            load Map from RamDisk cat `map.json`
             or begin
-                log `Could not read /mnt/data/map`
+                log `Could not read map.json`
                 return
             end
             load CurrentProfile from RamDisk cat `profile`
@@ -188,9 +188,9 @@ RefreshScreen:
         end
         else
         begin
-            load Map from Controller RamDisk cat `map`
+            load Map from Controller RamDisk cat `map.json`
             or begin
-                log `Could not read /mnt/data/map`
+                log `Could not read map.json`
                 return
             end
             load CurrentProfile from Controller RamDisk cat `profile`
@@ -206,7 +206,7 @@ RefreshScreen:
 !    log entry `request` of Map
     put the value of CurrentProfile into CurrentProfile
     put entry `profiles` of Map into Profiles
-    put element CurrentProfile of Profiles into Profile
+    put item CurrentProfile of Profiles into Profile
     put entry `rooms` of Profile into Rooms
 !    log Rooms
     set the elements of Room to the count of Rooms
@@ -219,7 +219,7 @@ RefreshScreen:
     put 0 into R
     while R is less than the count of Rooms
     begin
-        put element R of Rooms into RoomSpec
+        put item R of Rooms into RoomSpec
 !        log RoomSpec
         put entry `name` of RoomSpec into Name
         if SystemData has entry Name
@@ -295,13 +295,13 @@ ShowMainMenu:
 
     select Choice from menu `Main Menu` with Choices
     log Choice
-    if Choice is element 0 of Choices go to SetSystemName
-    if Choice is element 1 of Choices go to SetRequestRelay
-    if Choice is element 2 of Choices go to AddRoom
-    if Choice is element 4 of Choices go to Reset
-    if Choice is element 5 of Choices go to ShowSystemInfo
-    if Choice is element 6 of Choices exit
-    if Choice is element 8 of Choices stop
+    if Choice is item 0 of Choices go to SetSystemName
+    if Choice is item 1 of Choices go to SetRequestRelay
+    if Choice is item 2 of Choices go to AddRoom
+    if Choice is item 4 of Choices go to Reset
+    if Choice is item 5 of Choices go to ShowSystemInfo
+    if Choice is item 6 of Choices exit
+    if Choice is item 8 of Choices stop
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -394,7 +394,7 @@ HandleMode:
     reset Data
     put the index of ModeButton into R
     index Room to R
-    put element R of Rooms into RoomSpec
+    put item R of Rooms into RoomSpec
     put entry `name` of RoomSpec into Name
     put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
@@ -477,41 +477,41 @@ HandleTools:
     put the count of Rooms into R
     decrement R
     reset ChoicesShown
-    if RoomIndex is 0 append element 1 of Choices to ChoicesShown
-    else if RoomIndex is R append element 0 of Choices to ChoicesShown
+    if RoomIndex is 0 append item 1 of Choices to ChoicesShown
+    else if RoomIndex is R append item 0 of Choices to ChoicesShown
     else
     begin
-        append element 0 of Choices to ChoicesShown
-        append element 1 of Choices to ChoicesShown
+        append item 0 of Choices to ChoicesShown
+        append item 1 of Choices to ChoicesShown
     end
     put 2 into C
     while C is less than the count of Choices
     begin
-        append element C of Choices to ChoicesShown
+        append item C of Choices to ChoicesShown
         increment C
     end
 
     select Choice from menu `Tools Menu` with ChoicesShown
     log Choice
     reset Request
-    if Choice is element 0 of Choices go to MoveRoomUp
-    if Choice is element 1 of Choices go to MoveRoomDown
-    if Choice is element 2 of Choices go to ShowRoomInfo
-    if Choice is element 3 of Choices go to EditRoomName
-    if Choice is element 4 of Choices go to EditDeviceParams
-    if Choice is element 5 of Choices go to EditSchedule
-    if Choice is element 6 of Choices go to DeleteRoom
-    if Choice is element 8 of Choices stop
+    if Choice is item 0 of Choices go to MoveRoomUp
+    if Choice is item 1 of Choices go to MoveRoomDown
+    if Choice is item 2 of Choices go to ShowRoomInfo
+    if Choice is item 3 of Choices go to EditRoomName
+    if Choice is item 4 of Choices go to EditDeviceParams
+    if Choice is item 5 of Choices go to EditSchedule
+    if Choice is item 6 of Choices go to DeleteRoom
+    if Choice is item 8 of Choices stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !    Move the selected room up in the list
 MoveRoomUp:
-    put element RoomIndex of Rooms into ThisRoom
+    put item RoomIndex of Rooms into ThisRoom
     take 1 from RoomIndex
-    put element RoomIndex of Rooms into ThatRoom
-    set element RoomIndex of Rooms to ThisRoom
+    put item RoomIndex of Rooms into ThatRoom
+    set item RoomIndex of Rooms to ThisRoom
     add 1 to RoomIndex
-    set element RoomIndex of Rooms to ThatRoom
+    set item RoomIndex of Rooms to ThatRoom
     set entry `action` of Request to `rooms`
     set entry `rooms` of Request to Rooms
     gosub to SendRequest
@@ -520,12 +520,12 @@ MoveRoomUp:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Move the selected room down in the list
 MoveRoomDown:
-    put element RoomIndex of Rooms into ThisRoom
+    put item RoomIndex of Rooms into ThisRoom
     add 1 to RoomIndex
-    put element RoomIndex of Rooms into ThatRoom
-    set element RoomIndex of Rooms to ThisRoom
+    put item RoomIndex of Rooms into ThatRoom
+    set item RoomIndex of Rooms to ThisRoom
     take 1 from RoomIndex
-    set element RoomIndex of Rooms to ThatRoom
+    set item RoomIndex of Rooms to ThatRoom
     set entry `action` of Request to `rooms`
     set entry `rooms` of Request to Rooms
     gosub to SendRequest
@@ -558,7 +558,7 @@ ShowRoomInfo:
         put 0 into N
         while N is less than the count of Responses
         begin
-            put element N of Responses into Response
+            put item N of Responses into Response
             if Response has entry `state` put `State: ` cat entry `state` of Response into Text
             else put empty into Text
             if Response has entry `uptime`
@@ -624,7 +624,7 @@ EditDeviceParams:
     while R is less than the count of Values
     begin
         if RelayNames is not empty put RelayNames cat newline into RelayNames
-        put RelayNames cat element R of Values into RelayNames
+        put RelayNames cat item R of Values into RelayNames
         increment R
     end
 
@@ -738,13 +738,13 @@ DeleteRoom:
     put 0 into R
     while R is less than RoomIndex
     begin
-        append element R of Rooms to NewRooms
+        append item R of Rooms to NewRooms
         increment R
     end
     add 1 to R
     while R is less than the count of Rooms
     begin
-        append element R of Rooms to NewRooms
+        append item R of Rooms to NewRooms
         increment R
     end
     set entry `action` of Request to `rooms`

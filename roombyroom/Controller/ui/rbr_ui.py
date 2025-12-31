@@ -556,8 +556,7 @@ class RBR_UI(Handler):
     def r_select(self, command):
         target = self.getVariable(command['choice'])
         title = self.textify(command['title'])
-        var = self.getVariable(command['choices'])
-        choices = self.textify(var)
+        choices = self.getObject(self.getVariable(command['choices']))
         choice = Menu(self.program, 50, self.program.rbrwin, title, choices).show()
         v = ECValue(type=str, content=choice)
         self.putSymbolValue(target, v)

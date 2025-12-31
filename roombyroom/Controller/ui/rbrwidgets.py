@@ -40,6 +40,7 @@ from easycoder.ec_graphics import (
     ECListBoxWidget,
     ECComboBoxWidget
 )
+from easycoder.ec_classes import ECList
 from easycoder.ec_gclasses import ECGElement, ECWidget
 
 # Enum shortcuts to reduce verbosity
@@ -807,8 +808,9 @@ class Menu(QDialog):
         self.setGraphicsEffect(shadow)
 
         # Add action buttons
+        self.program.checkObjectType(actions, ECList)
         if actions != None:
-            for action in actions:
+            for action in actions.getContent():
                 if action == '': layout.addSpacing(20)
                 else:
                     button = TextButton(program, '-', height=height, text=action)

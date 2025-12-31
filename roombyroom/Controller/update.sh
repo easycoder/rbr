@@ -53,10 +53,13 @@ if test -f "dist.tgz"; then
     echo `date` ---- "${GREEN}Copy everything from the update folder${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- sudo -u linaro cp -R /home/linaro/update/* . >> /home/linaro/updatelog
     sudo -u linaro cp -R /home/linaro/update/* . >> /home/linaro/updatelog 2>&1
+    echo `date` ---- "${GREEN}write the 'rbr' launcher${NOCOLOR}" ---- >> /home/linaro/updatelog
+    echo `date` -- sudo -u linaro cp rbr /home/linaro/.local/bin/rbr >> /home/linaro/updatelog
+    sudo -u linaro cp rbr /home/linaro/.local/bin/rbr >> /home/linaro/updatelog 2>&1
     echo `date` ---- "${GREEN}Reboot${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- /usr/sbin/reboot >> /home/linaro/updatelog
     /usr/sbin/reboot >> /home/linaro/updatelog 2>&1
-    echo `date` ---- "${GREEN}Exit${NOCOLOR}" ---- >> /home/linaro/updatelog
+    echo `date` ---- "${GREEN}Update successful - rebooting${NOCOLOR}" ---- >> /home/linaro/updatelog
     echo `date` -- exit >> /home/linaro/updatelog
     exit >> /home/linaro/updatelog 2>&1
 else
