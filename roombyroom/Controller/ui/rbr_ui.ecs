@@ -5,7 +5,7 @@
     use graphics
     use plugin RBR_UI from rbr_ui.py
 
-    debug compile
+!    debug compile
 
     rbrwin Window
     room Room
@@ -46,6 +46,7 @@
     list NewRooms
     list Choices
     list ChoicesShown
+    list Periods
     list Responses
     list Values
     list Value
@@ -66,7 +67,6 @@
     variable CurrentProfile
     variable RoomName
     variable RoomIndex
-    variable Periods
     variable ThisRoom
     variable ThatRoom
     variable Choice
@@ -93,7 +93,7 @@
     variable R
     variable T
 
-    debug step
+!    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
@@ -194,7 +194,8 @@ RefreshScreen:
                 return
             end
             load CurrentProfile from Controller RamDisk cat `profile`
-            log CurrentProfile
+            log Item
+            load Item from Controller RamDisk cat `systemdata.json`
             load SystemData from Controller RamDisk cat `systemdata.json`
             put json SystemData into SystemData or return
         end
@@ -440,9 +441,10 @@ HandleMode:
         set Locked
         put entry `name` of RoomSpec into RoomName
         put entry `events` of RoomSpec into Periods
-        log `Schedule: ` cat Periods
+!        log `Schedule: ` cat Periods
         run `schedule.ecs` as Module with RoomName and Window and Periods and Request
-!        log Request
+        log Request
+        log Periods
         if Request is empty stop
         set entry `events` of RoomSpec to Periods
         set entry `roomnumber` of Request to R

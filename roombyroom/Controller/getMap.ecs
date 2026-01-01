@@ -2,22 +2,16 @@
 
     script GetMap
 
-    variable RamDisk
+    dictionary Map
     variable MAC
     variable Password
     variable URL
-    variable Map
 
-    put `/mnt/data/` into RamDisk
-
-    load MAC from RamDisk cat `mac`
-    put trim MAC into MAC
-
-    load Password from RamDisk cat `password`
-    put trim Password into Password
+    put `38:54:39:34:62:d7` into MAC
+    put 139160 into Password
 
     put `https://rbrheating.com/ui/resources/php/rest.php/map/` cat MAC cat `/` cat Password into URL
-    get Map from url URL
-    print prettify json Map
+    get Map from url URL timeout 60
+    save prettify Map to `map.json`
 
     exit

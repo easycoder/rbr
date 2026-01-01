@@ -2,22 +2,16 @@
 
     script GetConfig
 
+    dictionary Config
     variable RamDisk
     variable MAC
     variable Password
     variable URL
-    variable Config
 
-    put `/mnt/data/` into RamDisk
-
-    load MAC from RamDisk cat `mac`
-    put trim MAC into MAC
-
-    load Password from RamDisk cat `password`
-    put trim Password into Password
+    put `38:54:39:34:62:d7` into MAC
+    put 139160 into Password
 
     put `https://rbrheating.com/ui/resources/php/rest.php/config/` cat MAC cat `/` cat Password into URL
-    get Config from url URL
-    print prettify json Config
-
+    get Config from url URL timeout 60
+    save prettify Config to `config.json`
     exit

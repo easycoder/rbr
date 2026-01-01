@@ -7,8 +7,8 @@
 
     import variable RoomName
         and rbrwin Window
-        and variable Periods
-        and variable Request
+        and list Periods
+        and dictionary Request
 
     debug compile
     
@@ -32,12 +32,12 @@
     pushbutton AddButton
     pushbutton SaveButton
     pushbutton CancelButton
+    dictionary Period
+    dictionary PeriodP
+    dictionary PeriodQ
+    list Working
     variable ListStyle
     variable IconStyle
-    variable Working
-    variable Period
-    variable PeriodP
-    variable PeriodQ
     variable NPeriods
     variable SelectedPeriod
     variable Time
@@ -54,8 +54,8 @@
 
 !    debug step
 
-!    log prettify Periods
-    put json stringify Periods into Working
+    log prettify Periods
+    copy Periods to Working
     clear Changed
     clear Reordered
     gosub to ConvertUntilToFrom
@@ -66,46 +66,46 @@
     stop
 
 HourUp:
-    put element SelectedPeriod of Working into Period
+    put item SelectedPeriod of Working into Period
     raise time Time 1 hour
     go to TimeChanged
 
 HourDown:
-    put element SelectedPeriod of Working into Period
+    put item SelectedPeriod of Working into Period
     lower time Time 1 hour
     go to TimeChanged
 
 MinuteUp:
-    put element SelectedPeriod of Working into Period
+    put item SelectedPeriod of Working into Period
     raise time Time 5 minutes
     go to TimeChanged
 
 MinuteDown:
-    put element SelectedPeriod of Working into Period
+    put item SelectedPeriod of Working into Period
     lower time Time 5 minutes
 
 TimeChanged:
     set the text of TimeLabel to Time
-    set property `from` of Period to Time
-    set element SelectedPeriod of Working to Period
+    set entry `from` of Period to Time
+    set item SelectedPeriod of Working to Period
     set Changed
     gosub to SortPeriods
     stop
 
 TempUp:
-    put element SelectedPeriod of Working into Period
+    put item SelectedPeriod of Working into Period
     raise temp Temp 5 tenths
     set the text of TempLabel to Temp cat `ºC`
-    set property `temp` of Period to Temp
-    set element SelectedPeriod of Working to Period
+    set entry  `temp` of Period to Temp
+    set item SelectedPeriod of Working to Period
     set Changed
     stop
 
 TempDown:
     lower temp Temp 5 tenths
     set the text of TempLabel to Temp cat `ºC`
-    set property `temp` of Period to Temp
-    set element SelectedPeriod of Working to Period
+    set entry  `temp` of Period to Temp
+    set item SelectedPeriod of Working to Period
     set Changed
     stop
 
@@ -116,11 +116,11 @@ DeletePeriod:
     increment Q
     while Q is less than NPeriods
     begin
-        set element P of Working to element Q of Working
+        set item P of Working to item Q of Working
         increment P
         increment Q
     end
-    delete element SelectedPeriod of Working
+    delete item SelectedPeriod of Working
     decrement NPeriods
     log NPeriods cat ` - ` cat prettify Working
     gosub to RedrawPanel
@@ -130,8 +130,8 @@ DeletePeriod:
 AddPeriod:
     log `Add period`
     put json `{}` into Period
-    set property `temp` of Period to `10.0`
-    set property `from` of Period to `0:00`
+    set entry `temp` of Period to `10.0`
+    set entry `from` of Period to `0:00`
     append Period to Working
     increment NPeriods
     gosub to SortPeriods
@@ -143,8 +143,8 @@ SaveAndExit:
     begin
         gosub to ConvertFromToUntil
 	    put json `{}` into Request
-       	set property `action` of Request to `periods`
-        set property `periods` of Request to Working
+       	set entry `action` of Request to `periods`
+        set entry `periods` of Request to Working
         put json stringify Working into Periods
     end
     else put empty into Request
@@ -165,29 +165,29 @@ ConvertUntilToFrom:
         put 0 into P
         while P is less than NPeriods
         begin
-            put element P of Working into Period
-            if T2 is empty put property `temp` of Period into T2
+            put item P of Working into Period
+            if T2 is empty put entry `temp` of Period into T2
             put P into Q
             increment P
             if P is NPeriods put T2 into T
             else
             begin
-                put element P of Working into Period
-                put property `temp` of Period into T
+                put item P of Working into Period
+                put entry `temp` of Period into T
             end
-            put element Q of Working into Period
-            set property `temp` of Period to T
-            set element Q of Working to Period
+            put item Q of Working into Period
+            set entry `temp` of Period to T
+            set item Q of Working to Period
         end
     end
     ! Change 'until' to 'from' (helps when debugging)
     put 0 into P
     while P is less than NPeriods
     begin
-        put element P of Working into Period
-        set property `from` of Period to property `until` of Period
-        delete property `until` of Period
-        set element P of Working to Period
+        put item P of Working into Period
+        set entry `from` of Period to entry `until` of Period
+        delete entry `until` of Period
+        set item P of Working to Period
         increment P
     end
     return
@@ -202,28 +202,28 @@ ConvertFromToUntil:
         while P is greater than 0
         begin
             decrement P
-            put element P of Working into Period
-            if T2 is empty put property `temp` of Period into T2
+            put item P of Working into Period
+            if T2 is empty put entry `temp` of Period into T2
             if P is 0 put T2 into T
             else
             begin
                 take 1 from P giving Q
-                put element Q of Working into Period
-                put property `temp` of Period into T
+                put item Q of Working into Period
+                put entry `temp` of Period into T
             end
-            put element P of Working into Period
-            set property `temp` of Period to T
-            set element P of Working to Period
+            put item P of Working into Period
+            set entry `temp` of Period to T
+            set item P of Working to Period
         end
     end
     ! Change 'from' back to 'until'
     put 0 into P
     while P is less than NPeriods
     begin
-        put element P of Working into Period
-        set property `until` of Period to property `from` of Period
-        delete property `from` of Period
-        set element P of Working to Period
+        put item P of Working into Period
+        set entry `until` of Period to entry `from` of Period
+        delete entry `from` of Period
+        set item P of Working to Period
         increment P
     end
     return
@@ -239,14 +239,14 @@ SortPeriods2:
         put 1 into Q
         while Q is less than NPeriods
         begin
-            put element P of Working into PeriodP
-            put property `from` of PeriodP into T1
-            put element Q of Working into PeriodQ
-            put property `from` of PeriodQ into T2
+            put item P of Working into PeriodP
+            put entry `from` of PeriodP into T1
+            put item Q of Working into PeriodQ
+            put entry `from` of PeriodQ into T2
             if time T1 is after T2
             begin
-                set element P of Working to PeriodQ
-                set element Q of Working to PeriodP
+                set item P of Working to PeriodQ
+                set item Q of Working to PeriodP
                 set Reordered
                 set Sorted
                 set Changed
@@ -290,21 +290,21 @@ DrawPanel:
     put 0 into P
     while P is less than NPeriods
     begin
-        put element P of Working into Period
+        put item P of Working into Period
         index PeriodButton to P
         index TimeLabel to P
         index TempLabel to P
         index Time to P
         index Temp to P
-        put property `from` of Period into Time
-        put property `temp` of Period into Temp
+        put entry `from` of Period into Time
+        put entry `temp` of Period into Temp
         put `From ` cat Time cat `: Target = ` cat Temp cat `ºC` into Text
         log P cat `:- ` cat Text
         create PeriodButton text Text
         set the style of PeriodButton to ListStyle
         on click PeriodButton
         begin
-            if Changed set element SelectedPeriod of Working to Period
+            if Changed set item SelectedPeriod of Working to Period
             put the index of PeriodButton into SelectedPeriod
             put 0 into P
             while P is less than NPeriods
