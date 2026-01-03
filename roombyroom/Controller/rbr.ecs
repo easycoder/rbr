@@ -201,11 +201,8 @@
 
     reset RegData
 
-    load Map from `../map.json`
-    save prettify Map to RamDisk cat `map.json`
-
     load Config from `../config.json`
-    log `Config: ` cat prettify Config
+!    log `Config: ` cat prettify Config
     save prettify Config to RamDisk cat `config.json`
     put empty into MasterDevice
     put empty into MasterIPAddr
@@ -250,11 +247,17 @@
 Start:
     add 9 to now giving Timestamp
 
-S1:
+    if file RamDisk cat `map.json` exists load Map from RamDisk cat `map.json` else reset Map
+    if Map is empty
+    begin
+        if file `../map.json` exists load Map from `../map.json`
+        save Map to RamDisk cat `map.json`
+    end
     if Map is empty
     begin
         put `{"profiles":[{"name":"Unnamed","rooms":[{"name":"Unnamed","sensor":"","relays":[""],"mode":"off","target":"0.0","events":[]}]}],"profile":0,"name":"New system"}` into Map
-        save Map to `map.json`
+        save Map to `../map.json`
+        save Map to RamDisk cat `map.json`
     end
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into CurrentProfile
@@ -575,7 +578,6 @@ GetAdvance:
             set entry `advance` of RoomSpec to Advance
             gosub to WriteAdvance
             put entry `target` of RoomSpec into TargetTemp
-            set entry `target` of RoomSpec to TargetTemp
         end
         else if Boost is empty      ! Cancel the boost
         begin
@@ -638,7 +640,6 @@ GetAdvance:
         else
             gosub to MultiplyTT
 !            log RoomName cat `: ` cat Temperature cat ` ` cat Target
-            set entry `target` of RoomSpec to Target
             if Temperature is empty go to TurnOff
             if Temperature is less than Target go to TurnOn
             go to TurnOff
@@ -954,9 +955,10 @@ SaveErrorCount:
 !   Post data to the RBR server. This also posts the IP address and the map
 PostSensorData:
     log `PostSensorData`
-    if Changed save prettify Map to `map.json`
+    if Changed save prettify Map to `../map.json`
     save prettify Map to RamDisk cat `map.json`
     save prettify SystemData to RamDisk cat `systemdata.json`
+    clear Changed
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1146,7 +1148,6 @@ ProcessRequest:
     end
     else if Action is `mode`
     begin
-    log prettify Dict
         put entry `mode` of Dict into Mode
         put entry `roomnumber` of Dict into RoomNumber
         put item RoomNumber of Rooms into RoomSpec
@@ -1164,7 +1165,7 @@ ProcessRequest:
             if Dict has entry `target`
                 set entry `target` of RoomSpec to entry `target` of Dict
         end
-        if Mode is `boost`
+        else if Mode is `boost`
         begin
             if RoomSpec has entry `mode` put entry `mode` of RoomSpec into Value else put `off` into Value
             if Dict has entry `target`

@@ -1145,7 +1145,7 @@ class OnMode(GenericMode):
         record = self.program.getVariable(self.caller.roomSpec)
         object = self.program.getObject(record)
         value = str(self.target)
-        object.setContent(value)
+        object.values[0]['target'] = value
         self.settingLabel.setText(f'{self.target}°C')
     
     def getSettinglabel(self):

@@ -93,7 +93,7 @@
     variable R
     variable T
 
-    debug step
+!    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
@@ -143,8 +143,11 @@ Start:
     ! Refresh the UI regularly
     put empty into Path
     clear Locked
-!gosub to RefreshScreen
-!stop
+    if debugging
+    begin
+        gosub to RefreshScreen
+        stop
+    end
     set FirstTime
     put 0 into Ticks
     on tick
@@ -188,6 +191,8 @@ RefreshScreen:
         end
         else
         begin
+            load M from Controller RamDisk cat `map.json`
+            log M
             load Map from Controller RamDisk cat `map.json`
             or begin
                 log `Could not read map.json`
@@ -400,6 +405,7 @@ HandleMode:
     put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
     log Result
+    if Result is empty stop
     log RoomSpec
     set entry `target` of Data to entry `target` of RoomSpec
     log Name cat `: ` cat Result
