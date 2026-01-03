@@ -93,7 +93,7 @@
     variable R
     variable T
 
-!    debug step
+    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
@@ -194,7 +194,6 @@ RefreshScreen:
                 return
             end
             load CurrentProfile from Controller RamDisk cat `profile`
-            log Item
             load Item from Controller RamDisk cat `systemdata.json`
             load SystemData from Controller RamDisk cat `systemdata.json`
             put json SystemData into SystemData or return
@@ -396,9 +395,12 @@ HandleMode:
     put the index of ModeButton into R
     index Room to R
     put item R of Rooms into RoomSpec
+    log RoomSpec
     put entry `name` of RoomSpec into Name
     put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
+    log Result
+    log RoomSpec
     set entry `target` of Data to entry `target` of RoomSpec
     log Name cat `: ` cat Result
     reset Request

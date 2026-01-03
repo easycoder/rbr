@@ -365,9 +365,9 @@ class RBR_UI(Handler):
     def r_get(self, command):
         target = self.getVariable(command['target'])
         dialog = self.getVariable(command['dialog'])
-        data = self.getVariable(command['with']) if 'with' in command else None
+        roomSpec = self.getVariable(command['with']) if 'with' in command else None
         keyword = dialog['keyword']
-        value = ModeDialog(self.program, data).showDialog() if keyword == 'modeDialog' else ''
+        value = ModeDialog(self.program, roomSpec).showDialog() if keyword == 'modeDialog' else ''
         v = ECValue(type=str, content=value)
         self.putSymbolValue(target, v)
         return self.nextPC()

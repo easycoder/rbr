@@ -995,8 +995,7 @@ class TimedMode(GenericMode):
         gridLayout.setContentsMargins(0,0,0,0)
         
         # Create the content
-        roomSpec = program.getObject(caller.data)
-        # roomSpec = program.textify(object)
+        roomSpec = program.getObject(caller.roomSpec)
         advance = roomSpec.getEntry('advance') if roomSpec.hasEntry('advance') else '-'
         text = '' if advance == '-' else 'Cancel\n'
         advanceButton = self.AdvanceButton(program, f'{text}Advance', self.advance)
@@ -1128,7 +1127,7 @@ class OnMode(GenericMode):
         # Create the buttons and text
         downButton = self.PlusMinusButton(program, f'img/blueminus.png', fcb=self.onDown)
         self.styles['ECLabelWidget#SettingLabel'] = borderlessQLabelStyle(20)
-        roomSpec = program.getObject(caller.data)
+        roomSpec = program.getObject(caller.roomSpec)
         self.target = float(roomSpec.getEntry('target')) if roomSpec != None else 0.0
         self.settingLabel = self.SettingLabel(f'{self.target}°C')
         upButton = self.PlusMinusButton(program, f'img/redplus.png', fcb=self.onUp)
@@ -1143,12 +1142,10 @@ class OnMode(GenericMode):
         self.setupMode(left, right)
     
     def showTarget(self):
-        record = self.program.getVariable(self.caller.data)
+        record = self.program.getVariable(self.caller.roomSpec)
         object = self.program.getObject(record)
-        value = self.program.evaluate(object)
-        items = self.program.textify(value)
-        items['target'] = str(self.target)
-        value.setContent(items)
+        value = str(self.target)
+        object.setContent(value)
         self.settingLabel.setText(f'{self.target}°C')
     
     def getSettinglabel(self):
@@ -1210,13 +1207,13 @@ class OffMode(GenericMode):
 ###############################################################################
 # The Operating Mode dialog
 class ModeDialog(QDialog):
-    def __init__(self, program, data):
+    def __init__(self, program, roomSpec):
         super().__init__(program.rbrwin)
         self.setStyleSheet('''
             background-color: white;
             border: 1px solid black;
         ''')
-        self.data = data
+        self.roomSpec = roomSpec
         
 #        self.setWindowTitle('Operating mode')
         self.setWindowFlags(WindowType.FramelessWindowHint)
