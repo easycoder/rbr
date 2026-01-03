@@ -1,11 +1,9 @@
 .*
-*.tgz
 *.txt
-.gitignore
+gitignore
 misc
 stats
 backup
 extras
 ESP
 __pycache__/
-dist.tgz
