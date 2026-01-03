@@ -201,10 +201,10 @@
 
     reset RegData
 
-    load Map from `map.json`
+    load Map from `../map.json`
     save prettify Map to RamDisk cat `map.json`
 
-    load Config from `config.json`
+    load Config from `../config.json`
     log `Config: ` cat prettify Config
     save prettify Config to RamDisk cat `config.json`
     put empty into MasterDevice
