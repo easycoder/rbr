@@ -130,10 +130,8 @@ Start:
     if not IsLocal
     begin
         run `controller.ecs` as Module with HomeDir and ControllerSpec
-        log ControllerSpec
         put entry `current` of ControllerSpec into ControllerIPAddr
         put entry ControllerIPAddr of ControllerSpec into Dict
-        log Dict
         set Controller
             host ControllerIPAddr
             user entry `user` of Dict
@@ -191,8 +189,6 @@ RefreshScreen:
         end
         else
         begin
-            load M from Controller RamDisk cat `map.json`
-            log M
             load Map from Controller RamDisk cat `map.json`
             or begin
                 log `Could not read map.json`
@@ -334,7 +330,6 @@ SetRequestRelay:
     reset Request
     set entry `action` of Request to `request`
     set entry `request` of Request to Input
-    log Request
     gosub to SendRequest
     stop
 
@@ -400,13 +395,10 @@ HandleMode:
     put the index of ModeButton into R
     index Room to R
     put item R of Rooms into RoomSpec
-    log RoomSpec
     put entry `name` of RoomSpec into Name
     put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
-    log Result
     if Result is empty stop
-    log RoomSpec
     set entry `target` of Data to entry `target` of RoomSpec
     log Name cat `: ` cat Result
     reset Request
@@ -449,10 +441,7 @@ HandleMode:
         set Locked
         put entry `name` of RoomSpec into RoomName
         put entry `events` of RoomSpec into Periods
-!        log `Schedule: ` cat Periods
         run `schedule.ecs` as Module with RoomName and Window and Periods and Request
-        log Request
-        log Periods
         if Request is empty stop
         set entry `events` of RoomSpec to Periods
         set entry `roomnumber` of Request to R
@@ -464,7 +453,6 @@ HandleMode:
 SetMode:
     set entry `action` of Request to `mode`
     set entry `roomnumber` of Request to R
-    log Request
     go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
