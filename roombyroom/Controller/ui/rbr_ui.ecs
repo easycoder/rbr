@@ -137,6 +137,7 @@ Start:
             user entry `user` of Dict
             password entry `password` of Dict
     end
+    log `Controller is ` cat ControllerIPAddr
 
     ! Refresh the UI regularly
     put empty into Path
