@@ -1,2 +1,3 @@
+0 * * * * cd /home/linaro/rbr; python3 checkUpdate.py
 * * * * * sh /home/linaro/rbr/flags.sh
 @reboot sh /home/linaro/rbr/reboot.sh
