@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QWidget,
     QApplication,
     QMainWindow,
+    QLabel,
     QFrame,
     QHBoxLayout,
     QVBoxLayout,
@@ -806,6 +807,18 @@ class Menu(QDialog):
         shadow.setOffset(0, 4)
         shadow.setColor(Qt.black)
         self.setGraphicsEffect(shadow)
+
+        # Add the title
+        titleLabel = QLabel(title)
+        titleLabel.setFixedHeight(height)
+        titleLabel.setStyleSheet(f'''
+            background-color: none;
+            border: none;
+            font-size: {height * 0.4}px;
+            font-weight: bold;
+        ''')
+        titleLabel.setAlignment(Qt.AlignCenter)
+        layout.addWidget(titleLabel)
 
         # Add action buttons
         self.program.checkObjectType(actions, ECList)

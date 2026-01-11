@@ -42,8 +42,8 @@
     list Responses
     variable RamDisk
     variable NetworkName
-    variable RBRServer
     variable Version
+    variable RepoVersion
     variable RepeatCount
     variable CurrentProfile
     variable ProfileName
@@ -122,6 +122,10 @@
     put `wlan0` into NetworkName ! Set this to your network interface name
     put `/mnt/data/` into RamDisk
 
+    load Version from `version`
+    save Version to RamDisk cat `version`
+
+    ! Check if we are locked
     if file RamDisk cat `lock` exists
     begin
         load Locked from RamDisk cat `lock`
@@ -131,9 +135,6 @@
             exit
         end
     end
-
-    load Version from `version`
-    save Version to RamDisk cat `version`
 
     save system `uptime | awk -F'( |,|:)+' '{
     `d=h=m=0;
@@ -152,10 +153,6 @@
     put the position of ` ` in IPAddr into P
     if P is greater than 0  put left P of IPAddr into IPAddr
     log `My IP address is ` cat IPAddr
-
-    load RBRServer from `server.txt`
-    put trim RBRServer into RBRServer
-    put RBRServer cat `/resources/php/rest.php` into RBRServer
 
     put the timestamp into Timestamp
     multiply Timestamp by 1000 giving T
@@ -807,7 +804,6 @@ UpdateLog:
 
 !   There's been a change, so write a log and update the data file
     log `Temperature change in ` cat RoomName
-!    if Password is not empty post stringify RoomSpec to RBRServer cat `/sensorlog/` cat MAC cat `/` cat Password
     set entry `temp` of LogData to Temperature
     set entry `ts` of LogData to now
     set entry RoomName of Logs to LogData
@@ -1135,6 +1131,11 @@ ProcessRequest:
             set entry `ptemp` of RoomSpec to entry `ptemp` of Dict
             gosub to UpdateRoom
         end
+    end
+    else if Action is `profile`
+    begin
+        set entry `profile` of Map to entry `profile` of Dict
+        gosub to UpdateMap
     end
     else if Action is `profiles`
     begin

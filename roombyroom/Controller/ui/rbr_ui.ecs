@@ -3,19 +3,20 @@
     script UI
 
     use graphics
-    use plugin RBR_UI from rbr_ui.py
+    use plugin RBR_UI from rbr_ui
 
 !    debug compile
 
     rbrwin Window
     room Room
-    profiles ProfilesBar
     banner Banner
+    profiles ProfilesBar
     popout Popout
     button Hamburger
     button ModeButton
     button ToolsButton
     button OKButton
+    button ProfileButton
     modeDialog ModeDialog
     dialog Dialog
     layout Panel
@@ -90,10 +91,11 @@
     variable C
     variable M
     variable N
+    variable P
     variable R
     variable T
 
-!    debug step
+    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
@@ -204,11 +206,13 @@ RefreshScreen:
     end
 !    log prettify Map
 !    log prettify SystemData
-    put json Map into Map or return
+    put json Map into Map or go to RS2
 !    log entry `request` of Map
     put the value of CurrentProfile into CurrentProfile
     put entry `profiles` of Map into Profiles
-    put item CurrentProfile of Profiles into Profile
+    if CurrentProfile is less than the count of Profiles
+        put item CurrentProfile of Profiles into Profile
+    else go to RS2
     put entry `rooms` of Profile into Rooms
 !    log Rooms
     set the elements of Room to the count of Rooms
@@ -252,12 +256,17 @@ RefreshScreen:
     attach Hamburger to element `hamburger` of Banner
     on click Hamburger go to ShowMainMenu
 
-    ! Set up the name and profiles strip below the banner
+    ! Set up the Profiles bar below the banner
     attach ProfilesBar to element `profiles` of Window
+    attach ProfileButton to element `profileButton` of ProfilesBar
+    on click ProfileButton go to ShowProfileMenu
+
+    ! Attach the popout
     attach Popout to element `popout` of Window
     
     if IsLocal while file RamDisk cat `request` exists gosub to FlashHourglass
     else while file RamDisk cat `request` on Controller exists gosub to FlashHourglass
+RS2:
     clear Refreshing
     return
 
@@ -387,6 +396,49 @@ ShowSystemInfo:
     end
     add Panel to Popout
     show Popout
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Handle a click on the Profile button
+ShowProfileMenu:
+    reset Choices
+    put 0 into P
+    while P is less than the count of Profiles
+    begin
+        put item P of Profiles into Profile
+        append entry `name` of Profile to Choices
+        increment P
+    end
+    append empty to Choices
+    append `Edit Profiles` to Choices
+    append `Cancel` to Choices
+    select Choice from menu `Profiles` with Choices
+    log Choice
+    put 0 into P
+    while P is less than the count of Profiles
+    begin
+        if Choice is item P of Choices go to SelectProfile
+        increment P
+    end
+    increment P
+    if Choice is item P of Choices go to EditProfiles
+    increment P
+    if Choice is item P of Choices stop
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Select a profile
+SelectProfile:
+    log `Select profile ` cat P
+    set entry `action` of Request to `profile`
+    set entry `profile` of Request to P
+    gosub to SendRequest
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Edit the profiles
+EditProfiles:
+    log `Edit profiles`
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

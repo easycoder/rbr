@@ -162,8 +162,9 @@ class RBR_UI(Handler):
                     item['object'].setValue(object)
             elif self.isObjectType(target, RBRProfiles):
                 # Attach to the profiles bar
-                profiles = target['object'].getValue()
-                item['object'].setValue(profiles.getElement(value))
+                profiles = self.getInnerObject(target) 
+                element = profiles.getElement(value)
+                item['object'].setValue(element)
             elif self.isObjectType(target, RBRBanner):
                 banner = self.getInnerObject(target) 
                 element = banner.getElement(value)
