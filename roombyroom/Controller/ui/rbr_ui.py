@@ -702,7 +702,7 @@ class RBR_UI(Handler):
         if self.isSymbol():
             record = self.getSymbolRecord()
             if self.isObjectType(record, ECGElement):
-                value['type'] = 'symbol'
+                value.setType('symbol')
                 return value
 
             return None

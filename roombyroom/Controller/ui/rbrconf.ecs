@@ -4,7 +4,7 @@
 
     use graphics
 
-    debug compile
+!    debug compile
 
     window HostWindow
     window Window
@@ -59,7 +59,7 @@
     checkbox RelayInvertCheckbox
     messagebox MessageBox
 
-    debug step
+!    debug step
 
     log `Starting`
 
@@ -1152,7 +1152,6 @@ CreateDevice:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Populate the system information fields
 PopulateSystemInfo:
-    debug skip
     log `Populate fields for ` cat SystemName
     put entry `host-ssid` of SystemConfig into SystemHostSSID
     put entry `host-password` of SystemConfig into HostPassword
@@ -2021,7 +2020,6 @@ ResumeSystemController:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The Status box at the bottom of the screen
 OK:
-    debug skip
     put `OK` into StatusMessage
 
 Idle:
@@ -2056,19 +2054,29 @@ Error:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Enable or disable the various buttons
 SetUnBusy:
-    debug skip
     if SystemHostSSID is not empty
         if SystemHostSSID is not HostSSID go to SetBusy
 ! ScanDevicesButton
-    if the count of SystemsCombo is 0 disable ScanDevicesButton else enable ScanDevicesButton
+    if the count of SystemsCombo is 0
+        disable ScanDevicesButton
+        else enable ScanDevicesButton
 ! ClearSystemButton
-    if the count of SystemsCombo is 0 disable ClearSystemButton else enable ClearSystemButton
+    if the count of SystemsCombo is 0
+        disable ClearSystemButton
+        else enable ClearSystemButton
 ! ScanSystemsButton
     enable ScanSystemsButton
 ! ReconnectMasterButton
     enable ReconnectMasterButton
 ! RemoveSystemButton
-    if SystemsCombo is empty disable RemoveSystemButton else enable RemoveSystemButton
+    if SystemsCombo is empty
+    begin
+        disable RemoveSystemButton
+    end
+    else
+    begin
+        enable RemoveSystemButton
+    end
 ! MasterDeviceButton
     if MasterDeviceButton is empty disable MasterDeviceButton else enable MasterDeviceButton
 ! RelayToggleButton
