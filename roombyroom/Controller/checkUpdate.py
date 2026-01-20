@@ -11,4 +11,4 @@ myfile = f.read()
 repoversion = myfile.decode().strip()
 if myversion != repoversion:
     print(f'Update to version {repoversion}')
-    os.system('sh update.sh')
+    os.system('sh update.sh 2>>../updatelog')
