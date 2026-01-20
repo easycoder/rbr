@@ -197,9 +197,9 @@ RefreshScreen:
                 log `Could not read map.json`
                 return
             end
-            load CurrentProfile from Controller RamDisk cat `profile`
-            load Item from Controller RamDisk cat `systemdata.json`
-            load SystemData from Controller RamDisk cat `systemdata.json`
+            load CurrentProfile from Controller RamDisk cat `profile` or return
+            load Item from Controller RamDisk cat `systemdata.json` or return
+            load SystemData from Controller RamDisk cat `systemdata.json` or return
             put json SystemData into SystemData or return
         end
         if SystemData is empty wait 1 second

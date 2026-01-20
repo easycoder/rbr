@@ -56,6 +56,7 @@
 
     log prettify Periods
     copy Periods to Working
+    put 0 into SelectedPeriod
     clear Changed
     clear Reordered
     gosub to ConvertUntilToFrom
