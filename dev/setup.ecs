@@ -32,5 +32,5 @@
         set entry RoomName of AllParams to Params
         increment R
     end
-    save prettify AllParams to `params2.json`
+    save prettify AllParams to `params.json`
     exit
