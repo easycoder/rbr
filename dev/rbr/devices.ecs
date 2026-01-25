@@ -1,0 +1,221 @@
+!   devices.ecs - the device control module (simulator)
+
+    script Devices
+
+    import dictionary Room and dictionary RoomState
+
+    list Times
+    list Events
+    dictionary Item
+    dictionary AllParams
+    dictionary Params
+    dictionary Period
+    variable RoomName
+    variable TempNow
+    variable Rows
+    variable Value
+    variable Time
+    variable PeriodStart
+    variable Elapsed
+    variable OnOffTime
+    variable OnOffTemp
+    variable Delta
+    variable Ceiling
+    variable AmbientNow
+    variable Target
+    variable Temp
+    variable Boost
+    variable Result
+    variable IsOn
+    variable I
+    variable N
+    variable P
+
+!    debug compile
+!    debug step
+
+    put entry `name` of Room into RoomName
+!    log RoomName
+
+!   Load the environmental data
+    load Rows from `../environment.csv`
+    split Rows
+    reset Times
+    put 0 into N
+    while N is less than the elements of Rows
+    begin
+        index Rows to N
+        if Rows is not empty
+        begin
+            put Rows into Value
+            split Value on `,`
+            if the elements of Value is 3
+            begin
+                reset Item
+                index Value to 0
+                set entry `time` of Item to Value
+                index Value to 1
+                set entry `temp` of Item to Value
+                index Value to 2
+                set entry `boost` of Item to Value
+                append Item to Times
+            end
+        end
+        increment N
+    end
+!    print prettify Times
+
+    put entry `events` of Room into Events
+!    log prettify Events
+
+!   Initialise the parameters for a single room
+    load AllParams from `../params.json`
+    if AllParams has entry RoomName put entry RoomName of AllParams into Params
+    else exit
+
+    put 1500 into Temp
+    put Temp into OnOffTemp
+    put Temp into TempNow
+    put now into OnOffTime
+    clear IsOn
+
+    release parent
+
+!   Run the simulator
+    put entry `ceiling` of Params into Temp
+    gosub to ConvertTempToInt
+    put Temp into Ceiling
+    while true
+    begin
+        ! Find which period we're in (to get the target temperature)
+        set P to 0
+    FindCurrentPeriod:
+        if P is the count of Events
+        begin
+            put 0 into P
+            put item 0 of Events into Period
+        end
+        else
+        begin
+            put item P of Events into Period
+            put entry `until` of Period into Time
+            gosub to ConvertTimeToInt
+            add today to Time
+            if Time is less than now
+            begin
+                increment P
+                go to FindCurrentPeriod
+            end
+            put item P of Events into Period
+            put entry `until` of Period into Time
+            gosub to ConvertTimeToInt
+            put Time into PeriodStart
+            add today to PeriodStart
+        end
+        put entry `temp` of Period into Temp
+        gosub to ConvertTempToInt
+        put Temp into Target
+!        log `Now: ` cat now cat `, PeriodStart: ` cat PeriodStart
+!        print `Period ` cat P cat `: ` cat item P of Events
+
+        ! Find the current ambient temperature
+        set P to 0
+    FindAmbientTemp:
+        if P is less than the count of Times
+        begin
+            put item P of Times into Item
+            put entry `time` of Item into Time
+            gosub to ConvertTimeToInt
+            add today to Time
+            if now is greater than Time
+            begin
+                increment P
+                go to FindAmbientTemp
+            end
+        end
+        if P is 0 put the count of Times into P
+        decrement P
+        put item P of Times into Item
+        put entry `temp` of Item into Temp
+        gosub to ConvertTempToInt
+        put Temp into AmbientNow
+        put entry `boost` of Item into Temp
+        gosub to ConvertTempToInt
+        put entry `boost` of Params into Boost
+        multiply Temp by Boost
+        divide Temp by 100
+        add Temp to AmbientNow
+
+        ! Calculate the new temperature
+        take OnOffTime from now giving Elapsed
+        if IsOn put entry `rate-up` of Params into Delta
+        else put entry `rate-down` of Params into Delta
+        multiply Delta by Elapsed
+        divide Delta by 36000
+        if IsOn
+        begin
+            add Delta to OnOffTemp giving TempNow
+            if TempNow is greater than Ceiling put Ceiling into TempNow
+        end
+        else
+        begin
+            take Delta from OnOffTemp giving TempNow
+            if TempNow is less than AmbientNow put AmbientNow into TempNow
+        end
+        if TempNow is less than Target
+        begin
+            if not IsOn
+            begin
+                put now into OnOffTime
+                put TempNow into OnOffTemp
+                set IsOn
+            end
+        end
+        else
+        begin
+            if IsOn
+            begin
+                put now into OnOffTime
+                put TempNow into OnOffTemp
+                clear IsOn
+            end
+        end
+
+        reset RoomState
+!        set entry `ambient` of RoomState to AmbientNow
+        set entry `temp` of RoomState to TempNow
+        set entry `target` of RoomState to Target
+        set entry `ison` of RoomState to IsOn
+        print RoomState cat ` --- ` cat RoomName
+
+        ! Wait then repeat
+        wait 10 second
+    end
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Convert an HH:MM time into an int seconds value
+ConvertTimeToInt:
+    put the index of `:` in Time into I
+    put the value of left I of Time into Result
+    multiply Result by 60
+    increment I
+    put the value of from I of Time into Time
+    add Time to Result
+    multiply Result by 60000 giving Time
+    return
+
+! Convert a temperature string into an int hundredths value
+ConvertTempToInt:
+    put the index of `.` in Temp into I
+    if I is less than 0 multiply Temp by 100
+    else
+    begin
+        put the value of left I of Temp into Result
+        multiply Result by 100
+        increment I
+        put the value of from I of Temp into Temp
+        add Result to Temp
+    end
+    return
+
