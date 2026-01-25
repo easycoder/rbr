@@ -1,9 +1,12 @@
 #!/bin/sh
 pip install -U easycoder
 cd ~/bin
+rm rbrsim
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbrsim
+chmod a+x rbrsim
 rm -rf rbr
 mkdir -p rbr
 cd rbr
-wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbr.ecs
-wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/devices.ecs
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbr/rbr.ecs
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbr/devices.ecs
 easycoder rbr.ecs
