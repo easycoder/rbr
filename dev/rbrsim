@@ -4,6 +4,6 @@ cd ~/bin
 rm -rf rbr
 mkdir -p rbr
 cd rbr
-https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbr.ecs
-https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/devices.ecs
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbr.ecs
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/devices.ecs
 easycoder rbr.ecs
