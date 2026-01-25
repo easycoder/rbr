@@ -4,6 +4,7 @@ rm rbrsim ~/bin/rbrsim
 wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbrsim
 chmod a+x rbrsim
 mv rbrsim ~/bin
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/environment.csv
 rm -rf rbr
 mkdir -p rbr
 cd rbr
