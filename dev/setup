@@ -1,0 +1,9 @@
+#!/bin/sh
+pip install -U easycoder
+https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/setup.ecs
+easycoder setup.ecs
+mkdir -p rbr
+cd rbr
+https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbr.ecs
+https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/devices.ecs
+cd ..

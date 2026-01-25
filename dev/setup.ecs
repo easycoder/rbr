@@ -1,0 +1,36 @@
+!   setup.ecs - Scan the map to get room names
+
+    script Setup
+
+    dictionary Map
+    dictionary Profile
+    dictionary Room
+    dictionary AllParams
+    dictionary Params
+    list Profiles
+    list Rooms
+    variable CurrentProfile
+    variable RoomName
+    variable R
+
+    load Map from `map.json`
+    put entry `profiles` of Map into Profiles
+    put entry `profile` of Map into CurrentProfile
+    put item CurrentProfile of Profiles into Profile
+    put entry `rooms` of Profile into Rooms
+    reset AllParams
+    put 0 into R
+    while R is less than the count of Rooms
+    begin
+        put item R of Rooms into Room
+        put entry `name` of Room into RoomName
+        reset Params
+        set entry `rate-up` of Params to 10
+        set entry `rate-down` of Params to 10
+        set entry `ceiling` of Params to `23.0`
+        set entry `boost` of Params to 100
+        set entry RoomName of AllParams to Params
+        increment R
+    end
+    save prettify AllParams to `params2.json`
+    exit
