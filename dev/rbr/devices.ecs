@@ -27,6 +27,7 @@
     variable Boost
     variable Result
     variable IsOn
+    variable Mode
     variable I
     variable N
     variable P
@@ -35,7 +36,9 @@
 !    debug step
 
     put entry `name` of Room into RoomName
-!    log RoomName
+    put entry `mode` of Room into Mode
+!    log RoomName cat ` - ` cat Mode
+    if Mode is `off` exit
 
 !   Load the environmental data
     load Rows from `../environment.csv`
