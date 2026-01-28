@@ -1,15 +1,16 @@
-! rbr.ecs - the main program script
+!   main.ecs - the main program script
 
-    script RBR
 
     dictionary Map
     dictionary Profile
     dictionary Room
     dictionary RoomState
+    dictionary Request
     list Profiles
     list Rooms
     list RoomStates
     module DeviceModule
+    module UI
     variable RoomCount
     variable CurrentProfile
     variable R
@@ -21,6 +22,8 @@
     put entry `rooms` of Profile into Rooms
     put the count of Rooms into RoomCount
     set the elements of DeviceModule to RoomCount
+
+    ! Set up the room states variable
     reset RoomStates
     reset RoomState
     put 0 into R
@@ -29,6 +32,8 @@
         append RoomState to RoomStates
         increment R
     end
+
+    ! Launch a module for each room
     put 0 into R
     while R is less than the count of Rooms
     begin
@@ -38,6 +43,9 @@
         run `devices.ecs` as DeviceModule with Room and RoomState
         increment R
     end
+
+    ! Launch the UI
+    run `ui.ecs` as UI with Map and Request
 
     log `All set up and ready`
     stop

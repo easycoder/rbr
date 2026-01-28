@@ -1,4 +1,4 @@
-!   rbr_ui.ecs
+!   ui.ecs - the user interface
 
     script UI
 
@@ -6,6 +6,8 @@
     use plugin RBR_UI from rbr_ui
 
 !    debug compile
+
+    import dictionary Map and dictionary Request
 
     rbrwin Window
     room Room
@@ -30,18 +32,13 @@
     checkbox CheckBox
     checkbox CheckBox2
     combobox ComboBox
-    ssh Controller
     module Module
-    dictionary ControllerSpec
     dictionary SystemData
     dictionary Profile
     dictionary RoomSpec
     dictionary RoomData
-    dictionary Request
     dictionary Response
-    dictionary Map
     dictionary Data
-    dictionary Dict
     list Profiles
     list Rooms
     list NewRooms
@@ -51,14 +48,8 @@
     list Responses
     list Values
     list Value
-    variable UserName
     variable GraphicsStarted
-    variable ControllerIPAddr
-    variable HomeDir
-    variable Path
-    variable IsLocal
     variable FirstTime
-    variable RamDisk
     variable WindowWidth
     variable WindowHeight
     variable RoomHeight
@@ -82,46 +73,27 @@
     variable RelayNames
     variable Version
     variable Uptime
-    variable Item
     variable Refreshing
     variable Locked
     variable HH
     variable MM
     variable SS
     variable C
-    variable M
     variable N
     variable P
     variable R
-    variable T
 
-!    debug step
+    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
 
-    ! Figure out where we're running
-    put `linaro` into UserName
-    if UserName is trim system `whoami`
-    begin
-        log `Running locally`
-        set IsLocal
-    end
-    else
-    begin
-        log `Running remotely`
-        clear IsLocal
-    end
-
     clear GraphicsStarted
-    put trim system `echo $HOME` into HomeDir
-    put `/mnt/data/` into RamDisk
-    init graphics
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Main start
 Start:
-    if IsLocal put empty into Title else put `RBR` into Title
+    put empty into Title
     put 1000 into WindowHeight
     put 582 into WindowWidth
     divide WindowHeight by 12 giving RoomHeight
@@ -129,21 +101,7 @@ Start:
     create Window title Title size WindowWidth WindowHeight
     show Window
 
-    ! If we're running remotely, set up SSH to access the controller
-    if not IsLocal
-    begin
-        run `controller.ecs` as Module with HomeDir and ControllerSpec
-        put entry `current` of ControllerSpec into ControllerIPAddr
-        put entry ControllerIPAddr of ControllerSpec into Dict
-        set Controller
-            host ControllerIPAddr
-            user entry `user` of Dict
-            password entry `password` of Dict
-    end
-    log `Controller is ` cat ControllerIPAddr
-
     ! Refresh the UI regularly
-    put empty into Path
     clear Locked
     if debugging
     begin
@@ -172,39 +130,6 @@ RefreshScreen:
     set Refreshing
 !    log `Refresh`
     reset SystemData
-    put 0 into N
-    while SystemData is empty
-    begin
-        increment N
-        if N is greater than 1 log `Loading system files (` cat N cat `)`
-        if IsLocal
-        begin
-            load Map from RamDisk cat `map.json`
-            or begin
-                log `Could not read map.json`
-                return
-            end
-            load CurrentProfile from RamDisk cat `profile`
-            load SystemData from RamDisk cat `systemdata.json`
-            or begin
-                wait 1 second
-                load SystemData from RamDisk cat `systemdata.json` or return
-            end
-        end
-        else
-        begin
-            load Map from Controller RamDisk cat `map.json`
-            or begin
-                log `Could not read map.json`
-                return
-            end
-            load CurrentProfile from Controller RamDisk cat `profile` or return
-            load Item from Controller RamDisk cat `systemdata.json` or return
-            load SystemData from Controller RamDisk cat `systemdata.json` or return
-            put json SystemData into SystemData or return
-        end
-        if SystemData is empty wait 1 second
-    end
 !    log prettify Map
 !    log prettify SystemData
     put json Map into Map or go to RS2
@@ -265,8 +190,6 @@ RefreshScreen:
     ! Attach the popout
     attach Popout to element `popout` of Window
     
-    if IsLocal while file RamDisk cat `request` exists gosub to FlashHourglass
-    else while file RamDisk cat `request` on Controller exists gosub to FlashHourglass
 RS2:
     clear Refreshing
     return
@@ -373,15 +296,8 @@ ShowSystemInfo:
     create Panel type QVBoxLayout
     create Label text `-- System information --`
     add Label to Panel
-    if IsLocal
-    begin
-        load Version from RamDisk cat `version`
-        load Uptime from RamDisk cat `uptime`
-    end
-    else
-    begin
-        load Version from Controller RamDisk cat `version`
-        load Uptime from Controller RamDisk cat `uptime`
+!    load Version from RamDisk cat `version`
+!    load Uptime from RamDisk cat `uptime`
     end
     create Label text `Version: ` cat Version
     add Label to Panel
@@ -807,20 +723,7 @@ DeleteRoom:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
 SendRequest:
-    set Locked
-    if IsLocal
-    begin
-        save stringify Request to RamDisk cat `request`
-        while file RamDisk cat `request` exists gosub to FlashHourglass
-    end
-    else
-    begin
-        save stringify Request to Controller RamDisk cat `request`
-        while file RamDisk cat `request` on Controller exists gosub to FlashHourglass
-    end
-    log `Request acknowledged`
     log `Request: ` cat prettify Request
-    clear Locked
     return
 
 FlashHourglass:

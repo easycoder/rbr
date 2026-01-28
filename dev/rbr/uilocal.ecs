@@ -1,0 +1,12 @@
+!   uilocal.ecs - the main script for the user interface
+
+    script UILocal
+
+    dictionary Map
+    dictionary Request
+    module UI
+
+    ! Launch the UI
+    run `ui.ecs` as UI with Map and Request
+    release parent
+    stop

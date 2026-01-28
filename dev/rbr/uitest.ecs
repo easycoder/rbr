@@ -1,0 +1,15 @@
+!   uitest.ecs - the UI tester
+
+    script UITest
+
+    dictionary Map
+    dictionary Request
+    module UI
+
+    load Map from `../map.json`
+
+    ! Launch the UI
+    run `ui.ecs` as UI !with Map and Request
+
+    log `All set up and ready`
+    stop
