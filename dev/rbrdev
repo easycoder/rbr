@@ -3,10 +3,11 @@ pip install -U easycoder
 cd ~/bin
 mkdir -p rbrdev
 cd rbrdev
-rm -rf rbrdev rbr.tgz rbr
+rm -rf ../rbrdev rbr.tgz rbr
 wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbrdev
 wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbr.tgz
 chmod a+x rbrdev
+mv rbrdev ..
 tar zxf rbr.tgz
 cd rbr
 easycoder main.ecs
