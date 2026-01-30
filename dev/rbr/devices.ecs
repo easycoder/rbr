@@ -43,7 +43,7 @@
     if Mode is `off` exit
 
 !   Load the environmental data
-    load Rows from `../environment.csv`
+    load Rows from `environment.csv`
     split Rows
     reset Times
     put 0 into N

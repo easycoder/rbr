@@ -1,7 +1,0 @@
-#!/bin/sh
-pip install -U easycoder
-wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/setup.ecs
-easycoder setup.ecs
-cd ~/bin
-wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbrsim
-chmod a+x rbrsim

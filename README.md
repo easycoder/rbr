@@ -1,5 +1,7 @@
 # Room By Room Control
 
+Note: This version is currently being superseded by a new one, so much of the following will soon be obsolete.
+
 This is an Open Source project to build a smart central heating system with control over the Internet. Although it might be considered to be just another "Smart Home" product, this one has one important difference. It's designed to be a "distributed appliance"; that is, something that can be set up before delivery and just plugged in, with none of the usual messing about with IP addresses that plagues the smart home world. No techncal knowledge on the part of the end user is required; just the ability (and willingness) to program a central heating controller.
 
 An important feature of the system is that it can be managed externally. The UI permits one of any number of systems to be selected at will, and each system can be designated as being controllable by any desired number of managers. So  for example, a housing association can assign a set of installations to be managed by one or more nominated persons. All this is done by the UI app - a mobile web page that will run on any smartphone.
