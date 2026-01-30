@@ -7,6 +7,10 @@
     module UI
 
     ! Launch the UI
-    run `ui.ecs` as UI with Map and Request
+    run `uicore.ecs` as UI with Map and Request
     release parent
+    on message
+    begin
+        if the message is `map` send Map to the sender
+    end
     stop

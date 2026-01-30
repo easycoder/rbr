@@ -9,7 +9,7 @@
     load Map from `../map.json`
 
     ! Launch the UI
-    run `ui.ecs` as UI !with Map and Request
+    run `ui.ecs` as UI with Map and Request
 
     log `All set up and ready`
     stop

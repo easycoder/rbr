@@ -1,16 +1,12 @@
 !   ui.ecs - the user interface
 
-    script UI
+    script UICore
 
     use graphics
     use plugin RBR_UI from rbr_ui
 
 !    debug compile
 
-!    import dictionary Map and dictionary Request
-
-    dictionary Map
-    dictionary Request
     rbrwin Window
     room Room
     banner Banner
@@ -35,12 +31,15 @@
     checkbox CheckBox2
     combobox ComboBox
     module Module
+    dictionary Map
     dictionary SystemData
     dictionary Profile
     dictionary RoomSpec
     dictionary RoomData
     dictionary Response
     dictionary Data
+    dictionary Request
+    dictionary Message
     list Profiles
     list Rooms
     list NewRooms
@@ -65,17 +64,16 @@
     variable ThatRoom
     variable Choice
     variable Advance
-    variable Ticks
     variable Result
     variable RequestRelay
     variable Timestamp
     variable Temperature
     variable Text
+    variable Var
     variable SensorID
     variable RelayNames
     variable Version
     variable Uptime
-    variable Refreshing
     variable Locked
     variable HH
     variable MM
@@ -85,17 +83,18 @@
     variable P
     variable R
 
-    debug step
+!    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
 
     clear GraphicsStarted
+    init graphics
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Main start
 Start:
-    put empty into Title
+    put `RBR Demo` into Title
     put 1000 into WindowHeight
     put 582 into WindowWidth
     divide WindowHeight by 12 giving RoomHeight
@@ -103,50 +102,38 @@ Start:
     create Window title Title size WindowWidth WindowHeight
     show Window
 
-    ! Refresh the UI regularly
-    clear Locked
-    if debugging
+    on message
     begin
-        gosub to RefreshScreen
-        stop
+        put the message into Message
+        put entry `subject` of Message into Text
+        if Text is `map` go to RefreshScreen
     end
-    set FirstTime
-    put 0 into Ticks
-    on tick
+
+    release parent
+    while true
     begin
-        if Refreshing stop
-        if Locked stop
-        if the ticker is greater than Ticks
-        begin
-            add 200 to the ticker giving Ticks
-            gosub to RefreshScreen
-            clear FirstTime
-        end
+        wait 10 seconds
+        send `map` to parent
     end
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Refresh the screen. This is called every 2 seconds (200 graphics ticks).
-!   See r_start in ex_pyside.py
+!   Refresh the screen.
 RefreshScreen:
-    set Refreshing
 !    log `Refresh`
-    reset SystemData
-!    log prettify Map
-!    log prettify SystemData
-    put json Map into Map or go to RS2
-!    log entry `request` of Map
-    put the value of CurrentProfile into CurrentProfile
+    ! Process the map
+    put entry `map` of Message into Map
+    put entry `profile` of Map into CurrentProfile
     put entry `profiles` of Map into Profiles
-    if CurrentProfile is less than the count of Profiles
-        put item CurrentProfile of Profiles into Profile
-    else go to RS2
+    put item CurrentProfile of Profiles into Profile
     put entry `rooms` of Profile into Rooms
-!    log Rooms
     set the elements of Room to the count of Rooms
-    set the elements of RoomData to the count of Rooms
     set the elements of ModeButton to the count of Rooms
     set the elements of ToolsButton to the count of Rooms
+
+    ! Process the system data
+    put entry `data` of Message into SystemData
+!    log SystemData
 
 !   Build the screen
     if not FirstTime clear Window
@@ -155,13 +142,18 @@ RefreshScreen:
     begin
         put item R of Rooms into RoomSpec
 !        log RoomSpec
-        put entry `name` of RoomSpec into Name
-        if SystemData has entry Name
+        put entry `name` of RoomSpec into RoomName
+        if SystemData has entry RoomName
         begin
-            put entry Name of SystemData into RoomData
+            put entry RoomName of SystemData into RoomData
+!            log RoomName cat `: ` cat RoomData
             set entry `timestamp` of RoomSpec to entry `timestamp` of RoomData
             if RoomData has entry `temperature`
-                set entry `temperature` of RoomSpec to entry `temperature` of RoomData
+            begin
+                put entry `temperature` of RoomData into Temperature
+                gosub to ConvertTempToDecimal
+                set entry `temperature` of RoomSpec to Temperature
+            end
             else set entry `temperature` of RoomSpec to `0`
             if RoomData has entry `relay`
                 set entry `relay` of RoomSpec to entry `relay` of RoomData
@@ -191,15 +183,12 @@ RefreshScreen:
 
     ! Attach the popout
     attach Popout to element `popout` of Window
-    
-RS2:
-    clear Refreshing
-    return
+    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Create a room from the spec and display it.
 CreateRoom:
-!    log `Create ` cat Name cat `, mode ` cat Mode
+!    log `Create ` cat RoomName cat `, mode ` cat Mode
     index Room to R
 !    log prettify RoomSpec
     create Room
@@ -733,4 +722,14 @@ FlashHourglass:
     wait 50 ticks
     set attribute `hourglass` of Window to false
     wait 50 ticks
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Convert a hundredths teperature to a decimal for display
+ConvertTempToDecimal:
+    put the value of Temperature into Temperature
+    put Temperature modulo 100 into Var
+    if Var is less than 10 put `0` cat Var into Var else put `` cat Var into Var
+    divide Temperature by 100
+    put `` cat Temperature cat `.` cat left 1 of Var into Temperature
     return

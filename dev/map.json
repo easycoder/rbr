@@ -419,7 +419,7 @@
                     "relayType": "RBR-Now",
                     "prevmode": "timed",
                     "boost": 0,
-                    "advance": 1,
+                    "advance": "-",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,

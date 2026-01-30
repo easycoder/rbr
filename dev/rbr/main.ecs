@@ -1,19 +1,25 @@
 !   main.ecs - the main program script
 
+    script Main
 
     dictionary Map
     dictionary Profile
     dictionary Room
-    dictionary RoomState
-    dictionary Request
+    dictionary SystemData
+    dictionary Response
+    dictionary Message
+    dictionary RoomIndex
     list Profiles
     list Rooms
-    list RoomStates
     module DeviceModule
     module UI
     variable RoomCount
+    variable RoomName
     variable CurrentProfile
+    variable Subject
     variable R
+
+!    debug step
 
     load Map from `../map.json`
     put entry `profiles` of Map into Profiles
@@ -23,29 +29,43 @@
     put the count of Rooms into RoomCount
     set the elements of DeviceModule to RoomCount
 
-    ! Set up the room states variable
-    reset RoomStates
-    reset RoomState
-    put 0 into R
-    while R is less than the count of Rooms
-    begin
-        append RoomState to RoomStates
-        increment R
-    end
-
     ! Launch a module for each room
+    reset RoomIndex
     put 0 into R
     while R is less than the count of Rooms
     begin
         put item R of Rooms into Room
-        put item R of RoomStates into RoomState
+        put entry `name` of Room into RoomName
+        set entry RoomName of RoomIndex to R
         index DeviceModule to R
-        run `devices.ecs` as DeviceModule with Room and RoomState
+        run `devices.ecs` as DeviceModule with Room
         increment R
     end
 
-    ! Launch the UI
-    run `ui.ecs` as UI with Map and Request
+    on message
+    begin
+!        log the message
+        if the message is `map`
+        begin
+            reset Response
+            set entry `subject` of Response to `map`
+            set entry `map` of Response to Map
+            set entry `data` of Response to SystemData
+            send Response to the sender
+        end
+        else
+        begin
+            put the message into Message
+            put entry `subject` of Message into Subject
+            if Subject is `roomstate`
+            begin
+                put entry `name` of Message into RoomName
+                set entry RoomName of SystemData to entry `data` of Message
+            end
+        end
+    end
+    ! Launch the local UI
+    run `uicore.ecs` as UI
 
     log `All set up and ready`
     stop

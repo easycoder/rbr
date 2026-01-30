@@ -2,7 +2,7 @@
 
     script Devices
 
-    import dictionary Room and dictionary RoomState
+    import dictionary Room
 
     list Times
     list Events
@@ -10,6 +10,8 @@
     dictionary AllParams
     dictionary Params
     dictionary Period
+    dictionary RoomData
+    dictionary Message
     variable RoomName
     variable TempNow
     variable Rows
@@ -26,7 +28,7 @@
     variable Temp
     variable Boost
     variable Result
-    variable IsOn
+    variable Relay
     variable Mode
     variable I
     variable N
@@ -37,7 +39,7 @@
 
     put entry `name` of Room into RoomName
     put entry `mode` of Room into Mode
-!    log RoomName cat ` - ` cat Mode
+    log RoomName cat ` - ` cat Mode
     if Mode is `off` exit
 
 !   Load the environmental data
@@ -58,7 +60,7 @@
                 index Value to 0
                 set entry `time` of Item to Value
                 index Value to 1
-                set entry `temp` of Item to Value
+                set entry `temperature` of Item to Value
                 index Value to 2
                 set entry `boost` of Item to Value
                 append Item to Times
@@ -80,7 +82,7 @@
     put Temp into OnOffTemp
     put Temp into TempNow
     put now into OnOffTime
-    clear IsOn
+    set Relay to `off`
 
     release parent
 
@@ -139,7 +141,7 @@
         if P is 0 put the count of Times into P
         decrement P
         put item P of Times into Item
-        put entry `temp` of Item into Temp
+        put entry `temperature` of Item into Temp
         gosub to ConvertTempToInt
         put Temp into AmbientNow
         put entry `boost` of Item into Temp
@@ -151,11 +153,11 @@
 
         ! Calculate the new temperature
         take OnOffTime from now giving Elapsed
-        if IsOn put entry `rate-up` of Params into Delta
+        if Relay is `on` put entry `rate-up` of Params into Delta
         else put entry `rate-down` of Params into Delta
         multiply Delta by Elapsed
         divide Delta by 36000
-        if IsOn
+        if Relay is `on`
         begin
             add Delta to OnOffTemp giving TempNow
             if TempNow is greater than Ceiling put Ceiling into TempNow
@@ -167,29 +169,34 @@
         end
         if TempNow is less than Target
         begin
-            if not IsOn
+            if Relay is `off`
             begin
                 put now into OnOffTime
                 put TempNow into OnOffTemp
-                set IsOn
+                set Relay to `on`
             end
         end
         else
         begin
-            if IsOn
+            if Relay is `on`
             begin
                 put now into OnOffTime
                 put TempNow into OnOffTemp
-                clear IsOn
+                set Relay to `off`
             end
         end
 
-        reset RoomState
-!        set entry `ambient` of RoomState to AmbientNow
-        set entry `temp` of RoomState to TempNow
-        set entry `target` of RoomState to Target
-        set entry `ison` of RoomState to IsOn
-        print RoomState cat ` --- ` cat RoomName
+        reset RoomData
+!        set entry `ambient` of RoomData to AmbientNow
+        set entry `temperature` of RoomData to TempNow
+        set entry `target` of RoomData to Target
+        set entry `relay` of RoomData to Relay
+!        log RoomData cat ` --- ` cat RoomName
+        reset Message
+        set entry `subject` of Message to `roomstate`
+        set entry `name` of Message to RoomName
+        set entry `data` of Message to RoomData
+        send Message to parent
 
         ! Wait then repeat
         wait 10 second
@@ -210,6 +217,7 @@ ConvertTimeToInt:
 
 ! Convert a temperature string into an int hundredths value
 ConvertTempToInt:
+    if Temp is empty put 0 into Temp
     put the index of `.` in Temp into I
     if I is less than 0 multiply Temp by 100
     else
