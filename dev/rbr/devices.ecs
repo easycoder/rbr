@@ -37,6 +37,8 @@
 !    debug compile
 !    debug step
 
+
+
     put entry `name` of Room into RoomName
     put entry `mode` of Room into Mode
     log RoomName cat ` - ` cat Mode
@@ -74,9 +76,19 @@
 !    log prettify Events
 
 !   Initialise the parameters for a single room
-    load AllParams from `../params.json`
+    if file `../params.json` does not exist reset AllParams
+    else load AllParams from `../params.json`
     if AllParams has entry RoomName put entry RoomName of AllParams into Params
-    else exit
+    else
+    begin
+        reset Params
+        set entry `rate-up` of Params to 10
+        set entry `rate-down` of Params to 10
+        set entry `ceiling` of Params to 23
+        set entry `boost` of Params to 50
+        set entry RoomName of AllParams to Params
+        save prettify AllParams to `../params.json`
+    end
 
     put 1500 into Temp
     put Temp into OnOffTemp
