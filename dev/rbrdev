@@ -1,0 +1,5 @@
+#!/bin/sh
+cd ~/bin
+rm -rf rbr.tgz rbr
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/dev/rbr.tgz
+tar zxf rbr.tgz

@@ -5,5 +5,6 @@
 tar zcf rbr.tgz *
 rm -rf ui/__pycache__
 tar zcf ui.tgz ui
-rm -rf ../../dev/rbr/__pycache__
-tar zcf dev.tgz ../../dev/rbr
+cd ../../dev
+rm -rf rbr/__pycache__ rbr.tgz
+tar zcf rbr.tgz rbr
