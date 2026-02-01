@@ -2,6 +2,7 @@
 
     script UICore
 
+    use mqtt
     use graphics
     use plugin RBR_UI from rbr_ui
 
@@ -40,15 +41,21 @@
     dictionary Data
     dictionary Request
     dictionary Message
+    dictionary ReceivedMessage
     list Profiles
     list Rooms
     list NewRooms
-    list Choices
-    list ChoicesShown
     list Periods
     list Responses
     list Values
     list Value
+    list Choices
+    list ChoicesShown
+    topic MyTopic
+    topic ServerTopic
+    variable UUID
+    variable WaitCounter
+    variable MapRequests
     variable GraphicsStarted
     variable FirstTime
     variable WindowWidth
@@ -101,28 +108,72 @@ Start:
 
     create Window title Title size WindowWidth WindowHeight
     show Window
+    set FirstTime
+    clear Locked
+    set MapRequests to 0
 
-    on message
-    begin
-        put the message into Message
-        put entry `subject` of Message into Text
-        if Text is `map` go to RefreshScreen
-    end
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set up MQTT
 
+    put uuid into UUID
+
+    init MyTopic
+        name `RBR-` cat UUID
+        qos 1
+    
+    init ServerTopic
+        name `38:54:39:34:62:d7/request`
+        qos 1
+
+    mqtt
+        id UUID
+        broker `test.mosquitto.org`
+        port 1883
+        subscribe MyTopic
+    
+    on mqtt message put the mqtt message into ReceivedMessage
     release parent
-    while true
+
+Loop:
+!    log `Loop`
+    wait 10 seconds
+    if not Locked
     begin
-        wait 10 seconds
-        send `map` to parent
+        increment MapRequests
+        reset ReceivedMessage
+        if FirstTime put `first` into Text else put `map` into Text
+        send to ServerTopic
+            sender MyTopic
+            action Text
+            message `{"map requests": ` cat MapRequests cat `}`
+        ! If we get a reply, refresh the screen
+        ! If not, repeat loop
+        fork to WaitForMessage
     end
-    stop
+    go to Loop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Wait for a message to arrive.
+WaitForMessage:
+    clear Locked
+    put 0 into WaitCounter
+    while ReceivedMessage is empty
+    begin
+        wait 1 tick
+        increment WaitCounter
+        if WaitCounter is greater than 100 go to Loop
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Refresh the screen.
 RefreshScreen:
-!    log `Refresh`
+!    log `RefreshScreen`
+    put entry `message` of ReceivedMessage into Message
+    ! If map is empty there's no change
+    put entry `map` of Message into Data
+    if Data is not empty put Data into Map
+!    else log `No change to map`
     ! Process the map
-    put entry `map` of Message into Map
     put entry `profile` of Map into CurrentProfile
     put entry `profiles` of Map into Profiles
     put item CurrentProfile of Profiles into Profile
@@ -132,11 +183,14 @@ RefreshScreen:
     set the elements of ToolsButton to the count of Rooms
 
     ! Process the system data
-    put entry `data` of Message into SystemData
-!    log SystemData
+    ! If it is empty there's no change
+    put entry `data` of Message into Data
+    if Data is not empty put Data into SystemData
+    else log `No change to system data`
 
 !   Build the screen
     if not FirstTime clear Window
+    clear FirstTime
     put 0 into R
     while R is less than the count of Rooms
     begin
@@ -212,35 +266,38 @@ ShowMainMenu:
     append `Set the system name` to Choices
     append `Set the request relay` to Choices
     append `Add a room` to Choices
-    append empty to Choices
-    append `Reset` to Choices
     append `System Info` to Choices
+    append empty to Choices
     append `Exit Application` to Choices
     append empty to Choices
     append `Cancel` to Choices
 
+    set Locked
     select Choice from menu `Main Menu` with Choices
-    log Choice
+    clear Locked
     if Choice is item 0 of Choices go to SetSystemName
     if Choice is item 1 of Choices go to SetRequestRelay
     if Choice is item 2 of Choices go to AddRoom
-    if Choice is item 4 of Choices go to Reset
-    if Choice is item 5 of Choices go to ShowSystemInfo
-    if Choice is item 6 of Choices exit
-    if Choice is item 8 of Choices stop
+    if Choice is item 3 of Choices go to ShowSystemInfo
+    if Choice is item 5 of Choices go to Exit
+    if Choice is item 7 of Choices stop
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks to set the system name. Use an external module
 SetSystemName:
     run `systemName.ecs` as Module with Window and ProfilesBar and Request
-    if Request is empty stop
-    gosub to SendRequest
+    if Request is not empty
+    begin
+        log `System name has been changed`
+        go to SendRequest
+    end
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Provide information about the request relay, if there is one
 SetRequestRelay:
+    set Locked
     create Layout type QHBoxLayout
     create Label text `Type the name of the request relay:`
     add Label to Layout
@@ -250,13 +307,11 @@ SetRequestRelay:
     set the text of Input to RequestRelay
     add Input to Layout
     create keyboard layout Layout and receiver Input in Window
-    log Input cat ` ` cat RequestRelay
     if Input is RequestRelay stop
     reset Request
-    set entry `action` of Request to `request`
-    set entry `request` of Request to Input
-    gosub to SendRequest
-    stop
+    set entry `action` of Request to `Request Relay`
+    set entry `Request Relay` of Request to Input
+    go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Add a new room to the displayed list
@@ -264,20 +319,10 @@ AddRoom:
     put `{"name": "Unnamed", "sensor": "", "relays": [], "mode": "off", "target": 20, `
         cat `"events": [{"until": "07:00", "temp": 15}], "relayType":"none", "protect": "no", "relay": "off"}`
         into ThisRoom
-    append json ThisRoom to Rooms
     reset Request
-    set entry `action` of Request to `rooms`
-    set entry `rooms` of Request to Rooms
-    gosub to SendRequest
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Reset the controller
-Reset:
-    reset Request
-    set entry `action` of Request to `reset`
-    gosub to SendRequest
-    stop
+    set entry `action` of Request to `Add Room`
+    set entry `Add Room` of Request to ThisRoom
+    go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Show system info
@@ -340,8 +385,7 @@ SelectProfile:
     log `Select profile ` cat P
     set entry `action` of Request to `profile`
     set entry `profile` of Request to P
-    gosub to SendRequest
-    stop
+    go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Edit the profiles
@@ -406,8 +450,8 @@ HandleMode:
         if Request is empty stop
         set entry `events` of RoomSpec to Periods
         set entry `roomnumber` of Request to R
-        gosub to SendRequest
         clear Locked
+        go to SendRequest
     end 
     stop
 
@@ -473,8 +517,7 @@ MoveRoomUp:
     set item RoomIndex of Rooms to ThatRoom
     set entry `action` of Request to `rooms`
     set entry `rooms` of Request to Rooms
-    gosub to SendRequest
-    stop
+    go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Move the selected room down in the list
@@ -487,8 +530,7 @@ MoveRoomDown:
     set item RoomIndex of Rooms to ThatRoom
     set entry `action` of Request to `rooms`
     set entry `rooms` of Request to Rooms
-    gosub to SendRequest
-    stop
+    go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Show information about the selected room
@@ -570,8 +612,7 @@ EditRoomName:
     set entry `roomnumber` of Request to RoomIndex
     set entry `name` of Request to Input
     log Request
-    gosub to SendRequest
-    stop
+    go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Edit the sensor and relay information for a room
@@ -678,8 +719,7 @@ EditDeviceParams:
     if CheckBox2 set entry `protect` of Request to `yes` else set entry `protect` of Request to `no`
     set entry `ptemp` of Request to Input2
 !    log Request
-    gosub to SendRequest
-    stop
+    go to SendRequest
 
 EditSchedule:
     stop
@@ -708,14 +748,25 @@ DeleteRoom:
     end
     set entry `action` of Request to `rooms`
     set entry `rooms` of Request to NewRooms
-    gosub to SendRequest
-    stop
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Close the window and exit
+Exit:
+    close Window
+    exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
 SendRequest:
-    log `Request: ` cat prettify Request
-    return
+!    log `Sending UI request ` cat Request
+    reset ReceivedMessage
+    send to ServerTopic
+        sender MyTopic
+        action `uirequest`
+        message Request
+    wait 1 tick
+    go to WaitForMessage
 
 FlashHourglass:
     set attribute `hourglass` of Window to true

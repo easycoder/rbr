@@ -40,5 +40,11 @@
         "rate-down": 6,
         "ceiling": 23,
         "boost": 80
+    },
+    "Outside": {
+        "rate-up": 10,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 50
     }
 }

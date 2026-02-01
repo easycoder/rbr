@@ -204,6 +204,22 @@ class RBR_UI(Handler):
         window.initContent()
         return self.nextPC()
 
+    # close {rbrwin}
+    def k_close(self, command):
+        if self.nextIsSymbol():
+            record = self.getSymbolRecord()
+            if record['keyword']== 'rbrwin':
+                command['name'] = record['name']
+                self.add(command)
+            return True
+        return False
+    
+    def r_close(self, command):
+        record = self.getVariable(command['name'])
+        window = self.getInnerObject(record)
+        window.close()
+        return self.nextPC()
+
     # create {rbrwin} at {left} {top} size {width} {height}
     # create {room} {name} {mode} {height}
     # create {button} text {text}
