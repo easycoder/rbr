@@ -62,7 +62,6 @@
 !    debug step
 
     log `Starting`
-    init graphics
 
     create MainPanel type QHBoxLayout
 
@@ -247,6 +246,7 @@
 
     create StatusLabel text `` align right
     add StatusLabel to RightPanel
+    gosub to OK
 
     create Window title `RBR-Now configurator` size 700 500
     set the layout of Window to MainPanel
@@ -2054,7 +2054,8 @@ Error:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Enable or disable the various buttons
 SetUnBusy:
-    if SystemHostSSID is not HostSSID go to SetBusy
+    if SystemHostSSID is not empty
+        if SystemHostSSID is not HostSSID go to SetBusy
 ! ScanDevicesButton
     if the count of SystemsCombo is 0
         disable ScanDevicesButton

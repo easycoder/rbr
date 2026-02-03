@@ -1,0 +1,51 @@
+{
+    "Kitchen": {
+        "rate-up": 11,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 0
+    },
+    "Sunroom": {
+        "rate-up": 10,
+        "rate-down": 9,
+        "ceiling": 26,
+        "boost": 100
+    },
+    "Lounge": {
+        "rate-up": 12,
+        "rate-down": 9,
+        "ceiling": 26,
+        "boost": 0
+    },
+    "Hall": {
+        "rate-up": 13,
+        "rate-down": 10,
+        "ceiling": 21,
+        "boost": 0
+    },
+    "Office": {
+        "rate-up": 11,
+        "rate-down": 13,
+        "ceiling": 22,
+        "boost": 40
+    },
+    "Main Bedroom": {
+        "rate-up": 10,
+        "rate-down": 7,
+        "ceiling": 23,
+        "boost": 80
+    },
+    "Guest Bedroom": {
+        "rate-up": 10,
+        "rate-down": 6,
+        "ceiling": 23,
+        "boost": 80
+    },
+    "Outside": {
+        "rate-up": 10,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 50
+    },
+    "device_script": "simulator.ecs"
+}

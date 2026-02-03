@@ -1,0 +1,194 @@
+!   main.ecs - the main program script
+
+    script Main
+
+    use mqtt
+
+    dictionary Config
+    dictionary Map
+    dictionary Map2
+    dictionary Profile
+    dictionary Room
+    dictionary SystemData
+    dictionary SystemData2
+    dictionary Response
+    dictionary Message
+    dictionary RoomIndex
+    dictionary Sender
+    dictionary ReceivedMessage
+    dictionary Data
+    dictionary WaitForConfirmation
+    list Profiles
+    list Rooms
+    module DeviceModule
+    topic ServerTopic
+    topic SenderTopic
+    variable DeviceScript
+    variable RoomCount
+    variable RoomName
+    variable CurrentProfile
+    variable ConfirmationRequested
+    variable MapChanged
+    variable StateChanged
+    variable MessageText
+    variable SenderName
+    variable SenderQoS
+    variable MyID
+    variable Subject
+    variable Action
+    variable R
+
+!    debug step
+
+    ! Set up MQTT
+    put `38:54:39:34:62:d7/request` into MyID
+    init ServerTopic
+        name MyID
+        qos 1
+
+    mqtt
+        id uuid
+        broker `test.mosquitto.org`
+        port 1883
+        subscribe ServerTopic
+    
+    on mqtt message go to HandleMQTTMessage
+
+    gosub to LoadMap
+
+    if file `../config.json` exists load Config from `../config.json`
+    else
+    begin
+        reset Config
+        set entry `device_script` of Config to `simulator.ecs`
+    end
+    put entry `device_script` of Config into DeviceScript
+
+    ! Launch a module for each room
+    reset RoomIndex
+    put 0 into R
+    while R is less than RoomCount
+    begin
+        put item R of Rooms into Room
+        put entry `name` of Room into RoomName
+        set entry RoomName of RoomIndex to R
+        index DeviceModule to R
+        run DeviceScript as DeviceModule with Room
+        increment R
+    end
+
+    on message
+    begin
+!        log the message
+        put the message into Message
+        put entry `subject` of Message into Subject
+        if Subject is `roomstate`
+        begin
+            put entry `name` of Message into RoomName
+            put entry `data` of Message into Data
+            set entry RoomName of SystemData to Data
+            if entry `period` of Data set MapChanged
+            set StateChanged
+        end
+    end
+
+    clear ConfirmationRequested
+    set MapChanged
+    set StateChanged
+    log `All set up and ready`
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+LoadMap:
+    load Map from `../map.json`
+    put entry `profiles` of Map into Profiles
+    put entry `profile` of Map into CurrentProfile
+    put item CurrentProfile of Profiles into Profile
+    put entry `rooms` of Profile into Rooms
+    put the count of Rooms into RoomCount
+    set the elements of DeviceModule to RoomCount
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+HandleMQTTMessage:
+    put the mqtt message into ReceivedMessage
+    log `Incoming: ` cat ReceivedMessage
+    put entry `sender` of ReceivedMessage into Sender
+    put entry `action` of ReceivedMessage into Action
+    put entry `message` of ReceivedMessage into Data
+    if Action is `first`
+    begin
+        put `map` into Action
+        set MapChanged
+        set StateChanged
+    end
+    if Action is `map`
+    begin
+!        log `Return the map`
+        if Map is empty gosub to LoadMap
+        if MapChanged
+        begin
+            save prettify Map to `../map.json`
+            put Map into Map2
+        end
+        else reset Map2
+        if StateChanged put SystemData into SystemData2 else reset SystemData2
+        ! If nothing has changed, do nothing
+        if not MapChanged
+            if not StateChanged 
+                stop
+        reset Response
+        set entry `subject` of Response to `map`
+        set entry `map` of Response to Map2
+        set entry `data` of Response to SystemData2
+        put Response into MessageText
+        clear MapChanged
+        clear StateChanged
+        go to SendReply
+    end
+    else if Action is `uirequest`
+    begin
+        put entry `action` of Data into Action
+        if Action is `System Name`
+        begin
+            set entry `name` of Map to entry `System Name` of Data
+            log `Set the system name to ` cat entry `name` of Map
+        end
+        else if Action is `Request Relay`
+        begin
+            set entry `request` of Map to entry `Request Relay` of Data
+            log `Set the request relay to ` cat entry `request` of Map
+        end
+        else if Action is `Add Room`
+        begin
+            set entry `request` of Map to entry `Request Relay` of Data
+            put entry `Add Room` of Data into Room
+            append Room to Rooms
+            set entry `rooms` of Profile to Rooms
+            set item CurrentProfile of Profiles to Profile
+            set entry `profiles` of Map to Profiles
+            log `Add room ` cat entry `name` of Room
+        end
+        set MapChanged
+    end
+    stop
+
+! Send a reply message
+SendReply:
+!    log Sender
+    put entry `name` of Sender into SenderName
+    put entry `qos` of Sender into SenderQoS
+    init SenderTopic
+        name SenderName
+        qos SenderQoS
+    if ConfirmationRequested
+    begin
+        set entry SenderName of WaitForConfirmation
+        set Action to `confirm`
+    end
+    else set Action to `reply`
+    send to SenderTopic
+        action Action
+        message MessageText
+    clear ConfirmationRequested
+    stop

@@ -25,6 +25,6 @@
     reset Request
     if SystemName is Input exit
     set the text of SystemName to Input
-    set entry `action` of Request to `System Name`
-    set entry `System Name` of Request to Input
+    set property `action` of Request to `SystemName`
+    set property `SystemName` of Request to Input
     exit
