@@ -239,6 +239,7 @@ FAT2:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Find which period we're in (to get the target temperature)
 FindCurrentPeriod:
+    if the count of Events is 0 return
     put PeriodNow into PeriodWas
     set P to 0
 FCP2:

@@ -23,6 +23,7 @@
     module DeviceModule
     topic ServerTopic
     topic SenderTopic
+    variable MQTT_Token
     variable DeviceScript
     variable RoomCount
     variable RoomName
@@ -36,9 +37,18 @@
     variable MyID
     variable Subject
     variable Action
+    variable Mode
     variable R
 
 !    debug step
+
+    ! Get the MQTT token
+    if file `~/.mqqt_token` does not exist
+    begin
+        log `No MQTT token could be found.`
+        exit
+    end
+    load MQTT_Token from `~/.mqqt_token`
 
     ! Set up MQTT
     put `38:54:39:34:62:d7/request` into MyID
@@ -47,13 +57,17 @@
         qos 1
 
     mqtt
+        token MQTT_Token
         id uuid
-        broker `test.mosquitto.org`
-        port 1883
+        broker `mqtt.flespi.io`
+        port 8883
         subscribe ServerTopic
     
+    on mqtt connect go to Start
     on mqtt message go to HandleMQTTMessage
+    stop
 
+Start:
     gosub to LoadMap
 
     if file `../config.json` exists load Config from `../config.json`
@@ -112,7 +126,7 @@ LoadMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 HandleMQTTMessage:
     put the mqtt message into ReceivedMessage
-    log `Incoming: ` cat ReceivedMessage
+!    log `Incoming: ` cat ReceivedMessage
     put entry `sender` of ReceivedMessage into Sender
     put entry `action` of ReceivedMessage into Action
     put entry `message` of ReceivedMessage into Data
@@ -122,57 +136,89 @@ HandleMQTTMessage:
         set MapChanged
         set StateChanged
     end
-    if Action is `map`
-    begin
-!        log `Return the map`
-        if Map is empty gosub to LoadMap
-        if MapChanged
-        begin
-            save prettify Map to `../map.json`
-            put Map into Map2
-        end
-        else reset Map2
-        if StateChanged put SystemData into SystemData2 else reset SystemData2
-        ! If nothing has changed, do nothing
-        if not MapChanged
-            if not StateChanged 
-                stop
-        reset Response
-        set entry `subject` of Response to `map`
-        set entry `map` of Response to Map2
-        set entry `data` of Response to SystemData2
-        put Response into MessageText
-        clear MapChanged
-        clear StateChanged
-        go to SendReply
-    end
-    else if Action is `uirequest`
-    begin
-        put entry `action` of Data into Action
-        if Action is `System Name`
-        begin
-            set entry `name` of Map to entry `System Name` of Data
-            log `Set the system name to ` cat entry `name` of Map
-        end
-        else if Action is `Request Relay`
-        begin
-            set entry `request` of Map to entry `Request Relay` of Data
-            log `Set the request relay to ` cat entry `request` of Map
-        end
-        else if Action is `Add Room`
-        begin
-            set entry `request` of Map to entry `Request Relay` of Data
-            put entry `Add Room` of Data into Room
-            append Room to Rooms
-            set entry `rooms` of Profile to Rooms
-            set item CurrentProfile of Profiles to Profile
-            set entry `profiles` of Map to Profiles
-            log `Add room ` cat entry `name` of Room
-        end
-        set MapChanged
-    end
+
+    if Action is `map` go to SendMap
+    else if Action is `uirequest` go to ProcessUIRequest
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ProcessUIRequest:
+    put entry `action` of Data into Action
+    if Action is `System Name`
+    begin
+        set entry `name` of Map to entry `System Name` of Data
+        log `Set the system name to ` cat entry `name` of Map
+    end
+    else if Action is `Request Relay`
+    begin
+        set entry `request` of Map to entry `Request Relay` of Data
+        log `Set the request relay to ` cat entry `request` of Map
+    end
+    else if Action is `Add Room`
+    begin
+        set entry `request` of Map to entry `Request Relay` of Data
+        put entry `Add Room` of Data into Room
+        append Room to Rooms
+        set entry `rooms` of Profile to Rooms
+        set item CurrentProfile of Profiles to Profile
+        set entry `profiles` of Map to Profiles
+        log `Add room ` cat entry `name` of Room
+    end
+    else if Action is `Select Profile`
+    begin
+        set entry `profile` of Map to entry `Select Profile` of Data
+        log `Set profile ` cat entry `profile` of Map
+    end
+    else if Action is `Operating Mode`
+    begin
+        put entry `room name` of Data into RoomName
+        put 0 into R
+        while R is less than RoomCount
+        begin
+            put item R of Rooms into Room
+            if entry `name` of Room is RoomName
+            begin
+                set Mode to entry `Operating Mode` of Data
+                set entry `mode` of Room to Mode
+                log `Set Operating Mode of ` cat RoomName cat ` to ` cat Mode
+                if Data has entry `Advance`
+                begin
+                    if entry `advance` of Room is `-` set entry `advance` of Room to `A`
+                    else set entry `advance` of Room to `-`
+                end
+                go to PUR2
+            end
+            increment R
+        end
+        stop
+    end
+PUR2:
+    set MapChanged
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SendMap:
+    if Map is empty gosub to LoadMap
+    if MapChanged
+    begin
+        save prettify Map to `../map.json`
+        put Map into Map2
+    end
+    else reset Map2
+    if StateChanged put SystemData into SystemData2 else reset SystemData2
+    ! If nothing has changed, do nothing
+    if not MapChanged
+        if not StateChanged 
+            stop
+    reset Response
+    set entry `subject` of Response to `map`
+    set entry `map` of Response to Map2
+    set entry `data` of Response to SystemData2
+    put Response into MessageText
+    clear MapChanged
+    clear StateChanged
+    go to SendReply
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Send a reply message
 SendReply:
 !    log Sender
@@ -187,8 +233,10 @@ SendReply:
         set Action to `confirm`
     end
     else set Action to `reply`
+!    log left 20 of MessageText
     send to SenderTopic
         action Action
         message MessageText
+!    log `Reply sent`
     clear ConfirmationRequested
     stop

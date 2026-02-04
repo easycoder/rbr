@@ -1003,7 +1003,11 @@
                     "name": "Outside",
                     "sensor": "a4:c1:38:ad:9c:38",
                     "relays": [],
-                    "mode": "off",
+                    "mode": {
+                        "action": "mode",
+                        "mode": "on",
+                        "target": 0.0
+                    },
                     "target": 0.0,
                     "events": [],
                     "relay": "off",
@@ -1272,7 +1276,7 @@
             ]
         }
     ],
-    "request": "Request",
+    "request": "",
     "calendar-data": [
         {
             "day0-profile": "Monday-Friday"
@@ -1308,7 +1312,7 @@
         }
     ],
     "name": "QED6",
-    "profile": 1,
+    "profile": 2,
     "controller-ssid": "RBR-803f5da34f09",
     "controller-password": "r00m8Yr00m",
     "email": "gt@pobox.com",

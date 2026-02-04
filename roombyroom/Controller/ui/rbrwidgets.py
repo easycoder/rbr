@@ -524,8 +524,6 @@ class ModeButton(QWidget):
                     painter.setFont(font2)
                     rect2 = self.rect().adjusted(0, height * 0.1, 0, 0)
                     painter.drawText(rect2, Align.AlignCenter, text)
-                elif self.mode == 'Advance':
-                    pass
                 elif self.mode == 'Boost':
                     font2 = QFont("Arial", height // 7)
                     painter.setFont(font2)
@@ -1242,14 +1240,30 @@ class OffMode(GenericMode):
 class ModeDialog(QDialog):
     def __init__(self, program, roomSpec):
         super().__init__(program.rbrwin)
+        title = 'Operating Mode'
+        # Match title bar/frameless style to parent window
+        flags = self.windowFlags()
+        parent = program.rbrwin
+        use_frameless = (parent.windowFlags() & WindowType.FramelessWindowHint) or (parent.windowTitle() == '')
+        if use_frameless:
+            flags |= WindowType.FramelessWindowHint
+            flags &= ~WindowType.WindowTitleHint
+            flags &= ~WindowType.WindowSystemMenuHint
+        else:
+            flags &= ~WindowType.FramelessWindowHint
+            flags |= WindowType.WindowTitleHint
+            flags |= WindowType.WindowSystemMenuHint
+        self.setWindowFlags(flags)
+        if use_frameless:
+            self.setWindowTitle('')
+        else:
+            self.setWindowTitle(title)
         self.setStyleSheet('''
             background-color: white;
             border: 1px solid black;
         ''')
         self.roomSpec = roomSpec
         
-#        self.setWindowTitle('Operating mode')
-        self.setWindowFlags(WindowType.FramelessWindowHint)
         self.setModal(True)
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
@@ -1263,18 +1277,18 @@ class ModeDialog(QDialog):
 
         # Add modes
         modes = []
-        mode = TimedMode(program, self)
-        modes.append(mode)
-        layout.addWidget(mode)
-        mode = BoostMode(program, self)
-        modes.append(mode)
-        layout.addWidget(mode)
-        mode = OnMode(program, self)
-        modes.append(mode)
-        layout.addWidget(mode)
-        mode = OffMode(program, self)
-        modes.append(mode)
-        layout.addWidget(mode)
+        self.timedMode = TimedMode(program, self)
+        modes.append(self.timedMode)
+        layout.addWidget(self.timedMode)
+        self.boostMode = BoostMode(program, self)
+        modes.append(self.boostMode)
+        layout.addWidget(self.boostMode)
+        self.onMode = OnMode(program, self)
+        modes.append(self.onMode)
+        layout.addWidget(self.onMode)
+        self.offMode = OffMode(program, self)
+        modes.append(self.offMode)
+        layout.addWidget(self.offMode)
 
         # Add Cancel button
         cancelButton = TextButton(program, name='cancelbutton', height=40, text='Cancel')
@@ -1284,34 +1298,37 @@ class ModeDialog(QDialog):
         self.adjustSize()
     
     def timedModeSelected(self):
-        self.returnWith('timed')
+        self.returnWith({'action':'mode', 'mode':'timed'})
     
     def boostModeSelected(self):
-        self.returnWith('')
+        target = self.boostMode.target
+        self.returnWith({'action':'mode', 'mode':'boost', 'target': target})
     
     def onModeSelected(self):
-        self.returnWith('on')
+        target = self.onMode.target
+        self.returnWith({'action':'mode', 'mode':'on', 'target': target})
     
     def offModeSelected(self):
-        self.returnWith('off')
+        self.returnWith({'action':'mode', 'mode':'off'})
     
     def advanceSelected(self):
-        self.returnWith('advance')
+        advance = self.roomSpec.advance if hasattr(self.roomSpec, 'advance') else '-'
+        self.returnWith({'action':'mode', 'mode':'timed', 'advance': advance})
     
     def editSelected(self):
-        self.returnWith('edit')
+        self.returnWith({'action':'edit'})
     
     def boostOffSelected(self):
-        self.returnWith('boost 0')
+        self.returnWith({'action':'boost', 'duration': 0})
     
     def boost30Selected(self):
-        self.returnWith('boost 30')
+        self.returnWith({'action':'boost', 'duration': 30})
     
     def boost60Selected(self):
-        self.returnWith('boost 60')
+        self.returnWith({'action':'boost', 'duration': 60})
     
     def boost120Selected(self):
-        self.returnWith('boost 120')
+        self.returnWith({'action':'boost', 'duration': 120})
 
     def returnWith(self, result):
         self.result = result

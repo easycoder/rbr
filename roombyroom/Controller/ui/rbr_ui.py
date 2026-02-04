@@ -360,7 +360,7 @@ class RBR_UI(Handler):
     def k_get(self, command):
         if self.nextIsSymbol():
             record = self.getSymbolRecord()
-            if self.isObjectType(record, ECVariable):
+            if self.isObjectType(record, ECDictionary):
                 command['target'] = record['name']
                 self.skip('from')
                 if self.nextIsSymbol():
@@ -385,7 +385,7 @@ class RBR_UI(Handler):
         roomSpec = self.getVariable(command['with']) if 'with' in command else None
         keyword = dialog['keyword']
         value = ModeDialog(self.program, roomSpec).showDialog() if keyword == 'modeDialog' else ''
-        v = ECValue(type=str, content=value)
+        v = ECValue(type=dict, content=value)
         self.putSymbolValue(target, v)
         return self.nextPC()
 

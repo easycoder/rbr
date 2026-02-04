@@ -790,10 +790,25 @@ class Popout(QWidget):
 # A popup menu
 class Menu(QDialog):
     def __init__(self, program, height, parent=None, title="Select Action", actions=None):
-        super().__init__(program.rbrwin)
-        self.setWindowFlags(WindowType.FramelessWindowHint)
+        parent = parent or program.rbrwin
+        super().__init__(parent)
+        # Match title bar/frameless style to parent window
+        flags = self.windowFlags()
+        use_frameless = (parent.windowFlags() & WindowType.FramelessWindowHint) or (parent.windowTitle() == '')
+        if use_frameless:
+            flags |= WindowType.FramelessWindowHint
+            flags &= ~WindowType.WindowTitleHint
+            flags &= ~WindowType.WindowSystemMenuHint
+        else:
+            flags &= ~WindowType.FramelessWindowHint
+            flags |= WindowType.WindowTitleHint
+            flags |= WindowType.WindowSystemMenuHint
+        self.setWindowFlags(flags)
+        if use_frameless:
+            self.setWindowTitle('')
+        else:
+            self.setWindowTitle(title)
 
-#        self.setWindowTitle(title)
         self.program = program
         self.setModal(True)
         self.setFixedWidth(300)
@@ -844,6 +859,11 @@ class Menu(QDialog):
 
     def show(self):
         # Show dialog and return result
+        # Ensure it's visible and raised before entering the modal loop
+        super().show()
+        self.raise_()
+        self.activateWindow()
+        QApplication.processEvents()
         if self.exec() == DialogCode.Accepted:
             return self.result
         return None

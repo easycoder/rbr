@@ -39,9 +39,9 @@
     dictionary RoomData
     dictionary Response
     dictionary Data
+    dictionary Result
     dictionary Request
     dictionary Message
-    dictionary ReceivedMessage
     list Profiles
     list Rooms
     list NewRooms
@@ -53,8 +53,8 @@
     list ChoicesShown
     topic MyTopic
     topic ServerTopic
+    variable MQTT_Token
     variable UUID
-    variable WaitCounter
     variable MapRequests
     variable GraphicsStarted
     variable FirstTime
@@ -69,9 +69,10 @@
     variable RoomIndex
     variable ThisRoom
     variable ThatRoom
+    variable SelectedRoom
     variable Choice
+    variable Action
     variable Advance
-    variable Result
     variable RequestRelay
     variable Timestamp
     variable Temperature
@@ -83,6 +84,8 @@
     variable Uptime
     variable Locked
     variable LockCounter
+    variable WaitCounter
+    variable Waiting
     variable HH
     variable MM
     variable SS
@@ -91,13 +94,14 @@
     variable P
     variable R
 
-    debug step
+!    debug step
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Some preliminary stuff
 
     init graphics
     clear GraphicsStarted
+    reset Message
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Main start
@@ -117,6 +121,14 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
 
+    ! Get the MQTT token
+    if file `~/.mqqt_token` does not exist
+    begin
+        log `No MQTT token could be found.`
+        exit
+    end
+    load MQTT_Token from `~/.mqqt_token`
+
     put uuid into UUID
 
     init MyTopic
@@ -128,46 +140,66 @@ Start:
         qos 1
 
     mqtt
+        token MQTT_Token
         id UUID
-        broker `test.mosquitto.org`
-        port 1883
+        broker `mqtt.flespi.io`
+        port 8883
         subscribe MyTopic
     
-    on mqtt message put the mqtt message into ReceivedMessage
+    on mqtt connect go to ML2
+    
+    on mqtt message
+    begin
+        put the mqtt message into Message
+        put entry `message` of Message into Message
+        clear Waiting
+    end
+
+    clear Waiting
+    go to FlashHourglass
 
 !   This loop sends regular map requests and updates the screen with any changes
 MainLoop:
     put 0 into LockCounter
     while LockCounter is less than 100
     begin
+        if Message is not empty gosub to UpdateScreen
         wait 10 ticks
-        if Locked stop
         increment LockCounter
     end
-    log `Ping`
+ML2:
+!    log `Ping`
     increment MapRequests
-    reset ReceivedMessage
-    if FirstTime put `first` into Text else put `map` into Text
+    if FirstTime
+    begin
+        put `first` into Text
+        log `Sending first request`
+    end
+    else put `map` into Text
     send to ServerTopic
         sender MyTopic
         action Text
         message `{"map requests": ` cat MapRequests cat `}`
     put 0 into WaitCounter
-    while ReceivedMessage is empty
+    while Message is empty
     begin
-        if Locked stop
         wait 1 tick
         increment WaitCounter
-        if WaitCounter is greater than 100 go to MainLoop
+        if WaitCounter is greater than 100
+        begin
+!            log `No reply`
+            put 0 into WaitCounter
+            go to MainLoop
+        end
     end
-    gosub to UpdateScreen
     go to MainLoop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the screen.
 UpdateScreen:
     log `Update the screen`
-    put entry `message` of ReceivedMessage into Message
+    if Locked return
+    clear Waiting
     ! If map is empty there's no change
     put entry `map` of Message into Data
     if Data is not empty put Data into Map
@@ -236,6 +268,9 @@ UpdateScreen:
 
     ! Attach the popout
     attach Popout to element `popout` of Window
+
+    ! Reset the message so we don't repeat this
+    reset Message
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -274,13 +309,11 @@ ShowMainMenu:
     append `Cancel` to Choices
 
     select Choice from menu `Main Menu` with Choices
-    clear Locked
     if Choice is item 0 of Choices go to SetSystemName
     if Choice is item 1 of Choices go to SetRequestRelay
     if Choice is item 2 of Choices go to AddRoom
     if Choice is item 3 of Choices go to ShowSystemInfo
     if Choice is item 5 of Choices go to Exit
-    if Choice is item 7 of Choices stop
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -383,8 +416,8 @@ ShowProfileMenu:
 !   Select a profile
 SelectProfile:
     log `Select profile ` cat P
-    set entry `action` of Request to `profile`
-    set entry `profile` of Request to P
+    set entry `action` of Request to `Select Profile`
+    set entry `Select Profile` of Request to P
     go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -396,52 +429,58 @@ EditProfiles:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Handle a click on one of the Mode buttons
 HandleMode:
-    reset Data
-    put the index of ModeButton into R
-    index Room to R
-    put item R of Rooms into RoomSpec
+    set Locked
+    put the index of ModeButton into SelectedRoom
+    index Room to SelectedRoom
+    put item SelectedRoom of Rooms into RoomSpec
     put entry `name` of RoomSpec into Name
     put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
-    if Result is empty stop
-    set entry `target` of Data to entry `target` of RoomSpec
-    log Name cat `: ` cat Result
+    clear Locked
     reset Request
-    if Result is empty stop
-    else if Result is `timed`
+    set entry `room name` of Request to Name
+    set entry `target` of Request to entry `target` of RoomSpec
+    put entry `action` of Result into Action
+    if Action is `mode`
     begin
-        set entry `mode` of Request to `timed`
-        gosub to SetMode
+        put entry `mode` of Result into Mode
+        if Mode is `timed`
+        begin
+            log Result
+            if Result has entry `advance` set entry `Advance` of Request
+            set entry `mode` of Request to `timed`
+            go to SetMode
+        end
+        else if Mode is `off`
+        begin
+            set entry `mode` of Request to `off`
+            go to SetMode
+        end
+        else if Mode is `on`
+        begin
+            set entry `mode` of Request to `on`
+            set entry `target` of Request to entry `target` of Request
+            go to SetMode
+        end
+        else if left 5 of Mode is `boost`
+        begin
+            set entry `mode` of Request to `boost`
+            put from 6 of Result into Value
+            put left 5 of Result into Result
+            set entry `boost` of Request to `B` cat Value
+            set entry `target` of Request to entry `target` of Request
+            go to SetMode
+        end
     end
-    else if Result is `off`
-    begin
-        set entry `mode` of Request to `off`
-        gosub to SetMode
-    end
-    else if Result is `on`
-    begin
-        set entry `mode` of Request to `on`
-        set entry `target` of Request to entry `target` of Data
-        gosub to SetMode
-    end
-    else if left 5 of Result is `boost`
-    begin
-        set entry `mode` of Request to `boost`
-        put from 6 of Result into Value
-        put left 5 of Result into Result
-		set entry `boost` of Request to `B` cat Value
-        set entry `target` of Request to entry `target` of Data
-        gosub to SetMode
-    end
-    else if Result is `advance`
+    else if Mode is `advance`
     begin
         set entry `mode` of Request to `timed`
         put entry `advance` of RoomSpec into Advance
-        if Advance is `-` set entry `advance` of Request to `A`
-        else set entry `advance` of Request to `C`
-        gosub to SetMode
+        if Advance is `-` set entry `Advance` of Request to `A`
+        else set entry `Advance` of Request to `C`
+        go to SetMode
     end
-    else if Result is `edit`
+    else if Action is `edit`
     begin
         set Locked
         put entry `name` of RoomSpec into RoomName
@@ -449,15 +488,16 @@ HandleMode:
         run `schedule.ecs` as Module with RoomName and Window and Periods and Request
         if Request is empty stop
         set entry `events` of RoomSpec to Periods
-        set entry `roomnumber` of Request to R
         clear Locked
         go to SendRequest
-    end 
+    end
+HM2:
+    clear Locked
     stop
 
 SetMode:
-    set entry `action` of Request to `mode`
-    set entry `roomnumber` of Request to R
+    set entry `action` of Request to `Operating Mode`
+    set entry `Operating Mode` of Request to Mode
     go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -759,21 +799,29 @@ Exit:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
 SendRequest:
-!    log `Sending UI request ` cat Request
-    reset ReceivedMessage
+    log `Sending UI request ` cat Request
     send to ServerTopic
         sender MyTopic
         action `uirequest`
         message Request
-    wait 1 tick
-    go to WaitForMessage
+    set Waiting
+    clear Locked
+    stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Flash the hourglass while waiting for a reply
 FlashHourglass:
-    set attribute `hourglass` of Window to true
-    wait 50 ticks
-    set attribute `hourglass` of Window to false
-    wait 50 ticks
-    return
+    while true
+    begin
+        if Waiting
+        begin
+            set attribute `hourglass` of Window to true
+            wait 50 ticks
+            set attribute `hourglass` of Window to false
+            wait 40 ticks
+        end
+        wait 10 ticks
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Convert a hundredths teperature to a decimal for display
