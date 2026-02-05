@@ -84,7 +84,6 @@
     variable Uptime
     variable Locked
     variable LockCounter
-    variable WaitCounter
     variable Waiting
     variable HH
     variable MM

@@ -352,25 +352,25 @@
                     "target": 15.0,
                     "events": [
                         {
-                            "until": "12:30",
-                            "temp": "15.0"
+                            "temp": 15.0,
+                            "until": "12:30"
                         },
                         {
-                            "until": "14:00",
-                            "temp": "21.0"
+                            "temp": 21.0,
+                            "until": "14:00"
                         },
                         {
-                            "until": "17:30",
-                            "temp": "15.0"
+                            "temp": 15.0,
+                            "until": "17:30"
                         },
                         {
-                            "until": "20:00",
-                            "temp": "21.0"
+                            "temp": 21.0,
+                            "until": "23:00"
                         }
                     ],
                     "relay": "off",
                     "protect": "no",
-                    "advance": "A",
+                    "advance": "-",
                     "boost": 0,
                     "relayType": "Shelly One",
                     "prevmode": "timed",

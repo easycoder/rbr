@@ -2,7 +2,7 @@
 
     script Simulator
 
-    import dictionary Room
+    import dictionary ImportedRoom
 
     list Times
     list Events
@@ -12,12 +12,14 @@
     dictionary Period
     dictionary RoomData
     dictionary Message
+    dictionary Room
     variable RoomName
     variable TempNow
     variable TempWas
     variable PeriodNow
     variable PeriodWas
     variable PeriodChanged
+    variable Advance
     variable Rows
     variable Value
     variable Time
@@ -44,9 +46,10 @@
 !    debug compile
 !    debug step
 
+    copy ImportedRoom to Room
     put entry `name` of Room into RoomName
     put entry `mode` of Room into Mode
-!    log RoomName cat ` - ` cat Mode
+    put `` cat entry `advance` of Room into Advance
 
 !   Load the environmental data
     load Rows from `environment.csv`
@@ -104,7 +107,12 @@
     set Relay to `off`
 
     release parent
-    wait 5
+    on message
+    begin
+        put the message into Room
+        log entry `name` of Room cat ` updated`
+        if entry `name` of Room is `Kitchen` log entry `advance` of Room
+    end
 
 !   Run the simulator
     put entry `ceiling` of Params into Temp
@@ -112,96 +120,13 @@
     put Temp into Ceiling
     while true
     begin
-        put TempNow into TempWas
-        put Target into TargetWas
-        gosub to FindAmbientTemp
-
-        if Mode is `off`
-        begin
-            put 0 into Target
-        end
-        else if Mode is `on`
-        begin
-        end
-        else if Mode is `boost`
-        begin
-        end
-        else if Mode is `advance`
-        begin
-        end
-        else
-        begin
-            gosub to FindCurrentPeriod
-        end
-
-        ! Calculate the new temperature
-        take OnOffTime from now giving Elapsed
-        if Relay is `on` put entry `rate-up` of Params into Delta
-        else put entry `rate-down` of Params into Delta
-        multiply Delta by Elapsed
-        divide Delta by 36000
-        if Relay is `on`
-        begin
-            add Delta to OnOffTemp giving TempNow
-            if TempNow is greater than Ceiling put Ceiling into TempNow
-        end
-        else
-        begin
-            take Delta from OnOffTemp giving TempNow
-            if TempNow is less than AmbientNow put AmbientNow into TempNow
-        end
-
-        if Mode is `off` put TempNow into OnOffTemp
-        else
-        begin
-            if TempNow is less than Target
-            begin
-                if Relay is `off`
-                begin
-                    put now into OnOffTime
-                    put TempNow into OnOffTemp
-                    set Relay to `on`
-                end
-            end
-            else
-            begin
-                if Relay is `on`
-                begin
-                    put now into OnOffTime
-                    put TempNow into OnOffTemp
-                    set Relay to `off`
-                end
-            end
-        end
-
-        add 600000 to Last giving T
-        if now is greater than T
-        begin
-            reset RoomData
-            if PeriodNow is not PeriodWas set PeriodChanged else clear PeriodChanged
-            if TempNow is TempWas
-                if Target is TargetWas
-                    if not PeriodChanged
-                        go to Repeat
-
-            set entry `temperature` of RoomData to TempNow
-            set entry `target` of RoomData to Target
-            set entry `relay` of RoomData to Relay
-            set entry `period` of RoomData to PeriodChanged
-            log RoomData cat ` --- ` cat RoomName
-            reset Message
-            set entry `subject` of Message to `roomstate`
-            set entry `name` of Message to RoomName
-            set entry `data` of Message to RoomData
-            send Message to parent
-            put now into Last
-        end
-
-        ! Wait then repeat
-    Repeat:
-        put random 10 into T
+        ! Wait a semi-random period
+        put random 3 into T
         add 10 to T
-        wait 10 seconds
+        wait T seconds
+        put `` cat entry `advance` of Room into Advance
+        if RoomName is `Kitchen` log entry `advance` of Room
+        gosub to SimulateStep
     end
     exit
 
@@ -239,6 +164,7 @@ FAT2:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Find which period we're in (to get the target temperature)
 FindCurrentPeriod:
+    put entry `events` of Room into Events
     if the count of Events is 0 return
     put PeriodNow into PeriodWas
     set P to 0
@@ -256,6 +182,7 @@ FCP2:
         add today to Time
         if Time is less than now
         begin
+            put P into PeriodNow
             increment P
             go to FCP2
         end
@@ -268,14 +195,46 @@ FCP2:
     put entry `temp` of Period into Temp
     gosub to ConvertTempToInt
     put Temp into Target
-    put P into PeriodNow
-!        log `Now: ` cat now cat `, PeriodStart: ` cat PeriodStart
-!        print `Period ` cat P cat `: ` cat item P of Events
+    if Advance is not `-`
+    begin
+        if Advance is `A`
+        begin
+            if P is the count of Events put 0 into P
+            put `` cat P into Advance
+            set entry `advance` of Room to Advance
+            gosub to NotifyMainOfAdvance
+        end
+        if RoomName is `Kitchen` log RoomName cat `:Current is ` cat PeriodNow cat `: advanced to ` cat Advance
+        if Advance is not `-`
+        begin
+            put the value of Advance into P
+            if P is PeriodNow
+            begin
+                log `Cancel the advance`
+                set entry `advance` of Room to `-`
+                gosub to NotifyMainOfAdvance
+            end
+        end
+        put item P of Events into Period
+        put entry `temp` of Period into Temp
+        gosub to ConvertTempToInt
+        put Temp into Target
+    end
     return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Notify the main that an advance change has occurred
+NotifyMainOfAdvance:
+    reset Message
+    set entry `subject` of Message to `Advance`
+    set entry `Advance` of Message to Advance
+    set entry `name` of Message to RoomName
+    send Message to parent
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Convert an HH:MM time into an int seconds value
 ConvertTimeToInt:
+    put `` cat Time into Time
     put the index of `:` in Time into I
     put the value of left I of Time into Result
     multiply Result by 60
@@ -300,3 +259,84 @@ ConvertTempToInt:
     end
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Run one step of the simulation
+SimulateStep:
+    if Room is empty return
+    put TempNow into TempWas
+    put Target into TargetWas
+    gosub to FindAmbientTemp
+
+    if Mode is `timed`
+    begin
+        gosub to FindCurrentPeriod
+    end
+    else if Mode is `on`
+    begin
+    end
+    else if Mode is `boost`
+    begin
+    end
+    else put 0 into Target
+
+    ! Calculate the new temperature
+    take OnOffTime from now giving Elapsed
+    if Relay is `on` put entry `rate-up` of Params into Delta
+    else put entry `rate-down` of Params into Delta
+    multiply Delta by Elapsed
+    divide Delta by 36000
+    if Relay is `on`
+    begin
+        add Delta to OnOffTemp giving TempNow
+        if TempNow is greater than Ceiling put Ceiling into TempNow
+    end
+    else
+    begin
+        take Delta from OnOffTemp giving TempNow
+        if TempNow is less than AmbientNow put AmbientNow into TempNow
+    end
+
+    if Mode is `off` put TempNow into OnOffTemp
+    else
+    begin
+        if TempNow is less than Target
+        begin
+            if Relay is `off`
+            begin
+                put now into OnOffTime
+                put TempNow into OnOffTemp
+                set Relay to `on`
+            end
+        end
+        else
+        begin
+            if Relay is `on`
+            begin
+                put now into OnOffTime
+                put TempNow into OnOffTemp
+                set Relay to `off`
+            end
+        end
+    end
+
+    add 600000 to Last giving T
+    if now is greater than T
+    begin
+        reset RoomData
+        if PeriodNow is not PeriodWas set PeriodChanged else clear PeriodChanged
+        if TempNow is TempWas
+            if Target is TargetWas
+                if not PeriodChanged
+                    return
+        set entry `temperature` of RoomData to TempNow
+        set entry `target` of RoomData to Target
+        set entry `relay` of RoomData to Relay
+        set entry `period` of RoomData to PeriodChanged
+        reset Message
+        set entry `subject` of Message to `roomstate`
+        set entry `name` of Message to RoomName
+        set entry `data` of Message to RoomData
+        send Message to parent
+        put now into Last
+    end
+    return

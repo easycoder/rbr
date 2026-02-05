@@ -14,7 +14,6 @@
     
     panel Container
     panel Editor
-    layout ContainerLayout
     layout Layout
     layout Panel
     layout EditLayout
