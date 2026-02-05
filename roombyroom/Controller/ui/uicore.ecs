@@ -156,10 +156,11 @@ Start:
     end
 
     clear Waiting
-    go to FlashHourglass
+    stop
 
 !   This loop sends regular map requests and updates the screen with any changes
 MainLoop:
+    ! This is in effect a 10-second wait. But if a message comes in it's a screen update
     put 0 into LockCounter
     while LockCounter is less than 100
     begin
@@ -168,6 +169,8 @@ MainLoop:
         increment LockCounter
     end
 ML2:
+    ! If we're locked, don't send any messages
+    if Locked go to MainLoop
 !    log `Ping`
     increment MapRequests
     if FirstTime
@@ -180,34 +183,35 @@ ML2:
         sender MyTopic
         action Text
         message `{"map requests": ` cat MapRequests cat `}`
-    put 0 into WaitCounter
-    while Message is empty
-    begin
-        wait 1 tick
-        increment WaitCounter
-        if WaitCounter is greater than 100
-        begin
+!    put 0 into WaitCounter
+!    while Message is empty
+!    begin
+!        wait 1 tick
+!        increment WaitCounter
+!        if WaitCounter is greater than 100
+!        begin
 !            log `No reply`
-            put 0 into WaitCounter
-            go to MainLoop
-        end
-    end
+!            put 0 into WaitCounter
+!            go to MainLoop
+!        end
+!    end
     go to MainLoop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the screen.
 UpdateScreen:
-    log `Update the screen`
     if Locked return
+    log `Update the screen`
     clear Waiting
     ! If map is empty there's no change
     put entry `map` of Message into Data
     if Data is not empty put Data into Map
 !    else log `No change to map`
     ! Process the map
-    put entry `profile` of Map into CurrentProfile
     put entry `profiles` of Map into Profiles
+    put entry `profile` of Map into CurrentProfile
     put item CurrentProfile of Profiles into Profile
+    log `Current profile is ` cat entry `name` of Profile
     put entry `rooms` of Profile into Rooms
     set the elements of Room to the count of Rooms
     set the elements of ModeButton to the count of Rooms
@@ -436,6 +440,7 @@ HandleMode:
     put entry `name` of RoomSpec into Name
     put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
+    if Result is empty go to HM2
     clear Locked
     reset Request
     set entry `room name` of Request to Name
@@ -483,12 +488,12 @@ HandleMode:
     else if Action is `edit`
     begin
         set Locked
+        reset Request
         put entry `name` of RoomSpec into RoomName
         put entry `events` of RoomSpec into Periods
         run `schedule.ecs` as Module with RoomName and Window and Periods and Request
-        if Request is empty stop
-        set entry `events` of RoomSpec to Periods
         clear Locked
+        if Request is empty stop
         go to SendRequest
     end
 HM2:
@@ -805,8 +810,9 @@ SendRequest:
         action `uirequest`
         message Request
     set Waiting
+    fork to FlashHourglass
     clear Locked
-    stop
+    go to MainLoop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Flash the hourglass while waiting for a reply

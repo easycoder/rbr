@@ -13,7 +13,6 @@
     dictionary SystemData2
     dictionary Response
     dictionary Message
-    dictionary RoomIndex
     dictionary Sender
     dictionary ReceivedMessage
     dictionary Data
@@ -27,6 +26,7 @@
     variable DeviceScript
     variable RoomCount
     variable RoomName
+    variable RoomIndex
     variable CurrentProfile
     variable ConfirmationRequested
     variable MapChanged
@@ -79,13 +79,11 @@ Start:
     put entry `device_script` of Config into DeviceScript
 
     ! Launch a module for each room
-    reset RoomIndex
     put 0 into R
     while R is less than RoomCount
     begin
         put item R of Rooms into Room
         put entry `name` of Room into RoomName
-        set entry RoomName of RoomIndex to R
         index DeviceModule to R
         run DeviceScript as DeviceModule with Room
         increment R
@@ -115,6 +113,7 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 LoadMap:
     load Map from `../map.json`
+InitVariables:
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into CurrentProfile
     put item CurrentProfile of Profiles into Profile
@@ -136,10 +135,38 @@ HandleMQTTMessage:
         set MapChanged
         set StateChanged
     end
-
     if Action is `map` go to SendMap
     else if Action is `uirequest` go to ProcessUIRequest
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+GetRoomByName:
+    put entry `room name` of Data into RoomName
+    put 0 into RoomIndex
+    while RoomIndex is less than RoomCount
+    begin
+        put item RoomIndex of Rooms into Room
+        if entry `name` of Room is RoomName
+        begin
+            log `Room ` cat RoomIndex cat `: ` cat RoomName
+            return
+        end
+        increment RoomIndex
+    end
+    ! Not found
+    reset Room
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+UpdateRooms:
+    set item RoomIndex of Rooms to Room
+UpdateProfile:
+    set entry `rooms` of Profile to Rooms
+UpdateProfiles:
+    set item CurrentProfile of Profiles to Profile
+UpdateMap:
+    set entry `profiles` of Map to Profiles
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ProcessUIRequest:
@@ -158,11 +185,10 @@ ProcessUIRequest:
     begin
         set entry `request` of Map to entry `Request Relay` of Data
         put entry `Add Room` of Data into Room
+        log `Add room ` cat entry `name` of Room
         append Room to Rooms
         set entry `rooms` of Profile to Rooms
-        set item CurrentProfile of Profiles to Profile
-        set entry `profiles` of Map to Profiles
-        log `Add room ` cat entry `name` of Room
+        gosub to UpdateProfiles
     end
     else if Action is `Select Profile`
     begin
@@ -171,26 +197,23 @@ ProcessUIRequest:
     end
     else if Action is `Operating Mode`
     begin
-        put entry `room name` of Data into RoomName
-        put 0 into R
-        while R is less than RoomCount
+        gosub to GetRoomByName
+        if Room is empty stop
+        log `Set Operating Mode of ` cat entry ` name` of Room cat ` to ` cat Mode
+        if Data has entry `Advance`
         begin
-            put item R of Rooms into Room
-            if entry `name` of Room is RoomName
-            begin
-                set Mode to entry `Operating Mode` of Data
-                set entry `mode` of Room to Mode
-                log `Set Operating Mode of ` cat RoomName cat ` to ` cat Mode
-                if Data has entry `Advance`
-                begin
-                    if entry `advance` of Room is `-` set entry `advance` of Room to `A`
-                    else set entry `advance` of Room to `-`
-                end
-                go to PUR2
-            end
-            increment R
+            if entry `advance` of Room is `-` set entry `advance` of Room to `A`
+            else set entry `advance` of Room to `-`
         end
         stop
+    end
+    else if Action is `Periods`
+    begin
+        gosub to GetRoomByName
+        if Room is empty stop
+        log `Set the periods of ` cat entry `name` of Room
+        set entry `events` of Room to entry `Periods` of Data
+        gosub to UpdateRooms
     end
 PUR2:
     set MapChanged
@@ -202,6 +225,7 @@ SendMap:
     begin
         save prettify Map to `../map.json`
         put Map into Map2
+        gosub to InitVariables
     end
     else reset Map2
     if StateChanged put SystemData into SystemData2 else reset SystemData2

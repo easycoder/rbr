@@ -10,7 +10,7 @@
         and list Periods
         and dictionary Request
 
-    debug compile
+!    debug compile
     
     panel Container
     panel Editor
@@ -54,7 +54,6 @@
 
 !    debug step
 
-    log prettify Periods
     copy Periods to Working
     put 0 into SelectedPeriod
     clear Changed
@@ -66,6 +65,7 @@
     gosub to DrawPanel
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 HourUp:
     put item SelectedPeriod of Working into Period
     raise time Time 1 hour
@@ -93,6 +93,7 @@ TimeChanged:
     gosub to SortPeriods
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 TempUp:
     put item SelectedPeriod of Working into Period
     raise temp Temp 5 tenths
@@ -123,11 +124,11 @@ DeletePeriod:
     end
     delete item SelectedPeriod of Working
     decrement NPeriods
-    log NPeriods cat ` - ` cat prettify Working
     gosub to RedrawPanel
     set Changed
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 AddPeriod:
     log `Add period`
     put json `{}` into Period
@@ -138,25 +139,27 @@ AddPeriod:
     gosub to SortPeriods
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SaveAndExit:
     log `Save and exit`
 	if Changed
     begin
+        set item SelectedPeriod of Working to Period
         gosub to ConvertFromToUntil
-	    put json `{}` into Request
-       	set entry `action` of Request to `periods`
-        set entry `periods` of Request to Working
-        put json stringify Working into Periods
+       	set entry `action` of Request to `Periods`
+        set entry `room name` of Request to RoomName
+        set entry `Periods` of Request to Working
     end
     else put empty into Request
     show main view of Window
     exit
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Cancel:
-    put empty into Request
     show main view of Window
     exit
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Convert 'until' to 'from' for all periods
 ConvertUntilToFrom:
     put the count of Working into NPeriods
@@ -193,6 +196,7 @@ ConvertUntilToFrom:
     end
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Convert 'from' to 'until' for all periods
 ConvertFromToUntil:
     put the count of Working into NPeriods
@@ -229,6 +233,7 @@ ConvertFromToUntil:
     end
     return
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Sort the periods into ascending time order
 SortPeriods:
     clear Sorted
@@ -259,6 +264,7 @@ SortPeriods2:
         if Sorted go to RedrawPanel else return
     end
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Draw the schedule panel
 RedrawPanel:
     clear Container
@@ -307,14 +313,20 @@ DrawPanel:
         begin
             if Changed set item SelectedPeriod of Working to Period
             put the index of PeriodButton into SelectedPeriod
-            put 0 into P
-            while P is less than NPeriods
+            log `Clicked period ` cat SelectedPeriod
+            put 0 into Q
+            while Q is less than NPeriods
             begin
-                index Editor to P
+                index Editor to Q
                 hide Editor
-                index PeriodButton to P
+                index PeriodButton to Q
+                put item Q of Working into Period
+                put entry `from` of Period into Time
+                put entry `temp` of Period into Temp
+                put `From ` cat Time cat `: Target = ` cat Temp cat `ºC` into Text
+                set the text of PeriodButton to Text
                 show PeriodButton
-                increment P
+                increment Q
             end
             index PeriodButton to SelectedPeriod
             index Editor to SelectedPeriod

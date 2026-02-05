@@ -698,7 +698,6 @@ class Room(QFrame):
             advance = self.spec['advance']
             if not advance in ['', '-', 'C']:
                 image = 'img/advance.png'
-                self.mode = 'Advance'
         self.modeButton = ModeButton(self, self.program, height * 0.8, 2.7, image, index)
 
         # Room name label
@@ -973,7 +972,7 @@ class GenericMode(QWidget):
         self.setStyles()
 
 ###############################################################################
-# The Timed Mode widget
+# The Timed Mode row widget
 class TimedMode(GenericMode):
 
     # The advance button
@@ -989,7 +988,7 @@ class TimedMode(GenericMode):
         def onFCB(self, name):
             self.fcb()
 
-    # The icon on the right panel
+    # The edit button
     class EditIcon(IconButton):
         def __init__(self, program, icon, fcb):
             super().__init__(program, height=None, icon=icon)
@@ -1047,7 +1046,7 @@ class TimedMode(GenericMode):
         self.caller.editSelected()
 
 ###############################################################################
-# The Boost Mode widget
+# The Boost Mode row widget
 class BoostMode(GenericMode):
 
     # A generic boost button
@@ -1113,7 +1112,7 @@ class BoostMode(GenericMode):
         self.caller.boost120Selected()
 
 ###############################################################################
-# The On Mode widget
+# The On Mode row widget
 class OnMode(GenericMode):
 
     # The plus/minus buttons
@@ -1194,7 +1193,7 @@ class OnMode(GenericMode):
         self.showTarget()
 
 ###############################################################################
-# The Off Mode widget
+# The Off Mode row widget
 class OffMode(GenericMode):
 
     # The off button

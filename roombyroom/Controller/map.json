@@ -370,7 +370,7 @@
                     ],
                     "relay": "off",
                     "protect": "no",
-                    "advance": "-",
+                    "advance": "A",
                     "boost": 0,
                     "relayType": "Shelly One",
                     "prevmode": "timed",
@@ -573,11 +573,11 @@
                     "events": [
                         {
                             "temp": 15.0,
-                            "until": "8:00"
+                            "until": "7:30"
                         },
                         {
                             "temp": 21.0,
-                            "until": "9:30"
+                            "until": "9:00"
                         },
                         {
                             "temp": 15.0,
@@ -1312,7 +1312,7 @@
         }
     ],
     "name": "QED6",
-    "profile": 2,
+    "profile": 1,
     "controller-ssid": "RBR-803f5da34f09",
     "controller-password": "r00m8Yr00m",
     "email": "gt@pobox.com",
