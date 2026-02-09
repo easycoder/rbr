@@ -2,32 +2,28 @@
 
     script Simulator
 
-    import dictionary ImportedRoom
-
     list Times
     list Events
     dictionary Item
     dictionary AllParams
     dictionary Params
     dictionary Period
-    dictionary RoomData
     dictionary Message
     dictionary Room
+    variable FirstTime
     variable RoomName
     variable TempNow
     variable TempWas
     variable PeriodNow
     variable PeriodWas
-    variable PeriodChanged
+    variable PeriodActive
     variable Advance
     variable Rows
     variable Value
     variable Time
     variable Last
-    variable PeriodStart
     variable Elapsed
     variable OnOffTime
-    variable OnOffTemp
     variable Delta
     variable Ceiling
     variable AmbientNow
@@ -35,9 +31,13 @@
     variable TargetWas
     variable Temp
     variable Boost
+    variable Subject
     variable Result
-    variable Relay
+    variable RelayState
+    variable PreviousRelayState
     variable Mode
+    variable EventCount
+    variable StepCount
     variable I
     variable N
     variable P
@@ -45,11 +45,6 @@
 
 !    debug compile
 !    debug step
-
-    copy ImportedRoom to Room
-    put entry `name` of Room into RoomName
-    put entry `mode` of Room into Mode
-    put `` cat entry `advance` of Room into Advance
 
 !   Load the environmental data
     load Rows from `environment.csv`
@@ -77,12 +72,25 @@
         end
         increment N
     end
-!    print prettify Times
 
+    on message go to ProcessMessage
+    set FirstTime
+    put now into Last
+    put 0 into StepCount
+    release parent
+    stop
+
+ProcessMessage:
+    put the message into Room
+    put entry `mode` of Room into Mode
+    put `` cat entry `advance` of Room into Advance
     put entry `events` of Room into Events
-!    log prettify Events
 
-!   Initialise the parameters for a single room
+    if not FirstTime stop
+
+    put entry `name` of Room into RoomName
+
+    ! Initialise the parameters for a single room
     load AllParams from `../config.json`
     if AllParams has entry RoomName put entry RoomName of AllParams into Params
     else
@@ -98,37 +106,190 @@
 
     put 1500 into Target
     put 1500 into Temp
-    put Temp into OnOffTemp
     put Temp into TempNow
     put now into OnOffTime
-    put 0 into Last
     put 0 into PeriodNow
     put 0 into PeriodWas
-    set Relay to `off`
+    set RelayState to `off`
+    clear FirstTime
 
-    release parent
-    on message
-    begin
-        put the message into Room
-        log entry `name` of Room cat ` updated`
-        if entry `name` of Room is `Kitchen` log entry `advance` of Room
-    end
-
-!   Run the simulator
+    ! Run the simulator
     put entry `ceiling` of Params into Temp
     gosub to ConvertTempToInt
     put Temp into Ceiling
     while true
     begin
-        ! Wait a semi-random period
+        ! Wait a fixed or semi-random period.
+        ! The random part is needed for simulation, otherwise it can be a fixed 10 seconds
         put random 3 into T
         add 10 to T
         wait T seconds
-        put `` cat entry `advance` of Room into Advance
-        if RoomName is `Kitchen` log entry `advance` of Room
-        gosub to SimulateStep
+        if Room is not empty gosub to Step
     end
-    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! This is a single step, repeated every 10 seconds
+Step:
+    increment StepCount
+    put TempNow into TempWas
+    put Target into TargetWas
+    gosub to FindAmbientTemp
+    put `` cat entry `advance` of Room into Advance
+
+    if Mode is `timed`
+    begin
+        gosub to FindCurrentPeriod
+    end
+    else if Mode is `on`
+    begin
+    end
+    else if Mode is `boost`
+    begin
+    end
+    else put 0 into Target
+
+    gosub to GetRoomTemperature
+
+    ! Decide if the relay should be on or off
+    put RelayState into PreviousRelayState
+    if Mode is not `off`
+    begin
+        if TempNow is less than Target
+        begin
+            if RelayState is `off`
+            begin
+                put now into OnOffTime
+                set RelayState to `on`
+            end
+        end
+        else
+        begin
+            if RelayState is `on`
+            begin
+                put now into OnOffTime
+                set RelayState to `off`
+            end
+        end
+    end
+!    if PeriodNow is not PeriodWas set PeriodChanged else clear PeriodChanged
+    if RelayState is not PreviousRelayState
+    begin
+        put `roomstate` into Subject
+        gosub to SendRoomStateMessage
+    end
+    else
+    begin
+        ! Don't update until at least a minute since the last change
+        add 60000 to Last giving T
+!        if RoomName is `Sunroom` log T cat ` ` cat now
+        if now is greater than T
+        begin
+            if TempNow is TempWas
+                if Target is TargetWas
+                    begin
+!                        if RoomName is `Sunroom` log `Nothing to do`
+                        put now into Last
+                        return
+                    end
+!            if RoomName is `Sunroom` log `Update the UI`
+            put `roomstate` into Subject
+            gosub to SendRoomStateMessage
+        end
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Find which period we're in (to get the target temperature)
+FindCurrentPeriod:
+    put entry `events` of Room into Events
+    put the count of Events into EventCount
+    if EventCount is 0 return
+    put PeriodNow into PeriodWas
+    set PeriodNow to 0
+FCP2:
+!    if RoomName is `Sunroom` log `Examine period ` cat PeriodNow
+    if PeriodNow is EventCount
+    begin
+        ! We're past the last event time, so use the first
+        put 0 into PeriodNow
+        put item PeriodNow of Events into Period
+        put entry `until` of Period into Time
+        gosub to ConvertTimeToInt
+    end
+    else
+    begin
+        ! Check the current period. If we've passed it, move on.
+        put item PeriodNow of Events into Period
+        put entry `until` of Period into Time
+        gosub to ConvertTimeToInt
+        ! If we've passed this period, get the start of the next period and move on
+!        if RoomName is `Sunroom` log `now=` cat now cat `, Time=` cat Time
+        if now is greater than Time
+        begin
+            increment PeriodNow
+            go to FCP2
+        end
+        ! Otherwise, we've found the period
+    end
+    put PeriodNow into PeriodActive
+
+    ! Now get the target temperature
+    put entry `temp` of Period into Temp
+    gosub to ConvertTempToInt
+    put Temp into Target
+
+    ! Deal with Advance
+    put PeriodNow into P
+    if Advance is not `-`
+    begin
+        if Advance is `A`
+        begin
+            add 1 to PeriodNow giving P
+            if P is EventCount put 0 into P
+            put `` cat P into Advance
+            set entry `advance` of Room to Advance
+            set PeriodActive to P
+            set entry `subject` of Message to `Advance`
+            gosub to SendRoomStateMessage
+        end
+        if Advance is not `-`
+        begin
+            put the value of Advance into P
+            if P is PeriodNow
+            begin
+                log `Cancel the advance`
+                set entry `advance` of Room to `-`
+                set entry `subject` of Message to `Advance`
+                gosub to SendRoomStateMessage
+            end
+        end
+!        log `Get the target temp for period ` cat P cat ` of ` cat Events
+        put P into PeriodActive
+        put item P of Events into Period
+        put entry `temp` of Period into Temp
+        gosub to ConvertTempToInt
+        put Temp into Target
+    end
+!    if RoomName is `Sunroom` log `Step ` cat StepCount cat `: ` cat PeriodNow cat `/` cat PeriodActive
+!        cat ` until ` cat entry `until` of Period cat `, Target=` cat Target
+!        cat `, Temp=` cat TempNow cat `, Relay=` cat RelayState
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Send a room state message back to the main
+SendRoomStateMessage:
+!    if RoomName is `Sunroom` log Target cat `/` cat TempNow cat ` - ` cat RelayState
+    reset Message
+    set entry `subject` of Message to Subject
+    set entry `name` of Message to RoomName
+    set entry `temperature` of Message to TempNow
+    set entry `target` of Message to Target
+    set entry `relay` of Message to RelayState
+    set entry `period` of Message to PeriodActive
+    set entry `Advance` of Message to Advance
+    send Message to parent
+    put now into Last
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! Find the current ambient temperature
@@ -140,7 +301,6 @@ FAT2:
         put item P of Times into Item
         put entry `time` of Item into Time
         gosub to ConvertTimeToInt
-        add today to Time
         if now is greater than Time
         begin
             increment P
@@ -162,76 +322,6 @@ FAT2:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Find which period we're in (to get the target temperature)
-FindCurrentPeriod:
-    put entry `events` of Room into Events
-    if the count of Events is 0 return
-    put PeriodNow into PeriodWas
-    set P to 0
-FCP2:
-    if P is the count of Events
-    begin
-        put 0 into P
-        put item 0 of Events into Period
-    end
-    else
-    begin
-        put item P of Events into Period
-        put entry `until` of Period into Time
-        gosub to ConvertTimeToInt
-        add today to Time
-        if Time is less than now
-        begin
-            put P into PeriodNow
-            increment P
-            go to FCP2
-        end
-        put item P of Events into Period
-        put entry `until` of Period into Time
-        gosub to ConvertTimeToInt
-        put Time into PeriodStart
-        add today to PeriodStart
-    end
-    put entry `temp` of Period into Temp
-    gosub to ConvertTempToInt
-    put Temp into Target
-    if Advance is not `-`
-    begin
-        if Advance is `A`
-        begin
-            if P is the count of Events put 0 into P
-            put `` cat P into Advance
-            set entry `advance` of Room to Advance
-            gosub to NotifyMainOfAdvance
-        end
-        if RoomName is `Kitchen` log RoomName cat `:Current is ` cat PeriodNow cat `: advanced to ` cat Advance
-        if Advance is not `-`
-        begin
-            put the value of Advance into P
-            if P is PeriodNow
-            begin
-                log `Cancel the advance`
-                set entry `advance` of Room to `-`
-                gosub to NotifyMainOfAdvance
-            end
-        end
-        put item P of Events into Period
-        put entry `temp` of Period into Temp
-        gosub to ConvertTempToInt
-        put Temp into Target
-    end
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Notify the main that an advance change has occurred
-NotifyMainOfAdvance:
-    reset Message
-    set entry `subject` of Message to `Advance`
-    set entry `Advance` of Message to Advance
-    set entry `name` of Message to RoomName
-    send Message to parent
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Convert an HH:MM time into an int seconds value
 ConvertTimeToInt:
     put `` cat Time into Time
@@ -242,6 +332,7 @@ ConvertTimeToInt:
     put the value of from I of Time into Time
     add Time to Result
     multiply Result by 60000 giving Time
+    add today to Time
     return
 
 ! Convert a temperature string into an int hundredths value
@@ -260,83 +351,22 @@ ConvertTempToInt:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Run one step of the simulation
-SimulateStep:
-    if Room is empty return
-    put TempNow into TempWas
-    put Target into TargetWas
-    gosub to FindAmbientTemp
-
-    if Mode is `timed`
-    begin
-        gosub to FindCurrentPeriod
-    end
-    else if Mode is `on`
-    begin
-    end
-    else if Mode is `boost`
-    begin
-    end
-    else put 0 into Target
-
-    ! Calculate the new temperature
+! This code simulates the change in temperature of the room
+GetRoomTemperature:
     take OnOffTime from now giving Elapsed
-    if Relay is `on` put entry `rate-up` of Params into Delta
+    if RelayState is `on` put entry `rate-up` of Params into Delta
     else put entry `rate-down` of Params into Delta
     multiply Delta by Elapsed
     divide Delta by 36000
-    if Relay is `on`
+    if RelayState is `on`
     begin
-        add Delta to OnOffTemp giving TempNow
+        add Delta to TempNow
         if TempNow is greater than Ceiling put Ceiling into TempNow
     end
     else
     begin
-        take Delta from OnOffTemp giving TempNow
+        take Delta from TempNow
+!        if RoomName is `Sunroom` log `Off: ` cat AmbientNow cat ` ` cat TempNow
         if TempNow is less than AmbientNow put AmbientNow into TempNow
-    end
-
-    if Mode is `off` put TempNow into OnOffTemp
-    else
-    begin
-        if TempNow is less than Target
-        begin
-            if Relay is `off`
-            begin
-                put now into OnOffTime
-                put TempNow into OnOffTemp
-                set Relay to `on`
-            end
-        end
-        else
-        begin
-            if Relay is `on`
-            begin
-                put now into OnOffTime
-                put TempNow into OnOffTemp
-                set Relay to `off`
-            end
-        end
-    end
-
-    add 600000 to Last giving T
-    if now is greater than T
-    begin
-        reset RoomData
-        if PeriodNow is not PeriodWas set PeriodChanged else clear PeriodChanged
-        if TempNow is TempWas
-            if Target is TargetWas
-                if not PeriodChanged
-                    return
-        set entry `temperature` of RoomData to TempNow
-        set entry `target` of RoomData to Target
-        set entry `relay` of RoomData to Relay
-        set entry `period` of RoomData to PeriodChanged
-        reset Message
-        set entry `subject` of Message to `roomstate`
-        set entry `name` of Message to RoomName
-        set entry `data` of Message to RoomData
-        send Message to parent
-        put now into Last
     end
     return

@@ -342,6 +342,7 @@ class RBR_UI(Handler):
         
         elif isinstance(object, RBRRoom):
             spec = self.textify(command['spec'])
+            # print(spec)
             height = self.textify(command['height'])
             index = self.textify(command['index'])
             room = Room(self.program, spec, height, index)

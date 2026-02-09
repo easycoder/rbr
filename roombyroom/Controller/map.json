@@ -349,7 +349,7 @@
                         "192.168.1.67"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 1500,
                     "events": [
                         {
                             "temp": 15.0,
@@ -365,10 +365,10 @@
                         },
                         {
                             "temp": 21.0,
-                            "until": "23:00"
+                            "until": "20:00"
                         }
                     ],
-                    "relay": "off",
+                    "relay": "on",
                     "protect": "no",
                     "advance": "-",
                     "boost": 0,
@@ -378,7 +378,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 0.0,
+                    "temperature": 1499,
                     "battery": 0,
                     "responses": [
                         {
@@ -390,7 +390,8 @@
                             "state": "off"
                         }
                     ],
-                    "advance-rq": "-"
+                    "advance-rq": "-",
+                    "period": 0
                 },
                 {
                     "name": "Sunroom",
@@ -399,22 +400,22 @@
                         "Sunroom"
                     ],
                     "mode": "timed",
-                    "target": 14.0,
+                    "target": 2300,
                     "events": [
                         {
-                            "until": "07:00",
-                            "temp": "10.0"
+                            "temp": 10.0,
+                            "until": "07:00"
                         },
                         {
-                            "until": "16:30",
-                            "temp": "14.0"
+                            "temp": 14.0,
+                            "until": "16:30"
                         },
                         {
-                            "until": "23:00",
-                            "temp": "23.0"
+                            "temp": 23.0,
+                            "until": "23:00"
                         }
                     ],
-                    "relay": "off",
+                    "relay": "on",
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "timed",
@@ -423,17 +424,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 17.4,
+                    "temperature": 1795,
                     "battery": 45,
-                    "responses": [
-                        {
-                            "response": "OK OFF 4153+ -68",
-                            "state": "off",
-                            "uptime": 4153,
-                            "RSS": -68
-                        }
-                    ],
-                    "advance-rq": "-"
+                    "period": 2
                 },
                 {
                     "name": "Lounge",
@@ -442,7 +435,7 @@
                         "Lounge"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 2205,
                     "events": [
                         {
                             "temp": "15.0",
@@ -462,7 +455,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 18.8,
+                    "temperature": 2207,
                     "battery": 43,
                     "advance-rq": "-",
                     "relay": "off",
@@ -473,7 +466,8 @@
                             "uptime": 4153,
                             "RSS": -73
                         }
-                    ]
+                    ],
+                    "period": 1
                 },
                 {
                     "name": "Hall",
@@ -482,7 +476,7 @@
                         "Hall"
                     ],
                     "mode": "timed",
-                    "target": 14.0,
+                    "target": 1800,
                     "events": [
                         {
                             "temp": "13.0",
@@ -501,7 +495,7 @@
                             "until": "23:00"
                         }
                     ],
-                    "relay": "off",
+                    "relay": "on",
                     "relayType": "RBR-Now",
                     "protect": "no",
                     "boost": 0,
@@ -511,7 +505,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 18.0,
+                    "temperature": 1693,
                     "battery": 43,
                     "advance-rq": "-",
                     "responses": [
@@ -521,7 +515,8 @@
                             "uptime": 4148,
                             "RSS": -78
                         }
-                    ]
+                    ],
+                    "period": 3
                 },
                 {
                     "name": "Office",
@@ -530,7 +525,7 @@
                         "Office"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "10:00",
@@ -550,7 +545,7 @@
                     "advance-rq": "-",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 8.4,
+                    "temperature": 1196,
                     "battery": 51,
                     "advance": "-",
                     "responses": [
@@ -560,7 +555,8 @@
                             "uptime": 4148,
                             "RSS": -83
                         }
-                    ]
+                    ],
+                    "period": null
                 },
                 {
                     "name": "Main Bedroom",
@@ -569,7 +565,7 @@
                         "Main Bedroom"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 1500,
                     "events": [
                         {
                             "temp": 15.0,
@@ -588,7 +584,7 @@
                             "until": "23:30"
                         }
                     ],
-                    "relay": "off",
+                    "relay": "on",
                     "relayType": "RBR-Now",
                     "protect": "no",
                     "boost": 0,
@@ -598,7 +594,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249897,
-                    "temperature": 20.4,
+                    "temperature": 1496,
                     "battery": 43,
                     "advance-rq": "-",
                     "responses": [
@@ -608,7 +604,8 @@
                             "uptime": 4148,
                             "RSS": -76
                         }
-                    ]
+                    ],
+                    "period": 2
                 },
                 {
                     "name": "Guest Bedroom",
@@ -617,7 +614,7 @@
                         "Guest Bedroom"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "06:10",
@@ -649,7 +646,7 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1769249897,
-                    "temperature": 18.9,
+                    "temperature": 980,
                     "status": "good",
                     "battery": 50,
                     "responses": [
@@ -659,14 +656,15 @@
                             "uptime": 4153,
                             "RSS": -79
                         }
-                    ]
+                    ],
+                    "period": null
                 },
                 {
                     "name": "Outside",
                     "sensor": "a4:c1:38:ad:9c:38",
                     "relays": [],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "07:00",
@@ -683,10 +681,11 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1769249897,
-                    "temperature": 6.8,
+                    "temperature": 983,
                     "status": "good",
                     "battery": 46,
-                    "responses": []
+                    "responses": [],
+                    "period": null
                 }
             ]
         },

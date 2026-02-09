@@ -483,42 +483,13 @@ class ModeButton(QWidget):
                 # Second row font and rect (if present)
                 if self.mode == 'Timed':
                     roomSpec = self.spec
-                    advance = str(roomSpec['advance'])
-                    
-                    timestamp = time.time()
-                    dt = datetime.fromtimestamp(timestamp)
-                    hour = dt.hour
-                    minute = dt.minute
-
-                    text = ''
                     events = roomSpec['events']
-                    for e, event in enumerate(events):
-
-                        if advance != '-':
-                            f = e + 1
-                            if f >= len(events): f = 0
-                            event = events[f]
-
-                        untilTime = event['until']
-                        untilTemp = event['temp']
-                        finish = untilTime.split(':')
-                        fh = int(finish[0])
-                        if fh == 0: fh = 24
-                        if hour < fh:
-                            text = f'{untilTemp}°C->{untilTime}'
-                            break
-                        elif hour == fh:
-                            fm = int(finish[1])
-                            if minute < fm:
-                                text = f'{untilTemp}°C->{untilTime}'
-                                break
-                    
-                    if text == '':
-                        event = events[0]
-                        untilTime = event['until']
-                        untilTemp = event['temp']
-                        if roomSpec['linked'] == 'yes':  text = f'{untilTemp}°C->{untilTime}'
-                        else: text = f'->{untilTime}'
+                    period = roomSpec['period']
+                    event = events[period]
+                    untilTime = event['until']
+                    untilTemp = event['temp']
+                    if roomSpec['linked'] == 'yes':  text = f'{untilTemp}°C->{untilTime}'
+                    else: text = f'->{untilTime}'
 
                     font2 = QFont("Arial", height // 8)
                     painter.setFont(font2)

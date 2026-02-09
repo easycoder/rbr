@@ -33,10 +33,8 @@
     combobox ComboBox
     module Module
     dictionary Map
-    dictionary SystemData
     dictionary Profile
     dictionary RoomSpec
-    dictionary RoomData
     dictionary Response
     dictionary Data
     dictionary Result
@@ -84,6 +82,7 @@
     variable Uptime
     variable Locked
     variable LockCounter
+    variable UpdateCounter
     variable Waiting
     variable HH
     variable MM
@@ -115,6 +114,7 @@ Start:
     show Window
     set FirstTime
     clear Locked
+    set UpdateCounter to 0
     set MapRequests to 0
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -182,45 +182,25 @@ ML2:
         sender MyTopic
         action Text
         message `{"map requests": ` cat MapRequests cat `}`
-!    put 0 into WaitCounter
-!    while Message is empty
-!    begin
-!        wait 1 tick
-!        increment WaitCounter
-!        if WaitCounter is greater than 100
-!        begin
-!            log `No reply`
-!            put 0 into WaitCounter
-!            go to MainLoop
-!        end
-!    end
     go to MainLoop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the screen.
 UpdateScreen:
     if Locked return
-    log `Update the screen`
+!    log `Update ` cat UpdateCounter
+    increment UpdateCounter
+    put Message into Map
+    if Map is empty return
     clear Waiting
-    ! If map is empty there's no change
-    put entry `map` of Message into Data
-    if Data is not empty put Data into Map
-!    else log `No change to map`
     ! Process the map
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into CurrentProfile
     put item CurrentProfile of Profiles into Profile
-    log `Current profile is ` cat entry `name` of Profile
     put entry `rooms` of Profile into Rooms
     set the elements of Room to the count of Rooms
     set the elements of ModeButton to the count of Rooms
     set the elements of ToolsButton to the count of Rooms
-
-    ! Process the system data
-    ! If it is empty there's no change
-    put entry `data` of Message into Data
-    if Data is not empty put Data into SystemData
-!    else log `No change to system data`
 
 !   Build the screen
     if not FirstTime clear Window
@@ -229,29 +209,15 @@ UpdateScreen:
     while R is less than the count of Rooms
     begin
         put item R of Rooms into RoomSpec
-!        log RoomSpec
         put entry `name` of RoomSpec into RoomName
-        if SystemData has entry RoomName
+        if RoomSpec has entry `temperature`
         begin
-            put entry RoomName of SystemData into RoomData
-!            log RoomName cat `: ` cat RoomData
-            set entry `timestamp` of RoomSpec to entry `timestamp` of RoomData
-            if RoomData has entry `temperature`
-            begin
-                put entry `temperature` of RoomData into Temperature
-                gosub to ConvertTempToDecimal
-                set entry `temperature` of RoomSpec to Temperature
-            end
-            else set entry `temperature` of RoomSpec to `0`
-            if RoomData has entry `relay`
-                set entry `relay` of RoomSpec to entry `relay` of RoomData
-            else set entry `relay` of RoomSpec to `off`
+            put entry `temperature` of RoomSpec into Temperature
+            gosub to ConvertTempToDecimal
+            set entry `temperature` of RoomSpec to Temperature
         end
-        else
-        begin
-            set entry `temperature` of RoomSpec to `0`
-            set entry `relay` of RoomSpec to `off`
-        end
+        else set entry `temperature` of RoomSpec to `0`
+        if RoomSpec does not have entry `relay` set entry `relay` of RoomSpec to `off`
         gosub to CreateRoom
         increment R
     end
@@ -364,7 +330,6 @@ AddRoom:
 !   Show system info
 ShowSystemInfo:
     set Locked
-    put entry Name of SystemData into RoomSpec
     create Panel type QVBoxLayout
     create Label text `-- System information --`
     add Label to Panel
@@ -581,7 +546,6 @@ MoveRoomDown:
 ShowRoomInfo:
     log `ShowRoomInfo`
     set Locked
-    put entry Name of SystemData into RoomSpec
     create Panel type QVBoxLayout
     create Label text `-- ` cat Name cat ` Sensor --`
     add Label to Panel
@@ -661,7 +625,6 @@ EditRoomName:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Edit the sensor and relay information for a room
 EditDeviceParams:
-    put entry Name of SystemData into RoomSpec
     put entry `relays` of RoomSpec into Values
     put empty into RelayNames
     put 0 into R
@@ -685,7 +648,6 @@ EditDeviceParams:
     create Label text `Type the sensor name or MAC:`
     add Label at 0 0 in Grid
     create Input size 30
-    put entry Name of SystemData into RoomSpec
     put entry `sensor` of RoomSpec into SensorID
     set the text of Input to SensorID
     add Input at 0 1 in Grid

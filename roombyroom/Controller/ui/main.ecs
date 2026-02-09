@@ -6,12 +6,8 @@
 
     dictionary Config
     dictionary Map
-    dictionary Map2
     dictionary Profile
     dictionary Room
-    dictionary Room2
-    dictionary SystemData
-    dictionary SystemData2
     dictionary Response
     dictionary Message
     dictionary Sender
@@ -86,29 +82,35 @@ Start:
         put item R of Rooms into Room
         put entry `name` of Room into RoomName
         index DeviceModule to R
-        copy Room to Room2
-        run DeviceScript as DeviceModule with Room2
+        run DeviceScript as DeviceModule
+        log `Running ` cat entry `name` of Room
+        send Room to DeviceModule
+        wait 1 tick
         increment R
     end
 
     on message
     begin
-!        log the message
         put the message into Message
         put entry `subject` of Message into Subject
         if Subject is `roomstate`
         begin
+!        log Message
             put entry `name` of Message into RoomName
-            put entry `data` of Message into Data
-            set entry RoomName of SystemData to Data
-            if entry `period` of Data set MapChanged
-            set StateChanged
+            gosub to GetRoomByName
+            set entry `temperature` of Room to entry `temperature` of Message
+            set entry `target` of Room to entry `target` of Message
+            set entry `period` of Room to entry `period` of Message
+            set entry `relay` of Room to entry `relay` of Message
+            gosub to UpdateRooms 
         end
         else if Subject is `Advance`
         begin
             put entry `name` of Message into RoomName
             gosub to GetRoomByName
+            set entry `temperature` of Room to entry `temperature` of Message
             set entry `advance` of Room to entry `Advance` of Message
+            set entry `period` of Room to entry `period` of Message
             gosub to UpdateRooms 
         end
     end
@@ -170,6 +172,8 @@ UpdateProfiles:
     set item CurrentProfile of Profiles to Profile
 UpdateMap:
     set entry `profiles` of Map to Profiles
+    set MapChanged
+    save prettify Map to `../map.json`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -214,9 +218,11 @@ ProcessUIRequest:
                 if `` cat entry `advance` of Room is `-` set entry `advance` of Room to `A`
                 else set entry `advance` of Room to `-`
                 index DeviceModule to RoomIndex
-                copy Room to Room2
-                log `Update ` cat entry `name` of Room2
-                send Room2 to DeviceModule
+!                gosub to InitVariables
+!                set Data to item RoomIndex of Rooms
+!                set entry `temperature` of Room to entry `temperature` of Data
+                log `Update ` cat entry `name` of Room
+                send Room to DeviceModule
             end
         end
         gosub to UpdateRooms
@@ -229,8 +235,7 @@ ProcessUIRequest:
         log `Set the periods of ` cat entry `name` of Room
         set entry `events` of Room to entry `Periods` of Data
         index DeviceModule to RoomIndex
-        copy Room to Room2
-        send Room2 to DeviceModule
+        send Room to DeviceModule
         gosub to UpdateRooms
     end
 PUR2:
@@ -241,24 +246,13 @@ SendMap:
     if Map is empty gosub to LoadMap
     if MapChanged
     begin
-        save prettify Map to `../map.json`
-        put Map into Map2
         gosub to InitVariables
+        put Map into MessageText
+        clear MapChanged
+        clear StateChanged
+        go to SendReply
     end
-    else reset Map2
-    if StateChanged put SystemData into SystemData2 else reset SystemData2
-    ! If nothing has changed, do nothing
-    if not MapChanged
-        if not StateChanged 
-            stop
-    reset Response
-    set entry `subject` of Response to `map`
-    set entry `map` of Response to Map2
-    set entry `data` of Response to SystemData2
-    put Response into MessageText
-    clear MapChanged
-    clear StateChanged
-    go to SendReply
+    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Send a reply message
