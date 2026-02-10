@@ -1129,7 +1129,7 @@ class OnMode(GenericMode):
         downButton = self.PlusMinusButton(program, f'img/blueminus.png', fcb=self.onDown)
         self.styles['ECLabelWidget#SettingLabel'] = borderlessQLabelStyle(20)
         roomSpec = program.getObject(caller.roomSpec)
-        self.target = float(roomSpec.getEntry('target')) if roomSpec != None else 0.0
+        self.target = float(roomSpec.getEntry('target')) / 100 if roomSpec != None else 0.0
         self.settingLabel = self.SettingLabel(f'{self.target}°C')
         upButton = self.PlusMinusButton(program, f'img/redplus.png', fcb=self.onUp)
         
@@ -1289,13 +1289,13 @@ class ModeDialog(QDialog):
         self.returnWith({'action':'edit'})
     
     def boostOffSelected(self):
-        self.returnWith({'action':'boost', 'duration': 0})
+        self.returnWith({'action':'mode', 'mode':'boost', 'duration': 0})
     
     def boost30Selected(self):
-        self.returnWith({'action':'boost', 'duration': 30})
+        self.returnWith({'action':'mode', 'mode':'boost', 'duration': 30})
     
     def boost60Selected(self):
-        self.returnWith({'action':'boost', 'duration': 60})
+        self.returnWith({'action':'mode', 'mode':'boost', 'duration': 60})
     
     def boost120Selected(self):
         self.returnWith({'action':'boost', 'duration': 120})

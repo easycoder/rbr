@@ -1,11 +1,9 @@
-!   simulator.ecs - the device simulator
+!   roomController.ecs - the controller for the room devices
 
-    script Simulator
+    script RoomController
 
-    list Times
     list Events
     dictionary Item
-    dictionary AllParams
     dictionary Params
     dictionary Period
     dictionary Message
@@ -18,7 +16,6 @@
     variable PeriodWas
     variable PeriodActive
     variable Advance
-    variable Rows
     variable Value
     variable Time
     variable Last
@@ -30,48 +27,28 @@
     variable Target
     variable TargetWas
     variable Temp
-    variable Boost
     variable Subject
     variable Result
+    variable MessageReceived
     variable RelayState
     variable PreviousRelayState
     variable Mode
     variable EventCount
     variable StepCount
+    variable Tenths
     variable I
     variable N
     variable P
     variable T
 
-!    debug compile
-!    debug step
+!   Simulator variables
+    dictionary AllParams
+    list Times
+    variable Rows
+    variable SolarBoost
 
-!   Load the environmental data
-    load Rows from `environment.csv`
-    split Rows
-    reset Times
-    put 0 into N
-    while N is less than the elements of Rows
-    begin
-        index Rows to N
-        if Rows is not empty
-        begin
-            put Rows into Value
-            split Value on `,`
-            if the elements of Value is 3
-            begin
-                reset Item
-                index Value to 0
-                set entry `time` of Item to Value
-                index Value to 1
-                set entry `temperature` of Item to Value
-                index Value to 2
-                set entry `boost` of Item to Value
-                append Item to Times
-            end
-        end
-        increment N
-    end
+!    debug compile
+!    debug Step
 
     on message go to ProcessMessage
     set FirstTime
@@ -80,7 +57,10 @@
     release parent
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Process a message received from the main script
 ProcessMessage:
+    set MessageReceived
     put the message into Room
     put entry `mode` of Room into Mode
     put `` cat entry `advance` of Room into Advance
@@ -90,19 +70,7 @@ ProcessMessage:
 
     put entry `name` of Room into RoomName
 
-    ! Initialise the parameters for a single room
-    load AllParams from `../config.json`
-    if AllParams has entry RoomName put entry RoomName of AllParams into Params
-    else
-    begin
-        reset Params
-        set entry `rate-up` of Params to 10
-        set entry `rate-down` of Params to 10
-        set entry `ceiling` of Params to 23
-        set entry `boost` of Params to 50
-        set entry RoomName of AllParams to Params
-        save prettify AllParams to `../params.json`
-    end
+    gosub to SimulateEnvironment
 
     put 1500 into Target
     put 1500 into Temp
@@ -113,17 +81,25 @@ ProcessMessage:
     set RelayState to `off`
     clear FirstTime
 
-    ! Run the simulator
-    put entry `ceiling` of Params into Temp
-    gosub to ConvertTempToInt
-    put Temp into Ceiling
+    ! Run the controller
     while true
     begin
         ! Wait a fixed or semi-random period.
         ! The random part is needed for simulation, otherwise it can be a fixed 10 seconds
         put random 3 into T
         add 10 to T
-        wait T seconds
+        multiply T by 10 giving Tenths
+        put 0 into T
+        while T is less than Tenths
+        begin
+            wait 10 ticks
+            increment T
+            if MessageReceived
+            begin
+                clear MessageReceived
+                put Tenths into T
+            end
+        end
         if Room is not empty gosub to Step
     end
 
@@ -145,14 +121,21 @@ Step:
     end
     else if Mode is `boost`
     begin
+        put entry `target` of Room into Temp
+        gosub to ConvertTempToInt
+        put Temp into Target
     end
-    else put 0 into Target
+    else
+    begin
+        set Mode to `off`
+    end
 
-    gosub to GetRoomTemperature
+    gosub to Simulate
 
     ! Decide if the relay should be on or off
     put RelayState into PreviousRelayState
-    if Mode is not `off`
+    if Mode is `off` set entry `relay` of Room to `off`
+    else 
     begin
         if TempNow is less than Target
         begin
@@ -171,7 +154,11 @@ Step:
             end
         end
     end
-!    if PeriodNow is not PeriodWas set PeriodChanged else clear PeriodChanged
+    if PeriodNow is not PeriodWas
+    begin
+        log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
+        set PeriodWas to PeriodNow
+    end
     if RelayState is not PreviousRelayState
     begin
         put `roomstate` into Subject
@@ -181,17 +168,17 @@ Step:
     begin
         ! Don't update until at least a minute since the last change
         add 60000 to Last giving T
-!        if RoomName is `Sunroom` log T cat ` ` cat now
+!        if RoomName is `Kitchen` log T cat ` ` cat now
         if now is greater than T
         begin
             if TempNow is TempWas
                 if Target is TargetWas
                     begin
-!                        if RoomName is `Sunroom` log `Nothing to do`
+!                        if RoomName is `Kitchen` log `Nothing to do`
                         put now into Last
                         return
                     end
-!            if RoomName is `Sunroom` log `Update the UI`
+!            if RoomName is `Kitchen` log `Update the UI`
             put `roomstate` into Subject
             gosub to SendRoomStateMessage
         end
@@ -207,7 +194,7 @@ FindCurrentPeriod:
     put PeriodNow into PeriodWas
     set PeriodNow to 0
 FCP2:
-!    if RoomName is `Sunroom` log `Examine period ` cat PeriodNow
+!    if RoomName is `Kitchen` log `Examine period ` cat PeriodNow
     if PeriodNow is EventCount
     begin
         ! We're past the last event time, so use the first
@@ -223,7 +210,7 @@ FCP2:
         put entry `until` of Period into Time
         gosub to ConvertTimeToInt
         ! If we've passed this period, get the start of the next period and move on
-!        if RoomName is `Sunroom` log `now=` cat now cat `, Time=` cat Time
+!        if RoomName is `Kitchen` log `now=` cat now cat `, Time=` cat Time
         if now is greater than Time
         begin
             increment PeriodNow
@@ -263,14 +250,13 @@ FCP2:
                 gosub to SendRoomStateMessage
             end
         end
-!        log `Get the target temp for period ` cat P cat ` of ` cat Events
         put P into PeriodActive
         put item P of Events into Period
         put entry `temp` of Period into Temp
         gosub to ConvertTempToInt
         put Temp into Target
     end
-!    if RoomName is `Sunroom` log `Step ` cat StepCount cat `: ` cat PeriodNow cat `/` cat PeriodActive
+!    if RoomName is `Kitchen` log `Step ` cat StepCount cat `: ` cat PeriodNow cat `/` cat PeriodActive
 !        cat ` until ` cat entry `until` of Period cat `, Target=` cat Target
 !        cat `, Temp=` cat TempNow cat `, Relay=` cat RelayState
     return
@@ -278,7 +264,7 @@ FCP2:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Send a room state message back to the main
 SendRoomStateMessage:
-!    if RoomName is `Sunroom` log Target cat `/` cat TempNow cat ` - ` cat RelayState
+!    if RoomName is `Kitchen` log Target cat `/` cat TempNow cat ` - ` cat RelayState
     reset Message
     set entry `subject` of Message to Subject
     set entry `name` of Message to RoomName
@@ -315,8 +301,8 @@ FAT2:
     put Temp into AmbientNow
     put entry `boost` of Item into Temp
     gosub to ConvertTempToInt
-    put entry `boost` of Params into Boost
-    multiply Temp by Boost
+    put entry `boost` of Params into SolarBoost
+    multiply Temp by SolarBoost
     divide Temp by 100
     add Temp to AmbientNow
     return
@@ -351,8 +337,10 @@ ConvertTempToInt:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! This code simulates the change in temperature of the room
-GetRoomTemperature:
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! This is the simulator, that changes the temperature of the room
+! according to a simple algorithm
+Simulate:
     take OnOffTime from now giving Elapsed
     if RelayState is `on` put entry `rate-up` of Params into Delta
     else put entry `rate-down` of Params into Delta
@@ -366,7 +354,54 @@ GetRoomTemperature:
     else
     begin
         take Delta from TempNow
-!        if RoomName is `Sunroom` log `Off: ` cat AmbientNow cat ` ` cat TempNow
         if TempNow is less than AmbientNow put AmbientNow into TempNow
     end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Get the simulated environment
+SimulateEnvironment:
+    load Rows from `environment.csv`
+    split Rows
+    reset Times
+    put 0 into N
+    while N is less than the elements of Rows
+    begin
+        index Rows to N
+        if Rows is not empty
+        begin
+            put Rows into Value
+            split Value on `,`
+            if the elements of Value is 3
+            begin
+                reset Item
+                index Value to 0
+                set entry `time` of Item to Value
+                index Value to 1
+                set entry `temperature` of Item to Value
+                index Value to 2
+                set entry `boost` of Item to Value
+                append Item to Times
+            end
+        end
+        increment N
+    end
+
+    ! Initialise the parameters for this room
+    load AllParams from `../config.json`
+    if AllParams has entry RoomName put entry RoomName of AllParams into Params
+    else
+    begin
+        reset Params
+        set entry `rate-up` of Params to 10
+        set entry `rate-down` of Params to 10
+        set entry `ceiling` of Params to 23
+        set entry `boost` of Params to 50
+        set entry RoomName of AllParams to Params
+        save prettify AllParams to `../params.json`
+    end
+
+    put entry `ceiling` of Params into Temp
+    gosub to ConvertTempToInt
+    put Temp into Ceiling
     return

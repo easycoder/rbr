@@ -16,7 +16,7 @@
     dictionary WaitForConfirmation
     list Profiles
     list Rooms
-    module DeviceModule
+    module RoomController
     topic ServerTopic
     topic SenderTopic
     variable MQTT_Token
@@ -36,6 +36,7 @@
     variable Action
     variable Mode
     variable R
+    variable T
 
 !    debug step
 
@@ -71,7 +72,7 @@ Start:
     else
     begin
         reset Config
-        set entry `device_script` of Config to `simulator.ecs`
+        set entry `device_script` of Config to `roomController.ecs`
     end
     put entry `device_script` of Config into DeviceScript
 
@@ -80,11 +81,17 @@ Start:
     while R is less than RoomCount
     begin
         put item R of Rooms into Room
+
+        ! Housekeeping
+        delete entry `advance-rq` of Room
+        delete entry `boost` of Room
+        delete entry `responses` of Room
+
         put entry `name` of Room into RoomName
-        index DeviceModule to R
-        run DeviceScript as DeviceModule
+        index RoomController to R
+        run DeviceScript as RoomController
         log `Running ` cat entry `name` of Room
-        send Room to DeviceModule
+        send Room to RoomController
         wait 1 tick
         increment R
     end
@@ -130,7 +137,7 @@ InitVariables:
     put item CurrentProfile of Profiles into Profile
     put entry `rooms` of Profile into Rooms
     put the count of Rooms into RoomCount
-    set the elements of DeviceModule to RoomCount
+    set the elements of RoomController to RoomCount
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -142,9 +149,9 @@ HandleMQTTMessage:
     put entry `message` of ReceivedMessage into Data
     if Action is `first`
     begin
-        put `map` into Action
         set MapChanged
         set StateChanged
+        put `map` into Action
     end
     if Action is `map` go to SendMap
     else if Action is `uirequest` go to ProcessUIRequest
@@ -177,6 +184,7 @@ UpdateMap:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Process a request from the UI arriving by MQTT
 ProcessUIRequest:
     put entry `action` of Data into Action
     if Action is `System Name`
@@ -217,13 +225,19 @@ ProcessUIRequest:
             begin
                 if `` cat entry `advance` of Room is `-` set entry `advance` of Room to `A`
                 else set entry `advance` of Room to `-`
-                index DeviceModule to RoomIndex
-!                gosub to InitVariables
-!                set Data to item RoomIndex of Rooms
-!                set entry `temperature` of Room to entry `temperature` of Data
-                log `Update ` cat entry `name` of Room
-                send Room to DeviceModule
+                index RoomController to RoomIndex
+!                log `Update ` cat entry `name` of Room
+                send Room to RoomController
             end
+        end
+        else if Mode is `boost`
+        begin
+            set T to entry `duration` of Data
+            multiply T by 60000
+            add now to T
+            set entry `until` of Room to T
+            set entry `target` of Room to entry `target` of Data
+            send Room to RoomController
         end
         gosub to UpdateRooms
     end
@@ -234,8 +248,8 @@ ProcessUIRequest:
         if Room is empty stop
         log `Set the periods of ` cat entry `name` of Room
         set entry `events` of Room to entry `Periods` of Data
-        index DeviceModule to RoomIndex
-        send Room to DeviceModule
+        index RoomController to RoomIndex
+        send Room to RoomController
         gosub to UpdateRooms
     end
 PUR2:

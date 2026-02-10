@@ -47,5 +47,5 @@
         "ceiling": 23,
         "boost": 50
     },
-    "device_script": "simulator.ecs"
+    "device_script": "roomController.ecs"
 }

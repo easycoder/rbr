@@ -1,6 +1,6 @@
-!   ui.ecs - the user interface
+!   newui.ecs - the user interface
 
-    script UICore
+    script NewUI
 
     use mqtt
     use graphics
@@ -415,7 +415,6 @@ HandleMode:
         put entry `mode` of Result into Mode
         if Mode is `timed`
         begin
-            log Result
             if Result has entry `advance` set entry `Advance` of Request
             set entry `mode` of Request to `timed`
             go to SetMode
@@ -433,10 +432,9 @@ HandleMode:
         end
         else if left 5 of Mode is `boost`
         begin
+        log Result
             set entry `mode` of Request to `boost`
-            put from 6 of Result into Value
-            put left 5 of Result into Result
-            set entry `boost` of Request to `B` cat Value
+            set entry `duration` of Request to entry `duration` of Result
             set entry `target` of Request to entry `target` of Request
             go to SetMode
         end

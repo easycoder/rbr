@@ -349,11 +349,11 @@
                         "192.168.1.67"
                     ],
                     "mode": "timed",
-                    "target": 1500,
+                    "target": 2100,
                     "events": [
                         {
                             "temp": 15.0,
-                            "until": "12:30"
+                            "until": "11:00"
                         },
                         {
                             "temp": 21.0,
@@ -371,27 +371,15 @@
                     "relay": "on",
                     "protect": "no",
                     "advance": "-",
-                    "boost": 0,
                     "relayType": "Shelly One",
                     "prevmode": "timed",
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 1499,
+                    "temperature": 2098,
                     "battery": 0,
-                    "responses": [
-                        {
-                            "uptime": 0,
-                            "state": "off"
-                        },
-                        {
-                            "uptime": 0,
-                            "state": "off"
-                        }
-                    ],
-                    "advance-rq": "-",
-                    "period": 0
+                    "period": 3
                 },
                 {
                     "name": "Sunroom",
@@ -415,16 +403,15 @@
                             "until": "23:00"
                         }
                     ],
-                    "relay": "on",
+                    "relay": "off",
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "timed",
-                    "boost": 0,
                     "advance": "-",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 1795,
+                    "temperature": 2310,
                     "battery": 45,
                     "period": 2
                 },
@@ -435,38 +422,32 @@
                         "Lounge"
                     ],
                     "mode": "timed",
-                    "target": 2205,
+                    "target": 1800,
                     "events": [
                         {
-                            "temp": "15.0",
+                            "temp": 15.0,
+                            "until": "10:00"
+                        },
+                        {
+                            "temp": 18.0,
                             "until": "18:00"
                         },
                         {
-                            "temp": "22.5",
+                            "temp": 15.0,
                             "until": "23:00"
                         }
                     ],
                     "relayType": "RBR-Now",
                     "protect": "no",
                     "advance": "-",
-                    "boost": 0,
                     "prevmode": "timed",
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 2207,
+                    "temperature": 1558,
                     "battery": 43,
-                    "advance-rq": "-",
-                    "relay": "off",
-                    "responses": [
-                        {
-                            "response": "OK OFF 4153+ -73",
-                            "state": "off",
-                            "uptime": 4153,
-                            "RSS": -73
-                        }
-                    ],
+                    "relay": "on",
                     "period": 1
                 },
                 {
@@ -495,27 +476,17 @@
                             "until": "23:00"
                         }
                     ],
-                    "relay": "on",
+                    "relay": "off",
                     "relayType": "RBR-Now",
                     "protect": "no",
-                    "boost": 0,
                     "prevmode": "timed",
                     "advance": "-",
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 1693,
+                    "temperature": 1803,
                     "battery": 43,
-                    "advance-rq": "-",
-                    "responses": [
-                        {
-                            "response": "OK OFF 4148+ -78",
-                            "state": "off",
-                            "uptime": 4148,
-                            "RSS": -78
-                        }
-                    ],
                     "period": 3
                 },
                 {
@@ -525,7 +496,7 @@
                         "Office"
                     ],
                     "mode": "off",
-                    "target": 0,
+                    "target": 1500,
                     "events": [
                         {
                             "until": "10:00",
@@ -540,23 +511,14 @@
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "on",
-                    "boost": 1762686976,
                     "linked": "no",
-                    "advance-rq": "-",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 1196,
+                    "temperature": 1202,
                     "battery": 51,
                     "advance": "-",
-                    "responses": [
-                        {
-                            "response": "OK OFF 4148+ -83",
-                            "state": "off",
-                            "uptime": 4148,
-                            "RSS": -83
-                        }
-                    ],
-                    "period": null
+                    "period": null,
+                    "until": 1770741897108
                 },
                 {
                     "name": "Main Bedroom",
@@ -587,24 +549,14 @@
                     "relay": "on",
                     "relayType": "RBR-Now",
                     "protect": "no",
-                    "boost": 0,
                     "advance": "-",
                     "prevmode": "timed",
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249897,
-                    "temperature": 1496,
+                    "temperature": 1497,
                     "battery": 43,
-                    "advance-rq": "-",
-                    "responses": [
-                        {
-                            "response": "OK OFF 4148+ -76",
-                            "state": "off",
-                            "uptime": 4148,
-                            "RSS": -76
-                        }
-                    ],
                     "period": 2
                 },
                 {
@@ -614,7 +566,7 @@
                         "Guest Bedroom"
                     ],
                     "mode": "off",
-                    "target": 0,
+                    "target": 1500,
                     "events": [
                         {
                             "until": "06:10",
@@ -642,21 +594,12 @@
                     "protect": "no",
                     "ssid": "",
                     "advance": "-",
-                    "boost": 0,
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1769249897,
-                    "temperature": 980,
+                    "temperature": 1204,
                     "status": "good",
                     "battery": 50,
-                    "responses": [
-                        {
-                            "response": "OK OFF 4153+ -79",
-                            "state": "off",
-                            "uptime": 4153,
-                            "RSS": -79
-                        }
-                    ],
                     "period": null
                 },
                 {
@@ -664,7 +607,7 @@
                     "sensor": "a4:c1:38:ad:9c:38",
                     "relays": [],
                     "mode": "off",
-                    "target": 0,
+                    "target": 1500,
                     "events": [
                         {
                             "until": "07:00",
@@ -677,14 +620,12 @@
                     "ssid": "",
                     "relayType": "",
                     "advance": "-",
-                    "boost": 1739792353,
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1769249897,
-                    "temperature": 983,
+                    "temperature": 1257,
                     "status": "good",
                     "battery": 46,
-                    "responses": [],
                     "period": null
                 }
             ]
