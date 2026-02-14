@@ -79,7 +79,6 @@ ProcessMessage:
     put 0 into PeriodNow
     put 0 into PeriodWas
     set RelayState to `off`
-    clear FirstTime
 
     ! Run the controller
     while true
@@ -101,11 +100,13 @@ ProcessMessage:
             end
         end
         if Room is not empty gosub to Step
+        clear FirstTime
     end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! This is a single step, repeated every 10 seconds
 Step:
+log RoomName
     increment StepCount
     put TempNow into TempWas
     put Target into TargetWas
@@ -154,15 +155,17 @@ Step:
             end
         end
     end
+    if FirstTime set PeriodWas to PeriodNow
     if PeriodNow is not PeriodWas
     begin
         log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
+        gosub to SendRoomStateMessage
         set PeriodWas to PeriodNow
     end
-    if RelayState is not PreviousRelayState
+    else if RelayState is not PreviousRelayState
     begin
-        put `roomstate` into Subject
         gosub to SendRoomStateMessage
+        put RelayState into PreviousRelayState
     end
     else
     begin
@@ -179,7 +182,6 @@ Step:
                         return
                     end
 !            if RoomName is `Kitchen` log `Update the UI`
-            put `roomstate` into Subject
             gosub to SendRoomStateMessage
         end
     end
@@ -236,8 +238,7 @@ FCP2:
             put `` cat P into Advance
             set entry `advance` of Room to Advance
             set PeriodActive to P
-            set entry `subject` of Message to `Advance`
-            gosub to SendRoomStateMessage
+            gosub to SendAdvanceMessage
         end
         if Advance is not `-`
         begin
@@ -246,8 +247,7 @@ FCP2:
             begin
                 log `Cancel the advance`
                 set entry `advance` of Room to `-`
-                set entry `subject` of Message to `Advance`
-                gosub to SendRoomStateMessage
+                gosub to SendAdvanceMessage
             end
         end
         put P into PeriodActive
@@ -262,8 +262,20 @@ FCP2:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Send an advance message back to the main
+SendAdvanceMessage:
+    put `Advance` into Subject
+    go to SendMessage
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Send a room state message back to the main
 SendRoomStateMessage:
+    put `roomstate` into Subject
+    go to SendMessage
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Send a room state message back to the main
+SendMessage:
 !    if RoomName is `Kitchen` log Target cat `/` cat TempNow cat ` - ` cat RelayState
     reset Message
     set entry `subject` of Message to Subject
@@ -275,6 +287,7 @@ SendRoomStateMessage:
     set entry `Advance` of Message to Advance
     send Message to parent
     put now into Last
+    log `Message from ` cat RoomName
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

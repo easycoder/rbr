@@ -1,0 +1,578 @@
+!   newController.ecs - the main program script
+
+    script Controller
+
+    use mqtt
+
+    dictionary Map
+    dictionary Profile
+    dictionary Room
+    dictionary Period
+    dictionary Message
+    dictionary Sender
+    dictionary ReceivedMessage
+    dictionary Data
+    dictionary WaitForConfirmation
+    list Profiles
+    list Rooms
+    list Events
+    topic ServerTopic
+    topic SenderTopic
+    variable MQTT_Token
+    variable RoomCount
+    variable RoomName
+    variable RoomIndex
+    variable CurrentProfile
+    variable Interrupt
+    variable TempNow
+    variable Target
+    variable TargetWas
+    variable PeriodNow
+    variable PeriodWas
+    variable PeriodActive
+    variable RelayState
+    variable RelayStateWas
+    variable EventCount
+    variable Last
+    variable Advance
+    variable Time
+    variable Temp
+    variable ConfirmationRequested
+    variable MapChanged
+    variable StateChanged
+    variable MessageText
+    variable SenderName
+    variable SenderQoS
+    variable MyID
+    variable Subject
+    variable Action
+    variable Mode
+    variable I
+    variable P
+    variable R
+    variable T
+    module Simulator
+
+!    debug step
+
+    run `simulator.ecs` as Simulator with TempNow
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set up MQTT
+    if file `~/.mqqt_token` does not exist
+    begin
+        log `No MQTT token could be found.`
+        exit
+    end
+    load MQTT_Token from `~/.mqqt_token`
+
+    ! Set up MQTT
+    put `38:54:39:34:62:d7/request` into MyID
+    init ServerTopic
+        name MyID
+        qos 1
+
+    mqtt
+        token MQTT_Token
+        id uuid
+        broker `mqtt.flespi.io`
+        port 8883
+        subscribe ServerTopic
+    
+    on mqtt connect go to Start
+    on mqtt message go to HandleMQTTMessage
+
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   The main start point. This may be revisited.
+Start:
+    log `Load the system map`
+    load Map from `../map.json`
+InitVariables:
+    put entry `profiles` of Map into Profiles
+    put entry `profile` of Map into CurrentProfile
+    put item CurrentProfile of Profiles into Profile
+    put entry `rooms` of Profile into Rooms
+    put the count of Rooms into RoomCount
+    set the elements of Room to RoomCount
+
+    set the elements of TempNow to RoomCount
+    set the elements of Target to RoomCount
+    set the elements of TargetWas to RoomCount
+    set the elements of PeriodNow to RoomCount
+    set the elements of PeriodWas to RoomCount
+    set the elements of RelayState to RoomCount
+    set the elements of RelayStateWas to RoomCount
+    set the elements of Last to RoomCount
+
+    set R to 0
+    while R is less than RoomCount
+    begin
+        index Room to R
+        put item R of Rooms into Room
+
+        ! Housekeeping
+        delete entry `advance-rq` of Room
+        delete entry `boost` of Room
+        delete entry `responses` of Room
+
+        ! Initialisation
+        index RelayState to R
+        set RelayState to `off`
+        index RelayStateWas to R
+        set RelayStateWas to empty
+        index PeriodNow to R
+        set PeriodNow to 0
+        index PeriodWas to R
+        set PeriodWas to 0
+        index TempNow to R
+        set TempNow to 0
+        index Target to R
+        set Target to 0
+        set TargetWas to 0
+        increment R
+    end
+
+    clear Interrupt
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   This the head of each loop
+MainLoop:
+!    log `Main loop`
+    set T to 100
+    while T is greater than 0
+    begin
+        wait 10 ticks
+        decrement T
+        ! Short-circuit if a change needs handling
+        if Interrupt
+        begin
+            clear Interrupt
+            set T to 0
+        end
+    end
+
+    ! Examine the state of each room
+    put 0 into RoomIndex
+    while RoomIndex is less than RoomCount
+    begin
+        index Room to RoomIndex
+        index TempNow to RoomIndex
+        index Target to RoomIndex
+        index TargetWas to RoomIndex
+        index PeriodNow to RoomIndex
+        index PeriodWas to RoomIndex
+        index RelayState to RoomIndex
+        index RelayStateWas to RoomIndex
+        index Last to RoomIndex
+
+        put entry `name` of Room into RoomName
+        gosub to ProcessRoom
+        increment RoomIndex
+    end
+    go to MainLoop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Process a single room
+ProcessRoom:
+    put Target into TargetWas
+    put entry `mode` of Room into Mode
+    put `` cat entry `advance` of Room into Advance
+
+    if Mode is `timed`
+    begin
+        gosub to FindCurrentPeriod
+    end
+    else if Mode is `on`
+    begin
+    end
+    else if Mode is `boost`
+    begin
+        put entry `target` of Room into Temp
+        gosub to ConvertTempToInt
+        put Temp into Target
+    end
+    else
+    begin
+        set Mode to `off`
+    end
+
+    ! Build a pack of data and send it to the device controller or simulator
+    ! It will open/close the relay and return the current temperature of the room
+    reset Data
+    set entry `room name` of Data to RoomName
+    set entry `temperature` of Data to TempNow
+    set entry `relay state` of Data to RelayState
+    send Data to Simulator
+    on message go to PR2
+    stop
+
+PR2:
+    put the message into TempNow
+
+    ! Decide if the relay should be on or off
+    if Mode is `off` set entry `relay` of Room to `off`
+    else 
+    begin
+        if TempNow is less than Target
+        begin
+            if RelayState is `off`
+            begin
+                set RelayState to `on`
+            end
+        end
+        else
+        begin
+            if RelayState is `on`
+            begin
+                set RelayState to `off`
+            end
+        end
+    end
+    if PeriodNow is not PeriodWas
+    begin
+!        if RoomName is `Sunroom` log `Period ` cat RelayStateWas cat `/` cat RelayState
+        gosub to SendRoomStateMessage
+    end
+    else if RelayState is not RelayStateWas
+    begin
+        gosub to SendRoomStateMessage
+    end
+    else
+    begin
+        ! Don't update until at least a minute since the last change
+        add 60000 to Last giving T
+!        if RoomName is `Kitchen` log T cat ` ` cat now
+        if now is greater than T
+        begin
+            if Target is TargetWas
+                begin
+!                    if RoomName is `Sunroom` log `Nothing to do`
+                    put now into Last
+                    return
+                end
+!            if RoomName is `Sunroom` log `Update the UI`
+            gosub to SendRoomStateMessage
+        end
+    end
+
+    ! Update the map
+    set entry `temperature` of Room to TempNow
+    set entry `relay` of Room to RelayState
+    set entry `period` of Room to PeriodNow
+    gosub to UpdateRooms
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Find which period we're in (to get the target temperature)
+FindCurrentPeriod:
+    put entry `events` of Room into Events
+    put the count of Events into EventCount
+    if EventCount is 0 return
+    put PeriodNow into PeriodWas
+    set PeriodNow to 0
+FCP2:
+!    if RoomName is `Kitchen` log `Examine period ` cat PeriodNow
+    if PeriodNow is EventCount
+    begin
+        ! We're past the last event time, so use the first
+        put 0 into PeriodNow
+        put item PeriodNow of Events into Period
+        put entry `until` of Period into Time
+        gosub to ConvertTimeToInt
+    end
+    else
+    begin
+        ! Check the current period. If we've passed it, move on.
+        put item PeriodNow of Events into Period
+        put entry `until` of Period into Time
+        gosub to ConvertTimeToInt
+        ! If we've passed this period, get the start of the next period and move on
+!        if RoomName is `Kitchen` log `now=` cat now cat `, Time=` cat Time
+        if now is greater than Time
+        begin
+            increment PeriodNow
+            go to FCP2
+        end
+        ! Otherwise, we've found the period
+    end
+    put PeriodNow into PeriodActive
+
+    ! Now get the target temperature
+    put entry `temp` of Period into Temp
+    gosub to ConvertTempToInt
+    put Temp into Target
+
+    ! Deal with Advance
+    put PeriodNow into P
+    if Advance is not `-`
+    begin
+        if Advance is `A`
+        begin
+            add 1 to PeriodNow giving P
+            if P is EventCount put 0 into P
+            put `` cat P into Advance
+            set entry `advance` of Room to Advance
+            set PeriodActive to P
+            gosub to SendAdvanceMessage
+        end
+        if Advance is not `-`
+        begin
+            put the value of Advance into P
+            if P is PeriodNow
+            begin
+                log `Cancel the advance`
+                set entry `advance` of Room to `-`
+                gosub to SendAdvanceMessage
+            end
+        end
+        put P into PeriodActive
+        put item P of Events into Period
+        put entry `temp` of Period into Temp
+        gosub to ConvertTempToInt
+        put Temp into Target
+    end
+!    if RoomName is `Kitchen` log `Step ` cat StepCount cat `: ` cat PeriodNow cat `/` cat PeriodActive
+!        cat ` until ` cat entry `until` of Period cat `, Target=` cat Target
+!        cat `, Temp=` cat TempNow cat `, Relay=` cat RelayState
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Send an advance message back to the main
+SendAdvanceMessage:
+    put `Advance` into Subject
+    go to SendMessage
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Send a room state message back to the main
+SendRoomStateMessage:
+return
+    set PeriodWas to PeriodNow
+    put RelayState into RelayStateWas
+    put `roomstate` into Subject
+    go to SendMessage
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Send a room state message back to the main
+SendMessage:
+!    if RoomName is `Kitchen` log Target cat `/` cat TempNow cat ` - ` cat RelayState
+    reset Message
+    set entry `subject` of Message to Subject
+    set entry `name` of Message to RoomName
+    set entry `temperature` of Message to TempNow
+    set entry `target` of Message to Target
+    set entry `relay` of Message to RelayState
+    set entry `period` of Message to PeriodActive
+    set entry `Advance` of Message to Advance
+    gosub to ProcessUpdate
+    put now into Last
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Convert an HH:MM time into an int seconds value
+ConvertTimeToInt:
+    put `` cat Time into Time
+    put the index of `:` in Time into I
+    put the value of left I of Time into T
+    multiply T by 60
+    increment I
+    put the value of from I of Time into Time
+    add Time to T
+    multiply T by 60000 giving Time
+    add today to Time
+    return
+
+! Convert a temperature string into an int hundredths value
+ConvertTempToInt:
+    if Temp is empty put 0 into Temp
+    put the index of `.` in Temp into I
+    if I is less than 0 multiply Temp by 100
+    else
+    begin
+        put the value of left I of Temp into T
+        multiply T by 100
+        increment I
+        put the value of from I of Temp into Temp
+        add T to Temp
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    ! Process an update from a room
+ProcessUpdate:
+    put entry `subject` of Message into Subject
+    if Subject is `roomstate`
+    begin
+!        log Message
+        put entry `name` of Message into RoomName
+        gosub to GetRoomByName
+        set entry `temperature` of Room to entry `temperature` of Message
+        set entry `target` of Room to entry `target` of Message
+        set entry `period` of Room to entry `period` of Message
+        set entry `relay` of Room to entry `relay` of Message
+        gosub to UpdateRooms 
+    end
+    else if Subject is `Advance`
+    begin
+        put entry `name` of Message into RoomName
+        gosub to GetRoomByName
+        set entry `temperature` of Room to entry `temperature` of Message
+        set entry `advance` of Room to entry `Advance` of Message
+        set entry `period` of Room to entry `period` of Message
+        gosub to UpdateRooms 
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   This section handles messages to and from the UI
+HandleMQTTMessage:
+    put the mqtt message into ReceivedMessage
+!    log `Incoming: ` cat ReceivedMessage
+    put entry `sender` of ReceivedMessage into Sender
+    put entry `action` of ReceivedMessage into Action
+    put entry `message` of ReceivedMessage into Data
+    if Action is `first`
+    begin
+        set MapChanged
+        set StateChanged
+        put `map` into Action
+    end
+    if Action is `map` go to SendMap
+    else if Action is `uirequest` go to ProcessUIRequest
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+GetRoomByName:
+    put 0 into RoomIndex
+    while RoomIndex is less than RoomCount
+    begin
+        put item RoomIndex of Rooms into Room
+        if entry `name` of Room is RoomName return
+        increment RoomIndex
+    end
+    ! Not found
+    reset Room
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+UpdateRooms:
+    set item RoomIndex of Rooms to Room
+UpdateProfile:
+    set entry `rooms` of Profile to Rooms
+UpdateProfiles:
+    set item CurrentProfile of Profiles to Profile
+UpdateMap:
+    set entry `profiles` of Map to Profiles
+    set MapChanged
+    save prettify Map to `../map.json`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Process a request from the UI arriving by MQTT
+ProcessUIRequest:
+    put entry `action` of Data into Action
+    if Action is `System Name`
+    begin
+        set entry `name` of Map to entry `System Name` of Data
+        log `Set the system name to ` cat entry `name` of Map
+    end
+    else if Action is `Request Relay`
+    begin
+        set entry `request` of Map to entry `Request Relay` of Data
+        log `Set the request relay to ` cat entry `request` of Map
+    end
+    else if Action is `Add Room`
+    begin
+        set entry `request` of Map to entry `Request Relay` of Data
+        put entry `Add Room` of Data into Room
+        log `Add room ` cat entry `name` of Room
+        append Room to Rooms
+        set entry `rooms` of Profile to Rooms
+        gosub to UpdateProfiles
+    end
+    else if Action is `Select Profile`
+    begin
+        set entry `profile` of Map to entry `Select Profile` of Data
+        log `Set profile ` cat entry `profile` of Map
+    end
+    else if Action is `Operating Mode`
+    begin
+        put entry `room name` of Data into RoomName
+        gosub to GetRoomByName
+        if Room is empty stop
+        put entry `Operating Mode` of Data into Mode
+        log `Set Operating Mode of ` cat entry `name` of Room cat ` to ` cat Mode
+        set entry `mode` of Room to Mode
+        if Mode is `timed`
+        begin
+            if Data has entry `Advance`
+            begin
+                if `` cat entry `advance` of Room is `-` set entry `advance` of Room to `A`
+                else set entry `advance` of Room to `-`
+!                index RoomController to RoomIndex
+!                log `Update ` cat entry `name` of Room
+!                send Room to RoomController
+            end
+        end
+        else if Mode is `boost`
+        begin
+            set T to entry `duration` of Data
+            multiply T by 60000
+            add now to T
+            set entry `until` of Room to T
+            set entry `target` of Room to entry `target` of Data
+!            send Room to RoomController
+        end
+        gosub to UpdateRooms
+    end
+    else if Action is `Periods`
+    begin
+        put entry `room name` of Data into RoomName
+        gosub to GetRoomByName
+        if Room is empty stop
+        log `Set the periods of ` cat entry `name` of Room
+        set entry `events` of Room to entry `Periods` of Data
+!        index RoomController to RoomIndex
+!        send Room to RoomController
+        gosub to UpdateRooms
+    end
+PUR2:
+    set MapChanged
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SendMap:
+    if Map is empty gosub to LoadMap
+    if MapChanged
+    begin
+        gosub to InitVariables
+        put Map into MessageText
+        clear MapChanged
+        clear StateChanged
+        go to SendReply
+    end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Send a reply message
+SendReply:
+!    log Sender
+    put entry `name` of Sender into SenderName
+    put entry `qos` of Sender into SenderQoS
+    init SenderTopic
+        name SenderName
+        qos SenderQoS
+    if ConfirmationRequested
+    begin
+        set entry SenderName of WaitForConfirmation
+        set Action to `confirm`
+    end
+    else set Action to `reply`
+!    log left 20 of MessageText
+    send to SenderTopic
+        action Action
+        message MessageText
+!    log `Reply sent`
+    clear ConfirmationRequested
+    stop

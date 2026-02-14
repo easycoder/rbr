@@ -91,8 +91,20 @@ Start:
         index RoomController to R
         run DeviceScript as RoomController
         log `Running ` cat entry `name` of Room
+!        send Room to RoomController
+        wait 10 ticks
+        increment R
+    end
+
+    ! Start up each room
+    put 0 into R
+    while R is less than RoomCount
+    begin
+        put item R of Rooms into Room
+        log `Start up ` cat entry `name` of Room
+        index RoomController to R
         send Room to RoomController
-        wait 1 tick
+        wait 10 ticks
         increment R
     end
 
