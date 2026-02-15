@@ -368,7 +368,7 @@
                             "until": "20:00"
                         }
                     ],
-                    "relay": "on",
+                    "relay": "off",
                     "protect": "no",
                     "advance": "-",
                     "relayType": "Shelly One",
@@ -377,7 +377,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 801,
+                    "temperature": 1954,
                     "battery": 0,
                     "period": 0
                 },
@@ -411,7 +411,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 792,
+                    "temperature": 2277,
                     "battery": 45,
                     "period": 2
                 },
@@ -425,15 +425,15 @@
                     "target": 1500,
                     "events": [
                         {
-                            "temp": 15.0,
+                            "temp": 20.5,
                             "until": "10:00"
                         },
                         {
                             "temp": 18.0,
-                            "until": "18:00"
+                            "until": "23:00"
                         },
                         {
-                            "temp": 15.0,
+                            "temp": 20.5,
                             "until": "23:00"
                         }
                     ],
@@ -445,10 +445,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 811,
+                    "temperature": 1512,
                     "battery": 43,
                     "relay": "on",
-                    "period": 2
+                    "period": 1
                 },
                 {
                     "name": "Hall",
@@ -485,7 +485,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 820,
+                    "temperature": 1758,
                     "battery": 43,
                     "period": 3
                 },
@@ -514,7 +514,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 700,
+                    "temperature": 1038,
                     "battery": 51,
                     "advance": "-",
                     "period": 0,
@@ -555,7 +555,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249897,
-                    "temperature": 792,
+                    "temperature": 1467,
                     "battery": 43,
                     "period": 2
                 },
@@ -597,7 +597,7 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1769249897,
-                    "temperature": 700,
+                    "temperature": 1073,
                     "status": "good",
                     "battery": 50,
                     "period": 0
@@ -607,13 +607,8 @@
                     "sensor": "a4:c1:38:ad:9c:38",
                     "relays": [],
                     "mode": "off",
-                    "target": 0,
-                    "events": [
-                        {
-                            "until": "07:00",
-                            "temp": 15
-                        }
-                    ],
+                    "target": 0.0,
+                    "events": [],
                     "relay": "off",
                     "protect": "yes",
                     "ptemp": "-1.7",
@@ -622,10 +617,10 @@
                     "advance": "-",
                     "prevmode": "off",
                     "linked": "yes",
-                    "timestamp": 1769249897,
-                    "temperature": 700,
                     "status": "good",
-                    "battery": 46,
+                    "timestamp": 1769249897,
+                    "temperature": 800,
+                    "battery": 47,
                     "period": 0
                 }
             ]

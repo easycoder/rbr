@@ -36,7 +36,6 @@
     dictionary Profile
     dictionary RoomSpec
     dictionary Response
-    dictionary Data
     dictionary Result
     dictionary Request
     dictionary Message
@@ -164,8 +163,11 @@ MainLoop:
     while LockCounter is less than 100
     begin
         if Message is not empty gosub to UpdateScreen
-        wait 10 ticks
-        increment LockCounter
+        else
+        begin
+            wait 10 ticks
+            increment LockCounter
+        end
     end
 ML2:
     ! If we're locked, don't send any messages
@@ -191,6 +193,7 @@ UpdateScreen:
 !    log `Update ` cat UpdateCounter
     increment UpdateCounter
     put Message into Map
+    set Message to empty
     if Map is empty return
     clear Waiting
     ! Process the map
@@ -789,8 +792,9 @@ FlashHourglass:
     end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Convert a hundredths teperature to a decimal for display
+!   Convert a hundredths temperature to a decimal for display
 ConvertTempToDecimal:
+!   log `Convert ` cat Temperature
     put the value of Temperature into Temperature
     put Temperature modulo 100 into Var
     if Var is less than 10 put `0` cat Var into Var else put `` cat Var into Var

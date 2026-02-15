@@ -53,7 +53,7 @@ Simulate:
     begin
         reset Data
         set entry `OnOffTime` of Data to now
-        set entry `OnOffTemp` of Data to 0
+        set entry `OnOffTemp` of Data to TempNow
         set entry `OnOffState` of Data to empty
         set entry RoomName of Rooms to Data
     end
@@ -61,6 +61,7 @@ Simulate:
     put entry `OnOffTime` of Data into OnOffTime
     put entry `OnOffTemp` of Data into OnOffTemp
     put entry `OnOffState` of Data into LastRelayState
+    if OnOffTemp is not numeric set OnOffTemp to 0
 
     take OnOffTime from now giving Elapsed
     gosub to FindAmbientTemp
@@ -69,6 +70,7 @@ Simulate:
     else put entry `rate-down` of Params into Delta
     multiply Delta by Elapsed
     divide Delta by 36000
+!    if RoomName is `Kitchen` log Elapsed cat `:` cat Delta
     if RelayState is `on`
     begin
         add Delta to OnOffTemp giving TempNow
@@ -88,7 +90,7 @@ Simulate:
         set entry RoomName of Rooms to Data
     end
 !    if RoomName is `Sunroom` log TempNow cat `: Relay is ` cat RelayState
-    log RoomName cat `: ` cat TempNow cat `: Relay is ` cat RelayState
+!    log RoomName cat `: ` cat TempNow cat `: Relay is ` cat RelayState
     send TempNow to parent
     stop
 
