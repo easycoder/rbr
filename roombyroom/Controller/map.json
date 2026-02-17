@@ -377,7 +377,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 1954,
+                    "temperature": 1713,
                     "battery": 0,
                     "period": 0
                 },
@@ -411,7 +411,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 2277,
+                    "temperature": 1346,
                     "battery": 45,
                     "period": 2
                 },
@@ -425,15 +425,15 @@
                     "target": 1500,
                     "events": [
                         {
-                            "temp": 20.5,
+                            "temp": 15.0,
                             "until": "10:00"
                         },
                         {
                             "temp": 18.0,
-                            "until": "23:00"
+                            "until": "20:00"
                         },
                         {
-                            "temp": 20.5,
+                            "temp": 21.5,
                             "until": "23:00"
                         }
                     ],
@@ -445,10 +445,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 1512,
+                    "temperature": 2245,
                     "battery": 43,
-                    "relay": "on",
-                    "period": 1
+                    "relay": "off",
+                    "period": 2
                 },
                 {
                     "name": "Hall",
@@ -485,7 +485,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 1758,
+                    "temperature": 1611,
                     "battery": 43,
                     "period": 3
                 },
@@ -514,7 +514,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 1038,
+                    "temperature": 800,
                     "battery": 51,
                     "advance": "-",
                     "period": 0,
@@ -546,7 +546,7 @@
                             "until": "23:30"
                         }
                     ],
-                    "relay": "on",
+                    "relay": "off",
                     "relayType": "RBR-Now",
                     "protect": "no",
                     "advance": "-",
@@ -555,7 +555,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249897,
-                    "temperature": 1467,
+                    "temperature": 1506,
                     "battery": 43,
                     "period": 2
                 },
@@ -597,7 +597,7 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1769249897,
-                    "temperature": 1073,
+                    "temperature": 800,
                     "status": "good",
                     "battery": 50,
                     "period": 0

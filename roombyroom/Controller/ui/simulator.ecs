@@ -42,12 +42,14 @@
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Simulate the heating in a single room
 Simulate:
     put the message into Values
     put entry `room name` of Values into RoomName
     put entry `temperature` of Values into TempNow
     put entry `relay state` of Values into RelayState
 
+    ! Check we have an entry for this named room
     put entry RoomName of AllParams into Params
     if Rooms does not have entry RoomName
     begin
@@ -69,8 +71,8 @@ Simulate:
     if RelayState is `on` put entry `rate-up` of Params into Delta
     else put entry `rate-down` of Params into Delta
     multiply Delta by Elapsed
-    divide Delta by 36000
-!    if RoomName is `Kitchen` log Elapsed cat `:` cat Delta
+    divide Delta by 3600
+!    if RoomName is `Sunroom` log Elapsed cat `:` cat Delta
     if RelayState is `on`
     begin
         add Delta to OnOffTemp giving TempNow
@@ -90,7 +92,6 @@ Simulate:
         set entry RoomName of Rooms to Data
     end
 !    if RoomName is `Sunroom` log TempNow cat `: Relay is ` cat RelayState
-!    log RoomName cat `: ` cat TempNow cat `: Relay is ` cat RelayState
     send TempNow to parent
     stop
 

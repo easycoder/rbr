@@ -12,6 +12,7 @@
     dictionary ReceivedMessage
     dictionary Data
     dictionary WaitForConfirmation
+    queue MessageQueue
     list Profiles
     list Rooms
     list Events
@@ -21,8 +22,7 @@
     variable RoomCount
     variable RoomName
     variable RoomIndex
-    variable CurrentProfile
-    variable Interrupt
+    variable SelectedProfile
     variable TempNow
     variable TempWas
     variable Target
@@ -33,7 +33,7 @@
     variable RelayState
     variable RelayStateWas
     variable EventCount
-    variable LastMapUpdate
+    variable LastMapSave
     variable MapHasChanged
     variable LastUpdateTime
     variable Advance
@@ -58,8 +58,10 @@
 !    debug step
 
     run `simulator.ecs` as Simulator with TempNow
-    set LastMapUpdate to now
+    set LastMapSave to now
     clear MapHasChanged
+    reset MessageQueue
+    reset ReceivedMessage
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
@@ -84,8 +86,7 @@
         subscribe ServerTopic
     
     on mqtt connect go to Start
-    on mqtt message go to HandleMQTTMessage
-
+    on mqtt message append the mqtt message to MessageQueue
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -93,15 +94,12 @@
 Start:
     log `Load the system map`
     load Map from `../map.json`
-InitVariables:
     put entry `profiles` of Map into Profiles
-    put entry `profile` of Map into CurrentProfile
-    put item CurrentProfile of Profiles into Profile
+    put entry `profile` of Map into SelectedProfile
+    put item SelectedProfile of Profiles into Profile
     put entry `rooms` of Profile into Rooms
     put the count of Rooms into RoomCount
     set the elements of Room to RoomCount
-
-    set the elements of Target to RoomCount
     set the elements of TargetWas to RoomCount
     set the elements of PeriodWas to RoomCount
     set the elements of RelayStateWas to RoomCount
@@ -121,13 +119,10 @@ InitVariables:
         index PeriodWas to R
         set PeriodWas to 0
         set RelayStateWas to empty
-        index Target to R
-        set Target to 0
+        index TargetWas to R
         set TargetWas to 0
         increment R
     end
-
-    clear Interrupt
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   This the head of each loop
@@ -138,51 +133,65 @@ MainLoop:
     begin
         wait 10 ticks
         decrement T
-        ! Short-circuit if a change needs handling
-        if Interrupt
-        begin
-            clear Interrupt
-            set T to 0
-        end
+        ! Short-circuit if a message arrives or a change needs handling
+        if MessageQueue is not empty go to HandleMessages
+        if ImmediateUpdate set T to 0
     end
 
     ! Examine the state of each room
-    put 0 into RoomIndex
-    while RoomIndex is less than RoomCount
+    put 0 into R
+    while R is less than RoomCount
     begin
-        index Room to RoomIndex
-        index Target to RoomIndex
-        index TargetWas to RoomIndex
-        index PeriodWas to RoomIndex
-        index RelayStateWas to RoomIndex
-
-        put entry `name` of Room into RoomName
+        index Room to R
+        index TargetWas to R
+        index PeriodWas to R
+        index RelayStateWas to R
+        set RoomIndex to R
         gosub to ProcessRoom
-        increment RoomIndex
+        increment R
     end
 
-    ! Update the map
+    ! Signal the map has changed
     if ImmediateUpdate
     begin
         set MapHasChanged
         clear ImmediateUpdate
-        gosub to WriteMap
     end
-    else
+
+    ! Check for incoming messages from the UI
+HandleMessages:
+    while MessageQueue is not empty
     begin
-        add 60000 to LastMapUpdate giving T
-        if T is less than now
+        pop ReceivedMessage from MessageQueue
+        put entry `sender` of ReceivedMessage into Sender
+        put entry `action` of ReceivedMessage into Action
+        put entry `message` of ReceivedMessage into Data
+        if Action is `first`
         begin
-            gosub to WriteMap
-            set LastUpdateTime to now
+            set MapHasChanged
+            set StateChanged
+            put `map` into Action
         end
+        if Action is `map` gosub to SendMapToUI
+        else if Action is `uirequest` gosub to ProcessUIRequest
     end
+
+    ! Save the map file periodically
+    add 60000 to LastMapSave giving T
+    if T is less than now
+    begin
+!        log `Save the map`
+        save prettify Map to `../map.json`
+        put now into LastMapSave
+    end
+
     go to MainLoop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
 ProcessRoom:
-    put Target into TargetWas
+    put entry `target` of Room into TargetWas
+    put entry `name` of Room into RoomName
     put entry `temperature` of Room into TempNow
     put entry `relay` of Room into RelayState
     put entry `mode` of Room into Mode
@@ -206,6 +215,7 @@ ProcessRoom:
     else
     begin
         set Mode to `off`
+        set RelayState to `off`
     end
 
     ! Build a pack of data and send it to the device controller or simulator
@@ -225,22 +235,25 @@ PR2:
     put the message into TempNow
 
     ! Decide if the relay should be on or off
-    put RelayState into RelayStateWas
-    if Mode is `off` set entry `relay` of Room to `off`
-    else 
+    if Mode is not `off`
     begin
-        if TempNow is less than Target
+        put RelayState into RelayStateWas
+        if Mode is `off` set entry `relay` of Room to `off`
+        else 
         begin
-            if RelayState is `off`
+            if TempNow is less than Target
             begin
-                set RelayState to `on`
+                if RelayState is `off`
+                begin
+                    set RelayState to `on`
+                end
             end
-        end
-        else
-        begin
-            if RelayState is `on`
+            else
             begin
-                set RelayState to `off`
+                if RelayState is `on`
+                begin
+                    set RelayState to `off`
+                end
             end
         end
     end
@@ -249,49 +262,44 @@ PR2:
     set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodNow
-    ! If the period or the relay state have changed, signal an immediate update,
-    ! otherwise just update the map and wait for the next update time
-    if PeriodNow is not PeriodWas
+    if Mode is `timed`
     begin
-!        log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
-        set ImmediateUpdate
-        set PeriodWas to PeriodNow
+        ! If the period or the relay state have changed, signal an immediate update,
+        ! otherwise just update the map and wait for the next update time
+        if PeriodNow is not PeriodWas
+        begin
+    !        log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
+            set PeriodWas to PeriodNow
+            gosub to ForceUpdate
+        end
+        if RelayState is not RelayStateWas
+        begin
+    !        log RoomName cat `: RelayState ` cat RelayStatedWas cat `->` cat RelayState
+            set RelayStateWas to RelayState
+            gosub to ForceUpdate
+        end
     end
-    if RelayState is not RelayStateWas
-    begin
-!        log RoomName cat `: RelayState ` cat RelayStatedWas cat `->` cat RelayState
-        set ImmediateUpdate
-        set RelayStateWas to RelayState
-    end
+!    if RoomName is `Sunroom` log `Temp/Was: ` cat TempNow cat `/` cat TempWas
     if TempNow is not TempWas set MapHasChanged
-    gosub to UpdateRooms
-    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Write the map file
-WriteMap:
-    if MapHasChanged log `Saving map`
-!    if MapHasChanged
-!    begin
-!        put item 7 of Rooms into Room
-!        log entry `name` of Room
-!    end
-    if MapHasChanged save prettify Map to `../map.json`
-    clear MapHasChanged
-    set LastMapUpdate to now
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Update parts of the map
+! Update part or all of of the map
 UpdateRooms:
 !    log `Update ` cat RoomName cat ` (` cat RoomIndex cat ` )`
     set item RoomIndex of Rooms to Room
 UpdateProfile:
     set entry `rooms` of Profile to Rooms
 UpdateProfiles:
-    set item CurrentProfile of Profiles to Profile
+    set item SelectedProfile of Profiles to Profile
 UpdateMap:
     set entry `profiles` of Map to Profiles
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Force an update now. This will short-circuit the 10-second main loop
+ForceUpdate:
+    set ImmediateUpdate
+    set MapHasChanged
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -303,7 +311,7 @@ FindCurrentPeriod:
     put PeriodNow into PeriodWas
     set PeriodNow to 0
 FCP2:
-!    if RoomName is `Kitchen` log `Examine period ` cat PeriodNow
+!    if RoomName is `Sunroom` log `Examine period ` cat PeriodNow
     if PeriodNow is EventCount
     begin
         ! We are past the last event time, so use the first
@@ -319,7 +327,7 @@ FCP2:
         put entry `until` of Period into Time
         gosub to ConvertTimeToInt
         ! If we have passed this period, get the start of the next period and move on
-!        if RoomName is `Kitchen` log `now=` cat now cat `, Time=` cat Time
+!        if RoomName is `Sunroom` log `now=` cat now cat `, Time=` cat Time
         if now is greater than Time
         begin
             increment PeriodNow
@@ -328,6 +336,7 @@ FCP2:
         ! Otherwise, we've found the period
     end
     put PeriodNow into PeriodActive
+!    if RoomName is `Sunroom` log `Active=` cat PeriodActive
 
     ! Now get the target temperature
     put entry `temp` of Period into Temp
@@ -336,43 +345,19 @@ FCP2:
 
     ! Deal with Advance
     put PeriodNow into P
-    if Advance is not `-`
+    if Advance is `A`
     begin
-        if Advance is `A`
-        begin
-            add 1 to PeriodNow giving P
-            if P is EventCount put 0 into P
-            put `` cat P into Advance
-            set entry `advance` of Room to Advance
-            set PeriodActive to P
-            gosub to SendAdvanceMessage
-        end
-        if Advance is not `-`
-        begin
-            put the value of Advance into P
-            if P is PeriodNow
-            begin
-                log `Cancel the advance`
-                set entry `advance` of Room to `-`
-                gosub to SendAdvanceMessage
-            end
-        end
-        put P into PeriodActive
-        put item P of Events into Period
-        put entry `temp` of Period into Temp
-        gosub to ConvertTempToInt
-        put Temp into Target
+        add 1 to PeriodNow giving P
+        if P is EventCount put 0 into P
+        set PeriodActive to P
+        set entry `period` of Room to PeriodActive
+        set entry `advance` of Room to `A`
+        set MapHasChanged
     end
 !    if RoomName is `Kitchen` log `Period ` cat PeriodNow cat `/` cat PeriodActive
 !        cat ` until ` cat entry `until` of Period cat `, Target=` cat Target
 !        cat `, Temp=` cat TempNow cat `, Relay=` cat RelayState
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Send an advance message back to the main
-SendAdvanceMessage:
-    put `Advance` into Subject
-    go to SendMessage
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Convert an HH:MM time into an int seconds value
@@ -404,57 +389,23 @@ ConvertTempToInt:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   This section handles messages from and to the UI
-HandleMQTTMessage:
-    put the mqtt message into ReceivedMessage
-!    log `Incoming: ` cat ReceivedMessage
-    put entry `sender` of ReceivedMessage into Sender
-    put entry `action` of ReceivedMessage into Action
-    put entry `message` of ReceivedMessage into Data
-    if Action is `first`
-    begin
-        set MapHasChanged
-        set StateChanged
-        put `map` into Action
-    end
-    if Action is `map` go to SendMap
-    else if Action is `uirequest` go to ProcessUIRequest
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 GetRoomByName:
-    put 0 into RoomIndex
+    set RoomIndex to 0
     while RoomIndex is less than RoomCount
     begin
-        put item RoomIndex of Rooms into Room
+        index Room to RoomIndex
         if entry `name` of Room is RoomName return
         increment RoomIndex
     end
     ! Not found
-    reset Room
+    set RoomIndex to -1
     return
 
-!ListRooms:
-!    put entry `profiles` of Map into Profiles
-!    put entry `profile` of Map into CurrentProfile
-!    put item CurrentProfile of Profiles into Profile
-!    put entry `rooms` of Profile into Rooms
-!    set R to 0
-!    while R is less than RoomCount
-!    begin
-!        put item R of Rooms into Room
-!        log entry `name` of Room
-!        increment R
-!    end
-!    put item 7 of Rooms into Room
-!    log entry `name` of Room
-!    return
-
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a request from the UI arriving by MQTT
 ProcessUIRequest:
-    log Data
+    gosub to ForceUpdate
     put entry `action` of Data into Action
     if Action is `System Name`
     begin
@@ -477,27 +428,28 @@ ProcessUIRequest:
     end
     else if Action is `Select Profile`
     begin
-        set entry `profile` of Map to entry `Select Profile` of Data
-        log `Set profile ` cat entry `profile` of Map
+        put entry `Select Profile` of Data into SelectedProfile
+        log `Select profile ` cat SelectedProfile
+        set entry `profile` of Map to SelectedProfile
     end
     else if Action is `Operating Mode`
     begin
         put entry `room name` of Data into RoomName
         gosub to GetRoomByName
-        if Room is empty stop
+        if Room is empty return
         put entry `Operating Mode` of Data into Mode
-        log `Set Operating Mode of ` cat entry `name` of Room cat ` to ` cat Mode
+!        log `Set Operating Mode of ` cat RoomName cat ` to ` cat Mode
         set entry `mode` of Room to Mode
         if Mode is `timed`
         begin
             if Data has entry `Advance`
             begin
-                if `` cat entry `advance` of Room is `-`
+                if entry `advance` of Room is `-`
+                begin
+                    log `Advance ` cat RoomName
                     set entry `advance` of Room to `A`
+                end
                 else set entry `advance` of Room to `-`
-                gosub to UpdateRooms
-                set MapHasChanged
-                gosub to WriteMap
             end
         end
         else if Mode is `boost`
@@ -509,31 +461,21 @@ ProcessUIRequest:
             set entry `target` of Room to entry `target` of Data
         end
         gosub to UpdateRooms
-        set MapHasChanged
-        gosub to WriteMap
     end
     else if Action is `Periods`
     begin
         put entry `room name` of Data into RoomName
         gosub to GetRoomByName
-        if Room is empty stop
+        if Room is empty return
         log `Set the periods of ` cat entry `name` of Room
         set entry `events` of Room to entry `Periods` of Data
-!        log RoomIndex cat ` - ` cat Room
         gosub to UpdateRooms
-!        gosub to ListRooms
-        set MapHasChanged
-        gosub to WriteMap
-!        gosub to ListRooms
-!        log Map
     end
-PUR2:
-    set MapHasChanged
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   If the map has changed, send it to the UI
 !   Otherwise, send an empty dictionary
-SendMap:
+SendMapToUI:
     if Map is empty
     begin
         gosub to LoadMap
@@ -545,21 +487,10 @@ SendMap:
         reset Data
         set MessageText to Data
     end
-    go to SendReply
-
-    begin
-        gosub to InitVariables
-        put Map into MessageText
-        clear MapHasChanged
-        clear StateChanged
-        go to SendReply
-    end
-    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Send a reply message
-SendReply:
-!    log Sender
+! Send a message to the UI
+SendMessage:
     put entry `name` of Sender into SenderName
     put entry `qos` of Sender into SenderQoS
     init SenderTopic
@@ -577,4 +508,4 @@ SendReply:
         message MessageText
 !    log `Reply sent`
     clear ConfirmationRequested
-    stop
+    return
