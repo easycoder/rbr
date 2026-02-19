@@ -1,8 +1,8 @@
 !   simulator.ecs
 !   This is the simulator, that changes the temperature of a room
-!   according to a simple algorithm.It requires a couple of variables
-!   from which it derives a new temperature according to whether the relay
-!   is on or off.
+!   according to a simple algorithm. It runs from a message
+!   containing a couple of variables from which it derives
+!   a new temperature according to whether the relay is on or off.
 
     script Simulator
     
@@ -37,17 +37,18 @@
     log `Set up the simulator`
     gosub to SetupSimulator
     reset Rooms
-    on message go to Simulate
+    on message go to RunSimulation
     release parent
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Simulate the heating in a single room
-Simulate:
+RunSimulation:
     put the message into Values
     put entry `room name` of Values into RoomName
     put entry `temperature` of Values into TempNow
     put entry `relay state` of Values into RelayState
+!    if RoomName is `Sunroom` log TempNow
 
     ! Check we have an entry for this named room
     put entry RoomName of AllParams into Params
@@ -66,7 +67,6 @@ Simulate:
     if OnOffTemp is not numeric set OnOffTemp to 0
 
     take OnOffTime from now giving Elapsed
-    gosub to FindAmbientTemp
 
     if RelayState is `on` put entry `rate-up` of Params into Delta
     else put entry `rate-down` of Params into Delta
@@ -75,18 +75,19 @@ Simulate:
 !    if RoomName is `Sunroom` log Elapsed cat `:` cat Delta
     if RelayState is `on`
     begin
-        add Delta to OnOffTemp giving TempNow
+        add Delta to TempNow
         if TempNow is greater than Ceiling set TempNow to Ceiling
     end
     else
     begin
-        take Delta from OnOffTemp giving TempNow
+        gosub to FindAmbientTemp
+        take Delta from TempNow
         if TempNow is less than AmbientNow set TempNow to AmbientNow
     end
+    set entry `OnOffTime` of Data to now
     if RelayState is not LastRelayState
     begin
         put entry RoomName of Rooms into Data
-        set entry `OnOffTime` of Data to now
         set entry `OnOffTemp` of Data to TempNow
         set entry `OnOffState` of Data to RelayState
         set entry RoomName of Rooms to Data
@@ -125,7 +126,7 @@ SetupSimulator:
     end
 
     ! Initialise the parameters for this room
-    load AllParams from `../config.json`
+    load AllParams from `config.json`
     if AllParams has entry RoomName put entry RoomName of AllParams into Params
     else
     begin
@@ -135,7 +136,7 @@ SetupSimulator:
         set entry `ceiling` of Params to 23
         set entry `boost` of Params to 50
         set entry RoomName of AllParams to Params
-        save prettify AllParams to `../params.json`
+        save prettify AllParams to `params.json`
     end
 
     put entry `ceiling` of Params into Temp
@@ -198,7 +199,7 @@ ConvertTempToInt:
         put the value of left I of Temp into T
         multiply T by 100
         increment I
-        put the value of from N of Temp into Temp
+        put the value of from I of Temp into Temp
         add T to Temp
     end
     return

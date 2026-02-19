@@ -158,9 +158,9 @@ Start:
 
 !   This loop sends regular map requests and updates the screen with any changes
 MainLoop:
-    ! This is in effect a 10-second wait. But if a message comes in it's a screen update
+    ! This is in effect a 1-minute wait. But if a message comes in or the map changes it's a screen update
     put 0 into LockCounter
-    while LockCounter is less than 100
+    while LockCounter is less than 1000
     begin
         if Message is not empty gosub to UpdateScreen
         else
@@ -172,25 +172,25 @@ MainLoop:
 ML2:
     ! If we're locked, don't send any messages
     if Locked go to MainLoop
-!    log `Ping`
+    ! Send a simple message to tell the controller I'm still here
     increment MapRequests
     if FirstTime
     begin
         put `first` into Text
         log `Sending first request`
     end
-    else put `map` into Text
+    else put `refresh` into Text
     send to ServerTopic
         sender MyTopic
         action Text
-        message `{"map requests": ` cat MapRequests cat `}`
+        message empty
     go to MainLoop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the screen.
 UpdateScreen:
     if Locked return
-!    log `Update ` cat UpdateCounter
+    log `Update ` cat UpdateCounter
     increment UpdateCounter
     put Message into Map
     set Message to empty
@@ -231,12 +231,12 @@ UpdateScreen:
     ! Set up the banner at the top of the screen
     attach Banner to element `banner` of Window
     attach Hamburger to element `hamburger` of Banner
-    on click Hamburger go to ShowMainMenu
+    on click Hamburger gosub to ShowMainMenu
 
     ! Set up the Profiles bar below the banner
     attach ProfilesBar to element `profiles` of Window
     attach ProfileButton to element `profileButton` of ProfilesBar
-    on click ProfileButton go to ShowProfileMenu
+    on click ProfileButton gosub to ShowProfileMenu
 
     ! Attach the popout
     attach Popout to element `popout` of Window
@@ -259,10 +259,18 @@ CreateRoom:
 !    log Room
     index ModeButton to R
     attach ModeButton to element `mode` of Room
-    on click ModeButton go to HandleMode
+    on click ModeButton
+    begin
+        gosub to HandleMode
+        clear Locked
+    end
     index ToolsButton to R
     attach ToolsButton to element `tools` of Room
-    on click ToolsButton go to HandleTools
+    on click ToolsButton
+    begin
+        gosub to HandleTools
+        clear Locked
+    end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -281,23 +289,26 @@ ShowMainMenu:
     append `Cancel` to Choices
 
     select Choice from menu `Main Menu` with Choices
-    if Choice is item 0 of Choices go to SetSystemName
-    if Choice is item 1 of Choices go to SetRequestRelay
-    if Choice is item 2 of Choices go to AddRoom
-    if Choice is item 3 of Choices go to ShowSystemInfo
-    if Choice is item 5 of Choices go to Exit
-    stop
+    if Choice is item 0 of Choices gosub to SetSystemName
+    else if Choice is item 1 of Choices gosub to SetRequestRelay
+    else if Choice is item 2 of Choices gosub to AddRoom
+    else if Choice is item 3 of Choices gosub to ShowSystemInfo
+    else if Choice is item 5 of Choices go to Exit
+    else clear Locked
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Here when the user clicks to set the system name. Use an external module
 SetSystemName:
+    set Locked
     run `systemName.ecs` as Module with Window and ProfilesBar and Request
     if Request is not empty
     begin
         log `System name has been changed`
         go to SendRequest
     end
-    stop
+    clear Locked
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Provide information about the request relay, if there is one
@@ -312,7 +323,11 @@ SetRequestRelay:
     set the text of Input to RequestRelay
     add Input to Layout
     create keyboard layout Layout and receiver Input in Window
-    if Input is RequestRelay stop
+    if Input is RequestRelay
+    begin
+        clear Locked
+        return
+    end
     reset Request
     set entry `action` of Request to `Request Relay`
     set entry `Request Relay` of Request to Input
@@ -336,9 +351,6 @@ ShowSystemInfo:
     create Panel type QVBoxLayout
     create Label text `-- System information --`
     add Label to Panel
-!    load Version from RamDisk cat `version`
-!    load Uptime from RamDisk cat `uptime`
-    end
     create Label text `Version: ` cat Version
     add Label to Panel
     create Label text `Uptime: ` cat Uptime
@@ -350,6 +362,7 @@ ShowSystemInfo:
     begin
         hide Popout
         clear Locked
+        return
     end
     add Panel to Popout
     show Popout
@@ -358,6 +371,7 @@ ShowSystemInfo:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Handle a click on the Profile button
 ShowProfileMenu:
+    set Locked
     reset Choices
     put 0 into P
     while P is less than the count of Profiles
@@ -374,28 +388,30 @@ ShowProfileMenu:
     put 0 into P
     while P is less than the count of Profiles
     begin
-        if Choice is item P of Choices go to SelectProfile
+        if Choice is item P of Choices gosub to SelectProfile
         increment P
     end
     increment P
-    if Choice is item P of Choices go to EditProfiles
-    increment P
-    if Choice is item P of Choices stop
-    stop
+    if Choice is item P of Choices gosub to EditProfiles
+    clear Locked
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Select a profile
 SelectProfile:
+    set Locked
     log `Select profile ` cat P
     set entry `action` of Request to `Select Profile`
     set entry `Select Profile` of Request to P
     go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Edit the profiles
+!   Edit the profiles   --- TODO
 EditProfiles:
+    set Locked
     log `Edit profiles`
-    stop
+    clear Locked
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Handle a click on one of the Mode buttons
@@ -408,7 +424,6 @@ HandleMode:
     put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
     if Result is empty go to HM2
-    clear Locked
     reset Request
     set entry `room name` of Request to Name
     set entry `target` of Request to entry `target` of RoomSpec
@@ -420,18 +435,18 @@ HandleMode:
         begin
             if Result has entry `advance` set entry `Advance` of Request
             set entry `mode` of Request to `timed`
-            go to SetMode
+            gosub to SetMode
         end
         else if Mode is `off`
         begin
             set entry `mode` of Request to `off`
-            go to SetMode
+            gosub to SetMode
         end
         else if Mode is `on`
         begin
             set entry `mode` of Request to `on`
             set entry `target` of Request to entry `target` of Request
-            go to SetMode
+            gosub to SetMode
         end
         else if left 5 of Mode is `boost`
         begin
@@ -439,31 +454,29 @@ HandleMode:
             set entry `mode` of Request to `boost`
             set entry `duration` of Request to entry `duration` of Result
             set entry `target` of Request to entry `target` of Request
-            go to SetMode
+            gosub to SetMode
         end
     end
-    else if Mode is `advance`
+    else if Action is `advance`
     begin
         set entry `mode` of Request to `timed`
         put entry `advance` of RoomSpec into Advance
         if Advance is `-` set entry `Advance` of Request to `A`
         else set entry `Advance` of Request to `C`
-        go to SetMode
+        gosub to SetMode
     end
     else if Action is `edit`
     begin
-        set Locked
         reset Request
         put entry `name` of RoomSpec into RoomName
         put entry `events` of RoomSpec into Periods
         run `schedule.ecs` as Module with RoomName and Window and Periods and Request
-        clear Locked
-        if Request is empty stop
-        go to SendRequest
+        if Request is empty go to HM2
+        gosub to SendRequest
     end
 HM2:
     clear Locked
-    stop
+    return
 
 SetMode:
     set entry `action` of Request to `Operating Mode`
@@ -473,6 +486,7 @@ SetMode:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The Tools button on the right of each room row
 HandleTools:
+    set Locked
     put the index of ToolsButton into RoomIndex
     index Room to RoomIndex
     put attribute `name` of Room into Name
@@ -507,14 +521,15 @@ HandleTools:
     select Choice from menu `Tools Menu` with ChoicesShown
     log Choice
     reset Request
-    if Choice is item 0 of Choices go to MoveRoomUp
-    if Choice is item 1 of Choices go to MoveRoomDown
-    if Choice is item 2 of Choices go to ShowRoomInfo
-    if Choice is item 3 of Choices go to EditRoomName
-    if Choice is item 4 of Choices go to EditDeviceParams
-    if Choice is item 5 of Choices go to EditSchedule
-    if Choice is item 6 of Choices go to DeleteRoom
-    if Choice is item 8 of Choices stop
+    if Choice is item 0 of Choices gosub to MoveRoomUp
+    else if Choice is item 1 of Choices gosub to MoveRoomDown
+    else if Choice is item 2 of Choices gosub to ShowRoomInfo
+    else if Choice is item 3 of Choices gosub to EditRoomName
+    else if Choice is item 4 of Choices gosub to EditDeviceParams
+    else if Choice is item 5 of Choices gosub to EditSchedule
+    else if Choice is item 6 of Choices gosub to DeleteRoom
+    else clear Locked
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !    Move the selected room up in the list
@@ -600,6 +615,7 @@ ShowRoomInfo:
     begin
         hide Popout
         clear Locked
+        return
     end
     add Panel to Popout
     show Popout
@@ -620,7 +636,6 @@ EditRoomName:
     set entry `action` of Request to `roomname`
     set entry `roomnumber` of Request to RoomIndex
     set entry `name` of Request to Input
-    log Request
     go to SendRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -729,7 +744,7 @@ EditDeviceParams:
     go to SendRequest
 
 EditSchedule:
-    stop
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Delete a room
@@ -738,7 +753,7 @@ DeleteRoom:
         type confirm
         prompt `Are you sure you want to delete ` cat Name cat `?`
     show Dialog
-    if not Dialog stop
+    if not Dialog return
 
     reset NewRooms
     put 0 into R
@@ -774,30 +789,30 @@ SendRequest:
     set Waiting
     fork to FlashHourglass
     clear Locked
-    go to MainLoop
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Flash the hourglass while waiting for a reply
 FlashHourglass:
-    while true
+    while Waiting
     begin
-        if Waiting
-        begin
-            set attribute `hourglass` of Window to true
-            wait 50 ticks
-            set attribute `hourglass` of Window to false
-            wait 40 ticks
-        end
-        wait 10 ticks
+        set attribute `hourglass` of Window to true
+        wait 50 ticks
+        set attribute `hourglass` of Window to false
+        wait 40 ticks
     end
+    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Convert a hundredths temperature to a decimal for display
 ConvertTempToDecimal:
 !   log `Convert ` cat Temperature
-    put the value of Temperature into Temperature
-    put Temperature modulo 100 into Var
-    if Var is less than 10 put `0` cat Var into Var else put `` cat Var into Var
-    divide Temperature by 100
-    put `` cat Temperature cat `.` cat left 1 of Var into Temperature
+    if Temperature is numeric
+    begin
+        put the value of Temperature into Temperature
+        put Temperature modulo 100 into Var
+        if Var is less than 10 put `0` cat Var into Var else put `` cat Var into Var
+        divide Temperature by 100
+        put `` cat Temperature cat `.` cat left 1 of Var into Temperature
+    end
     return

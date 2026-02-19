@@ -483,13 +483,16 @@ class ModeButton(QWidget):
                 # Second row font and rect (if present)
                 if self.mode == 'Timed':
                     roomSpec = self.spec
-                    events = roomSpec['events']
-                    period = roomSpec['period']
-                    event = events[period]
-                    untilTime = event['until']
-                    untilTemp = event['temp']
-                    if roomSpec['linked'] == 'yes':  text = f'{untilTemp}°C->{untilTime}'
-                    else: text = f'->{untilTime}'
+                    if 'events' in roomSpec:
+                        events = roomSpec['events']
+                        if 'period' in roomSpec:
+                            event = events[roomSpec['period']]
+                            untilTime = event['until']
+                            untilTemp = event['temp']
+                            if roomSpec['linked'] == 'yes':  text = f'{untilTemp}°C->{untilTime}'
+                            else: text = f'->{untilTime}'
+                        else: text = '---'
+                    else: text = '---'
 
                     font2 = QFont("Arial", height // 8)
                     painter.setFont(font2)
