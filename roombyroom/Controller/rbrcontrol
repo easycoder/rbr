@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# This file goes in your ~/bin folder, assuming it's on your $PATH.
+
+/usr/bin/pip install -U easycoder
+cd $HOME/bin
+/usr/bin/rm newController.ecs simulator.ecs
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/roombyroom/Controller/newController.ecs
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/roombyroom/Controller/simulator.ecs
+/usr/bin/chmod a+x docletServer
+/usr/bin/python3 docletServer.py
+$HOME/.local/bin/easycoder docletServer.ecs > doclog 2>&1
