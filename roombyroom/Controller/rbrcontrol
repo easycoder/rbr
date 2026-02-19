@@ -4,9 +4,10 @@
 
 /usr/bin/pip install -U easycoder
 cd $HOME/bin
-/usr/bin/rm newController.ecs simulator.ecs
+/usr/bin/rm newController.ecs simulator.ecs environment.csv rbrcontrol
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/roombyroom/Controller/newController.ecs
 /usr/bin/wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/roombyroom/Controller/simulator.ecs
-/usr/bin/chmod a+x docletServer
-/usr/bin/python3 docletServer.py
-$HOME/.local/bin/easycoder docletServer.ecs > doclog 2>&1
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/roombyroom/Controller/environment.csv
+/usr/bin/wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/roombyroom/Controller/rbrcontrol
+/usr/bin/chmod a+x rbrcontrol
+$HOME/.local/bin/easycoder newController.ecs
