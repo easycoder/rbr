@@ -294,7 +294,7 @@
                         },
                         {
                             "temp": 15.0,
-                            "until": "17:30"
+                            "until": "17:00"
                         },
                         {
                             "temp": 21.0,
@@ -310,7 +310,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 1789,
+                    "temperature": 2010,
                     "battery": 0,
                     "period": 2
                 },
@@ -336,17 +336,17 @@
                             "until": "23:00"
                         }
                     ],
-                    "relay": "off",
+                    "relay": "on",
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "timed",
-                    "advance": "-",
+                    "advance": "A",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249904,
-                    "temperature": 1510,
+                    "temperature": 2290,
                     "battery": 45,
-                    "period": 1
+                    "period": 2
                 },
                 {
                     "name": "Lounge",
@@ -378,9 +378,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 1634,
+                    "temperature": 1980,
                     "battery": 43,
-                    "relay": "on",
+                    "relay": "off",
                     "period": 1
                 },
                 {
@@ -418,7 +418,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 1681,
+                    "temperature": 1940,
                     "battery": 43,
                     "period": 2
                 },
@@ -447,7 +447,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1769249896,
-                    "temperature": 1387,
+                    "temperature": 1860,
                     "battery": 51,
                     "advance": "-",
                     "period": 2,
@@ -488,7 +488,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249897,
-                    "temperature": 1556,
+                    "temperature": 2110,
                     "battery": 43,
                     "period": 2
                 },
@@ -530,7 +530,7 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1769249897,
-                    "temperature": 1469,
+                    "temperature": 2010,
                     "status": "good",
                     "battery": 50,
                     "period": 2
@@ -552,7 +552,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769249897,
-                    "temperature": 1407,
+                    "temperature": 1150,
                     "battery": 47,
                     "period": 2
                 }

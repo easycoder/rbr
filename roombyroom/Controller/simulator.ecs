@@ -13,6 +13,7 @@
     dictionary Values
     dictionary Item
     list Times
+    list Replies
     variable RoomName
     variable RelayState
     variable LastRelayState
@@ -36,6 +37,7 @@
     
     log `Set up the simulator`
     gosub to SetupSimulator
+    reset AllParams
     reset Rooms
     on message go to RunSimulation
     release parent
@@ -50,8 +52,29 @@ RunSimulation:
     put entry `relay state` of Values into RelayState
 !    if RoomName is `Sunroom` log TempNow
 
+    ! Get the parameters for this room
+    if AllParams is empty
+    begin
+        if file `params.json` exists load AllParams from `params.json` else reset AllParams
+    end
+    if AllParams has entry RoomName put entry RoomName of AllParams into Params
+    else
+    begin
+        log `Init params for ` cat RoomName
+        reset Params
+        set entry `rate-up` of Params to 10
+        set entry `rate-down` of Params to 10
+        set entry `ceiling` of Params to 23
+        set entry `boost` of Params to 50
+        set entry RoomName of AllParams to Params
+        save prettify AllParams to `params.json`
+    end
+    put entry `ceiling` of Params into Temp
+    gosub to ConvertTempToInt
+    put Temp into Ceiling
+
     ! Check we have an entry for this named room
-    put entry RoomName of AllParams into Params
+!    put entry RoomName of AllParams into Params
     if Rooms does not have entry RoomName
     begin
         reset Data
@@ -93,7 +116,9 @@ RunSimulation:
         set entry RoomName of Rooms to Data
     end
 !    if RoomName is `Sunroom` log TempNow cat `: Relay is ` cat RelayState
-    send TempNow to parent
+    reset Replies
+    append TempNow to Replies
+    send Replies to parent
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -124,24 +149,6 @@ SetupSimulator:
         end
         increment N
     end
-
-    ! Initialise the parameters for this room
-    load AllParams from `config.json`
-    if AllParams has entry RoomName put entry RoomName of AllParams into Params
-    else
-    begin
-        reset Params
-        set entry `rate-up` of Params to 10
-        set entry `rate-down` of Params to 10
-        set entry `ceiling` of Params to 23
-        set entry `boost` of Params to 50
-        set entry RoomName of AllParams to Params
-        save prettify AllParams to `params.json`
-    end
-
-    put entry `ceiling` of Params into Temp
-    gosub to ConvertTempToInt
-    put Temp into Ceiling
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

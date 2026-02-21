@@ -1,54 +1,199 @@
 {
+    "host-ssid": "EE-976CSZ",
+    "host-password": "9GvuJvNXRp6MrWEq",
+    "ipaddr": "192.168.1.214",
+    "mac": "38:54:39:34:62:d7",
+    "password": 139160,
+    "devices": {
+        "Sunroom": {
+            "master": false,
+            "name": "Sunroom",
+            "ssid": "RBR-Now-9c9e6e0ba259",
+            "channel": "1",
+            "pins": {
+                "led": {
+                    "pin": "3",
+                    "invert": false
+                },
+                "relay": {
+                    "pin": "9",
+                    "invert": true
+                },
+                "dht22": {
+                    "pin": ""
+                }
+            },
+            "path": ""
+        },
+        "Hall": {
+            "master": false,
+            "name": "Hall",
+            "ssid": "RBR-Now-9c9e6e0baa15",
+            "channel": "1",
+            "pins": {
+                "led": {
+                    "pin": "3",
+                    "invert": false
+                },
+                "relay": {
+                    "pin": "9",
+                    "invert": true
+                },
+                "dht22": {
+                    "pin": ""
+                }
+            },
+            "path": ""
+        },
+        "Request": {
+            "hostssid": "EE-976CSZ",
+            "hostpass": "9GvuJvNXRp6MrWEq",
+            "ipaddr": "192.168.1.158",
+            "master": true,
+            "name": "Request",
+            "ssid": "RBR-Now-9c9e6e0ba511",
+            "channel": "1",
+            "pins": {
+                "led": {
+                    "pin": "3",
+                    "invert": false
+                },
+                "relay": {
+                    "pin": "9",
+                    "invert": true
+                },
+                "dht22": {
+                    "pin": ""
+                }
+            },
+            "path": ""
+        },
+        "Main Bedroom": {
+            "master": false,
+            "name": "Main Bedroom",
+            "ssid": "RBR-Now-9c9e6e0baac5",
+            "channel": "1",
+            "pins": {
+                "led": {
+                    "pin": "3",
+                    "invert": false
+                },
+                "relay": {
+                    "pin": "9",
+                    "invert": true
+                },
+                "dht22": {
+                    "pin": ""
+                }
+            },
+            "path": ""
+        },
+        "Guest Bedroom": {
+            "master": false,
+            "name": "Guest Bedroom",
+            "ssid": "RBR-Now-9c9e6e0babc1",
+            "channel": "1",
+            "pins": {
+                "led": {
+                    "pin": "3",
+                    "invert": false
+                },
+                "relay": {
+                    "pin": "9",
+                    "invert": true
+                },
+                "dht22": {
+                    "pin": ""
+                }
+            },
+            "path": ""
+        },
+        "Office": {
+            "path": "",
+            "master": false,
+            "myMaster": "9c9e6e0ba511",
+            "name": "Office",
+            "ssid": "RBR-Now-9c9e6e0ba955",
+            "channel": 6,
+            "pins": {
+                "led": {
+                    "pin": "3",
+                    "invert": false
+                },
+                "relay": {
+                    "pin": "9",
+                    "invert": true
+                },
+                "dht22": {
+                    "pin": ""
+                }
+            }
+        },
+        "Lounge": {
+            "path": "",
+            "master": false,
+            "myMaster": "9c9e6e0ba511",
+            "name": "Lounge",
+            "ssid": "RBR-Now-9c9e6e0bab61",
+            "channel": 6,
+            "pins": {
+                "led": {
+                    "pin": "3",
+                    "invert": false
+                },
+                "relay": {
+                    "pin": "9",
+                    "invert": false
+                },
+                "dht22": {
+                    "pin": ""
+                }
+            }
+        }
+    },
     "Kitchen": {
-        "rate-up": 11,
-        "rate-down": 10,
-        "ceiling": 23,
-        "boost": 0
-    },
-    "Sunroom": {
-        "rate-up": 10,
-        "rate-down": 9,
-        "ceiling": 26,
-        "boost": 100
-    },
-    "Lounge": {
-        "rate-up": 12,
-        "rate-down": 9,
-        "ceiling": 26,
-        "boost": 0
-    },
-    "Hall": {
-        "rate-up": 13,
-        "rate-down": 10,
-        "ceiling": 21,
-        "boost": 0
-    },
-    "Office": {
-        "rate-up": 11,
-        "rate-down": 13,
-        "ceiling": 22,
-        "boost": 40
-    },
-    "Main Bedroom": {
-        "rate-up": 10,
-        "rate-down": 7,
-        "ceiling": 23,
-        "boost": 80
-    },
-    "Guest Bedroom": {
-        "rate-up": 10,
-        "rate-down": 6,
-        "ceiling": 23,
-        "boost": 80
-    },
-    "Outside": {
         "rate-up": 10,
         "rate-down": 10,
         "ceiling": 23,
         "boost": 50
     },
-    "device_script": "roomController.ecs",
-    "null": {
+    "Sunroom": {
+        "rate-up": 10,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 50
+    },
+    "Lounge": {
+        "rate-up": 10,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 50
+    },
+    "Hall": {
+        "rate-up": 10,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 50
+    },
+    "Office": {
+        "rate-up": 10,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 50
+    },
+    "Main Bedroom": {
+        "rate-up": 10,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 50
+    },
+    "Guest Bedroom": {
+        "rate-up": 10,
+        "rate-down": 10,
+        "ceiling": 23,
+        "boost": 50
+    },
+    "Outside": {
         "rate-up": 10,
         "rate-down": 10,
         "ceiling": 23,

@@ -11,6 +11,11 @@
     dictionary Sender
     dictionary Senders
     dictionary ReceivedMessage
+    dictionary Response
+    dictionary Thermometers
+    dictionary Thermometer
+    dictionary Temperatures
+    dictionary RoomSpec
     dictionary Data
     dictionary WaitForConfirmation
     queue MessageQueue
@@ -18,8 +23,10 @@
     list Rooms
     list Events
     list SenderKeys
+    list Replies
     topic ServerTopic
     topic SenderTopic
+    ssh SSH
     variable MQTT_Token
     variable RoomCount
     variable RoomName
@@ -32,13 +39,16 @@
     variable PeriodNow
     variable PeriodWas
     variable PeriodActive
+    variable Sensor
+    variable Relays
+    variable RelayType
     variable RelayState
     variable RelayStateWas
     variable EventCount
     variable LastMapSave
     variable MapHasChanged
-    variable LastUpdateTime
     variable Advance
+    variable Simulate
     variable Time
     variable Temp
     variable ImmediateUpdate
@@ -48,24 +58,35 @@
     variable SenderName
     variable SenderQoS
     variable SenderKey
+    variable Reply
     variable MyID
-    variable Subject
     variable Action
     variable Mode
+    variable Value
+    variable Value2
+    variable ThermometerUpdate
+    variable LoopCount
     variable I
     variable P
     variable R
     variable S
     variable T
-    module Simulator
+    module DeviceModule
 
 !    debug step
 
-    run `simulator.ecs` as Simulator
+    clear Simulate
+
+    if Simulate run `simulator.ecs` as DeviceModule
+    else run `deviceControl.ecs` as DeviceModule
     set LastMapSave to now
     clear MapHasChanged
+    clear ThermometerUpdate
     reset MessageQueue
     reset ReceivedMessage
+    reset Temperatures
+    set LoopCount to 0
+    if not Simulate gosub to SetupSSH
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
@@ -77,7 +98,7 @@
     load MQTT_Token from `~/.mqqt_token`
 
     ! Set up MQTT
-    put `38:54:39:34:62:d7/request` into MyID
+    load MyID from `serverID`
     init ServerTopic
         name MyID
         qos 1
@@ -100,14 +121,16 @@ Start:
     load Map from `map.json`
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into SelectedProfile
+    if file `thermometers.json` exists load Thermometers from `thermometers.json`
+    else reset Thermometers
     gosub to PopulateMapVariables
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   This the head of each loop
 MainLoop:
-!    log `Main loop`
+    if not Simulate save `lock` to SSH `/mnt/data/lock`
     ! Wait for 60 seconds
-    set T to 1000
+    set T to 100
     while T is greater than 0
     begin
         wait 10 ticks
@@ -119,6 +142,8 @@ MainLoop:
         if MapHasChanged gosub SendMapToUI
     end
 
+    log `Repeat ` cat LoopCount
+    increment LoopCount
     ! Examine the state of each room
     put 0 into R
     while R is less than RoomCount
@@ -160,13 +185,14 @@ HandleMessages:
         else if Action is `uirequest` gosub to ProcessUIRequest
     end
 
-    ! Save the map file periodically
+    ! Save files periodically
     add 60000 to LastMapSave giving T
     if T is less than now
     begin
 !        log `Save the map`
         save prettify Map to `map.json`
         put now into LastMapSave
+        if ThermometerUpdate save prettify Thermometers to `thermometers.json`
     end
 
     ! If no messages have beeen received for 60 seconds, remove the sender
@@ -222,15 +248,44 @@ PopulateMapVariables:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process a single room
 ProcessRoom:
-    put entry `target` of Room into TargetWas
     put entry `name` of Room into RoomName
-    put entry `temperature` of Room into TempNow
-    if TempNow is not numeric
+    put entry `target` of Room into TargetWas
+    put entry `sensor` of Room into Sensor
+    reset RoomSpec
+
+    ! Get the current temperature
+    if Simulate
     begin
-        put TempNow into Temp
-        gosub to ConvertTempToInt
-        put Temp into TempNow
+        put entry `temperature` of Room into TempNow
+        if TempNow is not numeric
+        begin
+            put TempNow into Temp
+            gosub to ConvertTempToInt
+            put Temp into TempNow
+        end
     end
+    else
+    begin
+        set TempNow to empty
+        if Thermometers has entry Sensor
+        begin
+            put entry Sensor of Thermometers into Thermometer
+            put entry `ts` of Thermometer into T
+            add 1800000 to T
+            if T is greater than now
+            begin
+                set TempNow to entry `temp` of Thermometer
+                set entry `battery` of RoomSpec to entry `batt` of Thermometer
+            end
+            else log RoomName cat ` sensor ` cat Sensor cat ` has not reported recently`
+        end
+        else log RoomName cat ` sensor ` cat Sensor cat ` has not yet reported`
+    end
+    put entry `temperature` of Room into TempWas
+    set entry `temperature` of Room to TempNow
+    if TempNow is not TempWas set MapHasChanged
+    put entry `relays` of Room into Relays
+    put entry `relayType` of Room into RelayType
     put entry `relay` of Room into RelayState
     put entry `mode` of Room into Mode
     if Room has entry `period` put entry `period` of Room into PeriodNow
@@ -259,30 +314,48 @@ ProcessRoom:
         set Mode to `off`
         set RelayState to `off`
     end
+    if TempNow is empty set RelayState to `off`
 
-    ! Build a pack of data and send it to the device controller or simulator
+    ! Build a pack of data and send it to the device controller or the simulator
     ! It will open/close the relay and return the current temperature of the room
-    reset Data
-    set entry `room name` of Data to RoomName
-    set entry `temperature` of Data to TempNow
-    set entry `relay state` of Data to RelayState
-!    if RoomName is `Kitchen` log Data
-    send Data to Simulator
+    set entry `room name` of RoomSpec to RoomName
+    set entry `temperature` of RoomSpec to TempNow
+    set entry `relays` of RoomSpec to Relays
+    set entry `relay type` of RoomSpec to RelayType
+    set entry `relay state` of RoomSpec to RelayState
+!    log `Send room spec for ` cat RoomName
+    send RoomSpec to DeviceModule
     on message go to PR2
     stop
 
 !   Here when the device controller returns the current temperature
 PR2:
     put TempNow into TempWas
-    put the message into TempNow
+    put the message into Replies
+    if Replies is not empty
+    begin
+        put item 0 of Replies into Response
+        if Response is numeric put Response into TempNow
+        else
+        begin
+            put Response into Reply
+            if Reply is not empty gosub to RecordThermometer
+        end
+        gosub to SetRelay
+        log RoomName cat `: ` cat Replies cat ` - ` cat entry `temperature` of Room
+    end
+    return
 
-    ! Decide if the relay should be on or off
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Decide if the relay should be on or off
+SetRelay:
     if Mode is not `off`
     begin
         put RelayState into RelayStateWas
         if Mode is `off` set entry `relay` of Room to `off`
         else 
         begin
+!            log RoomName cat ` ` cat TempNow cat `/` cat Target
             if TempNow is less than Target
             begin
                 if RelayState is `off`
@@ -402,6 +475,44 @@ FCP2:
 !    if RoomName is `Sunroom` log `Period ` cat PeriodNow cat `/` cat PeriodActive
 !        cat ` until ` cat entry `until` of Period cat `, Target=` cat Target
 !        cat `, Temp=` cat TempNow cat `, Relay=` cat RelayState
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Record information about Mijia thermometers
+RecordThermometer:
+    if Reply is empty return
+!    log Reply
+    put Reply into Value
+    split Value on ` `
+    if the elements of Value is 1 return
+    index Value to 2
+    put Value into Value2
+    split Value2 on `+`
+    if the elements of Value2 is 1 return
+    index Value2 to 1
+    if Value2 is not empty
+    begin
+        split Value2 on `;`
+        if the elements of Value2 is not less than 5
+        begin
+            reset Thermometer
+            set entry `ts` of Thermometer to now
+            index Value2 to 1
+            set entry `rssi` of Thermometer to Value2
+            index Value2 to 2
+            multiply Value2 by 10
+            set entry `temp` of Thermometer to Value2
+            index Value2 to 3
+            set entry `hum` of Thermometer to Value2
+            index Value2 to 4
+            set entry `batt` of Thermometer to Value2
+            index Value2 to 0
+            set entry `a4:c1:38:` cat Value2 of Thermometers to Thermometer
+            set ThermometerUpdate
+!            log RoomName cat ` thermometer: ` cat Thermometer
+        end
+        set the elements of Value to 1
+    end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -575,4 +686,18 @@ SendMessage:
         message MessageText
 !    log `Reply sent`
     clear ConfirmationRequested
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+SetupSSH:
+    set SSH
+        host `192.168.1.214`
+        user `linaro`
+        password `r00m8Yr00m`
+    if error in SSH
+    begin
+        log `SSH error: ` cat the error of SSH
+        stop
+    end
+    log `SSH set up successfully`
     return
