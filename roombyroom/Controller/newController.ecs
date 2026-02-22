@@ -47,6 +47,7 @@
     variable EventCount
     variable LastMapSave
     variable MapHasChanged
+    variable HeatingRequested
     variable Advance
     variable Simulate
     variable Time
@@ -75,7 +76,7 @@
 
 !    debug step
 
-    clear Simulate
+    set Simulate
 
     if Simulate run `simulator.ecs` as DeviceModule
     else run `deviceControl.ecs` as DeviceModule
@@ -156,6 +157,7 @@ MainLoop:
         gosub to ProcessRoom
         increment R
     end
+    if not Simulate gosub to ProcessRequestRelay
 
     ! Signal the map has changed
     if ImmediateUpdate
@@ -214,7 +216,7 @@ HandleMessages:
     go to MainLoop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Populate all the main map variables
+!   Populate all the main map variables, then do a complete cycle of the system
 PopulateMapVariables:
     put item SelectedProfile of Profiles into Profile
     put entry `rooms` of Profile into Rooms
@@ -224,6 +226,7 @@ PopulateMapVariables:
     set the elements of PeriodWas to RoomCount
     set the elements of RelayStateWas to RoomCount
 
+    clear HeatingRequested
     set R to 0
     while R is less than RoomCount
     begin
@@ -252,6 +255,7 @@ ProcessRoom:
     put entry `target` of Room into TargetWas
     put entry `sensor` of Room into Sensor
     reset RoomSpec
+!    log `Process ` cat RoomName
 
     ! Get the current temperature
     if Simulate
@@ -325,53 +329,66 @@ ProcessRoom:
     set entry `relay state` of RoomSpec to RelayState
 !    log `Send room spec for ` cat RoomName
     send RoomSpec to DeviceModule
-    on message go to PR2
+    on message go to ProcessReply
     stop
-
-!   Here when the device controller returns the current temperature
-PR2:
-    put TempNow into TempWas
-    put the message into Replies
-    if Replies is not empty
+        
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Process the request relay, if any
+ProcessRequestRelay:
+    if Map has entry `request`
     begin
-        put item 0 of Replies into Response
-        if Response is numeric put Response into TempNow
-        else
+        put entry `request` of Map into RoomName
+        if RoomName is not empty
         begin
-            put Response into Reply
-            if Reply is not empty gosub to RecordThermometer
+            if HeatingRequested put `on` into RelayState else put `off` into RelayState
+            log `Turn ` cat RoomName cat ` ` cat RelayState
+            reset RoomSpec
+            set entry `request` of RoomSpec to RoomName
+            set entry `relay state` of RoomSpec to RelayState
+            send RoomSpec to DeviceModule
+            on message go to ProcessReply
+            stop
         end
-        gosub to SetRelay
-        log RoomName cat `: ` cat Replies cat ` - ` cat entry `temperature` of Room
     end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Decide if the relay should be on or off
+!   Here when the device controller returns
+ProcessReply:
+    put TempNow into TempWas
+    put the message into Replies
+!    log Replies
+    if Replies is not empty
+    begin
+        put item 0 of Replies into Value
+        if Value is numeric put Value into TempNow
+        else
+        begin
+            put Value into Reply
+            if Reply is not empty gosub to RecordThermometer
+        end
+        gosub to SetRelay
+!        log RoomName cat `: ` cat Replies cat ` - ` cat entry `temperature` of Room
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Decide if a relay should be on or off
 SetRelay:
-    if Mode is not `off`
+    if Mode is `off` set RelayState to `off`
     begin
         put RelayState into RelayStateWas
-        if Mode is `off` set entry `relay` of Room to `off`
+        if Mode is `off` set RelayState to `off`
         else 
         begin
 !            log RoomName cat ` ` cat TempNow cat `/` cat Target
-            if TempNow is less than Target
-            begin
-                if RelayState is `off`
-                begin
-                    set RelayState to `on`
-                end
-            end
-            else
-            begin
-                if RelayState is `on`
-                begin
-                    set RelayState to `off`
-                end
-            end
+            set RelayState to `off`
+            if TempNow is not empty 
+                if TempNow is less than Target set RelayState to `on` else set RelayState to `off`
         end
     end
+    set entry `relay` of Room to RelayState
+    if RelayState is `on` set HeatingRequested
 
     ! Update the room record
     set entry `temperature` of Room to TempNow
@@ -605,12 +622,14 @@ ProcessUIRequest:
                 begin
                     log RoomName cat ` Advance`
                     set entry `advance` of Room to `A`
+                    gosub to UpdateRooms
                     gosub to ForceUpdate
                 end
                 else
                 begin
                     log RoomName cat ` Advance cancel`
                     set entry `advance` of Room to `-`
+                    gosub to UpdateRooms
                     gosub to ForceUpdate
                 end
             end
@@ -630,9 +649,10 @@ ProcessUIRequest:
         put entry `room name` of Data into RoomName
         gosub to GetRoomByName
         if Room is empty return
-        log `Set the periods of ` cat entry `name` of Room
+        log `Set the periods of ` cat entry `name` of Room cat ` to ` cat newline cat entry `Periods` of Data
         set entry `events` of Room to entry `Periods` of Data
         gosub to UpdateRooms
+        gosub to ForceUpdate
     end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -648,20 +668,15 @@ SendMapToUI:
     begin
         set MessageText to Map
         clear MapHasChanged
-    end
-    else
-    begin
-        reset Data
-        set MessageText to Data
-    end
-    put the keys of Senders into SenderKeys
-    set S to 0
-    while S is less than the count of SenderKeys
-    begin
-        put item S of SenderKeys into SenderKey
-        put entry SenderKey of Senders into Sender
-        gosub to SendMessage
-        increment S
+        put the keys of Senders into SenderKeys
+        set S to 0
+        while S is less than the count of SenderKeys
+        begin
+            put item S of SenderKeys into SenderKey
+            put entry SenderKey of Senders into Sender
+            gosub to SendMessage
+            increment S
+        end
     end
     return
 
@@ -684,7 +699,6 @@ SendMessage:
     send to SenderTopic
         action Action
         message MessageText
-!    log `Reply sent`
     clear ConfirmationRequested
     return
 

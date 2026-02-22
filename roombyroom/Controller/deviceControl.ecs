@@ -65,6 +65,20 @@ SetupDeviceController:
 RunController:
 !    log `RunController:` cat the message
     put the message into RoomSpec
+
+    ! See if it's the request relay
+    if RoomSpec has entry `request`
+    begin
+        put entry `request` of RoomSpec into RelayName
+        put entry `relay state` of RoomSpec into Message
+        gosub to MessageESPDevice
+        reset Replies
+        append Reply to Replies
+        send Replies to parent
+        stop
+    end
+
+    ! No, so do a regular room
     put entry `room name` of RoomSpec into RoomName
     put entry `relays` of RoomSpec into Relays
     put entry `relay type` of RoomSpec into RelayType

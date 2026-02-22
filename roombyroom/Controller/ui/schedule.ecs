@@ -1,4 +1,4 @@
-!   schedule.ecs
+!   schedule.ecs - the schedule editor
 
     script Schedule
 
@@ -28,9 +28,11 @@
     pushbutton TempDownButton
     pushbutton PeriodButton
     pushbutton DeletePeriodButton
+    pushbutton CloseEditorButton
     pushbutton AddButton
     pushbutton SaveButton
     pushbutton CancelButton
+    dictionary CurrentPeriod
     dictionary Period
     dictionary PeriodP
     dictionary PeriodQ
@@ -41,10 +43,8 @@
     variable SelectedPeriod
     variable Time
     variable Temp
-    variable Text
     variable Changed
     variable Reordered
-    variable Sorted
     variable P
     variable Q
     variable T
@@ -54,7 +54,7 @@
 !    debug step
 
     copy Periods to Working
-    put 0 into SelectedPeriod
+    set SelectedPeriod to -1
     clear Changed
     clear Reordered
     gosub to ConvertUntilToFrom
@@ -62,52 +62,50 @@
     set second view of Window to Container
     set the style of Container to `background: #ffc;border: 1px solid gray;`
     gosub to DrawPanel
+    release parent
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 HourUp:
-    put item SelectedPeriod of Working into Period
     raise time Time 1 hour
     go to TimeChanged
 
 HourDown:
-    put item SelectedPeriod of Working into Period
     lower time Time 1 hour
     go to TimeChanged
 
 MinuteUp:
-    put item SelectedPeriod of Working into Period
     raise time Time 5 minutes
     go to TimeChanged
 
 MinuteDown:
-    put item SelectedPeriod of Working into Period
     lower time Time 5 minutes
 
 TimeChanged:
     set the text of TimeLabel to Time
-    set entry `from` of Period to Time
-    set item SelectedPeriod of Working to Period
+    set entry `from` of CurrentPeriod to Time
+    set item SelectedPeriod of Working to CurrentPeriod
     set Changed
-    gosub to SortPeriods
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 TempUp:
-    put item SelectedPeriod of Working into Period
+    put item SelectedPeriod of Working into CurrentPeriod
     raise temp Temp 5 tenths
     set the text of TempLabel to Temp cat `ºC`
-    set entry  `temp` of Period to Temp
-    set item SelectedPeriod of Working to Period
+    set entry  `temp` of CurrentPeriod to Temp
+    set item SelectedPeriod of Working to CurrentPeriod
     set Changed
     stop
 
 TempDown:
     lower temp Temp 5 tenths
     set the text of TempLabel to Temp cat `ºC`
-    set entry  `temp` of Period to Temp
-    set item SelectedPeriod of Working to Period
+    set entry  `temp` of CurrentPeriod to Temp
+    set item SelectedPeriod of Working to CurrentPeriod
+    log CurrentPeriod
     set Changed
+    log `stop`
     stop
 
 DeletePeriod:
@@ -127,6 +125,12 @@ DeletePeriod:
     set Changed
     stop
 
+CloseEditor:
+    log `Close the editor`
+    set SelectedPeriod to -1
+    gosub to RedrawPanel
+    stop
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 AddPeriod:
     log `Add period`
@@ -143,20 +147,50 @@ SaveAndExit:
     log `Save and exit`
 	if Changed
     begin
-        set item SelectedPeriod of Working to Period
+        set item SelectedPeriod of Working to CurrentPeriod
+        gosub to SortPeriods
         gosub to ConvertFromToUntil
        	set entry `action` of Request to `Periods`
         set entry `room name` of Request to RoomName
         set entry `Periods` of Request to Working
     end
-    else put empty into Request
+    else reset Request
+AllDone:
     show main view of Window
+    log `All done`
+    send `OK` to parent
+    wait 10 ticks
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Cancel:
-    show main view of Window
-    exit
+    reset Request
+    go to AllDone
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Sort the periods into ascending time order
+SortPeriods:
+    clear Reordered
+    put 0 into P
+    put 1 into Q
+    while Q is less than NPeriods
+    begin
+        put item P of Working into PeriodP
+        put entry `from` of PeriodP into T1
+        put item Q of Working into PeriodQ
+        put entry `from` of PeriodQ into T2
+        if time T1 is after T2
+        begin
+            set item P of Working to PeriodQ
+            set item Q of Working to PeriodP
+            set Reordered
+            set Changed
+        end
+        increment P
+        increment Q
+    end
+    if Reordered go to SortPeriods
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Convert 'until' to 'from' for all periods
@@ -233,55 +267,14 @@ ConvertFromToUntil:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Sort the periods into ascending time order
-SortPeriods:
-    clear Sorted
-SortPeriods2:
-    clear Reordered
-    while true
-    begin
-        put 0 into P
-        put 1 into Q
-        while Q is less than NPeriods
-        begin
-            put item P of Working into PeriodP
-            put entry `from` of PeriodP into T1
-            put item Q of Working into PeriodQ
-            put entry `from` of PeriodQ into T2
-            if time T1 is after T2
-            begin
-                set item P of Working to PeriodQ
-                set item Q of Working to PeriodP
-                set Reordered
-                set Sorted
-                set Changed
-            end
-            increment P
-            increment Q
-        end
-        if Reordered go to SortPeriods2
-        if Sorted go to RedrawPanel else return
-    end
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Draw the schedule panel
 RedrawPanel:
+    log `Redraw`
     clear Container
     wait 10 ticks
 DrawPanel:
+    log `Draw the panel`
     set the elements of PeriodButton to NPeriods
-    set the elements of Editor to NPeriods
-    set the elements of HourUpButton to NPeriods
-    set the elements of HourDownButton to NPeriods
-    set the elements of MinuteUpButton to NPeriods
-    set the elements of MinuteDownButton to NPeriods
-    set the elements of TempUpButton to NPeriods
-    set the elements of TempDownButton to NPeriods
-    set the elements of TimeLabel to NPeriods
-    set the elements of TempLabel to NPeriods
-    set the elements of DeletePeriodButton to NPeriods
-    set the elements of Time to NPeriods
-    set the elements of Temp to NPeriods
     create Layout type QVBoxLayout
     set the layout of Container to Layout
     create Panel type QHBoxLayout
@@ -293,106 +286,27 @@ DrawPanel:
     add stretch to Panel
     put `border: 1px solid gray; background: white; height: 40px; border-radius: 5px;` into ListStyle
     put `border: none; background: none; height: 40px;` into IconStyle
+
+    ! Do the period buttons. One may be an editor
+    create Panel type QVBoxLayout
+    add Panel to Layout
     put 0 into P
     while P is less than NPeriods
     begin
         put item P of Working into Period
-        index PeriodButton to P
-        index TimeLabel to P
-        index TempLabel to P
-        index Time to P
-        index Temp to P
-        put entry `from` of Period into Time
-        put entry `temp` of Period into Temp
-        put `From ` cat Time cat `: Target = ` cat Temp cat `ºC` into Text
-        log P cat `:- ` cat Text
-        create PeriodButton text Text
-        set the style of PeriodButton to ListStyle
-        on click PeriodButton
-        begin
-            if Changed set item SelectedPeriod of Working to Period
-            put the index of PeriodButton into SelectedPeriod
-            log `Clicked period ` cat SelectedPeriod
-            put 0 into Q
-            while Q is less than NPeriods
-            begin
-                index Editor to Q
-                hide Editor
-                index PeriodButton to Q
-                put item Q of Working into Period
-                put entry `from` of Period into Time
-                put entry `temp` of Period into Temp
-                put `From ` cat Time cat `: Target = ` cat Temp cat `ºC` into Text
-                set the text of PeriodButton to Text
-                show PeriodButton
-                increment Q
-            end
-            index PeriodButton to SelectedPeriod
-            index Editor to SelectedPeriod
-            index TimeLabel to SelectedPeriod
-            index TempLabel to SelectedPeriod
-            index Time to SelectedPeriod
-            index Temp to SelectedPeriod
-            index DeletePeriodButton to SelectedPeriod
-            hide PeriodButton
-            show Editor
-        end
-        add PeriodButton to Layout
-        index Editor to P
-        create Editor
-        set the style of Editor to ListStyle
-        create EditLayout type QHBoxLayout
-        set the layout of Editor to EditLayout
-        
-        add spacer size 40 to EditLayout
-        index HourDownButton to P
-        create HourDownButton icon `img/down-green.png` size 28
-        set the style of HourDownButton to IconStyle
-        add HourDownButton to EditLayout
-        on click HourDownButton go to HourDown
-        index HourUpButton to P
-        create HourUpButton icon `img/up-green.png` size 28
-        set the style of HourUpButton to IconStyle
-        add HourUpButton to EditLayout
-        on click HourUpButton go to HourUp
-        create TimeLabel text Time
-        add TimeLabel to EditLayout
-        index MinuteDownButton to P
-        create MinuteDownButton icon `img/down-green.png` size 28
-        set the style of MinuteDownButton to IconStyle
-        add MinuteDownButton to EditLayout
-        on click MinuteDownButton go to MinuteDown
-        index MinuteUpButton to P
-        create MinuteUpButton icon `img/up-green.png` size 28
-        set the style of MinuteUpButton to IconStyle
-        add MinuteUpButton to EditLayout
-        on click MinuteUpButton go to MinuteUp
-        add spacer size 50 to EditLayout
-        index TempUpButton to P
-        create TempUpButton icon `img/up-green.png` size 28
-        set the style of TempUpButton to IconStyle
-        add TempUpButton to EditLayout
-        on click TempUpButton go to TempUp
-        create TempLabel text Temp cat `ºC`
-        add TempLabel to EditLayout
-        index TempDownButton to P
-        create TempDownButton icon `img/down-green.png` size 28
-        set the style of TempDownButton to IconStyle
-        add TempDownButton to EditLayout
-        on click TempDownButton go to TempDown
-        add spacer size 50 to EditLayout
-        index DeletePeriodButton to P
-        create DeletePeriodButton icon `img/delete.png` size 28
-        set the style of DeletePeriodButton to IconStyle
-        add DeletePeriodButton to EditLayout
-        on click DeletePeriodButton go to DeletePeriod
-        add spacer size 40 to EditLayout
-
-        add Editor to Layout
-        hide Editor
+        if P is SelectedPeriod gosub to CreateEditor
+        else gosub to CreatePeriodButton
         increment P
     end
     add stretch to Layout
+    if SelectedPeriod is not -1
+    begin
+        set CurrentPeriod to item SelectedPeriod of Working
+        set Time to entry `from` of CurrentPeriod
+        set Temp to entry `temp` of CurrentPeriod
+    end
+
+    ! Do the buttons at the bottom of the panel
     create Panel type QHBoxLayout
     add Panel to Layout
     create AddButton icon `img/boost.png`
@@ -411,3 +325,85 @@ DrawPanel:
     on click SaveButton go to SaveAndExit
     on click CancelButton go to Cancel
     return
+
+CreatePeriodButton:
+!    log `Set up button for period ` cat P
+    put item P of Working into Period
+    put entry `from` of Period into Time
+    put entry `temp` of Period into Temp
+!    log `From ` cat Time cat `: Target = ` cat Temp cat `ºC`
+    index PeriodButton to P
+    create PeriodButton text `From ` cat Time cat `: Target = ` cat Temp cat `ºC`
+    set the style of PeriodButton to ListStyle
+    on click PeriodButton go to ClickPeriodButton
+    add PeriodButton to Layout
+    return
+
+CreateEditor:
+    log `Set up editor for period ` cat P
+    put entry `from` of CurrentPeriod into Time
+    put entry `temp` of CurrentPeriod into Temp
+    create Editor
+    set the style of Editor to ListStyle
+    create EditLayout type QHBoxLayout
+    set the layout of Editor to EditLayout
+    add spacer size 40 to EditLayout
+    create HourDownButton icon `img/down-green.png` size 28
+    set the style of HourDownButton to IconStyle
+    add HourDownButton to EditLayout
+    on click HourDownButton go to HourDown
+    create HourUpButton icon `img/up-green.png` size 28
+    set the style of HourUpButton to IconStyle
+    add HourUpButton to EditLayout
+    on click HourUpButton go to HourUp
+    create TimeLabel text Time
+    add TimeLabel to EditLayout
+    create MinuteDownButton icon `img/down-green.png` size 28
+    set the style of MinuteDownButton to IconStyle
+    add MinuteDownButton to EditLayout
+    on click MinuteDownButton go to MinuteDown
+    create MinuteUpButton icon `img/up-green.png` size 28
+    set the style of MinuteUpButton to IconStyle
+    add MinuteUpButton to EditLayout
+    on click MinuteUpButton go to MinuteUp
+    add spacer size 50 to EditLayout
+    create TempUpButton icon `img/up-green.png` size 28
+    set the style of TempUpButton to IconStyle
+    add TempUpButton to EditLayout
+    on click TempUpButton go to TempUp
+    create TempLabel text Temp cat `ºC`
+    add TempLabel to EditLayout
+    create TempDownButton icon `img/down-green.png` size 28
+    set the style of TempDownButton to IconStyle
+    add TempDownButton to EditLayout
+    on click TempDownButton go to TempDown
+    add spacer size 50 to EditLayout
+    create DeletePeriodButton icon `img/delete.png` size 28
+    set the style of DeletePeriodButton to IconStyle
+    add DeletePeriodButton to EditLayout
+    on click DeletePeriodButton go to DeletePeriod
+    add spacer size 20 to EditLayout
+    create CloseEditorButton icon `img/close.png` size 28
+    set the style of CloseEditorButton to IconStyle
+    add CloseEditorButton to EditLayout
+    on click CloseEditorButton go to CloseEditor
+    add spacer size 40 to EditLayout
+    add Editor to Layout
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Click a period button
+ClickPeriodButton:
+    log `Click PeriodButton ` cat the index of PeriodButton
+    if SelectedPeriod is not -1
+    begin
+        ! Save the data in the current period
+        log `Save period ` cat SelectedPeriod cat ` ` cat CurrentPeriod
+        set item SelectedPeriod of Working to CurrentPeriod
+    end
+
+    ! Redraw the panel
+    set SelectedPeriod to the index of PeriodButton
+    set CurrentPeriod to item SelectedPeriod of Working
+    gosub to RedrawPanel
+    stop

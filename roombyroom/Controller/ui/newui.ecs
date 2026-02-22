@@ -167,20 +167,18 @@ Start:
 
 !   This loop sends regular map requests and updates the screen with any changes
 MainLoop:
-    ! This is in effect a 1-minute wait. But if a message comes in or the map changes it's a screen update
+    ! This is in effect a 1-minute wait. But if a message comes in or the map changes,
+    ! we break out and do a screen update immediately
     put 0 into LockCounter
     while LockCounter is less than 1000
     begin
         if Message is not empty gosub to UpdateScreen
-        else
-        begin
-            wait 10 ticks
-            increment LockCounter
-        end
+        wait 10 ticks
+        increment LockCounter
     end
 ML2:
     ! If we're locked, don't send any messages
-    if Locked go to MainLoop
+!    if Locked go to MainLoop
     ! Send a simple message to tell the controller I'm still here
     increment MapRequests
     if FirstTime
@@ -198,11 +196,15 @@ ML2:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update the screen.
 UpdateScreen:
-    if Locked return
     log `Update ` cat UpdateCounter
+    if Locked
+    begin
+        reset Message
+        return
+    end
     increment UpdateCounter
     put Message into Map
-    set Message to empty
+    reset Message
     if Map is empty return
     clear Waiting
     ! Process the map
@@ -268,11 +270,7 @@ CreateRoom:
 !    log Room
     index ModeButton to R
     attach ModeButton to element `mode` of Room
-    on click ModeButton
-    begin
-        gosub to HandleMode
-        clear Locked
-    end
+    on click ModeButton go to HandleMode
     index ToolsButton to R
     attach ToolsButton to element `tools` of Room
     on click ToolsButton
@@ -432,7 +430,7 @@ HandleMode:
     put entry `name` of RoomSpec into Name
     put entry `mode` of RoomSpec into Mode
     get Result from ModeDialog with RoomSpec
-    if Result is empty go to HM2
+    if Result is empty go to ExitModeHandler
     reset Request
     set entry `room name` of Request to Name
     set entry `target` of Request to entry `target` of RoomSpec
@@ -480,12 +478,20 @@ HandleMode:
         put entry `name` of RoomSpec into RoomName
         put entry `events` of RoomSpec into Periods
         run `schedule.ecs` as Module with RoomName and Window and Periods and Request
-        if Request is empty go to HM2
-        gosub to SendRequest
+        on message
+        begin
+            log Request
+            if Request is not empty gosub to SendRequest
+            go to ClearAndExit
+        end
+        set Locked
+        go to ExitModeHandler
     end
-HM2:
+ClearAndExit:
     clear Locked
-    return
+ExitModeHandler:
+    log `Go to MainLoop`
+    go to MainLoop
 
 SetMode:
     set entry `action` of Request to `Operating Mode`
