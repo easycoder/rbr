@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cd /home/linaro/rbr/ui
+ec rbr_ui.ecs
+

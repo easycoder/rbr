@@ -1,8 +1,0 @@
-script TestExample
-
-! declare a variable, set it and print it
-variable X
-put 123 into X
-print X
-
-exit

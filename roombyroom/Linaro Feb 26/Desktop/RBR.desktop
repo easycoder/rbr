@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=RBR
+Comment=
+Exec=ec rbr_ui.ecs
+Icon=/home/linaro/rbr/favicon.ico
+Path=/home/linaro/rbr/ui
+Terminal=false
+StartupNotify=false

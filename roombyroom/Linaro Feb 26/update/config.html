@@ -1,0 +1,21 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title></title>
+    <script type='text/javascript' src='http://192.168.0.201/resources/js/easycoder.js'></script>
+    <script type='text/javascript' src='http://192.168.0.201/resources/js/webson.js'></script>
+  </head>
+
+<body>
+    <pre id="easycoder-script" style="display:none">
+    !	Room By Room Configurator
+
+        script Loader
+
+        variable Script
+        rest get Script from `http://192.168.0.201/config/ecs/config.ecs?v=` cat now
+        run Script
+    </pre>
+</body>
+</html>

@@ -36,7 +36,7 @@
     gosub to SetupDeviceController
     on message go to RunController
     release parent
-    log `Device controller is now set up`
+    log `Device controller is ready`
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -133,6 +133,7 @@ MessageESPDevice:
     end
     put from 6 of DeviceMAC into DeviceMAC
 !    log `?mac=` cat DeviceMAC cat `&msg=` cat Message cat ` -> ` cat Reply
+    log RelayName cat `: msg=` cat Message cat ` -> ` cat Reply
     if left 2 of Reply is not `OK`
     begin
         log `Bad response: ` cat Reply

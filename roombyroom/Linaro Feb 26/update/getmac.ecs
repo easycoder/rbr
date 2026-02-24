@@ -1,0 +1,26 @@
+!   Get my MAC address
+
+    script GetMAC
+
+    variable Values
+    variable Value
+    variable N
+
+    put system `ip -o link | awk '$2 != "lo:" {print $2, $(NF-2)}'` into Values
+    split Values
+    put 0 into N
+    while N is less than the elements of Values
+    begin
+        index Values to N
+        put Values into Value
+        split Value on ` `
+        if left 4 of Value is `wlan`
+        begin
+            index Value to 1
+            log Value
+            exit
+        end
+        increment N
+    end
+
+    exit

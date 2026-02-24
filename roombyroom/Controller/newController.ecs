@@ -48,7 +48,6 @@
     variable LastMapSave
     variable MapHasChanged
     variable HeatingRequested
-    variable Advance
     variable Simulate
     variable Time
     variable Temp
@@ -76,13 +75,14 @@
 
 !    debug step
 
-    set Simulate
+    if file `sim` exists set Simulate else clear Simulate
 
     if Simulate run `simulator.ecs` as DeviceModule
     else run `deviceControl.ecs` as DeviceModule
     set LastMapSave to now
     clear MapHasChanged
     clear ThermometerUpdate
+    clear HeatingRequested
     reset MessageQueue
     reset ReceivedMessage
     reset Temperatures
@@ -152,6 +152,7 @@ MainLoop:
         index Room to R
         index TargetWas to R
         index PeriodWas to R
+        index PeriodActive to R
         index RelayStateWas to R
         set RoomIndex to R
         gosub to ProcessRoom
@@ -192,7 +193,7 @@ HandleMessages:
     if T is less than now
     begin
 !        log `Save the map`
-        save prettify Map to `map.json`
+        if Simulate save prettify Map to `map-sim.json` else save prettify Map to `map.json`
         put now into LastMapSave
         if ThermometerUpdate save prettify Thermometers to `thermometers.json`
     end
@@ -224,9 +225,9 @@ PopulateMapVariables:
     set the elements of Room to RoomCount
     set the elements of TargetWas to RoomCount
     set the elements of PeriodWas to RoomCount
+    set the elements of PeriodActive to RoomCount
     set the elements of RelayStateWas to RoomCount
 
-    clear HeatingRequested
     set R to 0
     while R is less than RoomCount
     begin
@@ -239,8 +240,11 @@ PopulateMapVariables:
         delete entry `responses` of Room
 
         ! Initialisation
+
         index PeriodWas to R
         set PeriodWas to 0
+        index PeriodActive to R
+        set PeriodActive to 0
         set RelayStateWas to empty
         index TargetWas to R
         set TargetWas to 0
@@ -294,7 +298,6 @@ ProcessRoom:
     put entry `mode` of Room into Mode
     if Room has entry `period` put entry `period` of Room into PeriodNow
     else put 0 into PeriodNow
-    put `` cat entry `advance` of Room into Advance
 
     if Mode is `timed`
     begin
@@ -338,10 +341,12 @@ ProcessRequestRelay:
     if Map has entry `request`
     begin
         put entry `request` of Map into RoomName
-        if RoomName is not empty
+        if RoomName is empty log `No request relay`
+        else
         begin
             if HeatingRequested put `on` into RelayState else put `off` into RelayState
-            log `Turn ` cat RoomName cat ` ` cat RelayState
+            clear HeatingRequested
+!            log RoomName cat `: ` cat RelayState
             reset RoomSpec
             set entry `request` of RoomSpec to RoomName
             set entry `relay state` of RoomSpec to RelayState
@@ -401,7 +406,6 @@ SetRelay:
         if PeriodActive is not PeriodWas
         begin
             ! log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
-            set PeriodWas to PeriodNow
             gosub to ForceUpdate
         end
         if RelayState is not RelayStateWas
@@ -439,10 +443,8 @@ FindCurrentPeriod:
     put entry `events` of Room into Events
     put the count of Events into EventCount
     if EventCount is 0 return
-    put PeriodNow into PeriodWas
     set PeriodNow to 0
 FCP2:
-!    if RoomName is `Sunroom` log `Examine period ` cat PeriodNow
     if PeriodNow is EventCount
     begin
         ! We are past the last event time, so use the first
@@ -458,7 +460,6 @@ FCP2:
         put entry `until` of Period into Time
         gosub to ConvertTimeToInt
         ! If we have passed this period, get the start of the next period and move on
-!        if RoomName is `Sunroom` log `now=` cat now cat `, Time=` cat Time
         if now is greater than Time
         begin
             increment PeriodNow
@@ -466,8 +467,7 @@ FCP2:
         end
         ! Otherwise, we've found the period
     end
-    put PeriodNow into PeriodActive
-!    if RoomName is `Sunroom` log `Active=` cat PeriodActive
+    set PeriodActive to PeriodNow
 
     ! Now get the target temperature
     put entry `temp` of Period into Temp
@@ -475,23 +475,24 @@ FCP2:
     put Temp into Target
 
     ! Deal with Advance
-    put PeriodNow into P
-    if Advance is `A`
+    if entry `advance` of Room is `A`
     begin
-        if entry `advance` of Room is not `A`
-        begin
-            log `Map has changed`
-            set MapHasChanged
-        end
+        ! Compute the active period
         add 1 to PeriodNow giving P
         if P is EventCount put 0 into P
         set PeriodActive to P
+        ! This is the period that applies for the advance
         set entry `period` of Room to PeriodActive
-        set entry `advance` of Room to `A`
+        ! If there's a period change while in advance, cancel the advance
+        if PeriodNow is not PeriodWas
+        begin
+            log RoomName cat `: Cancelling the advance`
+            set entry `advance` of Room to `-`
+        end
     end
-!    if RoomName is `Sunroom` log `Period ` cat PeriodNow cat `/` cat PeriodActive
-!        cat ` until ` cat entry `until` of Period cat `, Target=` cat Target
-!        cat `, Temp=` cat TempNow cat `, Relay=` cat RelayState
+
+    ! Save the non-advance current period
+    set PeriodWas to PeriodNow
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -604,6 +605,7 @@ ProcessUIRequest:
         put entry `Select Profile` of Data into SelectedProfile
         log `Select profile ` cat SelectedProfile
         set entry `profile` of Map to SelectedProfile
+        gosub to ForceUpdate
         gosub to PopulateMapVariables
     end
     else if Action is `Operating Mode`
@@ -618,20 +620,21 @@ ProcessUIRequest:
         begin
             if Data has entry `Advance`
             begin
+                ! Toggle the advance
                 if entry `advance` of Room is `-`
                 begin
-                    log RoomName cat ` Advance`
+                    ! Not already advanced, so set it up
+                    log RoomName cat ` set Advance`
                     set entry `advance` of Room to `A`
-                    gosub to UpdateRooms
-                    gosub to ForceUpdate
                 end
                 else
                 begin
-                    log RoomName cat ` Advance cancel`
+                    ! Already advanced so cancel it
+                    log RoomName cat ` cancel Advance`
                     set entry `advance` of Room to `-`
-                    gosub to UpdateRooms
-                    gosub to ForceUpdate
                 end
+                gosub to UpdateRooms
+                gosub to ForceUpdate
             end
         end
         else if Mode is `boost`
