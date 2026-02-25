@@ -91,12 +91,12 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
-    if file `~/.mqqt_token` does not exist
+    if file `~/.mqtt_token` does not exist
     begin
         log `No MQTT token could be found.`
         exit
     end
-    load MQTT_Token from `~/.mqqt_token`
+    load MQTT_Token from `~/.mqtt_token`
 
     ! Set up MQTT
     load MyID from `serverID`
