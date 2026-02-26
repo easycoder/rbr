@@ -135,6 +135,7 @@ Start:
         exit
     end
     load ServerID from `../serverID`
+    set ServerID to trim ServerID
 
     put uuid into UUID
 
@@ -184,7 +185,7 @@ ML2:
     if FirstTime
     begin
         put `first` into Text
-        log `Sending first request`
+        log `Sending first request to ` cat ServerTopic
     end
     else put `refresh` into Text
     send to ServerTopic

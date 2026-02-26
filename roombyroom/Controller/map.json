@@ -687,7 +687,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2310,
+                    "temperature": 2300,
                     "battery": 44,
                     "ptemp": "",
                     "period": 1
@@ -722,7 +722,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2430,
+                    "temperature": 2460,
                     "battery": 42,
                     "relay": "off",
                     "period": 2
@@ -762,7 +762,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2180,
+                    "temperature": 2300,
                     "battery": 43,
                     "period": 2
                 },
@@ -787,7 +787,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 1400,
+                    "temperature": 1260,
                     "battery": 50,
                     "advance": "-",
                     "period": 0
@@ -827,9 +827,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2270,
+                    "temperature": 2280,
                     "battery": 41,
-                    "period": 2
+                    "period": 3
                 },
                 {
                     "name": "Guest Bedroom",
@@ -866,7 +866,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 2120,
+                    "temperature": 2170,
                     "battery": 43,
                     "period": 0
                 },
@@ -887,7 +887,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 950,
+                    "temperature": 1060,
                     "battery": 41,
                     "period": 0
                 }

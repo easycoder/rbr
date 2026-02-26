@@ -151,6 +151,7 @@
     variable M
     variable N
     variable R
+    variable T
 
     ! Webson specs
     variable MainScreenWebson
@@ -228,7 +229,7 @@ Connected:
 	fork to Main
     wait 3 seconds
 !    go to Start             ! TODO: remove this
-    every 10 seconds
+    every 20 seconds
     begin
     	if not Blocked go to Start
     	wait 1
@@ -505,6 +506,7 @@ GetMap:
     on click StatusFlag go to DoSystemParameters
     
 !   print Map
+    print `Get the map elements`
     put property `profiles` of Map into Profiles
 	put property `profile` of Map into CurrentProfile
     if CurrentProfile is empty put 0 into CurrentProfile
@@ -514,7 +516,8 @@ GetMap:
     put property `rooms` of Profile into Rooms
 
     put the json count of Rooms into R
-    if R is not RoomCount
+    if R is RoomCount clear Redraw
+    else
     begin
     	put R into RoomCount
         set Redraw
@@ -727,7 +730,13 @@ UpdateRooms:
             begin
             	set style `color` of RoomTempPanel to `white`
                 if Temperature is 0 set the content of RoomTempPanel to empty 
-                else set the content of RoomTempPanel to Temperature cat `&deg;C`
+                else
+                begin
+                    put `` cat Temperature modulo 100 into T
+                    divide Temperature by 100
+                    put `` cat Temperature cat `.` cat left 1 of T into Temperature
+                end
+                set the content of RoomTempPanel to Temperature cat `&deg;C`
             	if RelayState is not `off` set style `background` of RoomTempPanel to `red`
             	else set style `background` of RoomTempPanel to `blue`
             end

@@ -65,6 +65,7 @@
     variable Value2
     variable ThermometerUpdate
     variable LoopCount
+    variable WaitCounter
     variable I
     variable P
     variable R
@@ -130,21 +131,22 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   This the head of each loop
 MainLoop:
+    ! log `MainLoop`
     if not Simulate save `lock` to SSH `/mnt/data/lock`
-    ! Wait for 60 seconds
-    set T to 100
-    while T is greater than 0
+    ! Wait for 5 seconds
+    set WaitCounter to 50
+    while WaitCounter is greater than 0
     begin
         wait 10 ticks
-        decrement T
+        decrement WaitCounter
         ! Short-circuit if a message arrives or an immediate update is requested
         if MessageQueue is not empty go to HandleMessages
-        if ImmediateUpdate set T to 0
+        if ImmediateUpdate set WaitCounter to 0
         ! If the map has changed, update the UI now
         if MapHasChanged gosub SendMapToUI
     end
 
-!    log `Repeat ` cat LoopCount
+    ! log `Repeat ` cat LoopCount
     increment LoopCount
     ! Examine the state of each room
     put 0 into R
@@ -173,7 +175,7 @@ HandleMessages:
     while MessageQueue is not empty
     begin
         pop ReceivedMessage from MessageQueue
-        log ReceivedMessage
+        ! log ReceivedMessage
         put entry `sender` of ReceivedMessage into Sender
         set entry `last` of Sender to now
         ! Build a dictionary of senders
