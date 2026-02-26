@@ -1,0 +1,58 @@
+!   mqtt_example.ecs
+
+!   Example EasyCoder script demonstrating MQTT plugin usage
+!   Sends a 'topics' message to the doclet server and prints the reply
+
+    script MQTTExample
+
+    topic MyTopic
+    topic ServerTopic
+    variable MyID
+    variable MessageText
+    variable ReceivedMessage
+
+    debug step
+
+    print `Start`
+    wait 3 seconds
+
+    put `MQTT-Test-` cat random 999999 into MyID
+    print `MyID = ` cat MyID
+    
+    init ServerTopic
+        name `a8:41:f4:d3:19:dd/request`
+        qos 1
+
+    init MyTopic
+        name MyID
+        qos 1
+
+    mqtt
+        token `kgDkpyDUubtAchcj9ts85QPJOwE1C2MKjNuoeb4nisd23pM33uTb5m7AGuMNhJMP`
+        id MyID
+        broker `mqtt.flespi.io`
+        port 443
+        subscribe MyTopic
+
+    on mqtt connect
+    begin
+        print `Connected; sending request`
+        send to ServerTopic
+            sender MyTopic
+            action `topics`
+        print `Message sent`
+    end
+    
+    ! Handle incoming messages
+    on mqtt message
+    begin
+        put the mqtt message into ReceivedMessage
+        print `Message received:`
+        print ReceivedMessage
+    end
+
+    ! Wait for connect/message cycle
+    wait 6
+
+    print `I've waited long enough`
+    stop

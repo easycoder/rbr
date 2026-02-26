@@ -1,0 +1,40 @@
+!	Debug module
+
+	script Debug
+    
+    import variable Mobile
+    	and div Body
+        and variable Map
+        and variable MAC
+        and variable Password
+    
+    div Debug
+    button OKButton
+    variable Webson
+    variable Message
+    variable NRuns
+    
+!    debug step
+    
+    rest get Webson from `/resources/webson/debug.json?v=` cat now
+ 
+    put 0 into NRuns
+    on message go to DoMessage
+    set ready
+    stop
+
+DoMessage:
+	put the message into Message
+    if Message is `Count`
+    begin
+        add 1 to NRuns
+    end
+    else if Message is `Run`
+    begin
+    	render Webson in Body
+    	attach Debug to `debug`
+    	attach OKButton to `debug-okbutton`
+!    	on click OKButton remove Debug from Body
+        print NRuns
+    end
+    stop
