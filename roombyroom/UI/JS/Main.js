@@ -11,6 +11,7 @@ const EasyCoder = {
 	},
 
 	elementId: 0,
+	attachWaitMs: 3000,
 
 	getDebugConsoleElement: function () {
 		const host = document.getElementById(`stuff`);
@@ -22,11 +23,14 @@ const EasyCoder = {
 				}
 				debugConsole = document.createElement(`pre`);
 				debugConsole.id = `easycoder-debug-console`;
+				debugConsole.style.display = `none`;
 				host.appendChild(debugConsole);
 			}
+			debugConsole.style.display = `none`;
 			return debugConsole;
 		}
 		if (debugConsole) {
+			debugConsole.style.display = `none`;
 			return debugConsole;
 		}
 		if (!document.body) {
@@ -34,31 +38,32 @@ const EasyCoder = {
 		}
 		debugConsole = document.createElement(`pre`);
 		debugConsole.id = `easycoder-debug-console`;
+		debugConsole.style.display = `none`;
 		document.body.appendChild(debugConsole);
 		return debugConsole;
 	},
 
 	writeToDebugConsole: function (message) {
 		const params = new URLSearchParams(window.location.search);
-		let useVSCodeDebugConsole = params.get(`vscodeDebugConsole`) === `1`;
-		if (!useVSCodeDebugConsole) {
+		let usePageDebugConsole = params.get(`pageDebugConsole`) === `1`;
+		if (!usePageDebugConsole) {
 			try {
-				const stored = window.localStorage ? window.localStorage.getItem(`easycoder.vscodeDebugConsole`) : null;
-				useVSCodeDebugConsole = stored === `1` || stored === `true`;
+				const stored = window.localStorage ? window.localStorage.getItem(`easycoder.pageDebugConsole`) : null;
+				usePageDebugConsole = stored === `1` || stored === `true`;
 			} catch (err) {
-				useVSCodeDebugConsole = false;
+				usePageDebugConsole = false;
 			}
 		}
-		if (useVSCodeDebugConsole) {
-			console.log(message);
-			return;
+		if (usePageDebugConsole) {
+			const debugConsole = this.getDebugConsoleElement();
+			if (debugConsole) {
+				const prefix = debugConsole.textContent && debugConsole.textContent.length ? `\n` : ``;
+				debugConsole.textContent += `${prefix}${message}`;
+				debugConsole.scrollTop = debugConsole.scrollHeight;
+				return;
+			}
 		}
-		const debugConsole = this.getDebugConsoleElement();
-		if (debugConsole) {
-			const prefix = debugConsole.textContent && debugConsole.textContent.length ? `\n` : ``;
-			debugConsole.textContent += `${prefix}${message}`;
-			debugConsole.scrollTop = debugConsole.scrollHeight;
-		}
+		console.log(message);
 	},
 
 	runtimeError: function (lino, message) {

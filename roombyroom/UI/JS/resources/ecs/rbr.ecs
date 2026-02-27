@@ -85,6 +85,7 @@
     variable RoomIndex
     variable ClickIndex
     variable MQTTWait
+    variable CycleWait
     variable Redraw
     variable Refresh
     variable SensorIP
@@ -189,16 +190,32 @@
 
 Connected:
 	! Refresh the UI every 10 seconds
+    ! If Prompt is set to 'first' deal with it immediately
 	fork to Main
-    wait 1 second
+    wait 2 seconds
+!    clear MainPanel
+Conn2:
     while true
     begin
+        put 10 into CycleWait
+        while CycleWait is not 0
+        begin
+            wait 1 second
+            if not Blocked
+            begin
+                if Prompt is `first`
+                begin
+!                    wait 1 second
+                    fork to Start
+                    go to Conn2
+                end
+            end
+            take 1 from CycleWait
+        end
     	if not Blocked fork to Start
-        wait 10 seconds
     end
 
 Main:
-	set Blocked
     set Redraw
     put empty into ModeScript
     put `first` into Prompt
@@ -330,7 +347,6 @@ Start:
     gosub to Unmask
 
 	if not Redraw go to GetMap
-    clear MainPanel
     put 0 into RoomCount
     clear Error
 !    put `System healthy` into SystemStatus
@@ -338,11 +354,9 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the map
 GetMap:
-	set Blocked
     send to ServerTopic
         sender MyTopic
         action Prompt
-
     put 50 into MQTTWait
     while ReceivedMessage is empty
     begin
@@ -371,6 +385,7 @@ GetMap:
     end
     put Map into storage as `map`
     if ReceivedMessage is not empty set Redraw
+    put empty into ReceivedMessage
 
     put property `name` of Map into SystemName
     replace `%20` with ` ` in SystemName
@@ -712,9 +727,10 @@ UpdateRooms:
             end
             replace `/ROOM/` with RoomIndex in Webson
             render Webson in ModeHolder
-        	attach ModeIcon to `room-` cat RoomIndex cat `-mode-icon`
-    	    attach ModeText to `room-` cat RoomIndex cat `-mode-text`
-	        attach ModeInfo to `room-` cat RoomIndex cat `-mode-info`
+        	attach ModeIcon to `room-` cat RoomIndex cat `-mode-icon` or goto UR2
+    	    attach ModeText to `room-` cat RoomIndex cat `-mode-text` or goto UR2
+	        attach ModeInfo to `room-` cat RoomIndex cat `-mode-info` or goto UR2
+        UR2:
         	if Mode is `timed`
             begin
                 if RoomStatus is `good`
@@ -838,7 +854,7 @@ UpdateRooms:
                 if Blocked stop
                 set Blocked
                 gosub to MaskScreen
-                on click ProfilesButton begin end
+!                on click ProfilesButton begin end
                 put the index of ModeButton into ClickIndex
                 if ModeScript is empty
                     rest get ModeScript from `/resources/ecs/mode.ecs?v=` cat now
@@ -851,6 +867,8 @@ UpdateRooms:
                     and Map
                     and ClickIndex
                     and Result
+                put `first` into Prompt
+                gosub to Unmask
                 go to ProcessResult
             end
         end
@@ -1175,11 +1193,17 @@ CopyRoomsToMap:
 !	Deal with profiles
 DoProfiles:
 	if ProfileModule is running stop
-	set Blocked
+                if Blocked stop
+                set Blocked
+!                gosub to MaskScreen
+!	set Blocked
     gosub to MaskMainPanel
     put `{}` into Result
     rest get Script from `/resources/ecs/profiles.ecs?v=` cat now
     run Script with MainPanel and Map and Result as ProfileModule
+                put `first` into Prompt
+                gosub to Unmask
+    set Redraw
     go to ProcessResult
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1356,10 +1380,10 @@ ProcessResult:
 !   Send a request to the system controller
 SendUIRequest:
     print `Sending UI request ` cat Result
-    send to ServerTopic
-        sender MyTopic
-        action `uirequest`
-        message Result
+!    send to ServerTopic
+!        sender MyTopic
+!        action `uirequest`
+!        message Result
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

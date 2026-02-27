@@ -130,7 +130,11 @@ const EasyCoder_Browser = {
 				};
 			} else {
 				content = program.value.evaluate(program, command.cssId).content;
-				EasyCoder_Browser.Attach.getElementById(program, command, content, 100);
+				const waitMs = (typeof EasyCoder !== `undefined` && Number.isFinite(EasyCoder.attachWaitMs))
+					? EasyCoder.attachWaitMs
+					: 3000;
+				const waitUntil = Date.now() + waitMs;
+				EasyCoder_Browser.Attach.getElementById(program, command, content, waitUntil);
 				return 0;
 			}
 			if (command.type === `popup`) {
@@ -146,35 +150,71 @@ const EasyCoder_Browser = {
 			return command.pc + 1;
 		},
 
-		getElementById: (program, command, id, retries) => {
-            const element = document.getElementById(id);
-            if (element) {
-				if (program.run) {
-					const target = program.getSymbolRecord(command.symbol);
-					target.element[target.index] = element;
-					target.value[target.index] = {
-						type: `constant`,
-						numeric: false,
-						id
-					};
-					program.run(command.pc + 1);
+		getElementById: (program, command, id, waitUntil) => {
+			const element = document.getElementById(id);
+			if (element) {
+				const isImageTarget = [`img`, `image`].includes(command.type);
+				if (isImageTarget && !EasyCoder_Browser.Attach.isImageReady(element)) {
+					EasyCoder_Browser.Attach.waitForImageReady(program, command, id, element, waitUntil);
+				} else {
+					EasyCoder_Browser.Attach.completeAttach(program, command, element, id);
 				}
-            } else {
-                if (retries > 0) {
-                    setTimeout(function() {
-                        EasyCoder_Browser.Attach.getElementById(program, command, id, --retries);
-                    }, 10);
-                } else {
-					if (!element) {
-						if (command.onError) {
-							program.run(command.onError);
-						} else {
-							program.runtimeError(command.lino, `No such element: '${id}'`);
-						}
-					}
+			} else if (Date.now() < waitUntil) {
+				const retry = () => EasyCoder_Browser.Attach.getElementById(program, command, id, waitUntil);
+				if (typeof window !== `undefined` && typeof window.requestAnimationFrame === `function`) {
+					window.requestAnimationFrame(retry);
+				} else {
+					setTimeout(retry, 16);
 				}
-            }
-        }
+			} else {
+				if (command.onError) {
+					program.run(command.onError);
+				} else {
+					program.runtimeError(command.lino, `No such element: '${id}'`);
+				}
+			}
+		},
+
+		completeAttach: (program, command, element, id) => {
+			if (program.run) {
+				const target = program.getSymbolRecord(command.symbol);
+				target.element[target.index] = element;
+				target.value[target.index] = {
+					type: `constant`,
+					numeric: false,
+					id
+				};
+				program.run(command.pc + 1);
+			}
+		},
+
+		isImageReady: (element) => {
+			return element && element.complete;
+		},
+
+		waitForImageReady: (program, command, id, element, waitUntil) => {
+			if (EasyCoder_Browser.Attach.isImageReady(element) || Date.now() >= waitUntil) {
+				EasyCoder_Browser.Attach.completeAttach(program, command, element, id);
+				return;
+			}
+			let finished = false;
+			let timer = null;
+			const finish = () => {
+				if (finished) {
+					return;
+				}
+				finished = true;
+				element.removeEventListener(`load`, finish);
+				element.removeEventListener(`error`, finish);
+				if (timer) {
+					clearTimeout(timer);
+				}
+				EasyCoder_Browser.Attach.completeAttach(program, command, element, id);
+			};
+			element.addEventListener(`load`, finish);
+			element.addEventListener(`error`, finish);
+			timer = setTimeout(finish, Math.max(0, waitUntil - Date.now()));
+		}
 	},
 
 	Audioclip: {

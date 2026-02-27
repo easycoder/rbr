@@ -377,9 +377,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785411,
-                    "temperature": 2170,
+                    "temperature": 2140,
                     "battery": 55,
-                    "period": 3
+                    "period": 0
                 },
                 {
                     "name": "Sunroom",
@@ -411,7 +411,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785411,
-                    "temperature": 2330,
+                    "temperature": 2350,
                     "battery": 49,
                     "period": 2
                 },
@@ -441,7 +441,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785411,
-                    "temperature": 2370,
+                    "temperature": 2480,
                     "battery": 42,
                     "relay": "off",
                     "period": 1,
@@ -482,7 +482,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785412,
-                    "temperature": 2100,
+                    "temperature": 2280,
                     "battery": 45,
                     "period": 3
                 },
@@ -511,7 +511,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1771785412,
-                    "temperature": 1270,
+                    "temperature": 1050,
                     "battery": 52,
                     "advance": "-",
                     "period": 0
@@ -551,9 +551,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785413,
-                    "temperature": 2310,
+                    "temperature": 2290,
                     "battery": 41,
-                    "period": 2
+                    "period": 3
                 },
                 {
                     "name": "Guest Bedroom",
@@ -593,7 +593,7 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1771785413,
-                    "temperature": 2130,
+                    "temperature": 2150,
                     "status": "good",
                     "battery": 44,
                     "period": 0
@@ -619,7 +619,7 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1771785413,
-                    "temperature": 980,
+                    "temperature": 870,
                     "status": "good",
                     "battery": 44,
                     "period": 0
