@@ -133,7 +133,7 @@ MessageESPDevice:
     end
     put from 6 of DeviceMAC into DeviceMAC
 !    log `?mac=` cat DeviceMAC cat `&msg=` cat Message cat ` -> ` cat Reply
-    log RelayName cat `: msg=` cat Message cat ` -> ` cat Reply
+!    log RelayName cat `: msg=` cat Message cat ` -> ` cat Reply
     if left 2 of Reply is not `OK`
     begin
         log `Bad response: ` cat Reply
@@ -150,7 +150,7 @@ MessageShellyDevice:
         set Reply to empty
         return
     end
-    log RelayName cat ` ` cat Response
+!    log RelayName cat ` ` cat Response
     reset Values
     set entry `uptime` of Values to 0
     if Response has entry `ison`

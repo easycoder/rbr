@@ -377,9 +377,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785411,
-                    "temperature": 2190,
+                    "temperature": 2170,
                     "battery": 55,
-                    "period": 0
+                    "period": 3
                 },
                 {
                     "name": "Sunroom",
@@ -411,7 +411,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785411,
-                    "temperature": 2310,
+                    "temperature": 2330,
                     "battery": 49,
                     "period": 2
                 },
@@ -441,7 +441,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785411,
-                    "temperature": 2430,
+                    "temperature": 2370,
                     "battery": 42,
                     "relay": "off",
                     "period": 1,
@@ -482,7 +482,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785412,
-                    "temperature": 2200,
+                    "temperature": 2100,
                     "battery": 45,
                     "period": 3
                 },
@@ -511,7 +511,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1771785412,
-                    "temperature": 1460,
+                    "temperature": 1270,
                     "battery": 52,
                     "advance": "-",
                     "period": 0
@@ -551,7 +551,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771785413,
-                    "temperature": 2280,
+                    "temperature": 2310,
                     "battery": 41,
                     "period": 2
                 },
@@ -593,7 +593,7 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1771785413,
-                    "temperature": 2120,
+                    "temperature": 2130,
                     "status": "good",
                     "battery": 44,
                     "period": 0
@@ -619,7 +619,7 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1771785413,
-                    "temperature": 940,
+                    "temperature": 980,
                     "status": "good",
                     "battery": 44,
                     "period": 0
@@ -657,9 +657,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2180,
+                    "temperature": 2170,
                     "battery": 58,
-                    "period": 0
+                    "period": 1
                 },
                 {
                     "name": "Sunroom",
@@ -687,7 +687,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2300,
+                    "temperature": 2380,
                     "battery": 44,
                     "ptemp": "",
                     "period": 1
@@ -722,7 +722,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2460,
+                    "temperature": 2390,
                     "battery": 42,
                     "relay": "off",
                     "period": 2
@@ -762,7 +762,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2300,
+                    "temperature": 2110,
                     "battery": 43,
                     "period": 2
                 },
@@ -787,7 +787,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 1260,
+                    "temperature": 1290,
                     "battery": 50,
                     "advance": "-",
                     "period": 0
@@ -827,9 +827,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2280,
+                    "temperature": 2330,
                     "battery": 41,
-                    "period": 3
+                    "period": 2
                 },
                 {
                     "name": "Guest Bedroom",
@@ -866,7 +866,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 2170,
+                    "temperature": 2130,
                     "battery": 43,
                     "period": 0
                 },
@@ -887,7 +887,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 1060,
+                    "temperature": 1010,
                     "battery": 41,
                     "period": 0
                 }
@@ -1177,7 +1177,7 @@
         }
     ],
     "name": "QED6 214",
-    "profile": 2,
+    "profile": 1,
     "controller-ssid": "RBR-803f5da34f09",
     "controller-password": "r00m8Yr00m",
     "email": "gt@pobox.com",

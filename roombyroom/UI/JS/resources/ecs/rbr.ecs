@@ -59,12 +59,9 @@
     button DialogButton2
     module ProfileModule
     module Storyteller
-    module DebugModule
     topic ServerTopic
     topic MyTopic
     variable Mobile
-    variable System
-    variable Server
     variable Revisit
     variable Prompt
     variable Webson
@@ -87,9 +84,9 @@
     variable RoomCount
     variable RoomIndex
     variable ClickIndex
+    variable MQTTWait
     variable Redraw
     variable Refresh
-    variable Sensor
     variable SensorIP
     variable Relays
     variable RelayState
@@ -115,18 +112,10 @@
     variable Result
     variable Request
     variable RequestData
-    variable Confirm
     variable Finish
     variable ReceivedMessage
     variable Name
-    variable DateFormat
-    variable BannerClicks
-    variable BannerClickGap
-    variable MapErrorCount
-    variable RestErrorCount
-    variable Debugging
     variable TVal
-    variable Item
     variable Elapsed
     variable Boost
     variable Advance
@@ -137,11 +126,8 @@
     variable Flashing
     variable Flashes
     variable Value
-    variable Count
     variable NGood
     variable NBad
-    variable Keys
-    variable Key
     variable FH
     variable FM
     variable NR
@@ -159,7 +145,6 @@
     variable RoomWebson
     variable RoomToolsMenuWebson
     variable SysParamsWebson
-    variable GetNameWebson
     variable GetRequestWebson
     variable TimedWebson
     variable BoostWebson
@@ -191,7 +176,7 @@
 
     on mqtt connect
     begin
-        print `Connected`
+        print `MQTT Connected`
         go to Connected
     end
     
@@ -203,51 +188,20 @@
     stop
 
 Connected:
-!	The following allows some debugging when the UI is running on a device with a keyboard
-!	and a console.
-	on key
-    begin
-    	if the key is `m` print MAC
-    	else if the key is `p` print Password
-    	else if the key is `M` print Map
-    	else if the key is `D`
-        begin
-        	set Debugging
-            debug step
-        end
-    	else if the key is `d`
-        begin
-        	clear Debugging
-            debug stop
-        end
-    end
-    
-    clear Debugging
-    put `first` into Prompt
-
-	! Refresh the UI every 5 seconds
+	! Refresh the UI every 10 seconds
 	fork to Main
-    wait 3 seconds
-!    go to Start             ! TODO: remove this
-    every 20 seconds
+    wait 1 second
+    while true
     begin
-    	if not Blocked go to Start
-    	wait 1
-    	if not Blocked go to Start
-    	wait 1
-    	if not Blocked go to Start
-    	wait 1
-    	if not Blocked go to Start
-    	wait 1
-    	if not Blocked go to Start
+    	if not Blocked fork to Start
+        wait 10 seconds
     end
-    stop
 
 Main:
-    put 0 into MapErrorCount
 	set Blocked
     set Redraw
     put empty into ModeScript
+    put `first` into Prompt
 
     set the title to `RBR`
 
@@ -266,16 +220,6 @@ Main:
     get StaticData from storage as `StaticData`
     if StaticData is empty put `{}` into StaticData
 !    print StaticData
-
-    ! Get the URL of the REST server
-!  	json parse url the location as Args
-!    put property `url` of Args into Server
-!    put the position of the last `/` in Server into N
-!    add 1 to N
-!    put left N of Server into Server
-!    put Server cat `resources/php/rest.php` into Server
-!    put Server into storage as `server`
-    put `/` into Server
 
 	create Body
     if Mobile
@@ -301,7 +245,6 @@ Main:
     put empty into MainMenuWebson
     put empty into RoomWebson
     put empty into RoomToolsMenuWebson
-    put empty into GetNameWebson
     put empty into GetRequestWebson
     put empty into TimedWebson
     put empty into OnWebson
@@ -331,32 +274,6 @@ Main:
     attach Date to `calendar-date`
     attach Hamburger to `hamburger-icon`
     attach ProfilesButton to `profile-button`
-
-!	Start the debug module
-    if DebugModule is not running
-    begin
-        rest get Script from `/resources/ecs/debug.ecs?v=` cat now
-        run Script with Mobile and Body and Map and MAC and Password as DebugModule
-    	put 0 into BannerClicks
-    end
-    on click Banner
-    begin
-    	add 1 to BannerClicks
-    	if BannerClicks is 1 add 1000 to the millisecond giving BannerClickGap
-        else if BannerClicks is 2
-        begin
-        	if the millisecond is less than BannerClickGap
-            begin
-            	send `Run` to DebugModule
-    			put 0 into BannerClicks
-            end
-            else
-            begin
-            	put 1 into BannerClicks
-                add 1000 to the millisecond giving BannerClickGap
-            end
-        end
-    end
 
 !	Set up the statistics and hamburger icons
     on click StatisticsIcon
@@ -411,8 +328,6 @@ Main:
 !	Main start point
 Start:
     gosub to Unmask
-	put 0 into RestErrorCount
-    send `Count` to DebugModule
 
 	if not Redraw go to GetMap
     clear MainPanel
@@ -423,18 +338,20 @@ Start:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the map
 GetMap:
-	print `Get the map`
 	set Blocked
     send to ServerTopic
         sender MyTopic
         action Prompt
 
+    put 50 into MQTTWait
     while ReceivedMessage is empty
     begin
         wait 10 ticks
+        take 1 from MQTTWait
+        if MQTTWait is 0 stop
     end
     put ReceivedMessage into Map
-    print `Got the map`
+    print `Got an updated map`
     if Map is empty
     begin
         if Prompt is `first`
@@ -453,11 +370,7 @@ GetMap:
     	stop
     end
     put Map into storage as `map`
-    if ReceivedMessage is not empty
-    begin
-        print `Map has changed`
-        set Redraw
-    end
+    if ReceivedMessage is not empty set Redraw
 
     put property `name` of Map into SystemName
     replace `%20` with ` ` in SystemName
@@ -478,35 +391,14 @@ GetMap:
 
 	! Get the current sensor values
 
-!	rest get Sensors from Server cat `/sensors/` cat MAC cat `?v=` cat now
-!    or go to HandleRestError
-!    print `Sensors: ` cat Sensors
-
 	attach VersionNumber to `systemversion`
     if not Mobile set style `color` of VersionNumber to `black`
 !    set the content of VersionNumber to `v:`
     attach StatusFlag to `statusflag`
-
-!    if property `system-status` of Sensors is `good`
-!    begin
-!        set style `background` of StatusFlag to `lightgreen`
-!        set style `border` of StatusFlag to `1px solid green`
-!    end
-!    else if property `system-status` of Sensors is `suspect`
-!    begin
-!        set style `background` of StatusFlag to `gold`
-!        set style `border` of StatusFlag to `1px brown`
-!    end
-!    else
-!    begin
-!        set style `background` of StatusFlag to `red`
-!        set style `border` of StatusFlag to `1px solid lightred`
-!    end
     
     on click StatusFlag go to DoSystemParameters
     
 !   print Map
-    print `Get the map elements`
     put property `profiles` of Map into Profiles
 	put property `profile` of Map into CurrentProfile
     if CurrentProfile is empty put 0 into CurrentProfile
@@ -527,8 +419,8 @@ GetMap:
     	clear MainPanel
     	set Refresh
     end
-    wait 2 seconds
-    print `Start the redraw`
+!    wait 2 seconds
+!    print `Start the redraw`
 
     set the elements of Mode to RoomCount
     set the elements of ModeHolder to RoomCount
@@ -606,7 +498,7 @@ GetMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update al the rooms
 UpdateRooms:
-    print `Update rooms`
+!    print `Update rooms`
 	! Draw a row for each room
     put 0 into RoomIndex
     while RoomIndex is less than RoomCount
@@ -632,7 +524,6 @@ UpdateRooms:
             set property `alive` of RoomData to `true`
         end
 
-        print `Redraw=` cat Redraw
         if Redraw
         begin
             ! Render the Webson spec for a room
@@ -1432,7 +1323,12 @@ Unmask:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Process the result of running another module
 ProcessResult:
-!print Result
+    print `Result: ` cat Result
+!    (RBR:1422): Result: {"request":"Update","data":{"action":"mode","roomnumber":4,"mode":"on","target":0}}
+    gosub to SendUIRequest
+    clear Blocked
+    stop
+
 	put property `request` of Result into Request
     put property `data` of Result into RequestData
     if Request is `Update`
@@ -1456,40 +1352,15 @@ ProcessResult:
     clear Blocked
     stop
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Post data and wait for the server to confirm
-PostAndConfirm:
-    fork to PostRequest
-    fork to FlashHourglass
-    ! Wait for a response from the server
-        put 10 into Count
-        while Count is greater than 0
-        begin
-            wait 5 seconds
-            rest get Confirm from Server cat `/confirm/` cat MAC cat `?v=` cat now
-            or goto HandleRestError
-            if Confirm is `Y` go to PAC2
-            take 1 from Count
-        end
-    	put `System did not respond to a request` into SystemStatus
-        fork to PAC4
-        return
-PAC2:
-	clear Waiting
-    put 0 into Count
-    while Count is less than 10
-    begin
-    	if not Flashing go to PAC3
-        wait 10 ticks
-    	add 1 to Count
-    end
-PAC3:
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send a request to the system controller
+SendUIRequest:
+    print `Sending UI request ` cat Result
+    send to ServerTopic
+        sender MyTopic
+        action `uirequest`
+        message Result
     return
-
-PAC4:
-    wait 10
-!    put `System healthy` into SystemStatus
-	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Flash the hourglass while waiting
@@ -1510,42 +1381,6 @@ FH2:
     clear Flashing
     clear Waiting
     stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Post a request to the server
-PostRequest:
-! print `Request: ` cat RequestData cat newline cat Server cat `/request/` cat MAC cat `/` cat Password
-    rest post RequestData to Server cat `/request/` cat MAC cat `/` cat Password
-   	or go to HandlePostError
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Handle a POST error
-HandlePostError:
-	print `POST error`
-    add 1 to MapErrorCount
-    if MapErrorCount is greater than 5
-    begin
-        alert `A series of network errors have occurred.`
-        	cat newline cat `Some functionality may not be available.`
-        put 0 into MapErrorCount
-    end
-	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Handle a REST error
-HandleRestError:
-    print `A REST error occurred`
-	add 1 to RestErrorCount
-    if RestErrorCount is less than 10
-    begin
-        clear MainPanel
-    	clear DialogPanel
-        set Redraw
-        clear Blocked
-        set Redraw
-    	stop
-    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Warn the user and abandon this run

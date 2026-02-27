@@ -143,7 +143,7 @@ MainLoop:
         if MessageQueue is not empty go to HandleMessages
         if ImmediateUpdate set WaitCounter to 0
         ! If the map has changed, update the UI now
-        if MapHasChanged gosub SendMapToUI
+        gosub SendMapToUI
     end
 
     ! log `Repeat ` cat LoopCount
@@ -175,7 +175,7 @@ HandleMessages:
     while MessageQueue is not empty
     begin
         pop ReceivedMessage from MessageQueue
-        ! log ReceivedMessage
+        log ReceivedMessage
         put entry `sender` of ReceivedMessage into Sender
         set entry `last` of Sender to now
         ! Build a dictionary of senders
@@ -584,8 +584,18 @@ GetRoomByName:
 !   Process a request from the UI arriving by MQTT
 ProcessUIRequest:
 !    gosub to ForceUpdate
+    log Data
+    if Data does not have entry `action`
+    begin
+        log `Missing 'action' entry`
+        return
+    end
     put entry `action` of Data into Action
-    if Action is `System Name`
+    if Action is `Test`
+    begin
+        log `Test message received`
+    end
+    else if Action is `System Name`
     begin
         set entry `name` of Map to entry `System Name` of Data
         log `Set the system name to ` cat entry `name` of Map
@@ -664,9 +674,8 @@ ProcessUIRequest:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   If the map has changed, send it to the UI. There may be more than one.
-!   Otherwise, send an empty dictionary
+!   If the map has not changed, do nothing.
 SendMapToUI:
-!    log `Send map to UI`
     if Map is empty
     begin
         gosub to LoadMap
@@ -674,6 +683,7 @@ SendMapToUI:
     end
     if MapHasChanged
     begin
+        log `Send map to UI`
         set MessageText to Map
         clear MapHasChanged
         put the keys of Senders into SenderKeys

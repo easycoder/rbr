@@ -43,6 +43,14 @@
          exit;
     }
 
+    $clf_string = sprintf('%s - - [%s] "%s %s HTTP/1.1" - -\n',
+                          $_SERVER['REMOTE_ADDR'],
+                          date('d/M/Y:H:i:s O'),
+                          $_SERVER['REQUEST_METHOD'],
+                          $_SERVER['REQUEST_URI']
+    );
+    logger($clf_string);
+
     // First, the commands that don't require a database table name.
     switch ($method) {
         case 'GET':
@@ -246,7 +254,7 @@
                         $data = base64_decode($data);
                     }
                     $data = json_decode($data);
-                    $data->ipaddr = $row->ipaddr;
+                    // $data->ipaddr = $row->ipaddr;
                     print json_encode($data);
                 } else {
                     print '';
@@ -459,30 +467,6 @@
                 doStatistics($conn, $request);
                 break;
 
-            case 'psu':
-                // Get the psu request, if any.
-                // Endpoint: {site root}/resources/php/rest.php/psu/<mac>/{password}
-                $mac = trim($request[0]);
-                if ($mac == "v") {
-                    $file = fopen('psu/version', 'r');
-                    $version = trim(fgets($file));
-                    fclose($file);
-                    print $version;
-                } else if ($mac == "d") {
-                    print file_get_contents("psu/download");
-                } else {
-                    $password = trim($request[1]);
-                    $result = query($conn, "SELECT psu FROM systems WHERE mac='$mac' AND password='$password'");
-                    if ($row = mysqli_fetch_object($result)) {
-                        query($conn, "UPDATE systems SET psu='' WHERE mac='$mac'");
-                        print $row->psu;
-                    } else {
-                        http_response_code(404);
-                        print "MAC '$mac' and password '$password' do not match any record.";
-                    }
-                }
-                break;
-
                 // Test endpoints
 
             case 'test':
@@ -685,16 +669,6 @@
                     $month = date("m");
                     $day = date("d");
 
-                    // $file = "stats/$mac/$name/$year/$month";
-                    // if (!file_exists($file)) {
-                    //     mkdir($file, 0777, true);
-                    // }
-                    // $file .= "/$day";
-                    // logger("Write $ts,$target,$temp to $file");
-                    // $fp = fopen($file, "a+") or die("Can't open $file");
-                    // fwrite($fp, "$ts,$target,$temp\n");
-                    // fclose($fp);
-
                     $file = "stats";
                     if (!file_exists($file)) mkdir($file);
                     $file .= "/$mac";
@@ -727,7 +701,7 @@
                     $sensors = file_get_contents("php://input");
                     $encoded = base64_encode($sensors);
                     query($conn, "UPDATE systems SET sensors='$encoded', ipaddr='$ipaddr' WHERE mac='$mac'");
-                    // looger("UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
+                    // logger("UPDATE systems SET sensors='$encoded' WHERE mac='$mac'");
                 } else {
                     http_response_code(404);
                     print "{\"message\":\"MAC and password do not match any record.\"}";
@@ -850,7 +824,7 @@
     // Do an SQL query
     function query($conn, $sql)
     {
-       // logger("$sql\n");
+        // logger("$sql\n");
         $result = mysqli_query($conn, $sql);
         if (!$result) {
             http_response_code(404);

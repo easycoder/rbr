@@ -367,13 +367,13 @@ const EasyCoder_Core = {
 			const item = command.item;
 			switch (item) {
 			case `symbols`:
-				console.log(`Symbols: ${JSON.stringify(program.symbols, null, 2)}`);
+				EasyCoder.writeToDebugConsole(`Symbols: ${JSON.stringify(program.symbols, null, 2)}`);
 				break;
 			case `symbol`:
 				const record = program.getSymbolRecord(command.name);
 				const exporter = record.exporter.script;
 				delete record.exporter;
-				console.log(`Symbol: ${JSON.stringify(record, null, 2)}`);
+				EasyCoder.writeToDebugConsole(`Symbol: ${JSON.stringify(record, null, 2)}`);
 				record.exporter.script = exporter;
 				break;
 			case `step`:
@@ -383,11 +383,11 @@ const EasyCoder_Core = {
 				program.debugStep = false;
 				break;
 			case `program`:
-				console.log(`Debug program: ${JSON.stringify(program, null, 2)}`);
+				EasyCoder.writeToDebugConsole(`Debug program: ${JSON.stringify(program, null, 2)}`);
 				break;
 			default:
 				if (item.content >= 0) {
-					console.log(`Debug item ${item.content}: ${JSON.stringify(program[item.content], null, 2)}`);
+					EasyCoder.writeToDebugConsole(`Debug item ${item.content}: ${JSON.stringify(program[item.content], null, 2)}`);
 				}
 				break;
 			}
@@ -727,7 +727,7 @@ const EasyCoder_Core = {
 			try {
 				program.run(program.symbols[command.label].pc);
 			} catch (err) {
-				console.log(err.message);
+				EasyCoder.writeToDebugConsole(err.message);
 				alert(err.message);
 			}
 			return command.pc + 1;
@@ -1186,7 +1186,7 @@ const EasyCoder_Core = {
 		run: program => {
 			const command = program[program.pc];
 			const value = program.getFormattedValue(command.value);
-			console.log(`(${program.script}:${command.lino}): ` + value);
+			EasyCoder.writeToDebugConsole(`(${program.script}:${command.lino}): ` + value);
 			return command.pc + 1;
 		}
 	},
@@ -2118,7 +2118,7 @@ const EasyCoder_Core = {
 		},
 
 		run: program => {
-			console.log(`Test`);
+			EasyCoder.writeToDebugConsole(`Test`);
 			return program[program.pc].pc + 1;
 		}
 	},
@@ -4977,7 +4977,7 @@ const EasyCoder_Browser = {
 								program.run(program.onKeyPc);
 							}, 1);
 						} catch (err) {
-							console.log(`Error: ${err.message}`);
+							EasyCoder.writeToDebugConsole(`Error: ${err.message}`);
 						}
 					}
 					return true;
@@ -6007,14 +6007,14 @@ const EasyCoder_Browser = {
 			const command = program[program.pc];
 			switch (command.variant) {
 			case `setup`:
-				console.log(`Set up tracer`);
+				EasyCoder.writeToDebugConsole(`Set up tracer`);
 				program.tracer = {
 					variables: command.variables,
 					alignment: command.alignment
 				};
 				break;
 			case `run`:
-				console.log(`Run tracer`);
+				EasyCoder.writeToDebugConsole(`Run tracer`);
 				if (!program.tracer) {
 					program.tracer = {
 						variables: [],
@@ -6124,16 +6124,16 @@ const EasyCoder_Browser = {
 					setProgress(0);
 					setStatus(``);
 					if (response) {
-						console.log(response);
+						EasyCoder.writeToDebugConsole(response);
 					}
 				}, false);
 				ajax.addEventListener(`error`, function () {
 					setStatus(`Upload failed`);
-					console.log(`Upload failed`);
+					EasyCoder.writeToDebugConsole(`Upload failed`);
 				}, false);
 				ajax.addEventListener(`abort`, function () {
 					setStatus(`Upload aborted`);
-					console.log(`Upload aborted`);
+					EasyCoder.writeToDebugConsole(`Upload aborted`);
 				}, false);
 				ajax.onreadystatechange = function () {
 					if (this.readyState === 4) {
@@ -7052,7 +7052,7 @@ window.onpopstate = function (event) {
 				program.run(program.onBrowserBack);
 			}
 		} else {
-			console.log(`No script property in window state object`);
+			EasyCoder.writeToDebugConsole(`No script property in window state object`);
 		}
 	}
 };
@@ -7676,7 +7676,7 @@ const EasyCoder_MQTT = {
             }
 
             this.connected = true;
-            console.log(`Client ${this.clientID} connected`);
+            EasyCoder.writeToDebugConsole(`Client ${this.clientID} connected`);
             
             // Subscribe to all topics
             for (const topicName of this.topics) {
@@ -7684,7 +7684,7 @@ const EasyCoder_MQTT = {
                 const topic = topicRecord.object;
                 const qos = topic.getQoS();
                 this.client.subscribe(topic.getName(), { qos });
-                console.log(`Subscribed to topic: ${topic.getName()} with QoS ${qos}`);
+                EasyCoder.writeToDebugConsole(`Subscribed to topic: ${topic.getName()} with QoS ${qos}`);
             }
 
             this._queueProgramCallback(this.onConnectPC);
@@ -7708,7 +7708,7 @@ const EasyCoder_MQTT = {
 
                             if (this.chunkedMessages[topic]) {
                                 this.chunkedMessages[topic][partNum] = data;
-                                // console.log(`Received chunk ${partNum}/${totalChunks - 1} on topic ${topic}`);
+                                EasyCoder.writeToDebugConsole(`Received chunk ${partNum}/${totalChunks - 1} on topic ${topic}`);
                             }
                         }
                     }
@@ -7814,12 +7814,12 @@ const EasyCoder_MQTT = {
             const messageLen = messageBytes.length;
             const numChunks = Math.ceil(messageLen / chunkSize);
 
-            console.log(`Sending message (${messageLen} bytes) in ${numChunks} chunks of size ${chunkSize} to topic ${topic} with QoS ${qos}`);
+            EasyCoder.writeToDebugConsole(`Sending message (${messageLen} bytes) in ${numChunks} chunks of size ${chunkSize} to topic ${topic} with QoS ${qos}`);
 
             this._sendRapidFire(topic, messageBytes, qos, chunkSize, numChunks);
 
             this.lastSendTime = (Date.now() - sendStart) / 1000;
-            console.log(`Message transmission complete in ${this.lastSendTime.toFixed(3)} seconds`);
+            EasyCoder.writeToDebugConsole(`Message transmission complete in ${this.lastSendTime.toFixed(3)} seconds`);
         }
 
         _sendRapidFire(topic, messageBytes, qos, chunkSize, numChunks) {
@@ -7838,7 +7838,7 @@ const EasyCoder_MQTT = {
                 const headerBytes = new TextEncoder().encode(header);
                 const chunkMsg = this._concatBytes([headerBytes, chunkData]);
                 this.client.publish(topic, chunkMsg, { qos });
-                console.log(`Sent chunk ${i}/${numChunks - 1} to topic ${topic} with QoS ${qos}: ${chunkMsg.byteLength} bytes`);
+                EasyCoder.writeToDebugConsole(`Sent chunk ${i}/${numChunks - 1} to topic ${topic} with QoS ${qos}: ${chunkMsg.byteLength} bytes`);
             }
         }
 
@@ -8385,7 +8385,6 @@ const EasyCoder_MQTT = {
         return handler.run(program);
     }
 };
-
 const EasyCoder_Rest = {
 
 	name: `EasyCoder_Rest`,
@@ -8590,7 +8589,7 @@ const EasyCoder_Rest = {
 				break;
 			case `post`:
 				const value = program.getValue(command.value);
-				console.log(`POST to ${path}`);
+				EasyCoder.writeToDebugConsole(`POST to ${path}`);
 				//console.log(`value=${value}`);
 				request.setRequestHeader(`Content-type`, `application/json; charset=UTF-8`);
 				for (key of Object.keys(command.args)) {
@@ -8990,7 +8989,7 @@ const EasyCoder_Run = {
 					}
 					catch (e) {
 					}
-					console.log(`${program.script}: Line ${lino}: `
+					EasyCoder.writeToDebugConsole(`${program.script}: Line ${lino}: `
 					+ `${domain}:${program[program.pc].keyword} - ${line}`);
 				}
 				const handler = program.domain[domain];
@@ -9077,13 +9076,13 @@ const EasyCoder_Run = {
 									EasyCoder_Run.run(program, program.resume);
 								} catch (err) {
 									const message = `Error in run handler: ` + err.message;
-									console.log(message);
+										EasyCoder.writeToDebugConsole(message);
 									alert(message);
 								}
 							};
 
 							step.onclick = function () {
-								console.log(`step`);
+									EasyCoder.writeToDebugConsole(`step`);
 								step.blur();
 								program.tracing = true;
 								const content = document.getElementById(`easycoder-tracer-content`);
@@ -9092,7 +9091,7 @@ const EasyCoder_Run = {
 									program.run(program.resume);
 								} catch (err) {
 									const message = `Error in step handler: ` + err.message;
-									console.log(message);
+										EasyCoder.writeToDebugConsole(message);
 									alert(message);
 								}
 							};
@@ -9386,7 +9385,7 @@ const EasyCoder_Compiler = {
 			}
 			this.rewindTo(mark);
 		}
-		console.log(`No handler found`);
+		EasyCoder.writeToDebugConsole(`No handler found`);
 		throw new Error(`I don't understand '${token}...'`);
 	},
 
@@ -9447,7 +9446,7 @@ const EasyCoder_Compiler = {
 		for (const symbol in this.symbols) {
 			const record = this.program[this.symbols[symbol].pc];
 			if (record.isSymbol && !record.used && !record.exporter) {
-				console.log(`Symbol '${record.name}' has not been used.`);
+				EasyCoder.writeToDebugConsole(`Symbol '${record.name}' has not been used.`);
 			}
 		}
 		return this.program;
@@ -9467,6 +9466,55 @@ const EasyCoder = {
 
 	elementId: 0,
 
+	getDebugConsoleElement: function () {
+		const host = document.getElementById(`stuff`);
+		let debugConsole = document.getElementById(`easycoder-debug-console`);
+		if (host) {
+			if (!debugConsole || debugConsole.parentElement !== host) {
+				if (debugConsole && debugConsole.parentElement) {
+					debugConsole.parentElement.removeChild(debugConsole);
+				}
+				debugConsole = document.createElement(`pre`);
+				debugConsole.id = `easycoder-debug-console`;
+				host.appendChild(debugConsole);
+			}
+			return debugConsole;
+		}
+		if (debugConsole) {
+			return debugConsole;
+		}
+		if (!document.body) {
+			return null;
+		}
+		debugConsole = document.createElement(`pre`);
+		debugConsole.id = `easycoder-debug-console`;
+		document.body.appendChild(debugConsole);
+		return debugConsole;
+	},
+
+	writeToDebugConsole: function (message) {
+		const params = new URLSearchParams(window.location.search);
+		let useVSCodeDebugConsole = params.get(`vscodeDebugConsole`) === `1`;
+		if (!useVSCodeDebugConsole) {
+			try {
+				const stored = window.localStorage ? window.localStorage.getItem(`easycoder.vscodeDebugConsole`) : null;
+				useVSCodeDebugConsole = stored === `1` || stored === `true`;
+			} catch (err) {
+				useVSCodeDebugConsole = false;
+			}
+		}
+		if (useVSCodeDebugConsole) {
+			console.log(message);
+			return;
+		}
+		const debugConsole = this.getDebugConsoleElement();
+		if (debugConsole) {
+			const prefix = debugConsole.textContent && debugConsole.textContent.length ? `\n` : ``;
+			debugConsole.textContent += `${prefix}${message}`;
+			debugConsole.scrollTop = debugConsole.scrollHeight;
+		}
+	},
+
 	runtimeError: function (lino, message) {
 		this.lino = lino;
 		this.reportError({
@@ -9485,13 +9533,13 @@ const EasyCoder = {
 
 	reportError: function (err, program, source) {
 		if (!err.message) {
-			console.log(`An error occurred - origin was ${err.path[0]}`);
+			this.writeToDebugConsole(`An error occurred - origin was ${err.path[0]}`);
 			return;
 		}
 		if (!this.compiling && !program) {
 			const errString = `Error: ${err.message}`;
 			alert(errString);
-			console.log(errString);
+			this.writeToDebugConsole(errString);
 			return;
 		}
 		const {
@@ -9518,7 +9566,7 @@ const EasyCoder = {
 				errString += `${warning}\n`;
 			}
 		}
-		console.log(errString);
+		this.writeToDebugConsole(errString);
 		alert(errString);
 	},
 
@@ -9634,7 +9682,7 @@ const EasyCoder = {
 			return;
 		}
 		element.onload = function () {
-			console.log(`${Date.now() - EasyCoder.timestamp} ms: Library ${prefix}${src} loaded`);
+			EasyCoder.writeToDebugConsole(`${Date.now() - EasyCoder.timestamp} ms: Library ${prefix}${src} loaded`);
 			cb();
 		};
 		document.head.appendChild(element);
@@ -9809,7 +9857,7 @@ const EasyCoder = {
 				EasyCoder.scriptIndex++;
 			}
 			const finishCompile = Date.now();
-			console.log(`${finishCompile - this.timestamp} ms: ` +
+			EasyCoder.writeToDebugConsole(`${finishCompile - this.timestamp} ms: ` +
 				`Compiled ${program.script}: ${source.scriptLines.length} lines (${source.tokens.length} tokens) in ` +
 				`${finishCompile - startCompile} ms`);
 		} catch (err) {
@@ -9855,10 +9903,10 @@ const EasyCoder = {
 };
 EasyCoder.version = `250824`;
 EasyCoder.timestamp = Date.now();
-console.log(`EasyCoder loaded; waiting for page`);
+EasyCoder.writeToDebugConsole(`EasyCoder loaded; waiting for page`);
 
 function EasyCoder_Startup() {
-	console.log(`${Date.now() - EasyCoder.timestamp} ms: Start EasyCoder`);
+	EasyCoder.writeToDebugConsole(`${Date.now() - EasyCoder.timestamp} ms: Start EasyCoder`);
 	EasyCoder.timestamp = Date.now();
 	EasyCoder.scripts = {};
 	window.EasyCoder = EasyCoder;
