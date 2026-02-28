@@ -1,6 +1,6 @@
-const EasyCoder_Rest = {
+const EasyCoder_REST = {
 
-	name: `EasyCoder_Rest`,
+	name: `EasyCoder_REST`,
 
 	Rest: {
 
@@ -131,24 +131,24 @@ const EasyCoder_Rest = {
 		run: (program) => {
 			const command = program[program.pc];
 			if (command.request == `path`) {
-				EasyCoder_Rest.restPath = program.getValue(command.path);
+				EasyCoder_REST.restPath = program.getValue(command.path);
 				return command.pc + 1;
 			}
 
 			const url = program.getValue(command.url);
-			if (!EasyCoder_Rest.restPath) {
-				EasyCoder_Rest.restPath = `.`;
+			if (!EasyCoder_REST.restPath) {
+				EasyCoder_REST.restPath = `.`;
 			}
 			let path = url;
 			if (!url.startsWith(`http`)) {
 				if (url[0] == `/`) {
 					path = url.substr(1);
 				} else {
-					path = `${EasyCoder_Rest.restPath}/${url}`;
+					path = `${EasyCoder_REST.restPath}/${url}`;
 				}
 			}
 
-			const request = EasyCoder_Rest.Rest.createCORSRequest(command.request, path);
+			const request = EasyCoder_REST.Rest.createCORSRequest(command.request, path);
 			if (!request) {
 				program.runtimeError(command.lino, `CORS not supported`);
 				return;
@@ -219,7 +219,7 @@ const EasyCoder_Rest = {
 	getHandler: (name) => {
 		switch (name) {
 		case `rest`:
-			return EasyCoder_Rest.Rest;
+			return EasyCoder_REST.Rest;
 		default:
 			return null;
 		}
@@ -227,7 +227,7 @@ const EasyCoder_Rest = {
 
 	run: (program) => {
 		const command = program[program.pc];
-		const handler = EasyCoder_Rest.getHandler(command.keyword);
+		const handler = EasyCoder_REST.getHandler(command.keyword);
 		if (!handler) {
 			program.runtimeError(command.lino, `Unknown keyword '${command.keyword}' in 'rest' package`);
 		}

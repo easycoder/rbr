@@ -189,12 +189,11 @@
     stop
 
 Connected:
+    ! Do the basic setup of the main window
+	gosub to SetupScreen
+Conn2:
 	! Refresh the UI every 10 seconds
     ! If Prompt is set to 'first' deal with it immediately
-	fork to Main
-    wait 2 seconds
-!    clear MainPanel
-Conn2:
     while true
     begin
         put 10 into CycleWait
@@ -206,16 +205,17 @@ Conn2:
                 if Prompt is `first`
                 begin
 !                    wait 1 second
-                    fork to Start
+                    fork to MainProcessingTask
                     go to Conn2
                 end
             end
             take 1 from CycleWait
         end
-    	if not Blocked fork to Start
+    	if not Blocked fork to MainProcessingTask
     end
 
-Main:
+SetupScreen:
+    print `Set up the screen...`
     set Redraw
     put empty into ModeScript
     put `first` into Prompt
@@ -319,31 +319,13 @@ Main:
         end
         else if not Blocked go to ShowMenu
     end
-
-    get Revisit from storage as `revisit`
-    if Revisit is empty
-    begin
-    	put `yes` into storage as `revisit`
-        put `home` into SID
-        put `Welcome` into TID
-      	go to RunHelp
-    end
-    clear Blocked
-
-    !	Make sure we have a MAC address; if not, go ask for one
-    clear Flag
-    get MAC from storage as `MAC`
-    if MAC is empty go to SystemManager ! TODO: Ask for the MAC?
-    print `MAC: ` cat MAC
-
-    !	Make sure we have the password; if not, ask for it
-    get Password from storage as `password`
-    print `Password: ` cat Password
-    if Password is empty go to GetLogin
+    print `Screen is ready`
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Main start point
-Start:
+!	Main Processing Task
+MainProcessingTask:
+!    print `Main Processing Task`
     gosub to Unmask
 
 	if not Redraw go to GetMap
@@ -869,7 +851,9 @@ UpdateRooms:
                     and Result
                 put `first` into Prompt
                 gosub to Unmask
-                go to ProcessResult
+                set Redraw
+                print Result
+!                go to ProcessResult
             end
         end
         add 1 to RoomIndex
@@ -947,47 +931,6 @@ ShowMenu:
     end
 
 	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	The system manager
-SystemManager:
-!	set Blocked
-!    clear MainPanel
-!    rest get Script from `/resources/ecs/systemman.ecs?v=` cat now
-!    	or go to HandleRestError
-!    run Script with MainPanel and MAC and Password and Map and Flag and Result
-!    if Result is `OK`
-!    begin
-!        put MAC into storage as `MAC`
-!        put Password into storage as `password`
-!    	rest get Map from Server cat `/map/` cat MAC cat `?v=` cat now
-!        	or begin
-!        		print `Server not responding`
-!                put empty into Map
-!            	continue
-!        	end
-!        if Map is empty
-!        begin
-!            set Redraw
-!            clear Blocked
-!            stop
-!        end
-!        put Map into storage as `map`
-!        put property `name` of Map into SystemName
-!        if SystemName is empty put `New` into SystemName
-!        put `{}` into System
-!        set property `mac` of System to MAC
-!        set property `password` of System to Password
-!    end
-!    else if Result is `Help`
-!    begin
-!        put `home` into SID
-!        put `SystemManager` into TID
-!      	go to RunHelp
-!    end
-!    set Redraw
-!    clear Blocked
-    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	System parameters
@@ -1201,8 +1144,8 @@ DoProfiles:
     put `{}` into Result
     rest get Script from `/resources/ecs/profiles.ecs?v=` cat now
     run Script with MainPanel and Map and Result as ProfileModule
-                put `first` into Prompt
-                gosub to Unmask
+    put `first` into Prompt
+    gosub to Unmask
     set Redraw
     go to ProcessResult
 
@@ -1347,9 +1290,10 @@ Unmask:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Process the result of running another module
 ProcessResult:
-    print `Result: ` cat Result
-!    (RBR:1422): Result: {"request":"Update","data":{"action":"mode","roomnumber":4,"mode":"on","target":0}}
+!    print `Result: ` cat Result
+    set Blocked
     gosub to SendUIRequest
+    wait 50 ticks
     clear Blocked
     stop
 
@@ -1379,11 +1323,11 @@ ProcessResult:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
 SendUIRequest:
-    print `Sending UI request ` cat Result
-!    send to ServerTopic
-!        sender MyTopic
-!        action `uirequest`
-!        message Result
+!    print `Sending UI request to ServerTopic: ` cat Result
+    send to ServerTopic
+        sender MyTopic
+        action `uirequest`
+        message Result
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

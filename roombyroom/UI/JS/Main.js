@@ -5,13 +5,14 @@ const EasyCoder = {
 	domain: {
 		core: EasyCoder_Core,
 		browser: EasyCoder_Browser,
-		json: EasyCoder_Json,
-		rest: EasyCoder_Rest,
+		json: EasyCoder_JSON,
+		rest: EasyCoder_REST,
 		mqtt: EasyCoder_MQTT
 	},
 
 	elementId: 0,
 	attachWaitMs: 3000,
+	timingEnabled: false,
 
 	getDebugConsoleElement: function () {
 		const host = document.getElementById(`stuff`);

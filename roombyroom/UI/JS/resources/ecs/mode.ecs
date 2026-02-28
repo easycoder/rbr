@@ -219,8 +219,7 @@ ShowTimes:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Send an advance or cancel request
 DoAdvance:
-	if Advance is `-` put `A` into Advance else put `C` into Advance
-    set property `advance` of RoomSpec to Advance
+	if Advance is `A` put `C` into Advance else put `A` into Advance
     set property `advance` of RequestData to Advance
    	put `timed` into Mode
     go to SelectMode

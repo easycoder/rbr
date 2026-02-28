@@ -1,6 +1,6 @@
-const EasyCoder_Json = {
+const EasyCoder_JSON = {
 
-	name: `EasyCoder_Json`,
+	name: `EasyCoder_JSON`,
 
 	Json: {
 
@@ -403,7 +403,7 @@ const EasyCoder_Json = {
 	getHandler: (name) => {
 		switch (name) {
 		case `json`:
-			return EasyCoder_Json.Json;
+			return EasyCoder_JSON.Json;
 		default:
 			return null;
 		}
@@ -411,7 +411,7 @@ const EasyCoder_Json = {
 
 	run: (program) => {
 		const command = program[program.pc];
-		const handler = EasyCoder_Json.getHandler(command.keyword);
+		const handler = EasyCoder_JSON.getHandler(command.keyword);
 		if (!handler) {
 			program.runtimeError(command.lino, `Unknown keyword '${command.keyword}' in 'json' package`);
 		}

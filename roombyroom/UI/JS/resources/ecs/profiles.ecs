@@ -21,8 +21,8 @@
     button OKButton
     button HelpButton
     button CancelButton
-    img CalendarOff
-    img CalendarOn
+    div CalendarOff
+    div CalendarOn
     variable Mobile
     variable ProfilesWebson
     variable ProfileWebson
@@ -33,7 +33,6 @@
     variable Rooms
     variable Name
     variable Request
-    variable RequestData
     variable CurrentProfile
     variable EditingProfile
     variable CalendarOnOff
@@ -86,16 +85,11 @@
     attach HelpButton to `profiles-help-button`
     attach CancelButton to `profiles-cancel-button`
     
-    put `{}` into Result
-    put `{}` into RequestData
-    set property `action` of RequestData to empty
     put property `profiles` of Map into Profiles
     put property `profile` of Map into CurrentProfile
-    set property `profiles` of RequestData to Profiles
-	set property `profile` of RequestData to CurrentProfile
+    put `{}` into Result
 
     put property `calendar` of Map into Calendar
-    set property `calendar` of RequestData to Calendar
     if Calendar is `on`
     begin
         set style `display` of CalendarOff to `none`
@@ -358,15 +352,12 @@ ExitWithoutChanges:
 Exit:
 	if Changed
     begin
-    	set property `request` of Result to `Update`
-        set property `action` of RequestData to `profiles`
-        set property `profiles` of RequestData to Profiles
-        set property `profile` of RequestData to CurrentProfile
-        set property `calendar-data` of RequestData to CalendarData
-        put property `calendar` of Map into CalendarOnOff
+        print `Profile change`
+        print `Select profile ` cat CurrentProfile
+        set element `action` of Result to `Select Profile`
+        set element `Profile` of Result to CurrentProfile
         if CalendarOnOff is empty put `off` into CalendarOnOff
-        set property `calendar` of RequestData to CalendarOnOff
-        set property `data` of Result to RequestData
+        set property `calendar` of Result to CalendarOnOff
     end
     else
     begin

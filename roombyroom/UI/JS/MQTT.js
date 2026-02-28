@@ -643,6 +643,7 @@ const EasyCoder_MQTT = {
             }
 
             const topicName = topic.getName();
+            // EasyCoder.writeToDebugConsole(`MQTT Publish to ${topicName} with QoS ${qos}: ${JSON.stringify(payload)}`);
             program.mqttClient.sendMessage(topicName, JSON.stringify(payload), qos, 1024);
 
             return command.pc + 1;

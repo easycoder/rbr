@@ -38,6 +38,24 @@ const EasyCoder_Browser = {
 
 	Attach: {
 
+		nowMs: () => {
+			if (typeof performance !== `undefined` && typeof performance.now === `function`) {
+				return performance.now();
+			}
+			return Date.now();
+		},
+
+		reportTiming: (message) => {
+			if (!(typeof EasyCoder !== `undefined` && EasyCoder.timingEnabled)) {
+				return;
+			}
+			if (typeof EasyCoder !== `undefined` && typeof EasyCoder.writeToDebugConsole === `function`) {
+				EasyCoder.writeToDebugConsole(message);
+			} else {
+				console.log(message);
+			}
+		},
+
 		compile: (compiler) => {
 			const lino = compiler.getLino();
 			compiler.next();
@@ -132,9 +150,17 @@ const EasyCoder_Browser = {
 				content = program.value.evaluate(program, command.cssId).content;
 				const waitMs = (typeof EasyCoder !== `undefined` && Number.isFinite(EasyCoder.attachWaitMs))
 					? EasyCoder.attachWaitMs
-					: 3000;
+					: 1000;
 				const waitUntil = Date.now() + waitMs;
-				EasyCoder_Browser.Attach.getElementById(program, command, content, waitUntil);
+				const trace = {
+					id: content,
+					type: command.type,
+					symbol: command.symbol,
+					startedAt: EasyCoder_Browser.Attach.nowMs(),
+					lookupAttempts: 0,
+					waitMs
+				};
+				EasyCoder_Browser.Attach.getElementById(program, command, content, waitUntil, trace);
 				return 0;
 			}
 			if (command.type === `popup`) {
@@ -150,23 +176,26 @@ const EasyCoder_Browser = {
 			return command.pc + 1;
 		},
 
-		getElementById: (program, command, id, waitUntil) => {
+		getElementById: (program, command, id, waitUntil, trace) => {
+			trace.lookupAttempts += 1;
 			const element = document.getElementById(id);
 			if (element) {
 				const isImageTarget = [`img`, `image`].includes(command.type);
 				if (isImageTarget && !EasyCoder_Browser.Attach.isImageReady(element)) {
-					EasyCoder_Browser.Attach.waitForImageReady(program, command, id, element, waitUntil);
+					EasyCoder_Browser.Attach.waitForImageReady(program, command, id, element, waitUntil, trace);
 				} else {
-					EasyCoder_Browser.Attach.completeAttach(program, command, element, id);
+					EasyCoder_Browser.Attach.completeAttach(program, command, element, id, trace);
 				}
 			} else if (Date.now() < waitUntil) {
-				const retry = () => EasyCoder_Browser.Attach.getElementById(program, command, id, waitUntil);
+				const retry = () => EasyCoder_Browser.Attach.getElementById(program, command, id, waitUntil, trace);
 				if (typeof window !== `undefined` && typeof window.requestAnimationFrame === `function`) {
 					window.requestAnimationFrame(retry);
 				} else {
 					setTimeout(retry, 16);
 				}
 			} else {
+				const elapsed = Math.round(EasyCoder_Browser.Attach.nowMs() - trace.startedAt);
+				EasyCoder_Browser.Attach.reportTiming(`[AttachTiming] FAILED id='${id}' symbol='${trace.symbol}' type='${trace.type}' attempts=${trace.lookupAttempts} elapsed=${elapsed}ms waitLimit=${trace.waitMs}ms`);
 				if (command.onError) {
 					program.run(command.onError);
 				} else {
@@ -175,8 +204,10 @@ const EasyCoder_Browser = {
 			}
 		},
 
-		completeAttach: (program, command, element, id) => {
+		completeAttach: (program, command, element, id, trace) => {
 			if (program.run) {
+				const elapsed = Math.round(EasyCoder_Browser.Attach.nowMs() - trace.startedAt);
+				EasyCoder_Browser.Attach.reportTiming(`[AttachTiming] id='${id}' symbol='${trace.symbol}' type='${trace.type}' attempts=${trace.lookupAttempts} elapsed=${elapsed}ms`);
 				const target = program.getSymbolRecord(command.symbol);
 				target.element[target.index] = element;
 				target.value[target.index] = {
@@ -189,12 +220,18 @@ const EasyCoder_Browser = {
 		},
 
 		isImageReady: (element) => {
-			return element && element.complete;
+			if (!element) {
+				return false;
+			}
+			if (element.tagName !== `IMG`) {
+				return true;
+			}
+			return element.complete;
 		},
 
-		waitForImageReady: (program, command, id, element, waitUntil) => {
+		waitForImageReady: (program, command, id, element, waitUntil, trace) => {
 			if (EasyCoder_Browser.Attach.isImageReady(element) || Date.now() >= waitUntil) {
-				EasyCoder_Browser.Attach.completeAttach(program, command, element, id);
+				EasyCoder_Browser.Attach.completeAttach(program, command, element, id, trace);
 				return;
 			}
 			let finished = false;
@@ -209,7 +246,7 @@ const EasyCoder_Browser = {
 				if (timer) {
 					clearTimeout(timer);
 				}
-				EasyCoder_Browser.Attach.completeAttach(program, command, element, id);
+				EasyCoder_Browser.Attach.completeAttach(program, command, element, id, trace);
 			};
 			element.addEventListener(`load`, finish);
 			element.addEventListener(`error`, finish);
@@ -2731,7 +2768,7 @@ const EasyCoder_Browser = {
 				program.ajaxCommand = command;
 				const postpath = path.startsWith(`http`)
 					? path
-					: `${window.location.origin}/${EasyCoder_Rest.restPath}/${path}`;
+					: `${window.location.origin}/${EasyCoder.REST.restPath}/${path}`;
 				ajax.open(`POST`, postpath);
 				ajax.send(formData);
 			}
