@@ -1,9 +1,0 @@
-## Smart Power Supply
-
-Some systems are supplied with a "smart power supply", that can be remotely instructed to turn the power to the system off or on, or to cycle it to force a restart. Note that these actions can take several minutes to complete.
-
-~tid:SysParamsMenu:Go to the system parameters help page~
-
-~tid:MainMenu:Go to the main menu help page~
-
-~sid:Index:Index of pages~

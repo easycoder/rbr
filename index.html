@@ -1,0 +1,33 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBR UI</title>
+    <script type='text/javascript' src='UI/JS/Core.js'></script>
+    <script type='text/javascript' src='UI/JS/Browser.js'></script>
+    <script type='text/javascript' src='UI/JS/Compare.js'></script>
+    <script type='text/javascript' src='UI/JS/Compile.js'></script>
+    <script type='text/javascript' src='UI/JS/Condition.js'></script>
+    <script type='text/javascript' src='UI/JS/JSON.js'></script>
+    <script type='text/javascript' src='UI/JS/MQTT.js'></script>
+    <script type='text/javascript' src='UI/JS/REST.js'></script>
+    <script type='text/javascript' src='UI/JS/Run.js'></script>
+    <script type='text/javascript' src='UI/JS/Value.js'></script>
+    <script type='text/javascript' src='UI/JS/Main.js'></script>
+    <script type='text/javascript' src='UI/JS/EasyCoder.js'></script>
+    <script type='text/javascript' src='UI/JS/webson.js'></script>
+    <script type='text/javascript' src='https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js'></script>
+  </head>
+
+<body>
+    <pre id="easycoder-script" style="display:none">
+    !	Room By Room
+
+        script Loader
+
+        variable Script
+        rest get Script from `/UI/JS/resources/ecs/rbr.ecs?v=` cat now
+        run Script
+    </pre>
+</body>
+</html>

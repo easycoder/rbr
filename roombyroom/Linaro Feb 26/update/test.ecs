@@ -1,7 +1,0 @@
-!   test.ecs
-
-    script Test
-
-    save `Hello` to `/mnt/data/confirmation`
-
-    exit

@@ -1,0 +1,834 @@
+!   newui.ecs - the user interface
+
+    script NewUI
+
+    use mqtt
+    use graphics
+    use plugin RBR_UI from rbr_ui
+
+!    debug compile
+
+    rbrwin Window
+    room Room
+    banner Banner
+    profiles ProfilesBar
+    popout Popout
+    button Hamburger
+    button ModeButton
+    button ToolsButton
+    button OKButton
+    button ProfileButton
+    modeDialog ModeDialog
+    dialog Dialog
+    layout Panel
+    layout Layout
+    layout Grid
+    label Label
+    label Header
+    lineinput Input
+    lineinput Input2
+    multiline MultiLine
+    checkbox CheckBox
+    checkbox CheckBox2
+    combobox ComboBox
+    module Module
+    dictionary Map
+    dictionary Profile
+    dictionary RoomSpec
+    dictionary Response
+    dictionary Result
+    dictionary Request
+    dictionary Message
+    list Profiles
+    list Rooms
+    list NewRooms
+    list Periods
+    list Responses
+    list Values
+    list Value
+    list Choices
+    list ChoicesShown
+    topic MyTopic
+    topic ServerTopic
+    variable MQTT_Token
+    variable UUID
+    variable MapRequests
+    variable ServerID
+    variable GraphicsStarted
+    variable FirstTime
+    variable WindowWidth
+    variable WindowHeight
+    variable RoomHeight
+    variable Title
+    variable Name
+    variable Mode
+    variable CurrentProfile
+    variable RoomName
+    variable RoomIndex
+    variable ThisRoom
+    variable ThatRoom
+    variable SelectedRoom
+    variable Choice
+    variable Action
+    variable Advance
+    variable RequestRelay
+    variable Timestamp
+    variable Temperature
+    variable Text
+    variable Var
+    variable SensorID
+    variable RelayNames
+    variable Version
+    variable Uptime
+    variable Locked
+    variable LockCounter
+    variable UpdateCounter
+    variable Waiting
+    variable HH
+    variable MM
+    variable SS
+    variable C
+    variable N
+    variable P
+    variable R
+
+!    debug step
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Some preliminary stuff
+
+    init graphics
+    clear GraphicsStarted
+    reset Message
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Main start
+Start:
+    put `RBR Demo` into Title
+!    put empty into Title
+    put 1000 into WindowHeight
+    put 582 into WindowWidth
+    divide WindowHeight by 12 giving RoomHeight
+
+    create Window title Title size WindowWidth WindowHeight
+    show Window
+    set FirstTime
+    clear Locked
+    set UpdateCounter to 0
+    set MapRequests to 0
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set up MQTT
+
+    ! Get the MQTT token
+    if file `~/.mqtt_token` does not exist
+    begin
+        log `No MQTT token could be found.`
+        exit
+    end
+    load MQTT_Token from `~/.mqtt_token`
+
+    ! Get the server id
+    if file `../../Controller/serverID` does not exist
+    begin
+        log `No server ID could be found.`
+        exit
+    end
+    load ServerID from `../../Controller/serverID`
+    set ServerID to trim ServerID
+
+    put uuid into UUID
+
+    init MyTopic
+        name `RBR-` cat UUID
+        qos 1
+    
+    init ServerTopic
+        name ServerID
+        qos 1
+
+    mqtt
+        token MQTT_Token
+        id UUID
+        broker `mqtt.flespi.io`
+        port 8883
+        subscribe MyTopic
+    
+    on mqtt connect go to ML2
+    
+    on mqtt message
+    begin
+        put the mqtt message into Message
+        put entry `message` of Message into Message
+        clear Waiting
+    end
+
+    clear Waiting
+    stop
+
+!   This loop sends regular map requests and updates the screen with any changes
+MainLoop:
+    ! This is in effect a 1-minute wait. But if a message comes in or the map changes,
+    ! we break out and do a screen update immediately
+    put 0 into LockCounter
+    while LockCounter is less than 1000
+    begin
+        if Message is not empty gosub to UpdateScreen
+        wait 10 ticks
+        increment LockCounter
+    end
+ML2:
+    ! If we're locked, don't send any messages
+!    if Locked go to MainLoop
+    ! Send a simple message to tell the controller I'm still here
+    increment MapRequests
+    if FirstTime
+    begin
+        put `first` into Text
+        log `Sending first request to ` cat ServerTopic
+    end
+    else put `refresh` into Text
+    send to ServerTopic
+        sender MyTopic
+        action Text
+        message empty
+    go to MainLoop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Update the screen.
+UpdateScreen:
+    log `Update ` cat UpdateCounter
+    if Locked
+    begin
+        reset Message
+        return
+    end
+    increment UpdateCounter
+    put Message into Map
+    reset Message
+    if Map is empty return
+    clear Waiting
+    ! Process the map
+    put entry `profiles` of Map into Profiles
+    put entry `profile` of Map into CurrentProfile
+    put item CurrentProfile of Profiles into Profile
+    put entry `rooms` of Profile into Rooms
+    set the elements of Room to the count of Rooms
+    set the elements of ModeButton to the count of Rooms
+    set the elements of ToolsButton to the count of Rooms
+
+!   Build the screen
+    if not FirstTime clear Window
+    clear FirstTime
+    put 0 into R
+    while R is less than the count of Rooms
+    begin
+        put item R of Rooms into RoomSpec
+        put entry `name` of RoomSpec into RoomName
+        if RoomSpec has entry `temperature`
+        begin
+            put entry `temperature` of RoomSpec into Temperature
+            gosub to ConvertTempToDecimal
+            set entry `temperature` of RoomSpec to Temperature
+        end
+        else set entry `temperature` of RoomSpec to `0`
+        if RoomSpec does not have entry `relay` set entry `relay` of RoomSpec to `off`
+        gosub to CreateRoom
+        increment R
+    end
+    set attribute `system name` of Window to entry `name` of Map
+    set attribute `profile` of Window to entry `name` of Profile
+    set attribute `hourglass` of Window to false
+
+    ! Set up the banner at the top of the screen
+    attach Banner to element `banner` of Window
+    attach Hamburger to element `hamburger` of Banner
+    on click Hamburger gosub to ShowMainMenu
+
+    ! Set up the Profiles bar below the banner
+    attach ProfilesBar to element `profiles` of Window
+    attach ProfileButton to element `profileButton` of ProfilesBar
+    on click ProfileButton gosub to ShowProfileMenu
+
+    ! Attach the popout
+    attach Popout to element `popout` of Window
+
+    ! Reset the message so we don't repeat this
+    reset Message
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Create a room from the spec and display it.
+CreateRoom:
+!    log `Create ` cat RoomName cat `, mode ` cat Mode
+    index Room to R
+!    log prettify RoomSpec
+    create Room
+        spec RoomSpec
+        height RoomHeight
+        index R
+    add Room to Window
+!    log Room
+    index ModeButton to R
+    attach ModeButton to element `mode` of Room
+    on click ModeButton go to HandleMode
+    index ToolsButton to R
+    attach ToolsButton to element `tools` of Room
+    on click ToolsButton
+    begin
+        gosub to HandleTools
+        clear Locked
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   The Main menu - the hamburger at the top right
+ShowMainMenu:
+    set Locked
+    log `Main menu`
+    reset Choices
+    append `Set the system name` to Choices
+    append `Set the request relay` to Choices
+    append `Add a room` to Choices
+    append `System Info` to Choices
+    append empty to Choices
+    append `Exit Application` to Choices
+    append empty to Choices
+    append `Cancel` to Choices
+
+    select Choice from menu `Main Menu` with Choices
+    if Choice is item 0 of Choices gosub to SetSystemName
+    else if Choice is item 1 of Choices gosub to SetRequestRelay
+    else if Choice is item 2 of Choices gosub to AddRoom
+    else if Choice is item 3 of Choices gosub to ShowSystemInfo
+    else if Choice is item 5 of Choices go to Exit
+    else clear Locked
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Here when the user clicks to set the system name. Use an external module
+SetSystemName:
+    set Locked
+    run `systemName.ecs` as Module with Window and ProfilesBar and Request
+    if Request is not empty
+    begin
+        log `System name has been changed`
+        go to SendRequest
+    end
+    clear Locked
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Provide information about the request relay, if there is one
+SetRequestRelay:
+    set Locked
+    create Layout type QHBoxLayout
+    create Label text `Type the name of the request relay:`
+    add Label to Layout
+    create Input size 30
+    if Map has entry `request` put entry `request` of Map into RequestRelay
+    else put empty into RequestRelay
+    set the text of Input to RequestRelay
+    add Input to Layout
+    create keyboard layout Layout and receiver Input in Window
+    if Input is RequestRelay
+    begin
+        clear Locked
+        return
+    end
+    reset Request
+    set entry `Action` of Request to `Request Relay`
+    set entry `Request Relay` of Request to Input
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Add a new room to the displayed list
+AddRoom:
+    put `{"name": "Unnamed", "sensor": "", "relays": [], "mode": "off", "target": 20, `
+        cat `"events": [{"until": "07:00", "temp": 15}], "relayType":"none", "protect": "no", "relay": "off"}`
+        into ThisRoom
+    reset Request
+    set entry `Action` of Request to `Add Room`
+    set entry `Add Room` of Request to ThisRoom
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show system info
+ShowSystemInfo:
+    set Locked
+    create Panel type QVBoxLayout
+    create Label text `-- System information --`
+    add Label to Panel
+    create Label text `Version: ` cat Version
+    add Label to Panel
+    create Label text `Uptime: ` cat Uptime
+    add Label to Panel
+    create OKButton text `OK`
+    set the height of OKButton to 40
+    add OKButton to Panel
+    on click OKButton
+    begin
+        hide Popout
+        clear Locked
+        return
+    end
+    add Panel to Popout
+    show Popout
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Handle a click on the Profile button
+ShowProfileMenu:
+    set Locked
+    reset Choices
+    put 0 into P
+    while P is less than the count of Profiles
+    begin
+        put item P of Profiles into Profile
+        append entry `name` of Profile to Choices
+        increment P
+    end
+    append empty to Choices
+    append `Edit Profiles` to Choices
+    append `Cancel` to Choices
+    select Choice from menu `Profiles` with Choices
+    log Choice
+    put 0 into P
+    while P is less than the count of Profiles
+    begin
+        if Choice is item P of Choices gosub to SelectProfile
+        increment P
+    end
+    increment P
+    if Choice is item P of Choices gosub to EditProfiles
+    clear Locked
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Select a profile
+SelectProfile:
+    set Locked
+    log `Select profile ` cat P
+    set entry `Action` of Request to `Select Profile`
+    set entry `Profile` of Request to P
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Edit the profiles   --- TODO
+EditProfiles:
+    set Locked
+    log `Edit profiles`
+    clear Locked
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Handle a click on one of the Mode buttons
+HandleMode:
+    set Locked
+    put the index of ModeButton into SelectedRoom
+    index Room to SelectedRoom
+    put item SelectedRoom of Rooms into RoomSpec
+    put entry `name` of RoomSpec into Name
+    put entry `mode` of RoomSpec into Mode
+    get Result from ModeDialog with RoomSpec
+    if Result is empty go to ExitModeHandler
+    reset Request
+    log Result
+    put entry `action` of Result into Action
+    if Action is `mode`
+    begin
+        put entry `mode` of Result into Mode
+        if Mode is `timed`
+        begin
+            if Result has entry `advance` set entry `Advance` of Request
+            set Mode to `timed`
+            gosub to SetMode
+        end
+        else if Mode is `off`
+        begin
+            set Mode to `off`
+            gosub to SetMode
+        end
+        else if Mode is `on`
+        begin
+            set Mode to `on`
+            set entry `target` of Request to entry `target` of Request
+            gosub to SetMode
+        end
+        else if left 5 of Mode is `boost`
+        begin
+        log Result
+            set Mode to `boost`
+            set entry `duration` of Request to entry `duration` of Result
+            set entry `target` of Request to entry `target` of Request
+            gosub to SetMode
+        end
+    end
+    else if Action is `advance`
+    begin
+        set Mode to `timed`
+        put entry `advance` of RoomSpec into Advance
+        if Advance is `-` set entry `Advance` of Request to `A`
+        else set entry `Advance` of Request to `C`
+        gosub to SetMode
+    end
+    else if Action is `edit`
+    begin
+        reset Request
+        put entry `name` of RoomSpec into RoomName
+        put entry `events` of RoomSpec into Periods
+        run `schedule.ecs` as Module with RoomName and Window and Periods and Request
+        on message
+        begin
+            log Request
+            if Request is not empty gosub to SendRequest
+            go to ClearAndExit
+        end
+        set Locked
+        go to ExitModeHandler
+    end
+ClearAndExit:
+    clear Locked
+ExitModeHandler:
+    log `Go to MainLoop`
+    go to MainLoop
+
+SetMode:
+    set entry `Action` of Request to `Operating Mode`
+    set entry `Room` of Request to Name
+    set entry `Mode` of Request to Mode
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   The Tools button on the right of each room row
+HandleTools:
+    set Locked
+    put the index of ToolsButton into RoomIndex
+    index Room to RoomIndex
+    put attribute `name` of Room into Name
+    reset Choices
+    append `Move ` cat Name cat ` up` to Choices
+    append `Move ` cat Name cat ` down` to Choices
+    append `Show info for ` cat Name to Choices
+    append `Edit room name` to Choices
+    append `Edit device parameters` to Choices
+    append `Edit timing schedule` to Choices
+    append `Delete ` cat Name to Choices
+    append empty to Choices
+    append `Cancel` to Choices
+
+    put the count of Rooms into R
+    decrement R
+    reset ChoicesShown
+    if RoomIndex is 0 append item 1 of Choices to ChoicesShown
+    else if RoomIndex is R append item 0 of Choices to ChoicesShown
+    else
+    begin
+        append item 0 of Choices to ChoicesShown
+        append item 1 of Choices to ChoicesShown
+    end
+    put 2 into C
+    while C is less than the count of Choices
+    begin
+        append item C of Choices to ChoicesShown
+        increment C
+    end
+
+    select Choice from menu `Tools Menu` with ChoicesShown
+    log Choice
+    reset Request
+    if Choice is item 0 of Choices gosub to MoveRoomUp
+    else if Choice is item 1 of Choices gosub to MoveRoomDown
+    else if Choice is item 2 of Choices gosub to ShowRoomInfo
+    else if Choice is item 3 of Choices gosub to EditRoomName
+    else if Choice is item 4 of Choices gosub to EditDeviceParams
+    else if Choice is item 5 of Choices gosub to EditSchedule
+    else if Choice is item 6 of Choices gosub to DeleteRoom
+    else clear Locked
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!    Move the selected room up in the list
+MoveRoomUp:
+    put item RoomIndex of Rooms into ThisRoom
+    take 1 from RoomIndex
+    put item RoomIndex of Rooms into ThatRoom
+    set item RoomIndex of Rooms to ThisRoom
+    add 1 to RoomIndex
+    set item RoomIndex of Rooms to ThatRoom
+    set entry `Action` of Request to `rooms`
+    set entry `rooms` of Request to Rooms
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Move the selected room down in the list
+MoveRoomDown:
+    put item RoomIndex of Rooms into ThisRoom
+    add 1 to RoomIndex
+    put item RoomIndex of Rooms into ThatRoom
+    set item RoomIndex of Rooms to ThisRoom
+    take 1 from RoomIndex
+    set item RoomIndex of Rooms to ThatRoom
+    set entry `Action` of Request to `rooms`
+    set entry `rooms` of Request to Rooms
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show information about the selected room
+ShowRoomInfo:
+    log `ShowRoomInfo`
+    set Locked
+    create Panel type QVBoxLayout
+    create Label text `-- ` cat Name cat ` Sensor --`
+    add Label to Panel
+    put the value of entry `timestamp` of RoomSpec into Timestamp
+    multiply Timestamp by 1000
+    put entry `temperature` of RoomSpec into Temperature
+    put `Last reading: ` cat datime Timestamp into Text
+    put Text cat newline cat `Temperature: ` cat Temperature cat `ºC` into Text
+    create Label text Text
+    add Label to Panel
+    if RoomSpec has entry `responses`
+    begin
+        put entry `responses` of RoomSpec into Responses
+        put `-- ` cat Name cat ` Relay` into Text
+        if the count of Responses is greater than 1 put Text cat `s` into Text
+        put Text cat ` --` into Text
+        create Label text Text
+        add Label to Panel
+        put 0 into N
+        while N is less than the count of Responses
+        begin
+            put item N of Responses into Response
+            if Response has entry `state` put `State: ` cat entry `state` of Response into Text
+            else put empty into Text
+            if Response has entry `uptime`
+            begin
+                put the value of entry `uptime` of Response into Uptime
+                divide Uptime by 3600 giving HH
+                put Uptime modulo 3600 into MM
+                divide MM by 60
+                put Uptime modulo 60 into SS
+                if HH is less than 10 put `0` cat HH into HH
+                if MM is less than 10 put `0` cat MM into MM
+                if SS is less than 10 put `0` cat SS into SS
+                put Text cat newline cat `Uptime: ` cat HH cat `:` cat MM cat `:` cat SS into Text
+            end
+            if Response has entry `RSS`
+                put Text cat newline cat `RSS: ` cat entry `RSS` of Response into Text
+            if Text is not empty
+            begin
+                create Label text Text
+                add Label to Panel
+            end
+            increment N
+        end
+    end
+    create OKButton text `OK`
+    set the height of OKButton to 30
+    add OKButton to Panel
+    on click OKButton
+    begin
+        hide Popout
+        clear Locked
+        return
+    end
+    add Panel to Popout
+    show Popout
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Edit a room name
+EditRoomName:
+    create Layout type QHBoxLayout
+    create Label text `Type the room name:`
+    add Label to Layout
+    create Input size 30 text Name
+    set the width of Input to 200
+    add Input to Layout
+    create keyboard layout Layout and receiver Input in Window
+    set attribute `name` of Room to Input
+    reset Request
+    set entry `Action` of Request to `roomname`
+    set entry `roomnumber` of Request to RoomIndex
+    set entry `name` of Request to Input
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Edit the sensor and relay information for a room
+EditDeviceParams:
+    put entry `relays` of RoomSpec into Values
+    put empty into RelayNames
+    put 0 into R
+    while R is less than the count of Values
+    begin
+        if RelayNames is not empty put RelayNames cat newline into RelayNames
+        put RelayNames cat item R of Values into RelayNames
+        increment R
+    end
+
+    create Panel type QVBoxLayout
+    create Header text `Sensor and relay(s) for ` cat Name
+    set the width of Header to 470
+    set the alignment of Header to hcenter
+    set the style of Header to `font-size: 14px; font-weight: bold; border:none;`
+    add Header to Panel
+    create Grid type QGridLayout
+    add Grid to Panel
+
+    ! Get the sensor
+    create Label text `Type the sensor name or MAC:`
+    add Label at 0 0 in Grid
+    create Input size 30
+    put entry `sensor` of RoomSpec into SensorID
+    set the text of Input to SensorID
+    add Input at 0 1 in Grid
+
+    ! Get the multiline
+    create Label text `Type the relay names or ids,<br>one per line:`
+    add Label at 1 0 in Grid
+    create MultiLine cols 30 rows 4
+    set the text of MultiLine to RelayNames
+    add MultiLine at 1 1 in Grid
+    on click Input log `Input`
+    on click MultiLine log `MultiLine`
+
+    ! Get the relay type
+    create Label text `Select the relay type:`
+    add Label at 2 0 in Grid
+    create ComboBox
+    add `none` to ComboBox
+    add `RBR-Now` to ComboBox
+    add `Shelly One` to ComboBox
+    add `Tasmota` to ComboBox
+    add `TP-Link P100` to ComboBox
+    add `Manual` to ComboBox
+    select entry `relayType` of RoomSpec in ComboBox
+    add ComboBox at 2 1 in Grid
+
+    ! Get the 'linked' checkbox
+    create Label text `Sensor is linked to relay(s)`
+    add Label at 3 0 in Grid
+    create CheckBox
+    if entry `linked` of RoomSpec is `yes` set the state of CheckBox to checked
+    else set the state of CheckBox to unchecked
+    add CheckBox at 3 1 in Grid
+
+    ! Get the 'Frost Protect' line
+    create Layout type QHBoxLayout
+    add Layout at 4 0 in Grid
+    create Label text `Protect below`
+    add Label to Layout
+    create Input2 size 5
+    if RoomSpec has entry `ptemp` set the text of Input2 to entry `ptemp` of RoomSpec
+    add Input2 to Layout
+    create Label text `°C`
+    add Label to Layout
+    add stretch to Layout
+
+    create CheckBox2 text `Enable protection`
+    if entry `protect` of RoomSpec is `yes` set the state of CheckBox2 to checked
+    else set the state of CheckBox2 to unchecked
+    add CheckBox2 at 4 1 in Grid
+
+!   Create an on-screen keyboard for the above text elements
+    create keyboard layout Panel 
+        and receiver Input 
+        and receiver Input2 
+        and receiver MultiLine 
+        in Window
+
+    reset Request
+    set entry `Action` of Request to `devices`
+    set entry `room` of Request to Name
+    set entry `sensor` of Request to Input
+    put MultiLine into RelayNames
+    split RelayNames
+    reset Value
+    put 0 into N
+    while N is less than the elements of RelayNames
+    begin
+        index RelayNames to N
+        append RelayNames to Value
+        increment N
+    end
+    set entry `relays` of Request to Value
+    if CheckBox set entry `linked` of Request to `yes` else set entry `linked` of Request to `no`
+    if CheckBox2 set entry `protect` of Request to `yes` else set entry `protect` of Request to `no`
+    set entry `ptemp` of Request to Input2
+!    log Request
+    go to SendRequest
+
+EditSchedule:
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Delete a room
+DeleteRoom:
+    create Dialog on Window
+        type confirm
+        prompt `Are you sure you want to delete ` cat Name cat `?`
+    show Dialog
+    if not Dialog return
+
+    reset NewRooms
+    put 0 into R
+    while R is less than RoomIndex
+    begin
+        append item R of Rooms to NewRooms
+        increment R
+    end
+    add 1 to R
+    while R is less than the count of Rooms
+    begin
+        append item R of Rooms to NewRooms
+        increment R
+    end
+    set entry `Action` of Request to `rooms`
+    set entry `rooms` of Request to NewRooms
+    go to SendRequest
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Close the window and exit
+Exit:
+    close Window
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send a request to the system controller
+SendRequest:
+    log `Sending UI request ` cat Request
+    send to ServerTopic
+        sender MyTopic
+        action `uirequest`
+        message Request
+    set Waiting
+    fork to FlashHourglass
+    clear Locked
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Flash the hourglass while waiting for a reply
+FlashHourglass:
+    while Waiting
+    begin
+        set attribute `hourglass` of Window to true
+        wait 50 ticks
+        set attribute `hourglass` of Window to false
+        wait 40 ticks
+    end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Convert a hundredths temperature to a decimal for display
+ConvertTempToDecimal:
+!   log `Convert ` cat Temperature
+    if Temperature is numeric
+    begin
+        put the value of Temperature into Temperature
+        put Temperature modulo 100 into Var
+        if Var is less than 10 put `0` cat Var into Var else put `` cat Var into Var
+        divide Temperature by 100
+        put `` cat Temperature cat `.` cat left 1 of Var into Temperature
+    end
+    return
