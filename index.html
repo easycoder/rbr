@@ -3,19 +3,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RBR UI</title>
-    <script type='text/javascript' src='UI/JS/Core.js'></script>
-    <script type='text/javascript' src='UI/JS/Browser.js'></script>
-    <script type='text/javascript' src='UI/JS/Compare.js'></script>
-    <script type='text/javascript' src='UI/JS/Compile.js'></script>
-    <script type='text/javascript' src='UI/JS/Condition.js'></script>
-    <script type='text/javascript' src='UI/JS/JSON.js'></script>
-    <script type='text/javascript' src='UI/JS/MQTT.js'></script>
-    <script type='text/javascript' src='UI/JS/REST.js'></script>
-    <script type='text/javascript' src='UI/JS/Run.js'></script>
-    <script type='text/javascript' src='UI/JS/Value.js'></script>
-    <script type='text/javascript' src='UI/JS/Main.js'></script>
-    <script type='text/javascript' src='UI/JS/EasyCoder.js'></script>
-    <script type='text/javascript' src='UI/JS/webson.js'></script>
+    <link rel="icon" href="UI/favicon.ico" type="image/x-icon">
+    <script type='text/javascript' src='UI/Core.js'></script>
+    <script type='text/javascript' src='UI/Browser.js'></script>
+    <script type='text/javascript' src='UI/Webson.js'></script>
+    <script type='text/javascript' src='UI/Compare.js'></script>
+    <script type='text/javascript' src='UI/Compile.js'></script>
+    <script type='text/javascript' src='UI/Condition.js'></script>
+    <script type='text/javascript' src='UI/JSON.js'></script>
+    <script type='text/javascript' src='UI/MQTT.js'></script>
+    <script type='text/javascript' src='UI/REST.js'></script>
+    <script type='text/javascript' src='UI/Run.js'></script>
+    <script type='text/javascript' src='UI/Value.js'></script>
+    <script type='text/javascript' src='UI/Main.js'></script>
+    <script type='text/javascript' src='UI/EasyCoder.js'></script>
     <script type='text/javascript' src='https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js'></script>
   </head>
 
@@ -26,7 +27,7 @@
         script Loader
 
         variable Script
-        rest get Script from `/UI/JS/resources/ecs/rbr.ecs?v=` cat now
+        rest get Script from `UI/rbr.ecs?v=` cat now
         run Script
     </pre>
 </body>

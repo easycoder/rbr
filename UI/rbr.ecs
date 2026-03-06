@@ -269,7 +269,7 @@ SetupScreen:
     put empty into DialogWebson
 
 !	Render the main screen layout
-    rest get MainScreenWebson from `/UI/JS/resources/webson/rbr.json?v=` cat now
+    rest get MainScreenWebson from `UI/resources/webson/rbr.json?v=` cat now
     	or go to AbandonShip
 	render MainScreenWebson in Body
     attach Hourglass to `hourglass`
@@ -524,7 +524,7 @@ UpdateRooms:
         begin
             ! Render the Webson spec for a room
             if RoomWebson is empty
-                rest get RoomWebson from `/UI/JS/resources/webson/room.json?v=` cat now
+                rest get RoomWebson from `UI/resources/webson/room.json?v=` cat now
             		or go to HandleRestError
         	put RoomWebson into Webson
         	replace `/ROOM/` with RoomIndex in Webson
@@ -669,7 +669,7 @@ UpdateRooms:
         begin
             clear ModeHolder
             if NoneWebson is empty
-            rest get NoneWebson from `/UI/JS/resources/webson/none.json?v=` cat now
+            rest get NoneWebson from `UI/resources/webson/none.json?v=` cat now
             	or go to HandleRestError
             put NoneWebson into Webson
             replace `/ROOM/` with RoomIndex in Webson
@@ -681,28 +681,28 @@ UpdateRooms:
         	if Mode is `timed`
             begin
                 if TimedWebson is empty
-                	rest get TimedWebson from `/UI/JS/resources/webson/timed.json?v=` cat now
+                	rest get TimedWebson from `UI/resources/webson/timed.json?v=` cat now
                 		or go to HandleRestError
                 put TimedWebson into Webson
             end
             else if Mode is `boost`
             begin
                 if BoostWebson is empty
-                	rest get BoostWebson from `/UI/JS/resources/webson/boost.json?v=` cat now
+                	rest get BoostWebson from `UI/resources/webson/boost.json?v=` cat now
                 		or go to HandleRestError
                 put BoostWebson into Webson
             end
             else if Mode is `on`
             begin
                 if OnWebson is empty
-                	rest get OnWebson from `/UI/JS/resources/webson/on.json?v=` cat now
+                	rest get OnWebson from `UI/resources/webson/on.json?v=` cat now
                 		or go to HandleRestError
                 put OnWebson into Webson
             end
             else if Mode is `off`
             begin
                 if OffWebson is empty
-                	rest get OffWebson from `/UI/JS/resources/webson/off.json?v=` cat now
+                	rest get OffWebson from `UI/resources/webson/off.json?v=` cat now
                 		or go to HandleRestError
                 put OffWebson into Webson
             end
@@ -721,7 +721,7 @@ UpdateRooms:
                     begin
                         if Advance is `-`
                         begin
-                	       	set attribute `src` of ModeIcon to `resources/icon/clock.png`
+                	       	set attribute `src` of ModeIcon to `UI/resources/icon/clock.png`
                          	set the content of ModeText to `Timed`
                             set style `font-size` of ModeText to `1.2em`
                         end
@@ -729,7 +729,7 @@ UpdateRooms:
                         begin
                             if Advance is not `C`
                             begin
-                        		set attribute `src` of ModeIcon to `resources/icon/advance.png?v=12345`
+                        		set attribute `src` of ModeIcon to `UI/resources/icon/advance.png?v=12345`
                                 set the content of ModeText to `Advance`
                               	set style `font-size` of ModeText to `1.0em`
                             end
@@ -838,7 +838,7 @@ UpdateRooms:
 !                on click ProfilesButton begin end
                 put the index of ModeButton into ClickIndex
                 if ModeScript is empty
-                    rest get ModeScript from `/UI/JS/resources/ecs/mode.ecs?v=` cat now
+                    rest get ModeScript from `UI/resources/ecs/mode.ecs?v=` cat now
             			or go to HandleRestError
     			put `{}` into Result
                 run ModeScript with MainPanel
@@ -875,7 +875,7 @@ ShowMenu:
     wait 20 ticks
 	clear MainPanel
     if MainMenuWebson is empty
-        rest get MainMenuWebson from `/UI/JS/resources/webson/mainmenu.json?v=` cat now
+        rest get MainMenuWebson from `UI/resources/webson/mainmenu.json?v=` cat now
             or go to HandleRestError
     render MainMenuWebson in MainPanel
     attach SystemManagerButton to `button-systemmanager`
@@ -890,7 +890,7 @@ ShowMenu:
 
     on click AddButton
     begin
-        rest get RoomSpec from `/UI/JS/resources/json/newroomspec.json?v=` cat now
+        rest get RoomSpec from `UI/resources/json/newroomspec.json?v=` cat now
             or go to HandleRestError
         append RoomSpec to Rooms
     	clear MainPanel
@@ -936,7 +936,7 @@ ShowMenu:
 DoSystemParameters:
 	set Blocked
     clear MainPanel
-    rest get SysParamsWebson from `/UI/JS/resources/webson/sysparams.json?v=` cat now
+    rest get SysParamsWebson from `UI/resources/webson/sysparams.json?v=` cat now
         or go to HandleRestError
     render SysParamsWebson in MainPanel
     
@@ -985,7 +985,7 @@ GSP2:
     on click HaltButton
     begin
         attach DialogPanel to `dialog-panel`
-        rest get Webson from `/UI/JS/resources/webson/dialog-confirm.json?v=` cat now
+        rest get Webson from `UI/resources/webson/dialog-confirm.json?v=` cat now
         render Webson in DialogPanel
         attach DialogTitle to `dialog-title`
         attach DialogText to `dialog-text`
@@ -1027,7 +1027,7 @@ GSP2:
 ! 	Configuration
 Configuration:
 	set Blocked
-    rest get Script from `/UI/JS/resources/ecs/config.ecs?v=` cat now
+    rest get Script from `UI/resources/ecs/config.ecs?v=` cat now
     	or go to HandleRestError
     run Script with MAC and Password and Map and Result
     go to ProcessResult
@@ -1038,7 +1038,7 @@ GetRequestRelay:
 	set Blocked
     clear MainPanel
     if GetRequestWebson is empty
-        rest get GetRequestWebson from `/UI/JS/resources/webson/getrequest.json?v=` cat now
+        rest get GetRequestWebson from `UI/resources/webson/getrequest.json?v=` cat now
             or go to HandleRestError
     render GetRequestWebson in MainPanel
     attach Input to `getrequest-input`
@@ -1082,7 +1082,7 @@ GetRequestRelay:
 CopySystemMap:
 	set Blocked
     clear MainPanel
-    rest get Webson from `/UI/JS/resources/webson/copysystemmap.json?v=` cat now
+    rest get Webson from `UI/resources/webson/copysystemmap.json?v=` cat now
         or go to HandleRestError
     render Webson in MainPanel
     attach Input to `copymap-input`
@@ -1095,9 +1095,9 @@ CopySystemMap:
         clear Blocked
         set Redraw
         if the content of Input is empty stop
-        rest get Config from `/UI/JS/resources/php/rest.php/config/` cat the content of Input or go to HandleRestError
-        rest post Config to `/UI/JS/resources/php/rest.php/config/` cat MAC cat `/` cat Password or go to HandleRestError
-        rest get Map from `/UI/JS/resources/php/rest.php/map/` cat the content of Input or go to HandleRestError
+        rest get Config from `UI/resources/php/rest.php/config/` cat the content of Input or go to HandleRestError
+        rest post Config to `UI/resources/php/rest.php/config/` cat MAC cat `/` cat Password or go to HandleRestError
+        rest get Map from `UI/resources/php/rest.php/map/` cat the content of Input or go to HandleRestError
         put `{}` into RequestData
         set property `action` of RequestData to `map`
         set property `map` of RequestData to Map
@@ -1141,7 +1141,7 @@ DoProfiles:
 !	set Blocked
     gosub to MaskMainPanel
     put `{}` into Result
-    rest get Script from `/UI/JS/resources/ecs/profiles.ecs?v=` cat now
+    rest get Script from `UI/resources/ecs/profiles.ecs?v=` cat now
     run Script with MainPanel and Map and Result as ProfileModule
     put `first` into Prompt
     gosub to Unmask
@@ -1156,14 +1156,14 @@ RoomTools:
     wait 20 ticks ! to allow things to complete before running the editor!
 	clear MainPanel
     if RoomToolsMenuWebson is empty
-        rest get RoomToolsMenuWebson from `/UI/JS/resources/webson/roomtoolsmenu.json?v=` cat now
+        rest get RoomToolsMenuWebson from `UI/resources/webson/roomtoolsmenu.json?v=` cat now
             or go to HandleRestError
     render RoomToolsMenuWebson in MainPanel
     put element ClickIndex of Rooms into RoomSpec
     put property `name` of RoomSpec into Name
 !    put property Name of Sensors into RoomSpec
     put `{}` into Result
-    rest get Script from `/UI/JS/resources/ecs/roomtools.ecs?v=` cat now
+    rest get Script from `UI/resources/ecs/roomtools.ecs?v=` cat now
     run Script with MainPanel and Map and RoomSpec and ClickIndex and Result
     go to ProcessResult
 
@@ -1174,7 +1174,7 @@ Backup:
 	set Blocked
     attach DialogPanel to `dialog-panel`
     if DialogWebson is empty
-        rest get DialogWebson from `/UI/JS/resources/webson/dialog-confirm.json?v=` cat now
+        rest get DialogWebson from `UI/resources/webson/dialog-confirm.json?v=` cat now
             or go to HandleRestError
     render DialogWebson in DialogPanel
     attach DialogTitle to `dialog-title`
@@ -1209,7 +1209,7 @@ Restore:
 	set Blocked
     attach DialogPanel to `dialog-panel`
     if DialogWebson is empty
-        rest get DialogWebson from `/UI/JS/resources/webson/dialog-confirm.json?v=` cat now
+        rest get DialogWebson from `UI/resources/webson/dialog-confirm.json?v=` cat now
             or go to HandleRestError
     render DialogWebson in DialogPanel
     attach DialogTitle to `dialog-title`
@@ -1255,7 +1255,7 @@ Statistics:
 	set Blocked
     set style `display` of OuterPanel to `none`
     set style `display` of StatisticsPanel to `block`
-    rest get Script from `/UI/JS/resources/ecs/statistics.ecs?v=` cat now
+    rest get Script from `UI/resources/ecs/statistics.ecs?v=` cat now
         or go to HandleRestError
     run Script with StatisticsPanel and Map
     print `Statistics finished`
@@ -1353,6 +1353,6 @@ FH2:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Warn the user and abandon this run
 AbandonShip:
-	alert `An error has occurred while communicating with the web server.`
+	alert `An error has occurred while communicating with the controller.`
     	cat newline cat `Please refresh this browser page to restart.`
     exit

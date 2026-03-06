@@ -581,7 +581,7 @@
                             "temp": "21.0"
                         }
                     ],
-                    "relay": "on",
+                    "relay": "off",
                     "protect": "no",
                     "advance": "-",
                     "relayType": "Shelly One",
@@ -590,9 +590,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2050,
+                    "temperature": 2100,
                     "battery": 58,
-                    "period": 1
+                    "period": 0
                 },
                 {
                     "name": "Sunroom",
@@ -620,7 +620,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2330,
+                    "temperature": 2350,
                     "battery": 44,
                     "ptemp": "",
                     "period": 1
@@ -655,9 +655,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2080,
+                    "temperature": 2460,
                     "battery": 42,
-                    "relay": "on",
+                    "relay": "off",
                     "period": 2
                 },
                 {
@@ -695,7 +695,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2000,
+                    "temperature": 2170,
                     "battery": 43,
                     "period": 2
                 },
@@ -720,7 +720,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 1490,
+                    "temperature": 1190,
                     "battery": 50,
                     "advance": "-",
                     "period": 0
@@ -760,7 +760,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2270,
+                    "temperature": 2240,
                     "battery": 41,
                     "period": 2
                 },
@@ -799,7 +799,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 2120,
+                    "temperature": 2150,
                     "battery": 43,
                     "period": 0
                 },
@@ -820,7 +820,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 1000,
+                    "temperature": 900,
                     "battery": 41,
                     "period": 0
                 }

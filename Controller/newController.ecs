@@ -696,7 +696,7 @@ SendMapToUI:
     end
     if MapHasChanged
     begin
-        log `Send map to UI`
+        log `Send map to UI (` cat LoopCount cat `)`
         set MessageText to Map
         clear MapHasChanged
         put the keys of Senders into SenderKeys
