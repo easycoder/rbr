@@ -26,7 +26,7 @@
             "position": "absolute",
             "width": "2em",
             "display": "inline-block",
-            "@src": "resources/icon/RBRLogo.png",
+            "@src": "UI/resources/icon/RBRLogo.png",
             "top": "0.5em",
             "left": "1em"
         },
@@ -43,7 +43,7 @@
             "$Hamburger": {
                 "#element": "img",
                 "@id": "hamburger-icon",
-                "@src": "resources/icon/hamburger.png",
+                "@src": "UI/resources/icon/hamburger.png",
                 "width": "100%"
             },
 
@@ -102,7 +102,7 @@
         "@id": "outerpanel",
         "position": "relative",
         "height": "100%",
-        "background": "url(resources/img/backdrop.jpg)",
+        "background": "url(UI/resources/img/backdrop.jpg)",
         "background-size": "cover",
         "background-position": "center",
         "flex": 1,
@@ -159,7 +159,7 @@
                         "#element": "img",
                         "width": "100%",
                         "height": "100%",
-                        "@src": "resources/icon/calendar.png"
+                        "@src": "UI/resources/icon/calendar.png"
                     },
 
                     "$Date": {
@@ -303,6 +303,6 @@
         "width": "100%",
         "height": "100%",
         "display": "none",
-        "@src": "resources/img/hourglass.png"
+        "@src": "UI/resources/img/hourglass.png"
     }
 }

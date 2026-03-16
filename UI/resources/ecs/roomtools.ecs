@@ -103,10 +103,10 @@ Editor:
     on click RoomEditButton
     begin
         clear MainPanel
-    	rest get Webson from `/resources/webson/roomeditmenu.json?v=` cat now
+	    	rest get Webson from `UI/resources/webson/roomeditmenu.json?v=` cat now
         render Webson in MainPanel
         put empty into Result
-    	rest get Script from `/resources/ecs/roomedit.ecs?v=` cat now
+	    	rest get Script from `UI/resources/ecs/roomedit.ecs?v=` cat now
         run Script with MainPanel and Map and CurrentProfile and ClickIndex and Result
         exit
     end
@@ -114,7 +114,7 @@ Editor:
     on click RoomDeleteButton
     begin
         attach DialogPanel to `dialog-panel`
-    	rest get Webson from `/resources/webson/dialog-confirm.json?v=` cat now
+	    	rest get Webson from `UI/resources/webson/dialog-confirm.json?v=` cat now
         render Webson in DialogPanel
         attach DialogTitle to `dialog-title`
         attach DialogText to `dialog-text`
@@ -169,7 +169,7 @@ Editor:
         set property `options` of DateFormat to Item
 
         attach DialogPanel to `dialog-panel`
-        rest get Webson from `/resources/webson/dialog-info.json?v=` cat now
+	    rest get Webson from `UI/resources/webson/dialog-info.json?v=` cat now
         render Webson in DialogPanel
         attach DialogText to `dialog-text`
         attach DialogButton1 to `dialog-okbutton`

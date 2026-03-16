@@ -590,7 +590,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2100,
+                    "temperature": 1900,
                     "battery": 58,
                     "period": 0
                 },
@@ -620,10 +620,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2350,
+                    "temperature": 2170,
                     "battery": 44,
                     "ptemp": "",
-                    "period": 1
+                    "period": 0
                 },
                 {
                     "name": "Lounge",
@@ -655,10 +655,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2460,
+                    "temperature": 2060,
                     "battery": 42,
                     "relay": "off",
-                    "period": 2
+                    "period": 1
                 },
                 {
                     "name": "Hall",
@@ -695,7 +695,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2170,
+                    "temperature": 1910,
                     "battery": 43,
                     "period": 2
                 },
@@ -720,7 +720,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 1190,
+                    "temperature": 2140,
                     "battery": 50,
                     "advance": "-",
                     "period": 0
@@ -799,7 +799,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 2150,
+                    "temperature": 2080,
                     "battery": 43,
                     "period": 0
                 },
@@ -820,7 +820,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 900,
+                    "temperature": 920,
                     "battery": 41,
                     "period": 0
                 }

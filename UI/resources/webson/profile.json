@@ -21,7 +21,7 @@
     "$Edit": {
         "#element": "img",
         "@id": "profile-edit-!ID!",
-        "@src": "resources/icon/edit.png",
+        "@src": "UI/resources/icon/edit.png",
         "width": "2em",
         "height": "2em",
         "cursor": "pointer"
@@ -30,7 +30,7 @@
     "$Up": {
         "#element": "img",
         "@id": "profile-up-!ID!",
-        "@src": "resources/icon/up.png",
+        "@src": "UI/resources/icon/up.png",
         "width": "2em",
         "height": "2em",
         "cursor": "pointer"
@@ -39,7 +39,7 @@
     "$Down": {
         "#element": "img",
         "@id": "profile-down-!ID!",
-        "@src": "resources/icon/down.png",
+        "@src": "UI/resources/icon/down.png",
         "width": "2em",
         "height": "2em",
         "cursor": "pointer"
@@ -48,7 +48,7 @@
     "$Delete": {
         "#element": "img",
         "@id": "profile-delete-!ID!",
-        "@src": "resources/icon/delete.png",
+        "@src": "UI/resources/icon/delete.png",
         "width": "2em",
         "height": "2em",
         "cursor": "pointer"

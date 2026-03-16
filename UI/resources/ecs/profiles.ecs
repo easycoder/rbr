@@ -65,11 +65,11 @@
     clear Changed
 
 	clear MainPanel
-    rest get ProfilesWebson from `/resources/webson/profiles.json?v=` cat now
+    rest get ProfilesWebson from `UI/resources/webson/profiles.json?v=` cat now
         or go to ExitWithError
     render ProfilesWebson in MainPanel
     
-    rest get ProfileWebson from `/resources/webson/profile.json?v=` cat now
+    rest get ProfileWebson from `UI/resources/webson/profile.json?v=` cat now
     	or go to ExitWithError
 
 	attach PageHeader to `profiles-page-header`
@@ -135,7 +135,7 @@
     
     on click CalendarButton
     begin
-        rest get Script from `/resources/ecs/calendar.ecs?v=` cat now
+		rest get Script from `UI/resources/ecs/calendar.ecs?v=` cat now
         set style `display` of ProfilesPanel to `none`
         set style `display` of CalendarPanel to `block`
         set the content of PageHeader to `Calendar`
@@ -308,7 +308,7 @@ RenderProfiles:
 !	Get the name of a profile
 GetName:
     attach DialogPanel to `dialog-panel`
-    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+	rest get Webson from `UI/resources/webson/dialog-input.json?v=` cat now
     render Webson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`

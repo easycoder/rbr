@@ -40,7 +40,7 @@
         "$Snowflake": {
             "#element": "img",
             "@id": "room-snowflake-/ROOM/",
-            "@src": "resources/icon/snowflake.png",
+            "@src": "UI/resources/icon/snowflake.png",
             "display": "block",
             "position": "absolute",
             "display": "none",
@@ -79,7 +79,7 @@
         "@id": "room-tools-/ROOM/",
         "width": "2em",
         "height": "2em",
-        "@src": "resources/icon/edit.png"
+        "@src": "UI/resources/icon/edit.png"
     },
 
     "$Status": {

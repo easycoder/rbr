@@ -89,7 +89,7 @@ Editor:
 !	Edit the name
 NameButtonCB:
     attach DialogPanel to `dialog-panel`
-    rest get Webson from `/resources/webson/dialog-input.json?v=` cat now
+	rest get Webson from `UI/resources/webson/dialog-input.json?v=` cat now
     render Webson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
@@ -127,7 +127,7 @@ DevicesButtonCB:
 	attach DialogPanel to `dialog-panel`
     set style `width` of DialogPanel to `80%`
     set style `left` of DialogPanel to `10%`
-    rest get Webson from `/resources/webson/getdevices.json?v=` cat now
+	rest get Webson from `UI/resources/webson/getdevices.json?v=` cat now
     render Webson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
@@ -271,7 +271,7 @@ GetCurrentRooms:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the times
 TimesButtonCB:
-    rest get PeriodEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
+    rest get PeriodEditScript from `UI/resources/ecs/periodedit.ecs?v=` cat now
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
 	exit
 

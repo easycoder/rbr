@@ -91,7 +91,7 @@
 
                 "$Icon": {
                     "#element": "img",
-                    "@src": "resources/icon/power-lo.png",
+                    "@src": "UI/resources/icon/power-lo.png",
                     "width": "2em",
                     "height": "2em",
                     "pointer-events": "none"
@@ -118,7 +118,7 @@
 
                 "$Icon": {
                     "#element": "img",
-                    "@src": "resources/icon/power-hi.png",
+                    "@src": "UI/resources/icon/power-hi.png",
                     "width": "2em",
                     "height": "2em",
                     "pointer-events": "none"
@@ -168,7 +168,7 @@
                     "width": "80%",
                     "margin": "auto",
                     "pointer-events": "none",
-                    "@src": "resources/icon/plus.png"
+                    "@src": "UI/resources/icon/plus.png"
                 }
             },
 

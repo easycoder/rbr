@@ -90,7 +90,7 @@
 !    if RelayType is `Manual`
 !    	rest get ModeWebson from `/resources/webson/mode-m.json?v=` cat now
 !    else rest get ModeWebson from `/resources/webson/mode.json?v=` cat now
-	rest get ModeWebson from `/resources/webson/mode.json?v=` cat now
+    rest get ModeWebson from `UI/resources/webson/mode.json?v=` cat now
     replace `/ROOM/` with RoomName in ModeWebson
 	render ModeWebson in ModePanel
     attach ButtonT to `mode-timed`
@@ -211,7 +211,7 @@ ShowTimes:
     set style `display` of MaskLayer to `block`
     set style `visibility` of ModePanel to `hidden`
     if PeriodEditScript is empty
-    	rest get PeriodEditScript from `/resources/ecs/periodedit.ecs?v=` cat now
+	    	rest get PeriodEditScript from `UI/resources/ecs/periodedit.ecs?v=` cat now
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
     set style `display` of MaskLayer to `none`
     exit

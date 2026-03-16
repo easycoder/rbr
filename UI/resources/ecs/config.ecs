@@ -49,8 +49,8 @@
     set the elements of RoomSSID to NRooms
 
 	attach Screen to `rbr-screen`
-    rest get ConfigWebson from `/resources/webson/config.json?v=` cat now or exit
-    rest get RoomWebson from `/resources/webson/configroom.json?v=` cat now or exit
+    rest get ConfigWebson from `UI/resources/webson/config.json?v=` cat now or exit
+    rest get RoomWebson from `UI/resources/webson/configroom.json?v=` cat now or exit
     render ConfigWebson in Screen
 	attach ConfigPanel to `config-panel`
     attach SystemName to `cf-name`

@@ -68,7 +68,7 @@
 !    debug step
 
     clear StatisticsPanel
-    rest get Webson from `/resources/webson/stats-main.json?v=` cat now
+	rest get Webson from `UI/resources/webson/stats-main.json?v=` cat now
     render Webson in StatisticsPanel
     attach MainPanel to `main-panel`
     attach ButtonPanel to `button-panel`

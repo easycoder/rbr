@@ -17,7 +17,7 @@
         "$Icon": {
             "#element": "img",
             "@id": "room-/ROOM/-mode-icon",
-            "@src": "resources/icon/clock.png",
+            "@src": "UI/resources/icon/clock.png",
             "height": "2em",
             "padding": "0.2em 0 0 0.1em"
         }

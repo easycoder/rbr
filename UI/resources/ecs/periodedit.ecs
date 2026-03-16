@@ -76,15 +76,15 @@
     put element ClickIndex of Rooms into RoomSpec
 
 	clear MainPanel
-    rest get Webson from `/resources/webson/timeseditor.json?v=` cat now
+    rest get Webson from `UI/resources/webson/timeseditor.json?v=` cat now
     render Webson in MainPanel
     attach RoomName to `title-room-name`
     attach EditTimes to `edit-times`
     set the content of RoomName to property `name` of RoomSpec
     clear EditTimes
-    rest get PeriodWebson from `/resources/webson/period.json?v=` cat now
-    rest get PeriodInfoWebson from `/resources/webson/periodinfo.json?v=` cat now
-    rest get PeriodEditorWebson from `/resources/webson/periodeditor.json?v=` cat now
+    rest get PeriodWebson from `UI/resources/webson/period.json?v=` cat now
+    rest get PeriodInfoWebson from `UI/resources/webson/periodinfo.json?v=` cat now
+    rest get PeriodEditorWebson from `UI/resources/webson/periodeditor.json?v=` cat now
     put property `events` of RoomSpec into Periods
 
 	attach TimesAddButton to `edit-add-button`
@@ -279,7 +279,7 @@ ShowEditor:
     on click PeriodDelete
     begin
         attach DialogPanel to `dialog-panel`
-        rest get Webson from `/resources/webson/dialog-confirm.json?v=` cat now
+		rest get Webson from `UI/resources/webson/dialog-confirm.json?v=` cat now
         render Webson in DialogPanel
         attach DialogTitle to `dialog-title`
         attach DialogText to `dialog-text`

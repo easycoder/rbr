@@ -38,7 +38,7 @@
 
         "$Icon": {
             "#element": "img",
-            "@src": "resources/icon/temperature.png",
+            "@src": "UI/resources/icon/temperature.png",
             "width": "2em",
             "height": "2em",
             "pointer-events": "none"
@@ -105,7 +105,7 @@
 
                 "$Icon": {
                     "#element": "img",
-                    "@src": "resources/icon/clock.png",
+                    "@src": "UI/resources/icon/clock.png",
                     "width": "2em",
                     "height": "auto",
                     "margin": "0 auto",
@@ -138,7 +138,7 @@
 
                     "$EditImg": {
                         "#element": "img",
-                        "@src": "resources/icon/edit.png",
+                        "@src": "UI/resources/icon/edit.png",
                         "height": "1.5em",
                         "pointer-events": "none"
                     }
@@ -172,7 +172,7 @@
                     "$Icon": {
                         "#element": "img",
                         "@id" : "timed-advance-icon",
-                        "@src": "resources/icon/advance.png",
+                        "@src": "UI/resources/icon/advance.png",
                         "margin": "0 auto",
                         "height": "2em",
                         "width": "auto",
@@ -224,7 +224,7 @@
 
                 "$Icon": {
                     "#element": "img",
-                    "@src": "resources/icon/plus.png",
+                    "@src": "UI/resources/icon/plus.png",
                     "width": "2em",
                     "height": "auto",
                     "margin": "0 auto",
@@ -332,7 +332,7 @@
 
         "$Icon": {
             "#element": "img",
-            "@src": "resources/icon/off.png",
+            "@src": "UI/resources/icon/off.png",
             "width": "2em",
             "height": "2em",
             "pointer-events": "none"

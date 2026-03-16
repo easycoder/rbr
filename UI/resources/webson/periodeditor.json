@@ -26,7 +26,7 @@
     "$HourUp": {
         "#element": "img",
         "@id": "hour-up",
-        "@src": "resources/icon/up.png",
+        "@src": "UI/resources/icon/up.png",
         "width": "1.3em",
         "height": "1.3em",
         "padding": "0 0.25em",
@@ -36,7 +36,7 @@
     "$HourDown": {
         "#element": "img",
         "@id": "hour-down",
-        "@src": "resources/icon/down.png",
+        "@src": "UI/resources/icon/down.png",
         "width": "1.3em",
         "height": "1.3em",
         "padding": "0 0.25em",
@@ -63,7 +63,7 @@
     "$MinuteUp": {
         "#element": "img",
         "@id": "minute-up",
-        "@src": "resources/icon/up.png",
+        "@src": "UI/resources/icon/up.png",
         "width": "1.3em",
         "height": "1.3em",
         "padding": "0 0.25em",
@@ -73,7 +73,7 @@
     "$MinuteDown": {
         "#element": "img",
         "@id": "minute-down",
-        "@src": "resources/icon/down.png",
+        "@src": "UI/resources/icon/down.png",
         "width": "1.3em",
         "height": "1.3em",
         "padding": "0 0.25em",
@@ -88,7 +88,7 @@
     "$TempUp": {
         "#element": "img",
         "@id": "temp-up",
-        "@src": "resources/icon/up.png",
+        "@src": "UI/resources/icon/up.png",
         "width": "1.3em",
         "height": "1.3em",
         "padding": "0 0.25em",
@@ -104,7 +104,7 @@
     "$TempDown": {
         "#element": "img",
         "@id": "temp-down",
-        "@src": "resources/icon/down.png",
+        "@src": "UI/resources/icon/down.png",
         "width": "1.3em",
         "height": "1.3em",
         "padding": "0 0.25em",
@@ -114,7 +114,7 @@
     "$Save": {
         "#element": "img",
         "@id": "period-save",
-        "@src": "resources/icon/save.png",
+        "@src": "UI/resources/icon/save.png",
         "width": "1.2em",
         "height": "1.2em",
         "padding": "0 1em",
@@ -124,7 +124,7 @@
     "$Delete": {
         "#element": "img",
         "@id": "period-delete",
-        "@src": "resources/icon/delete.png",
+        "@src": "UI/resources/icon/delete.png",
         "width": "1.2em",
         "height": "1.2em",
         "cursor": "pointer"
