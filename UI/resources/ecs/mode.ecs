@@ -219,6 +219,7 @@ ShowTimes:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Send an advance or cancel request
 DoAdvance:
+    log `Click on Advance`
 	if Advance is `A` put `C` into Advance else put `A` into Advance
    	put `timed` into Mode
     set element `Advance` of Result to `advance`

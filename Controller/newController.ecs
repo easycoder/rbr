@@ -52,6 +52,7 @@
     variable Time
     variable Temp
     variable ImmediateUpdate
+    variable UIRequestPending
     variable ConfirmationRequested
     variable StateChanged
     variable MessageText
@@ -85,6 +86,7 @@
     clear MapHasChanged
     clear ThermometerUpdate
     clear HeatingRequested
+    clear UIRequestPending
     reset MessageQueue
     reset ReceivedMessage
     reset Temperatures
@@ -116,7 +118,12 @@
         subscribe ServerTopic
     
     on mqtt connect go to Start
-    on mqtt message append the mqtt message to MessageQueue
+    on mqtt message
+    begin
+        put the mqtt message into ReceivedMessage
+        if entry `action` of ReceivedMessage is `uirequest` set UIRequestPending
+        append ReceivedMessage to MessageQueue
+    end
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -156,6 +163,7 @@ MainLoop:
     put 0 into R
     while R is less than RoomCount
     begin
+        if UIRequestPending go to HandleMessages
         index Room to R
         index TargetWas to R
         index PeriodWas to R
@@ -192,15 +200,21 @@ HandleMessages:
         set entry SenderName of Senders to Sender
         put entry `action` of ReceivedMessage into Action
         put entry `message` of ReceivedMessage into Message
-        log Action cat ` from ` cat SenderName cat `: ` cat Message
         if Action is `first`
         begin
+            log `Received a 'first' message`
             set MapHasChanged
             set StateChanged
-            put `map` into Action
+            gosub to SendMapToUI
+        end
+        else if Action is `refresh`
+        begin
+            set MapHasChanged
+            gosub to SendMapToUI
         end
         else if Action is `uirequest` gosub to ProcessUIRequest
     end
+    clear UIRequestPending
 
     ! Save files periodically
     add 60000 to LastMapSave giving T
@@ -368,7 +382,7 @@ ProcessReply:
             if Reply is not empty gosub to RecordThermometer
         end
         gosub to SetRelay
-        log RoomName cat `: ` cat Replies cat ` - ` cat entry `temperature` of Room
+!        log RoomName cat `: ` cat Replies cat ` - ` cat entry `temperature` of Room
     end
     return
         
@@ -668,6 +682,7 @@ ResolveRoomFromMessage:
 ProcessUIRequest:
     ! Legacy UI modules may still send {request:`Update`, data:{...}}.
     ! Unwrap only when there is no direct Action/action field.
+    log `Process a UI request`
     if Message does not have entry `Action`
     begin
         if Message does not have entry `action`
@@ -694,6 +709,7 @@ ProcessUIRequest:
         end
     end
 
+    log Action cat ` from ` cat SenderName cat `: ` cat Message
     if Message has entry `Action` put entry `Action` of Message into Action
     else if Message has entry `action` put entry `action` of Message into Action
     else

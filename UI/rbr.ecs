@@ -62,7 +62,6 @@
     topic ServerTopic
     topic MyTopic
     variable Mobile
-    variable Revisit
     variable Prompt
     variable Webson
     variable HelpScript
@@ -158,7 +157,7 @@
 
 !   Set up MQTT
     put `RBR-` cat random 999999 into MyID
-    print `MyID = ` cat MyID
+    log `MyID = ` cat MyID
     
     init ServerTopic
         name `38:54:39:34:62:d7/request`
@@ -177,7 +176,7 @@
 
     on mqtt connect
     begin
-        print `MQTT Connected`
+        log `MQTT Connected`
         go to Connected
     end
     
@@ -202,9 +201,8 @@ Conn2:
             wait 1 second
             if not Blocked
             begin
-                if Prompt is `first`
+                if Prompt is `first` or ReceivedMessage is not empty
                 begin
-!                    wait 1 second
                     fork to MainProcessingTask
                     go to Conn2
                 end
@@ -215,7 +213,7 @@ Conn2:
     end
 
 SetupScreen:
-    print `Set up the screen...`
+    log `Set up the screen...`
     set Redraw
     put empty into ModeScript
     put `first` into Prompt
@@ -225,18 +223,18 @@ SetupScreen:
     clear Mobile
     if mobile
     begin
-!    	print `Mobile browser detected`
+!    	log `Mobile browser detected`
         if portrait
         begin
-!        	print `In portrait mode`
+!        	log `In portrait mode`
         	set Mobile
         end
     end
-!    else print `PC browser detected`
+!    else log `PC browser detected`
 
     get StaticData from storage as `StaticData`
     if StaticData is empty put `{}` into StaticData
-!    print StaticData
+!    log StaticData
 
 	create Body
     if Mobile
@@ -318,13 +316,13 @@ SetupScreen:
         end
         else if not Blocked go to ShowMenu
     end
-    print `Screen is ready`
+    log `Screen is ready`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Main Processing Task
 MainProcessingTask:
-!    print `Main Processing Task`
+!    log `Main Processing Task`
     gosub to Unmask
 
 	if not Redraw go to GetMap
@@ -335,6 +333,8 @@ MainProcessingTask:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Get the map
 GetMap:
+!    if Prompt is `first` log `Get the map for the first time`
+!    else log `Get the map`
     send to ServerTopic
         sender MyTopic
         action Prompt
@@ -346,12 +346,12 @@ GetMap:
         if MQTTWait is 0 stop
     end
     put ReceivedMessage into Map
-    print `Got an updated map`
+!    log `Got an updated map`
     if Map is empty
     begin
         if Prompt is `first`
         begin
-    	    print `Map not available; using local data`
+    	    log `Map not available; using local data`
     	    get Map from storage as `map`
        	    continue
         end
@@ -361,7 +361,7 @@ GetMap:
 
     if Map is empty
     begin
-    	print `Map is empty`
+    	log `Map is empty`
     	stop
     end
     put Map into storage as `map`
@@ -394,7 +394,7 @@ GetMap:
     
     on click StatusFlag go to DoSystemParameters
     
-!   print Map
+!   log Map
     put property `profiles` of Map into Profiles
 	put property `profile` of Map into CurrentProfile
     if CurrentProfile is empty put 0 into CurrentProfile
@@ -416,7 +416,7 @@ GetMap:
     	set Refresh
     end
 !    wait 2 seconds
-!    print `Start the redraw`
+!    log `Start the redraw`
 
     set the elements of Mode to RoomCount
     set the elements of ModeHolder to RoomCount
@@ -494,7 +494,7 @@ GetMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Update al the rooms
 UpdateRooms:
-!    print `Update rooms`
+!    log `Update rooms`
 	! Draw a row for each room
     put 0 into RoomIndex
     while RoomIndex is less than RoomCount
@@ -534,32 +534,32 @@ UpdateRooms:
 		! Attach to various elements of the display
         attach ModeHolder to `room-` cat RoomIndex cat `-mode-holder` or
         begin
-        	print `Can't find room-` cat RoomIndex cat `-mode-holder`
+        	log `Can't find room-` cat RoomIndex cat `-mode-holder`
         	stop
         end
         attach RoomNamePanel to `room-name-` cat RoomIndex or
         begin
-        	print `Can't find room-name-` cat RoomIndex
+        	log `Can't find room-name-` cat RoomIndex
         	stop
         end
 		attach RoomTempPanel to `room-temp-` cat RoomIndex or
         begin
-        	print `Can't find room-temp-` cat RoomIndex
+        	log `Can't find room-temp-` cat RoomIndex
         	stop
         end
         attach RoomToolsButton to `room-tools-` cat RoomIndex or
         begin
-        	print `Can't find room-tools-` cat RoomIndex
+        	log `Can't find room-tools-` cat RoomIndex
         	stop
         end
         attach RoomStatusButton to `room-status-` cat RoomIndex or
         begin
-        	print `Can't find room-status-` cat RoomIndex
+        	log `Can't find room-status-` cat RoomIndex
         	stop
         end
         attach Snowflake to `room-snowflake-` cat RoomIndex or
         begin
-        	print `Can't find room-snowflake-` cat RoomIndex
+        	log `Can't find room-snowflake-` cat RoomIndex
         	stop
         end
 
@@ -573,7 +573,7 @@ UpdateRooms:
         if Mode is empty put `off` into Mode
         
         ! Show the current temperature and relay state
-!        print RoomSpec
+!        log RoomSpec
         put property `sensor` of RoomSpec into SensorIP
         put property `relayType` of RoomSpec into RelayType
         put property `relay` of RoomSpec into RelayState
@@ -595,7 +595,7 @@ UpdateRooms:
             if Timestamp is not empty
             begin
             	take Timestamp from Now giving Elapsed
-!      print `Elapsed: ` cat Elapsed
+!      log `Elapsed: ` cat Elapsed
 				if Elapsed is greater than 3660
                 begin
                 	if property `alive` of RoomData is `true`
@@ -848,7 +848,7 @@ UpdateRooms:
                     and Map
                     and ClickIndex
                     and Result
-!                print Result
+!                log Result
                 put `first` into Prompt
                 gosub to Unmask
                 set Redraw
@@ -1258,7 +1258,7 @@ Statistics:
     rest get Script from `UI/resources/ecs/statistics.ecs?v=` cat now
         or go to HandleRestError
     run Script with StatisticsPanel and Map
-    print `Statistics finished`
+    log `Statistics finished`
     set style `display` of OuterPanel to `block`
     set style `display` of StatisticsPanel to `none`
     clear MainPanel
@@ -1290,11 +1290,12 @@ Unmask:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Process the result of running another module
 ProcessResult:
-!    print `Result: ` cat Result
+!    log `Result: ` cat Result
     set Blocked
     gosub to SendUIRequest
     wait 50 ticks
     clear Blocked
+    fork to MainProcessingTask
     stop
 
 	put property `request` of Result into Request
@@ -1323,7 +1324,7 @@ ProcessResult:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
 SendUIRequest:
-    print `Sending UI request to ServerTopic: ` cat Result
+    log `Sending UI request to ServerTopic: ` cat Result
     send to ServerTopic
         sender MyTopic
         action `uirequest`

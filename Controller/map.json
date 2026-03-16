@@ -590,7 +590,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 1900,
+                    "temperature": 2050,
                     "battery": 58,
                     "period": 0
                 },
@@ -620,7 +620,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2170,
+                    "temperature": 2300,
                     "battery": 44,
                     "ptemp": "",
                     "period": 0
@@ -655,7 +655,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668642,
-                    "temperature": 2060,
+                    "temperature": 2080,
                     "battery": 42,
                     "relay": "off",
                     "period": 1
@@ -695,7 +695,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 1910,
+                    "temperature": 2020,
                     "battery": 43,
                     "period": 2
                 },
@@ -720,7 +720,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2140,
+                    "temperature": 2040,
                     "battery": 50,
                     "advance": "-",
                     "period": 0
@@ -760,7 +760,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668643,
-                    "temperature": 2240,
+                    "temperature": 2360,
                     "battery": 41,
                     "period": 2
                 },
@@ -799,7 +799,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 2080,
+                    "temperature": 2130,
                     "battery": 43,
                     "period": 0
                 },
@@ -820,7 +820,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1771668644,
-                    "temperature": 920,
+                    "temperature": 1040,
                     "battery": 41,
                     "period": 0
                 }
