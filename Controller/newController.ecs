@@ -65,10 +65,16 @@
     variable Mode
     variable Value
     variable Value2
+    variable Text
     variable ThermometerUpdate
     variable LoopCount
+    variable UpdateCount
     variable WaitCounter
+    variable PriorityRoomIndex
+
+    ! Reusable variables - but be careful!
     variable I
+    variable L
     variable P
     variable R
     variable S
@@ -91,6 +97,8 @@
     reset ReceivedMessage
     reset Temperatures
     set LoopCount to 0
+    set UpdateCount to 0
+    set PriorityRoomIndex to -1
     if not Simulate gosub to SetupSSH
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -128,9 +136,8 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main start point.
-Start:
-    log `Load the system map`
-    load Map from `map.json`
+    Start:
+    gosub to LoadMap
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into SelectedProfile
     if file `thermometers.json` exists load Thermometers from `thermometers.json`
@@ -154,25 +161,49 @@ MainLoop:
         if MessageQueue is not empty go to HandleMessages
         if ImmediateUpdate set WaitCounter to 0
         ! If the map has changed, update the UI now
-        gosub SendMapToUI
+        if Map is empty gosub to LoadMap
+        if MapHasChanged
+        begin
+            log `Update map from MainLoop`
+            gosub SendMapToUI
+        end
     end
 
     ! log `Repeat ` cat LoopCount
     increment LoopCount
+    put PriorityRoomIndex into P
+    if P is not less than 0
+    begin
+        if P is less than RoomCount
+        begin
+            if UIRequestPending go to HandleMessages
+            index Room to P
+            index TargetWas to P
+            index PeriodWas to P
+            index PeriodActive to P
+            index RelayStateWas to P
+            set RoomIndex to P
+            gosub to ProcessRoom
+        end
+    end
     ! Examine the state of each room
     put 0 into R
     while R is less than RoomCount
     begin
         if UIRequestPending go to HandleMessages
-        index Room to R
-        index TargetWas to R
-        index PeriodWas to R
-        index PeriodActive to R
-        index RelayStateWas to R
-        set RoomIndex to R
-        gosub to ProcessRoom
+        if R is not P
+        begin
+            index Room to R
+            index TargetWas to R
+            index PeriodWas to R
+            index PeriodActive to R
+            index RelayStateWas to R
+            set RoomIndex to R
+            gosub to ProcessRoom
+        end
         increment R
     end
+    set PriorityRoomIndex to -1
     ! Do the 'request' relay
     if not Simulate gosub to ProcessRequestRelay
 
@@ -200,17 +231,25 @@ HandleMessages:
         set entry SenderName of Senders to Sender
         put entry `action` of ReceivedMessage into Action
         put entry `message` of ReceivedMessage into Message
+        log `HandleMessages: action=` cat Action cat ` sender=` cat SenderName
         if Action is `first`
         begin
-            log `Received a 'first' message`
+!            log `HandleMessages: first from ` cat SenderName
             set MapHasChanged
             set StateChanged
+!            log `Update map from 'first'`
             gosub to SendMapToUI
         end
         else if Action is `refresh`
         begin
-            set MapHasChanged
-            gosub to SendMapToUI
+            ! Refresh acts as a heartbeat for sender tracking.
+            ! Push only when there is fresh map state to send.
+            if MapHasChanged
+            begin
+!                log `HandleMessages: refresh from ` cat SenderName cat ` -> send map`
+                gosub to SendMapToUI
+            end
+!            else log `HandleMessages: refresh from ` cat SenderName cat ` -> no change`
         end
         else if Action is `uirequest` gosub to ProcessUIRequest
     end
@@ -243,6 +282,14 @@ HandleMessages:
         increment S
     end
     go to MainLoop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Load up the system map
+LoadMap:
+    log `Load the system map`
+    load Map from `map.json`
+    set MapHasChanged
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Populate all the main map variables, then do a complete cycle of the system
@@ -339,6 +386,9 @@ ProcessRoom:
     end
     else if Mode is `on`
     begin
+        put entry `target` of Room into Temp
+        gosub to ConvertTempToInt
+        put Temp into Target
     end
     else if Mode is `boost`
     begin
@@ -353,6 +403,10 @@ ProcessRoom:
     end
     if TempNow is empty set RelayState to `off`
 
+    ! Compute the desired relay state now so the device command
+    ! in this cycle carries the latest ON/OFF/timed decision.
+    gosub to SetRelay
+
     ! Build a pack of data and send it to the device controller or the simulator
     ! It will open/close the relay and return the current temperature of the room
     set entry `room name` of RoomSpec to RoomName
@@ -360,6 +414,9 @@ ProcessRoom:
     set entry `relays` of RoomSpec to Relays
     set entry `relay type` of RoomSpec to RelayType
     set entry `relay state` of RoomSpec to RelayState
+!    if RoomName is `Office`
+!        log `Device command prep: mode=` cat Mode cat ` temp=` cat TempNow
+!            cat ` target=` cat Target cat ` relay=` cat RelayState
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     send RoomSpec to DeviceModule
     ! Wait for the module to reply
@@ -413,17 +470,21 @@ ProcessRequestRelay:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Decide if a relay should be on or off
 SetRelay:
+    put RelayState into RelayStateWas
     if Mode is `off` set RelayState to `off`
+    else if entry `linked` of Room is `no`
     begin
-        put RelayState into RelayStateWas
-        if Mode is `off` set RelayState to `off`
-        else 
-        begin
-!            log RoomName cat ` ` cat TempNow cat `/` cat Target
-            set RelayState to `off`
-            if TempNow is not empty 
-                if TempNow is less than Target set RelayState to `on` else set RelayState to `off`
-        end
+        ! Unlinked relays are driven directly by mode, not by target/temperature.
+        if Mode is `on` set RelayState to `on`
+        else if Mode is `boost` set RelayState to `on`
+        else set RelayState to `off`
+    end
+    else
+    begin
+!        log RoomName cat ` ` cat TempNow cat `/` cat Target
+        set RelayState to `off`
+        if TempNow is not empty
+            if TempNow is less than Target set RelayState to `on` else set RelayState to `off`
     end
     set entry `relay` of Room to RelayState
     if RelayState is `on` set HeatingRequested
@@ -442,12 +503,12 @@ SetRelay:
             ! log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
             gosub to ForceUpdate
         end
-        if RelayState is not RelayStateWas
-        begin
-            ! log RoomName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
-            set RelayStateWas to RelayState
-            gosub to ForceUpdate
-        end
+    end
+    if RelayState is not RelayStateWas
+    begin
+        ! log RoomName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
+        set RelayStateWas to RelayState
+        gosub to ForceUpdate
     end
 !    if RoomName is `Sunroom` log `Temp/Was: ` cat TempNow cat `/` cat TempWas
 
@@ -467,6 +528,7 @@ UpdateMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Force an update now. This will short-circuit the 10-second main loop
 ForceUpdate:
+    log `Force an immediate update`
     set ImmediateUpdate
     set MapHasChanged
     return
@@ -803,6 +865,7 @@ ProcessUIRequest:
             log `UIRequest rejected: Operating Mode needs valid room reference`
             return
         end
+        set PriorityRoomIndex to RoomIndex
         if Message has entry `Mode` put entry `Mode` of Message into Mode
         else if Message has entry `mode` put entry `mode` of Message into Mode
         else
@@ -810,9 +873,28 @@ ProcessUIRequest:
             log `UIRequest rejected: Operating Mode needs Mode/mode`
             return
         end
+        put entry `mode` of Room into Value2
         set entry `mode` of Room to Mode
         if Message has entry `target` set entry `target` of Room to entry `target` of Message
         else if Message has entry `Target` set entry `target` of Room to entry `Target` of Message
+        if Mode is `on`
+        begin
+            put entry `target` of Room into Value
+            if Value is not numeric put 0 into Value
+            if Value is less than 1
+            begin
+                if Room has entry `events`
+                begin
+                    gosub to FindCurrentPeriod
+                    put item PeriodActive of Events into Period
+                    set entry `target` of Room to entry `temp` of Period
+                end
+            end
+        end
+        if RoomName is `Office`
+            log `Operating Mode apply: ` cat RoomName cat ` idx=` cat RoomIndex
+                cat ` mode ` cat Value2 cat `->` cat entry `mode` of Room
+                cat ` target=` cat entry `target` of Room
 
         if Mode is `timed`
         begin
@@ -869,6 +951,18 @@ ProcessUIRequest:
             else if Message has entry `Target` set entry `target` of Room to entry `Target` of Message
         end
         gosub to UpdateRooms
+        if RoomName is `Office`
+        begin
+            put item SelectedProfile of Profiles into Profile
+            put entry `rooms` of Profile into Rooms
+            put item RoomIndex of Rooms into RoomSpec
+            log `Map check: profile=` cat SelectedProfile cat ` room=` cat RoomName
+                cat ` mode=` cat entry `mode` of RoomSpec
+                cat ` relay=` cat entry `relay` of RoomSpec
+                cat ` target=` cat entry `target` of RoomSpec
+        end
+        if Mode is not `timed` gosub to ForceUpdate
+        else if Value is empty gosub to ForceUpdate
     end
     else if Action is `Periods`
     begin
@@ -879,6 +973,7 @@ ProcessUIRequest:
             log `UIRequest rejected: Periods needs valid room reference`
             return
         end
+        set PriorityRoomIndex to RoomIndex
         if Message has entry `Periods` put entry `Periods` of Message into Value2
         else if Message has entry `periods` put entry `periods` of Message into Value2
         else
@@ -897,26 +992,25 @@ ProcessUIRequest:
 !   If the map has changed, send it to the UI, of which there may be more than one.
 !   If the map has not changed, do nothing.
 SendMapToUI:
-    if Map is empty
+    if MapHasChanged set MessageText to Map else set MessageText to empty
+!    set Text to `Send `
+!    if MessageText is empty set Text to Text cat `empty message` else set Text to Text cat `the map`
+!    set Text to Text cat ` to UI (` cat UpdateCount cat `/` cat LoopCount cat `)`
+!    log Text
+    clear MapHasChanged
+    put the keys of Senders into SenderKeys
+    put the count of SenderKeys into L
+    log `SendMapToUI recipients=` cat L
+    set S to 0
+    while S is less than the count of SenderKeys
     begin
-        gosub to LoadMap
-        set MapHasChanged
+        put item S of SenderKeys into SenderKey
+!        log `SendMapToUI -> ` cat SenderKey
+        put entry SenderKey of Senders into Sender
+        gosub to SendMessage
+        increment S
     end
-    if MapHasChanged
-    begin
-        log `Send map to UI (` cat LoopCount cat `)`
-        set MessageText to Map
-        clear MapHasChanged
-        put the keys of Senders into SenderKeys
-        set S to 0
-        while S is less than the count of SenderKeys
-        begin
-            put item S of SenderKeys into SenderKey
-            put entry SenderKey of Senders into Sender
-            gosub to SendMessage
-            increment S
-        end
-    end
+    increment UpdateCount
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

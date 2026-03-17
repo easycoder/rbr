@@ -395,21 +395,24 @@
         "background": "#eee",
         "border": "1px solid gray",
         "border-radius": "0.5em",
+        "cursor": "pointer",
         "pointer-events": "auto",
         "#": ["$Icon", "$Text"],
 
         "$Icon": {
             "#element": "img",
+            "@id": "mode-off-icon",
             "@src": "UI/resources/icon/off.png",
             "width": "2em",
             "height": "2em",
-            "pointer-events": "none"
+            "pointer-events": "auto"
         },
 
         "$Text": {
             "#element": "div",
+            "@id": "mode-off-text",
             "flex": "1",
-            "pointer-events": "none",
+            "pointer-events": "auto",
             "#": ["$Line1", "$Line2"],
 
             "$Line1": {

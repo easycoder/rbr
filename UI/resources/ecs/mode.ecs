@@ -22,6 +22,8 @@
     
     div ButtonM
     div ButtonO
+    img ButtonOIcon
+    div ButtonOText
     div ButtonC
     div ButtonH
     div ButtonT
@@ -96,6 +98,8 @@
     attach ButtonT to `mode-timed`
     attach ButtonM to `mode-on`
     attach ButtonO to `mode-off`
+    attach ButtonOIcon to `mode-off-icon`
+    attach ButtonOText to `mode-off-text`
     attach ButtonC to `mode-cancel`
     attach ButtonH to `mode-help`
 !    if RelayType is not `Manual`
@@ -150,6 +154,8 @@
     on click ButtonT go to SelectTimed
     on click ButtonM go to SelectOn
     on click ButtonO go to SelectOff
+    on click ButtonOIcon go to SelectOff
+    on click ButtonOText go to SelectOff
     on click ButtonC go to SelectCancel
     on click ButtonH go to SelectHelp
 !    if RelayType is not `Manual`

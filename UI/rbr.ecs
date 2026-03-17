@@ -335,15 +335,19 @@ MainProcessingTask:
 GetMap:
 !    if Prompt is `first` log `Get the map for the first time`
 !    else log `Get the map`
-    send to ServerTopic
-        sender MyTopic
-        action Prompt
-    put 50 into MQTTWait
-    while ReceivedMessage is empty
+    if ReceivedMessage is empty
     begin
-        wait 10 ticks
-        take 1 from MQTTWait
-        if MQTTWait is 0 stop
+        send to ServerTopic
+            sender MyTopic
+            action Prompt
+        if Prompt is not `first` stop
+        put 50 into MQTTWait
+        while ReceivedMessage is empty
+        begin
+            wait 10 ticks
+            take 1 from MQTTWait
+            if MQTTWait is 0 stop
+        end
     end
     put ReceivedMessage into Map
 !    log `Got an updated map`
@@ -1024,6 +1028,12 @@ GSP2:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Get the name of the system
+GetSystemName:
+    set SystemName to `Un-named system`
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Configuration
 Configuration:
 	set Blocked
@@ -1293,7 +1303,7 @@ ProcessResult:
 !    log `Result: ` cat Result
     set Blocked
     gosub to SendUIRequest
-    wait 50 ticks
+    wait 10 ticks
     clear Blocked
     fork to MainProcessingTask
     stop
