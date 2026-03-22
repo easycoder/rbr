@@ -1,0 +1,68 @@
+{
+    "#doc": "The icon and text for 'off' mode",
+    "#element": "button",
+    "@id" : "room-/ROOM/-mode-button",
+    "position": "relative",
+    "display": "flex",
+    "flex-direction": "row",
+    "width": "8em",
+    "pointer-events": "a",
+    "#": ["$Button", "$Padding", "$Text"],
+
+    "$Button": {
+        "#element": "div",
+        "margin-right": "0.2em",
+        "pointer-events": "none",
+        "#": "$Icon",
+
+        "$Icon": {
+            "#element": "img",
+            "@id": "room-/ROOM/-mode-icon",
+            "@src": "resources/icon/off.png?v=2",
+            "height": "2em",
+            "padding": "0.2em 0 0 0.1em"
+        }
+    },
+
+    "$Padding": {
+        "#element": "div",
+        "width": "0.1em",
+        "pointer-events": "none"
+    },
+
+    "$Text": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "column",
+        "flex": 1,
+        "height": "100%",
+        "text-align": "left",
+        "pointer-events": "none",
+        "#": "$Inner",
+
+        "$Inner": {
+            "#element": "div",
+            "display": "inline-block",
+            "flex": 1,
+            "text-align": "center",
+            "padding": "0.2em 0.2em 0.2em 0",
+            "#": ["$Content1", "$Content2"],
+
+            "$Content1": {
+                "#element": "div",
+                "#content": "Off",
+                "@id": "room-/ROOM/-mode-text",
+                "font-size": "1.2em",
+                "font-weight": "bold",
+                "padding-top": "0.4em"
+            },
+
+            "$Content2": {
+                "#element": "div",
+                "@id" : "room-/ROOM/-mode-info",
+                "font-size": "0.9em",
+                "font-weight": "bold"
+            }
+        }
+    }
+}

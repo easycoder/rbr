@@ -1,0 +1,97 @@
+{
+    "#doc": "The script for a single room",
+    "#element": "div",
+    "@id": "room-/ROOM/",
+    "position": "relative",
+    "padding": "0.2em",
+    "border": "1px solid gray",
+    "margin": "0.5em",
+    "background": "#ffc",
+    "display": "flex",
+    "flex-direction": "row",
+    "align-items": "center",
+    "#": ["$Mode", "$Name", "$Temperature", "$Pad", "$Edit", "$Status"],
+
+    "$Mode": {
+        "#element": "div",
+        "height": "100%",
+        "text-align": "left",
+        "@id": "room-/ROOM/-mode-holder"
+    },
+
+    "$Name": {
+        "#element": "div",
+        "text-align": "left",
+        "line-height": "2em",
+        "margin-left": "0.5em",
+        "flex": 1,
+        "height": "2em",
+        "font-weight": "bold",
+        "cursor": "default",
+        "overflow": "wrap",
+        "position": "relative",
+        "#": ["$NameText", "$Snowflake"],
+
+        "$NameText": {
+            "#element": "div",
+            "@id": "room-name-/ROOM/"
+        },
+
+        "$Snowflake": {
+            "#element": "img",
+            "@id": "room-snowflake-/ROOM/",
+            "@src": "resources/icon/snowflake.png",
+            "display": "block",
+            "position": "absolute",
+            "display": "none",
+            "top": 0,
+            "right": 0,
+            "width": "1em",
+            "height": "1em"
+        }
+    },
+
+    "$Temperature": {
+        "#element": "div",
+        "@id": "room-temp-/ROOM/",
+        "font-size": "1.2em",
+        "font-weight": "bold",
+        "text-align": "center",
+        "font-family": "ariel, helvetica, sans-serif",
+        "color": "white",
+        "margin": "auto 0 auto 0.5em",
+        "border": "1px solid gray",
+        "border-radius": "0.5em",
+        "width": "4em",
+        "height": "1.2em",
+        "cursor": "default",
+        "overflow": "hidden",
+        "position": "relative"
+    },
+
+    "$Pad": {
+        "#element": "div",
+        "width": "1em"
+    },
+
+    "$Edit": {
+        "#element": "img",
+        "@id": "room-tools-/ROOM/",
+        "width": "2em",
+        "height": "2em",
+        "@src": "resources/icon/edit.png"
+    },
+
+    "$Status": {
+        "#element": "div",
+        "@id": "room-status-/ROOM/",
+        "position": "absolute",
+        "bottom": "5px",
+        "left": "5px",
+        "width": "0.4em",
+        "height": "0.4em",
+        "border-radius": "50%",
+        "background": "lightgray",
+        "border": "1px solid gray"
+    }
+}

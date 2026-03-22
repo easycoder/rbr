@@ -1,0 +1,30 @@
+{
+    "#doc": "A blank button for where there is no relay",
+    "#element": "button",
+    "@id" : "room-/ROOM/-mode-button",
+    "display": "flex",
+    "flex-direction": "row",
+    "width": "8em",
+    "#": ["$Button", "$Padding"],
+
+    "$Button": {
+        "#element": "div",
+        "margin-right": "0.2em",
+        "pointer-events": "none",
+        "#": "$Icon",
+
+        "$Icon": {
+            "#element": "img",
+            "@id": "room-/ROOM/-mode-icon",
+            "@src": "resources/icon/off.png?v=2",
+            "height": "2em",
+            "padding": "0.2em 0 0 0.1em"
+        }
+    },
+
+    "$Padding": {
+        "#element": "div",
+        "width": "0.2em",
+        "pointer-events": "none"
+    }
+}

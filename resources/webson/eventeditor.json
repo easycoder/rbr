@@ -1,0 +1,121 @@
+{
+    "#doc": "The event editor component",
+    "#element": "div",
+    "@id": "event-editor",
+    "display": "flex",
+    "font-family": "Helvetica, Arial, SansSerif",
+    "font-weight": "bold",
+    "padding": "1em",
+    "#": [
+        "$HourDown",
+        "$HourUp",
+        "$Hour",
+        "$Colon",
+        "$Minute",
+        "$MinuteDown",
+        "$MinuteUp",
+        "$Pad",
+        "$TempDown",
+        "$Temp",
+        "$TempUp",
+        "$Pad",
+        "$Delete"
+    ],
+
+    "$HourUp": {
+        "#element": "img",
+        "@id": "hour-up",
+        "@src": "resources/icon/up.png",
+        "width": "1.5em",
+        "height": "1.5em",
+        "padding": "0 0.25em",
+        "cursor": "pointer"
+    },
+
+    "$HourDown": {
+        "#element": "img",
+        "@id": "hour-down",
+        "@src": "resources/icon/down.png",
+        "width": "1.5em",
+        "height": "1.5em",
+        "padding": "0 0.25em",
+        "cursor": "pointer"
+    },
+
+    "$Hour": {
+        "#element": "div",
+        "@id": "hour-text",
+        "#content": "00"
+    },
+
+    "$Colon": {
+        "#element": "div",
+        "#content": ":"
+    },
+
+    "$Minute": {
+        "#element": "div",
+        "@id": "minute-text",
+        "#content": "00"
+    },
+
+    "$MinuteUp": {
+        "#element": "img",
+        "@id": "minute-up",
+        "@src": "resources/icon/up.png",
+        "width": "1.5em",
+        "height": "1.5em",
+        "padding": "0 0.25em",
+        "cursor": "pointer"
+    },
+
+    "$MinuteDown": {
+        "#element": "img",
+        "@id": "minute-down",
+        "@src": "resources/icon/down.png",
+        "width": "1.5em",
+        "height": "1.5em",
+        "padding": "0 0.25em",
+        "cursor": "pointer"
+    },
+
+    "$Pad": {
+        "#element": "div",
+        "flex": 1
+    },
+
+    "$TempUp": {
+        "#element": "img",
+        "@id": "temp-up",
+        "@src": "resources/icon/up.png",
+        "width": "1.5em",
+        "height": "1.5em",
+        "padding": "0 0.25em",
+        "cursor": "pointer"
+    },
+
+    "$Temp": {
+        "#element": "div",
+        "@id": "temp-text",
+        "#content": "0.0&deg;C"
+    },
+
+    "$TempDown": {
+        "#element": "img",
+        "@id": "temp-down",
+        "@src": "resources/icon/down.png",
+        "width": "1.5em",
+        "height": "1.5em",
+        "padding": "0 0.25em",
+        "cursor": "pointer"
+    },
+
+    "$Delete": {
+        "#element": "img",
+        "@id": "period-delete",
+        "@src": "resources/icon/delete.png",
+        "width": "1.5em",
+        "height": "1.5em",
+        "cursor": "pointer"
+    }
+}

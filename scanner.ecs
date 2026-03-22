@@ -1,0 +1,35 @@
+!   Network scanner
+
+!   Scans the local network, looking for RBR controllers
+
+    script Scanner
+
+    variable N
+    variable IPAddr
+    variable Result
+
+!    debug step
+
+    put system `hostname -I` into IPAddr
+    put left the position of ` ` in IPAddr of IPAddr into IPAddr
+    put the position of the last `.` in IPAddr into N
+    increment N
+    put left N of IPAddr into IPAddr
+
+    print ``
+    put 1 into N
+    while N is less than 255
+    begin
+        system `tput cuu1`
+        print IPAddr cat N
+        put empty into Result
+        get Result from url `http://` cat IPAddr cat N cat `:17348/cgi-bin/mac.py` timeout 1 or begin end
+        if Result is not empty
+        begin
+            print trim Result
+            print ``
+        end
+        increment N
+    end
+
+    exit

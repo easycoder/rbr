@@ -1,0 +1,9 @@
+#!/bin/sh
+
+cd ~/bin
+rm ui.tar.gz
+wget https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/roombyroom/Controller/ui.tar.gz
+tar zxf ui.tar.gz
+rm ui.tar.gz
+cd ui
+ec rbr_ui.ecs
