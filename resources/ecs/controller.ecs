@@ -4,6 +4,7 @@
 
     use mqtt
 
+    dictionary Credentials
     dictionary Map
     dictionary Profile
     dictionary Room
@@ -106,15 +107,15 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
-    if file `~/.mqtt_password` does not exist
+    get Credentials from url `https://rbrheating.com/credentials.php`
+    if Credentials is empty
     begin
-        log `No MQTT password could be found.`
+        log `Failed to load MQTT credentials`
         exit
     end
-    load MQTT_Token from `~/.mqtt_password`
-    put trim MQTT_Token into MQTT_Token
+    put entry `password` of Credentials into MQTT_Token
+    put entry `broker` of Credentials into Value
 
-    ! Set up MQTT
     load MyID from `../../serverID`
     set MyID to trim MyID
     log `My ID is ` cat MyID
@@ -125,7 +126,7 @@
     mqtt
         token `rbr` MQTT_Token
         id uuid
-        broker `rbrheating.duckdns.org`
+        broker Value
         port 8883
         subscribe ServerTopic
     
@@ -405,6 +406,43 @@ ProcessRoom:
     end
     else if Mode is `boost`
     begin
+        ! Check if the boost has expired
+        put entry `until` of Room into T
+        if T is not empty
+        begin
+            if T is not greater than now
+            begin
+                ! Boost expired - revert to previous mode
+                if Room has entry `prevmode`
+                    set entry `mode` of Room to entry `prevmode` of Room
+                else set entry `mode` of Room to `timed`
+                delete entry `until` of Room
+                delete entry `prevmode` of Room
+                log RoomName cat `: Boost expired, reverting to ` cat entry `mode` of Room
+                gosub to ForceUpdate
+                put entry `mode` of Room into Mode
+                if Mode is `timed`
+                begin
+                    gosub to FindCurrentPeriod
+                    put item PeriodActive of Events into Period
+                    put entry `temp` of Period into Temp
+                    gosub to ConvertTempToInt
+                    put Temp into Target
+                end
+                else if Mode is `on`
+                begin
+                    put entry `target` of Room into Temp
+                    gosub to ConvertTempToInt
+                    put Temp into Target
+                end
+                else
+                begin
+                    set Mode to `off`
+                    set RelayState to `off`
+                end
+                go to BoostDone
+            end
+        end
         put entry `target` of Room into Temp
         gosub to ConvertTempToInt
         put Temp into Target
@@ -414,6 +452,7 @@ ProcessRoom:
         set Mode to `off`
         set RelayState to `off`
     end
+BoostDone:
     if TempNow is empty set RelayState to `off`
 
     ! Compute the desired relay state now so the device command
@@ -919,6 +958,11 @@ log Message
             return
         end
         put entry `mode` of Room into Value2
+        if Mode is `boost`
+        begin
+            if Value2 is not `boost`
+                set entry `prevmode` of Room to Value2
+        end
         set entry `mode` of Room to Mode
         if Message has entry `target` set entry `target` of Room to entry `target` of Message
         else if Message has entry `Target` set entry `target` of Room to entry `Target` of Message

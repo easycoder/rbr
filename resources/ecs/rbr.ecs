@@ -69,7 +69,9 @@
     variable Script
     variable MyID
     variable MAC
+    variable Broker
     variable Password
+    variable Credentials
     variable SystemName
     variable SystemStatus
     variable CurrentProfile
@@ -160,13 +162,15 @@
     put `RBR-` cat random 999999 into MyID
     log `MyID = ` cat MyID
 
-    get Password from storage as `mqtt_password`
-    if Password is empty
+    rest get Credentials from `/credentials`
+    if Credentials is empty
     begin
-        put prompt `Enter MQTT password:` into Password
-        if Password is empty stop
-        put Password into storage as `mqtt_password`
+        log `Failed to load MQTT credentials`
+        stop
     end
+!    log Credentials
+    put property `broker` of Credentials into Broker
+    put property `password` of Credentials into Password
 
     init ServerTopic
         name `38:54:39:34:62:d7/request`
@@ -179,7 +183,7 @@
     mqtt
         token `rbr` Password
         id MyID
-        broker `rbrheating.duckdns.org`
+        broker Broker
         port 443
         subscribe MyTopic
 
