@@ -312,7 +312,7 @@ SelectOff:
 !	Select cancel
 SelectCancel:
     set style `visibility` of ModePanel to `hidden`
-    set property `request` of Result to `Redraw`
+    set property `request` of Result to empty
     exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

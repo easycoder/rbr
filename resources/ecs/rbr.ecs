@@ -331,7 +331,8 @@ SetupScreen:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Main Processing Task
 MainProcessingTask:
-!    log `Main Processing Task`
+    if Blocked stop
+    set Blocked
     gosub to Unmask
 
 	if not Redraw go to GetMap
@@ -350,13 +351,21 @@ GetMap:
         send to ServerTopic
             sender MyTopic
             action Prompt
-        if Prompt is not `first` stop
+        if Prompt is not `first`
+        begin
+            clear Blocked
+            stop
+        end
         put 50 into MQTTWait
         while ReceivedMessage is empty
         begin
             wait 10 ticks
             take 1 from MQTTWait
-            if MQTTWait is 0 stop
+            if MQTTWait is 0
+            begin
+                clear Blocked
+                stop
+            end
         end
     end
     put ReceivedMessage into Map
@@ -369,13 +378,18 @@ GetMap:
     	    get Map from storage as `map`
        	    continue
         end
-        else stop   ! No map, so no action needed
+        else
+        begin
+            clear Blocked
+            stop
+        end
     end
     put `refresh` into Prompt
 
     if Map is empty
     begin
     	log `Map is empty`
+        clear Blocked
     	stop
     end
     put Map into storage as `map`
@@ -391,6 +405,7 @@ GetMap:
         if SystemName is empty go to GetSystemName
     end
     
+ContinueAfterName:
     if property `calendar` of Map is `on` set style `display` of CalendarIcon to `block`
     else set style `display` of CalendarIcon to `none`
     set the content of Date to the day number
@@ -539,7 +554,7 @@ UpdateRooms:
             ! Render the Webson spec for a room
             if RoomWebson is empty
                 rest get RoomWebson from `resources/webson/room.json?v=` cat now
-            		or go to HandleRestError
+            		or go to HandleInternalError
         	put RoomWebson into Webson
         	replace `/ROOM/` with RoomIndex in Webson
         	render Webson in MainPanel
@@ -549,32 +564,32 @@ UpdateRooms:
         attach ModeHolder to `room-` cat RoomIndex cat `-mode-holder` or
         begin
         	log `Can't find room-` cat RoomIndex cat `-mode-holder`
-        	stop
+        	go to HandleInternalError
         end
         attach RoomNamePanel to `room-name-` cat RoomIndex or
         begin
         	log `Can't find room-name-` cat RoomIndex
-        	stop
+        	go to HandleInternalError
         end
 		attach RoomTempPanel to `room-temp-` cat RoomIndex or
         begin
         	log `Can't find room-temp-` cat RoomIndex
-        	stop
+        	go to HandleInternalError
         end
         attach RoomToolsButton to `room-tools-` cat RoomIndex or
         begin
         	log `Can't find room-tools-` cat RoomIndex
-        	stop
+        	go to HandleInternalError
         end
         attach RoomStatusButton to `room-status-` cat RoomIndex or
         begin
         	log `Can't find room-status-` cat RoomIndex
-        	stop
+        	go to HandleInternalError
         end
         attach Snowflake to `room-snowflake-` cat RoomIndex or
         begin
         	log `Can't find room-snowflake-` cat RoomIndex
-        	stop
+        	go to HandleInternalError
         end
 
 		! Set the room name
@@ -684,7 +699,7 @@ UpdateRooms:
             clear ModeHolder
             if NoneWebson is empty
             rest get NoneWebson from `resources/webson/none.json?v=` cat now
-            	or go to HandleRestError
+            	or go to HandleInternalError
             put NoneWebson into Webson
             replace `/ROOM/` with RoomIndex in Webson
             render Webson in ModeHolder
@@ -696,28 +711,28 @@ UpdateRooms:
             begin
                 if TimedWebson is empty
                 	rest get TimedWebson from `resources/webson/timed.json?v=` cat now
-                		or go to HandleRestError
+                		or go to HandleInternalError
                 put TimedWebson into Webson
             end
             else if Mode is `boost`
             begin
                 if BoostWebson is empty
                 	rest get BoostWebson from `resources/webson/boost.json?v=` cat now
-                		or go to HandleRestError
+                		or go to HandleInternalError
                 put BoostWebson into Webson
             end
             else if Mode is `on`
             begin
                 if OnWebson is empty
                 	rest get OnWebson from `resources/webson/on.json?v=` cat now
-                		or go to HandleRestError
+                		or go to HandleInternalError
                 put OnWebson into Webson
             end
             else if Mode is `off`
             begin
                 if OffWebson is empty
                 	rest get OffWebson from `resources/webson/off.json?v=` cat now
-                		or go to HandleRestError
+                		or go to HandleInternalError
                 put OffWebson into Webson
             end
             replace `/ROOM/` with RoomIndex in Webson
@@ -853,7 +868,7 @@ UpdateRooms:
                 put the index of ModeButton into ClickIndex
                 if ModeScript is empty
                     rest get ModeScript from `resources/ecs/mode.ecs?v=` cat now
-            			or go to HandleRestError
+            			or go to HandleInternalError
     			put `{}` into Result
                 run ModeScript with MainPanel
                     and ModePanel
@@ -862,7 +877,12 @@ UpdateRooms:
                     and Map
                     and ClickIndex
                     and Result
-!                log Result
+                if property `Action` of Result is empty
+                begin
+                    gosub to Unmask
+                    clear Blocked
+                    stop
+                end
                 put `refresh` into Prompt
                 gosub to Unmask
                 set Redraw
@@ -890,7 +910,7 @@ ShowMenu:
 	clear MainPanel
     if MainMenuWebson is empty
         rest get MainMenuWebson from `resources/webson/mainmenu.json?v=` cat now
-            or go to HandleRestError
+            or go to HandleInternalError
     render MainMenuWebson in MainPanel
     attach SystemManagerButton to `button-systemmanager`
     attach AddButton to `button-add`
@@ -905,7 +925,7 @@ ShowMenu:
     on click AddButton
     begin
         rest get RoomSpec from `resources/json/newroomspec.json?v=` cat now
-            or go to HandleRestError
+            or go to HandleInternalError
         append RoomSpec to Rooms
     	clear MainPanel
         clear Blocked
@@ -952,7 +972,7 @@ DoSystemParameters:
 	set Blocked
     clear MainPanel
     rest get SysParamsWebson from `resources/webson/sysparams.json?v=` cat now
-        or go to HandleRestError
+        or go to HandleInternalError
     render SysParamsWebson in MainPanel
     
     attach ConfigButton to `button-config`
@@ -1042,14 +1062,15 @@ GSP2:
 ! 	Get the name of the system
 GetSystemName:
     set SystemName to `Un-named system`
-    stop
+    set the content of SystemNamePanel to SystemName
+    go to ContinueAfterName
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Configuration
 Configuration:
 	set Blocked
     rest get Script from `resources/ecs/config.ecs?v=` cat now
-    	or go to HandleRestError
+    	or go to HandleInternalError
     run Script with MAC and Password and Map and Result
     go to ProcessResult
 
@@ -1060,7 +1081,7 @@ GetRequestRelay:
     clear MainPanel
     if GetRequestWebson is empty
         rest get GetRequestWebson from `resources/webson/getrequest.json?v=` cat now
-            or go to HandleRestError
+            or go to HandleInternalError
     render GetRequestWebson in MainPanel
     attach Input to `getrequest-input`
     attach OKButton to `getrequest-ok`
@@ -1104,7 +1125,7 @@ CopySystemMap:
 	set Blocked
     clear MainPanel
     rest get Webson from `resources/webson/copysystemmap.json?v=` cat now
-        or go to HandleRestError
+        or go to HandleInternalError
     render Webson in MainPanel
     attach Input to `copymap-input`
     attach OKButton to `copymap-ok`
@@ -1116,9 +1137,9 @@ CopySystemMap:
         clear Blocked
         set Redraw
         if the content of Input is empty stop
-        rest get Config from `resources/php/rest.php/config/` cat the content of Input or go to HandleRestError
-        rest post Config to `resources/php/rest.php/config/` cat MAC cat `/` cat Password or go to HandleRestError
-        rest get Map from `resources/php/rest.php/map/` cat the content of Input or go to HandleRestError
+        rest get Config from `resources/php/rest.php/config/` cat the content of Input or go to HandleInternalError
+        rest post Config to `resources/php/rest.php/config/` cat MAC cat `/` cat Password or go to HandleInternalError
+        rest get Map from `resources/php/rest.php/map/` cat the content of Input or go to HandleInternalError
         put `{}` into RequestData
         set property `action` of RequestData to `map`
         set property `map` of RequestData to Map
@@ -1178,7 +1199,7 @@ RoomTools:
 	clear MainPanel
     if RoomToolsMenuWebson is empty
         rest get RoomToolsMenuWebson from `resources/webson/roomtoolsmenu.json?v=` cat now
-            or go to HandleRestError
+            or go to HandleInternalError
     render RoomToolsMenuWebson in MainPanel
     put element ClickIndex of Rooms into RoomSpec
     put property `name` of RoomSpec into Name
@@ -1196,7 +1217,7 @@ Backup:
     attach DialogPanel to `dialog-panel`
     if DialogWebson is empty
         rest get DialogWebson from `resources/webson/dialog-confirm.json?v=` cat now
-            or go to HandleRestError
+            or go to HandleInternalError
     render DialogWebson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
@@ -1231,7 +1252,7 @@ Restore:
     attach DialogPanel to `dialog-panel`
     if DialogWebson is empty
         rest get DialogWebson from `resources/webson/dialog-confirm.json?v=` cat now
-            or go to HandleRestError
+            or go to HandleInternalError
     render DialogWebson in DialogPanel
     attach DialogTitle to `dialog-title`
     attach DialogText to `dialog-text`
@@ -1277,7 +1298,7 @@ Statistics:
     set style `display` of OuterPanel to `none`
     set style `display` of StatisticsPanel to `block`
     rest get Script from `resources/ecs/statistics.ecs?v=` cat now
-        or go to HandleRestError
+        or go to HandleInternalError
     run Script with StatisticsPanel and Map
     log `Statistics finished`
     set style `display` of OuterPanel to `block`
@@ -1316,8 +1337,8 @@ ProcessResult:
     gosub to ApplyLocalResult
     gosub to SendUIRequest
     wait 10 ticks
-    fork to MainProcessingTask
-    stop
+    clear Blocked
+    go to MainProcessingTask
 
 	put property `request` of Result into Request
     put property `data` of Result into RequestData
@@ -1352,7 +1373,13 @@ SendUIRequest:
         action `uirequest`
         message Result
         giving SendOK
-    if not SendOK log `WARNING: MQTT send failed (no broker acknowledgment)`
+    if not SendOK
+    begin
+        log `WARNING: MQTT send failed (no broker acknowledgment)`
+        alert `Request failed - please retry`
+        put `first` into Prompt
+    end
+    else log `MQTT OK`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1392,6 +1419,10 @@ ApplyLocalResult:
         set property `target` of RoomSpec to property `target` of Result
     else if property `Mode` of Result is `boost`
     begin
+        ! Save the previous mode so Cancel Boost can restore it
+        put property `mode` of RoomSpec into Value
+        if Value is not `boost`
+            set property `prevmode` of RoomSpec to Value
         put property `target` of Result into Value
         if Value is not empty
             if Value is not `undefined`
@@ -1423,6 +1454,12 @@ FlashHourglass:
 FH2:
     clear Flashing
     clear Waiting
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Handle an error in calling up a module
+HandleInternalError:
+	alert `An internal error occurred. Please refresh the page.`
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

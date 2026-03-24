@@ -641,8 +641,8 @@
                         "192.168.1.232",
                         "192.168.1.67"
                     ],
-                    "mode": "boost",
-                    "target": 21.5,
+                    "mode": "timed",
+                    "target": 22.5,
                     "events": [
                         {
                             "until": "17:30",
@@ -662,10 +662,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2120,
+                    "temperature": 2110,
                     "battery": 61,
                     "period": 0,
-                    "until": 1774356415257
+                    "until": 1774370136688
                 },
                 {
                     "name": "Sunroom",
@@ -693,7 +693,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2290,
+                    "temperature": 2210,
                     "battery": 44,
                     "ptemp": "",
                     "period": 1,
@@ -705,8 +705,8 @@
                     "relays": [
                         "Lounge"
                     ],
-                    "mode": "timed",
-                    "target": 17,
+                    "mode": "boost",
+                    "target": 22,
                     "events": [
                         {
                             "until": "09:00",
@@ -729,10 +729,11 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2090,
+                    "temperature": 2110,
                     "battery": 41,
-                    "relay": "off",
-                    "period": 1
+                    "relay": "on",
+                    "period": 1,
+                    "until": 1774370870473
                 },
                 {
                     "name": "Hall",
@@ -769,7 +770,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 2070,
+                    "temperature": 2090,
                     "battery": 42,
                     "period": 2
                 },
@@ -794,7 +795,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 1680,
+                    "temperature": 1850,
                     "battery": 58,
                     "advance": "-",
                     "period": 0,
@@ -835,7 +836,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 2320,
+                    "temperature": 2210,
                     "battery": 39,
                     "period": 2
                 },
@@ -874,7 +875,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196213,
-                    "temperature": 2130,
+                    "temperature": 2100,
                     "battery": 35,
                     "period": 0
                 },
@@ -895,7 +896,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196213,
-                    "temperature": 1270,
+                    "temperature": 1240,
                     "battery": 43,
                     "period": 0
                 }

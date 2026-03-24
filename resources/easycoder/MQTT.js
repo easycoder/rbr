@@ -130,6 +130,7 @@ const EasyCoder_MQTT = {
             this.chunkSize = 1024;      // Default chunk size
             this.lastSendTime = null;   // Time for last transmission
             this.connected = false;     // Ignore duplicate reconnect callbacks
+            this.pendingConfirms = {};  // {confirmId: {resolve, timer}}
         }
 
         create(program, token, clientID, broker, port, topics) {
@@ -269,6 +270,7 @@ const EasyCoder_MQTT = {
                                 this.message = completeMessage;
                             }
 
+                            if (this._handleConfirmResponse(this.message)) return;
                             this._queueProgramCallback(this.onMessagePC);
                         } else {
                             console.warn('Warning: Missing chunks for topic ' + topic);
@@ -294,6 +296,7 @@ const EasyCoder_MQTT = {
                 this.message = message;
             }
 
+            if (this._handleConfirmResponse(this.message)) return;
             this._queueProgramCallback(this.onMessagePC);
         }
 
@@ -305,6 +308,33 @@ const EasyCoder_MQTT = {
 
         getError() {
             return this.lastError || '';
+        }
+
+        // Check if an incoming message is a confirmation response.
+        // If so, resolve the pending promise and return true (consumed).
+        _handleConfirmResponse(msg) {
+            if (msg && msg.action === 'confirm' && msg._confirmId) {
+                const pending = this.pendingConfirms[msg._confirmId];
+                if (pending) {
+                    clearTimeout(pending.timer);
+                    delete this.pendingConfirms[msg._confirmId];
+                    pending.resolve(true);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Returns a Promise that resolves true when the controller confirms,
+        // or false on timeout.
+        waitForConfirm(confirmId, timeoutMs) {
+            return new Promise((resolve) => {
+                const timer = setTimeout(() => {
+                    delete this.pendingConfirms[confirmId];
+                    resolve(false);
+                }, timeoutMs);
+                this.pendingConfirms[confirmId] = { resolve, timer };
+            });
         }
 
         sendMessage(topic, message, qos, chunkSize) {
@@ -807,28 +837,27 @@ const EasyCoder_MQTT = {
 
             const topicName = topic.getName();
             // EasyCoder.writeToDebugConsole(`MQTT Publish to ${topicName} with QoS ${qos}: ${JSON.stringify(payload)}`);
-            program.mqttClient.sendMessage(topicName, JSON.stringify(payload), qos, 1024)
-                .then((ok) => {
-                    if (command.giving) {
+            if (command.giving) {
+                // Async: wait for end-to-end confirmation from the receiver
+                const confirmId = `c${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+                payload._confirmId = confirmId;
+                const confirmPromise = program.mqttClient.waitForConfirm(confirmId, 5000);
+                program.mqttClient.sendMessage(topicName, JSON.stringify(payload), qos, 1024);
+                confirmPromise
+                    .then((ok) => {
                         const target = program.getSymbolRecord(command.giving);
                         target.value[target.index] = {
                             type: 'boolean',
                             content: ok
                         };
-                    }
-                    program.run(command.pc + 1);
-                })
-                .catch(() => {
-                    if (command.giving) {
-                        const target = program.getSymbolRecord(command.giving);
-                        target.value[target.index] = {
-                            type: 'boolean',
-                            content: false
-                        };
-                    }
-                    program.run(command.pc + 1);
-                });
-            return 0;
+                        program.run(command.pc + 1);
+                    });
+                return 0;
+            } else {
+                // Fire-and-forget: don't wait for PUBACK
+                program.mqttClient.sendMessage(topicName, JSON.stringify(payload), qos, 1024);
+                return command.pc + 1;
+            }
         }
     },
 

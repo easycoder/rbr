@@ -941,7 +941,7 @@ log Message
         begin
             if Message has entry `Advance` put `Advance` into Value
             else if Message has entry `advance` put `advance` into Value
-            else clear Value
+            else put empty into Value
             if Value is not empty
             begin
                 ! Toggle the advance
