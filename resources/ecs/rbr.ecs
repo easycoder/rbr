@@ -126,6 +126,7 @@
     variable Flashing
     variable Flashes
     variable Value
+    variable SendOK
     variable NGood
     variable NBad
     variable FH
@@ -345,7 +346,7 @@ GetMap:
 !    else log `Get the map`
     if ReceivedMessage is empty
     begin
-        log `Send ` cat Prompt
+!        log `Send ` cat Prompt
         send to ServerTopic
             sender MyTopic
             action Prompt
@@ -803,10 +804,10 @@ UpdateRooms:
             else if Mode is `boost`
             begin
                 attach BoostName to `room-` cat RoomIndex cat `-mode-info`
-                put now into Now
-                put property `boost` of RoomSpec into Boost
-                if char 0 of Boost is not `B`
+                put property `until` of RoomSpec into Boost
+                if Boost is not empty
                 begin
+                    divide Boost by 1000
                     take the timestamp from Boost
                     divide Boost by 60
                     add 1 to Boost
@@ -862,7 +863,7 @@ UpdateRooms:
                     and ClickIndex
                     and Result
 !                log Result
-                put `first` into Prompt
+                put `refresh` into Prompt
                 gosub to Unmask
                 set Redraw
                 go to ProcessResult
@@ -938,6 +939,7 @@ ShowMenu:
     begin
     	clear MainPanel
         clear Blocked
+        put `first` into Prompt
         set Redraw
         stop
     end
@@ -1314,7 +1316,6 @@ ProcessResult:
     gosub to ApplyLocalResult
     gosub to SendUIRequest
     wait 10 ticks
-    clear Blocked
     fork to MainProcessingTask
     stop
 
@@ -1344,11 +1345,14 @@ ProcessResult:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
 SendUIRequest:
+    if property `Action` of Result is empty return
     log `Sending UI request to ServerTopic: ` cat Result
     send to ServerTopic
         sender MyTopic
         action `uirequest`
         message Result
+        giving SendOK
+    if not SendOK log `WARNING: MQTT send failed (no broker acknowledgment)`
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1368,6 +1372,7 @@ ApplyLocalResult:
     end
     if property `Action` of Result is not `Operating Mode` return
     put property `profiles` of Map into Profiles
+    if Profiles is empty return
     put property `profile` of Map into CurrentProfile
     if CurrentProfile is empty put 0 into CurrentProfile
     put element CurrentProfile of Profiles into Profile
@@ -1381,7 +1386,8 @@ ApplyLocalResult:
     set property `mode` of RoomSpec to property `Mode` of Result
     put property `advance` of Result into Value
     if Value is `A` set property `advance` of RoomSpec to Value
-    if Value is `C` set property `advance` of RoomSpec to Value
+    else if Value is `C` set property `advance` of RoomSpec to Value
+    else if Value is `-` set property `advance` of RoomSpec to `-`
     if property `Mode` of Result is `on`
         set property `target` of RoomSpec to property `target` of Result
     else if property `Mode` of Result is `boost`

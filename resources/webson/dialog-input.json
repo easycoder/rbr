@@ -25,6 +25,7 @@
     "$Input": {
         "#element": "input",
         "@id": "dialog-input",
+        "@autocomplete": "off",
         "width": "12em",
         "margin": "0 auto"
     },

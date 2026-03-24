@@ -333,6 +333,11 @@ SelectMode:
     begin
         set property `Boost` of Result to 0
     	clear BoostIsOn
+        ! If advance was active and this isn't an explicit DoAdvance call, cancel it
+        if property `advance` of Result is empty
+        begin
+            if Advance is `A` set property `advance` of Result to `-`
+        end
     end
     else if Mode is `on`
     begin
@@ -358,8 +363,13 @@ GetCurrentRooms:
 	put property `profile` of Map into CurrentProfile
     if CurrentProfile is empty put 0 into CurrentProfile
     put property `profiles` of Map into Profiles
+    if Profiles is empty
+    begin
+        log `Warning: Map profiles missing in GetCurrentRooms`
+        exit
+    end
     put element CurrentProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms        
+    put property `rooms` of Profile into Rooms
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Notes</title>
+    <script src="https://easycoder.github.io/dist/easycoder-min.js"></script>
+</head>
+<body>
+    <h1>My Notes</h1>
+    <textarea id="editor" rows="10" cols="50"></textarea><br>
+    <button id="save-btn">Save</button>
+    <button id="load-btn">Load</button>
+    <span id="status"></span>
+
+    <pre id="easycoder-script" style="display:none">
+        script Notes
+
+        textarea Editor
+        button SaveBtn
+        button LoadBtn
+        span Status
+        variable Content
+
+        attach Editor to `editor`
+        attach SaveBtn to `save-btn`
+        attach LoadBtn to `load-btn`
+        attach Status to `status`
+
+        on click SaveBtn
+        begin
+            put the content of Editor into Content
+            put Content into storage as `my-notes`
+            set the content of Status to `Saved`
+        end
+
+        on click LoadBtn
+        begin
+            get Content from storage as `my-notes`
+            set the content of Editor to Content
+            set the content of Status to `Loaded`
+        end
+        stop
+    </pre>
+</body>
+</html>

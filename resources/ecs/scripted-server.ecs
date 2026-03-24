@@ -17,6 +17,7 @@
     variable Content
     variable FileList
     variable Port
+    variable MimeType
     server Files
 
     put cwd into BaseDir
@@ -39,7 +40,7 @@
 
         if FullPath is `/list`
         begin
-            set FileList to files in BaseDir
+            set FileList to files in BaseDir type `ecs,md,txt,json,html,css,js`
             return FileList to Files
         end
         else if FullPath starts with `/read/`
@@ -67,6 +68,21 @@
         end
         else
         begin
-            return `Unknown command` to Files with status 404
+            ! Static file serving
+            put from 1 of FullPath into FilePath
+            if FilePath includes `..`
+            begin
+                return `Forbidden` to Files with status 403
+            end
+            if FilePath ends with `.html` put `text/html` into MimeType
+            else if FilePath ends with `.json` put `application/json` into MimeType
+            else if FilePath ends with `.ecs` put `text/plain` into MimeType
+            else if FilePath ends with `.js` put `application/javascript` into MimeType
+            else if FilePath ends with `.css` put `text/css` into MimeType
+            else put `text/plain` into MimeType
+            load Content from BaseDir cat `/` cat FilePath or begin
+                return `Not found` to Files with status 404
+            end
+            return Content to Files with type MimeType
         end
     end

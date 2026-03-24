@@ -11,7 +11,7 @@
                         "192.168.1.67"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 15,
                     "events": [
                         {
                             "until": "17:30",
@@ -53,14 +53,14 @@
                         "Sunroom"
                     ],
                     "mode": "timed",
-                    "target": 10.0,
+                    "target": 10,
                     "events": [
                         {
-                            "temp": 10.0,
+                            "temp": 10,
                             "until": "16:30"
                         },
                         {
-                            "temp": 23.0,
+                            "temp": 23,
                             "until": "23:00"
                         }
                     ],
@@ -93,7 +93,7 @@
                         "Lounge"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 15,
                     "events": [
                         {
                             "until": "09:00",
@@ -137,7 +137,7 @@
                         "Hall"
                     ],
                     "mode": "timed",
-                    "target": 13.0,
+                    "target": 13,
                     "events": [
                         {
                             "until": "07:00",
@@ -185,7 +185,7 @@
                         "Office"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "07:00",
@@ -220,22 +220,22 @@
                         "Main Bedroom"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 15,
                     "events": [
                         {
-                            "temp": 15.0,
+                            "temp": 15,
                             "until": "7:00"
                         },
                         {
-                            "temp": 21.0,
+                            "temp": 21,
                             "until": "9:00"
                         },
                         {
-                            "temp": 15.0,
+                            "temp": 15,
                             "until": "22:30"
                         },
                         {
-                            "temp": 21.0,
+                            "temp": 21,
                             "until": "23:30"
                         }
                     ],
@@ -268,7 +268,7 @@
                         "Guest Bedroom"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "06:10",
@@ -318,7 +318,7 @@
                     "sensor": "a4:c1:38:ad:9c:38",
                     "relays": [],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "protect": "yes",
@@ -349,7 +349,7 @@
                         "192.168.1.67"
                     ],
                     "mode": "timed",
-                    "target": 21.0,
+                    "target": 21,
                     "events": [
                         {
                             "until": "12:30",
@@ -389,7 +389,7 @@
                         "Sunroom"
                     ],
                     "mode": "timed",
-                    "target": 14.0,
+                    "target": 14,
                     "events": [
                         {
                             "until": "07:00",
@@ -424,7 +424,7 @@
                         "Lounge"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 15,
                     "events": [
                         {
                             "temp": "15.0",
@@ -456,7 +456,7 @@
                         "Hall"
                     ],
                     "mode": "timed",
-                    "target": 14.0,
+                    "target": 14,
                     "events": [
                         {
                             "temp": "13.0",
@@ -496,7 +496,7 @@
                         "Office"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "10:00",
@@ -516,7 +516,7 @@
                     "advance-rq": "-",
                     "status": "good",
                     "timestamp": 1774013854,
-                    "temperature": 25.0,
+                    "temperature": 25,
                     "battery": 59,
                     "advance": "-"
                 },
@@ -527,22 +527,22 @@
                         "Main Bedroom"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 15,
                     "events": [
                         {
-                            "temp": 15.0,
+                            "temp": 15,
                             "until": "8:00"
                         },
                         {
-                            "temp": 21.0,
+                            "temp": 21,
                             "until": "9:30"
                         },
                         {
-                            "temp": 15.0,
+                            "temp": 15,
                             "until": "22:30"
                         },
                         {
-                            "temp": 21.0,
+                            "temp": 21,
                             "until": "23:30"
                         }
                     ],
@@ -567,7 +567,7 @@
                         "Guest Bedroom"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "06:10",
@@ -608,7 +608,7 @@
                     "sensor": "a4:c1:38:ad:9c:38",
                     "relays": [],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "07:00",
@@ -641,8 +641,8 @@
                         "192.168.1.232",
                         "192.168.1.67"
                     ],
-                    "mode": "timed",
-                    "target": 15.0,
+                    "mode": "boost",
+                    "target": 21.5,
                     "events": [
                         {
                             "until": "17:30",
@@ -662,9 +662,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2180,
+                    "temperature": 2120,
                     "battery": 61,
-                    "period": 0
+                    "period": 0,
+                    "until": 1774356415257
                 },
                 {
                     "name": "Sunroom",
@@ -673,29 +674,30 @@
                         "Sunroom"
                     ],
                     "mode": "timed",
-                    "target": 10.0,
+                    "target": 25,
                     "events": [
                         {
-                            "temp": 10.0,
+                            "temp": 10,
                             "until": "16:30"
                         },
                         {
-                            "temp": 23.0,
+                            "temp": 23,
                             "until": "23:00"
                         }
                     ],
-                    "relay": "off",
+                    "relay": "on",
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "timed",
-                    "advance": "-",
+                    "advance": "A",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2360,
+                    "temperature": 2290,
                     "battery": 44,
                     "ptemp": "",
-                    "period": 1
+                    "period": 1,
+                    "until": 1774280288776
                 },
                 {
                     "name": "Lounge",
@@ -704,7 +706,7 @@
                         "Lounge"
                     ],
                     "mode": "timed",
-                    "target": 17.0,
+                    "target": 17,
                     "events": [
                         {
                             "until": "09:00",
@@ -727,10 +729,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2390,
+                    "temperature": 2090,
                     "battery": 41,
                     "relay": "off",
-                    "period": 2
+                    "period": 1
                 },
                 {
                     "name": "Hall",
@@ -739,22 +741,22 @@
                         "Hall"
                     ],
                     "mode": "timed",
-                    "target": 14.0,
+                    "target": 14,
                     "events": [
                         {
-                            "temp": 14.0,
+                            "temp": 14,
                             "until": "07:00"
                         },
                         {
-                            "temp": 17.0,
+                            "temp": 17,
                             "until": "09:00"
                         },
                         {
-                            "temp": 14.0,
+                            "temp": 14,
                             "until": "23:00"
                         },
                         {
-                            "temp": 19.0,
+                            "temp": 19,
                             "until": "23:00"
                         }
                     ],
@@ -767,7 +769,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 2260,
+                    "temperature": 2070,
                     "battery": 42,
                     "period": 2
                 },
@@ -778,7 +780,7 @@
                         "Office"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 15,
                     "events": [
                         {
                             "until": "07:00",
@@ -792,10 +794,11 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 1480,
+                    "temperature": 1680,
                     "battery": 58,
                     "advance": "-",
-                    "period": 0
+                    "period": 0,
+                    "until": 1774284020651
                 },
                 {
                     "name": "Main Bedroom",
@@ -804,22 +807,22 @@
                         "Main Bedroom"
                     ],
                     "mode": "timed",
-                    "target": 15.0,
+                    "target": 15,
                     "events": [
                         {
-                            "temp": 15.0,
+                            "temp": 15,
                             "until": "7:30"
                         },
                         {
-                            "temp": 21.0,
+                            "temp": 21,
                             "until": "9:00"
                         },
                         {
-                            "temp": 15.0,
+                            "temp": 15,
                             "until": "22:30"
                         },
                         {
-                            "temp": 21.0,
+                            "temp": 21,
                             "until": "23:30"
                         }
                     ],
@@ -832,7 +835,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 2340,
+                    "temperature": 2320,
                     "battery": 39,
                     "period": 2
                 },
@@ -843,7 +846,7 @@
                         "Guest Bedroom"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [
                         {
                             "until": "07:00",
@@ -871,7 +874,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196213,
-                    "temperature": 2170,
+                    "temperature": 2130,
                     "battery": 35,
                     "period": 0
                 },
@@ -880,7 +883,7 @@
                     "sensor": "a4:c1:38:ad:9c:38",
                     "relays": [],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "protect": "yes",
@@ -892,7 +895,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196213,
-                    "temperature": 1040,
+                    "temperature": 1270,
                     "battery": 43,
                     "period": 0
                 }
@@ -909,7 +912,7 @@
                         "192.168.1.67"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "protect": "no",
@@ -942,7 +945,7 @@
                         "Sunroom"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "protect": "no",
@@ -973,7 +976,7 @@
                         "Lounge"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relayType": "RBR-Now",
                     "protect": "no",
@@ -1004,7 +1007,7 @@
                         "Hall"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "relayType": "RBR-Now",
@@ -1035,7 +1038,7 @@
                         "Office"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "protect": "no",
@@ -1065,7 +1068,7 @@
                         "Main Bedroom"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "relayType": "RBR-Now",
@@ -1096,7 +1099,7 @@
                         "Guest Bedroom"
                     ],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "relayType": "RBR-Now",
@@ -1125,7 +1128,7 @@
                     "sensor": "a4:c1:38:ad:9c:38",
                     "relays": [],
                     "mode": "off",
-                    "target": 0.0,
+                    "target": 0,
                     "events": [],
                     "relay": "off",
                     "protect": "yes",

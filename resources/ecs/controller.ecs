@@ -44,6 +44,9 @@
     variable RelayType
     variable RelayState
     variable RelayStateWas
+    variable RequestState
+    variable RequestStateWas
+    variable RequestName
     variable EventCount
     variable LastMapSave
     variable MapHasChanged
@@ -138,12 +141,16 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main start point.
-    Start:
+Start:
     gosub to LoadMap
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into SelectedProfile
     if file `thermometers.json` exists load Thermometers from `thermometers.json`
     else reset Thermometers
+    if Map has entry `request` set RequestName to entry `request` of Map
+    else set RequestName to empty
+    set RequestState to `off`
+    set RequestStateWas to `off`
     gosub to ProcessAllRooms
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -166,7 +173,7 @@ MainLoop:
         if Map is empty gosub to LoadMap
         if MapHasChanged
         begin
-            log `Update map from MainLoop`
+!            log `Update map from MainLoop`
             gosub SendMapToUI
         end
     end
@@ -446,21 +453,17 @@ ProcessReply:
 !   Some heating systems have a "request relay" that turns the boiler on
 !   whenever at least one room is demanding heat.
 ProcessRequestRelay:
-    if Map has entry `request`
+    if RequestName is empty log `No request relay`
+    else
     begin
-        put entry `request` of Map into RoomName
-        if RoomName is empty log `No request relay`
-        else
-        begin
-            if HeatingRequested put `on` into RelayState else put `off` into RelayState
-            clear HeatingRequested
-!            log RoomName cat `: ` cat RelayState
-            reset RoomSpec
-            set entry `request` of RoomSpec to RoomName
-            set entry `relay state` of RoomSpec to RelayState
-            send RoomSpec to DeviceModule and assign reply to Replies
-            gosub to ProcessReply
-        end
+        if HeatingRequested put `on` into RelayState else put `off` into RelayState
+        clear HeatingRequested
+!        log RequestName cat `: ` cat RelayState
+        reset RoomSpec
+        set entry `request` of RoomSpec to RequestName
+        set entry `relay state` of RoomSpec to RelayState
+        send RoomSpec to DeviceModule and assign reply to Replies
+        gosub to ProcessReply
     end
     return
 
@@ -500,18 +503,31 @@ SetRelay:
         ! If the period or the relay state have changed, signal an immediate update,
         ! as any onliine UI needs to know right away
         ! otherwise just update the map and wait for the next update time
-        if PeriodActive is not PeriodWas
+        if PeriodActive is not PeriodWas and entry `advance` of Room is not `A`
         begin
-            ! log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
-            log `Force an update`
+!            log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow cat ` ` cat entry `advance` of Room
+            log `Force an update (period change)`
             gosub to ForceUpdate
         end
     end
-    if RelayState is not RelayStateWas
+    if RequestName is not empty
     begin
-        log RoomName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
-        set RelayStateWas to RelayState
-        gosub to ForceUpdate
+    	if RequestState is not RequestStateWas
+        begin
+        	log RequestName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
+        	set RequestStateWas to RequestState
+        	gosub to ForceUpdate
+        	set RequestStateWas to RequestState
+        end
+    end
+    else
+    	if RelayState is not RelayStateWas
+    	begin
+        	log RoomName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
+        	set RelayStateWas to RelayState
+        	gosub to ForceUpdate
+        	set RelayStateWas to RelayState
+        end
     end
 !    if RoomName is `Sunroom` log `Temp/Was: ` cat TempNow cat `/` cat TempWas
 
@@ -531,7 +547,7 @@ UpdateMap:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Force an update now. This will short-circuit the 10-second main loop
 ForceUpdate:
-    log `Force an immediate update`
+!    log `Force an immediate update`
     set ImmediateUpdate
     set MapHasChanged
     return
@@ -746,6 +762,7 @@ ResolveRoomFromMessage:
 !   Action aliases accepted for compatibility:
 !   `request` -> `Request Relay`, `addroom` -> `Add Room`, `periods` -> `Periods`.
 ProcessUIRequest:
+log Message
     ! Legacy UI modules may still send {request:`Update`, data:{...}}.
     ! Unwrap only when there is no direct Action/action field.
     if Message does not have entry `Action`
@@ -858,6 +875,7 @@ ProcessUIRequest:
         end
         log `Select profile ` cat SelectedProfile
         set entry `profile` of Map to SelectedProfile
+        log `Force an update (select profile)`
         gosub to ForceUpdate
         ! This recursive call is needed to ensure the UI updates immediately
         gosub to ProcessAllRooms
@@ -867,6 +885,7 @@ ProcessUIRequest:
         if Message has entry `profiles`
         begin
             set entry `profiles` of Map to entry `profiles` of Message
+            put entry `profiles` of Map into Profiles
             log `Updated profiles list`
         end
         if Message has entry `profile`
@@ -879,6 +898,7 @@ ProcessUIRequest:
             set entry `calendar` of Map to entry `calendar` of Message
         if Message has entry `calendar-data`
             set entry `calendar-data` of Map to entry `calendar-data` of Message
+        log `Force an update (profile change)`
         gosub to ForceUpdate
         gosub to ProcessAllRooms
     end
@@ -937,7 +957,7 @@ ProcessUIRequest:
                     log RoomName cat ` cancel Advance`
                     set entry `advance` of Room to `-`
                 end
-                log `Force an update`
+                log `Force an update (timed mode)`
                 gosub to ForceUpdate
             end
         end
@@ -975,7 +995,7 @@ ProcessUIRequest:
         put item SelectedProfile of Profiles into Profile
         put entry `rooms` of Profile into Rooms
         put item RoomIndex of Rooms into RoomSpec
-!        if Mode is not `timed` or Value is empty gosub to ForceUpdate
+        if Mode is not `timed` or Value is empty gosub to ForceUpdate
     end
     else if Action is `Periods`
     begin
@@ -997,7 +1017,7 @@ ProcessUIRequest:
         log `Set the periods of ` cat entry `name` of Room cat ` to ` cat newline cat Value2
         set entry `events` of Room to Value2
         gosub to UpdateRooms
-        log `Force an update`
+        log `Force an update (Periods)`
         gosub to ForceUpdate
     end
     else log `UIRequest rejected: unsupported action ` cat Action
