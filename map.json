@@ -662,7 +662,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2200,
+                    "temperature": 2140,
                     "battery": 61,
                     "period": 0,
                     "until": 1774370136688
@@ -693,10 +693,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2360,
+                    "temperature": 2250,
                     "battery": 44,
                     "ptemp": "",
-                    "period": 1,
+                    "period": 0,
                     "until": 1774280288776
                 },
                 {
@@ -728,10 +728,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2620,
+                    "temperature": 2510,
                     "battery": 41,
                     "relay": "off",
-                    "period": 2
+                    "period": 0
                 },
                 {
                     "name": "Hall",
@@ -768,9 +768,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 2350,
+                    "temperature": 2270,
                     "battery": 42,
-                    "period": 2
+                    "period": 0
                 },
                 {
                     "name": "Office",
@@ -793,7 +793,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 740,
+                    "temperature": 560,
                     "battery": 58,
                     "advance": "-",
                     "period": 0,
@@ -834,9 +834,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 2220,
+                    "temperature": 2190,
                     "battery": 39,
-                    "period": 2
+                    "period": 3
                 },
                 {
                     "name": "Guest Bedroom",
@@ -873,7 +873,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196213,
-                    "temperature": 2180,
+                    "temperature": 2170,
                     "battery": 35,
                     "period": 0
                 },
@@ -894,7 +894,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196213,
-                    "temperature": 550,
+                    "temperature": 470,
                     "battery": 43,
                     "period": 0
                 }
