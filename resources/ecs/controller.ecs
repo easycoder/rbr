@@ -5,6 +5,7 @@
     use mqtt
 
     dictionary Credentials
+    dictionary CredDict
     dictionary Map
     dictionary Profile
     dictionary Room
@@ -64,6 +65,9 @@
     variable SenderQoS
     variable SenderKey
     variable Reply
+    variable Broker
+    variable Username
+    variable Password
     variable MyID
     variable Action
     variable Mode
@@ -107,26 +111,40 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
-    get Credentials from url `https://rbrheating.com/credentials.php`
-    if Credentials is empty
+	if file `credentials` exists load Credentials from `credentials`
+    else
     begin
-        log `Failed to load MQTT credentials`
-        exit
+	    get Credentials from url `https://rbrheating.com/credentials.php`
+    	    or go to NoCredentials
     end
-    put entry `password` of Credentials into MQTT_Token
-    put entry `broker` of Credentials into Value
+    put json Credentials into CredDict
+    put entry `broker` of CredDict into Broker
+    put entry `username` of CredDict into Username
+    put entry `password` of CredDict into Password
+    put entry `serverID` of CredDict into MyID
 
-    load MyID from `../../serverID`
-    set MyID to trim MyID
-    log `My ID is ` cat MyID
+    log `Broker is ` cat Broker
+    log `Username is ` cat Username
+    log `Password is ` cat Password
+    log `MyID is ` cat MyID
+
+    ! Register controller with the server
+    variable PairMAC
+    variable PairResult
+    put the position of `/` in MyID into PairMAC
+    put left PairMAC of MyID into PairMAC
+    get PairResult from url `https://rbrheating.com/pair/` cat PairMAC
+    log `Pair result: ` cat PairResult
+
+    ! Set up MQTT
     init ServerTopic
         name MyID
         qos 1
 
     mqtt
-        token `rbr` MQTT_Token
+        token Username Password
         id uuid
-        broker Value
+        broker Broker
         port 8883
         subscribe ServerTopic
     

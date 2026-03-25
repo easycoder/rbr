@@ -1,0 +1,291 @@
+!	Login / Registration module for RBR Heating
+!	This script handles user authentication before the main UI loads.
+!	It is run by rbr.ecs when the hostname is not localhost.
+
+	script Login
+
+    div LoginScreen
+    div LoginPanel
+    div RegisterPanel
+    div VerifyPanel
+    div PairPanel
+    div RecoverPanel
+    div MessagePanel
+    input LoginMAC
+    input LoginPassword
+    input RegisterMAC
+    input RegisterEmail
+    input VerifyCode
+    input RecoverMAC
+    input RecoverEmail
+    button LoginButton
+    button ShowRegisterButton
+    button ShowRecoverButton
+    button RegisterButton
+    button RegisterBackButton
+    button VerifyButton
+    button VerifyBackButton
+    button PairButton
+    button RecoverButton
+    button RecoverBackButton
+    div PairStatus
+    variable LoginWebson
+    variable Response
+    variable MAC
+    variable Password
+    variable Value
+
+!   The server URL is passed to us by the parent script
+    rest get LoginWebson from `resources/webson/login.json?v=` cat now
+        or go to LoginError
+
+    create LoginScreen
+    render LoginWebson in LoginScreen
+
+    attach LoginPanel to `login-panel`
+    attach RegisterPanel to `register-panel`
+    attach VerifyPanel to `verify-panel`
+    attach PairPanel to `pair-panel`
+    attach RecoverPanel to `recover-panel`
+    attach MessagePanel to `login-message`
+    attach LoginMAC to `login-mac`
+    attach LoginPassword to `login-password`
+    attach RegisterMAC to `register-mac`
+    attach RegisterEmail to `register-email`
+    attach VerifyCode to `verify-code`
+    attach RecoverMAC to `recover-mac`
+    attach RecoverEmail to `recover-email`
+    attach LoginButton to `login-button`
+    attach ShowRegisterButton to `show-register-button`
+    attach ShowRecoverButton to `show-recover-button`
+    attach RegisterButton to `register-button`
+    attach RegisterBackButton to `register-back-button`
+    attach VerifyButton to `verify-button`
+    attach VerifyBackButton to `verify-back-button`
+    attach PairButton to `pair-button`
+    attach RecoverButton to `recover-button`
+    attach RecoverBackButton to `recover-back-button`
+    attach PairStatus to `pair-status`
+
+!   Check if we already have saved credentials
+    get MAC from storage as `rbr-mac`
+    if MAC is `null` clear MAC
+    if MAC is `undefined` clear MAC
+    get Password from storage as `rbr-password`
+    if Password is `null` clear Password
+    if Password is `undefined` clear Password
+
+    if MAC is not empty
+    begin
+        if Password is not empty go to DoVerify
+    end
+
+!   No saved credentials - show register panel for new users
+    go to ShowRegister
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show login panel
+ShowLogin:
+    set style `display` of LoginPanel to `block`
+    set style `display` of RegisterPanel to `none`
+    set style `display` of VerifyPanel to `none`
+    set style `display` of PairPanel to `none`
+    set style `display` of RecoverPanel to `none`
+    set the content of MessagePanel to ``
+
+    on click LoginButton go to DoLogin
+    on click ShowRegisterButton go to ShowRegister
+    on click ShowRecoverButton go to ShowRecover
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Login
+DoLogin:
+    put the text of LoginMAC into MAC
+    put the text of LoginPassword into Password
+    if MAC is empty
+    begin
+        set the content of MessagePanel to `Please enter a MAC address`
+        stop
+    end
+    if Password is empty
+    begin
+        set the content of MessagePanel to `Please enter a password`
+        stop
+    end
+    go to DoVerify
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Verify credentials with the server
+DoVerify:
+    set the content of MessagePanel to `Checking credentials...`
+    rest post `{"mac":"` cat MAC cat `","password":"` cat Password cat `"}` to `/verify` giving Response
+    if Response is empty
+    begin
+        set the content of MessagePanel to `Server not responding`
+        go to ShowLogin
+    end
+    if property `ok` of Response is not true
+    begin
+        set the content of MessagePanel to `Invalid MAC address or password`
+        clear MAC
+        clear Password
+        put `` into storage as `rbr-mac`
+        put `` into storage as `rbr-password`
+        go to ShowLogin
+    end
+!   Success - save credentials and proceed
+    put MAC into storage as `rbr-mac`
+    put Password into storage as `rbr-password`
+
+!   Check if controller is paired
+    if property `controller_paired` of Response is not true go to ShowPair
+
+!   All good - remove login screen and let parent continue
+    clear LoginScreen
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show register panel
+ShowRegister:
+    set style `display` of LoginPanel to `none`
+    set style `display` of RegisterPanel to `block`
+    set style `display` of VerifyPanel to `none`
+    set style `display` of PairPanel to `none`
+    set style `display` of RecoverPanel to `none`
+    set the content of MessagePanel to ``
+
+    on click RegisterButton go to DoRegister
+    on click RegisterBackButton go to ShowLogin
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Register
+DoRegister:
+    put the text of RegisterMAC into MAC
+    put the text of RegisterEmail into Value
+    if MAC is empty
+    begin
+        set the content of MessagePanel to `Please enter a MAC address`
+        stop
+    end
+    if Value is empty
+    begin
+        set the content of MessagePanel to `Please enter an email address`
+        stop
+    end
+    set the content of MessagePanel to `Registering...`
+    rest post `{"mac":"` cat MAC cat `","email":"` cat Value cat `"}` to `/register` giving Response
+    if Response is empty
+    begin
+        set the content of MessagePanel to `Server not responding`
+        stop
+    end
+    if property `error` of Response is not empty
+    begin
+        set the content of MessagePanel to property `error` of Response
+        stop
+    end
+!   Registration succeeded - show verify panel
+    go to ShowVerifyCode
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show verify code panel
+ShowVerifyCode:
+    set style `display` of LoginPanel to `none`
+    set style `display` of RegisterPanel to `none`
+    set style `display` of VerifyPanel to `block`
+    set style `display` of PairPanel to `none`
+    set style `display` of RecoverPanel to `none`
+    set the content of MessagePanel to ``
+
+    on click VerifyButton go to DoVerifyCode
+    on click VerifyBackButton go to ShowLogin
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Verify the emailed code
+DoVerifyCode:
+    put the text of VerifyCode into Password
+    if Password is empty
+    begin
+        set the content of MessagePanel to `Please enter the code from your email`
+        stop
+    end
+    go to DoVerify
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show pair panel
+ShowPair:
+    set style `display` of LoginPanel to `none`
+    set style `display` of RegisterPanel to `none`
+    set style `display` of VerifyPanel to `none`
+    set style `display` of PairPanel to `block`
+    set style `display` of RecoverPanel to `none`
+    set the content of MessagePanel to ``
+
+    on click PairButton go to DoPairCheck
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Check if controller has paired
+DoPairCheck:
+    set the content of PairStatus to `Checking...`
+    rest post `{"mac":"` cat MAC cat `","password":"` cat Password cat `"}` to `/verify` giving Response
+    if Response is empty
+    begin
+        set the content of PairStatus to `Server not responding`
+        stop
+    end
+    if property `controller_paired` of Response is not true
+    begin
+        set the content of PairStatus to `Controller not detected yet. Make sure it is powered on and connected to the internet, then try again.`
+        stop
+    end
+!   Paired - remove login screen and let parent continue
+    clear LoginScreen
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Show recover panel
+ShowRecover:
+    set style `display` of LoginPanel to `none`
+    set style `display` of RegisterPanel to `none`
+    set style `display` of VerifyPanel to `none`
+    set style `display` of PairPanel to `none`
+    set style `display` of RecoverPanel to `block`
+    set the content of MessagePanel to ``
+
+    on click RecoverButton go to DoRecover
+    on click RecoverBackButton go to ShowLogin
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Recover password
+DoRecover:
+    put the text of RecoverMAC into MAC
+    put the text of RecoverEmail into Value
+    if MAC is empty
+    begin
+        set the content of MessagePanel to `Please enter a MAC address`
+        stop
+    end
+    if Value is empty
+    begin
+        set the content of MessagePanel to `Please enter your email address`
+        stop
+    end
+    set the content of MessagePanel to `Sending...`
+    rest post `{"mac":"` cat MAC cat `","email":"` cat Value cat `"}` to `/recover` giving Response
+    if Response is empty
+    begin
+        set the content of MessagePanel to `Server not responding`
+        stop
+    end
+    set the content of MessagePanel to `If that MAC and email match our records, a new password has been sent. Check your email.`
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+LoginError:
+    log `Failed to load login screen`
+    stop

@@ -69,9 +69,6 @@
     variable Script
     variable MyID
     variable MAC
-    variable Broker
-    variable Password
-    variable Credentials
     variable SystemName
     variable SystemStatus
     variable CurrentProfile
@@ -159,21 +156,63 @@
 !    debug step
 
 !   Set up MQTT
+
+    variable Credentials
+    variable Broker
+    variable Username
+    variable Password
+    variable ServerID
+
+    if the hostname is `localhost`
+    begin
+        if the location includes `?login` go to DoLogin
+        get Broker from storage as `dev-broker`
+        if Broker is `null` clear Broker
+        if Broker is `undefined` clear Broker
+        get Username from storage as `dev-username`
+        if Username is `null` clear Username
+        if Username is `undefined` clear Username
+        get Password from storage as `dev-password`
+        if Password is `null` clear Password
+        if Password is `undefined` clear Password
+        get ServerID from storage as `dev-serverID`
+        if ServerID is `null` clear ServerID
+        if ServerID is `undefined` clear ServerID
+        if Broker is empty
+        begin
+            put prompt `Dev credentials:` cat newline cat `MQTT Broker URL:` into Broker
+            put prompt `Dev credentials:` cat newline cat `Username:` into Username
+            put prompt `Dev credentials:` cat newline cat `Password:` into Password
+            put prompt `Dev credentials:` cat newline cat `Server ID (MQTT request topic):` into ServerID
+            if Broker is empty go to AbandonShip
+            put Broker into storage as `dev-broker`
+            put Username into storage as `dev-username`
+            put Password into storage as `dev-password`
+            put ServerID into storage as `dev-serverID`
+        end
+        go to MQTTReady
+    end
+
+DoLogin:
+!   Run login/registration flow - exits back here when authenticated
+    variable LoginScript
+    rest get LoginScript from `resources/ecs/login.ecs?v=` cat now
+    run LoginScript
+!   User is now authenticated - get MQTT credentials from server
+    rest get Credentials from `/credentials`
+        or go to AbandonShip
+    put property `broker` of Credentials into Broker
+    put property `username` of Credentials into Username
+    put property `password` of Credentials into Password
+    put property `serverID` of Credentials into ServerID
+
+MQTTReady:
+
     put `RBR-` cat random 999999 into MyID
     log `MyID = ` cat MyID
 
-    rest get Credentials from `/credentials`
-    if Credentials is empty
-    begin
-        log `Failed to load MQTT credentials`
-        stop
-    end
-!    log Credentials
-    put property `broker` of Credentials into Broker
-    put property `password` of Credentials into Password
-
-    init ServerTopic
-        name `38:54:39:34:62:d7/request`
+	init ServerTopic
+        name ServerID
         qos 1
 
     init MyTopic

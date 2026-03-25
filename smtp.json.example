@@ -1,0 +1,7 @@
+{
+    "host": "mail.dreamhost.com",
+    "port": 587,
+    "user": "noreply@rbrheating.com",
+    "password": "your-email-password",
+    "from": "RBR Heating <noreply@rbrheating.com>"
+}

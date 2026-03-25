@@ -1,0 +1,531 @@
+{
+    "#doc": "Login / Registration screen",
+    "#element": "div",
+    "@id": "login-screen",
+    "width": "100%",
+    "height": "100%",
+    "position": "relative",
+    "text-align": "center",
+    "display": "flex",
+    "flex-direction": "column",
+    "font-size": "<#parent_width/27>",
+    "#": ["$Banner", "$Content"],
+
+    "$Banner": {
+        "#element": "div",
+        "padding": "1em 0",
+        "border": "2px solid #328080",
+        "background-image": "linear-gradient(to bottom, rgba(255,150,150,1), rgba(150,200,255,1))",
+        "#": ["$Title", "$Subtitle"],
+
+        "$Title": {
+            "#element": "div",
+            "#content": "Room By Room",
+            "font-size": "2em",
+            "font-weight": "bold",
+            "user-select": "none",
+            "color": "#450"
+        },
+
+        "$Subtitle": {
+            "#element": "div",
+            "font-size": "75%",
+            "font-weight": "bold",
+            "font-family": "Arial, SansSerif",
+            "user-select": "none",
+            "color": "#066",
+            "#content": "Intelligent heating when and where you need it"
+        }
+    },
+
+    "$Content": {
+        "#element": "div",
+        "flex": 1,
+        "background": "white",
+        "padding": "1em",
+        "#": ["$LoginPanel", "$RegisterPanel", "$VerifyPanel", "$PairPanel", "$RecoverPanel", "$MessagePanel"],
+
+        "$LoginPanel": {
+            "#element": "div",
+            "@id": "login-panel",
+            "#": ["$Heading", "$MacField", "$PasswordField", "$LoginBtn", "$Sep", "$RegisterLink", "$RecoverLink"],
+
+            "$Heading": {
+                "#element": "div",
+                "#content": "Log in to your system",
+                "font-size": "1.2em",
+                "font-weight": "bold",
+                "margin-bottom": "1em",
+                "color": "#333"
+            },
+
+            "$MacField": {
+                "#element": "div",
+                "margin-bottom": "0.5em",
+                "#": ["$Label", "$Input"],
+                "$Label": {
+                    "#element": "div",
+                    "#content": "Controller ID:",
+                    "text-align": "left",
+                    "font-size": "0.8em",
+                    "color": "#666",
+                    "margin-bottom": "0.2em"
+                },
+                "$Input": {
+                    "#element": "input",
+                    "@id": "login-mac",
+                    "@type": "text",
+                    "@placeholder": "e.g. 38:54:39:34:62:d7",
+                    "width": "90%",
+                    "padding": "0.5em",
+                    "font-size": "1em",
+                    "border": "1px solid #ccc",
+                    "border-radius": "4px"
+                }
+            },
+
+            "$PasswordField": {
+                "#element": "div",
+                "margin-bottom": "1em",
+                "#": ["$Label", "$Help", "$Input"],
+                "$Label": {
+                    "#element": "div",
+                    "#content": "Password:",
+                    "text-align": "left",
+                    "font-size": "0.8em",
+                    "color": "#666",
+                    "margin-bottom": "0.2em"
+                },
+                "$Help": {
+                    "#element": "div",
+                    "#content": "The 6-digit code sent to you by email when you registered.",
+                    "text-align": "left",
+                    "font-size": "0.7em",
+                    "color": "#999",
+                    "margin-bottom": "0.3em"
+                },
+                "$Input": {
+                    "#element": "input",
+                    "@id": "login-password",
+                    "@type": "text",
+                    "@placeholder": "6-digit code",
+                    "width": "90%",
+                    "padding": "0.5em",
+                    "font-size": "1em",
+                    "border": "1px solid #ccc",
+                    "border-radius": "4px"
+                }
+            },
+
+            "$LoginBtn": {
+                "#element": "button",
+                "@id": "login-button",
+                "#content": "Log in",
+                "width": "60%",
+                "padding": "0.6em",
+                "font-size": "1em",
+                "font-weight": "bold",
+                "background": "#328080",
+                "color": "white",
+                "border": "none",
+                "border-radius": "4px",
+                "margin-bottom": "1em"
+            },
+
+            "$Sep": {
+                "#element": "hr",
+                "margin": "1em 0",
+                "border": "none",
+                "border-top": "1px solid #ddd"
+            },
+
+            "$RegisterLink": {
+                "#element": "button",
+                "@id": "show-register-button",
+                "#content": "Register a new system",
+                "width": "60%",
+                "padding": "0.5em",
+                "font-size": "0.9em",
+                "background": "white",
+                "color": "#328080",
+                "border": "1px solid #328080",
+                "border-radius": "4px",
+                "margin-bottom": "0.5em"
+            },
+
+            "$RecoverLink": {
+                "#element": "button",
+                "@id": "show-recover-button",
+                "#content": "Forgot password?",
+                "width": "60%",
+                "padding": "0.5em",
+                "font-size": "0.9em",
+                "background": "white",
+                "color": "#999",
+                "border": "1px solid #ddd",
+                "border-radius": "4px"
+            }
+        },
+
+        "$RegisterPanel": {
+            "#element": "div",
+            "@id": "register-panel",
+            "display": "none",
+            "#": ["$Heading", "$Welcome", "$MacField", "$EmailField", "$RegisterBtn", "$Sep", "$BackLink"],
+
+            "$Heading": {
+                "#element": "div",
+                "#content": "Welcome to RBR Heating",
+                "font-size": "1.2em",
+                "font-weight": "bold",
+                "margin-bottom": "0.5em",
+                "color": "#333"
+            },
+
+            "$Welcome": {
+                "#element": "div",
+                "#content": "To get started, enter your controller's ID and your email address. We will send you a 6-digit password to log in with.",
+                "font-size": "0.85em",
+                "color": "#666",
+                "margin-bottom": "1em"
+            },
+
+            "$MacField": {
+                "#element": "div",
+                "margin-bottom": "0.5em",
+                "#": ["$Label", "$Help", "$Input"],
+                "$Label": {
+                    "#element": "div",
+                    "#content": "Controller ID:",
+                    "text-align": "left",
+                    "font-size": "0.8em",
+                    "color": "#666",
+                    "margin-bottom": "0.2em"
+                },
+                "$Help": {
+                    "#element": "div",
+                    "#content": "This is printed on a label on your RBR controller unit.",
+                    "text-align": "left",
+                    "font-size": "0.7em",
+                    "color": "#999",
+                    "margin-bottom": "0.3em"
+                },
+                "$Input": {
+                    "#element": "input",
+                    "@id": "register-mac",
+                    "@type": "text",
+                    "@placeholder": "e.g. 38:54:39:34:62:d7",
+                    "width": "90%",
+                    "padding": "0.5em",
+                    "font-size": "1em",
+                    "border": "1px solid #ccc",
+                    "border-radius": "4px"
+                }
+            },
+
+            "$EmailField": {
+                "#element": "div",
+                "margin-bottom": "1em",
+                "#": ["$Label", "$Help", "$Input"],
+                "$Label": {
+                    "#element": "div",
+                    "#content": "Your email address:",
+                    "text-align": "left",
+                    "font-size": "0.8em",
+                    "color": "#666",
+                    "margin-bottom": "0.2em"
+                },
+                "$Help": {
+                    "#element": "div",
+                    "#content": "We will send your password here. It will not be used for anything else.",
+                    "text-align": "left",
+                    "font-size": "0.7em",
+                    "color": "#999",
+                    "margin-bottom": "0.3em"
+                },
+                "$Input": {
+                    "#element": "input",
+                    "@id": "register-email",
+                    "@type": "email",
+                    "@placeholder": "your@email.com",
+                    "width": "90%",
+                    "padding": "0.5em",
+                    "font-size": "1em",
+                    "border": "1px solid #ccc",
+                    "border-radius": "4px"
+                }
+            },
+
+            "$RegisterBtn": {
+                "#element": "button",
+                "@id": "register-button",
+                "#content": "Register",
+                "width": "60%",
+                "padding": "0.6em",
+                "font-size": "1em",
+                "font-weight": "bold",
+                "background": "#328080",
+                "color": "white",
+                "border": "none",
+                "border-radius": "4px",
+                "margin-bottom": "1em"
+            },
+
+            "$Sep": {
+                "#element": "hr",
+                "margin": "1em 0",
+                "border": "none",
+                "border-top": "1px solid #ddd"
+            },
+
+            "$BackLink": {
+                "#element": "button",
+                "@id": "register-back-button",
+                "#content": "Already registered? Log in",
+                "width": "60%",
+                "padding": "0.5em",
+                "font-size": "0.9em",
+                "background": "white",
+                "color": "#328080",
+                "border": "1px solid #328080",
+                "border-radius": "4px"
+            }
+        },
+
+        "$VerifyPanel": {
+            "#element": "div",
+            "@id": "verify-panel",
+            "display": "none",
+            "#": ["$Heading", "$Info", "$CodeField", "$VerifyBtn", "$BackLink"],
+
+            "$Heading": {
+                "#element": "div",
+                "#content": "Check your email",
+                "font-size": "1.2em",
+                "font-weight": "bold",
+                "margin-bottom": "0.5em",
+                "color": "#333"
+            },
+
+            "$Info": {
+                "#element": "div",
+                "@id": "verify-info",
+                "#content": "We have sent a 6-digit code to your email address. Enter it below.",
+                "font-size": "0.85em",
+                "color": "#666",
+                "margin-bottom": "1em"
+            },
+
+            "$CodeField": {
+                "#element": "div",
+                "margin-bottom": "1em",
+                "#": ["$Label", "$Input"],
+                "$Label": {
+                    "#element": "div",
+                    "#content": "Verification code:",
+                    "text-align": "left",
+                    "font-size": "0.8em",
+                    "color": "#666",
+                    "margin-bottom": "0.2em"
+                },
+                "$Input": {
+                    "#element": "input",
+                    "@id": "verify-code",
+                    "@type": "text",
+                    "@placeholder": "6-digit code",
+                    "width": "90%",
+                    "padding": "0.5em",
+                    "font-size": "1.2em",
+                    "text-align": "center",
+                    "letter-spacing": "0.3em",
+                    "border": "1px solid #ccc",
+                    "border-radius": "4px"
+                }
+            },
+
+            "$VerifyBtn": {
+                "#element": "button",
+                "@id": "verify-button",
+                "#content": "Verify",
+                "width": "60%",
+                "padding": "0.6em",
+                "font-size": "1em",
+                "font-weight": "bold",
+                "background": "#328080",
+                "color": "white",
+                "border": "none",
+                "border-radius": "4px",
+                "margin-bottom": "1em"
+            },
+
+            "$BackLink": {
+                "#element": "button",
+                "@id": "verify-back-button",
+                "#content": "Back to login",
+                "width": "60%",
+                "padding": "0.5em",
+                "font-size": "0.9em",
+                "background": "white",
+                "color": "#999",
+                "border": "1px solid #ddd",
+                "border-radius": "4px"
+            }
+        },
+
+        "$PairPanel": {
+            "#element": "div",
+            "@id": "pair-panel",
+            "display": "none",
+            "#": ["$Heading", "$Info", "$PairBtn", "$Status"],
+
+            "$Heading": {
+                "#element": "div",
+                "#content": "Connect your controller",
+                "font-size": "1.2em",
+                "font-weight": "bold",
+                "margin-bottom": "0.5em",
+                "color": "#333"
+            },
+
+            "$Info": {
+                "#element": "div",
+                "#content": "Your system is registered. Now power up your RBR controller and wait for it to connect, then click the button below.",
+                "font-size": "0.85em",
+                "color": "#666",
+                "margin-bottom": "1em"
+            },
+
+            "$PairBtn": {
+                "#element": "button",
+                "@id": "pair-button",
+                "#content": "My controller is powered up",
+                "width": "80%",
+                "padding": "0.6em",
+                "font-size": "1em",
+                "font-weight": "bold",
+                "background": "#328080",
+                "color": "white",
+                "border": "none",
+                "border-radius": "4px",
+                "margin-bottom": "1em"
+            },
+
+            "$Status": {
+                "#element": "div",
+                "@id": "pair-status",
+                "font-size": "0.85em",
+                "color": "#c00"
+            }
+        },
+
+        "$RecoverPanel": {
+            "#element": "div",
+            "@id": "recover-panel",
+            "display": "none",
+            "#": ["$Heading", "$Info", "$MacField", "$EmailField", "$RecoverBtn", "$BackLink"],
+
+            "$Heading": {
+                "#element": "div",
+                "#content": "Password recovery",
+                "font-size": "1.2em",
+                "font-weight": "bold",
+                "margin-bottom": "0.5em",
+                "color": "#333"
+            },
+
+            "$Info": {
+                "#element": "div",
+                "#content": "Enter your system MAC address and the email you registered with. We will send you a new password.",
+                "font-size": "0.85em",
+                "color": "#666",
+                "margin-bottom": "1em"
+            },
+
+            "$MacField": {
+                "#element": "div",
+                "margin-bottom": "0.5em",
+                "#": ["$Label", "$Input"],
+                "$Label": {
+                    "#element": "div",
+                    "#content": "System MAC address:",
+                    "text-align": "left",
+                    "font-size": "0.8em",
+                    "color": "#666",
+                    "margin-bottom": "0.2em"
+                },
+                "$Input": {
+                    "#element": "input",
+                    "@id": "recover-mac",
+                    "@type": "text",
+                    "@placeholder": "e.g. 38:54:39:34:62:d7",
+                    "width": "90%",
+                    "padding": "0.5em",
+                    "font-size": "1em",
+                    "border": "1px solid #ccc",
+                    "border-radius": "4px"
+                }
+            },
+
+            "$EmailField": {
+                "#element": "div",
+                "margin-bottom": "1em",
+                "#": ["$Label", "$Input"],
+                "$Label": {
+                    "#element": "div",
+                    "#content": "Email address:",
+                    "text-align": "left",
+                    "font-size": "0.8em",
+                    "color": "#666",
+                    "margin-bottom": "0.2em"
+                },
+                "$Input": {
+                    "#element": "input",
+                    "@id": "recover-email",
+                    "@type": "email",
+                    "@placeholder": "your@email.com",
+                    "width": "90%",
+                    "padding": "0.5em",
+                    "font-size": "1em",
+                    "border": "1px solid #ccc",
+                    "border-radius": "4px"
+                }
+            },
+
+            "$RecoverBtn": {
+                "#element": "button",
+                "@id": "recover-button",
+                "#content": "Send new password",
+                "width": "60%",
+                "padding": "0.6em",
+                "font-size": "1em",
+                "font-weight": "bold",
+                "background": "#328080",
+                "color": "white",
+                "border": "none",
+                "border-radius": "4px",
+                "margin-bottom": "1em"
+            },
+
+            "$BackLink": {
+                "#element": "button",
+                "@id": "recover-back-button",
+                "#content": "Back to login",
+                "width": "60%",
+                "padding": "0.5em",
+                "font-size": "0.9em",
+                "background": "white",
+                "color": "#999",
+                "border": "1px solid #ddd",
+                "border-radius": "4px"
+            }
+        },
+
+        "$MessagePanel": {
+            "#element": "div",
+            "@id": "login-message",
+            "font-size": "0.85em",
+            "color": "#c00",
+            "margin-top": "1em"
+        }
+    }
+}
