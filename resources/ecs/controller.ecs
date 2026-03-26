@@ -68,7 +68,7 @@
     variable Broker
     variable Username
     variable Password
-    variable MyID
+    variable MAC
     variable Action
     variable Mode
     variable Value
@@ -121,24 +121,21 @@
     put entry `broker` of CredDict into Broker
     put entry `username` of CredDict into Username
     put entry `password` of CredDict into Password
-    put entry `serverID` of CredDict into MyID
+    put entry `mac` of CredDict into MAC
 
     log `Broker is ` cat Broker
     log `Username is ` cat Username
     log `Password is ` cat Password
-    log `MyID is ` cat MyID
+    log `MAC is ` cat MAC
 
     ! Register controller with the server
-    variable PairMAC
     variable PairResult
-    put the position of `/` in MyID into PairMAC
-    put left PairMAC of MyID into PairMAC
-    get PairResult from url `https://rbrheating.com/pair/` cat PairMAC
+    get PairResult from url `https://rbrheating.com/pair/` cat MAC
     log `Pair result: ` cat PairResult
 
     ! Set up MQTT
     init ServerTopic
-        name MyID
+        name MAC
         qos 1
 
     mqtt
@@ -160,6 +157,10 @@
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   The main start point.
+NoCredentials:
+    log `Error: Unable to load credentials from file or server`
+    exit
+
 Start:
     gosub to LoadMap
     put entry `profiles` of Map into Profiles

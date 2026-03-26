@@ -68,7 +68,6 @@
     variable ModeScript
     variable Script
     variable MyID
-    variable MAC
     variable SystemName
     variable SystemStatus
     variable CurrentProfile
@@ -161,7 +160,7 @@
     variable Broker
     variable Username
     variable Password
-    variable ServerID
+    variable MAC
 
     if the hostname is `localhost`
     begin
@@ -175,20 +174,20 @@
         get Password from storage as `dev-password`
         if Password is `null` clear Password
         if Password is `undefined` clear Password
-        get ServerID from storage as `dev-serverID`
-        if ServerID is `null` clear ServerID
-        if ServerID is `undefined` clear ServerID
+        get MAC from storage as `dev-mac`
+        if MAC is `null` clear MAC
+        if MAC is `undefined` clear MAC
         if Broker is empty
         begin
             put prompt `Dev credentials:` cat newline cat `MQTT Broker URL:` into Broker
             put prompt `Dev credentials:` cat newline cat `Username:` into Username
             put prompt `Dev credentials:` cat newline cat `Password:` into Password
-            put prompt `Dev credentials:` cat newline cat `Server ID (MQTT request topic):` into ServerID
+            put prompt `Dev credentials:` cat newline cat `Controller MAC address:` into MAC
             if Broker is empty go to AbandonShip
             put Broker into storage as `dev-broker`
             put Username into storage as `dev-username`
             put Password into storage as `dev-password`
-            put ServerID into storage as `dev-serverID`
+            put MAC into storage as `dev-mac`
         end
         go to MQTTReady
     end
@@ -204,7 +203,7 @@ DoLogin:
     put property `broker` of Credentials into Broker
     put property `username` of Credentials into Username
     put property `password` of Credentials into Password
-    put property `serverID` of Credentials into ServerID
+    put property `mac` of Credentials into MAC
 
 MQTTReady:
 
@@ -212,7 +211,7 @@ MQTTReady:
     log `MyID = ` cat MyID
 
 	init ServerTopic
-        name ServerID
+        name MAC
         qos 1
 
     init MyTopic
