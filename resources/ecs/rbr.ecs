@@ -118,6 +118,7 @@
     variable Boost
     variable Advance
     variable Now
+    variable BannerClickTime
     variable UntilTime
     variable UntilTemp
     variable Waiting
@@ -326,6 +327,19 @@ SetupScreen:
     attach BannerMask to `banner-mask`
     attach TitleMask to `title-mask`
     attach Banner to `rbr-banner`
+    put 0 into BannerClickTime
+    on click Banner
+    begin
+        put now into Now
+        put Now into N
+        take BannerClickTime from N
+        if N is less than 2
+        begin
+            clear Blocked
+            go to Connected
+        end
+        put Now into BannerClickTime
+    end
     attach SystemTitlePanel to `system-title`
     attach SystemNamePanel to `system-name`
     attach MainPanel to `mainpanel`
@@ -923,7 +937,8 @@ UpdateRooms:
                 begin
                     gosub to Unmask
                     clear Blocked
-                    stop
+                    set Redraw
+                    go to MainProcessingTask
                 end
                 put `refresh` into Prompt
                 gosub to Unmask

@@ -107,7 +107,7 @@
     set LoopCount to 0
     set UpdateCount to 0
     set PriorityRoomIndex to -1
-    if not Simulate gosub to SetupSSH
+    if not Simulate and file `lock` exists gosub to SetupSSH
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
@@ -123,15 +123,15 @@
     put entry `password` of CredDict into Password
     put entry `mac` of CredDict into MAC
 
-    log `Broker is ` cat Broker
-    log `Username is ` cat Username
-    log `Password is ` cat Password
-    log `MAC is ` cat MAC
+!    log `Broker is ` cat Broker
+!    log `Username is ` cat Username
+!    log `Password is ` cat Password
+!    log `MAC is ` cat MAC
 
     ! Register controller with the server
     variable PairResult
     get PairResult from url `https://rbrheating.com/pair/` cat MAC
-    log `Pair result: ` cat PairResult
+!    log `Pair result: ` cat PairResult
 
     ! Set up MQTT
     init ServerTopic
@@ -179,7 +179,7 @@ Start:
 MainLoop:
     ! log `MainLoop`
     ! Keep refreshing the lock file. When we stop, the present system will take over.
-    if not Simulate save `lock` to SSH `/mnt/data/lock`
+    if not Simulate and file `lock` exists save `lock` to SSH `/mnt/data/lock`
     ! Wait for 5 seconds
     set WaitCounter to 50
     while WaitCounter is greater than 0
@@ -1136,6 +1136,7 @@ SendMessage:
 !   SSH is used here to send a 'halt' message to the system currently running 
 !   the heating, so as to avoid conflicts. It will eventually be removed
 SetupSSH:
+	log `Set up SSH to halt the old controller`
     set SSH
         host `192.168.1.214`
         user `linaro`
