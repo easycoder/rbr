@@ -1,1 +1,1 @@
-{"name": "Unnamed", "sensor": "", "relays": [], "mode": "off", "target": 20, "events": [{"until": "07:00", "temp": 15}], "relayType":"Manual", "protect": "no", "relay": "off"}
+{"name": "Unnamed", "sensor": "", "relays": [], "mode": "off", "target": 15, "events": [{"until": "07:00", "temp": 15}], "relayType": "none", "protect": "no", "relay": "off", "advance": "-", "boost": 0, "linked": "no", "status": "", "temperature": 0, "battery": 0, "responses": []}

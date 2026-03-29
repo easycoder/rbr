@@ -6,4 +6,6 @@ stats
 backup
 extras
 ESP
+map.json
+thermometers.json
 __pycache__/

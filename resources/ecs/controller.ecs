@@ -18,7 +18,6 @@
     dictionary Thermometer
     dictionary Temperatures
     dictionary RoomSpec
-    dictionary Data
     dictionary WaitForConfirmation
     queue MessageQueue
     list Profiles
@@ -28,8 +27,6 @@
     list Replies
     topic ServerTopic
     topic SenderTopic
-    ssh SSH
-    variable MQTT_Token
     variable RoomCount
     variable RoomName
     variable RoomIndex
@@ -73,7 +70,6 @@
     variable Mode
     variable Value
     variable Value2
-    variable Text
     variable ThermometerUpdate
     variable LoopCount
     variable UpdateCount
@@ -107,7 +103,6 @@
     set LoopCount to 0
     set UpdateCount to 0
     set PriorityRoomIndex to -1
-    if not Simulate and file `lock` exists gosub to SetupSSH
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Set up MQTT
@@ -165,7 +160,7 @@ Start:
     gosub to LoadMap
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into SelectedProfile
-    if file `thermometers.json` exists load Thermometers from `thermometers.json`
+    if file `../../thermometers.json` exists load Thermometers from `../../thermometers.json`
     else reset Thermometers
     if Map has entry `request` set RequestName to entry `request` of Map
     else set RequestName to empty
@@ -178,8 +173,6 @@ Start:
 !   It waits 5 seconds between runs. This can be adjusted but 5 seconds seems optimal.
 MainLoop:
     ! log `MainLoop`
-    ! Keep refreshing the lock file. When we stop, the present system will take over.
-    if not Simulate and file `lock` exists save `lock` to SSH `/mnt/data/lock`
     ! Wait for 5 seconds
     set WaitCounter to 50
     while WaitCounter is greater than 0
@@ -291,7 +284,7 @@ HandleMessages:
 !        log `Save the map`
         if Simulate save prettify Map to `map-sim.json` else save prettify Map to `../../map.json`
         put now into LastMapSave
-        if ThermometerUpdate save prettify Thermometers to `thermometers.json`
+        if ThermometerUpdate save prettify Thermometers to `../../thermometers.json`
     end
 
     ! If no messages have beeen received for 60 seconds, remove the sender from the list
@@ -360,7 +353,6 @@ ProcessAllRooms:
 !   Process a single room
 ProcessRoom:
     put entry `name` of Room into RoomName
-    put entry `target` of Room into TargetWas
     put entry `sensor` of Room into Sensor
     reset RoomSpec
 !    log `Process ` cat RoomName
@@ -544,9 +536,11 @@ SetRelay:
         if TempNow is not empty
         begin
             ! Apply 0.5 degree hysteresis to avoid relay chatter
+            ! Skip hysteresis when target has just changed so relay responds immediately
             put Target into T
-            if RelayStateWas is `on` add 50 to T else take 50 from T
+            if Target is TargetWas and RelayStateWas is not `on` take 50 from T
             if TempNow is less than T set RelayState to `on`
+            put Target into TargetWas
         end
     end
     set entry `relay` of Room to RelayState
@@ -568,24 +562,11 @@ SetRelay:
             gosub to ForceUpdate
         end
     end
-    if RequestName is not empty
+    if RelayState is not RelayStateWas
     begin
-    	if RequestState is not RequestStateWas
-        begin
-        	log RequestName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
-        	set RequestStateWas to RequestState
-        	gosub to ForceUpdate
-        	set RequestStateWas to RequestState
-        end
-    end
-    else
-    	if RelayState is not RelayStateWas
-    	begin
-        	log RoomName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
-        	set RelayStateWas to RelayState
-        	gosub to ForceUpdate
-        	set RelayStateWas to RelayState
-        end
+        log RoomName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
+        put RelayState into RelayStateWas
+        gosub to ForceUpdate
     end
 !    if RoomName is `Sunroom` log `Temp/Was: ` cat TempNow cat `/` cat TempWas
 
@@ -733,6 +714,7 @@ ConvertTempToInt:
         multiply T by 100
         increment I
         put the value of from I of Temp into Temp
+        if Temp is less than 10 multiply Temp by 10
         add T to Temp
     end
     return
@@ -810,6 +792,7 @@ ResolveRoomFromMessage:
 !   - `System Name`: `System Name` or `name`
 !   - `Request Relay`: `Request Relay` or `request`
 !   - `Add Room`: `Add Room` or `spec` (optional request relay field)
+!   - `Update Rooms`: `rooms` (full replacement array, used by delete/reorder)
 !   - `Select Profile`: `Profile` (legacy: `Select Profile`)
 !   - `Update Profiles`: `profiles`, `profile`, optional `calendar`, `calendar-data`
 !   - `Operating Mode`: room ref (`Room` | `room name` | `roomnumber`) and `Mode`|`mode`
@@ -867,6 +850,8 @@ log Message
     else if Value is `request` put `Request Relay` into Action
     else if Value is `add room` put `Add Room` into Action
     else if Value is `addroom` put `Add Room` into Action
+    else if Value is `rooms` put `Update Rooms` into Action
+    else if Value is `update rooms` put `Update Rooms` into Action
     else if Value is `select profile` put `Select Profile` into Action
     else if Value is `update profiles` put `Update Profiles` into Action
     else if Value is `operating mode` put `Operating Mode` into Action
@@ -910,17 +895,31 @@ log Message
             set entry `request` of Map to Value
             log `Set the request relay to ` cat entry `request` of Map
         end
-        if Message has entry `Add Room` put entry `Add Room` of Message into Room
-        else if Message has entry `spec` put entry `spec` of Message into Room
+        if Message has entry `Add Room` put entry `Add Room` of Message into RoomSpec
+        else if Message has entry `spec` put entry `spec` of Message into RoomSpec
         else
         begin
             log `UIRequest rejected: Add Room needs Add Room/spec`
             return
         end
-        log `Add room ` cat entry `name` of Room
-        append Room to Rooms
-        set entry `rooms` of Profile to Rooms
-        gosub to UpdateProfiles
+        log `Add room ` cat entry `name` of RoomSpec
+        append RoomSpec to Rooms
+        gosub to UpdateProfile
+        gosub to ForceUpdate
+    end
+    else if Action is `Update Rooms`
+    begin
+        if Message has entry `rooms` put entry `rooms` of Message into Rooms
+        else
+        begin
+            log `UIRequest rejected: Update Rooms needs rooms`
+            return
+        end
+        log `Update rooms list (` cat the count of Rooms cat ` rooms)`
+        gosub to UpdateProfile
+        log `Force an update (Update Rooms)`
+        gosub to ForceUpdate
+        gosub to ProcessAllRooms
     end
     else if Action is `Select Profile`
     begin
@@ -1130,21 +1129,4 @@ SendMessage:
         action Action
         message MessageText
     clear ConfirmationRequested
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   SSH is used here to send a 'halt' message to the system currently running 
-!   the heating, so as to avoid conflicts. It will eventually be removed
-SetupSSH:
-	log `Set up SSH to halt the old controller`
-    set SSH
-        host `192.168.1.214`
-        user `linaro`
-        password `r00m8Yr00m`
-    if error in SSH
-    begin
-        log `SSH error: ` cat the error of SSH
-        stop
-    end
-    log `SSH set up successfully`
     return

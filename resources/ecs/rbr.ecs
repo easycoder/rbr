@@ -201,15 +201,20 @@ DoLogin:
 !   User is now authenticated - get MQTT credentials from server
     rest get Credentials from `/credentials`
         or go to AbandonShip
+!    log Credentials
     put property `broker` of Credentials into Broker
     put property `username` of Credentials into Username
     put property `password` of Credentials into Password
     put property `mac` of Credentials into MAC
+    if MAC is empty put property `serverID` of Credentials into MAC
 
 MQTTReady:
 
     put `RBR-` cat random 999999 into MyID
-    log `MyID = ` cat MyID
+!    log `Broker is ` cat Broker
+!    log `MAC is ` cat MAC
+!    log `Password is ` cat Password
+!    log `MyID is ` cat MyID
 
 	init ServerTopic
         name MAC
@@ -389,6 +394,7 @@ SetupScreen:
 MainProcessingTask:
     if Blocked stop
     set Blocked
+    log `MainProcessingTask started`
     gosub to Unmask
 
 	if not Redraw go to GetMap
@@ -403,7 +409,7 @@ GetMap:
 !    else log `Get the map`
     if ReceivedMessage is empty
     begin
-!        log `Send ` cat Prompt
+        log `Send ` cat Prompt
         send to ServerTopic
             sender MyTopic
             action Prompt
@@ -419,13 +425,14 @@ GetMap:
             take 1 from MQTTWait
             if MQTTWait is 0
             begin
+                log `Timeout waiting for controller response`
                 clear Blocked
                 stop
             end
         end
     end
     put ReceivedMessage into Map
-!    log `Got an updated map`
+    log `Got an updated map`
     if Map is empty
     begin
         if Prompt is `first`
@@ -981,17 +988,19 @@ ShowMenu:
 
     on click AddButton
     begin
-        rest get RoomSpec from `resources/json/newroomspec.json?v=` cat now
-            or go to HandleInternalError
-        append RoomSpec to Rooms
-    	clear MainPanel
-        clear Blocked
-        set Redraw
+        gosub to MaskScreen
         put `{}` into RequestData
+        rest get Value from `resources/json/newroomspec.json?v=` cat now
+            or go to HandleInternalError
         set property `action` of RequestData to `addroom`
-        set property `spec` of RequestData to RoomSpec
-        gosub to PostAndConfirm
-    	stop
+        set property `spec` of RequestData to Value
+        fork to PostAndConfirm
+        append Value to Rooms
+        gosub to CopyRoomsToMap
+    	clear MainPanel
+        set Redraw
+        clear Blocked
+        stop
     end
 
     on click BackupButton go to Backup
@@ -1251,13 +1260,14 @@ DoProfiles:
 ! 	The room tools
 RoomTools:
 	set Blocked
-    gosub to MaskMainPanel
+    gosub to MaskScreen
     wait 20 ticks ! to allow things to complete before running the editor!
 	clear MainPanel
     if RoomToolsMenuWebson is empty
         rest get RoomToolsMenuWebson from `resources/webson/roomtoolsmenu.json?v=` cat now
             or go to HandleInternalError
     render RoomToolsMenuWebson in MainPanel
+    gosub to Unmask
     put element ClickIndex of Rooms into RoomSpec
     put property `name` of RoomSpec into Name
 !    put property Name of Sensors into RoomSpec
@@ -1391,24 +1401,13 @@ Unmask:
 ProcessResult:
 !    log `Result: ` cat Result
     set Blocked
+    gosub to MaskScreen
     gosub to ApplyLocalResult
     gosub to SendUIRequest
-    wait 10 ticks
-    clear Blocked
-    go to MainProcessingTask
-
-	put property `request` of Result into Request
-    put property `data` of Result into RequestData
-    if Request is `Update`
-    begin
-    	gosub to PostAndConfirm
-    	clear MainPanel
-        clear Blocked
-        set Redraw
-        stop
-    end
+    put property `request` of Result into Request
     if Request is `Help`
     begin
+        put property `data` of Result into RequestData
         split RequestData on ` ` giving Result
         index Result to 0
         put Result into SID
@@ -1416,9 +1415,48 @@ ProcessResult:
         put Result into TID
         go to RunHelp
     end
-    if Request is `Redraw` set Redraw
+    if Request is `Update`
+    begin
+        put property `data` of Result into RequestData
+        put property `action` of RequestData into Value
+        ! Get the current rooms from the map
+        put property `profiles` of Map into Profiles
+        put element CurrentProfile of Profiles into Profile
+        put property `rooms` of Profile into Rooms
+        if Value is `rooms`
+            put property `rooms` of RequestData into Rooms
+        else if Value is `roomname`
+        begin
+            put element ClickIndex of Rooms into RoomSpec
+            set property `name` of RoomSpec to property `name` of RequestData
+            set element ClickIndex of Rooms to RoomSpec
+        end
+        else if Value is `roomdata`
+        begin
+            put element ClickIndex of Rooms into RoomSpec
+            put property `items` of RequestData into Value
+            set property `sensor` of RoomSpec to property `sensor` of Value
+            set property `relays` of RoomSpec to property `relays` of Value
+            set property `relayType` of RoomSpec to property `relayType` of Value
+            set property `linked` of RoomSpec to property `linked` of Value
+            set property `protect` of RoomSpec to property `protect` of Value
+            set property `ptemp` of RoomSpec to property `ptemp` of Value
+            set property `p100Email` of RoomSpec to property `p100Email` of Value
+            set property `p100Password` of RoomSpec to property `p100Password` of Value
+            set element ClickIndex of Rooms to RoomSpec
+        end
+        gosub to CopyRoomsToMap
+        ! Normalise to `rooms` action so the controller handles it
+        put `{}` into RequestData
+        set property `action` of RequestData to `rooms`
+        set property `rooms` of RequestData to Rooms
+        gosub to SendRoomsUpdate
+    end
+    clear MainPanel
+    set Redraw
+    wait 10 ticks
     clear Blocked
-    stop
+    go to MainProcessingTask
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send a request to the system controller
@@ -1438,6 +1476,43 @@ SendUIRequest:
     end
     else log `MQTT OK`
     return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send RequestData to the controller and return
+SendRoomsUpdate:
+    log `Sending rooms update to ServerTopic: ` cat RequestData
+    send to ServerTopic
+        sender MyTopic
+        action `uirequest`
+        message RequestData
+        giving SendOK
+    if not SendOK
+    begin
+        log `WARNING: MQTT send failed (no broker acknowledgment)`
+        alert `Request failed - please retry`
+        put `first` into Prompt
+    end
+    else log `MQTT OK`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Post RequestData to the controller and stop
+PostAndConfirm:
+PostRequest:
+    log `Posting request to ServerTopic: ` cat RequestData
+    send to ServerTopic
+        sender MyTopic
+        action `uirequest`
+        message RequestData
+        giving SendOK
+    if not SendOK
+    begin
+        log `WARNING: MQTT send failed (no broker acknowledgment)`
+        alert `Request failed - please retry`
+        put `first` into Prompt
+    end
+    else log `MQTT OK`
+    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Apply a UI action to the local cached map immediately.
