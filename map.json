@@ -31,7 +31,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2020,
+                    "temperature": "",
                     "battery": 61,
                     "period": 0,
                     "until": 1774370136688
@@ -54,7 +54,7 @@
                             "until": "23:00"
                         }
                     ],
-                    "relay": "on",
+                    "relay": "off",
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "timed",
@@ -62,7 +62,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2240,
+                    "temperature": 2290,
                     "battery": 44,
                     "ptemp": "",
                     "period": 1,
@@ -97,10 +97,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196211,
-                    "temperature": 2020,
+                    "temperature": 2050,
                     "battery": 41,
                     "relay": "off",
-                    "period": 1
+                    "period": 2
                 },
                 {
                     "name": "Hall",
@@ -137,7 +137,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 1970,
+                    "temperature": 2000,
                     "battery": 42,
                     "period": 2
                 },
@@ -162,7 +162,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1774196212,
-                    "temperature": 2210,
+                    "temperature": "",
                     "battery": 58,
                     "advance": "-",
                     "period": 0,
@@ -242,7 +242,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196213,
-                    "temperature": 2100,
+                    "temperature": 2110,
                     "battery": 35,
                     "period": 0
                 },
@@ -263,7 +263,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774196213,
-                    "temperature": 1030,
+                    "temperature": 1010,
                     "battery": 43,
                     "period": 0
                 }
