@@ -48,7 +48,6 @@
     button GetRequestButton
     button CopyMapButton
     button ModeButton
-    button HaltButton
     button OKButton
     button CancelButton
     button BackupButton
@@ -1058,9 +1057,7 @@ GSP2:
     attach GetSystemNameButton to `button-getname`
     attach GetRequestButton to `button-getrequest`
     attach CopyMapButton to `button-copymap`
-    attach HaltButton to `button-halt`
     attach CancelButton to `button-cancel`
-    attach HelpButton to `button-help`
     attach SystemStatusPanel to `rbr-status`
     
     set the content of SystemStatusPanel to SystemStatus
@@ -1081,39 +1078,6 @@ GSP2:
     begin
     	set Flag
         go to CopySystemMap
-    end
-
-    on click HaltButton
-    begin
-        attach DialogPanel to `dialog-panel`
-        rest get Webson from `resources/webson/dialog-confirm.json?v=` cat now
-        render Webson in DialogPanel
-        attach DialogTitle to `dialog-title`
-        attach DialogText to `dialog-text`
-        attach DialogButton1 to `dialog-button1`
-        attach DialogButton2 to `dialog-button2`
-        set the content of DialogTitle to `Confirm halt`
-        set the content of DialogText to `This will halt the system controller. It will need to be restarted manually.`
-        set the content of DialogButton1 to `OK`
-        set the content of DialogButton2 to `Cancel`
-        on click DialogButton1
-        begin
-            clear DialogPanel
-            set style `color` of HaltButton to `lightgray`
-            put `{}` into RequestData
-            set property `action` of RequestData to `halt`
-            fork to PostRequest
-            set Redraw
-            clear Blocked
-        end
-        on click DialogButton2 clear DialogPanel
-    end
-
-    on click HelpButton
-    begin
-        put `home` into SID
-        put `SysParamsMenu` into TID
-      	go to RunHelp
     end
 
     on click CancelButton

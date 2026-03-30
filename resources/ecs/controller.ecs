@@ -564,11 +564,10 @@ SetRelay:
     end
     if RelayState is not RelayStateWas
     begin
-        log RoomName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
+!        log RoomName cat `: RelayState ` cat RelayStateWas cat `->` cat RelayState
         put RelayState into RelayStateWas
         gosub to ForceUpdate
     end
-!    if RoomName is `Sunroom` log `Temp/Was: ` cat TempNow cat `/` cat TempWas
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Update part or all of of the map

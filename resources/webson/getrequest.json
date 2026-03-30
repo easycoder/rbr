@@ -18,7 +18,7 @@
 
         "$Title": {
             "#element": "div",
-            "#content": "Request relay IP address",
+            "#content": "Request relay name",
             "margin-top": "0.5em",
             "font-size": "80%",
             "font-weight": "bold"

@@ -6,8 +6,7 @@
     "text-align": "center",
     "#": ["$Config", "$GetName", "$GetRequest", "$Pad",
         "$CopyMap", "$Pad",
-        "$PowerOff", "$Pad",
-        "$Help", "$Cancel", "$Pad", "$StatusPanel"],
+        "$Cancel", "$Pad", "$StatusPanel"],
 
     "$Config": {
         "$ID": "button-config",
@@ -23,25 +22,13 @@
 
     "$GetRequest": {
         "$ID": "button-getrequest",
-        "$Label": "Set the request relay IP",
+        "$Label": "Name the request relay",
         "#": "$Button"
     },
 
     "$CopyMap": {
         "$ID": "button-copymap",
         "$Label": "Copy another system map",
-        "#": "$Button"
-    },
-
-    "$PowerOff": {
-        "$ID": "button-halt",
-        "$Label": "Power Off",
-        "#": "$Button"
-    },
-
-    "$Help": {
-        "$ID": "button-help",
-        "$Label": "Help",
         "#": "$Button"
     },
 
