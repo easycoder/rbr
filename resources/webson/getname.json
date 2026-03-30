@@ -34,7 +34,7 @@
         "$Buttons": {
             "#element": "div",
             "margin-top": "0.5em",
-            "#": ["$OK", "$Cancel", "$Help"],
+            "#": ["$OK", "$Cancel"],
 
             "$OK": {
                 "#element": "button",
@@ -52,15 +52,6 @@
                 "width": "5em",
                 "margin": "0 0.5em",
                 "#content": "Cancel"
-            },
-
-            "$Help": {
-                "#element": "button",
-                "@id": "getname-help",
-                "display": "inline-block",
-                "width": "5em",
-                "margin": "0 0.5em",
-                "#content": "Help"
             }
         }
     }

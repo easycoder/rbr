@@ -5,42 +5,23 @@
     "text-align": "center",
     "padding": "1em 0",
     "background": "#ffc",
-    "#": ["$Welcome", "$Pad", "$SystemManager", "$Pad", "$Add", "$Pad",
-        "$Backup", "$Restore", "$Pad", "$Help", "$Cancel"],
+    "#": ["$GetName", "$GetRequest", "$Pad", "$Add", "$Pad", "$Cancel"],
 
-    "$Welcome": {
-        "$ID": "button-welcome",
-        "$Label": "Welcome to RBR!",
+    "$GetName": {
+        "$ID": "button-getname",
+        "$Label": "Set the system name",
         "#": "$Button"
     },
 
-    "$SystemManager": {
-        "$ID": "button-systemmanager",
-        "$Label": "System Manager",
+    "$GetRequest": {
+        "$ID": "button-getrequest",
+        "$Label": "Name the request relay",
         "#": "$Button"
     },
 
     "$Add": {
         "$ID": "button-add",
         "$Label": "Add a room",
-        "#": "$Button"
-    },
-
-    "$Backup": {
-        "$ID": "button-backup",
-        "$Label": "Backup the system",
-        "#": "$Button"
-    },
-
-    "$Restore": {
-        "$ID": "button-restore",
-        "$Label": "Restore the system",
-        "#": "$Button"
-    },
-
-    "$Help": {
-        "$ID": "button-help",
-        "$Label": "Help",
         "#": "$Button"
     },
 

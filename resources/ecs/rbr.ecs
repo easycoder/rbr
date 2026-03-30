@@ -22,9 +22,6 @@
     div ModeHolder
     div TargetTemp
     div BoostName
-    div DialogPanel
-    div DialogTitle
-    div DialogText
     div ModeText
     div ModeInfo
     div Alive
@@ -33,7 +30,6 @@
     div Date
     div VersionNumber
     div StatusFlag
-    div SystemStatusPanel
     input Input
     img StatisticsIcon
     img CalendarIcon
@@ -41,21 +37,13 @@
     img ModeIcon
     img Hourglass
     button ProfilesButton
-    button SystemManagerButton
-    button ConfigButton
     button AddButton
     button GetSystemNameButton
     button GetRequestButton
-    button CopyMapButton
     button ModeButton
     button OKButton
     button CancelButton
-    button BackupButton
-    button RestoreButton
-    button WelcomeButton
     button HelpButton
-    button DialogButton1
-    button DialogButton2
     module ProfileModule
     module Storyteller
     topic ServerTopic
@@ -68,13 +56,11 @@
     variable Script
     variable MyID
     variable SystemName
-    variable SystemStatus
     variable CurrentProfile
     variable Profiles
     variable Profile
     variable RequestIP
     variable Map
-    variable Config
     variable Rooms
     variable RoomSpec
     variable RoomCount
@@ -143,14 +129,13 @@
     variable MainMenuWebson
     variable RoomWebson
     variable RoomToolsMenuWebson
-    variable SysParamsWebson
+    variable GetNameWebson
     variable GetRequestWebson
     variable TimedWebson
     variable BoostWebson
     variable OnWebson
     variable OffWebson
     variable NoneWebson
-    variable DialogWebson
 
 !    debug step
 
@@ -315,12 +300,12 @@ SetupScreen:
     put empty into MainMenuWebson
     put empty into RoomWebson
     put empty into RoomToolsMenuWebson
+    put empty into GetNameWebson
     put empty into GetRequestWebson
     put empty into TimedWebson
     put empty into OnWebson
     put empty into OffWebson
     put empty into NoneWebson
-    put empty into DialogWebson
 
 !	Render the main screen layout
     rest get MainScreenWebson from `resources/webson/rbr.json?v=` cat now
@@ -483,8 +468,6 @@ ContinueAfterName:
 !    set the content of VersionNumber to `v:`
     attach StatusFlag to `statusflag`
     
-    on click StatusFlag go to DoSystemParameters
-    
 !   log Map
     put property `profiles` of Map into Profiles
 	put property `profile` of Map into CurrentProfile
@@ -583,10 +566,9 @@ ContinueAfterName:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Update al the rooms
+!   Update all the rooms
 UpdateRooms:
-!    log `Update rooms`
-	! Draw a row for each room
+! 	Draw a row for each room
     put 0 into RoomIndex
     while RoomIndex is less than RoomCount
     begin
@@ -691,7 +673,7 @@ UpdateRooms:
                 begin
                 	if property `alive` of RoomData is `true`
                     begin
-                    	put `The sensor for ` cat RoomName cat ` is not reporting. ` into SystemStatus
+!                    	put `The sensor for ` cat RoomName cat ` is not reporting. ` into SystemStatus
 !                    	alert `The sensor for ` cat RoomName cat ` has not reported recently. `
 !                        	cat `If it doesn't come back by itself, power it down then re-power it.`
                     	set property `alive` of RoomData to `false`
@@ -975,15 +957,22 @@ ShowMenu:
         rest get MainMenuWebson from `resources/webson/mainmenu.json?v=` cat now
             or go to HandleInternalError
     render MainMenuWebson in MainPanel
-    attach SystemManagerButton to `button-systemmanager`
+    attach GetSystemNameButton to `button-getname`
+    attach GetRequestButton to `button-getrequest`
     attach AddButton to `button-add`
-    attach BackupButton to `button-backup`
-    attach RestoreButton to `button-restore`
-    attach WelcomeButton to `button-welcome`
-    attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
-    
-    on click SystemManagerButton go to SystemManager
+
+    on click GetSystemNameButton
+    begin
+    	set Flag
+        go to GetSystemName
+    end
+
+    on click GetRequestButton
+    begin
+    	set Flag
+        go to GetRequestRelay
+    end
 
     on click AddButton
     begin
@@ -1002,24 +991,6 @@ ShowMenu:
         stop
     end
 
-    on click BackupButton go to Backup
-
-    on click RestoreButton go to Restore
-
-    on click WelcomeButton
-    begin
-        put `home` into SID
-        put `Welcome` into TID
-      	go to RunHelp
-    end
-
-    on click HelpButton
-    begin
-        put `home` into SID
-        put `content` into TID
-      	go to RunHelp
-    end
-
     on click CancelButton
     begin
     	clear MainPanel
@@ -1032,80 +1003,42 @@ ShowMenu:
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	System parameters
-DoSystemParameters:
+! 	Get the name of the system
+GetSystemName:
 	set Blocked
     clear MainPanel
-    rest get SysParamsWebson from `resources/webson/sysparams.json?v=` cat now
-        or go to HandleInternalError
-    render SysParamsWebson in MainPanel
-    
-    attach ConfigButton to `button-config`
-    set style `display` of ConfigButton to `none`	! At least for now
-	get Value from storage as `email`
-    if Value is not empty
+    if GetNameWebson is empty
+        rest get GetNameWebson from `resources/webson/getname.json?v=` cat now
+            or go to HandleInternalError
+    render GetNameWebson in MainPanel
+    attach Input to `getname-input`
+    attach OKButton to `getname-ok`
+    attach CancelButton to `getname-cancel`
+    put property `name` of Map into SystemName
+    if SystemName is `undefined` put empty into SystemName
+    if Flag set the content of Input to SystemName
+    else set style `display` of CancelButton to `none`
+    on click OKButton
     begin
-    	get Value from storage as `userpassword`
-    	if Value is not empty
-        begin
-	    	on click ConfigButton go to Configuration
-            go to GSP2
-        end
+    	clear MainPanel
+        clear Blocked
+        set Redraw
+        put `{}` into RequestData
+        set property `action` of RequestData to `name`
+        set property `name` of RequestData to the content of Input
+        go to PostRequest
     end
-    set style `display` of ConfigButton to `none`
-GSP2:
-    attach GetSystemNameButton to `button-getname`
-    attach GetRequestButton to `button-getrequest`
-    attach CopyMapButton to `button-copymap`
-    attach CancelButton to `button-cancel`
-    attach SystemStatusPanel to `rbr-status`
-    
-    set the content of SystemStatusPanel to SystemStatus
-
-    on click GetSystemNameButton
-    begin
-    	set Flag
-        go to GetSystemName
-    end
-
-    on click GetRequestButton
-    begin
-    	set Flag
-        go to GetRequestRelay
-    end
-
-    on click CopyMapButton
-    begin
-    	set Flag
-        go to CopySystemMap
-    end
-
     on click CancelButton
     begin
     	clear MainPanel
         clear Blocked
         set Redraw
+        stop
     end
 	stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Get the name of the system
-GetSystemName:
-    set SystemName to `Un-named system`
-    set the content of SystemNamePanel to SystemName
-    go to ContinueAfterName
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Configuration
-Configuration:
-	set Blocked
-    rest get Script from `resources/ecs/config.ecs?v=` cat now
-    	or go to HandleInternalError
-    run Script with MAC and Password and Map and Result
-    go to ProcessResult
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Ask the user for the system request relay
+! 	Get the name of the system request relay
 GetRequestRelay:
 	set Blocked
     clear MainPanel
@@ -1116,7 +1049,6 @@ GetRequestRelay:
     attach Input to `getrequest-input`
     attach OKButton to `getrequest-ok`
     attach CancelButton to `getrequest-cancel`
-    attach HelpButton to `getrequest-help`
     put property `request` of Map into RequestIP
     if RequestIP is `undefined` put empty into RequestIP
     if Flag set the content of Input to RequestIP
@@ -1137,59 +1069,6 @@ GetRequestRelay:
         clear Blocked
         set Redraw
         stop
-    end
-    on click HelpButton
-    begin
-        clear MainPanel
-    	set style `display` of OuterPanel to `none`
-      	set style `display` of HelpPanel to `block`
-    	put `home` into SID
-        put `Request` into TID
-        go to RunHelp
-    end
-	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Copy the system map and config file from another system
-CopySystemMap:
-	set Blocked
-    clear MainPanel
-    rest get Webson from `resources/webson/copysystemmap.json?v=` cat now
-        or go to HandleInternalError
-    render Webson in MainPanel
-    attach Input to `copymap-input`
-    attach OKButton to `copymap-ok`
-    attach CancelButton to `copymap-cancel`
-    attach HelpButton to `copymap-help`
-    on click OKButton
-    begin
-    	clear MainPanel
-        clear Blocked
-        set Redraw
-        if the content of Input is empty stop
-        rest get Config from `resources/php/rest.php/config/` cat the content of Input or go to HandleInternalError
-        rest post Config to `resources/php/rest.php/config/` cat MAC cat `/` cat Password or go to HandleInternalError
-        rest get Map from `resources/php/rest.php/map/` cat the content of Input or go to HandleInternalError
-        put `{}` into RequestData
-        set property `action` of RequestData to `map`
-        set property `map` of RequestData to Map
-        go to PostRequest
-    end
-    on click CancelButton
-    begin
-    	clear MainPanel
-        clear Blocked
-        set Redraw
-        stop
-    end
-    on click HelpButton
-    begin
-        clear MainPanel
-    	set style `display` of OuterPanel to `none`
-      	set style `display` of HelpPanel to `block`
-    	put `home` into SID
-        put `Request` into TID
-        go to RunHelp
     end
 	stop
 
@@ -1239,77 +1118,6 @@ RoomTools:
     rest get Script from `resources/ecs/roomtools.ecs?v=` cat now
     run Script with MainPanel and Map and RoomSpec and ClickIndex and Result
     go to ProcessResult
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Backup the system
-Backup:
-	set Blocked
-    attach DialogPanel to `dialog-panel`
-    if DialogWebson is empty
-        rest get DialogWebson from `resources/webson/dialog-confirm.json?v=` cat now
-            or go to HandleInternalError
-    render DialogWebson in DialogPanel
-    attach DialogTitle to `dialog-title`
-    attach DialogText to `dialog-text`
-    attach DialogButton1 to `dialog-button1`
-    attach DialogButton2 to `dialog-button2`
-    set the content of DialogTitle to `System Backup`
-    set the content of DialogText to `Tap "Save" to save your current `
-    	cat `system configuration. Any previous backup will be over-written.`
-    set the content of DialogButton1 to `Save`
-    set the content of DialogButton2 to `Cancel`
-    on click DialogButton1
-    begin
-    	clear DialogPanel
-        put `{}` into RequestData
-        set property `action` of RequestData to `backup`
-        fork to PostRequest
-        set Redraw
-        clear Blocked
-    end
-    on click DialogButton2
-    begin
-    	clear DialogPanel
-        set Redraw
-        clear Blocked
-    end
-    stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! 	Restore from backup
-Restore:
-	set Blocked
-    attach DialogPanel to `dialog-panel`
-    if DialogWebson is empty
-        rest get DialogWebson from `resources/webson/dialog-confirm.json?v=` cat now
-            or go to HandleInternalError
-    render DialogWebson in DialogPanel
-    attach DialogTitle to `dialog-title`
-    attach DialogText to `dialog-text`
-    attach DialogButton1 to `dialog-button1`
-    attach DialogButton2 to `dialog-button2`
-    set the content of DialogTitle to `System Restore`
-    set the content of DialogText to `Tap "Restore" to restore your system configuration `
-    	cat `from the saved backup (if any).`
-    set the content of DialogButton1 to `Restore`
-    set the content of DialogButton2 to `Cancel`
-    on click DialogButton1
-    begin
-    	clear DialogPanel
-        put `{}` into RequestData
-        set property `action` of RequestData to `restore`
-        fork to PostAndConfirm
-        set Redraw
-        clear Blocked
-    end
-    on click DialogButton2
-    begin
-    	clear DialogPanel
-        set Redraw
-        clear Blocked
-    end
-    stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Show a help page

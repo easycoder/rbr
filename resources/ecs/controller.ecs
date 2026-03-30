@@ -71,6 +71,8 @@
     variable Value
     variable Value2
     variable ThermometerUpdate
+    variable Version
+    variable RemoteVersion
     variable LoopCount
     variable UpdateCount
     variable WaitCounter
@@ -166,6 +168,30 @@ Start:
     else set RequestName to empty
     set RequestState to `off`
     set RequestStateWas to `off`
+
+    ! Check for a newer version
+    get RemoteVersion from url `https://raw.githubusercontent.com/easycoder/rbr/main/version`
+        or log `Warning: could not check for updates`
+    if RemoteVersion is not empty
+    begin
+        replace ` ` with `` in RemoteVersion
+        replace newline with `` in RemoteVersion
+        if file `../../.version` exists load Version from `../../.version`
+        else put `0` into Version
+        replace ` ` with `` in Version
+        replace newline with `` in Version
+        if RemoteVersion is greater than Version
+        begin
+            log `Updating from version ` cat Version cat ` to ` cat RemoteVersion
+            download `https://raw.githubusercontent.com/easycoder/rbr/main/resources/ecs/controller.ecs` to `controller.ecs`
+            save RemoteVersion to `../../.version`
+            log `Update complete. Restarting...`
+            system background `sleep 2 && easycoder resources/ecs/controller.ecs`
+            exit
+        end
+        else log `Controller version ` cat Version cat ` is up to date`
+    end
+
     gosub to ProcessAllRooms
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -845,6 +871,7 @@ log Message
     put lowercase Action into Value
     if Value is `test` put `Test` into Action
     else if Value is `system name` put `System Name` into Action
+    else if Value is `name` put `System Name` into Action
     else if Value is `request relay` put `Request Relay` into Action
     else if Value is `request` put `Request Relay` into Action
     else if Value is `add room` put `Add Room` into Action
@@ -871,6 +898,7 @@ log Message
         end
         set entry `name` of Map to Value
         log `Set the system name to ` cat entry `name` of Map
+        gosub to ForceUpdate
     end
     else if Action is `Request Relay`
     begin
@@ -882,7 +910,9 @@ log Message
             return
         end
         set entry `request` of Map to Value
+        set RequestName to Value
         log `Set the request relay to ` cat entry `request` of Map
+        gosub to ForceUpdate
     end
     else if Action is `Add Room`
     begin
