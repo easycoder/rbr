@@ -146,6 +146,8 @@
     variable Username
     variable Password
     variable MAC
+    
+    no cache
 
     if the hostname is `localhost`
     begin
@@ -231,6 +233,13 @@ MQTTReady:
 Connected:
     ! Do the basic setup of the main window
 	gosub to SetupScreen
+
+    on resume
+    begin
+        log `Tab resumed; restarting cycle`
+        put 0 into CycleWait
+    end
+
 Conn2:
 	! Refresh the UI every 10 seconds
     ! If Prompt is set to 'first' deal with it immediately
@@ -316,19 +325,6 @@ SetupScreen:
     attach BannerMask to `banner-mask`
     attach TitleMask to `title-mask`
     attach Banner to `rbr-banner`
-    put 0 into BannerClickTime
-    on click Banner
-    begin
-        put now into Now
-        put Now into N
-        take BannerClickTime from N
-        if N is less than 2
-        begin
-            clear Blocked
-            go to Connected
-        end
-        put Now into BannerClickTime
-    end
     attach SystemTitlePanel to `system-title`
     attach SystemNamePanel to `system-name`
     attach MainPanel to `mainpanel`
@@ -439,9 +435,13 @@ GetMap:
         clear Blocked
     	stop
     end
-    put Map into storage as `map`
     if ReceivedMessage is not empty set Redraw
     put empty into ReceivedMessage
+
+    ! Validate the map has essential fields; restore from backup if incomplete
+    gosub to ValidateMap
+
+    put Map into storage as `map`
 
     put property `name` of Map into SystemName
     replace `%20` with ` ` in SystemName
@@ -1050,6 +1050,8 @@ GetSystemName:
     	clear MainPanel
         clear Blocked
         set Redraw
+        set property `name` of Map to the content of Input
+        put the content of Input into storage as `SystemName`
         put `{}` into RequestData
         set property `action` of RequestData to `name`
         set property `name` of RequestData to the content of Input
@@ -1173,6 +1175,26 @@ Statistics:
     clear Blocked
     set Redraw
 	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Validate the map has essential fields.
+!   If any are missing (e.g. MQTT truncation), restore from backup.
+ValidateMap:
+    if property `name` of Map is empty go to RestoreMapBackup
+    if property `profiles` of Map is empty go to RestoreMapBackup
+    if property `profile` of Map is empty go to RestoreMapBackup
+    ! Map looks complete; save as backup
+    put Map into storage as `map-backup`
+    return
+
+RestoreMapBackup:
+    get Value from storage as `map-backup`
+    if Value is not empty
+    begin
+        log `Incomplete map received; restoring from backup`
+        put Value into Map
+    end
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Mask the screen

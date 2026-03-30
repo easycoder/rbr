@@ -592,12 +592,7 @@ SetRelay:
         set RelayState to `off`
         if TempNow is not empty
         begin
-            ! Apply 0.5 degree hysteresis to avoid relay chatter
-            ! Skip hysteresis when target has just changed so relay responds immediately
-!            put Target into T
-!            if Target is TargetWas and RelayStateWas is not `on` take 50 from T
-!            if TempNow is less than T set RelayState to `on`
-!            put Target into TargetWas
+            if TempNow is less than Target set RelayState to `on`
         end
     end
     set entry `relay` of Room to RelayState
