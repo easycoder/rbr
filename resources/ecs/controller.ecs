@@ -127,9 +127,9 @@
 !    log `Password is ` cat Password
 !    log `MAC is ` cat MAC
 
-    ! Register controller with the server
-    variable PairResult
-    get PairResult from url `https://rbrheating.com/pair/` cat MAC
+!    ! Register controller with the server
+!    variable PairResult
+!    get PairResult from url `https://rbrheating.com/pair/` cat MAC
 !    log `Pair result: ` cat PairResult
 
     ! Set up MQTT

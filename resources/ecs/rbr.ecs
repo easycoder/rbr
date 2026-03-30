@@ -370,6 +370,12 @@ SetupScreen:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Redraw the UI from the cached Map (no MQTT round-trip needed)
+RedrawFromMap:
+    set Blocked
+    put 0 into RoomCount
+    go to ContinueAfterName
+
 !	Main Processing Task
 MainProcessingTask:
     if Blocked stop
@@ -499,6 +505,7 @@ ContinueAfterName:
             end
         end
     end
+    set property `profile` of Map to CurrentProfile
     if Profiles is empty put `{}` into Profile else put element CurrentProfile of Profiles into Profile
     put property `name` of Profile into Name
     set the text of ProfilesButton to `Profile: ` cat Name
@@ -953,7 +960,7 @@ UpdateRooms:
                     gosub to Unmask
                     clear Blocked
                     set Redraw
-                    go to MainProcessingTask
+                    go to RedrawFromMap
                 end
                 put `refresh` into Prompt
                 gosub to Unmask
@@ -1182,7 +1189,6 @@ Statistics:
 ValidateMap:
     if property `name` of Map is empty go to RestoreMapBackup
     if property `profiles` of Map is empty go to RestoreMapBackup
-    if property `profile` of Map is empty go to RestoreMapBackup
     ! Map looks complete; save as backup
     put Map into storage as `map-backup`
     return

@@ -31,7 +31,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769214804,
-                    "temperature": 2170,
+                    "temperature": 2180,
                     "battery": 27,
                     "period": 0
                 },
@@ -57,7 +57,7 @@
                             "until": "23:00"
                         }
                     ],
-                    "relay": "on",
+                    "relay": "off",
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "timed",
@@ -65,10 +65,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769214804,
-                    "temperature": 2280,
+                    "temperature": 2310,
                     "battery": 46,
                     "ptemp": "",
-                    "period": 2
+                    "period": 0
                 },
                 {
                     "name": "Lounge",
@@ -100,10 +100,10 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769214805,
-                    "temperature": 2490,
+                    "temperature": 2480,
                     "battery": 48,
                     "relay": "off",
-                    "period": 2
+                    "period": 0
                 },
                 {
                     "name": "Hall",
@@ -140,9 +140,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769214805,
-                    "temperature": 2290,
+                    "temperature": 2300,
                     "battery": 42,
-                    "period": 3
+                    "period": 0
                 },
                 {
                     "name": "Office",
@@ -165,7 +165,7 @@
                     "linked": "no",
                     "status": "good",
                     "timestamp": 1769214805,
-                    "temperature": 1210,
+                    "temperature": 1170,
                     "battery": 52,
                     "advance": "-",
                     "period": 0
@@ -205,9 +205,9 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769214806,
-                    "temperature": 2310,
+                    "temperature": 2350,
                     "battery": 43,
-                    "period": 2
+                    "period": 3
                 },
                 {
                     "name": "Guest Bedroom",
@@ -269,7 +269,7 @@
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1769214806,
-                    "temperature": 900,
+                    "temperature": 910,
                     "battery": 47,
                     "period": 0
                 }

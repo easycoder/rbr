@@ -12,6 +12,7 @@ rsync -rvz --no-perms \
     "$LOCAL/index.html" \
     "$LOCAL/favicon.ico" \
     "$LOCAL/auth.php" \
+    "$LOCAL/credentials.php" \
     "$LOCAL/.htaccess" \
     "$REMOTE/"
 

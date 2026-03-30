@@ -86,12 +86,13 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Show login panel
 ShowLogin:
+    set the content of MessagePanel to ``
+ShowLoginKeepMessage:
     set style `display` of LoginPanel to `block`
     set style `display` of RegisterPanel to `none`
     set style `display` of VerifyPanel to `none`
     set style `display` of PairPanel to `none`
     set style `display` of RecoverPanel to `none`
-    set the content of MessagePanel to ``
 
     on click LoginButton go to DoLogin
     on click ShowRegisterButton go to ShowRegister
@@ -101,7 +102,6 @@ ShowLogin:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Login
 DoLogin:
-debug step
     put the text of LoginMAC into MAC
     put the text of LoginPassword into Password
     if MAC is empty
@@ -129,7 +129,7 @@ DoVerify:
     if Response is empty
     begin
         set the content of MessagePanel to `Server not responding`
-        go to ShowLogin
+        go to ShowLoginKeepMessage
     end
     if property `ok` of Response is not true
     begin
@@ -138,7 +138,7 @@ DoVerify:
         clear Password
         put `` into storage as `rbr-mac`
         put `` into storage as `rbr-password`
-        go to ShowLogin
+        go to ShowLoginKeepMessage
     end
 !   Success - save credentials and proceed
     put MAC into storage as `rbr-mac`
