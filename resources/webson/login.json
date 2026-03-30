@@ -48,6 +48,7 @@
         "$LoginPanel": {
             "#element": "div",
             "@id": "login-panel",
+            "display": "none",
             "#": ["$Heading", "$MacField", "$PasswordField", "$LoginBtn", "$Sep", "$RegisterLink", "$RecoverLink"],
 
             "$Heading": {

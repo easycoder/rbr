@@ -118,6 +118,11 @@ DoLogin:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Verify credentials with the server
 DoVerify:
+    set style `display` of LoginPanel to `none`
+    set style `display` of RegisterPanel to `none`
+    set style `display` of VerifyPanel to `none`
+    set style `display` of PairPanel to `none`
+    set style `display` of RecoverPanel to `none`
     set the content of MessagePanel to `Checking credentials...`
     rest post `{"mac":"` cat MAC cat `","password":"` cat Password cat `"}` to `/verify` giving Response
     if Response is empty
