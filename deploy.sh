@@ -11,6 +11,8 @@ echo "Deploying RBR to ${REMOTE}..."
 rsync -rvz --no-perms \
     "$LOCAL/index.html" \
     "$LOCAL/favicon.ico" \
+    "$LOCAL/auth.php" \
+    "$LOCAL/.htaccess" \
     "$REMOTE/"
 
 # Resources subdirectories — --delete keeps remote in sync with local

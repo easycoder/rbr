@@ -101,6 +101,7 @@ ShowLogin:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Login
 DoLogin:
+debug step
     put the text of LoginMAC into MAC
     put the text of LoginPassword into Password
     if MAC is empty
