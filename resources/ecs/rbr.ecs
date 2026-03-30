@@ -472,6 +472,33 @@ ContinueAfterName:
     put property `profiles` of Map into Profiles
 	put property `profile` of Map into CurrentProfile
     if CurrentProfile is empty put 0 into CurrentProfile
+    ! If the calendar is on, resolve the profile for today
+    if property `calendar` of Map is `on`
+    begin
+        put property `calendar-data` of Map into Value
+        if Value is not empty
+        begin
+            put the day into N
+            add 6 to N
+            put N modulo 7 into N
+            put element N of Value into Value
+            if Value is not empty
+            begin
+                put property `day` cat N cat `-profile` of Value into Value
+                if Value is not empty
+                begin
+                    put the json count of Profiles into R
+                    put 0 into N
+                    while N is less than R
+                    begin
+                        put element N of Profiles into Profile
+                        if property `name` of Profile is Value put N into CurrentProfile
+                        add 1 to N
+                    end
+                end
+            end
+        end
+    end
     if Profiles is empty put `{}` into Profile else put element CurrentProfile of Profiles into Profile
     put property `name` of Profile into Name
     set the text of ProfilesButton to `Profile: ` cat Name
@@ -1293,8 +1320,10 @@ PostRequest:
 ApplyLocalResult:
     if property `Action` of Result is `Update Profiles`
     begin
-        set property `profiles` of Map to property `profiles` of Result
-        set property `profile` of Map to property `profile` of Result
+        put property `profiles` of Result into Value
+        if Value is not empty set property `profiles` of Map to Value
+        put property `profile` of Result into Value
+        if Value is not empty set property `profile` of Map to Value
         put property `calendar` of Result into Value
         if Value is not empty set property `calendar` of Map to Value
         put property `calendar-data` of Result into Value

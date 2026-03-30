@@ -39,6 +39,7 @@
     variable CalendarData
     variable Calendar
     variable Changed
+    variable CalendarChanged
     variable Temp
     variable Script
     variable Day
@@ -118,7 +119,7 @@
         set style `display` of CalendarOn to `flex`
         set style `display` of ProfilesMask to `block`
         set property `calendar` of Map to `on`
-        set Changed
+        set CalendarChanged
     end
 
     on click CalendarOn
@@ -127,7 +128,7 @@
         set style `display` of CalendarOff to `flex`
         set style `display` of ProfilesMask to `none`
         set property `calendar` of Map to `off`
-        set Changed
+        set CalendarChanged
     end
     
     on click ProfilesMask
@@ -150,7 +151,7 @@
         begin
         	put property `data` of Result into CalendarData
             set property `calendar-data` of Map to CalendarData
-            set Changed
+            set CalendarChanged
         end
         if Request is `Help` exit
     end
@@ -356,6 +357,14 @@ Exit:
         set property `Action` of Result to `Update Profiles`
         set property `profiles` of Result to Profiles
         set property `profile` of Result to CurrentProfile
+        set property `calendar` of Result to property `calendar` of Map
+        put property `calendar-data` of Map into Temp
+        if Temp is not empty set property `calendar-data` of Result to Temp
+    end
+    else if CalendarChanged
+    begin
+        log `Calendar change`
+        set property `Action` of Result to `Update Profiles`
         set property `calendar` of Result to property `calendar` of Map
         put property `calendar-data` of Map into Temp
         if Temp is not empty set property `calendar-data` of Result to Temp

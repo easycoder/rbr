@@ -18,6 +18,7 @@
     dictionary Thermometer
     dictionary Temperatures
     dictionary RoomSpec
+    dictionary CalendarDay
     dictionary WaitForConfirmation
     queue MessageQueue
     list Profiles
@@ -25,6 +26,7 @@
     list Events
     list SenderKeys
     list Replies
+    list CalendarData
     topic ServerTopic
     topic SenderTopic
     variable RoomCount
@@ -340,8 +342,37 @@ LoadMap:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   If the calendar is on, override SelectedProfile with the profile for today.
+!   Uses Monday=0 weekday numbering to match the calendar-data indices.
+ResolveCalendarProfile:
+    if entry `calendar` of Map is not `on` return
+    if Map has entry `calendar-data`
+    begin
+        put weekday into Value
+        put entry `calendar-data` of Map into CalendarData
+        put item Value of CalendarData into CalendarDay
+        if CalendarDay is not empty
+        begin
+            put entry `day` cat Value cat `-profile` of CalendarDay into Value2
+            if Value2 is not empty
+            begin
+                put the count of Profiles into L
+                put 0 into I
+                while I is less than L
+                begin
+                    put item I of Profiles into CalendarDay
+                    if entry `name` of CalendarDay is Value2 put I into SelectedProfile
+                    increment I
+                end
+            end
+        end
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Populate all the main map variables, then do a complete cycle of the system
 ProcessAllRooms:
+    gosub to ResolveCalendarProfile
     put item SelectedProfile of Profiles into Profile
     put entry `rooms` of Profile into Rooms
     put the count of Rooms into RoomCount
