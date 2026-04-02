@@ -79,6 +79,9 @@
     variable UpdateCount
     variable WaitCounter
     variable PriorityRoomIndex
+    variable RelayFails
+    variable SensorAge
+    variable RoomStatus
 
     ! Reusable variables - but be careful!
     variable I
@@ -164,7 +167,7 @@ Start:
     gosub to LoadMap
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into SelectedProfile
-    if file `../../thermometers.json` exists load Thermometers from `../../thermometers.json`
+    if file `thermometers.json` exists load Thermometers from `thermometers.json`
     else reset Thermometers
     if Map has entry `request` set RequestName to entry `request` of Map
     else set RequestName to empty
@@ -178,7 +181,7 @@ Start:
     begin
         replace ` ` with `` in RemoteVersion
         replace newline with `` in RemoteVersion
-        if file `../../.version` exists load Version from `../../.version`
+        if file `.version` exists load Version from `.version`
         else put `0` into Version
         replace ` ` with `` in Version
         replace newline with `` in Version
@@ -186,7 +189,7 @@ Start:
         begin
             log `Updating from version ` cat Version cat ` to ` cat RemoteVersion
             download `https://raw.githubusercontent.com/easycoder/rbr/main/resources/ecs/controller.ecs` to `controller.ecs`
-            save RemoteVersion to `../../.version`
+            save RemoteVersion to `.version`
             log `Update complete. Restarting...`
             system background `sleep 2 && easycoder resources/ecs/controller.ecs`
             exit
@@ -310,9 +313,9 @@ HandleMessages:
     if T is less than now
     begin
 !        log `Save the map`
-        if Simulate save prettify Map to `map-sim.json` else save prettify Map to `../../map.json`
+        if Simulate save prettify Map to `map-sim.json` else save prettify Map to `map.json`
         put now into LastMapSave
-        if ThermometerUpdate save prettify Thermometers to `../../thermometers.json`
+        if ThermometerUpdate save prettify Thermometers to `thermometers.json`
     end
 
     ! If no messages have beeen received for 60 seconds, remove the sender from the list
@@ -337,7 +340,7 @@ HandleMessages:
 !   Load up the system map
 LoadMap:
     log `Load the system map`
-    load Map from `../../map.json`
+    load Map from `map.json`
     set MapHasChanged
     return
 
@@ -543,13 +546,31 @@ BoostDone:
 ProcessReply:
     if Replies is not empty
     begin
-        put item 0 of Replies into Value
-        if Value is numeric put Value into TempNow
-        else
+!       Track relay response quality
+        put 0 into I
+        put 0 into RelayFails
+        if Room has entry `relayfails` put entry `relayfails` of Room into RelayFails
+        while I is less than the count of Replies
         begin
-            put Value into Reply
-            if Reply is not empty gosub to RecordThermometer
+            put item I of Replies into Value
+            if Value is empty
+            begin
+                increment RelayFails
+            end
+            else
+            begin
+                set RelayFails to 0
+                if Value is numeric put Value into TempNow
+                else
+                begin
+                    put Value into Reply
+                    if Reply is not empty gosub to RecordThermometer
+                end
+            end
+            increment I
         end
+        set entry `relayfails` of Room to RelayFails
+        gosub to UpdateRooms
         gosub to SetRelay
 !        log RoomName cat `: ` cat Replies cat ` - ` cat entry `temperature` of Room
     end
@@ -620,6 +641,42 @@ SetRelay:
         put RelayState into RelayStateWas
         gosub to ForceUpdate
     end
+
+!   Compute room status based on relay failures and thermometer staleness
+    put `good` into RoomStatus
+
+!   Check relay failure count
+    if Room has entry `relayfails`
+    begin
+        put entry `relayfails` of Room into RelayFails
+        if RelayFails is greater than 20 put `fail` into RoomStatus
+        else if RelayFails is greater than 5 put `warn` into RoomStatus
+    end
+
+!   Check thermometer staleness
+    if Sensor is not empty
+    begin
+        if Thermometers has entry Sensor
+        begin
+            put entry Sensor of Thermometers into Thermometer
+            put entry `ts` of Thermometer into T
+            put now into SensorAge
+            take T from SensorAge
+!           SensorAge is now milliseconds since last report
+!           30 minutes = 1800000ms, 10 minutes = 600000ms
+            if SensorAge is greater than 1800000 put `fail` into RoomStatus
+            else if SensorAge is greater than 600000
+            begin
+                if RoomStatus is not `fail` put `warn` into RoomStatus
+            end
+        end
+        else put `fail` into RoomStatus
+    end
+
+    set entry `status` of Room to RoomStatus
+    set entry `timestamp` of Room to now
+    if Room has entry `relayfails` and entry `relayfails` of Room is not 0
+        log RoomName cat `: status=` cat RoomStatus cat ` relayfails=` cat entry `relayfails` of Room
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Update part or all of of the map

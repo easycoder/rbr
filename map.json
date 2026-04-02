@@ -30,10 +30,11 @@
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
-                    "timestamp": 1769214804,
-                    "temperature": 2180,
+                    "timestamp": 1775163202802,
+                    "temperature": 2200,
                     "battery": 27,
-                    "period": 0
+                    "period": 0,
+                    "relayfails": 0
                 },
                 {
                     "name": "Sunroom",
@@ -64,11 +65,12 @@
                     "advance": "-",
                     "linked": "yes",
                     "status": "good",
-                    "timestamp": 1769214804,
-                    "temperature": 2310,
+                    "timestamp": 1775163203134,
+                    "temperature": 2360,
                     "battery": 46,
                     "ptemp": "",
-                    "period": 0
+                    "period": 2,
+                    "relayfails": 0
                 },
                 {
                     "name": "Lounge",
@@ -99,11 +101,12 @@
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
-                    "timestamp": 1769214805,
-                    "temperature": 2480,
+                    "timestamp": 1775163203433,
+                    "temperature": 2490,
                     "battery": 48,
                     "relay": "off",
-                    "period": 0
+                    "period": 2,
+                    "relayfails": 0
                 },
                 {
                     "name": "Hall",
@@ -115,20 +118,20 @@
                     "target": 13,
                     "events": [
                         {
-                            "until": "07:00",
-                            "temp": "13.0"
+                            "temp": "13.0",
+                            "until": "09:00"
                         },
                         {
-                            "until": "09:00",
-                            "temp": "17.0"
+                            "temp": "17.0",
+                            "until": "09:00"
                         },
                         {
-                            "until": "17:00",
+                            "until": "18:00",
                             "temp": "14.0"
                         },
                         {
-                            "until": "23:00",
-                            "temp": "17.0"
+                            "temp": "18.0",
+                            "until": "23:00"
                         }
                     ],
                     "relay": "off",
@@ -139,10 +142,11 @@
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
-                    "timestamp": 1769214805,
+                    "timestamp": 1775163203771,
                     "temperature": 2300,
                     "battery": 42,
-                    "period": 0
+                    "period": 3,
+                    "relayfails": 0
                 },
                 {
                     "name": "Office",
@@ -151,7 +155,7 @@
                         "Office"
                     ],
                     "mode": "off",
-                    "target": 0,
+                    "target": 15,
                     "events": [
                         {
                             "until": "07:00",
@@ -164,11 +168,12 @@
                     "prevmode": "off",
                     "linked": "no",
                     "status": "good",
-                    "timestamp": 1769214805,
-                    "temperature": 1170,
+                    "timestamp": 1775163204063,
+                    "temperature": 1370,
                     "battery": 52,
                     "advance": "-",
-                    "period": 0
+                    "period": 0,
+                    "relayfails": 0
                 },
                 {
                     "name": "Main Bedroom",
@@ -181,11 +186,11 @@
                     "events": [
                         {
                             "temp": 15,
-                            "until": "06:30"
+                            "until": "07:30"
                         },
                         {
-                            "temp": "22.0",
-                            "until": "9:00"
+                            "temp": "21.0",
+                            "until": "9:30"
                         },
                         {
                             "temp": 15,
@@ -204,10 +209,11 @@
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
-                    "timestamp": 1769214806,
-                    "temperature": 2350,
+                    "timestamp": 1775163204461,
+                    "temperature": 2250,
                     "battery": 43,
-                    "period": 3
+                    "period": 2,
+                    "relayfails": 0
                 },
                 {
                     "name": "Guest Bedroom",
@@ -247,10 +253,11 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "status": "good",
-                    "timestamp": 1769214806,
-                    "temperature": 2150,
+                    "timestamp": 1775163204841,
+                    "temperature": 2270,
                     "battery": 51,
-                    "period": 0
+                    "period": 0,
+                    "relayfails": 0
                 },
                 {
                     "name": "Outside",
@@ -268,10 +275,11 @@
                     "prevmode": "off",
                     "linked": "yes",
                     "status": "good",
-                    "timestamp": 1769214806,
-                    "temperature": 910,
+                    "timestamp": 1775163204888,
+                    "temperature": 960,
                     "battery": 47,
-                    "period": 0
+                    "period": 0,
+                    "relayfails": 0
                 }
             ]
         },
@@ -305,19 +313,18 @@
                             "temp": "21.0"
                         }
                     ],
-                    "relay": "on",
+                    "relay": "off",
                     "protect": "no",
                     "advance": "-",
-                    "boost": 0,
                     "relayType": "Shelly One",
                     "prevmode": "timed",
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774013853,
-                    "temperature": 20.1,
+                    "temperature": 2040,
                     "battery": 60,
-                    "advance-rq": "-"
+                    "period": 2
                 },
                 {
                     "name": "Sunroom",
@@ -345,14 +352,13 @@
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "timed",
-                    "boost": 0,
                     "advance": "-",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774013853,
-                    "temperature": 19.9,
+                    "temperature": 2420,
                     "battery": 43,
-                    "advance-rq": "-"
+                    "period": 1
                 },
                 {
                     "name": "Lounge",
@@ -375,16 +381,15 @@
                     "relayType": "RBR-Now",
                     "protect": "no",
                     "advance": "-",
-                    "boost": 0,
                     "prevmode": "timed",
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774013854,
-                    "temperature": 20.1,
+                    "temperature": 2100,
                     "battery": 40,
-                    "advance-rq": "-",
-                    "relay": "off"
+                    "relay": "off",
+                    "period": 0
                 },
                 {
                     "name": "Hall",
@@ -415,16 +420,15 @@
                     "relay": "off",
                     "relayType": "RBR-Now",
                     "protect": "no",
-                    "boost": 0,
                     "prevmode": "timed",
                     "advance": "-",
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774013854,
-                    "temperature": 19.8,
+                    "temperature": 2040,
                     "battery": 41,
-                    "advance-rq": "-"
+                    "period": 2
                 },
                 {
                     "name": "Office",
@@ -448,14 +452,13 @@
                     "protect": "no",
                     "relayType": "RBR-Now",
                     "prevmode": "off",
-                    "boost": 1762686976,
                     "linked": "no",
-                    "advance-rq": "-",
                     "status": "good",
                     "timestamp": 1774013854,
-                    "temperature": 25,
+                    "temperature": 2340,
                     "battery": 59,
-                    "advance": "-"
+                    "advance": "-",
+                    "period": 0
                 },
                 {
                     "name": "Main Bedroom",
@@ -468,10 +471,10 @@
                     "events": [
                         {
                             "temp": 15,
-                            "until": "8:00"
+                            "until": "09:00"
                         },
                         {
-                            "temp": 21,
+                            "temp": "21.0",
                             "until": "9:30"
                         },
                         {
@@ -486,16 +489,15 @@
                     "relay": "off",
                     "relayType": "RBR-Now",
                     "protect": "no",
-                    "boost": 0,
                     "advance": "-",
                     "prevmode": "timed",
                     "ssid": "",
                     "linked": "yes",
                     "status": "good",
                     "timestamp": 1774013855,
-                    "temperature": 24.1,
+                    "temperature": 2330,
                     "battery": 40,
-                    "advance-rq": "-"
+                    "period": 2
                 },
                 {
                     "name": "Guest Bedroom",
@@ -532,13 +534,13 @@
                     "protect": "no",
                     "ssid": "",
                     "advance": "-",
-                    "boost": 0,
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1774013855,
-                    "temperature": 22.3,
+                    "temperature": 2320,
                     "status": "good",
-                    "battery": 36
+                    "battery": 36,
+                    "period": 0
                 },
                 {
                     "name": "Outside",
@@ -558,13 +560,13 @@
                     "ssid": "",
                     "relayType": "",
                     "advance": "-",
-                    "boost": 1739792353,
                     "prevmode": "off",
                     "linked": "yes",
                     "timestamp": 1774013856,
-                    "temperature": 11.2,
+                    "temperature": 960,
                     "status": "good",
-                    "battery": 43
+                    "battery": 43,
+                    "period": 0
                 }
             ]
         },

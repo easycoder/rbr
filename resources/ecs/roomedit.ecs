@@ -26,6 +26,7 @@
     button DialogButton1
     button DialogButton2
     button DialogButton3
+    button KeyboardButton
     input DialogInput
     input ProtectTemp
     input P100Email
@@ -47,6 +48,7 @@
     variable RequestData
     variable Changed
     variable List
+    variable Script
     variable R
 
 !    debug step
@@ -96,12 +98,20 @@ NameButtonCB:
     attach DialogButton1 to `dialog-button1`
     attach DialogButton2 to `dialog-button2`
     attach DialogInput to `dialog-input`
+    attach KeyboardButton to `dialog-keyboard`
     set the content of DialogTitle to `Rename '` cat the content of RoomName cat `'`
     set the content of DialogText to `Type the new name for this room`
     set the content of DialogButton1 to `OK`
     set the content of DialogButton2 to `Cancel`
     set the content of DialogInput to the content of RoomName
-    
+
+    on click KeyboardButton
+    begin
+        put the content of DialogInput into Name
+        clear DialogPanel
+        go to NameKeyboard
+    end
+
     on click DialogButton1
     begin
     	put the content of DialogInput into Name
@@ -113,13 +123,30 @@ NameButtonCB:
         set Changed
         go to Exit
     end
-    
+
     on click DialogButton2
     begin
         clear DialogPanel
         go to ExitWithoutChanges
     end
 	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Keyboard for room name
+NameKeyboard:
+    put `{}` into Result
+    set property `title` of Result to `Room name`
+    set property `text` of Result to Name
+    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+    run Script with MainPanel and Result
+    if property `cancelled` of Result is `true` go to ExitWithoutChanges
+    put property `text` of Result into Name
+    set property `name` of Room to Name
+    set the content of RoomName to Name
+    set property `action` of RequestData to `roomname`
+    set property `name` of RequestData to Name
+    set Changed
+    go to Exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the devices

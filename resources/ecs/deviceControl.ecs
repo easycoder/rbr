@@ -132,14 +132,16 @@ MessageESPDevice:
     get Reply from url URL
     or begin
         log `Message to '` cat RelayName cat `' failed`
-        set Reply to `OK`
+        set Reply to empty
+        return
     end
     put from 6 of DeviceMAC into DeviceMAC
 !    log `?mac=` cat DeviceMAC cat `&msg=` cat Message cat ` -> ` cat Reply
 !    log RelayName cat `: msg=` cat Message cat ` -> ` cat Reply
     if left 2 of Reply is not `OK`
     begin
-        log `Bad response: ` cat Reply
+        log `Bad response from ` cat RelayName cat `: ` cat Reply
+        set Reply to empty
     end
     return
 

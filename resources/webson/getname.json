@@ -34,7 +34,29 @@
         "$Buttons": {
             "#element": "div",
             "margin-top": "0.5em",
-            "#": ["$OK", "$Cancel"],
+            "#": ["$OK", "$Pad1", "$Keyboard", "$Pad2", "$Cancel"],
+
+            "$Pad1": {
+                "#element": "div",
+                "display": "inline-block",
+                "width": "0.5em"
+            },
+
+            "$Pad2": {
+                "#element": "div",
+                "display": "inline-block",
+                "width": "0.5em"
+            },
+
+            "$Keyboard": {
+                "#element": "button",
+                "@id": "getname-keyboard",
+                "display": "inline-block",
+                "width": "5em",
+                "margin": "0 0.5em",
+                "font-size": "80%",
+                "#content": "Keyboard"
+            },
 
             "$OK": {
                 "#element": "button",

@@ -35,7 +35,7 @@
         "display": "flex",
         "flex-direction": "row",
         "margin": "1em 0",
-        "#": ["$LRPadding", "$Button1", "$CenterPadding", "$Button2", "$LRPadding"],
+        "#": ["$LRPadding", "$Button1", "$CenterPadding1", "$Button3", "$CenterPadding2", "$Button2", "$LRPadding"],
 
         "$Button1": {
             "$ID": "dialog-button1",
@@ -45,6 +45,15 @@
         "$Button2": {
             "$ID": "dialog-button2",
             "#": "$Button"
+        },
+
+        "$Button3": {
+            "#element": "button",
+            "@id": "dialog-keyboard",
+            "width": "5em",
+            "height": "1.5em",
+            "font-size": "80%",
+            "#content": "Keyboard"
         },
 
         "$Button": {
@@ -59,9 +68,14 @@
             "flex": 1
         },
 
-        "$CenterPadding": {
+        "$CenterPadding1": {
             "#element": "div",
-            "width": "1em"
+            "width": "0.5em"
+        },
+
+        "$CenterPadding2": {
+            "#element": "div",
+            "width": "0.5em"
         }
     }
 }

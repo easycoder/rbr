@@ -1,0 +1,560 @@
+!   Virtual Keyboard
+!   A reusable on-screen keyboard component for touch/kiosk devices.
+!   Provides 4 switchable layouts: lowercase, uppercase, numbers/symbols, extended symbols.
+!
+!   Usage from a calling script:
+!       variable Result
+!       variable Script
+!       put `{}` into Result
+!       set property `title` of Result to `Enter text`
+!       set property `text` of Result to ``
+!       rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+!       run Script with ParentDiv and Result
+!       ! On return, Result contains:
+!       !   property `text`      - the entered text (empty if cancelled)
+!       !   property `cancelled` - `true` if user pressed Cancel
+
+    script Keyboard
+
+    import div Parent
+        and variable Result
+
+!   DOM elements
+    div Overlay
+    div Display
+    div Title
+    button CancelBtn
+    button OKBtn
+    div Panel0
+    div Panel1
+    div Panel2
+    div Panel3
+    div Row
+    div CharKey
+    div ActionKey
+
+!   State variables
+    variable Text
+    variable DisplayText
+    variable CurrentPanel
+    variable KeyboardWebson
+    variable CharMap
+    variable ActionMap
+    variable Char
+    variable DisplayChar
+    variable Action
+    variable ActionLabel
+    variable ActionName
+    variable N
+    variable Count
+    variable LoopIndex
+    variable RowChars
+    variable CharKeyIdx
+    variable ActionKeyIdx
+    variable RowIdx
+    variable TitleText
+    
+!    debug step
+
+!   Load and render the keyboard layout
+    rest get KeyboardWebson from `resources/webson/keyboard.json?v=` cat now
+    render KeyboardWebson in Parent
+
+!   Attach to structural elements
+    attach Overlay to `kb-overlay`
+    attach Display to `kb-display`
+    attach Title to `kb-title`
+    attach CancelBtn to `kb-cancel`
+    attach OKBtn to `kb-ok`
+    attach Panel0 to `kb-panel-0`
+    attach Panel1 to `kb-panel-1`
+    attach Panel2 to `kb-panel-2`
+    attach Panel3 to `kb-panel-3`
+
+!   Initialize state from Result
+    put property `text` of Result into Text
+    if Text is `null` put empty into Text
+    put property `title` of Result into TitleText
+    if TitleText is not `null` set the content of Title to TitleText
+    gosub to UpdateDisplay
+
+    put 0 into CurrentPanel
+    put `[]` into CharMap
+    put `[]` into ActionMap
+    put 0 into CharKeyIdx
+    put 0 into ActionKeyIdx
+    put 0 into RowIdx
+
+!   Size the element arrays
+    set the elements of CharKey to 120
+    set the elements of ActionKey to 20
+    set the elements of Row to 16
+
+!   Build all 4 keyboard panels
+    gosub to BuildPanel0
+    gosub to BuildPanel1
+    gosub to BuildPanel2
+    gosub to BuildPanel3
+
+!   Set up click handlers
+    on click CharKey go to DoCharKey
+    on click ActionKey go to DoActionKey
+    on click CancelBtn go to DoCancel
+    on click OKBtn go to DoOK
+
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Character key click handler
+DoCharKey:
+    put the index of CharKey into N
+    put element N of CharMap into Char
+    put Text cat Char into Text
+    gosub to UpdateDisplay
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Action key click handler - dispatches to appropriate handler
+DoActionKey:
+    put the index of ActionKey into N
+    put element N of ActionMap into Action
+    if Action is `shift` go to DoShift
+    if Action is `back` go to DoBack
+    if Action is `space` go to DoSpace
+    if Action is `enter` go to DoOK
+    if Action is `numbers` go to DoNumbers
+    if Action is `letters` go to DoLetters
+    if Action is `symbols` go to DoSymbols
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Shift - toggle between lowercase (panel 0) and uppercase (panel 1)
+DoShift:
+    if CurrentPanel is 0
+    begin
+        set style `display` of Panel0 to `none`
+        set style `display` of Panel1 to `block`
+        put 1 into CurrentPanel
+    end
+    else
+    begin
+        set style `display` of Panel1 to `none`
+        set style `display` of Panel0 to `block`
+        put 0 into CurrentPanel
+    end
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Backspace - remove last character
+DoBack:
+    put the length of Text into N
+    if N is greater than 0
+    begin
+        take 1 from N
+        put left N of Text into Text
+    end
+    gosub to UpdateDisplay
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Space - add a space character
+DoSpace:
+    put Text cat ` ` into Text
+    gosub to UpdateDisplay
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Numbers - switch to numbers/symbols panel (panel 2)
+DoNumbers:
+    gosub to HideCurrentPanel
+    set style `display` of Panel2 to `block`
+    put 2 into CurrentPanel
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Letters - switch back to lowercase panel (panel 0)
+DoLetters:
+    gosub to HideCurrentPanel
+    set style `display` of Panel0 to `block`
+    put 0 into CurrentPanel
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Symbols - switch to extended symbols panel (panel 3)
+DoSymbols:
+    gosub to HideCurrentPanel
+    set style `display` of Panel3 to `block`
+    put 3 into CurrentPanel
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Cancel - discard and exit
+DoCancel:
+    set property `cancelled` of Result to `true`
+    set property `text` of Result to empty
+    remove element Overlay
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   OK / Enter - accept and exit
+DoOK:
+    set property `cancelled` of Result to `false`
+    set property `text` of Result to Text
+    remove element Overlay
+    exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Build Panel 0 - lowercase letters
+BuildPanel0:
+!   Row 0: q w e r t y u i o p
+    index Row to RowIdx
+    create Row in Panel0
+    gosub to StyleRow
+    put `qwertyuiop` into RowChars
+    gosub to AddCharKeys
+    add 1 to RowIdx
+
+!   Row 1: a s d f g h j k l
+    index Row to RowIdx
+    create Row in Panel0
+    gosub to StyleRow
+    put `asdfghjkl` into RowChars
+    gosub to AddCharKeys
+    add 1 to RowIdx
+
+!   Row 2: [SHIFT] z x c v b n m [BACK]
+    index Row to RowIdx
+    create Row in Panel0
+    gosub to StyleRow
+    put `shift` into ActionName
+    put `⇧` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    put `zxcvbnm` into RowChars
+    gosub to AddCharKeys
+    put `back` into ActionName
+    put `⌫` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    add 1 to RowIdx
+
+!   Row 3: [123] , [SPACE] . [ENTER]
+    index Row to RowIdx
+    create Row in Panel0
+    gosub to StyleRow
+    put `numbers` into ActionName
+    put `123` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    put `,` into Char
+    gosub to AddCharKey
+    put `space` into ActionName
+    put `&nbsp;` into ActionLabel
+    gosub to AddActionKey
+    set style `flex` of ActionKey to `1`
+    set style `min-width` of ActionKey to `30%`
+    add 1 to ActionKeyIdx
+    put `.` into Char
+    gosub to AddCharKey
+    put `enter` into ActionName
+    put `↵` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    add 1 to RowIdx
+
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Build Panel 1 - uppercase letters
+BuildPanel1:
+!   Row 0: Q W E R T Y U I O P
+    index Row to RowIdx
+    create Row in Panel1
+    gosub to StyleRow
+    put `QWERTYUIOP` into RowChars
+    gosub to AddCharKeys
+    add 1 to RowIdx
+
+!   Row 1: A S D F G H J K L
+    index Row to RowIdx
+    create Row in Panel1
+    gosub to StyleRow
+    put `ASDFGHJKL` into RowChars
+    gosub to AddCharKeys
+    add 1 to RowIdx
+
+!   Row 2: [SHIFT] Z X C V B N M [BACK]
+    index Row to RowIdx
+    create Row in Panel1
+    gosub to StyleRow
+    put `shift` into ActionName
+    put `⇧` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    put `ZXCVBNM` into RowChars
+    gosub to AddCharKeys
+    put `back` into ActionName
+    put `⌫` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    add 1 to RowIdx
+
+!   Row 3: [123] , [SPACE] . [ENTER]
+    index Row to RowIdx
+    create Row in Panel1
+    gosub to StyleRow
+    put `numbers` into ActionName
+    put `123` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    put `,` into Char
+    gosub to AddCharKey
+    put `space` into ActionName
+    put `&nbsp;` into ActionLabel
+    gosub to AddActionKey
+    set style `flex` of ActionKey to `1`
+    set style `min-width` of ActionKey to `30%`
+    add 1 to ActionKeyIdx
+    put `.` into Char
+    gosub to AddCharKey
+    put `enter` into ActionName
+    put `↵` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    add 1 to RowIdx
+
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Build Panel 2 - numbers and symbols
+BuildPanel2:
+!   Row 0: 1 2 3 4 5 6 7 8 9 0
+    index Row to RowIdx
+    create Row in Panel2
+    gosub to StyleRow
+    put `1234567890` into RowChars
+    gosub to AddCharKeys
+    add 1 to RowIdx
+
+!   Row 1: @ # £ & _ - ( ) = %
+    index Row to RowIdx
+    create Row in Panel2
+    gosub to StyleRow
+    put `@#£` into RowChars
+    gosub to AddCharKeys
+    put `&` into Char
+    gosub to AddCharKey
+    put `_-()=%` into RowChars
+    gosub to AddCharKeys
+    add 1 to RowIdx
+
+!   Row 2: [SYMBOLS] " * ' / : ! ? + [BACK]
+    index Row to RowIdx
+    create Row in Panel2
+    gosub to StyleRow
+    put `symbols` into ActionName
+    put `#+=` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    put `"*'/:!?+` into RowChars
+    gosub to AddCharKeys
+    put `back` into ActionName
+    put `⌫` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    add 1 to RowIdx
+
+!   Row 3: [ABC] , [SPACE] . [ENTER]
+    index Row to RowIdx
+    create Row in Panel2
+    gosub to StyleRow
+    put `letters` into ActionName
+    put `ABC` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    put `,` into Char
+    gosub to AddCharKey
+    put `space` into ActionName
+    put `&nbsp;` into ActionLabel
+    gosub to AddActionKey
+    set style `flex` of ActionKey to `1`
+    set style `min-width` of ActionKey to `30%`
+    add 1 to ActionKeyIdx
+    put `.` into Char
+    gosub to AddCharKey
+    put `enter` into ActionName
+    put `↵` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    add 1 to RowIdx
+
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Build Panel 3 - extended symbols
+BuildPanel3:
+!   Row 0: $ € ¥ ¢ © ® µ ~ ¿ ¡
+    index Row to RowIdx
+    create Row in Panel3
+    gosub to StyleRow
+    put `$€¥¢©®µ~¿¡` into RowChars
+    gosub to AddCharKeys
+    add 1 to RowIdx
+
+!   Row 1: ¼ ½ ¾ [ ] { } < > ^
+    index Row to RowIdx
+    create Row in Panel3
+    gosub to StyleRow
+    put `¼½¾[]{}` into RowChars
+    gosub to AddCharKeys
+    put `<` into Char
+    gosub to AddCharKey
+    put `>` into Char
+    gosub to AddCharKey
+    put `^` into Char
+    gosub to AddCharKey
+    add 1 to RowIdx
+
+!   Row 2: [123] … ; ÷ \ ∣ | ¬ ± [BACK]
+    index Row to RowIdx
+    create Row in Panel3
+    gosub to StyleRow
+    put `numbers` into ActionName
+    put `123` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    put `…;÷\∣|¬±` into RowChars
+    gosub to AddCharKeys
+    put `back` into ActionName
+    put `⌫` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    add 1 to RowIdx
+
+!   Row 3: [ABC] , [SPACE] ✕ § ¶ ° [ENTER]
+    index Row to RowIdx
+    create Row in Panel3
+    gosub to StyleRow
+    put `letters` into ActionName
+    put `ABC` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    put `,` into Char
+    gosub to AddCharKey
+    put `space` into ActionName
+    put `&nbsp;` into ActionLabel
+    gosub to AddActionKey
+    set style `flex` of ActionKey to `1`
+    set style `min-width` of ActionKey to `20%`
+    add 1 to ActionKeyIdx
+    put `✕§¶°` into RowChars
+    gosub to AddCharKeys
+    put `enter` into ActionName
+    put `↵` into ActionLabel
+    gosub to AddActionKey
+    add 1 to ActionKeyIdx
+    add 1 to RowIdx
+
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Add a row of character keys from the RowChars string
+AddCharKeys:
+    put the length of RowChars into Count
+    put 0 into LoopIndex
+    while LoopIndex is less than Count
+    begin
+        put from LoopIndex of RowChars into Char
+        put left 1 of Char into Char
+        gosub to AddCharKey
+        add 1 to LoopIndex
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Add a single character key (Char must be set by caller)
+AddCharKey:
+    index CharKey to CharKeyIdx
+    create CharKey in Row
+    put Char into DisplayChar
+    if Char is `&` put `&amp;` into DisplayChar
+    if Char is `<` put `&lt;` into DisplayChar
+    if Char is `>` put `&gt;` into DisplayChar
+    set the content of CharKey to DisplayChar
+    gosub to StyleCharKey
+    set element CharKeyIdx of CharMap to Char
+    add 1 to CharKeyIdx
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Add an action key (ActionName and ActionLabel must be set by caller)
+!   NOTE: caller must increment ActionKeyIdx after this returns
+AddActionKey:
+    index ActionKey to ActionKeyIdx
+    create ActionKey in Row
+    set the content of ActionKey to ActionLabel
+    gosub to StyleActionKey
+    set element ActionKeyIdx of ActionMap to ActionName
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Style a normal character key
+StyleCharKey:
+    set style `display` of CharKey to `inline-flex`
+    set style `align-items` of CharKey to `center`
+    set style `justify-content` of CharKey to `center`
+    set style `min-width` of CharKey to `8.5%`
+    set style `height` of CharKey to `3em`
+    set style `background` of CharKey to `white`
+    set style `border-radius` of CharKey to `0.4em`
+    set style `margin` of CharKey to `0.15em`
+    set style `cursor` of CharKey to `pointer`
+    set style `font-size` of CharKey to `1.1em`
+    set style `user-select` of CharKey to `none`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Style an action key (shift, backspace, numbers, etc.)
+StyleActionKey:
+    set style `display` of ActionKey to `inline-flex`
+    set style `align-items` of ActionKey to `center`
+    set style `justify-content` of ActionKey to `center`
+    set style `min-width` of ActionKey to `13%`
+    set style `height` of ActionKey to `3em`
+    set style `background` of ActionKey to `#e0e0e0`
+    set style `border-radius` of ActionKey to `0.4em`
+    set style `margin` of ActionKey to `0.15em`
+    set style `cursor` of ActionKey to `pointer`
+    set style `font-size` of ActionKey to `1em`
+    set style `font-weight` of ActionKey to `bold`
+    set style `user-select` of ActionKey to `none`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Style a keyboard row
+StyleRow:
+    set style `display` of Row to `flex`
+    set style `justify-content` of Row to `center`
+    set style `margin-bottom` of Row to `0.3em`
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Update the display area with current text (HTML-escaped)
+UpdateDisplay:
+    put Text into DisplayText
+    replace `&` with `&amp;` in DisplayText
+    replace `<` with `&lt;` in DisplayText
+    replace `>` with `&gt;` in DisplayText
+    put DisplayText cat `_` into DisplayText
+    if DisplayText is empty put `&nbsp;` into DisplayText
+    set the content of Display to DisplayText
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Hide whichever panel is currently visible
+HideCurrentPanel:
+    if CurrentPanel is 0 set style `display` of Panel0 to `none`
+    else if CurrentPanel is 1 set style `display` of Panel1 to `none`
+    else if CurrentPanel is 2 set style `display` of Panel2 to `none`
+    else set style `display` of Panel3 to `none`
+    return

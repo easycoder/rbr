@@ -43,7 +43,6 @@
     button ModeButton
     button OKButton
     button CancelButton
-    button HelpButton
     module ProfileModule
     module Storyteller
     topic ServerTopic
@@ -103,7 +102,6 @@
     variable Boost
     variable Advance
     variable Now
-    variable BannerClickTime
     variable UntilTime
     variable UntilTemp
     variable Waiting
@@ -136,6 +134,8 @@
     variable OnWebson
     variable OffWebson
     variable NoneWebson
+    variable UseKeyboard
+    button KeyboardButton
 
 !    debug step
 
@@ -382,7 +382,6 @@ MainProcessingTask:
     set Blocked
     log `MainProcessingTask started`
     gosub to Unmask
-
 	if not Redraw go to GetMap
     put 0 into RoomCount
     clear Error
@@ -573,11 +572,16 @@ ContinueAfterName:
     
     on click RoomTempPanel
     begin
-    	put the index of RoomTempPanel into RoomIndex
-		put element RoomIndex of Rooms into RoomSpec
+    	put the index of RoomTempPanel into N
+!       Restore any previously shown battery display
+        gosub to RestoreAllTemps
+!       Show battery for the clicked room
+        index RoomTempPanel to N
+		put element N of Rooms into RoomSpec
         put `` cat property `sensor` of RoomSpec into SensorIP
         if SensorIP is not empty
         begin
+            put property `battery` of RoomSpec into Battery
             if Battery is greater than 40 put `lightgreen` into Color
             else if Battery is greater than 25 put `orange` into Color
             else put `deeppink` into Color
@@ -636,38 +640,20 @@ UpdateRooms:
         	put RoomWebson into Webson
         	replace `/ROOM/` with RoomIndex in Webson
         	render Webson in MainPanel
-        end
 
-		! Attach to various elements of the display
-        attach ModeHolder to `room-` cat RoomIndex cat `-mode-holder` or
-        begin
-        	log `Can't find room-` cat RoomIndex cat `-mode-holder`
-        	go to HandleInternalError
-        end
-        attach RoomNamePanel to `room-name-` cat RoomIndex or
-        begin
-        	log `Can't find room-name-` cat RoomIndex
-        	go to HandleInternalError
-        end
-		attach RoomTempPanel to `room-temp-` cat RoomIndex or
-        begin
-        	log `Can't find room-temp-` cat RoomIndex
-        	go to HandleInternalError
-        end
-        attach RoomToolsButton to `room-tools-` cat RoomIndex or
-        begin
-        	log `Can't find room-tools-` cat RoomIndex
-        	go to HandleInternalError
-        end
-        attach RoomStatusButton to `room-status-` cat RoomIndex or
-        begin
-        	log `Can't find room-status-` cat RoomIndex
-        	go to HandleInternalError
-        end
-        attach Snowflake to `room-snowflake-` cat RoomIndex or
-        begin
-        	log `Can't find room-snowflake-` cat RoomIndex
-        	go to HandleInternalError
+		    ! Attach to various elements of the display
+            attach ModeHolder to `room-` cat RoomIndex cat `-mode-holder` or
+                go to NextRoom
+            attach RoomNamePanel to `room-name-` cat RoomIndex or
+                go to NextRoom
+		    attach RoomTempPanel to `room-temp-` cat RoomIndex or
+                go to NextRoom
+            attach RoomToolsButton to `room-tools-` cat RoomIndex or
+                go to NextRoom
+            attach RoomStatusButton to `room-status-` cat RoomIndex or
+                go to NextRoom
+            attach Snowflake to `room-snowflake-` cat RoomIndex or
+                go to NextRoom
         end
 
 		! Set the room name
@@ -968,6 +954,7 @@ UpdateRooms:
                 go to ProcessResult
             end
         end
+    NextRoom:
         add 1 to RoomIndex
     end
     return
@@ -1041,6 +1028,9 @@ ShowMenu:
 GetSystemName:
 	set Blocked
     clear MainPanel
+    put property `name` of Map into SystemName
+    if SystemName is `undefined` put empty into SystemName
+!   Standard input form
     if GetNameWebson is empty
         rest get GetNameWebson from `resources/webson/getname.json?v=` cat now
             or go to HandleInternalError
@@ -1048,10 +1038,15 @@ GetSystemName:
     attach Input to `getname-input`
     attach OKButton to `getname-ok`
     attach CancelButton to `getname-cancel`
-    put property `name` of Map into SystemName
-    if SystemName is `undefined` put empty into SystemName
+    attach KeyboardButton to `getname-keyboard`
     if Flag set the content of Input to SystemName
     else set style `display` of CancelButton to `none`
+    on click KeyboardButton
+    begin
+        put the content of Input into SystemName
+        clear MainPanel
+        go to GetSystemNameKeyboard
+    end
     on click OKButton
     begin
     	clear MainPanel
@@ -1073,6 +1068,25 @@ GetSystemName:
     end
 	stop
 
+GetSystemNameKeyboard:
+    put `{}` into Result
+    set property `title` of Result to `System name`
+    set property `text` of Result to SystemName
+    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        or go to HandleInternalError
+    run Script with MainPanel and Result
+    clear Blocked
+    put `first` into Prompt
+    set Redraw
+    if property `cancelled` of Result is `true` stop
+    put property `text` of Result into SystemName
+    set property `name` of Map to SystemName
+    put SystemName into storage as `SystemName`
+    put `{}` into RequestData
+    set property `action` of RequestData to `name`
+    set property `name` of RequestData to SystemName
+    go to PostRequest
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	Get the name of the system request relay
 GetRequestRelay:
@@ -1085,10 +1099,17 @@ GetRequestRelay:
     attach Input to `getrequest-input`
     attach OKButton to `getrequest-ok`
     attach CancelButton to `getrequest-cancel`
+    attach KeyboardButton to `getrequest-keyboard`
     put property `request` of Map into RequestIP
     if RequestIP is `undefined` put empty into RequestIP
     if Flag set the content of Input to RequestIP
     else set style `display` of CancelButton to `none`
+    on click KeyboardButton
+    begin
+        put the content of Input into RequestIP
+        clear MainPanel
+        go to GetRequestRelayKeyboard
+    end
     on click OKButton
     begin
     	clear MainPanel
@@ -1107,6 +1128,22 @@ GetRequestRelay:
         stop
     end
 	stop
+
+GetRequestRelayKeyboard:
+    put `{}` into Result
+    set property `title` of Result to `Request relay name`
+    set property `text` of Result to RequestIP
+    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        or go to HandleInternalError
+    run Script with MainPanel and Result
+    clear Blocked
+    put `first` into Prompt
+    set Redraw
+    if property `cancelled` of Result is `true` stop
+    put `{}` into RequestData
+    set property `action` of RequestData to `request`
+    set property `request` of RequestData to property `text` of Result
+    go to PostRequest
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Copy the current room set to the map
@@ -1224,6 +1261,37 @@ Unmask:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Restore all room temperature displays (cancel any battery view)
+RestoreAllTemps:
+    put 0 into R
+    while R is less than RoomCount
+    begin
+        index RoomTempPanel to R
+        put element R of Rooms into RoomSpec
+        put property `temperature` of RoomSpec into Temperature
+        put property `relay` of RoomSpec into RelayState
+        put property `relayType` of RoomSpec into RelayType
+        if RelayType is `Manual`
+        begin
+            set the content of RoomTempPanel to `Manual`
+            if RelayState is not `off` set style `background` of RoomTempPanel to `red`
+            else set style `background` of RoomTempPanel to `blue`
+        end
+        else
+        begin
+            set style `color` of RoomTempPanel to `white`
+            put `` cat Temperature modulo 100 into T
+            divide Temperature by 100
+            put `` cat Temperature cat `.` cat left 1 of T into Temperature
+            set the content of RoomTempPanel to Temperature cat `&deg;C`
+            if RelayState is not `off` set style `background` of RoomTempPanel to `red`
+            else set style `background` of RoomTempPanel to `blue`
+        end
+        add 1 to R
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Process the result of running another module
 ProcessResult:
 !    log `Result: ` cat Result
@@ -1281,6 +1349,7 @@ ProcessResult:
     end
     clear MainPanel
     set Redraw
+    put `first` into Prompt
     wait 10 ticks
     clear Blocked
     go to MainProcessingTask

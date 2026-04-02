@@ -70,6 +70,14 @@
     variable L
     variable T
     variable X
+    variable ProfileCount
+    variable ProfileIndex
+    variable ProfileName
+    variable SelectedProfile
+    div ProfilePopup
+    div ProfilePopupTitle
+    button ProfileButton
+    button ProfileCancelButton
     
 !    debug step
 
@@ -218,9 +226,79 @@ ShowTimes:
     set style `display` of TitleMask to `block`
     set style `display` of MaskLayer to `block`
     set style `visibility` of ModePanel to `hidden`
+    ! Build profile selection popup
+    put property `profiles` of Map into Profiles
+    put the json count of Profiles into ProfileCount
+
+    create ProfilePopup in MainPanel
+    set style `position` of ProfilePopup to `fixed`
+    set style `top` of ProfilePopup to `50%`
+    set style `left` of ProfilePopup to `50%`
+    set style `transform` of ProfilePopup to `translate(-50%, -50%)`
+    set style `background` of ProfilePopup to `#ffc`
+    set style `padding` of ProfilePopup to `1em`
+    set style `border` of ProfilePopup to `2px solid #328080`
+    set style `border-radius` of ProfilePopup to `0.5em`
+    set style `z-index` of ProfilePopup to `1000`
+    set style `text-align` of ProfilePopup to `center`
+    set style `min-width` of ProfilePopup to `60%`
+
+    create ProfilePopupTitle in ProfilePopup
+    set the content of ProfilePopupTitle to `Select profile to edit`
+    set style `font-size` of ProfilePopupTitle to `1.3em`
+    set style `padding` of ProfilePopupTitle to `0.5em`
+    set style `margin-bottom` of ProfilePopupTitle to `0.5em`
+
+    set the elements of ProfileButton to ProfileCount
+    put 0 into ProfileIndex
+    while ProfileIndex is less than ProfileCount
+    begin
+        index ProfileButton to ProfileIndex
+        create ProfileButton in ProfilePopup
+        put element ProfileIndex of Profiles into Profile
+        put property `name` of Profile into ProfileName
+        set the content of ProfileButton to ProfileName
+        set style `display` of ProfileButton to `block`
+        set style `width` of ProfileButton to `80%`
+        set style `font-size` of ProfileButton to `1.3em`
+        set style `margin` of ProfileButton to `0 auto 0.5em auto`
+        set style `border-radius` of ProfileButton to `0.25em`
+        set style `padding` of ProfileButton to `0.5em`
+        add 1 to ProfileIndex
+    end
+
+    create ProfileCancelButton in ProfilePopup
+    set the content of ProfileCancelButton to `Cancel`
+    set style `display` of ProfileCancelButton to `block`
+    set style `width` of ProfileCancelButton to `80%`
+    set style `font-size` of ProfileCancelButton to `1.3em`
+    set style `margin` of ProfileCancelButton to `0.5em auto 0 auto`
+    set style `border-radius` of ProfileCancelButton to `0.25em`
+    set style `padding` of ProfileCancelButton to `0.5em`
+    set style `background` of ProfileCancelButton to `#ddd`
+
+    put -1 into SelectedProfile
+    on click ProfileButton
+    begin
+        put the index of ProfileButton into SelectedProfile
+    end
+    on click ProfileCancelButton
+    begin
+        put -2 into SelectedProfile
+    end
+    while SelectedProfile is -1
+        wait 1
+    remove element ProfilePopup
+    if SelectedProfile is -2
+    begin
+        set style `display` of BannerMask to `none`
+        set style `display` of TitleMask to `none`
+        set style `display` of MaskLayer to `none`
+        go to SelectCancel
+    end
     if PeriodEditScript is empty
-	    	rest get PeriodEditScript from `resources/ecs/periodedit.ecs?v=` cat now
-    run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
+        rest get PeriodEditScript from `resources/ecs/periodedit.ecs?v=` cat now
+    run PeriodEditScript with MainPanel and Map and SelectedProfile and ClickIndex and Result
     set style `display` of MaskLayer to `none`
     exit
 
