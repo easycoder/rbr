@@ -49,7 +49,7 @@
             "#element": "div",
             "@id": "login-panel",
             "display": "none",
-            "#": ["$Heading", "$MacField", "$PasswordField", "$LoginBtn", "$Sep", "$RegisterLink", "$RecoverLink"],
+            "#": ["$Heading", "$MacField", "$PasswordField", "$LoginBtn", "$KeyboardBtn", "$Sep", "$RegisterLink", "$RecoverLink"],
 
             "$Heading": {
                 "#element": "div",
@@ -130,6 +130,20 @@
                 "color": "white",
                 "border": "none",
                 "border-radius": "4px",
+                "margin-bottom": "0.5em"
+            },
+
+            "$KeyboardBtn": {
+                "#element": "button",
+                "@id": "login-keyboard-button",
+                "#content": "Keyboard",
+                "width": "40%",
+                "padding": "0.4em",
+                "font-size": "0.8em",
+                "background": "white",
+                "color": "#328080",
+                "border": "1px solid #328080",
+                "border-radius": "4px",
                 "margin-bottom": "1em"
             },
 
@@ -172,7 +186,7 @@
             "#element": "div",
             "@id": "register-panel",
             "display": "none",
-            "#": ["$Heading", "$Welcome", "$MacField", "$EmailField", "$RegisterBtn", "$Sep", "$BackLink"],
+            "#": ["$Heading", "$Welcome", "$MacField", "$EmailField", "$RegisterBtn", "$KeyboardBtn", "$Sep", "$BackLink"],
 
             "$Heading": {
                 "#element": "div",
@@ -269,6 +283,20 @@
                 "color": "white",
                 "border": "none",
                 "border-radius": "4px",
+                "margin-bottom": "0.5em"
+            },
+
+            "$KeyboardBtn": {
+                "#element": "button",
+                "@id": "register-keyboard-button",
+                "#content": "Keyboard",
+                "width": "40%",
+                "padding": "0.4em",
+                "font-size": "0.8em",
+                "background": "white",
+                "color": "#328080",
+                "border": "1px solid #328080",
+                "border-radius": "4px",
                 "margin-bottom": "1em"
             },
 
@@ -297,7 +325,7 @@
             "#element": "div",
             "@id": "verify-panel",
             "display": "none",
-            "#": ["$Heading", "$Info", "$CodeField", "$VerifyBtn", "$BackLink"],
+            "#": ["$Heading", "$Info", "$CodeField", "$VerifyBtn", "$KeyboardBtn", "$BackLink"],
 
             "$Heading": {
                 "#element": "div",
@@ -355,6 +383,20 @@
                 "background": "#328080",
                 "color": "white",
                 "border": "none",
+                "border-radius": "4px",
+                "margin-bottom": "0.5em"
+            },
+
+            "$KeyboardBtn": {
+                "#element": "button",
+                "@id": "verify-keyboard-button",
+                "#content": "Keyboard",
+                "width": "40%",
+                "padding": "0.4em",
+                "font-size": "0.8em",
+                "background": "white",
+                "color": "#328080",
+                "border": "1px solid #328080",
                 "border-radius": "4px",
                 "margin-bottom": "1em"
             },
@@ -423,7 +465,7 @@
             "#element": "div",
             "@id": "recover-panel",
             "display": "none",
-            "#": ["$Heading", "$Info", "$MacField", "$EmailField", "$RecoverBtn", "$BackLink"],
+            "#": ["$Heading", "$Info", "$MacField", "$EmailField", "$RecoverBtn", "$KeyboardBtn", "$BackLink"],
 
             "$Heading": {
                 "#element": "div",
@@ -503,6 +545,20 @@
                 "background": "#328080",
                 "color": "white",
                 "border": "none",
+                "border-radius": "4px",
+                "margin-bottom": "0.5em"
+            },
+
+            "$KeyboardBtn": {
+                "#element": "button",
+                "@id": "recover-keyboard-button",
+                "#content": "Keyboard",
+                "width": "40%",
+                "padding": "0.4em",
+                "font-size": "0.8em",
+                "background": "white",
+                "color": "#328080",
+                "border": "1px solid #328080",
                 "border-radius": "4px",
                 "margin-bottom": "1em"
             },

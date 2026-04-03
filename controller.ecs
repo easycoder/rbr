@@ -3,6 +3,7 @@
     script Controller
 
     use mqtt
+    use email
 
     dictionary Credentials
     dictionary CredDict
@@ -68,6 +69,10 @@
     variable Username
     variable Password
     variable MAC
+    variable MailServer
+    variable MailLogin
+    variable MailPassword
+    variable MailFrom
     variable Action
     variable Mode
     variable Value
@@ -124,6 +129,10 @@
     put entry `username` of CredDict into Username
     put entry `password` of CredDict into Password
     put entry `mac` of CredDict into MAC
+    put entry `mail_server` of CredDict into MailServer
+    put entry `mail_login` of CredDict into MailLogin
+    put entry `mail_password` of CredDict into MailPassword
+    put entry `mail_from` of CredDict into MailFrom
 
 !    log `Broker is ` cat Broker
 !    log `Username is ` cat Username
@@ -305,6 +314,7 @@ HandleMessages:
 !            else log `HandleMessages: refresh from ` cat SenderName cat ` -> no change`
         end
         else if Action is `uirequest` gosub to ProcessUIRequest
+        else if Action is `sendemail` gosub to SendEmail
     end
     clear UIRequestPending
 
@@ -1241,4 +1251,33 @@ SendMessage:
         action Action
         message MessageText
     clear ConfirmationRequested
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send an email on behalf of the UI (registration or recovery)
+!   Message contains: {"to":"...","code":"...","type":"register|recover"}
+SendEmail:
+    put entry `to` of Message into Value
+    put entry `code` of Message into Value2
+    put entry `type` of Message into Action
+    if Action is `register`
+    begin
+        put `Your RBR Heating verification code is: ` cat Value2 cat newline cat newline cat `Enter this code in the RBR app to complete registration.` into T
+        send email to Value from MailFrom subject `Your RBR Heating verification code` body T via MailServer user MailLogin password MailPassword
+            or begin
+                log `SendEmail: failed to send registration email to ` cat Value
+                return
+            end
+        log `SendEmail: sent registration email to ` cat Value
+    end
+    else if Action is `recover`
+    begin
+        put `Your new RBR Heating password is: ` cat Value2 cat newline cat newline cat `Use this to log in to the RBR app.` into T
+        send email to Value from MailFrom subject `Your new RBR Heating password` body T via MailServer user MailLogin password MailPassword
+            or begin
+                log `SendEmail: failed to send recovery email to ` cat Value
+                return
+            end
+        log `SendEmail: sent recovery email to ` cat Value
+    end
     return

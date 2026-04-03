@@ -28,12 +28,57 @@
     button PairButton
     button RecoverButton
     button RecoverBackButton
+    button LoginKeyboardButton
+    button RegisterKeyboardButton
+    button VerifyKeyboardButton
+    button RecoverKeyboardButton
     div PairStatus
+    topic ServerTopic
+    topic MyTopic
     variable LoginWebson
+    variable Credentials
+    variable Broker
+    variable Username
+    variable MQTTPassword
+    variable ServerMAC
     variable Response
     variable MAC
     variable Password
     variable Value
+    variable SendOK
+    variable MyID
+    variable Script
+    variable Result
+
+!   Fetch credentials and connect to MQTT first
+    rest get Credentials from `/credentials`
+        or go to LoginError
+    put property `broker` of Credentials into Broker
+    put property `username` of Credentials into Username
+    put property `password` of Credentials into MQTTPassword
+    put property `mac` of Credentials into ServerMAC
+
+    put `LOGIN-` cat random 999999 into MyID
+
+    init ServerTopic
+        name ServerMAC
+        qos 1
+
+    init MyTopic
+        name MyID
+        qos 1
+
+    mqtt
+        token `rbr` MQTTPassword
+        id MyID
+        broker Broker
+        port 443
+        subscribe MyTopic
+
+    on mqtt connect go to MQTTReady
+    stop
+
+MQTTReady:
 
 !   The server URL is passed to us by the parent script
     rest get LoginWebson from `resources/webson/login.json?v=` cat now
@@ -66,6 +111,10 @@
     attach RecoverButton to `recover-button`
     attach RecoverBackButton to `recover-back-button`
     attach PairStatus to `pair-status`
+    attach LoginKeyboardButton to `login-keyboard-button`
+    attach RegisterKeyboardButton to `register-keyboard-button`
+    attach VerifyKeyboardButton to `verify-keyboard-button`
+    attach RecoverKeyboardButton to `recover-keyboard-button`
 
 !   Check if we already have saved credentials
     get MAC from storage as `rbr-mac`
@@ -97,6 +146,7 @@ ShowLoginKeepMessage:
     on click LoginButton go to DoLogin
     on click ShowRegisterButton go to ShowRegister
     on click ShowRecoverButton go to ShowRecover
+    on click LoginKeyboardButton go to LoginKeyboard
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -163,6 +213,7 @@ ShowRegister:
 
     on click RegisterButton go to DoRegister
     on click RegisterBackButton go to ShowLogin
+    on click RegisterKeyboardButton go to RegisterKeyboard
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -192,7 +243,19 @@ DoRegister:
         set the content of MessagePanel to property `error` of Response
         stop
     end
-!   Registration succeeded - show verify panel
+!   Registration succeeded - ask controller to send the verification email
+    put property `password` of Response into Password
+    put `{"to":"` cat Value cat `","code":"` cat Password cat `","type":"register"}` into Value
+    send to ServerTopic
+        sender MyTopic
+        action `sendemail`
+        message Value
+        giving SendOK
+    if not SendOK
+    begin
+        set the content of MessagePanel to `Failed to contact the controller. Make sure it is powered on.`
+        stop
+    end
     go to ShowVerifyCode
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -207,6 +270,7 @@ ShowVerifyCode:
 
     on click VerifyButton go to DoVerifyCode
     on click VerifyBackButton go to ShowLogin
+    on click VerifyKeyboardButton go to VerifyKeyboard
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -264,6 +328,7 @@ ShowRecover:
 
     on click RecoverButton go to DoRecover
     on click RecoverBackButton go to ShowLogin
+    on click RecoverKeyboardButton go to RecoverKeyboard
     stop
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -288,8 +353,160 @@ DoRecover:
         set the content of MessagePanel to `Server not responding`
         stop
     end
-    set the content of MessagePanel to `If that MAC and email match our records, a new password has been sent. Check your email.`
+!   If a new password was generated, ask controller to email it
+    put property `password` of Response into Password
+    if Password is not empty
+    begin
+        put `{"to":"` cat Value cat `","code":"` cat Password cat `","type":"recover"}` into Value
+        send to ServerTopic
+            sender MyTopic
+            action `sendemail`
+            message Value
+            giving SendOK
+    end
+    set the content of MessagePanel to `If that MAC and email match our records, a new password will arrive shortly. Check your email.`
     stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Keyboard handlers
+!   Each saves current field values, runs keyboard for each field, then returns to the panel
+
+LoginKeyboard:
+    put the text of LoginMAC into MAC
+    put the text of LoginPassword into Password
+    clear LoginScreen
+    put `{}` into Result
+    set property `title` of Result to `Controller ID`
+    set property `text` of Result to MAC
+    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        or go to LoginError
+    run Script with LoginScreen and Result
+    if property `cancelled` of Result is not `true`
+    begin
+        put property `text` of Result into MAC
+        put `{}` into Result
+        set property `title` of Result to `Password`
+        set property `text` of Result to Password
+        rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+            or go to LoginError
+        run Script with LoginScreen and Result
+        if property `cancelled` of Result is not `true`
+            put property `text` of Result into Password
+    end
+    clear LoginScreen
+    render LoginWebson in LoginScreen
+    gosub to ReattachAll
+    set the text of LoginMAC to MAC
+    set the text of LoginPassword to Password
+    go to ShowLogin
+
+RegisterKeyboard:
+    put the text of RegisterMAC into MAC
+    put the text of RegisterEmail into Value
+    clear LoginScreen
+    put `{}` into Result
+    set property `title` of Result to `Controller ID`
+    set property `text` of Result to MAC
+    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        or go to LoginError
+    run Script with LoginScreen and Result
+    if property `cancelled` of Result is not `true`
+    begin
+        put property `text` of Result into MAC
+        put `{}` into Result
+        set property `title` of Result to `Email address`
+        set property `text` of Result to Value
+        rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+            or go to LoginError
+        run Script with LoginScreen and Result
+        if property `cancelled` of Result is not `true`
+            put property `text` of Result into Value
+    end
+    clear LoginScreen
+    render LoginWebson in LoginScreen
+    gosub to ReattachAll
+    set the text of RegisterMAC to MAC
+    set the text of RegisterEmail to Value
+    go to ShowRegister
+
+VerifyKeyboard:
+    put the text of VerifyCode into Password
+    clear LoginScreen
+    put `{}` into Result
+    set property `title` of Result to `Verification code`
+    set property `text` of Result to Password
+    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        or go to LoginError
+    run Script with LoginScreen and Result
+    if property `cancelled` of Result is not `true`
+        put property `text` of Result into Password
+    clear LoginScreen
+    render LoginWebson in LoginScreen
+    gosub to ReattachAll
+    set the text of VerifyCode to Password
+    go to ShowVerifyCode
+
+RecoverKeyboard:
+    put the text of RecoverMAC into MAC
+    put the text of RecoverEmail into Value
+    clear LoginScreen
+    put `{}` into Result
+    set property `title` of Result to `Controller ID`
+    set property `text` of Result to MAC
+    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        or go to LoginError
+    run Script with LoginScreen and Result
+    if property `cancelled` of Result is not `true`
+    begin
+        put property `text` of Result into MAC
+        put `{}` into Result
+        set property `title` of Result to `Email address`
+        set property `text` of Result to Value
+        rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+            or go to LoginError
+        run Script with LoginScreen and Result
+        if property `cancelled` of Result is not `true`
+            put property `text` of Result into Value
+    end
+    clear LoginScreen
+    render LoginWebson in LoginScreen
+    gosub to ReattachAll
+    set the text of RecoverMAC to MAC
+    set the text of RecoverEmail to Value
+    go to ShowRecover
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Re-attach all elements after re-rendering
+ReattachAll:
+    attach LoginPanel to `login-panel`
+    attach RegisterPanel to `register-panel`
+    attach VerifyPanel to `verify-panel`
+    attach PairPanel to `pair-panel`
+    attach RecoverPanel to `recover-panel`
+    attach MessagePanel to `login-message`
+    attach LoginMAC to `login-mac`
+    attach LoginPassword to `login-password`
+    attach RegisterMAC to `register-mac`
+    attach RegisterEmail to `register-email`
+    attach VerifyCode to `verify-code`
+    attach RecoverMAC to `recover-mac`
+    attach RecoverEmail to `recover-email`
+    attach LoginButton to `login-button`
+    attach ShowRegisterButton to `show-register-button`
+    attach ShowRecoverButton to `show-recover-button`
+    attach RegisterButton to `register-button`
+    attach RegisterBackButton to `register-back-button`
+    attach VerifyButton to `verify-button`
+    attach VerifyBackButton to `verify-back-button`
+    attach PairButton to `pair-button`
+    attach RecoverButton to `recover-button`
+    attach RecoverBackButton to `recover-back-button`
+    attach PairStatus to `pair-status`
+    attach LoginKeyboardButton to `login-keyboard-button`
+    attach RegisterKeyboardButton to `register-keyboard-button`
+    attach VerifyKeyboardButton to `verify-keyboard-button`
+    attach RecoverKeyboardButton to `recover-keyboard-button`
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 LoginError:

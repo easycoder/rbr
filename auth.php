@@ -74,17 +74,7 @@ case 'register':
     ];
     save_users($usersFile, $users);
 
-    $sent = mail($email,
-        'Your RBR Heating verification code',
-        "Your verification code is: $password\n\nEnter this code in the RBR app to complete registration.\n\nIf you did not request this, please ignore this email.",
-        "From: noreply@rbrheating.com\r\nContent-Type: text/plain; charset=UTF-8\r\n");
-
-    if (!$sent) {
-        print json_encode(['error' => 'Failed to send email. Please try again.']);
-        break;
-    }
-
-    print json_encode(['ok' => true]);
+    print json_encode(['ok' => true, 'password' => $password]);
     break;
 
 case 'recover':
@@ -96,13 +86,11 @@ case 'recover':
         $users[$mac]['password'] = $password;
         save_users($usersFile, $users);
 
-        mail($email,
-            'Your new RBR Heating password',
-            "Your new password is: $password\n\nUse this to log in to the RBR app.\n\nIf you did not request this, please ignore this email.",
-            "From: noreply@rbrheating.com\r\nContent-Type: text/plain; charset=UTF-8\r\n");
+        print json_encode(['ok' => true, 'password' => $password]);
+        break;
     }
 
-    // Always return success to avoid revealing whether the account exists
+    // No match — return success anyway to avoid revealing whether the account exists
     print json_encode(['ok' => true]);
     break;
 
