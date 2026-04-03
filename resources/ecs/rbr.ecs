@@ -185,7 +185,7 @@ DoLogin:
     rest get LoginScript from `resources/ecs/login.ecs?v=` cat now
     run LoginScript
 !   User is now authenticated - get MQTT credentials from server
-    rest get Credentials from `/credentials`
+    rest get Credentials from `credentials` or rest get Credentials from `credentials.php`
         or go to AbandonShip
 !    log Credentials
     put property `broker` of Credentials into Broker

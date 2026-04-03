@@ -117,7 +117,7 @@
     set PriorityRoomIndex to -1
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Set up MQTT
+!   Load credentials
 	if file `credentials` exists load Credentials from `credentials`
     else
     begin
