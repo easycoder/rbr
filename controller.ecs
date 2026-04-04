@@ -128,11 +128,19 @@
     put entry `broker` of CredDict into Broker
     put entry `username` of CredDict into Username
     put entry `password` of CredDict into Password
-    put entry `mac` of CredDict into MAC
     put entry `mail_server` of CredDict into MailServer
     put entry `mail_login` of CredDict into MailLogin
     put entry `mail_password` of CredDict into MailPassword
     put entry `mail_from` of CredDict into MailFrom
+
+    put system `ip link show $(ip route show default | awk '{print $5}') | awk '/ether/ {print $2}'` into MAC
+    log `MAC address is ` cat MAC
+    if MAC is empty
+    begin
+        log `Unable to get my MAC address`
+        exit
+    end
+    put trim MAC into MAC
 
 !    log `Broker is ` cat Broker
 !    log `Username is ` cat Username

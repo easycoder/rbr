@@ -191,8 +191,15 @@ DoLogin:
     put property `broker` of Credentials into Broker
     put property `username` of Credentials into Username
     put property `password` of Credentials into Password
-    put property `mac` of Credentials into MAC
-    if MAC is empty put property `serverID` of Credentials into MAC
+    get MAC from storage as `rbr-mac`
+    if MAC is `null` clear MAC
+    if MAC is `undefined` clear MAC
+    if MAC is empty
+    begin
+        put prompt `Enter your controller MAC address:` into MAC
+        if MAC is empty go to AbandonShip
+        put MAC into storage as `rbr-mac`
+    end
 
 MQTTReady:
 
@@ -962,7 +969,7 @@ UpdateRooms:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Reset the MAC address and password
 Reset:
-	put empty into storage as `MAC`
+	put empty into storage as `rbr-mac`
     put empty into storage as `password`
     clear Blocked
     stop
