@@ -21,6 +21,7 @@
     variable MessageText
     dictionary CredDict
     variable Users
+    dictionary Config
     dictionary UsersDict
     variable ReqUser
     variable ReqPass
@@ -59,6 +60,7 @@
     variable MailBody
     variable Version
     variable RemoteVersion
+    variable FileUrl
 
     ! Load credentials
 	if file `credentials` exists load Credentials from `credentials`
@@ -77,38 +79,12 @@
     put entry `mail_password` of CredDict into MailPassword
     put entry `mail_from` of CredDict into MailFrom
 
-    load SystemID from `chat-id`
-    put trim SystemID into SystemID
+    load Config from `chat-config.json`
+    put entry `id` of Config into SystemID
     put SystemID cat `/chat` into SystemID
     log `System ID is ` cat SystemID
-    if SystemID is empty
-    begin
-        log `Unable to get my system ID`
-        exit
-    end
 
-    ! Check for a newer version
-    get RemoteVersion from url `https://raw.githubusercontent.com/easycoder/chat/main/chat/chat-version`
-        or print `Warning: could not check for updates`
-    if RemoteVersion is not empty
-    begin
-        replace ` ` with `` in RemoteVersion
-        replace newline with `` in RemoteVersion
-        if file `.chat-version` exists load Version from `.chat-version`
-        else put `0` into Version
-        replace ` ` with `` in Version
-        replace newline with `` in Version
-        if RemoteVersion is greater than Version
-        begin
-            print `Updating from version ` cat Version cat ` to ` cat RemoteVersion
-            download `https://raw.githubusercontent.com/easycoder/chat/main/chat-server.ecs` to `chat-server.ecs`
-            save RemoteVersion to `.chat-version`
-            print `Update complete. Restarting...`
-            system background `sleep 2 && easycoder chat-server.ecs`
-            exit
-        end
-        else print `Chat server version ` cat Version cat ` is up to date`
-    end
+    gosub to DoCheckUpdate
 
     ! Load user database
     if file `chat-users.json` exists
@@ -170,6 +146,8 @@
                 else if Action is `post` gosub to DoPost
                 else if Action is `reply` gosub to DoReply
                 else if Action is `sendemail` gosub to DoSendEmail
+                else if Action is `get-file` gosub to DoGetFile
+                else if Action is `check-update` gosub to DoCheckUpdate
                 else print `Unknown action: ` cat Action
             end
         end
@@ -181,6 +159,35 @@
 DoPing:
     put `pong` into Reply
     gosub to SendReply
+    return
+
+! ---- Check for updates ----
+
+DoCheckUpdate:
+    get RemoteVersion from url `https://raw.githubusercontent.com/easycoder/chat/main/chat/chat-version`
+        or begin
+            print `Warning: could not check for updates`
+            return
+        end
+    replace ` ` with `` in RemoteVersion
+    replace newline with `` in RemoteVersion
+    if file `.chat-version` exists load Version from `.chat-version`
+    else put `0` into Version
+    replace ` ` with `` in Version
+    replace newline with `` in Version
+    if RemoteVersion is greater than Version
+    begin
+        print `Updating from version ` cat Version cat ` to ` cat RemoteVersion
+        download `https://raw.githubusercontent.com/easycoder/chat/main/chat-server.ecs` to `chat-server.ecs`
+        download `https://raw.githubusercontent.com/easycoder/chat/main/chat/index.html` to `index.html`
+        download `https://raw.githubusercontent.com/easycoder/chat/main/chat/chat-main.ecs` to `chat-main.ecs`
+        download `https://raw.githubusercontent.com/easycoder/chat/main/chat/chat.json` to `chat.json`
+        save RemoteVersion to `.chat-version`
+        print `Update complete. Restarting...`
+        system background `sleep 2 && easycoder chat-server.ecs`
+        exit
+    end
+    else print `Chat server version ` cat Version cat ` is up to date`
     return
 
 ! ---- User auth ----
@@ -474,6 +481,19 @@ DoSendEmail:
         end
     print `SendEmail: sent email to ` cat MailTo
     put `ok|sent` into Reply
+    gosub to SendReply
+    return
+
+! ---- Get file from repo ----
+
+DoGetFile:
+    print `File request: ` cat MessageText
+    put `https://raw.githubusercontent.com/easycoder/chat/main/chat/` cat MessageText into FileUrl
+    get Reply from url FileUrl
+        or begin
+            print `File not found: ` cat MessageText
+            put `error|Could not fetch file` into Reply
+        end
     gosub to SendReply
     return
 

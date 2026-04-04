@@ -7,4 +7,7 @@ extras
 ESP
 map.json
 thermometers.json
+chat/chat-data
+chat/chat-config.json
+chat/chat-users.json
 __pycache__/
