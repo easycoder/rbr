@@ -96,6 +96,7 @@ RunController:
 !        log `Do relay ` cat RelayName cat `type ` cat RelayType cat ` in ` cat RoomName
         if RelayType is `RBR-Now` gosub to MessageESPDevice
         else if RelayType is `Shelly One` gosub to MessageShellyDevice
+        else if RelayType is `Zigbee` gosub to MessageZigbeeDevice
         append Reply to Replies
         increment R
     end
@@ -162,6 +163,28 @@ MessageShellyDevice:
     begin
         if entry `ison` of Response is true set entry `state` of Values to `on`
         else set entry `state` of Values to `off`
+        put Values into Reply
+    end
+    else set Reply to empty
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Send a message to a Zigbee device via the zigbee-bridge HTTP server
+MessageZigbeeDevice:
+    put `http://127.0.0.1:8889/device/` cat RelayName cat `?state=` cat RelayState into URL
+!    log URL
+    get Response from url URL
+    or begin
+        log `Zigbee bridge call failed for ` cat RelayName
+        set Reply to empty
+        return
+    end
+!    log RelayName cat ` ` cat Response
+    reset Values
+    set entry `uptime` of Values to 0
+    if Response has entry `state`
+    begin
+        set entry `state` of Values to entry `state` of Response
         put Values into Reply
     end
     else set Reply to empty

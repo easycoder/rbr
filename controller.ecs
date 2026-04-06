@@ -88,6 +88,11 @@
     variable SensorAge
     variable RoomStatus
 
+    dictionary ZigbeeTemps
+    dictionary ZigbeeTemp
+    list ZigbeeTempKeys
+    variable ZK
+
     ! Reusable variables - but be careful!
     variable I
     variable L
@@ -241,6 +246,23 @@ MainLoop:
 
     ! log `Repeat ` cat LoopCount
     increment LoopCount
+
+    ! Merge Zigbee thermometer data if available
+    if file `zigbee-temperatures.json` exists
+    begin
+        load ZigbeeTemps from `zigbee-temperatures.json`
+        put the keys of ZigbeeTemps into ZigbeeTempKeys
+        set ZK to 0
+        while ZK is less than the count of ZigbeeTempKeys
+        begin
+            put item ZK of ZigbeeTempKeys into Value
+            put entry Value of ZigbeeTemps into ZigbeeTemp
+            set entry Value of Thermometers to ZigbeeTemp
+            increment ZK
+        end
+        set ThermometerUpdate
+    end
+
     put PriorityRoomIndex into P
     if P is not less than 0
     begin
