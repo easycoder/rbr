@@ -1,0 +1,13 @@
+[Unit]
+Description=RBR User Chat Server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/rbrchat
+ExecStart=/usr/bin/python3 /root/rbrchat/chat-server.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

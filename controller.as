@@ -78,6 +78,10 @@
     variable Value
     variable Value2
     variable ThermometerUpdate
+    dictionary ZigbeeTemps
+    dictionary ZigbeeTemp
+    list ZigbeeTempKeys
+    variable ZK
     variable Version
     variable RemoteVersion
     variable LoopCount
@@ -87,11 +91,6 @@
     variable RelayFails
     variable SensorAge
     variable RoomStatus
-
-    dictionary ZigbeeTemps
-    dictionary ZigbeeTemp
-    list ZigbeeTempKeys
-    variable ZK
 
     ! Reusable variables - but be careful!
     variable I
@@ -107,8 +106,8 @@
     if file `sim` exists set Simulate else clear Simulate
 
     ! Get the appropriate controller module
-    if Simulate run `resources/ecs/simulator.ecs` as DeviceModule
-    else run `resources/ecs/deviceControl.ecs` as DeviceModule
+    if Simulate run `simulator.as` as DeviceModule
+    else run `deviceControl.as` as DeviceModule
     set LastMapSave to now
     clear MapHasChanged
     clear ThermometerUpdate
@@ -138,19 +137,33 @@
     put entry `mail_password` of CredDict into MailPassword
     put entry `mail_from` of CredDict into MailFrom
 
-    put system `ip link show $(ip route show default | awk '{print $5}') | awk '/ether/ {print $2}'` into MAC
-    log `MAC address is ` cat MAC
-    if MAC is empty
+    if file `.mac_override` exists
     begin
-        log `Unable to get my MAC address`
-        exit
+        load MAC from `.mac_override`
+        put trim MAC into MAC
+        log `MAC address overridden to ` cat MAC
     end
-    put trim MAC into MAC
+    else
+    begin
+        put system `ip link show $(ip route show default | awk '{print $5}') | awk '/ether/ {print $2}'` into MAC
+        if MAC is empty
+        begin
+            log `Unable to get my MAC address`
+            exit
+        end
+        put trim MAC into MAC
+        log `MAC address is ` cat MAC
+    end
 
 !    log `Broker is ` cat Broker
 !    log `Username is ` cat Username
 !    log `Password is ` cat Password
 !    log `MAC is ` cat MAC
+
+!    ! Register controller with the server
+!    variable PairResult
+!    get PairResult from url `https://rbrheating.com/pair/` cat MAC
+!    log `Pair result: ` cat PairResult
 
     ! Set up MQTT
     init ServerTopic
@@ -186,13 +199,14 @@ Start:
     put entry `profile` of Map into SelectedProfile
     if file `thermometers.json` exists load Thermometers from `thermometers.json`
     else reset Thermometers
+
     if Map has entry `request` set RequestName to entry `request` of Map
     else set RequestName to empty
     set RequestState to `off`
     set RequestStateWas to `off`
 
     ! Check for a newer version
-    get RemoteVersion from url `https://raw.githubusercontent.com/easycoder/rbr/main/version`
+    get RemoteVersion from url `https://rbrheating.com/version`
         or log `Warning: could not check for updates`
     if RemoteVersion is not empty
     begin
@@ -205,10 +219,10 @@ Start:
         if RemoteVersion is greater than Version
         begin
             log `Updating from version ` cat Version cat ` to ` cat RemoteVersion
-            download `https://raw.githubusercontent.com/easycoder/rbr/main/resources/ecs/controller.ecs` to `controller.ecs`
+            download `https://rbrheating.com/controller.as` to `controller.as`
             save RemoteVersion to `.version`
             log `Update complete. Restarting...`
-            system background `sleep 2 && easycoder resources/ecs/controller.ecs`
+            system background `sleep 5 && allspeak controller.as`
             exit
         end
         else log `Controller version ` cat Version cat ` is up to date`
@@ -239,9 +253,6 @@ MainLoop:
         end
     end
 
-    ! log `Repeat ` cat LoopCount
-    increment LoopCount
-
     ! Merge Zigbee thermometer data if available
     if file `zigbee-temperatures.json` exists
     begin
@@ -258,6 +269,8 @@ MainLoop:
         set ThermometerUpdate
     end
 
+    ! log `Repeat ` cat LoopCount
+    increment LoopCount
     put PriorityRoomIndex into P
     if P is not less than 0
     begin
@@ -616,12 +629,12 @@ ProcessReply:
 !   Some heating systems have a "request relay" that turns the boiler on
 !   whenever at least one room is demanding heat.
 ProcessRequestRelay:
-    if RequestName is empty log `No request relay` else log `Do the request relay`
+    if RequestName is empty log `No request relay`
     else
     begin
         if HeatingRequested put `on` into RelayState else put `off` into RelayState
         clear HeatingRequested
-        log RequestName cat `: ` cat RelayState
+!        log RequestName cat `: ` cat RelayState
         reset RoomSpec
         set entry `request` of RoomSpec to RequestName
         set entry `relay state` of RoomSpec to RelayState

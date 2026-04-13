@@ -13,9 +13,8 @@ set -e
 DONGLE_PATH="/dev/ttyACM0"
 Z2M_DIR="/opt/zigbee2mqtt"
 Z2M_USER="zigbee2mqtt"
-MQTT_BROKER="rbrheating.duckdns.org"
-MQTT_PORT=8883
-MQTT_USER="rbr"
+MQTT_BROKER="localhost"
+MQTT_PORT=1883
 
 # Parse args
 while [[ $# -gt 0 ]]; do
@@ -85,18 +84,11 @@ fi
 
 npm ci
 
-# 5. Get MQTT password
-MQTT_PASS=""
-if [[ -f "$HOME/.mqtt_password" ]]; then
-    MQTT_PASS=$(cat "$HOME/.mqtt_password")
-elif [[ -f /home/*/.mqtt_password ]]; then
-    MQTT_PASS=$(cat /home/*/.mqtt_password 2>/dev/null | head -1)
-fi
-
-if [[ -z "$MQTT_PASS" ]]; then
-    read -sp "Enter MQTT password for user '$MQTT_USER': " MQTT_PASS
-    echo ""
-fi
+# 5. Install Mosquitto local MQTT broker
+echo ""
+echo "--- Installing Mosquitto ---"
+apt-get install -y mosquitto
+systemctl enable mosquitto
 
 # 6. Create configuration
 echo ""
@@ -108,10 +100,7 @@ homeassistant: false
 
 mqtt:
   base_topic: zigbee2mqtt
-  server: mqtts://${MQTT_BROKER}:${MQTT_PORT}
-  user: ${MQTT_USER}
-  password: '${MQTT_PASS}'
-  reject_unauthorized: true
+  server: mqtt://${MQTT_BROKER}:${MQTT_PORT}
 
 serial:
   port: ${DONGLE_PATH}
@@ -140,8 +129,8 @@ echo "--- Creating systemd service ---"
 cat > /etc/systemd/system/zigbee2mqtt.service << SERVICE
 [Unit]
 Description=Zigbee2MQTT
-After=network-online.target
-Wants=network-online.target
+After=mosquitto.service
+Wants=mosquitto.service
 
 [Service]
 Type=simple
@@ -177,8 +166,8 @@ if [[ -f "$SCRIPT_DIR/zigbee-bridge.py" ]]; then
     cat > /etc/systemd/system/rbr-zigbee-bridge.service << SERVICE
 [Unit]
 Description=RBR Zigbee Bridge (HTTP/MQTT)
-After=zigbee2mqtt.service
-Wants=zigbee2mqtt.service
+After=mosquitto.service zigbee2mqtt.service
+Wants=mosquitto.service zigbee2mqtt.service
 
 [Service]
 Type=simple

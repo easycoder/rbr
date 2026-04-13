@@ -1,0 +1,16 @@
+  [Unit]                                                                               
+  Description=Zigbee2MQTT
+  After=network-online.target                                                          
+  Wants=network-online.target                               
+
+  [Service]
+  Type=simple
+  User=linaro
+  WorkingDirectory=/userdata/zigbee2mqtt
+  Environment=PATH=/userdata/node/bin:/usr/local/bin:/usr/bin:/bin                     
+  ExecStart=/userdata/node/bin/node index.js                                           
+  Restart=on-failure                                                                   
+  RestartSec=10                                                                        
+                                                            
+  [Install]
+  WantedBy=multi-user.target

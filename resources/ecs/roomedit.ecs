@@ -182,6 +182,7 @@ DevicesButtonCB:
     json add `none` to List
     json add `RBR-Now` to List
     json add `Shelly One` to List
+    json add `Zigbee` to List
     json add `Tasmota` to List
     json add `TP-Link P100` to List
     json add `Manual` to List

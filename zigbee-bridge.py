@@ -14,10 +14,8 @@ Usage:
 
 The bridge expects zigbee-config.json with MQTT broker details:
 {
-    "broker": "rbrheating.duckdns.org",
-    "port": 8883,
-    "username": "rbr",
-    "password": "...",
+    "broker": "localhost",
+    "port": 1883,
     "http_port": 8889
 }
 """
@@ -230,24 +228,12 @@ def load_config(config_path):
         with open(config_path) as f:
             return json.load(f)
 
-    # Try to build config from RBR credential sources
+    # Default: local Mosquitto broker, no auth
     config = {
-        "broker": "rbrheating.duckdns.org",
-        "port": 8883,
-        "username": "rbr",
-        "password": "",
+        "broker": "localhost",
+        "port": 1883,
         "http_port": 8889,
     }
-
-    # Try reading password from ~/.mqtt_password (same as controller)
-    pw_path = os.path.expanduser("~/.mqtt_password")
-    if os.path.exists(pw_path):
-        with open(pw_path) as f:
-            config["password"] = f.read().strip()
-
-    if not config["password"]:
-        print(f"Warning: No MQTT password found. Create {config_path} or ~/.mqtt_password")
-
     return config
 
 def main():
@@ -267,8 +253,10 @@ def main():
         client_id=f"rbr-zigbee-bridge-{os.getpid()}",
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2
     )
-    mqtt_client.username_pw_set(config["username"], config["password"])
-    mqtt_client.tls_set()
+    if config.get("username"):
+        mqtt_client.username_pw_set(config["username"], config.get("password", ""))
+    if config.get("tls", False):
+        mqtt_client.tls_set()
     mqtt_client.on_connect = on_connect
     mqtt_client.on_message = on_message
 

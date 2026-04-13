@@ -1,0 +1,212 @@
+!   simulator.as
+!   This is the simulator, that changes the temperature of a room
+!   according to a simple algorithm. It runs from a message
+!   containing a couple of variables from which it derives
+!   a new temperature according to whether the relay is on or off.
+
+    script Simulator
+    
+    dictionary AllParams
+    dictionary Params
+    dictionary Rooms
+    dictionary Data
+    dictionary Values
+    dictionary Item
+    list Times
+    list Replies
+    variable RoomName
+    variable RelayState
+    variable LastRelayState
+    variable AmbientNow
+    variable OnOffTime
+    variable OnOffTemp
+    variable SolarBoost
+    variable Temp
+    variable TempNow
+    variable Time
+    variable Value
+    variable Elapsed
+    variable Delta
+    variable Ceiling
+    variable Rows
+    variable I
+    variable N
+    variable T
+
+!    debug step
+    
+    log `Set up the simulator`
+    gosub to SetupSimulator
+    reset AllParams
+    reset Rooms
+    on message go to RunSimulation
+    release parent
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Simulate the heating in a single room
+RunSimulation:
+    put the message into Values
+    put entry `room name` of Values into RoomName
+    put entry `temperature` of Values into TempNow
+    put entry `relay state` of Values into RelayState
+!    if RoomName is `Sunroom` log TempNow
+
+    ! Get the parameters for this room
+    if AllParams is empty
+    begin
+        if file `params.json` exists load AllParams from `params.json` else reset AllParams
+    end
+    if AllParams has entry RoomName put entry RoomName of AllParams into Params
+    else
+    begin
+        log `Init params for ` cat RoomName
+        reset Params
+        set entry `rate-up` of Params to 10
+        set entry `rate-down` of Params to 10
+        set entry `ceiling` of Params to 23
+        set entry `boost` of Params to 50
+        set entry RoomName of AllParams to Params
+        save prettify AllParams to `params.json`
+    end
+    put entry `ceiling` of Params into Temp
+    gosub to ConvertTempToInt
+    put Temp into Ceiling
+
+    ! Check we have an entry for this named room
+!    put entry RoomName of AllParams into Params
+    if Rooms does not have entry RoomName
+    begin
+        reset Data
+        set entry `OnOffTime` of Data to now
+        set entry `OnOffTemp` of Data to TempNow
+        set entry `OnOffState` of Data to empty
+        set entry RoomName of Rooms to Data
+    end
+    put entry RoomName of Rooms into Data
+    put entry `OnOffTime` of Data into OnOffTime
+    put entry `OnOffTemp` of Data into OnOffTemp
+    put entry `OnOffState` of Data into LastRelayState
+    if OnOffTemp is not numeric set OnOffTemp to 0
+
+    take OnOffTime from now giving Elapsed
+
+    if RelayState is `on` put entry `rate-up` of Params into Delta
+    else put entry `rate-down` of Params into Delta
+    multiply Delta by Elapsed
+    divide Delta by 3600
+!    if RoomName is `Sunroom` log Elapsed cat `:` cat Delta
+    if RelayState is `on`
+    begin
+        add Delta to TempNow
+        if TempNow is greater than Ceiling set TempNow to Ceiling
+    end
+    else
+    begin
+        gosub to FindAmbientTemp
+        take Delta from TempNow
+        if TempNow is less than AmbientNow set TempNow to AmbientNow
+    end
+    set entry `OnOffTime` of Data to now
+    if RelayState is not LastRelayState
+    begin
+        put entry RoomName of Rooms into Data
+        set entry `OnOffTemp` of Data to TempNow
+        set entry `OnOffState` of Data to RelayState
+        set entry RoomName of Rooms to Data
+    end
+!    if RoomName is `Sunroom` log TempNow cat `: Relay is ` cat RelayState
+    reset Replies
+    append TempNow to Replies
+        send Replies to sender
+    stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Get the simulated environment and the device params
+SetupSimulator:
+    load Rows from `environment.csv`
+    split Rows
+    reset Times
+    put 0 into N
+    while N is less than the elements of Rows
+    begin
+        index Rows to N
+        if Rows is not empty
+        begin
+            put Rows into Value
+            split Value on `,`
+            if the elements of Value is 3
+            begin
+                reset Item
+                index Value to 0
+                set entry `time` of Item to Value
+                index Value to 1
+                set entry `temperature` of Item to Value
+                index Value to 2
+                set entry `boost` of Item to Value
+                append Item to Times
+            end
+        end
+        increment N
+    end
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Find the current ambient temperature
+FindAmbientTemp:
+    set N to 0
+FAT2:
+    if N is less than the count of Times
+    begin
+        put item N of Times into Item
+        put entry `time` of Item into Time
+        gosub to ConvertTimeToInt
+        if now is greater than Time
+        begin
+            increment N
+            go to FAT2
+        end
+    end
+    if N is 0 set N to the count of Times
+    decrement N
+    set Time to item N of Times
+    set Temp to entry `temperature` of Item
+    gosub to ConvertTempToInt
+    put Temp into AmbientNow
+    set Temp to entry `boost` of Item
+    gosub to ConvertTempToInt
+    set SolarBoost to entry `boost` of Params
+    multiply Temp by SolarBoost
+    divide Temp by 100
+    add Temp to AmbientNow
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Convert an HH:MM time into a number of seconds
+ConvertTimeToInt:
+    put `` cat Time into Time
+    put the index of `:` in Time into I
+    put the value of left I of Time into T
+    multiply T by 60
+    increment I
+    put the value of from I of Time into Time
+    add Time to T
+    multiply T by 60000 giving Time
+    add today to Time
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! Convert a temperature string into a number of hundredths
+ConvertTempToInt:
+    if Temp is empty put 0 into Temp
+    put the index of `.` in Temp into I
+    if I is less than 0 multiply Temp by 100
+    else
+    begin
+        put the value of left I of Temp into T
+        multiply T by 100
+        increment I
+        put the value of from I of Temp into Temp
+        add T to Temp
+    end
+    return
