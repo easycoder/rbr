@@ -596,6 +596,7 @@ BoostDone:
         add 600000 to T
         if T is not greater than now
         begin
+            if Mode is `off` put 0 into Target
             put RoomName cat `,` cat now
                 cat `,` cat Target cat `,` cat TempNow cat `,` cat HumNow
                 into StatsRecord
