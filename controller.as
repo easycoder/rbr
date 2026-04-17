@@ -1,4 +1,6 @@
-!   newController.ecs - the main program script
+!   newController.as - the main program script
+
+	info `This is the controller script for RBR`
 
     script Controller
 
@@ -174,7 +176,7 @@
         token Username Password
         id uuid
         broker Broker
-        port 8883
+        port 1883
         subscribe ServerTopic
     
     on mqtt connect go to Start
@@ -723,8 +725,43 @@ SetRelay:
 
     set entry `status` of Room to RoomStatus
     set entry `timestamp` of Room to now
-    if Room has entry `relayfails` and entry `relayfails` of Room is not 0
-        log RoomName cat `: status=` cat RoomStatus cat ` relayfails=` cat entry `relayfails` of Room
+
+!   Build a status message for the UI
+    put empty into Value
+    if Room has entry `relayfails`
+    begin
+        put entry `relayfails` of Room into RelayFails
+        if RelayFails is greater than 5
+            put `Relay: ` cat RelayFails cat ` failures` into Value
+        if RelayFails is not 0
+            log RoomName cat `: status=` cat RoomStatus cat ` relayfails=` cat RelayFails
+    end
+    if Sensor is not empty
+    begin
+        if Thermometers has entry Sensor
+        begin
+            put entry Sensor of Thermometers into Thermometer
+            put entry `ts` of Thermometer into T
+            put now into SensorAge
+            take T from SensorAge
+            if SensorAge is greater than 600000
+            begin
+                divide SensorAge by 60000 giving SensorAge
+                if Value is not empty put Value cat `. ` into Value
+                put Value cat `Sensor: no report for ` cat SensorAge cat ` min` into Value
+            end
+        end
+        else
+        begin
+            if Value is not empty put Value cat `. ` into Value
+            put Value cat `Sensor: not registered` into Value
+        end
+    end
+    if entry `statusMessage` of Room is not Value
+    begin
+        set entry `statusMessage` of Room to Value
+        gosub to UpdateRooms
+    end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Update part or all of of the map

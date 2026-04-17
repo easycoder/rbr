@@ -8,7 +8,7 @@
 !       put `{}` into Result
 !       set property `title` of Result to `Enter text`
 !       set property `text` of Result to ``
-!       rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+!       rest get Script from `resources/as/keyboard.as?v=` cat now
 !       run Script with ParentDiv and Result
 !       ! On return, Result contains:
 !       !   property `text`      - the entered text (empty if cancelled)

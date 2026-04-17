@@ -152,6 +152,9 @@ def _update_temperatures_file():
 # ---------------------------------------------------------------------------
 # HTTP request handler
 # ---------------------------------------------------------------------------
+class ZigbeeBridgeServer(HTTPServer):
+    allow_reuse_address = True
+
 class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
     """
     Endpoints:
@@ -271,7 +274,7 @@ def main():
     mqtt_client.loop_start()
 
     # Start HTTP server
-    server = HTTPServer(("127.0.0.1", http_port), ZigbeeBridgeHandler)
+    server = ZigbeeBridgeServer(("127.0.0.1", http_port), ZigbeeBridgeHandler)
     print(f"Zigbee bridge HTTP server listening on http://127.0.0.1:{http_port}")
     print(f"Thermometer data will be written to {temperatures_path}")
 

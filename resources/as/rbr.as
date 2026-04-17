@@ -143,6 +143,7 @@
 
     variable Credentials
     variable Broker
+    variable Port
     variable Username
     variable Password
     variable MAC
@@ -150,20 +151,39 @@
     no cache
 
     if the hostname is `localhost`
+    or the hostname starts with `192.168.`
+    or the hostname starts with `10.`
     begin
         if the location includes `?login` go to DoLogin
+!       Try local credentials file (provided by setup-local-ui.sh)
+        rest get Credentials from `credentials.json`
+        if Credentials is not empty
+        begin
+            put property `broker` of Credentials into Broker
+            put property `port` of Credentials into Port
+            put property `username` of Credentials into Username
+            put property `password` of Credentials into Password
+            put property `mac` of Credentials into MAC
+!           When accessing via IP, use the page hostname as broker
+            if Broker is `localhost`
+            begin
+                if the hostname is not `localhost` put the hostname into Broker
+            end
+            if Broker is not empty go to MQTTReady
+        end
+!       Fall back to manual entry for dev use
         get Broker from storage as `dev-broker`
-        if Broker is `null` clear Broker
-        if Broker is `undefined` clear Broker
+        if Broker is `null` put empty into Broker
+        if Broker is `undefined` put empty into Broker
         get Username from storage as `dev-username`
-        if Username is `null` clear Username
-        if Username is `undefined` clear Username
+        if Username is `null` put empty into Username
+        if Username is `undefined` put empty into Username
         get Password from storage as `dev-password`
-        if Password is `null` clear Password
-        if Password is `undefined` clear Password
+        if Password is `null` put empty into Password
+        if Password is `undefined` put empty into Password
         get MAC from storage as `dev-mac`
-        if MAC is `null` clear MAC
-        if MAC is `undefined` clear MAC
+        if MAC is `null` put empty into MAC
+        if MAC is `undefined` put empty into MAC
         if Broker is empty
         begin
             put prompt `Dev credentials:` cat newline cat `MQTT Broker URL:` into Broker
@@ -182,7 +202,7 @@
 DoLogin:
 !   Run login/registration flow - exits back here when authenticated
     variable LoginScript
-    rest get LoginScript from `resources/ecs/login.ecs?v=` cat now
+    rest get LoginScript from `resources/as/login.as?v=` cat now
     run LoginScript
 !   User is now authenticated - get MQTT credentials from server
     rest get Credentials from `credentials` or rest get Credentials from `credentials.php`
@@ -203,6 +223,7 @@ DoLogin:
 
 MQTTReady:
 
+    if Port is empty put 443 into Port
     put `RBR-` cat random 999999 into MyID
 !    log `Broker is ` cat Broker
 !    log `MAC is ` cat MAC
@@ -221,7 +242,7 @@ MQTTReady:
         token `rbr` Password
         id MyID
         broker Broker
-        port 443
+        port Port
         subscribe MyTopic
 
     on mqtt connect
@@ -938,7 +959,7 @@ UpdateRooms:
 !                on click ProfilesButton begin end
                 put the index of ModeButton into ClickIndex
                 if ModeScript is empty
-                    rest get ModeScript from `resources/ecs/mode.ecs?v=` cat now
+                    rest get ModeScript from `resources/as/mode.as?v=` cat now
             			or go to HandleInternalError
     			put `{}` into Result
                 run ModeScript with MainPanel
@@ -1079,7 +1100,7 @@ GetSystemNameKeyboard:
     put `{}` into Result
     set property `title` of Result to `System name`
     set property `text` of Result to SystemName
-    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+    rest get Script from `resources/as/keyboard.as?v=` cat now
         or go to HandleInternalError
     run Script with MainPanel and Result
     clear Blocked
@@ -1140,7 +1161,7 @@ GetRequestRelayKeyboard:
     put `{}` into Result
     set property `title` of Result to `Request relay name`
     set property `text` of Result to RequestIP
-    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+    rest get Script from `resources/as/keyboard.as?v=` cat now
         or go to HandleInternalError
     run Script with MainPanel and Result
     clear Blocked
@@ -1172,7 +1193,7 @@ DoProfiles:
 !	set Blocked
     gosub to MaskMainPanel
     put `{}` into Result
-    rest get Script from `resources/ecs/profiles.ecs?v=` cat now
+    rest get Script from `resources/as/profiles.as?v=` cat now
     run Script with MainPanel and Map and Result as ProfileModule
     put `first` into Prompt
     gosub to Unmask
@@ -1195,7 +1216,7 @@ RoomTools:
     put property `name` of RoomSpec into Name
 !    put property Name of Sensors into RoomSpec
     put `{}` into Result
-    rest get Script from `resources/ecs/roomtools.ecs?v=` cat now
+    rest get Script from `resources/as/roomtools.as?v=` cat now
     run Script with MainPanel and Map and RoomSpec and ClickIndex and Result
     go to ProcessResult
 
@@ -1216,7 +1237,7 @@ Statistics:
 	set Blocked
     set style `display` of OuterPanel to `none`
     set style `display` of StatisticsPanel to `block`
-    rest get Script from `resources/ecs/statistics.ecs?v=` cat now
+    rest get Script from `resources/as/statistics.as?v=` cat now
         or go to HandleInternalError
     run Script with StatisticsPanel and Map
     log `Statistics finished`

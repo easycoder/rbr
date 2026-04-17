@@ -5,11 +5,12 @@ Wants=zigbee2mqtt.service
 
 [Service]
 Type=simple
-User=linaro                                                                          
+User=linaro
 WorkingDirectory=/home/linaro
-ExecStart=/usr/bin/python3 /userdata/zigbee-bridge.py                                
-Restart=on-failure                                        
-RestartSec=5                                                                         
+ExecStart=/usr/bin/python3 -u /userdata/zigbee-bridge.py
+Restart=on-failure
+RestartSec=10
+KillMode=control-group                                                                         
   
 [Install]                                                                            
 WantedBy=multi-user.target                                

@@ -136,7 +136,7 @@
     
     on click CalendarButton
     begin
-		rest get Script from `resources/ecs/calendar.ecs?v=` cat now
+		rest get Script from `resources/as/calendar.as?v=` cat now
         set style `display` of ProfilesPanel to `none`
         set style `display` of CalendarPanel to `block`
         set the content of PageHeader to `Calendar`

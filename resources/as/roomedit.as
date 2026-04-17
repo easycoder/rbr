@@ -137,7 +137,7 @@ NameKeyboard:
     put `{}` into Result
     set property `title` of Result to `Room name`
     set property `text` of Result to Name
-    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+    rest get Script from `resources/as/keyboard.as?v=` cat now
     run Script with MainPanel and Result
     if property `cancelled` of Result is `true` go to ExitWithoutChanges
     put property `text` of Result into Name
@@ -299,7 +299,7 @@ GetCurrentRooms:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Edit the times
 TimesButtonCB:
-    rest get PeriodEditScript from `resources/ecs/periodedit.ecs?v=` cat now
+    rest get PeriodEditScript from `resources/as/periodedit.as?v=` cat now
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
 	exit
 

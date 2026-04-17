@@ -1,6 +1,6 @@
 !	Login / Registration module for RBR Heating
 !	This script handles user authentication before the main UI loads.
-!	It is run by rbr.ecs when the hostname is not localhost.
+!	It is run by rbr.as when the hostname is not localhost.
 
 	script Login
 
@@ -378,7 +378,7 @@ LoginKeyboard:
     put `{}` into Result
     set property `title` of Result to `Controller ID`
     set property `text` of Result to MAC
-    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+    rest get Script from `resources/as/keyboard.as?v=` cat now
         or go to LoginError
     run Script with LoginScreen and Result
     if property `cancelled` of Result is not `true`
@@ -387,7 +387,7 @@ LoginKeyboard:
         put `{}` into Result
         set property `title` of Result to `Password`
         set property `text` of Result to Password
-        rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        rest get Script from `resources/as/keyboard.as?v=` cat now
             or go to LoginError
         run Script with LoginScreen and Result
         if property `cancelled` of Result is not `true`
@@ -407,7 +407,7 @@ RegisterKeyboard:
     put `{}` into Result
     set property `title` of Result to `Controller ID`
     set property `text` of Result to MAC
-    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+    rest get Script from `resources/as/keyboard.as?v=` cat now
         or go to LoginError
     run Script with LoginScreen and Result
     if property `cancelled` of Result is not `true`
@@ -416,7 +416,7 @@ RegisterKeyboard:
         put `{}` into Result
         set property `title` of Result to `Email address`
         set property `text` of Result to Value
-        rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        rest get Script from `resources/as/keyboard.as?v=` cat now
             or go to LoginError
         run Script with LoginScreen and Result
         if property `cancelled` of Result is not `true`
@@ -435,7 +435,7 @@ VerifyKeyboard:
     put `{}` into Result
     set property `title` of Result to `Verification code`
     set property `text` of Result to Password
-    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+    rest get Script from `resources/as/keyboard.as?v=` cat now
         or go to LoginError
     run Script with LoginScreen and Result
     if property `cancelled` of Result is not `true`
@@ -453,7 +453,7 @@ RecoverKeyboard:
     put `{}` into Result
     set property `title` of Result to `Controller ID`
     set property `text` of Result to MAC
-    rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+    rest get Script from `resources/as/keyboard.as?v=` cat now
         or go to LoginError
     run Script with LoginScreen and Result
     if property `cancelled` of Result is not `true`
@@ -462,7 +462,7 @@ RecoverKeyboard:
         put `{}` into Result
         set property `title` of Result to `Email address`
         set property `text` of Result to Value
-        rest get Script from `resources/ecs/keyboard.ecs?v=` cat now
+        rest get Script from `resources/as/keyboard.as?v=` cat now
             or go to LoginError
         run Script with LoginScreen and Result
         if property `cancelled` of Result is not `true`

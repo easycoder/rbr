@@ -1,4 +1,4 @@
-!   deviceControl.ecs - a script to drive radiator relays and read temperatures
+!   deviceControl.as - a script to drive radiator relays and read temperatures
 
     script DeviceControl
     

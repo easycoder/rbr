@@ -297,7 +297,7 @@ ShowTimes:
         go to SelectCancel
     end
     if PeriodEditScript is empty
-        rest get PeriodEditScript from `resources/ecs/periodedit.ecs?v=` cat now
+        rest get PeriodEditScript from `resources/as/periodedit.as?v=` cat now
     run PeriodEditScript with MainPanel and Map and SelectedProfile and ClickIndex and Result
     set style `display` of MaskLayer to `none`
     exit

@@ -17,7 +17,7 @@ rsync -rvz --no-perms \
     "$REMOTE/"
 
 # Resources subdirectories — --delete keeps remote in sync with local
-for dir in css easycoder ecs icon img json webson; do
+for dir in as css icon img json webson; do
     echo "  resources/$dir"
     rsync -rvz --no-perms --delete \
         "$LOCAL/resources/$dir/" \

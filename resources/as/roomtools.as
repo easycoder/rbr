@@ -44,6 +44,9 @@
     variable Temperature
     variable Uptime
     variable State
+    variable Status
+    variable StatusMessage
+    variable StatusLine
     variable N
     variable R
 
@@ -106,7 +109,7 @@ Editor:
 	    	rest get Webson from `resources/webson/roomeditmenu.json?v=` cat now
         render Webson in MainPanel
         put empty into Result
-	    	rest get Script from `resources/ecs/roomedit.ecs?v=` cat now
+	    	rest get Script from `resources/as/roomedit.as?v=` cat now
         run Script with MainPanel and Map and CurrentProfile and ClickIndex and Result
         exit
     end
@@ -205,10 +208,21 @@ Editor:
         put property `name` of ThisRoom into Name
         put property `timestamp` of RoomSpec into Timestamp
         put Timestamp format DateFormat into DisplayTime
+        put property `status` of RoomSpec into Status
+        put property `statusMessage` of RoomSpec into StatusMessage
+        put empty into StatusLine
+        if Status is not `good`
+        begin
+            if StatusMessage is not empty
+                put `<br><br>-- Status: ` cat Status cat ` --<br>` cat StatusMessage into StatusLine
+            else
+                put `<br><br>-- Status: ` cat Status cat ` --` into StatusLine
+        end
         set the content of DialogText to `Information about ` cat Name cat `:<br><br>`
         	cat `-- Sensor --<br>` cat DisplayTime
             cat `<br>Temperature: ` cat Temperature
         	cat `<br><br>-- Relays --<br>` cat Responses
+            cat StatusLine
 
         on click DialogButton1
         begin

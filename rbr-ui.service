@@ -1,0 +1,14 @@
+[Unit]
+Description=RBR Local UI Web Server
+After=network.target mosquitto.service
+
+[Service]
+Type=simple
+User=linaro
+WorkingDirectory=/home/linaro/rbr-ui
+ExecStart=/usr/bin/python3 -m http.server 8081
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

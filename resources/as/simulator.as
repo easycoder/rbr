@@ -1,4 +1,4 @@
-!   simulator.ecs
+!   simulator.as
 !   This is the simulator, that changes the temperature of a room
 !   according to a simple algorithm. It runs from a message
 !   containing a couple of variables from which it derives
