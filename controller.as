@@ -93,6 +93,10 @@
     variable RelayFails
     variable SensorAge
     variable RoomStatus
+    variable HumNow
+    variable StatsRecord
+    dictionary StatsLastRecorded
+    topic StatsTopic
 
     ! Reusable variables - but be careful!
     variable I
@@ -171,6 +175,10 @@
     init ServerTopic
         name MAC
         qos 1
+
+    init StatsTopic
+        name MAC cat `/stats`
+        qos 0
 
     mqtt
         token Username Password
@@ -481,6 +489,7 @@ ProcessRoom:
     else
     begin
         set TempNow to empty
+        put 0 into HumNow
         ! Check all the thermometers that have registered
         if Thermometers has entry Sensor
         begin
@@ -491,6 +500,7 @@ ProcessRoom:
             begin
                 set TempNow to entry `temp` of Thermometer
                 set entry `battery` of RoomSpec to entry `batt` of Thermometer
+                if Thermometer has entry `hum` put entry `hum` of Thermometer into HumNow
             end
             else log RoomName cat ` sensor ` cat Sensor cat ` has not reported recently`
         end
@@ -575,6 +585,26 @@ ProcessRoom:
     end
 BoostDone:
     if TempNow is empty set RelayState to `off`
+
+    ! Record statistics via MQTT
+    ! Minimum interval: 600000ms (10 minutes)
+    if TempNow is not empty
+    begin
+        put 0 into T
+        if StatsLastRecorded has entry RoomName
+            put entry RoomName of StatsLastRecorded into T
+        add 600000 to T
+        if T is not greater than now
+        begin
+            put RoomName cat `,` cat now
+                cat `,` cat Target cat `,` cat TempNow cat `,` cat HumNow
+                into StatsRecord
+            send to StatsTopic
+                action `stats`
+                message StatsRecord
+            set entry RoomName of StatsLastRecorded to now
+        end
+    end
 
     ! Compute the desired relay state now so the device command
     ! in this cycle carries the latest ON/OFF/timed decision.
