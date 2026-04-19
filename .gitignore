@@ -11,3 +11,12 @@ chat/chat-data
 chat/chat-config.json
 chat/chat-users.json
 __pycache__/
+node_modules/
+package-lock.json
+tests/map-sim.json
+tests/params.json
+tests/thermometers.json
+tests/controller.as
+tests/simulator.as
+tests/deviceControl.as
+test-results/

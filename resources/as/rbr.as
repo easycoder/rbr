@@ -199,6 +199,7 @@
         go to MQTTReady
     end
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 DoLogin:
 !   Run login/registration flow - exits back here when authenticated
     variable LoginScript
@@ -258,6 +259,7 @@ MQTTReady:
     end
     stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 Connected:
     ! Do the basic setup of the main window
 	gosub to SetupScreen
@@ -290,6 +292,7 @@ Conn2:
     	if not Blocked fork to MainProcessingTask
     end
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 SetupScreen:
     log `Set up the screen...`
     set Redraw
@@ -462,12 +465,7 @@ GetMap:
     end
     put `refresh` into Prompt
 
-    if Map is empty
-    begin
-    	log `Map is empty`
-        clear Blocked
-    	stop
-    end
+    if Map is empty gosub to CreateDefaultMap
     if ReceivedMessage is not empty set Redraw
     put empty into ReceivedMessage
 
@@ -1032,6 +1030,7 @@ ShowMenu:
         set property `action` of RequestData to `addroom`
         set property `spec` of RequestData to Value
         fork to PostAndConfirm
+        if Rooms is empty put json `[]` into Rooms
         append Value to Rooms
         gosub to CopyRoomsToMap
     	clear MainPanel
@@ -1096,6 +1095,8 @@ GetSystemName:
     end
 	stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Get the system name using the popup keyboard
 GetSystemNameKeyboard:
     put `{}` into Result
     set property `title` of Result to `System name`
@@ -1157,6 +1158,8 @@ GetRequestRelay:
     end
 	stop
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Get the request relay name using the popup keyboard
 GetRequestRelayKeyboard:
     put `{}` into Result
     set property `title` of Result to `Request relay name`
@@ -1176,6 +1179,8 @@ GetRequestRelayKeyboard:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Copy the current room set to the map
 CopyRoomsToMap:
+    if Map is empty gosub to CreateDefaultMap
+    if CurrentProfile is empty put 0 into CurrentProfile
     put property `profiles` of Map into Profiles
     put element CurrentProfile of Profiles into Profile
     set property `rooms` of Profile to Rooms
@@ -1199,6 +1204,13 @@ DoProfiles:
     gosub to Unmask
     set Redraw
     go to ProcessResult
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! 	Create a default map
+CreateDefaultMap:
+    log `No map available; creating template`
+    put json `{"profiles":[{"name":"Default","rooms":[]}],"profile":0,"calendar":"off","calendar-data":[],"name":"New System"}` into Map
+    return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! 	The room tools

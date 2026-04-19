@@ -93,10 +93,7 @@
     variable RelayFails
     variable SensorAge
     variable RoomStatus
-    variable HumNow
-    variable StatsRecord
-    dictionary StatsLastRecorded
-    topic StatsTopic
+    variable MapFilename
 
     ! Reusable variables - but be careful!
     variable I
@@ -175,10 +172,6 @@
     init ServerTopic
         name MAC
         qos 1
-
-    init StatsTopic
-        name MAC cat `/stats`
-        qos 0
 
     mqtt
         token Username Password
@@ -398,7 +391,23 @@ HandleMessages:
 !   Load up the system map
 LoadMap:
     log `Load the system map`
-    load Map from `map.json`
+    if Simulate set MapFilename to `map-sim.json` else set MapFilename to `map.json`
+    if file MapFilename exists load Map from MapFilename
+    else
+    begin
+        reset Map
+        reset Profiles
+        reset Profile
+        set entry `name` of Profile to `Default`
+        reset Rooms
+        set entry `rooms` of Profile to Rooms
+        append Profile to Profiles
+        set entry `profiles` of Map to Profiles
+        set entry `profile` of Map to 0
+        set entry `calendar` of Map to `off`
+        set entry `calendar-data` of Map to `[]`
+        set entry `name` of Map to `New System`
+    end
     set MapHasChanged
     return
 
@@ -489,7 +498,6 @@ ProcessRoom:
     else
     begin
         set TempNow to empty
-        put 0 into HumNow
         ! Check all the thermometers that have registered
         if Thermometers has entry Sensor
         begin
@@ -500,7 +508,6 @@ ProcessRoom:
             begin
                 set TempNow to entry `temp` of Thermometer
                 set entry `battery` of RoomSpec to entry `batt` of Thermometer
-                if Thermometer has entry `hum` put entry `hum` of Thermometer into HumNow
             end
             else log RoomName cat ` sensor ` cat Sensor cat ` has not reported recently`
         end
@@ -586,27 +593,6 @@ ProcessRoom:
 BoostDone:
     if TempNow is empty set RelayState to `off`
 
-    ! Record statistics via MQTT
-    ! Minimum interval: 600000ms (10 minutes)
-    if TempNow is not empty
-    begin
-        put 0 into T
-        if StatsLastRecorded has entry RoomName
-            put entry RoomName of StatsLastRecorded into T
-        add 600000 to T
-        if T is not greater than now
-        begin
-            if Mode is `off` put 0 into Target
-            put RoomName cat `,` cat now
-                cat `,` cat Target cat `,` cat TempNow cat `,` cat HumNow
-                into StatsRecord
-            send to StatsTopic
-                action `stats`
-                message StatsRecord
-            set entry RoomName of StatsLastRecorded to now
-        end
-    end
-
     ! Compute the desired relay state now so the device command
     ! in this cycle carries the latest ON/OFF/timed decision.
     gosub to SetRelay
@@ -651,12 +637,11 @@ ProcessReply:
             increment I
         end
         set entry `relayfails` of Room to RelayFails
-        gosub to UpdateRooms
+        set entry `temperature` of Room to TempNow
         gosub to SetRelay
-!        log RoomName cat `: ` cat Replies cat ` - ` cat entry `temperature` of Room
     end
-    return
-        
+    go to RoomStatus
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Process the request relay, if any
 !   Some heating systems have a "request relay" that turns the boiler on
@@ -704,6 +689,7 @@ SetRelay:
     set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodActive
+RoomStatus:
     if Mode is `timed`
     begin
         ! If the period or the relay state have changed, signal an immediate update,
@@ -734,8 +720,8 @@ SetRelay:
         else if RelayFails is greater than 5 put `warn` into RoomStatus
     end
 
-!   Check thermometer staleness
-    if Sensor is not empty
+!   Check thermometer staleness (skip in simulation mode)
+    if Sensor is not empty and not Simulate
     begin
         if Thermometers has entry Sensor
         begin
@@ -745,8 +731,8 @@ SetRelay:
             take T from SensorAge
 !           SensorAge is now milliseconds since last report
 !           30 minutes = 1800000ms, 10 minutes = 600000ms
-            if SensorAge is greater than 1800000 put `fail` into RoomStatus
-            else if SensorAge is greater than 600000
+            if SensorAge is greater than 3600000 put `fail` into RoomStatus
+            else if SensorAge is greater than 1800000
             begin
                 if RoomStatus is not `fail` put `warn` into RoomStatus
             end
@@ -767,7 +753,7 @@ SetRelay:
         if RelayFails is not 0
             log RoomName cat `: status=` cat RoomStatus cat ` relayfails=` cat RelayFails
     end
-    if Sensor is not empty
+    if Sensor is not empty and not Simulate
     begin
         if Thermometers has entry Sensor
         begin
@@ -788,11 +774,7 @@ SetRelay:
             put Value cat `Sensor: not registered` into Value
         end
     end
-    if entry `statusMessage` of Room is not Value
-    begin
-        set entry `statusMessage` of Room to Value
-        gosub to UpdateRooms
-    end
+    set entry `statusMessage` of Room to Value
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Update part or all of of the map

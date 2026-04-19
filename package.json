@@ -1,0 +1,19 @@
+{
+  "name": "rbr",
+  "version": "1.0.0",
+  "description": "This is an Open Source project to build a smart central heating system with control over the Internet. Although it might be considered to be just another \"Smart Home\" product, this one has one important difference. It's designed to be a \"distributed appliance\"; that is, something that can be set up before delivery and just plugged in, with none of the usual messing about with IP addresses that plagues the smart home world. No techncal knowledge on the part of the end user is required; just the ability (and willingness) to program a central heating controller.",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "./tests/run-tests.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}

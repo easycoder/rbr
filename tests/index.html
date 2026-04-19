@@ -1,0 +1,22 @@
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RBR UI</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <script type='text/javascript' src='resources/allspeak.js'></script>
+    <script type='text/javascript' src='https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js'></script>
+  </head>
+
+<body>
+    <pre id="allspeak-script" style="display:none">
+    !	Room By Room
+
+        script Loader
+
+        variable Script
+        rest get Script from `resources/as/rbr.as?v=` cat now
+        run Script
+    </pre>
+</body>
+</html>

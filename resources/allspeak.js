@@ -1,0 +1,1 @@
+/home/graham/dev/allspeak/dist/allspeak.js
