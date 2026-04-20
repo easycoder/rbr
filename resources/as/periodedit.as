@@ -128,15 +128,15 @@
     begin
     	if Editing stop
         ! Adjust the target temperature of the second (previously first) element
-        if the json count of Periods is 0 put `15.0` into Temp
-        else
-        begin
-	        put element 0 of Periods into Period
-            put property `temp` of Period into Temp
-        end
+!        if the json count of Periods is 0 put `15.0` into Temp
+!        else
+!        begin
+!	        put element 0 of Periods into Period
+!            put property `temp` of Period into Temp
+!        end
         put `{}` into Period
         set property `until` of Period to `00:00`
-        set property `temp` of Period to Temp
+        set property `temp` of Period to `15.0` ! Temp
         append Period to Periods
         set Changed
         gosub to SortPeriods

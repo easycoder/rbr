@@ -1,18 +1,4 @@
 {
-  "temp_sensor_1": {
-    "ts": 1776108884673,
-    "temp": 2225,
-    "hum": 27.66,
-    "batt": 100,
-    "rssi": 0
-  },
-  "Hall thermometer": {
-    "ts": 1776109023398,
-    "temp": 2225,
-    "hum": 27.66,
-    "batt": -1,
-    "rssi": 0
-  },
   "Hall-thermometer": {
     "ts": 1776109134522,
     "temp": 2225,

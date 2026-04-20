@@ -53,11 +53,14 @@ sleep 1
 # Kill any leftover HTTP server from a previous run
 lsof -ti:9000 | xargs -r kill 2>/dev/null || true
 echo "Starting HTTP server on port 9000..."
-python3 -m http.server 9000 --directory "$SCRIPT_DIR" &
+python3 -m http.server 9000 --directory "$SCRIPT_DIR" 2>/dev/null &
 PIDS+=($!)
 sleep 1
 
 # 3. Start the controller (with simulator) from the tests directory
+# Kill any stray controller from a previous run
+pkill -f "allspeak controller.as" 2>/dev/null || true
+sleep 1
 # Copy controller scripts (symlinks don't work - AllSpeak resolves them)
 cp "$PROJECT_DIR/controller.as" "$SCRIPT_DIR/controller.as"
 cp "$PROJECT_DIR/simulator.as" "$SCRIPT_DIR/simulator.as"

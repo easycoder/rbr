@@ -48,7 +48,7 @@ sleep 1
 # Start HTTP server
 lsof -ti:9000 | xargs -r kill 2>/dev/null || true
 echo "Starting HTTP server on port 9000..."
-python3 -m http.server 9000 --directory "$SCRIPT_DIR" &
+python3 -m http.server 9000 --directory "$SCRIPT_DIR" 2>/dev/null &
 PIDS+=($!)
 
 # Copy controller scripts (symlinks don't work - AllSpeak resolves them)

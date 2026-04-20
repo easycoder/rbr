@@ -38,8 +38,8 @@ test.describe('Add Room', () => {
         await expect(page.locator('#room-tools-0')).toBeVisible();
         await expect(page.locator('#room-status-0')).toBeVisible();
 
-        // The system name should show "New System" (from the template map)
-        await expect(page.locator('#system-name')).toHaveText('New System');
+        // The system name should show "RBR Test System" (renamed in setup-02)
+        await expect(page.locator('#system-name')).toHaveText('RBR Test System');
 
         // Only one room (no duplicates)
         await expect(page.locator('[id^="room-name-"]')).toHaveCount(1);

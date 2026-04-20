@@ -1416,7 +1416,7 @@ SendUIRequest:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Send RequestData to the controller and return
 SendRoomsUpdate:
-    log `Sending rooms update to ServerTopic: ` cat RequestData
+!    log `Sending rooms update to ServerTopic: ` cat RequestData
     send to ServerTopic
         sender MyTopic
         action `uirequest`

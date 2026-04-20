@@ -1009,7 +1009,6 @@ ResolveRoomFromMessage:
 !   Action aliases accepted for compatibility:
 !   `request` -> `Request Relay`, `addroom` -> `Add Room`, `periods` -> `Periods`.
 ProcessUIRequest:
-log Message
     ! Legacy UI modules may still send {request:`Update`, data:{...}}.
     ! Unwrap only when there is no direct Action/action field.
     if Message does not have entry `Action`
