@@ -8,7 +8,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "./tests/run-tests.sh"
+    "test": "./tests/run-setup-tests.sh"
   },
   "keywords": [],
   "author": "",

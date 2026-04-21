@@ -912,9 +912,8 @@ UpdateRooms:
                 put property `until` of RoomSpec into Boost
                 if Boost is not empty
                 begin
-                    divide Boost by 1000
                     take the timestamp from Boost
-                    divide Boost by 60
+                    divide Boost by 60000
                     add 1 to Boost
                     if Boost is 1 set the content of BoostName to Boost cat ` min`
                     else set the content of BoostName to Boost cat ` mins`

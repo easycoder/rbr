@@ -129,6 +129,7 @@ async function setSchedule(page, roomIndex, schedule) {
  */
 async function setTimedMode(page, roomIndex) {
     const modeButton = page.locator(`#room-${roomIndex}-mode-button`);
+    await modeButton.scrollIntoViewIfNeeded();
     await modeButton.waitFor({ state: 'visible', timeout: 15000 });
     await modeButton.click();
 
@@ -136,6 +137,8 @@ async function setTimedMode(page, roomIndex) {
     await timedButton.waitFor({ state: 'visible', timeout: 5000 });
     await timedButton.click();
 
+    // Wait for the mode dialog to close and main screen to settle
+    await page.waitForTimeout(1000);
     await page.locator(`#room-name-${roomIndex}`).waitFor({ state: 'visible', timeout: 15000 });
 }
 

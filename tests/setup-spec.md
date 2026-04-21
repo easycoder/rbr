@@ -2,7 +2,7 @@
 
 This sequence tests the initial setup of an RBR system from scratch. Each test builds on the state left by the previous one — they must run in order and cannot be run individually.
 
-Run with: `./tests/run-tests.sh --grep "setup"`
+Run with: `./tests/run-setup-tests.sh`
 
 ## setup-01: Smoke Tests
 
