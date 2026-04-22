@@ -1,0 +1,38 @@
+name: Deploy to rbrheating.com
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install rsync
+        run: sudo apt-get update && sudo apt-get install -y rsync
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy root files
+        run: |
+          rsync -avz --no-perms \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            index.html favicon.ico auth.php credentials.php .htaccess \
+            rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/
+
+      - name: Deploy resources
+        run: |
+          for dir in as css icon img json webson; do
+            rsync -avz --no-perms --delete \
+              -e "ssh -i ~/.ssh/id_ed25519" \
+              resources/$dir/ \
+              rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/resources/$dir/
+          done
