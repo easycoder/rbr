@@ -239,6 +239,7 @@ MQTTReady:
         name MyID
         qos 1
 
+    dummy
     mqtt
         token `rbr` Password
         id MyID
