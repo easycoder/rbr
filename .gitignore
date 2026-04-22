@@ -1,5 +1,6 @@
 .*
 !.github
+!.htaccess
 *.txt
 misc
 stats
