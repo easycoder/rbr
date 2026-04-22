@@ -17,11 +17,6 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -T 10 rbrheating.com > ~/.ssh/known_hosts 2>/dev/null
           chmod 644 ~/.ssh/known_hosts
-          echo "--- key fingerprint ---"
-          ssh-keygen -l -f ~/.ssh/id_ed25519 || echo "KEY PARSE FAILED"
-          echo "--- ssh test ---"
-          ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes -o ConnectTimeout=10 \
-              rbrheating@rbrheating.com 'echo auth ok' || echo "SSH TEST FAILED"
 
       - name: Deploy root files
         run: |
