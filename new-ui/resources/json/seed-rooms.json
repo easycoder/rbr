@@ -1,0 +1,13 @@
+{
+    "#doc": "Seed data from design/app.jsx — INITIAL_ROOMS. Values are strings so AllSpeak handles them uniformly; empty string means null. Booleans are 'yes' / 'no' to match RBR conventions. `calling` is pre-computed here (it's derived from temp/target/mode/offline/sensor at runtime once we wire real data in from the controller).",
+    "rooms": [
+        { "id": "kitchen",  "name": "Kitchen",       "temp": "19.7", "target": "20.0", "mode": "Timed",  "nextTime": "17:30", "nextTarget": "20.0", "offline": "no",  "sensor": "no",  "boost": "", "calling": "yes" },
+        { "id": "sunroom",  "name": "Sunroom",       "temp": "24.0", "target": "16.5", "mode": "Timed",  "nextTime": "16:30", "nextTarget": "16.5", "offline": "no",  "sensor": "no",  "boost": "", "calling": "no"  },
+        { "id": "lounge",   "name": "Lounge",        "temp": "20.4", "target": "21.0", "mode": "Timed",  "nextTime": "17:30", "nextTarget": "21.0", "offline": "no",  "sensor": "no",  "boost": "", "calling": "yes" },
+        { "id": "hall",     "name": "Hall",          "temp": "",     "target": "17.0", "mode": "Timed",  "nextTime": "17:00", "nextTarget": "17.0", "offline": "yes", "sensor": "no",  "boost": "", "calling": "no"  },
+        { "id": "office",   "name": "Office",        "temp": "25.2", "target": "",     "mode": "Off",    "nextTime": "",      "nextTarget": "",     "offline": "no",  "sensor": "no",  "boost": "", "calling": "no"  },
+        { "id": "mainbed",  "name": "Main Bedroom",  "temp": "23.0", "target": "15.0", "mode": "Timed",  "nextTime": "22:30", "nextTarget": "15.0", "offline": "no",  "sensor": "no",  "boost": "", "calling": "no"  },
+        { "id": "guestbed", "name": "Guest Bedroom", "temp": "22.9", "target": "",     "mode": "Off",    "nextTime": "",      "nextTarget": "",     "offline": "no",  "sensor": "no",  "boost": "", "calling": "no"  },
+        { "id": "outside",  "name": "Outside",       "temp": "11.6", "target": "",     "mode": "Sensor", "nextTime": "",      "nextTarget": "",     "offline": "no",  "sensor": "yes", "boost": "", "calling": "no"  }
+    ]
+}

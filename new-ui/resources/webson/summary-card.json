@@ -1,0 +1,248 @@
+{
+    "#doc": "SummaryCard — heat-status row, hairline, stats grid, profile pill.",
+    "#element": "div",
+    "@id": "summary-card",
+    "background": "var(--color-surface-card)",
+    "border-radius": "var(--radius-summary)",
+    "box-shadow": "var(--shadow-card)",
+    "padding": "18px",
+    "#": ["$HeatRow", "$Divider", "$Stats", "$Pill"],
+
+    "$HeatRow": {
+        "#element": "div",
+        "display": "flex",
+        "align-items": "center",
+        "gap": "10px",
+        "margin-bottom": "14px",
+        "#": ["$Chip", "$Text"],
+
+        "$Chip": {
+            "#element": "div",
+            "@id": "summary-chip",
+            "width": "36px",
+            "height": "36px",
+            "border-radius": "10px",
+            "background": "var(--color-chip-heat-bg)",
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+            "position": "relative",
+            "flex-shrink": "0",
+            "#": ["$Flame", "$Dot"],
+
+            "$Flame": {
+                "#element": "div",
+                "@id": "summary-chip-icon",
+                "width": "18px",
+                "height": "18px",
+                "background-color": "var(--color-chip-heat-fg)",
+                "mask": "url(resources/icon/flame.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/flame.svg) center/contain no-repeat"
+            },
+
+            "$Dot": {
+                "#element": "div",
+                "@id": "summary-chip-dot",
+                "position": "absolute",
+                "top": "5px",
+                "right": "5px",
+                "width": "7px",
+                "height": "7px",
+                "border-radius": "50%",
+                "background": "var(--color-accent)",
+                "display": "none",
+                "animation": "rbr-heat-pulse 1.6s infinite"
+            }
+        },
+
+        "$Text": {
+            "#element": "div",
+            "min-width": "0",
+            "flex": "1",
+            "#": ["$Title", "$Subtitle"],
+
+            "$Title": {
+                "#element": "div",
+                "@id": "summary-title",
+                "font-size": "var(--type-summary-title-size)",
+                "font-weight": "var(--type-summary-title-weight)",
+                "letter-spacing": "var(--type-summary-title-track)",
+                "color": "var(--color-text-primary)"
+            },
+
+            "$Subtitle": {
+                "#element": "div",
+                "@id": "summary-subtitle",
+                "font-size": "12px",
+                "font-weight": "400",
+                "color": "var(--color-text-muted)",
+                "margin-top": "2px",
+                "white-space": "nowrap",
+                "overflow": "hidden",
+                "text-overflow": "ellipsis"
+            }
+        }
+    },
+
+    "$Divider": {
+        "#element": "div",
+        "border-top": "1px solid var(--color-border-divider)",
+        "padding-top": "12px"
+    },
+
+    "$Stats": {
+        "#element": "div",
+        "display": "grid",
+        "grid-template-columns": "1fr 1fr 1fr",
+        "#": ["$AvgCol", "$OutCol", "$TodayCol"],
+
+        "$AvgCol": {
+            "#element": "div",
+            "padding": "0 4px",
+            "#": ["$Label", "$Value"],
+
+            "$Label": {
+                "#element": "div",
+                "font-size": "var(--type-section-label-size)",
+                "font-weight": "var(--type-section-label-weight)",
+                "letter-spacing": "var(--type-section-label-track)",
+                "text-transform": "uppercase",
+                "color": "var(--color-text-muted)",
+                "margin-bottom": "4px",
+                "#content": "AVG INDOOR"
+            },
+
+            "$Value": {
+                "#element": "div",
+                "@id": "summary-avg",
+                "font-size": "var(--type-stat-value-size)",
+                "font-weight": "var(--type-stat-value-weight)",
+                "letter-spacing": "var(--type-stat-value-track)",
+                "color": "var(--color-text-primary)"
+            }
+        },
+
+        "$OutCol": {
+            "#element": "div",
+            "padding": "0 4px",
+            "#": ["$Label", "$Value"],
+
+            "$Label": {
+                "#element": "div",
+                "font-size": "var(--type-section-label-size)",
+                "font-weight": "var(--type-section-label-weight)",
+                "letter-spacing": "var(--type-section-label-track)",
+                "text-transform": "uppercase",
+                "color": "var(--color-text-muted)",
+                "margin-bottom": "4px",
+                "#content": "OUTSIDE"
+            },
+
+            "$Value": {
+                "#element": "div",
+                "@id": "summary-outside",
+                "font-size": "var(--type-stat-value-size)",
+                "font-weight": "var(--type-stat-value-weight)",
+                "letter-spacing": "var(--type-stat-value-track)",
+                "color": "var(--color-text-primary)"
+            }
+        },
+
+        "$TodayCol": {
+            "#element": "div",
+            "padding": "0 4px",
+            "#": ["$Label", "$Value"],
+
+            "$Label": {
+                "#element": "div",
+                "font-size": "var(--type-section-label-size)",
+                "font-weight": "var(--type-section-label-weight)",
+                "letter-spacing": "var(--type-section-label-track)",
+                "text-transform": "uppercase",
+                "color": "var(--color-text-muted)",
+                "margin-bottom": "4px",
+                "#content": "TODAY"
+            },
+
+            "$Value": {
+                "#element": "div",
+                "@id": "summary-today",
+                "font-size": "var(--type-stat-date-size)",
+                "font-weight": "var(--type-stat-date-weight)",
+                "letter-spacing": "var(--type-stat-date-track)",
+                "color": "var(--color-text-primary)"
+            }
+        }
+    },
+
+    "$Pill": {
+        "#element": "button",
+        "@id": "summary-profile-pill",
+        "margin-top": "14px",
+        "width": "100%",
+        "border": "1px solid var(--color-border-hairline)",
+        "background": "var(--color-surface-pill)",
+        "border-radius": "var(--radius-button)",
+        "padding": "10px 14px",
+        "display": "flex",
+        "align-items": "center",
+        "gap": "10px",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "#": ["$Cal", "$PillText", "$Spacer", "$Chev"],
+
+        "$Cal": {
+            "#element": "div",
+            "width": "16px",
+            "height": "16px",
+            "background-color": "var(--color-text-secondary)",
+            "mask": "url(resources/icon/calendar.svg) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/calendar.svg) center/contain no-repeat",
+            "flex-shrink": "0"
+        },
+
+        "$PillText": {
+            "#element": "div",
+            "text-align": "left",
+            "min-width": "0",
+            "display": "flex",
+            "flex-direction": "column",
+            "#": ["$PillLabel", "$PillValue"],
+
+            "$PillLabel": {
+                "#element": "div",
+                "font-size": "var(--type-section-label-size)",
+                "font-weight": "var(--type-section-label-weight)",
+                "letter-spacing": "var(--type-section-label-track)",
+                "text-transform": "uppercase",
+                "color": "var(--color-text-muted)",
+                "#content": "TODAY'S PROFILE"
+            },
+
+            "$PillValue": {
+                "#element": "div",
+                "@id": "summary-profile-name",
+                "font-size": "14px",
+                "font-weight": "500",
+                "color": "var(--color-text-primary)",
+                "margin-top": "2px"
+            }
+        },
+
+        "$Spacer": {
+            "#element": "div",
+            "flex": "1"
+        },
+
+        "$Chev": {
+            "#element": "div",
+            "width": "14px",
+            "height": "14px",
+            "background-color": "var(--color-text-disabled)",
+            "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+            "transform": "rotate(-90deg)",
+            "flex-shrink": "0"
+        }
+    }
+}

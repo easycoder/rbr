@@ -1,0 +1,121 @@
+{
+    "#doc": "MenuSheet content — six rows in a bordered card plus a small footer caption. Uses a $Row template with $ID/$Label/$Sub variables.",
+    "#element": "div",
+    "@id": "menu-sheet",
+    "#": ["$Card", "$Footer"],
+
+    "$Card": {
+        "#element": "div",
+        "@id": "menu-sheet-card",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "14px",
+        "margin-top": "10px",
+        "overflow": "hidden",
+        "#": ["$Row1", "$Row2", "$Row3", "$Row4", "$Row5", "$Row6"],
+
+        "$Row1": {
+            "$ID": "menu-row-profiles",
+            "$Label": "Profiles & schedules",
+            "$Sub": "3 profiles",
+            "#": "$Row"
+        },
+        "$Row2": {
+            "$ID": "menu-row-rooms",
+            "$Label": "Rooms & thermostats",
+            "$Sub": "8 devices",
+            "#": "$Row"
+        },
+        "$Row3": {
+            "$ID": "menu-row-holiday",
+            "$Label": "Holiday mode",
+            "$Sub": "Off",
+            "#": "$Row"
+        },
+        "$Row4": {
+            "$ID": "menu-row-system",
+            "$Label": "Boiler & system",
+            "$Sub": "QED6 · 214",
+            "#": "$Row"
+        },
+        "$Row5": {
+            "$ID": "menu-row-notifications",
+            "$Label": "Notifications",
+            "$Sub": "",
+            "#": "$Row"
+        },
+        "$Row6": {
+            "$ID": "menu-row-help",
+            "$Label": "Help & support",
+            "$Sub": "",
+            "#": "$Row"
+        },
+
+        "$Row": {
+            "#element": "button",
+            "@id": "$ID",
+            "width": "100%",
+            "padding": "14px",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "10px",
+            "background": "transparent",
+            "border": "0",
+            "border-top": "1px solid var(--color-border-divider-soft)",
+            "cursor": "pointer",
+            "text-align": "left",
+            "font-family": "inherit",
+            "#": ["$Text", "$Spacer", "$Chev"],
+
+            "$Text": {
+                "#element": "div",
+                "display": "flex",
+                "flex-direction": "column",
+                "min-width": "0",
+                "#": ["$LabelEl", "$SubEl"],
+
+                "$LabelEl": {
+                    "#element": "div",
+                    "font-size": "15px",
+                    "font-weight": "500",
+                    "color": "var(--color-text-primary)",
+                    "#content": "$Label"
+                },
+                "$SubEl": {
+                    "#element": "div",
+                    "@id": "$ID-sub",
+                    "font-size": "12px",
+                    "font-weight": "400",
+                    "color": "var(--color-text-muted)",
+                    "margin-top": "2px",
+                    "#content": "$Sub"
+                }
+            },
+
+            "$Spacer": {
+                "#element": "div",
+                "flex": "1"
+            },
+
+            "$Chev": {
+                "#element": "div",
+                "width": "14px",
+                "height": "14px",
+                "background-color": "var(--color-text-disabled)",
+                "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+                "transform": "rotate(-90deg)",
+                "flex-shrink": "0"
+            }
+        }
+    },
+
+    "$Footer": {
+        "#element": "div",
+        "margin-top": "18px",
+        "text-align": "center",
+        "font-size": "11px",
+        "font-weight": "400",
+        "color": "var(--color-text-meta)",
+        "#content": "Room By Room · v4.2 · QED6 214"
+    }
+}

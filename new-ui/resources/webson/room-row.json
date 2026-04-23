@@ -1,0 +1,184 @@
+{
+    "#doc": "A single RoomRow card in its rest (collapsed) state. The placeholder /I/ is substituted with the room's list index by AllSpeak before each render.",
+    "#element": "div",
+    "@id": "room-/I/-card",
+    "background": "var(--color-surface-card)",
+    "border-radius": "var(--radius-card)",
+    "box-shadow": "var(--shadow-card)",
+    "padding": "14px var(--space-card-pad)",
+    "display": "flex",
+    "align-items": "center",
+    "gap": "12px",
+    "cursor": "pointer",
+    "user-select": "none",
+    "#": ["$Chip", "$TextBlock", "$Spacer", "$TempBlock", "$Chevron"],
+
+    "$Chip": {
+        "#element": "div",
+        "@id": "room-/I/-chip",
+        "width": "38px",
+        "height": "38px",
+        "border-radius": "12px",
+        "background": "var(--color-chip-ok-bg)",
+        "display": "flex",
+        "align-items": "center",
+        "justify-content": "center",
+        "flex-shrink": "0",
+        "#": "$ChipIcon",
+
+        "$ChipIcon": {
+            "#element": "div",
+            "@id": "room-/I/-chip-icon",
+            "width": "18px",
+            "height": "18px",
+            "background-color": "var(--color-chip-ok-fg)",
+            "mask": "url(resources/icon/clock.svg) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/clock.svg) center/contain no-repeat"
+        }
+    },
+
+    "$TextBlock": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "column",
+        "gap": "2px",
+        "min-width": "0",
+        "#": ["$NameRow", "$Subline"],
+
+        "$NameRow": {
+            "#element": "div",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "8px",
+            "#": ["$Name", "$HeatingTag", "$OfflineTag"],
+
+            "$Name": {
+                "#element": "div",
+                "@id": "room-/I/-name",
+                "font-size": "var(--type-room-name-size)",
+                "font-weight": "var(--type-room-name-weight)",
+                "letter-spacing": "var(--type-room-name-track)",
+                "color": "var(--color-text-primary)"
+            },
+
+            "$HeatingTag": {
+                "#element": "div",
+                "@id": "room-/I/-heating-tag",
+                "display": "none",
+                "align-items": "center",
+                "gap": "3px",
+                "font-size": "10.5px",
+                "font-weight": "600",
+                "color": "var(--color-accent)",
+                "#": ["$Flame", "$Label"],
+
+                "$Flame": {
+                    "#element": "div",
+                    "width": "11px",
+                    "height": "11px",
+                    "background-color": "var(--color-accent)",
+                    "mask": "url(resources/icon/flame.svg) center/contain no-repeat",
+                    "-webkit-mask": "url(resources/icon/flame.svg) center/contain no-repeat"
+                },
+                "$Label": {
+                    "#element": "span",
+                    "#content": "heating"
+                }
+            },
+
+            "$OfflineTag": {
+                "#element": "div",
+                "@id": "room-/I/-offline-tag",
+                "display": "none",
+                "align-items": "center",
+                "gap": "3px",
+                "font-size": "10.5px",
+                "font-weight": "500",
+                "color": "var(--color-status-warn)",
+                "#": ["$WifiSlash", "$Label"],
+
+                "$WifiSlash": {
+                    "#element": "div",
+                    "width": "11px",
+                    "height": "11px",
+                    "background-color": "var(--color-status-warn)",
+                    "mask": "url(resources/icon/offline.svg) center/contain no-repeat",
+                    "-webkit-mask": "url(resources/icon/offline.svg) center/contain no-repeat"
+                },
+                "$Label": {
+                    "#element": "span",
+                    "#content": "offline"
+                }
+            }
+        },
+
+        "$Subline": {
+            "#element": "div",
+            "@id": "room-/I/-subline",
+            "font-size": "var(--type-subline-size)",
+            "font-weight": "var(--type-subline-weight)",
+            "color": "var(--color-text-secondary)",
+            "white-space": "nowrap",
+            "overflow": "hidden",
+            "text-overflow": "ellipsis"
+        }
+    },
+
+    "$Spacer": {
+        "#element": "div",
+        "flex": "1"
+    },
+
+    "$TempBlock": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "column",
+        "align-items": "flex-end",
+        "flex-shrink": "0",
+        "#": ["$CurrentRow", "$Setpoint"],
+
+        "$CurrentRow": {
+            "#element": "div",
+            "display": "flex",
+            "align-items": "baseline",
+            "#": ["$Temp", "$Unit"],
+
+            "$Temp": {
+                "#element": "span",
+                "@id": "room-/I/-temp",
+                "font-size": "var(--type-current-temp-size)",
+                "font-weight": "var(--type-current-temp-weight)",
+                "letter-spacing": "var(--type-current-temp-track)",
+                "color": "var(--color-text-primary)"
+            },
+
+            "$Unit": {
+                "#element": "span",
+                "font-size": "11px",
+                "color": "var(--color-text-muted)",
+                "margin-left": "2px",
+                "#content": "°C"
+            }
+        },
+
+        "$Setpoint": {
+            "#element": "div",
+            "@id": "room-/I/-setpoint",
+            "font-size": "11px",
+            "color": "var(--color-text-muted)",
+            "margin-top": "2px"
+        }
+    },
+
+    "$Chevron": {
+        "#element": "div",
+        "@id": "room-/I/-chevron",
+        "width": "14px",
+        "height": "14px",
+        "flex-shrink": "0",
+        "background-color": "var(--color-text-disabled)",
+        "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+        "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+        "transition": "transform var(--motion-chevron-rotate)"
+    }
+}

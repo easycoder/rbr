@@ -1,0 +1,196 @@
+/*
+ * Room By Room — Design tokens.
+ *
+ * Exposed as CSS custom properties on :root. Webson templates reference them
+ * as `var(--color-accent)` etc., which the browser resolves at paint time —
+ * no AllSpeak-engine changes required.
+ *
+ * Organised to match design/handoff/TOKENS.md section-by-section so the two
+ * stay comparable. Numeric values that depend on runtime state (the time-of-
+ * day gradient, the temperature clamp, touch-target minimums) are documented
+ * here but applied from AllSpeak, not from CSS.
+ */
+
+:root {
+    /* ---------- Colour ---------- */
+    --color-accent:               #E86A33;
+    --color-accent-8:             #E86A3314;   /* 8% alpha — chip bg when heating */
+    --color-accent-10:            #E86A331A;   /* 10% alpha — target tile bg */
+    --color-accent-12:            #E86A331F;   /* 12% alpha — hover/active */
+    --color-accent-20:            #E86A3333;   /* 20% alpha — target-tile border */
+    --color-accent-tinted-shadow: rgba(232,106,51,0.25);
+
+    --color-text-primary:   #1A1A1A;
+    --color-text-secondary: #666666;
+    --color-text-muted:     #999999;
+    --color-text-meta:      #AAAAAA;
+    --color-text-disabled:  #BBBBBB;
+
+    --color-surface-card: #FFFFFF;
+    --color-surface-sunk: #F4F5F7;   /* segmented-control well */
+    --color-surface-pill: #FAFAFA;   /* profile pill */
+
+    --color-chip-neutral-bg: #F1F3F5;
+    --color-chip-neutral-fg: #999999;
+    --color-chip-ok-bg:      #E8F4EC;
+    --color-chip-ok-fg:      #3A8C5F;
+    --color-chip-warn-bg:    #FFF4E0;
+    --color-chip-warn-fg:    #C78A1A;
+    --color-chip-heat-bg:    var(--color-accent-8);
+    --color-chip-heat-fg:    var(--color-accent);
+
+    --color-border-hairline:     #ECECEC;
+    --color-border-divider:      #F0F0F0;
+    --color-border-divider-soft: #F3F3F3;
+
+    --color-status-heating: var(--color-accent);
+    --color-status-warn:    #C78A1A;
+    --color-scrim:          rgba(0,0,0,0.35);
+
+    /* ---------- Typography ---------- */
+    --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+
+    --type-app-name-size:         17px;
+    --type-app-name-weight:       600;
+    --type-app-name-track:        -0.3px;
+
+    --type-sheet-title-size:      17px;
+    --type-sheet-title-weight:    600;
+    --type-sheet-title-track:     -0.3px;
+
+    --type-summary-title-size:    15px;
+    --type-summary-title-weight:  600;
+    --type-summary-title-track:   -0.2px;
+
+    --type-room-name-size:        16px;
+    --type-room-name-size-compact: 15px;
+    --type-room-name-weight:      600;
+    --type-room-name-track:       -0.2px;
+
+    --type-current-temp-size:         22px;
+    --type-current-temp-size-compact: 20px;
+    --type-current-temp-weight:       500;
+    --type-current-temp-track:        -0.8px;
+
+    --type-target-big-size:   30px;
+    --type-target-big-weight: 500;
+    --type-target-big-track:  -1px;
+
+    --type-stat-value-size:   18px;
+    --type-stat-value-weight: 600;
+    --type-stat-value-track:  -0.3px;
+
+    --type-stat-date-size:    14px;
+    --type-stat-date-weight:  600;
+    --type-stat-date-track:   -0.3px;
+
+    --type-body-size:     14px;
+    --type-body-weight:   500;
+
+    --type-subline-size:   12px;
+    --type-subline-weight: 500;
+
+    --type-caption-size:   11px;
+    --type-caption-weight: 400;
+
+    --type-section-label-size:   10.5px;
+    --type-section-label-weight: 500;
+    --type-section-label-track:  0.4px;
+
+    /* ---------- Spacing ---------- */
+    --space-page-x:       16px;
+    --space-page-top:     14px;
+    --space-card-pad:     16px;      /* 14–18 range; pick 16 as the neutral */
+    --space-card-pad-tight: 14px;
+    --space-card-pad-wide:  18px;
+    --space-row-gap:      8px;
+
+    /* ---------- Radius ---------- */
+    --radius-card:           16px;
+    --radius-sheet:          24px;
+    --radius-summary:        20px;
+    --radius-button:         12px;   /* 10–14 range */
+    --radius-chip:           12px;   /* 10–12 range */
+    --radius-segment-item:   9px;
+    --radius-target-tile:    14px;
+    --radius-step-btn:       27px;   /* half of 54 — disc */
+
+    /* ---------- Shadow ---------- */
+    --shadow-card:        0 1px 2px rgba(0,0,0,0.04), 0 4px 14px -8px rgba(0,0,0,0.08);
+    --shadow-card-raised: 0 1px 2px rgba(0,0,0,0.05), 0 12px 32px -8px rgba(0,0,0,0.12);
+    --shadow-step-btn:    0 1px 2px rgba(0,0,0,0.06), 0 6px 16px -6px rgba(0,0,0,0.14);
+    --shadow-sheet:       0 -12px 40px -8px rgba(0,0,0,0.2);
+    --shadow-house-mark:  0 4px 12px var(--color-accent-tinted-shadow);
+
+    /* ---------- Motion ---------- */
+    --motion-chevron-rotate: 0.25s;
+    --motion-sheet-slide:    0.28s cubic-bezier(.2,.9,.3,1);
+    --motion-scrim-fade:     0.24s;
+
+    /* ---------- Touch targets ---------- */
+    --touch-min:       44px;   /* iOS baseline */
+    --touch-menu:      38px;
+    --touch-segment:   40px;
+    --touch-boost:     40px;
+    --touch-step-btn:  54px;
+}
+
+/*
+ * Time-of-day gradients. The six presets are documented here so the values
+ * live with all other tokens; AllSpeak applies the right one to the body
+ * wrapper by writing a `background` inline style each hour boundary.
+ *
+ *   00–05 / 22–23  gradient.night     #1E2238 → #2D2A3E → #433048
+ *   06–09          gradient.morning   #FFE8D4 → #FFD3B0 → #F5B994
+ *   10–14          gradient.midday    #FDF6EC → #FBEEDD → #F5E2C9
+ *   15–18          gradient.afternoon #FFE1C2 → #F7B88A → #E88A5B
+ *   19–21          gradient.sunset    #F0A877 → #B66B56 → #5A3A52
+ *
+ *   overlay (on top of any gradient):
+ *     radial-gradient(ellipse at 50% -20%, rgba(255,255,255,0.5) 0%, transparent 70%)
+ *
+ * Temperature semantics (handled in AllSpeak, not CSS):
+ *   temp.min = 5.0 °C, temp.max = 30.0 °C, temp.step = 0.5 °C,
+ *   temp.deadband = 0.2 °C (target − temp > 0.2 → "calling for heat").
+ */
+
+html, body {
+    margin: 0;
+    font-family: var(--font-stack);
+    color: var(--color-text-primary);
+    background: var(--color-surface-card);
+    -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Keyframe animations. Webson can't express an @keyframes block in its JSON
+ * schema, so they live here with the rest of the style tokens. Elements that
+ * use them set `animation: rbr-<name> <duration> <iterations>` inline via
+ * Webson or AllSpeak.
+ */
+@keyframes rbr-heat-pulse {
+    0%   { box-shadow: 0 0 0 0 var(--color-accent-20); }
+    70%  { box-shadow: 0 0 0 8px rgba(232,106,51,0); }
+    100% { box-shadow: 0 0 0 0 rgba(232,106,51,0); }
+}
+
+/*
+ * Small touch-ups that Webson can't easily express inline:
+ *   - drop the top border on the first row inside a card (so a stack of
+ *     rows reads as one divider-separated list, not one with a leading line);
+ *   - hide any "sub-line" that was rendered with empty content.
+ */
+#menu-sheet-card > :first-child {
+    border-top: 0;
+}
+
+#menu-sheet-card [id$="-sub"]:empty {
+    display: none;
+}
+
+/* Desktop: centre a mobile-width column. Mobile: full width. */
+body {
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 100vh;
+}

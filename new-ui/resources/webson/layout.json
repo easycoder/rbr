@@ -1,0 +1,32 @@
+{
+    "#doc": "Outer page layout: top-bar container, main scroll area, footer.",
+    "display": "flex",
+    "flex-direction": "column",
+    "min-height": "100vh",
+    "#": ["$TopBar", "$Main", "$Footer"],
+
+    "$TopBar": {
+        "#element": "div",
+        "@id": "layout-topbar",
+        "flex-shrink": "0"
+    },
+
+    "$Main": {
+        "#element": "div",
+        "@id": "layout-main",
+        "display": "flex",
+        "flex-direction": "column",
+        "gap": "var(--space-row-gap)",
+        "padding": "var(--space-page-top) var(--space-page-x) var(--space-page-x) var(--space-page-x)",
+        "flex": "1"
+    },
+
+    "$Footer": {
+        "#element": "div",
+        "@id": "layout-footer",
+        "padding": "8px 16px 16px 16px",
+        "font-size": "var(--type-caption-size)",
+        "color": "var(--color-text-meta)",
+        "text-align": "center"
+    }
+}
