@@ -152,6 +152,61 @@
 	variable BgValue
 	variable Glow
 
+!	MQTT connection state.
+	variable Credentials
+	variable Broker
+	variable Port
+	variable Username
+	variable Password
+	variable MAC
+	variable MyID
+	topic ServerTopic
+	topic MyTopic
+	variable ReceivedMessage
+	variable Prompt
+	variable FirstMapDone
+	variable PollWait
+
+!	Map ingestion / transformation state.
+	variable Map
+	variable Profiles
+	variable CurrentProfile
+	variable ActiveProfile
+	variable CalendarData
+	variable CalendarEntry
+	variable DayN
+	variable DayProfileName
+	variable LoopJ
+	variable ProfileN
+	variable LegacyProfileCount
+	variable LegacyRooms
+	variable LegacyRoomCount
+	variable LegacyIdx
+	variable LegacyRoom
+	variable LegacyRelays
+	variable LegacyRelayCount
+	variable LegacyName
+	variable LegacyMode
+	variable LegacyTemp
+	variable LegacyTarget
+	variable LegacyStatus
+	variable LegacyStatusMessage
+	variable LegacyLinked
+	variable OfflineReason
+	variable LegacyBattery
+	variable LegacyEvents
+	variable LegacyEventCount
+	variable LegacyEvent
+	variable NewRoom
+	variable RoomsListIdx
+	variable Hundredths
+	variable TempInt
+	variable LoopK
+	variable NowMinutes
+	variable NextTimeStr
+	variable NextTempVal
+	variable NextTempStr
+
 	attach AppRoot to `app` or begin
 		alert `Missing #app container in index.html`
 		stop
@@ -174,13 +229,138 @@
 	attach SystemId to `top-bar-system-id`
 	set the content of SystemId to `QED6 · 214`
 
-!	Seed rooms.
-	rest get Seed from `resources/json/seed-rooms.json?v=` cat now
-		or go to LoadFailed
-	put property `rooms` of Seed into RoomsList
-	put the json count of RoomsList into RoomCount
+!	MQTT credentials. Try a deploy-provided credentials.json, then fall back
+!	to localStorage prompts (same keys as the legacy UI so a single first-run
+!	prompt covers both).
+	no cache
+	rest get Credentials from `credentials.json`
+		or go to NoCredentialsFile
+	if Credentials is not empty
+	begin
+		put property `broker` of Credentials into Broker
+		put property `port` of Credentials into Port
+		put property `username` of Credentials into Username
+		put property `password` of Credentials into Password
+		put property `mac` of Credentials into MAC
+		if Broker is `localhost`
+		begin
+			if the hostname is not `localhost` put the hostname into Broker
+		end
+	end
+NoCredentialsFile:
+	if Broker is empty
+	begin
+		get Broker from storage as `dev-broker`
+		if Broker is `null` put empty into Broker
+		if Broker is `undefined` put empty into Broker
+		get Username from storage as `dev-username`
+		if Username is `null` put empty into Username
+		if Username is `undefined` put empty into Username
+		get Password from storage as `dev-password`
+		if Password is `null` put empty into Password
+		if Password is `undefined` put empty into Password
+		get MAC from storage as `dev-mac`
+		if MAC is `null` put empty into MAC
+		if MAC is `undefined` put empty into MAC
+		if Broker is empty
+		begin
+			put prompt `Dev credentials:` cat newline cat `MQTT Broker URL:` into Broker
+			put prompt `Dev credentials:` cat newline cat `Username:` into Username
+			put prompt `Dev credentials:` cat newline cat `Password:` into Password
+			put prompt `Dev credentials:` cat newline cat `Controller MAC address:` into MAC
+			if Broker is empty go to LoadFailed
+			put Broker into storage as `dev-broker`
+			put Username into storage as `dev-username`
+			put Password into storage as `dev-password`
+			put MAC into storage as `dev-mac`
+		end
+	end
 
-!	First pass — collect summary stats from RoomsList.
+	if Port is empty put 443 into Port
+	put `RBR-` cat random 999999 into MyID
+
+	init ServerTopic
+		name MAC
+		qos 1
+	init MyTopic
+		name MyID
+		qos 1
+
+	dummy
+	mqtt
+		token `rbr` Password
+		id MyID
+		broker Broker
+		port Port
+		subscribe MyTopic
+
+	on mqtt connect
+	begin
+		log `MQTT Connected`
+		go to Connected
+	end
+
+	on mqtt message
+	begin
+		put the mqtt message into ReceivedMessage
+		gosub to OnMapReceived
+	end
+	stop
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	First-render path: triggered when MQTT connects. Asks the controller
+!	for a full map; the response handler (OnMapReceived) does the rest.
+Connected:
+	put `first` into Prompt
+	clear FirstMapDone
+	gosub to RequestMap
+	stop
+
+RequestMap:
+	log `Requesting map: ` cat Prompt
+	send to ServerTopic
+		sender MyTopic
+		action Prompt
+	return
+
+!	Fired by `on mqtt message`. First message → BuildHomeScreen (full render).
+!	Subsequent messages → RefreshHomeScreen (in-place update).
+OnMapReceived:
+	if ReceivedMessage is empty return
+	put ReceivedMessage into Map
+	put empty into ReceivedMessage
+	gosub to MapToRooms
+	if not FirstMapDone
+	begin
+		set FirstMapDone
+		gosub to BuildHomeScreen
+		put `refresh` into Prompt
+		fork to MapPollTask
+	end
+	else
+	begin
+		gosub to RefreshHomeScreen
+	end
+	return
+
+!	10-second poll: re-request the map so the UI tracks live state.
+MapPollTask:
+	while true
+	begin
+		put 10 into PollWait
+		while PollWait is not 0
+		begin
+			wait 1 second
+			take 1 from PollWait
+		end
+		gosub to RequestMap
+	end
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Build the home screen for the first time. Renders SummaryCard, room rows,
+!	and sheet chrome. Calls ComputeSummaryStats once data is in place.
+BuildHomeScreen:
+!	First-pass summary stats from the freshly-built RoomsList.
 	gosub to ComputeSummaryStats
 
 !	Render SummaryCard into the main column (before the rooms so it sits on top).
@@ -374,11 +554,268 @@
 	attach ProfileChipWE to `profile-row-we-active-chip`
 	attach ProfileChipOff to `profile-row-off-active-chip`
 
-!	Background tick — re-pick the gradient at hour boundaries. Forked so
-!	the main flow can stop().
+!	Background tick — re-pick the gradient at hour boundaries. Forked once
+!	on first build; subsequent refreshes don't re-fork.
 	fork to BackgroundTick
 
-	stop
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Refresh path: re-render every room in place + recompute the summary.
+!	Assumes RoomCount is unchanged from the initial build. If a room's
+!	expansion panel is open, repaint its inner controls so a controller-
+!	side change (e.g. legacy UI changed mode) propagates immediately.
+RefreshHomeScreen:
+	put 0 into RoomIndex
+	while RoomIndex is less than RoomCount
+	begin
+		put element RoomIndex of RoomsList into Room
+		put `` cat RoomIndex into IndexStr
+		gosub to RenderRoom
+		increment RoomIndex
+	end
+	gosub to ComputeSummaryStats
+	gosub to PaintSummary
+	if ExpandedIndex is not -1
+	begin
+		put ExpandedIndex into ClickIndex
+		gosub to PaintExpansion
+	end
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Walk the controller's map, build the new-UI RoomsList from scratch.
+!	Filters out the outdoor sensor entry (room with empty `relays`) and
+!	feeds its temperature into OutsideTemp instead.
+MapToRooms:
+	put property `profiles` of Map into Profiles
+	put property `profile` of Map into CurrentProfile
+	if CurrentProfile is empty put 0 into CurrentProfile
+
+!	If the calendar is on, today's profile-name overrides Map.profile.
+!	`the day` returns 0=Sunday (JS getDay), so shift +6 mod 7 to make
+!	Monday=0 to match the Monday-first calendar-data array.
+	if property `calendar` of Map is `on`
+	begin
+		put property `calendar-data` of Map into CalendarData
+		if CalendarData is not empty
+		begin
+			put the day into DayN
+			add 6 to DayN
+			put DayN modulo 7 into DayN
+			put element DayN of CalendarData into CalendarEntry
+			if CalendarEntry is not empty
+			begin
+				put property `day` cat DayN cat `-profile` of CalendarEntry into DayProfileName
+				if DayProfileName is not empty
+				begin
+					put the json count of Profiles into LegacyProfileCount
+					put 0 into LoopJ
+					while LoopJ is less than LegacyProfileCount
+					begin
+						put element LoopJ of Profiles into ProfileN
+						if property `name` of ProfileN is DayProfileName put LoopJ into CurrentProfile
+						increment LoopJ
+					end
+				end
+			end
+		end
+	end
+
+	put element CurrentProfile of Profiles into ActiveProfile
+	put property `rooms` of ActiveProfile into LegacyRooms
+	put the json count of LegacyRooms into LegacyRoomCount
+
+	put `[]` into RoomsList
+	put 0 into RoomsListIdx
+	put empty into OutsideTemp
+
+	put 0 into LegacyIdx
+	while LegacyIdx is less than LegacyRoomCount
+	begin
+		put element LegacyIdx of LegacyRooms into LegacyRoom
+		put property `relays` of LegacyRoom into LegacyRelays
+		put the json count of LegacyRelays into LegacyRelayCount
+		if LegacyRelayCount is 0
+		begin
+!			Outdoor sensor entry: take its temperature, skip the room.
+			put property `temperature` of LegacyRoom into LegacyTemp
+			if LegacyTemp is not empty
+			begin
+				if LegacyTemp is not 0
+				begin
+					put LegacyTemp into TempStr
+					gosub to FormatHundredths
+					put TempStr into OutsideTemp
+				end
+			end
+		end
+		else
+		begin
+			gosub to BuildRoomEntry
+			set element RoomsListIdx of RoomsList to NewRoom
+			increment RoomsListIdx
+		end
+		increment LegacyIdx
+	end
+	put RoomsListIdx into RoomCount
+	return
+
+!	Build a single new-UI room entry from a legacy controller-map room.
+!	Inputs: LegacyRoom, RoomsListIdx. Output: NewRoom (a fresh JSON object).
+BuildRoomEntry:
+	put `{}` into NewRoom
+	put property `name` of LegacyRoom into LegacyName
+	set property `name` of NewRoom to LegacyName
+	set property `id` of NewRoom to `room-` cat RoomsListIdx
+	set property `sensor` of NewRoom to `no`
+
+!	Mode: legacy lowercase → new-UI title-case. Anything unrecognised → Off.
+	put property `mode` of LegacyRoom into LegacyMode
+	put `Off` into Mode
+	if LegacyMode is `timed` put `Timed` into Mode
+	else if LegacyMode is `on` put `On` into Mode
+	else if LegacyMode is `boost` put `Boost` into Mode
+	set property `mode` of NewRoom to Mode
+
+!	Temperature: legacy hundredths integer → "X.Y" string. 0 / empty → empty.
+	put property `temperature` of LegacyRoom into LegacyTemp
+	if LegacyTemp is empty set property `temp` of NewRoom to empty
+	else if LegacyTemp is 0 set property `temp` of NewRoom to empty
+	else
+	begin
+		put LegacyTemp into TempStr
+		gosub to FormatHundredths
+		set property `temp` of NewRoom to TempStr
+	end
+
+!	Target: number → "X.Y" string. Off mode clears the target. Default 20.0.
+	if Mode is `Off` set property `target` of NewRoom to empty
+	else
+	begin
+		put property `target` of LegacyRoom into LegacyTarget
+		if LegacyTarget is empty set property `target` of NewRoom to `20.0`
+		else
+		begin
+			put `` cat LegacyTarget into TempStr
+			put the index of `.` in TempStr into DotIdx
+			if DotIdx is less than 0 put TempStr cat `.0` into TempStr
+			set property `target` of NewRoom to TempStr
+		end
+	end
+
+!	Offline: controller verdict via `status` (`fail` → offline). Also treat
+!	a linked room with no temperature as offline (the thermometer hasn't
+!	reported yet — common for Zigbee sensors after a restart). Categorise
+!	the reason from statusMessage so the sub-line tells the user *what*
+!	is wrong, not just "No signal".
+	set property `offline` of NewRoom to `no`
+	put `No signal` into OfflineReason
+	put property `status` of LegacyRoom into LegacyStatus
+	put property `statusMessage` of LegacyRoom into LegacyStatusMessage
+	put property `linked` of LegacyRoom into LegacyLinked
+
+	if LegacyLinked is `yes`
+	begin
+		put property `temperature` of LegacyRoom into LegacyTemp
+		if LegacyTemp is empty
+		begin
+			set property `offline` of NewRoom to `yes`
+			put `Thermometer not reporting` into OfflineReason
+		end
+	end
+
+	if LegacyStatus is `fail`
+	begin
+		set property `offline` of NewRoom to `yes`
+		if the index of `Sensor` in LegacyStatusMessage is greater than -1
+			put `Thermometer not reporting` into OfflineReason
+		else if the index of `Relay` in LegacyStatusMessage is greater than -1
+			put `Relay not responding` into OfflineReason
+	end
+
+	set property `offlineReason` of NewRoom to OfflineReason
+
+!	Battery: flag low (≤20%) so the sub-line can warn during normal operation.
+!	0 / empty means "no reading" — don't flag those.
+	set property `batteryLow` of NewRoom to `no`
+	put property `battery` of LegacyRoom into LegacyBattery
+	if LegacyBattery is not empty
+	begin
+		if LegacyBattery is greater than 0
+		begin
+			if LegacyBattery is less than 21 set property `batteryLow` of NewRoom to `yes`
+		end
+	end
+
+!	Boost: deferred to slice 09b (outbound user actions).
+	set property `boost` of NewRoom to empty
+
+!	Current schedule period: walk events in order, pick the first whose
+!	`until` time is still in the future. nextTime = end of current period;
+!	nextTarget = current period's target. Both empty if no events or all
+!	have already passed.
+	set property `nextTime` of NewRoom to empty
+	set property `nextTarget` of NewRoom to empty
+	put property `events` of LegacyRoom into LegacyEvents
+	if LegacyEvents is not empty
+	begin
+		put the json count of LegacyEvents into LegacyEventCount
+		put the hour into NowMinutes
+		multiply NowMinutes by 60
+		add the minute to NowMinutes
+		put 0 into LoopK
+		while LoopK is less than LegacyEventCount
+		begin
+			put element LoopK of LegacyEvents into LegacyEvent
+			put property `until` of LegacyEvent into NextTimeStr
+			put NextTimeStr into TempStr
+			gosub to ParseTimeMinutes
+			if TempTenths is greater than NowMinutes
+			begin
+				put property `temp` of LegacyEvent into NextTempVal
+				set property `nextTime` of NewRoom to NextTimeStr
+				put `` cat NextTempVal into NextTempStr
+				put the index of `.` in NextTempStr into DotIdx
+				if DotIdx is less than 0 put NextTempStr cat `.0` into NextTempStr
+				set property `nextTarget` of NewRoom to NextTempStr
+				put LegacyEventCount into LoopK
+			end
+			increment LoopK
+		end
+	end
+
+!	Calling: derived. Re-use the existing RecalcCalling logic on the new room.
+!	Write Room back to NewRoom defensively in case `put A into B` snapshots
+!	the JSON value rather than aliasing the reference.
+	put NewRoom into Room
+	gosub to RecalcCalling
+	put Room into NewRoom
+	return
+
+!	Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string
+!	with a single decimal digit (19.8). In-place via TempStr.
+FormatHundredths:
+	put TempStr modulo 100 into Hundredths
+	put TempStr into TempInt
+	divide TempInt by 100
+	divide Hundredths by 10
+	put `` cat TempInt cat `.` cat Hundredths into TempStr
+	return
+
+!	Parse TempStr ("HH:MM" or "H:MM") into minutes-since-midnight; output
+!	via TempTenths. Empty / malformed input yields 0.
+ParseTimeMinutes:
+	put 0 into TempTenths
+	if TempStr is empty return
+	put the index of `:` in TempStr into DotIdx
+	if DotIdx is less than 0 return
+	put the value of left DotIdx of TempStr into TempTenths
+	multiply TempTenths by 60
+	increment DotIdx
+	put the value of from DotIdx of TempStr into DecPart
+	add DecPart to TempTenths
+	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Pick the time-of-day gradient stops by hour bucket and apply both the
@@ -1065,16 +1502,32 @@ RenderRoom:
 
 	put empty into SublineText
 	if Sensor is `yes` put `Outdoor sensor` into SublineText
-	else if Offline is `yes` put `No signal` into SublineText
-	else if Mode is `Off` put `Off — no schedule` into SublineText
-	else if BoostVal is not empty
+	else if Offline is `yes` put property `offlineReason` of Room into SublineText
+	else if Mode is `Off` put empty into SublineText
+	else if Mode is `Boost` put `Boost active` into SublineText
+	else if Mode is `On`
 	begin
-		put `Boost · ` cat BoostVal cat ` left` into SublineText
+		if TargetTemp is not empty put TargetTemp cat `°` into SublineText
 	end
-	else if NextTime is not empty
+	else if Mode is `Timed`
 	begin
-		put `→ ` cat NextTarget cat `° at ` cat NextTime into SublineText
+		if NextTime is not empty put NextTarget cat `°→` cat NextTime into SublineText
 	end
+
+!	Battery-low warning, appended for online rooms (offline rooms already
+!	carry a more important status message).
+	if Sensor is `no`
+	begin
+		if Offline is `no`
+		begin
+			if property `batteryLow` of Room is `yes`
+			begin
+				if SublineText is empty put `Battery low` into SublineText
+				else put SublineText cat ` · Battery low` into SublineText
+			end
+		end
+	end
+
 	attach Subline to `room-` cat IndexStr cat `-subline`
 	set the content of Subline to SublineText
 
@@ -1110,13 +1563,19 @@ ApplyChipStyle:
 	begin
 		put `var(--color-chip-warn-bg)` into ChipBg
 		put `var(--color-chip-warn-fg)` into ChipFg
-		put `resources/icon/clock.svg` into ChipIconUrl
+		put `resources/icon/offline.svg` into ChipIconUrl
 	end
 	else if Mode is `Off`
 	begin
 		put `var(--color-chip-neutral-bg)` into ChipBg
 		put `var(--color-chip-neutral-fg)` into ChipFg
 		put `resources/icon/off.svg` into ChipIconUrl
+	end
+	else if Mode is `On`
+	begin
+		put `var(--color-chip-heat-bg)` into ChipBg
+		put `var(--color-chip-heat-fg)` into ChipFg
+		put `resources/icon/on.svg` into ChipIconUrl
 	end
 	else if Mode is `Boost`
 	begin
