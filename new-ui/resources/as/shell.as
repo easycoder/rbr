@@ -180,95 +180,8 @@
 	put property `rooms` of Seed into RoomsList
 	put the json count of RoomsList into RoomCount
 
-!	First pass — collect summary stats.
-	put 0 into HeatingCount
-	put empty into HeatingNames
-	put 0 into SumTenths
-	put 0 into AvgCount
-	put empty into OutsideTemp
-
-	put 0 into LoopI
-	while LoopI is less than RoomCount
-	begin
-		put element LoopI of RoomsList into CurRoom
-		put property `name` of CurRoom into RName
-		put property `temp` of CurRoom into Ttemp
-		put property `sensor` of CurRoom into Tsensor
-		put property `offline` of CurRoom into Toffline
-		put property `calling` of CurRoom into Tcalling
-
-		if Tcalling is `yes`
-		begin
-			increment HeatingCount
-			if HeatingNames is empty put RName into HeatingNames
-			else put HeatingNames cat `, ` cat RName into HeatingNames
-		end
-
-		if Tsensor is `no`
-		begin
-			if Toffline is `no`
-			begin
-				if Ttemp is not empty
-				begin
-					put the index of `.` in Ttemp into DotIdx
-					if DotIdx is less than 0
-					begin
-						put the value of Ttemp into TenthsOne
-						multiply TenthsOne by 10
-					end
-					else
-					begin
-						put the value of left DotIdx of Ttemp into TenthsOne
-						multiply TenthsOne by 10
-						increment DotIdx
-						put the value of from DotIdx of Ttemp into DecPart
-						add DecPart to TenthsOne
-					end
-					add TenthsOne to SumTenths
-					increment AvgCount
-				end
-			end
-		end
-
-		if Tsensor is `yes`
-		begin
-			if OutsideTemp is empty put Ttemp into OutsideTemp
-		end
-
-		increment LoopI
-	end
-
-!	Average indoor as "XX.X°".
-	put `—` into AvgText
-	if AvgCount is greater than 0
-	begin
-		divide SumTenths by AvgCount
-		put SumTenths modulo 10 into AvgDec
-		put SumTenths into AvgInt
-		divide AvgInt by 10
-		put AvgInt cat `.` cat AvgDec cat `°` into AvgText
-	end
-
-!	Outside as "XX.X°" or em-dash.
-	put `—` into OutsideText
-	if OutsideTemp is not empty put OutsideTemp cat `°` into OutsideText
-
-!	Title and subtitle copy.
-	if HeatingCount is 0
-	begin
-		put `Nothing calling for heat` into TitleText
-		put `Boiler idle` into SubtitleText
-	end
-	else if HeatingCount is 1
-	begin
-		put HeatingNames cat ` is calling for heat` into TitleText
-		put `Boiler firing` into SubtitleText
-	end
-	else
-	begin
-		put HeatingCount cat ` rooms calling for heat` into TitleText
-		put HeatingNames into SubtitleText
-	end
+!	First pass — collect summary stats from RoomsList.
+	gosub to ComputeSummaryStats
 
 !	Render SummaryCard into the main column (before the rooms so it sits on top).
 	attach MainHolder to `layout-main`
@@ -277,40 +190,21 @@
 	render SummaryWebson in MainHolder
 
 	attach SummaryTitle to `summary-title`
-	set the content of SummaryTitle to TitleText
-
 	attach SummarySubtitle to `summary-subtitle`
-	set the content of SummarySubtitle to SubtitleText
-
 	attach SummaryAvg to `summary-avg`
-	set the content of SummaryAvg to AvgText
-
 	attach SummaryOutside to `summary-outside`
-	set the content of SummaryOutside to OutsideText
-
 	attach SummaryToday to `summary-today`
-	set the content of SummaryToday to `Mon 23 Apr`
-
-	put `Monday-Friday` into ProfileName
 	attach SummaryProfileName to `summary-profile-name`
-	set the content of SummaryProfileName to ProfileName
-
-!	Chip appearance + pulse dot by heating state.
 	attach SummaryChip to `summary-chip`
 	attach SummaryChipIcon to `summary-chip-icon`
 	attach SummaryDot to `summary-chip-dot`
-	if HeatingCount is 0
-	begin
-		set style `background` of SummaryChip to `var(--color-chip-neutral-bg)`
-		set style `background-color` of SummaryChipIcon to `var(--color-text-muted)`
-		set style `display` of SummaryDot to `none`
-	end
-	else
-	begin
-		set style `background` of SummaryChip to `var(--color-chip-heat-bg)`
-		set style `background-color` of SummaryChipIcon to `var(--color-chip-heat-fg)`
-		set style `display` of SummaryDot to `block`
-	end
+
+!	One-time content (not dependent on room state — refactor when wiring real data).
+	set the content of SummaryToday to `Mon 23 Apr`
+	put `Monday-Friday` into ProfileName
+	set the content of SummaryProfileName to ProfileName
+
+	gosub to PaintSummary
 
 !	Profile pill click — open ProfileSheet (wired below, after sheet chrome
 !	is built; the attach here just binds the element so styling/listeners
@@ -951,7 +845,8 @@ CancelBoost:
 	return
 
 !	After any state change: recompute `calling`, re-render the rest row,
-!	and repaint the expansion. Room and ClickIndex must be set.
+!	repaint the expansion, and refresh the summary card. Room and ClickIndex
+!	must be set.
 AfterStateChange:
 	gosub to RecalcCalling
 	set element ClickIndex of RoomsList to Room
@@ -959,6 +854,8 @@ AfterStateChange:
 	put `` cat RoomIndex into IndexStr
 	gosub to RenderRoom
 	gosub to PaintExpansion
+	gosub to ComputeSummaryStats
+	gosub to PaintSummary
 	return
 
 !	Recompute `calling` for the current Room.
@@ -993,6 +890,119 @@ RecalcCalling:
 		end
 	end
 	set property `calling` of Room to NewCalling
+	return
+
+!	Walk RoomsList and recompute the summary aggregates: HeatingCount,
+!	HeatingNames, AvgText, OutsideText, TitleText, SubtitleText. Read by
+!	PaintSummary. Called once at startup and again from AfterStateChange.
+ComputeSummaryStats:
+	put 0 into HeatingCount
+	put empty into HeatingNames
+	put 0 into SumTenths
+	put 0 into AvgCount
+	put empty into OutsideTemp
+
+	put 0 into LoopI
+	while LoopI is less than RoomCount
+	begin
+		put element LoopI of RoomsList into CurRoom
+		put property `name` of CurRoom into RName
+		put property `temp` of CurRoom into Ttemp
+		put property `sensor` of CurRoom into Tsensor
+		put property `offline` of CurRoom into Toffline
+		put property `calling` of CurRoom into Tcalling
+
+		if Tcalling is `yes`
+		begin
+			increment HeatingCount
+			if HeatingNames is empty put RName into HeatingNames
+			else put HeatingNames cat `, ` cat RName into HeatingNames
+		end
+
+		if Tsensor is `no`
+		begin
+			if Toffline is `no`
+			begin
+				if Ttemp is not empty
+				begin
+					put the index of `.` in Ttemp into DotIdx
+					if DotIdx is less than 0
+					begin
+						put the value of Ttemp into TenthsOne
+						multiply TenthsOne by 10
+					end
+					else
+					begin
+						put the value of left DotIdx of Ttemp into TenthsOne
+						multiply TenthsOne by 10
+						increment DotIdx
+						put the value of from DotIdx of Ttemp into DecPart
+						add DecPart to TenthsOne
+					end
+					add TenthsOne to SumTenths
+					increment AvgCount
+				end
+			end
+		end
+
+		if Tsensor is `yes`
+		begin
+			if OutsideTemp is empty put Ttemp into OutsideTemp
+		end
+
+		increment LoopI
+	end
+
+	put `—` into AvgText
+	if AvgCount is greater than 0
+	begin
+		divide SumTenths by AvgCount
+		put SumTenths modulo 10 into AvgDec
+		put SumTenths into AvgInt
+		divide AvgInt by 10
+		put AvgInt cat `.` cat AvgDec cat `°` into AvgText
+	end
+
+	put `—` into OutsideText
+	if OutsideTemp is not empty put OutsideTemp cat `°` into OutsideText
+
+	if HeatingCount is 0
+	begin
+		put `Nothing calling for heat` into TitleText
+		put `Boiler idle` into SubtitleText
+	end
+	else if HeatingCount is 1
+	begin
+		put HeatingNames cat ` is calling for heat` into TitleText
+		put `Boiler firing` into SubtitleText
+	end
+	else
+	begin
+		put HeatingCount cat ` rooms calling for heat` into TitleText
+		put HeatingNames into SubtitleText
+	end
+	return
+
+!	Push the aggregates from ComputeSummaryStats into the SummaryCard DOM.
+!	Element vars must already be attached.
+PaintSummary:
+	set the content of SummaryTitle to TitleText
+	set the content of SummarySubtitle to SubtitleText
+	set the content of SummaryAvg to AvgText
+	set the content of SummaryOutside to OutsideText
+
+	if HeatingCount is 0
+	begin
+		set style `background` of SummaryChip to `var(--color-chip-neutral-bg)`
+		set style `background-color` of SummaryChipIcon to `var(--color-text-muted)`
+		set style `display` of SummaryDot to `none`
+	end
+	else
+	begin
+		set style `background` of SummaryChip to `var(--color-chip-heat-bg)`
+		set style `background-color` of SummaryChipIcon to `var(--color-chip-heat-fg)`
+		set style `display` of SummaryDot to `block`
+	end
 	return
 
 !	String "X.Y" → integer tenths (e.g. "20.5" → 205). Uses TempStr in,
