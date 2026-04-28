@@ -6,6 +6,7 @@
 
     "$Tagline": {
         "#element": "div",
+        "@id": "profile-tagline",
         "margin-top": "2px",
         "font-size": "13px",
         "font-weight": "400",
@@ -26,76 +27,45 @@
 
     "$ProfileList": {
         "#element": "div",
+        "@id": "profile-list",
         "display": "flex",
         "flex-direction": "column",
-        "gap": "8px",
-        "#": ["$P1", "$P2", "$P3"],
-
-        "$P1": { "$ID": "profile-row-mf",  "$Label": "Monday-Friday", "#": "$ProfileRow" },
-        "$P2": { "$ID": "profile-row-we",  "$Label": "Weekend",       "#": "$ProfileRow" },
-        "$P3": { "$ID": "profile-row-off", "$Label": "All off",       "#": "$ProfileRow" },
-
-        "$ProfileRow": {
-            "#element": "button",
-            "@id": "$ID",
-            "width": "100%",
-            "padding": "14px",
-            "border-radius": "12px",
-            "border": "1px solid var(--color-border-hairline)",
-            "background": "var(--color-surface-card)",
-            "display": "flex",
-            "align-items": "center",
-            "gap": "12px",
-            "cursor": "pointer",
-            "text-align": "left",
-            "font-family": "inherit",
-            "box-sizing": "border-box",
-            "#": ["$Dot", "$LabelEl", "$Spacer", "$ActiveChip"],
-
-            "$Dot": {
-                "#element": "div",
-                "@id": "$ID-dot",
-                "width": "18px",
-                "height": "18px",
-                "border-radius": "50%",
-                "border": "1.5px solid #CCC",
-                "background": "transparent",
-                "box-sizing": "border-box",
-                "flex-shrink": "0"
-            },
-            "$LabelEl": {
-                "#element": "div",
-                "font-size": "15px",
-                "font-weight": "500",
-                "color": "var(--color-text-primary)",
-                "#content": "$Label"
-            },
-            "$Spacer": {
-                "#element": "div",
-                "flex": "1"
-            },
-            "$ActiveChip": {
-                "#element": "div",
-                "@id": "$ID-active-chip",
-                "font-size": "11px",
-                "font-weight": "600",
-                "letter-spacing": "0.4px",
-                "color": "var(--color-accent)",
-                "display": "none",
-                "#content": "ACTIVE"
-            }
-        }
+        "gap": "8px"
     },
 
     "$CalendarLabel": {
-        "#element": "div",
+        "#element": "button",
+        "@id": "profile-calendar-toggle",
+        "width": "100%",
         "margin": "22px 0 8px 0",
-        "font-size": "var(--type-section-label-size)",
-        "font-weight": "var(--type-section-label-weight)",
-        "letter-spacing": "var(--type-section-label-track)",
-        "color": "var(--color-text-meta)",
-        "text-transform": "uppercase",
-        "#content": "Calendar"
+        "padding": "10px 14px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "12px",
+        "background": "transparent",
+        "display": "flex",
+        "align-items": "center",
+        "gap": "10px",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "#": ["$CalLabel", "$CalSpacer", "$CalState"],
+
+        "$CalLabel": {
+            "#element": "div",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "Calendar"
+        },
+        "$CalSpacer": { "#element": "div", "flex": "1" },
+        "$CalState": {
+            "#element": "div",
+            "@id": "profile-calendar-state",
+            "font-size": "13px",
+            "font-weight": "600",
+            "color": "var(--color-text-primary)"
+        }
     },
 
     "$CalendarCard": {

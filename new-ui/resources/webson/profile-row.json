@@ -1,0 +1,51 @@
+{
+    "#doc": "ProfileRow template — rendered once per profile into profile-list. /I/ is replaced with the profile index. Label content is set by shell.as after render.",
+    "#element": "button",
+    "@id": "profile-row-/I/",
+    "width": "100%",
+    "padding": "14px",
+    "border-radius": "12px",
+    "border": "1px solid var(--color-border-hairline)",
+    "background": "var(--color-surface-card)",
+    "display": "flex",
+    "align-items": "center",
+    "gap": "12px",
+    "cursor": "pointer",
+    "text-align": "left",
+    "font-family": "inherit",
+    "box-sizing": "border-box",
+    "#": ["$Dot", "$Label", "$Spacer", "$ActiveChip"],
+
+    "$Dot": {
+        "#element": "div",
+        "@id": "profile-row-/I/-dot",
+        "width": "18px",
+        "height": "18px",
+        "border-radius": "50%",
+        "border": "1.5px solid #CCC",
+        "background": "transparent",
+        "box-sizing": "border-box",
+        "flex-shrink": "0"
+    },
+    "$Label": {
+        "#element": "div",
+        "@id": "profile-row-/I/-label",
+        "font-size": "15px",
+        "font-weight": "500",
+        "color": "var(--color-text-primary)"
+    },
+    "$Spacer": {
+        "#element": "div",
+        "flex": "1"
+    },
+    "$ActiveChip": {
+        "#element": "div",
+        "@id": "profile-row-/I/-active-chip",
+        "font-size": "11px",
+        "font-weight": "600",
+        "letter-spacing": "0.4px",
+        "color": "var(--color-accent)",
+        "display": "none",
+        "#content": "ACTIVE"
+    }
+}

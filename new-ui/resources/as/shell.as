@@ -38,22 +38,31 @@
 	div SheetContent
 	div MenuSheetEl
 	div ProfileSheetEl
+	div ProfileTagline
+	button CalendarToggleBtn
+	div CalendarStateText
 	button MenuRowProfiles
 	button MenuRowRooms
 	button MenuRowHoliday
 	button MenuRowSystem
 	button MenuRowNotifications
 	button MenuRowHelp
-	button ProfileRowMF
-	button ProfileRowWE
-	button ProfileRowOff
-	div ProfileDotMF
-	div ProfileDotWE
-	div ProfileDotOff
-	div ProfileChipMF
-	div ProfileChipWE
-	div ProfileChipOff
+	div ProfileListHolder
+	button ProfileRow
+	div ProfileDot
+	div ProfileLabel
+	div ProfileChip
 	button ProfileManageBtn
+	div EditProfilesSheetEl
+	div EditProfileListHolder
+	div EditProfileRow
+	div EditProfileNameEl
+	button EditProfileRenameBtn
+	button EditProfileDeleteBtn
+	button EditProfilesAddBtn
+	button EditProfilesCalBtn
+	button EditProfilesSaveBtn
+	button EditProfilesCancelBtn
 
 !	Per-row interactive elements (indexed via `index X to RoomIndex` in the
 !	render loop so each click handler can recover its row via `the index of X`).
@@ -198,6 +207,35 @@
 	variable BoostMinutes
 	variable RoomNameForServer
 	variable TargetForServer
+	variable ProfileSwitchIndex
+	variable ProfileSwitchName
+	variable LoopP
+	variable CalendarOn
+	variable ProfileCount
+	variable ProfileIdx
+	variable ProfileRowText
+	variable ProfileRowJson
+	variable ProfileIdxStr
+
+!	Profile editor (stage 3) state.
+	variable EditingProfiles
+	variable EditingProfilesCount
+	variable EditIdx
+	variable EditIdxStr
+	variable EditClickIdx
+	variable EditProfileN
+	variable ClonedProfile
+	variable NewProfileName
+	variable NewProfilesArray
+	variable NewIdx
+	variable NewActiveIdx
+	variable LoopE
+	variable EditingActiveValid
+	variable EditProfileRowJson
+	variable EditProfileRowText
+	variable EditProfilesSheetWebson
+	variable EditTcalendar
+	variable ConfirmFlag
 	variable LegacyRooms
 	variable LegacyRoomCount
 	variable LegacyIdx
@@ -506,7 +544,7 @@ BuildHomeScreen:
 	attach MenuRowProfiles to `menu-row-profiles`
 	on click MenuRowProfiles
 	begin
-		log `Menu: Profiles & schedules (stub)`
+		gosub to OpenEditProfilesSheet
 	end
 	attach MenuRowRooms to `menu-row-rooms`
 	on click MenuRowRooms
@@ -551,48 +589,107 @@ BuildHomeScreen:
 		set style `display` of ProfileSheetEl to `block`
 		set the content of SheetTitleEl to `Profile`
 		gosub to ApplyActiveProfile
+		gosub to ApplyCalendarLock
 		gosub to OpenSheet
 	end
 
-!	ProfileSheet row clicks — set the active profile, update the home pill,
-!	re-style the rows, and dismiss the sheet.
-	attach ProfileRowMF to `profile-row-mf`
-	on click ProfileRowMF
+!	Render one row per profile into the profile-list container. Pre-size the
+!	indexed element variables (one slot per profile) so `index X to N` is safe.
+	attach ProfileListHolder to `profile-list`
+	rest get ProfileRowJson from `resources/webson/profile-row.json?v=` cat now
+		or go to LoadFailed
+	put the json count of Profiles into ProfileCount
+
+	set the elements of ProfileRow to ProfileCount
+	set the elements of ProfileDot to ProfileCount
+	set the elements of ProfileLabel to ProfileCount
+	set the elements of ProfileChip to ProfileCount
+
+	put 0 into ProfileIdx
+	while ProfileIdx is less than ProfileCount
 	begin
-		put `Monday-Friday` into ProfileName
-		set the content of SummaryProfileName to ProfileName
-		gosub to ApplyActiveProfile
-		gosub to CloseSheet
-	end
-	attach ProfileRowWE to `profile-row-we`
-	on click ProfileRowWE
-	begin
-		put `Weekend` into ProfileName
-		set the content of SummaryProfileName to ProfileName
-		gosub to ApplyActiveProfile
-		gosub to CloseSheet
-	end
-	attach ProfileRowOff to `profile-row-off`
-	on click ProfileRowOff
-	begin
-		put `All off` into ProfileName
-		set the content of SummaryProfileName to ProfileName
-		gosub to ApplyActiveProfile
-		gosub to CloseSheet
+		put ProfileRowJson into ProfileRowText
+		put `` cat ProfileIdx into ProfileIdxStr
+		replace `/I/` with ProfileIdxStr in ProfileRowText
+		render ProfileRowText in ProfileListHolder
+
+		index ProfileRow to ProfileIdx
+		attach ProfileRow to `profile-row-` cat ProfileIdxStr
+		index ProfileDot to ProfileIdx
+		attach ProfileDot to `profile-row-` cat ProfileIdxStr cat `-dot`
+		index ProfileLabel to ProfileIdx
+		attach ProfileLabel to `profile-row-` cat ProfileIdxStr cat `-label`
+		index ProfileChip to ProfileIdx
+		attach ProfileChip to `profile-row-` cat ProfileIdxStr cat `-active-chip`
+
+		put element ProfileIdx of Profiles into ProfileN
+		set the content of ProfileLabel to property `name` of ProfileN
+
+		on click ProfileRow
+		begin
+			if CalendarOn return
+			put the index of ProfileRow into ProfileIdx
+			put element ProfileIdx of Profiles into ProfileN
+			put property `name` of ProfileN into ProfileSwitchName
+			gosub to SwitchToProfile
+			put ProfileSwitchName into ProfileName
+			set the content of SummaryProfileName to ProfileName
+			gosub to ApplyActiveProfile
+			gosub to CloseSheet
+		end
+
+		increment ProfileIdx
 	end
 
 	attach ProfileManageBtn to `profile-manage-btn`
 	on click ProfileManageBtn
 	begin
-		log `Profile: Manage profiles… (stub)`
+		gosub to OpenEditProfilesSheet
 	end
 
-	attach ProfileDotMF to `profile-row-mf-dot`
-	attach ProfileDotWE to `profile-row-we-dot`
-	attach ProfileDotOff to `profile-row-off-dot`
-	attach ProfileChipMF to `profile-row-mf-active-chip`
-	attach ProfileChipWE to `profile-row-we-active-chip`
-	attach ProfileChipOff to `profile-row-off-active-chip`
+!	Profile editor sheet — rendered as a sibling sheet inside sheet-content.
+!	Hidden initially; OpenEditProfilesSheet flips display + populates rows.
+	rest get EditProfileRowJson from `resources/webson/edit-profile-row.json?v=` cat now
+		or go to LoadFailed
+	rest get EditProfilesSheetWebson from `resources/webson/edit-profiles-sheet.json?v=` cat now
+		or go to LoadFailed
+	render EditProfilesSheetWebson in SheetContent
+	attach EditProfilesSheetEl to `edit-profiles-sheet`
+	set style `display` of EditProfilesSheetEl to `none`
+	attach EditProfileListHolder to `edit-profile-list`
+	attach EditProfilesAddBtn to `edit-profiles-add-btn`
+	attach EditProfilesCalBtn to `edit-profiles-cal-btn`
+	attach EditProfilesSaveBtn to `edit-profiles-save-btn`
+	attach EditProfilesCancelBtn to `edit-profiles-cancel-btn`
+
+	on click EditProfilesAddBtn gosub to AddEditProfile
+	on click EditProfilesCalBtn
+	begin
+		log `Edit calendar… (stub — stage 4)`
+	end
+	on click EditProfilesSaveBtn gosub to SaveEditingProfiles
+	on click EditProfilesCancelBtn gosub to CloseEditProfilesSheet
+
+	attach ProfileTagline to `profile-tagline`
+	attach CalendarToggleBtn to `profile-calendar-toggle`
+	attach CalendarStateText to `profile-calendar-state`
+
+!	Calendar toggle: flip the calendar state and ship an Update Profiles
+!	uirequest with just the calendar fields. Local CalendarOn flips first
+!	(optimistic), the lock styling re-applies, and the next refresh from
+!	the controller will reconcile.
+	on click CalendarToggleBtn
+	begin
+		if CalendarOn clear CalendarOn else set CalendarOn
+		gosub to ApplyCalendarLock
+		put `{}` into Result
+		set property `Action` of Result to `Update Profiles`
+		if CalendarOn set property `calendar` of Result to `on`
+		else set property `calendar` of Result to `off`
+		put property `calendar-data` of Map into CalendarData
+		if CalendarData is not empty set property `calendar-data` of Result to CalendarData
+		gosub to PostUiRequest
+	end
 
 !	Background tick — re-pick the gradient at hour boundaries. Forked once
 !	on first build; subsequent refreshes don't re-fork.
@@ -631,6 +728,10 @@ MapToRooms:
 	put property `profiles` of Map into Profiles
 	put property `profile` of Map into CurrentProfile
 	if CurrentProfile is empty put 0 into CurrentProfile
+
+!	Calendar lock state — when on, manual profile selection is masked.
+	clear CalendarOn
+	if property `calendar` of Map is `on` set CalendarOn
 
 !	If the calendar is on, today's profile-name overrides Map.profile.
 !	`the day` returns 0=Sunday (JS getDay), so shift +6 mod 7 to make
@@ -953,56 +1054,70 @@ CloseSheet:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Re-paint the three profile rows so the one matching ProfileName looks
-!	"active" (accent border, tinted bg, filled dot, ACTIVE chip) and the
-!	others look "inactive".
+!	Lock all profile rows when the calendar is on; restore tap affordance
+!	when off. Tagline + toggle text reflect the state. Loops over the live
+!	ProfileCount so it scales to any number of profiles.
+ApplyCalendarLock:
+	if CalendarOn
+	begin
+		set the content of ProfileTagline to `Calendar is on. Calendar selects today's profile.`
+		set the content of CalendarStateText to `ON · tap to disable`
+		set style `color` of CalendarStateText to `var(--color-accent)`
+	end
+	else
+	begin
+		set the content of ProfileTagline to `Tap a profile to use it now.`
+		set the content of CalendarStateText to `OFF · tap to enable`
+		set style `color` of CalendarStateText to `var(--color-text-disabled)`
+	end
+	put 0 into ProfileIdx
+	while ProfileIdx is less than ProfileCount
+	begin
+		index ProfileRow to ProfileIdx
+		if CalendarOn
+		begin
+			set style `opacity` of ProfileRow to `0.5`
+			set style `cursor` of ProfileRow to `default`
+		end
+		else
+		begin
+			set style `opacity` of ProfileRow to `1`
+			set style `cursor` of ProfileRow to `pointer`
+		end
+		increment ProfileIdx
+	end
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Walk all profile rows; the one whose name matches ProfileName gets the
+!	"active" styling (accent border, tinted bg, filled dot, ACTIVE chip),
+!	the rest get the "inactive" defaults.
 ApplyActiveProfile:
-	gosub to ResetProfileRows
-	if ProfileName is `Monday-Friday` gosub to ActivateMF
-	if ProfileName is `Weekend` gosub to ActivateWE
-	if ProfileName is `All off` gosub to ActivateOff
-	return
-
-ResetProfileRows:
-	set style `border` of ProfileRowMF to `1px solid var(--color-border-hairline)`
-	set style `background` of ProfileRowMF to `var(--color-surface-card)`
-	set style `border` of ProfileDotMF to `1.5px solid #CCC`
-	set style `background` of ProfileDotMF to `transparent`
-	set style `display` of ProfileChipMF to `none`
-	set style `border` of ProfileRowWE to `1px solid var(--color-border-hairline)`
-	set style `background` of ProfileRowWE to `var(--color-surface-card)`
-	set style `border` of ProfileDotWE to `1.5px solid #CCC`
-	set style `background` of ProfileDotWE to `transparent`
-	set style `display` of ProfileChipWE to `none`
-	set style `border` of ProfileRowOff to `1px solid var(--color-border-hairline)`
-	set style `background` of ProfileRowOff to `var(--color-surface-card)`
-	set style `border` of ProfileDotOff to `1.5px solid #CCC`
-	set style `background` of ProfileDotOff to `transparent`
-	set style `display` of ProfileChipOff to `none`
-	return
-
-ActivateMF:
-	set style `border` of ProfileRowMF to `1.5px solid var(--color-accent)`
-	set style `background` of ProfileRowMF to `var(--color-accent-10)`
-	set style `border` of ProfileDotMF to `5px solid var(--color-accent)`
-	set style `background` of ProfileDotMF to `var(--color-surface-card)`
-	set style `display` of ProfileChipMF to `inline`
-	return
-
-ActivateWE:
-	set style `border` of ProfileRowWE to `1.5px solid var(--color-accent)`
-	set style `background` of ProfileRowWE to `var(--color-accent-10)`
-	set style `border` of ProfileDotWE to `5px solid var(--color-accent)`
-	set style `background` of ProfileDotWE to `var(--color-surface-card)`
-	set style `display` of ProfileChipWE to `inline`
-	return
-
-ActivateOff:
-	set style `border` of ProfileRowOff to `1.5px solid var(--color-accent)`
-	set style `background` of ProfileRowOff to `var(--color-accent-10)`
-	set style `border` of ProfileDotOff to `5px solid var(--color-accent)`
-	set style `background` of ProfileDotOff to `var(--color-surface-card)`
-	set style `display` of ProfileChipOff to `inline`
+	put 0 into ProfileIdx
+	while ProfileIdx is less than ProfileCount
+	begin
+		index ProfileRow to ProfileIdx
+		index ProfileDot to ProfileIdx
+		index ProfileChip to ProfileIdx
+		put element ProfileIdx of Profiles into ProfileN
+		if property `name` of ProfileN is ProfileName
+		begin
+			set style `border` of ProfileRow to `1.5px solid var(--color-accent)`
+			set style `background` of ProfileRow to `var(--color-accent-10)`
+			set style `border` of ProfileDot to `5px solid var(--color-accent)`
+			set style `background` of ProfileDot to `var(--color-surface-card)`
+			set style `display` of ProfileChip to `inline`
+		end
+		else
+		begin
+			set style `border` of ProfileRow to `1px solid var(--color-border-hairline)`
+			set style `background` of ProfileRow to `var(--color-surface-card)`
+			set style `border` of ProfileDot to `1.5px solid #CCC`
+			set style `background` of ProfileDot to `transparent`
+			set style `display` of ProfileChip to `none`
+		end
+		increment ProfileIdx
+	end
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1399,6 +1514,250 @@ LowercaseModeForServer:
 	else if Mode is `Boost` put `boost` into ModeForServer
 	return
 
+!	Find the profile named ProfileSwitchName in the live Profiles array
+!	and ship an "Update Profiles" uirequest selecting it. Profiles must
+!	already be populated by MapToRooms. No-op (with warning log) if the
+!	named profile isn't found — happens if the user has renamed it via
+!	the editor since the home screen was built.
+SwitchToProfile:
+	if Profiles is empty
+	begin
+		log `SwitchToProfile: Profiles not populated yet`
+		return
+	end
+	put the json count of Profiles into LegacyProfileCount
+	put -1 into ProfileSwitchIndex
+	put 0 into LoopP
+	while LoopP is less than LegacyProfileCount
+	begin
+		put element LoopP of Profiles into ProfileN
+		if property `name` of ProfileN is ProfileSwitchName put LoopP into ProfileSwitchIndex
+		increment LoopP
+	end
+	if ProfileSwitchIndex is -1
+	begin
+		log `SwitchToProfile: no profile named ` cat ProfileSwitchName
+		return
+	end
+	put `{}` into Result
+	set property `Action` of Result to `Update Profiles`
+	set property `profiles` of Result to Profiles
+	set property `profile` of Result to ProfileSwitchIndex
+	gosub to PostUiRequest
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Profile editor (stage 3). Edits are staged in EditingProfiles; nothing
+!	is sent to the controller until Save. Cancel just discards the staging
+!	buffer (rebuilt fresh on next open). Shallow clones — name edits and
+!	add/delete operate on the profile-list outer level only; per-room data
+!	is aliased back to the live Profiles array.
+
+!	Open the editor: clone Profiles into EditingProfiles, render rows,
+!	validate, swap the visible sheet.
+OpenEditProfilesSheet:
+	gosub to CloneProfilesForEditing
+	gosub to RenderEditProfileList
+	gosub to ValidateEditingProfiles
+	set style `display` of MenuSheetEl to `none`
+	set style `display` of ProfileSheetEl to `none`
+	set style `display` of EditProfilesSheetEl to `block`
+	set the content of SheetTitleEl to `Edit profiles`
+	gosub to OpenSheet
+	return
+
+!	Cancel: just close. EditingProfiles is left to rot; next open rebuilds.
+CloseEditProfilesSheet:
+	gosub to CloseSheet
+	return
+
+!	Shallow-clone Profiles → EditingProfiles. Each profile is a fresh {} so
+!	name edits don't bleed back. The rooms array is aliased; we don't edit
+!	per-room data from this sheet (that's stage 4 / future schedule editor).
+CloneProfilesForEditing:
+	put `[]` into EditingProfiles
+	put the json count of Profiles into LegacyProfileCount
+	put 0 into LoopE
+	while LoopE is less than LegacyProfileCount
+	begin
+		put element LoopE of Profiles into ProfileN
+		put `{}` into ClonedProfile
+		set property `name` of ClonedProfile to property `name` of ProfileN
+		set property `rooms` of ClonedProfile to property `rooms` of ProfileN
+		set element LoopE of EditingProfiles to ClonedProfile
+		increment LoopE
+	end
+	put LegacyProfileCount into EditingProfilesCount
+	return
+
+!	Tear down + rebuild the editor list from EditingProfiles. Called on
+!	open and after every edit (rename / delete / add).
+RenderEditProfileList:
+	clear EditProfileListHolder
+	if EditingProfilesCount is 0 return
+	set the elements of EditProfileRow to EditingProfilesCount
+	set the elements of EditProfileNameEl to EditingProfilesCount
+	set the elements of EditProfileRenameBtn to EditingProfilesCount
+	set the elements of EditProfileDeleteBtn to EditingProfilesCount
+
+	put 0 into EditIdx
+	while EditIdx is less than EditingProfilesCount
+	begin
+		put EditProfileRowJson into EditProfileRowText
+		put `` cat EditIdx into EditIdxStr
+		replace `/I/` with EditIdxStr in EditProfileRowText
+		render EditProfileRowText in EditProfileListHolder
+
+		index EditProfileRow to EditIdx
+		attach EditProfileRow to `edit-profile-row-` cat EditIdxStr
+		index EditProfileNameEl to EditIdx
+		attach EditProfileNameEl to `edit-profile-row-` cat EditIdxStr cat `-name`
+		index EditProfileRenameBtn to EditIdx
+		attach EditProfileRenameBtn to `edit-profile-row-` cat EditIdxStr cat `-rename`
+		index EditProfileDeleteBtn to EditIdx
+		attach EditProfileDeleteBtn to `edit-profile-row-` cat EditIdxStr cat `-delete`
+
+		put element EditIdx of EditingProfiles into EditProfileN
+		set the content of EditProfileNameEl to property `name` of EditProfileN
+
+		on click EditProfileRenameBtn
+		begin
+			put the index of EditProfileRenameBtn into EditClickIdx
+			gosub to RenameEditProfile
+		end
+		on click EditProfileDeleteBtn
+		begin
+			put the index of EditProfileDeleteBtn into EditClickIdx
+			gosub to DeleteEditProfile
+		end
+
+		increment EditIdx
+	end
+	return
+
+!	Rename: prompt for a new name, write it back, re-render, re-validate.
+!	Empty / cancelled prompt is a no-op.
+RenameEditProfile:
+	put element EditClickIdx of EditingProfiles into EditProfileN
+	put property `name` of EditProfileN into ProfileName
+	put prompt `Rename profile:` cat newline cat ProfileName into NewProfileName
+	if NewProfileName is empty return
+	if NewProfileName is `null` return
+	if NewProfileName is `undefined` return
+	set property `name` of EditProfileN to NewProfileName
+	set element EditClickIdx of EditingProfiles to EditProfileN
+	gosub to RenderEditProfileList
+	gosub to ValidateEditingProfiles
+	return
+
+!	Delete: confirm, rebuild EditingProfiles without the entry, re-render,
+!	re-validate (Save may now be disabled if the active profile was the one
+!	deleted).
+DeleteEditProfile:
+	put element EditClickIdx of EditingProfiles into EditProfileN
+	put property `name` of EditProfileN into ProfileName
+	put `Delete profile "` cat ProfileName cat `"?` into TempStr
+	clear ConfirmFlag
+	if confirm TempStr set ConfirmFlag
+	if not ConfirmFlag return
+	put `[]` into NewProfilesArray
+	put 0 into NewIdx
+	put 0 into LoopE
+	while LoopE is less than EditingProfilesCount
+	begin
+		if LoopE is not EditClickIdx
+		begin
+			put element LoopE of EditingProfiles into EditProfileN
+			set element NewIdx of NewProfilesArray to EditProfileN
+			increment NewIdx
+		end
+		increment LoopE
+	end
+	put NewProfilesArray into EditingProfiles
+	put NewIdx into EditingProfilesCount
+	gosub to RenderEditProfileList
+	gosub to ValidateEditingProfiles
+	return
+
+!	Add: clone the currently-active profile (so the new one starts with the
+!	same room schedules), prompt for a name, append.
+AddEditProfile:
+	put -1 into EditIdx
+	put 0 into LoopE
+	while LoopE is less than EditingProfilesCount
+	begin
+		put element LoopE of EditingProfiles into EditProfileN
+		if property `name` of EditProfileN is ActiveProfileName put LoopE into EditIdx
+		increment LoopE
+	end
+	if EditIdx is -1 put 0 into EditIdx
+
+	put prompt `Name for new profile (duplicating current):` into NewProfileName
+	if NewProfileName is empty return
+	if NewProfileName is `null` return
+	if NewProfileName is `undefined` return
+
+	put element EditIdx of EditingProfiles into EditProfileN
+	put `{}` into ClonedProfile
+	set property `name` of ClonedProfile to NewProfileName
+	set property `rooms` of ClonedProfile to property `rooms` of EditProfileN
+	set element EditingProfilesCount of EditingProfiles to ClonedProfile
+	increment EditingProfilesCount
+	gosub to RenderEditProfileList
+	gosub to ValidateEditingProfiles
+	return
+
+!	Validate: Save is disabled if the currently-active profile name is no
+!	longer present in EditingProfiles (i.e. user deleted it). They must
+!	either restore it (re-add) or cancel.
+ValidateEditingProfiles:
+	clear EditingActiveValid
+	put 0 into LoopE
+	while LoopE is less than EditingProfilesCount
+	begin
+		put element LoopE of EditingProfiles into EditProfileN
+		if property `name` of EditProfileN is ActiveProfileName set EditingActiveValid
+		increment LoopE
+	end
+	if EditingActiveValid
+	begin
+		set style `opacity` of EditProfilesSaveBtn to `1`
+		set style `cursor` of EditProfilesSaveBtn to `pointer`
+	end
+	else
+	begin
+		set style `opacity` of EditProfilesSaveBtn to `0.5`
+		set style `cursor` of EditProfilesSaveBtn to `not-allowed`
+	end
+	return
+
+!	Save: ship Update Profiles with the edited array. We also recompute the
+!	active profile's index in the new array so the controller continues to
+!	point at the right slot. Calendar fields are passed through unchanged.
+SaveEditingProfiles:
+	if not EditingActiveValid return
+	put 0 into NewActiveIdx
+	put 0 into LoopE
+	while LoopE is less than EditingProfilesCount
+	begin
+		put element LoopE of EditingProfiles into EditProfileN
+		if property `name` of EditProfileN is ActiveProfileName put LoopE into NewActiveIdx
+		increment LoopE
+	end
+
+	put `{}` into Result
+	set property `Action` of Result to `Update Profiles`
+	set property `profiles` of Result to EditingProfiles
+	set property `profile` of Result to NewActiveIdx
+	put property `calendar` of Map into EditTcalendar
+	if EditTcalendar is not empty set property `calendar` of Result to EditTcalendar
+	put property `calendar-data` of Map into CalendarData
+	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
+	gosub to PostUiRequest
+	gosub to CloseEditProfilesSheet
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Ship the Result JSON object to the controller as a uirequest. Optimistic
 !	pattern: local state has already been mutated; on send failure we just
 !	alert and let the user retry. The next refresh will reconcile.
