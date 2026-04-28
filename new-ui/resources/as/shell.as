@@ -172,6 +172,8 @@
 	variable Profiles
 	variable CurrentProfile
 	variable ActiveProfile
+	variable ActiveProfileName
+	variable SystemName
 	variable CalendarData
 	variable CalendarEntry
 	variable DayN
@@ -179,6 +181,23 @@
 	variable LoopJ
 	variable ProfileN
 	variable LegacyProfileCount
+
+!	Date-formatting lookup tables and scratch.
+	variable DayNames
+	variable MonthNames
+	variable DayName
+	variable MonthName
+	variable DateD
+	variable DateDN
+	variable DateM
+
+!	Outbound (uirequest) payload state.
+	variable Result
+	variable SendOK
+	variable ModeForServer
+	variable BoostMinutes
+	variable RoomNameForServer
+	variable TargetForServer
 	variable LegacyRooms
 	variable LegacyRoomCount
 	variable LegacyIdx
@@ -194,6 +213,7 @@
 	variable LegacyLinked
 	variable OfflineReason
 	variable LegacyBattery
+	variable WarnMessage
 	variable LegacyEvents
 	variable LegacyEventCount
 	variable LegacyEvent
@@ -227,7 +247,32 @@
 	render TopBarWebson in TopBarHolder
 
 	attach SystemId to `top-bar-system-id`
-	set the content of SystemId to `QED6 · 214`
+	set the content of SystemId to `…`
+
+!	Day-of-week and month-name lookup tables for the SummaryCard date.
+!	`the day` is JS getDay (0=Sun); `the month` is getMonth (0=Jan).
+	put `[]` into DayNames
+	set element 0 of DayNames to `Sun`
+	set element 1 of DayNames to `Mon`
+	set element 2 of DayNames to `Tue`
+	set element 3 of DayNames to `Wed`
+	set element 4 of DayNames to `Thu`
+	set element 5 of DayNames to `Fri`
+	set element 6 of DayNames to `Sat`
+
+	put `[]` into MonthNames
+	set element 0 of MonthNames to `Jan`
+	set element 1 of MonthNames to `Feb`
+	set element 2 of MonthNames to `Mar`
+	set element 3 of MonthNames to `Apr`
+	set element 4 of MonthNames to `May`
+	set element 5 of MonthNames to `Jun`
+	set element 6 of MonthNames to `Jul`
+	set element 7 of MonthNames to `Aug`
+	set element 8 of MonthNames to `Sep`
+	set element 9 of MonthNames to `Oct`
+	set element 10 of MonthNames to `Nov`
+	set element 11 of MonthNames to `Dec`
 
 !	MQTT credentials. Try a deploy-provided credentials.json, then fall back
 !	to localStorage prompts (same keys as the legacy UI so a single first-run
@@ -378,11 +423,6 @@ BuildHomeScreen:
 	attach SummaryChip to `summary-chip`
 	attach SummaryChipIcon to `summary-chip-icon`
 	attach SummaryDot to `summary-chip-dot`
-
-!	One-time content (not dependent on room state — refactor when wiring real data).
-	set the content of SummaryToday to `Mon 23 Apr`
-	put `Monday-Friday` into ProfileName
-	set the content of SummaryProfileName to ProfileName
 
 	gosub to PaintSummary
 
@@ -623,6 +663,8 @@ MapToRooms:
 	end
 
 	put element CurrentProfile of Profiles into ActiveProfile
+	put property `name` of ActiveProfile into ActiveProfileName
+	put property `name` of Map into SystemName
 	put property `rooms` of ActiveProfile into LegacyRooms
 	put the json count of LegacyRooms into LegacyRoomCount
 
@@ -735,6 +777,18 @@ BuildRoomEntry:
 	end
 
 	set property `offlineReason` of NewRoom to OfflineReason
+
+!	Warn-state message: surface the controller's diagnostic for online rooms
+!	whose status is "warn" (e.g. "Sensor: no report for 12 min"). For failed
+!	rooms the same message has already shaped offlineReason.
+	set property `warnMessage` of NewRoom to empty
+	if property `offline` of NewRoom is `no`
+	begin
+		if LegacyStatus is `warn`
+		begin
+			if LegacyStatusMessage is not empty set property `warnMessage` of NewRoom to LegacyStatusMessage
+		end
+	end
 
 !	Battery: flag low (≤20%) so the sub-line can warn during normal operation.
 !	0 / empty means "no reading" — don't flag those.
@@ -1205,7 +1259,8 @@ ActivateBoost2h:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Mode change. Per spec: clear boost; mode→Off clears target; mode away
-!	from Off restores last target (default 20.0).
+!	from Off restores last target (default 20.0). Sends an "Operating Mode"
+!	uirequest to the controller after the local mutation.
 ChangeMode:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
@@ -1229,6 +1284,22 @@ ChangeMode:
 	end
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
+
+	put NewMode into Mode
+	gosub to LowercaseModeForServer
+	put property `name` of Room into RoomNameForServer
+	put property `target` of Room into TargetForServer
+	put `{}` into Result
+	set property `Action` of Result to `Operating Mode`
+	set property `Room` of Result to RoomNameForServer
+	set property `Mode` of Result to ModeForServer
+	if NewMode is `Timed` set property `Boost` of Result to 0
+	else if NewMode is `On`
+	begin
+		set property `advance` of Result to `none`
+		set property `target` of Result to TargetForServer
+	end
+	gosub to PostUiRequest
 	return
 
 !	Step the target up or down by 0.5 (5 tenths) with clamp [50, 300].
@@ -1255,21 +1326,51 @@ LoadTargetTenths:
 	put TempTenths into TargetT
 	return
 
+!	Target step persisted: write the new target, then ship "Operating Mode"
+!	with the unchanged mode + new target. Controller decides whether to
+!	override the schedule (Timed) or just update the setpoint (On/Boost).
 WriteTargetTenths:
 	put TargetT into TempTenths
 	gosub to TenthsToString
 	set property `target` of Room to TempStr
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
+
+	put property `mode` of Room into Mode
+	gosub to LowercaseModeForServer
+	put property `name` of Room into RoomNameForServer
+	put property `target` of Room into TargetForServer
+	put `{}` into Result
+	set property `Action` of Result to `Operating Mode`
+	set property `Room` of Result to RoomNameForServer
+	set property `Mode` of Result to ModeForServer
+	set property `target` of Result to TargetForServer
+	gosub to PostUiRequest
 	return
 
-!	Apply boost duration BoostDur. Per spec: also forces mode = Boost.
+!	Apply boost duration BoostDur ("30 min" / "1 hr" / "2 hr"). Per spec:
+!	also forces mode = Boost. Sends "Operating Mode" with boost=B<minutes>.
 ApplyBoost:
 	put element ClickIndex of RoomsList into Room
 	set property `mode` of Room to `Boost`
 	set property `boost` of Room to BoostDur
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
+
+	put 0 into BoostMinutes
+	if BoostDur is `30 min` put 30 into BoostMinutes
+	else if BoostDur is `1 hr` put 60 into BoostMinutes
+	else if BoostDur is `2 hr` put 120 into BoostMinutes
+	put property `name` of Room into RoomNameForServer
+	put property `target` of Room into TargetForServer
+	put `{}` into Result
+	set property `Action` of Result to `Operating Mode`
+	set property `Room` of Result to RoomNameForServer
+	set property `Mode` of Result to `boost`
+	set property `advance` of Result to `none`
+	set property `boost` of Result to `B` cat BoostMinutes
+	set property `target` of Result to TargetForServer
+	gosub to PostUiRequest
 	return
 
 !	Cancel boost. Per spec: revert to Timed and clear boost.
@@ -1279,6 +1380,40 @@ CancelBoost:
 	set property `boost` of Room to empty
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
+
+	put property `name` of Room into RoomNameForServer
+	put `{}` into Result
+	set property `Action` of Result to `Operating Mode`
+	set property `Room` of Result to RoomNameForServer
+	set property `Mode` of Result to `timed`
+	set property `Boost` of Result to 0
+	gosub to PostUiRequest
+	return
+
+!	Lowercase the title-case Mode (Timed/On/Off/Boost) into ModeForServer
+!	(timed/on/off/boost) for the controller's payload format.
+LowercaseModeForServer:
+	put `off` into ModeForServer
+	if Mode is `Timed` put `timed` into ModeForServer
+	else if Mode is `On` put `on` into ModeForServer
+	else if Mode is `Boost` put `boost` into ModeForServer
+	return
+
+!	Ship the Result JSON object to the controller as a uirequest. Optimistic
+!	pattern: local state has already been mutated; on send failure we just
+!	alert and let the user retry. The next refresh will reconcile.
+PostUiRequest:
+	log `Sending uirequest: ` cat Result
+	send to ServerTopic
+		sender MyTopic
+		action `uirequest`
+		message Result
+		giving SendOK
+	if not SendOK
+	begin
+		log `WARNING: MQTT send failed (no broker acknowledgment)`
+		alert `Request failed - please retry`
+	end
 	return
 
 !	After any state change: recompute `calling`, re-render the rest row,
@@ -1337,7 +1472,8 @@ ComputeSummaryStats:
 	put empty into HeatingNames
 	put 0 into SumTenths
 	put 0 into AvgCount
-	put empty into OutsideTemp
+!	OutsideTemp is owned by MapToRooms (extracted from the outdoor sensor
+!	entry, which is filtered out of RoomsList). Don't reset it here.
 
 	put 0 into LoopI
 	while LoopI is less than RoomCount
@@ -1345,7 +1481,6 @@ ComputeSummaryStats:
 		put element LoopI of RoomsList into CurRoom
 		put property `name` of CurRoom into RName
 		put property `temp` of CurRoom into Ttemp
-		put property `sensor` of CurRoom into Tsensor
 		put property `offline` of CurRoom into Toffline
 		put property `calling` of CurRoom into Tcalling
 
@@ -1356,35 +1491,27 @@ ComputeSummaryStats:
 			else put HeatingNames cat `, ` cat RName into HeatingNames
 		end
 
-		if Tsensor is `no`
+		if Toffline is `no`
 		begin
-			if Toffline is `no`
+			if Ttemp is not empty
 			begin
-				if Ttemp is not empty
+				put the index of `.` in Ttemp into DotIdx
+				if DotIdx is less than 0
 				begin
-					put the index of `.` in Ttemp into DotIdx
-					if DotIdx is less than 0
-					begin
-						put the value of Ttemp into TenthsOne
-						multiply TenthsOne by 10
-					end
-					else
-					begin
-						put the value of left DotIdx of Ttemp into TenthsOne
-						multiply TenthsOne by 10
-						increment DotIdx
-						put the value of from DotIdx of Ttemp into DecPart
-						add DecPart to TenthsOne
-					end
-					add TenthsOne to SumTenths
-					increment AvgCount
+					put the value of Ttemp into TenthsOne
+					multiply TenthsOne by 10
 				end
+				else
+				begin
+					put the value of left DotIdx of Ttemp into TenthsOne
+					multiply TenthsOne by 10
+					increment DotIdx
+					put the value of from DotIdx of Ttemp into DecPart
+					add DecPart to TenthsOne
+				end
+				add TenthsOne to SumTenths
+				increment AvgCount
 			end
-		end
-
-		if Tsensor is `yes`
-		begin
-			if OutsideTemp is empty put Ttemp into OutsideTemp
 		end
 
 		increment LoopI
@@ -1421,12 +1548,24 @@ ComputeSummaryStats:
 	return
 
 !	Push the aggregates from ComputeSummaryStats into the SummaryCard DOM.
-!	Element vars must already be attached.
+!	Element vars must already be attached. Also refreshes today's date,
+!	the active profile name, and the system ID — all of which depend on
+!	live data and so can't be set during synchronous startup.
 PaintSummary:
 	set the content of SummaryTitle to TitleText
 	set the content of SummarySubtitle to SubtitleText
 	set the content of SummaryAvg to AvgText
 	set the content of SummaryOutside to OutsideText
+
+	gosub to FormatTodayString
+	set the content of SummaryToday to TempStr
+
+	if ActiveProfileName is not empty
+	begin
+		put ActiveProfileName into ProfileName
+		set the content of SummaryProfileName to ActiveProfileName
+	end
+	if SystemName is not empty set the content of SystemId to SystemName
 
 	if HeatingCount is 0
 	begin
@@ -1440,6 +1579,17 @@ PaintSummary:
 		set style `background-color` of SummaryChipIcon to `var(--color-chip-heat-fg)`
 		set style `display` of SummaryDot to `block`
 	end
+	return
+
+!	Build today's date as "Mon 23 Apr" into TempStr. Uses DayNames /
+!	MonthNames lookups built once during synchronous startup.
+FormatTodayString:
+	put the day into DateD
+	put the day number into DateDN
+	put the month into DateM
+	put element DateD of DayNames into DayName
+	put element DateM of MonthNames into MonthName
+	put DayName cat ` ` cat DateDN cat ` ` cat MonthName into TempStr
 	return
 
 !	String "X.Y" → integer tenths (e.g. "20.5" → 205). Uses TempStr in,
@@ -1514,8 +1664,8 @@ RenderRoom:
 		if NextTime is not empty put NextTarget cat `°→` cat NextTime into SublineText
 	end
 
-!	Battery-low warning, appended for online rooms (offline rooms already
-!	carry a more important status message).
+!	Battery-low + warn-state messages, appended for online rooms (offline
+!	rooms already carry a more important status message).
 	if Sensor is `no`
 	begin
 		if Offline is `no`
@@ -1524,6 +1674,12 @@ RenderRoom:
 			begin
 				if SublineText is empty put `Battery low` into SublineText
 				else put SublineText cat ` · Battery low` into SublineText
+			end
+			put property `warnMessage` of Room into WarnMessage
+			if WarnMessage is not empty
+			begin
+				if SublineText is empty put WarnMessage into SublineText
+				else put SublineText cat ` · ` cat WarnMessage into SublineText
 			end
 		end
 	end
@@ -1537,10 +1693,10 @@ RenderRoom:
 	if Offline is `yes` set style `color` of TempEl to `var(--color-text-disabled)`
 	else set style `color` of TempEl to `var(--color-text-primary)`
 
+!	Setpoint slot left empty pending a more useful per-room secondary value.
+!	Element kept attached so the layout slot is reserved.
 	attach Setpoint to `room-` cat IndexStr cat `-setpoint`
-	if Sensor is `yes` set the content of Setpoint to empty
-	else if TargetTemp is empty set the content of Setpoint to empty
-	else set the content of Setpoint to `set ` cat TargetTemp cat `°`
+	set the content of Setpoint to empty
 
 	gosub to ApplyChipStyle
 	return
