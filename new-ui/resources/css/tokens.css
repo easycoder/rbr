@@ -188,6 +188,10 @@ html, body {
     display: none;
 }
 
+#profile-calendar-card > :first-child {
+    border-top: 0;
+}
+
 /* Desktop: centre a mobile-width column. Mobile: full width. */
 body {
     max-width: 420px;

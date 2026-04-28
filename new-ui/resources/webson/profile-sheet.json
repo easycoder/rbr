@@ -1,0 +1,175 @@
+{
+    "#doc": "ProfileSheet content — tagline, profile override list, weekly calendar, manage button. Renders as a sibling of menu-sheet inside sheet-content; shell.as flips display between the two.",
+    "#element": "div",
+    "@id": "profile-sheet",
+    "#": ["$Tagline", "$UseNowLabel", "$ProfileList", "$CalendarLabel", "$CalendarCard", "$ManageButton"],
+
+    "$Tagline": {
+        "#element": "div",
+        "margin-top": "2px",
+        "font-size": "13px",
+        "font-weight": "400",
+        "color": "var(--color-text-secondary)",
+        "#content": "Override today's profile, or let the calendar decide."
+    },
+
+    "$UseNowLabel": {
+        "#element": "div",
+        "margin": "18px 0 8px 0",
+        "font-size": "var(--type-section-label-size)",
+        "font-weight": "var(--type-section-label-weight)",
+        "letter-spacing": "var(--type-section-label-track)",
+        "color": "var(--color-text-meta)",
+        "text-transform": "uppercase",
+        "#content": "Use now"
+    },
+
+    "$ProfileList": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "column",
+        "gap": "8px",
+        "#": ["$P1", "$P2", "$P3"],
+
+        "$P1": { "$ID": "profile-row-mf",  "$Label": "Monday-Friday", "#": "$ProfileRow" },
+        "$P2": { "$ID": "profile-row-we",  "$Label": "Weekend",       "#": "$ProfileRow" },
+        "$P3": { "$ID": "profile-row-off", "$Label": "All off",       "#": "$ProfileRow" },
+
+        "$ProfileRow": {
+            "#element": "button",
+            "@id": "$ID",
+            "width": "100%",
+            "padding": "14px",
+            "border-radius": "12px",
+            "border": "1px solid var(--color-border-hairline)",
+            "background": "var(--color-surface-card)",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "12px",
+            "cursor": "pointer",
+            "text-align": "left",
+            "font-family": "inherit",
+            "box-sizing": "border-box",
+            "#": ["$Dot", "$LabelEl", "$Spacer", "$ActiveChip"],
+
+            "$Dot": {
+                "#element": "div",
+                "@id": "$ID-dot",
+                "width": "18px",
+                "height": "18px",
+                "border-radius": "50%",
+                "border": "1.5px solid #CCC",
+                "background": "transparent",
+                "box-sizing": "border-box",
+                "flex-shrink": "0"
+            },
+            "$LabelEl": {
+                "#element": "div",
+                "font-size": "15px",
+                "font-weight": "500",
+                "color": "var(--color-text-primary)",
+                "#content": "$Label"
+            },
+            "$Spacer": {
+                "#element": "div",
+                "flex": "1"
+            },
+            "$ActiveChip": {
+                "#element": "div",
+                "@id": "$ID-active-chip",
+                "font-size": "11px",
+                "font-weight": "600",
+                "letter-spacing": "0.4px",
+                "color": "var(--color-accent)",
+                "display": "none",
+                "#content": "ACTIVE"
+            }
+        }
+    },
+
+    "$CalendarLabel": {
+        "#element": "div",
+        "margin": "22px 0 8px 0",
+        "font-size": "var(--type-section-label-size)",
+        "font-weight": "var(--type-section-label-weight)",
+        "letter-spacing": "var(--type-section-label-track)",
+        "color": "var(--color-text-meta)",
+        "text-transform": "uppercase",
+        "#content": "Calendar"
+    },
+
+    "$CalendarCard": {
+        "#element": "div",
+        "@id": "profile-calendar-card",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "12px",
+        "overflow": "hidden",
+        "#": ["$D1", "$D2", "$D3", "$D4", "$D5", "$D6", "$D7"],
+
+        "$D1": { "$ID": "calendar-mon", "$Day": "Mon", "$Profile": "Monday-Friday", "#": "$DayRow" },
+        "$D2": { "$ID": "calendar-tue", "$Day": "Tue", "$Profile": "Monday-Friday", "#": "$DayRow" },
+        "$D3": { "$ID": "calendar-wed", "$Day": "Wed", "$Profile": "Monday-Friday", "#": "$DayRow" },
+        "$D4": { "$ID": "calendar-thu", "$Day": "Thu", "$Profile": "Monday-Friday", "#": "$DayRow" },
+        "$D5": { "$ID": "calendar-fri", "$Day": "Fri", "$Profile": "Monday-Friday", "#": "$DayRow" },
+        "$D6": { "$ID": "calendar-sat", "$Day": "Sat", "$Profile": "Weekend",       "#": "$DayRow" },
+        "$D7": { "$ID": "calendar-sun", "$Day": "Sun", "$Profile": "Weekend",       "#": "$DayRow" },
+
+        "$DayRow": {
+            "#element": "div",
+            "@id": "$ID",
+            "padding": "12px 14px",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "10px",
+            "border-top": "1px solid var(--color-border-divider-soft)",
+            "#": ["$DayEl", "$ProfileEl", "$Spacer", "$Chev"],
+
+            "$DayEl": {
+                "#element": "div",
+                "width": "38px",
+                "font-size": "13px",
+                "font-weight": "600",
+                "color": "var(--color-text-secondary)",
+                "#content": "$Day"
+            },
+            "$ProfileEl": {
+                "#element": "div",
+                "font-size": "14px",
+                "font-weight": "400",
+                "color": "var(--color-text-primary)",
+                "#content": "$Profile"
+            },
+            "$Spacer": {
+                "#element": "div",
+                "flex": "1"
+            },
+            "$Chev": {
+                "#element": "div",
+                "width": "14px",
+                "height": "14px",
+                "background-color": "#CCCCCC",
+                "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+                "transform": "rotate(-90deg)",
+                "flex-shrink": "0"
+            }
+        }
+    },
+
+    "$ManageButton": {
+        "#element": "button",
+        "@id": "profile-manage-btn",
+        "width": "100%",
+        "margin-top": "14px",
+        "padding": "12px",
+        "border-radius": "12px",
+        "background": "transparent",
+        "border": "1px solid var(--color-border-hairline)",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "font-size": "14px",
+        "font-weight": "400",
+        "color": "var(--color-text-primary)",
+        "#content": "Manage profiles…"
+    }
+}

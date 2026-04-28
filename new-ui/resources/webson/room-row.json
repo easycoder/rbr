@@ -1,184 +1,461 @@
 {
-    "#doc": "A single RoomRow card in its rest (collapsed) state. The placeholder /I/ is substituted with the room's list index by AllSpeak before each render.",
+    "#doc": "RoomRow card. Outer is a column flex; the rest-row is always visible, the expansion block is hidden until shell.as toggles it. /I/ is substituted with the room's list index per render.",
     "#element": "div",
     "@id": "room-/I/-card",
     "background": "var(--color-surface-card)",
     "border-radius": "var(--radius-card)",
     "box-shadow": "var(--shadow-card)",
-    "padding": "14px var(--space-card-pad)",
     "display": "flex",
-    "align-items": "center",
-    "gap": "12px",
-    "cursor": "pointer",
-    "user-select": "none",
-    "#": ["$Chip", "$TextBlock", "$Spacer", "$TempBlock", "$Chevron"],
+    "flex-direction": "column",
+    "transition": "box-shadow 0.2s",
+    "#": ["$Rest", "$Expansion"],
 
-    "$Chip": {
+    "$Rest": {
         "#element": "div",
-        "@id": "room-/I/-chip",
-        "width": "38px",
-        "height": "38px",
-        "border-radius": "12px",
-        "background": "var(--color-chip-ok-bg)",
+        "@id": "room-/I/-rest",
+        "padding": "14px var(--space-card-pad)",
         "display": "flex",
         "align-items": "center",
-        "justify-content": "center",
-        "flex-shrink": "0",
-        "#": "$ChipIcon",
+        "gap": "12px",
+        "cursor": "pointer",
+        "user-select": "none",
+        "#": ["$Chip", "$TextBlock", "$Spacer", "$TempBlock", "$Chevron"],
 
-        "$ChipIcon": {
+        "$Chip": {
             "#element": "div",
-            "@id": "room-/I/-chip-icon",
-            "width": "18px",
-            "height": "18px",
-            "background-color": "var(--color-chip-ok-fg)",
-            "mask": "url(resources/icon/clock.svg) center/contain no-repeat",
-            "-webkit-mask": "url(resources/icon/clock.svg) center/contain no-repeat"
+            "@id": "room-/I/-chip",
+            "width": "38px",
+            "height": "38px",
+            "border-radius": "12px",
+            "background": "var(--color-chip-ok-bg)",
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+            "flex-shrink": "0",
+            "#": "$ChipIcon",
+
+            "$ChipIcon": {
+                "#element": "div",
+                "@id": "room-/I/-chip-icon",
+                "width": "18px",
+                "height": "18px",
+                "background-color": "var(--color-chip-ok-fg)",
+                "mask": "url(resources/icon/clock.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/clock.svg) center/contain no-repeat"
+            }
+        },
+
+        "$TextBlock": {
+            "#element": "div",
+            "display": "flex",
+            "flex-direction": "column",
+            "gap": "2px",
+            "min-width": "0",
+            "#": ["$NameRow", "$Subline"],
+
+            "$NameRow": {
+                "#element": "div",
+                "display": "flex",
+                "align-items": "center",
+                "gap": "8px",
+                "#": ["$Name", "$HeatingTag", "$OfflineTag"],
+
+                "$Name": {
+                    "#element": "div",
+                    "@id": "room-/I/-name",
+                    "font-size": "var(--type-room-name-size)",
+                    "font-weight": "var(--type-room-name-weight)",
+                    "letter-spacing": "var(--type-room-name-track)",
+                    "color": "var(--color-text-primary)"
+                },
+
+                "$HeatingTag": {
+                    "#element": "div",
+                    "@id": "room-/I/-heating-tag",
+                    "display": "none",
+                    "align-items": "center",
+                    "gap": "3px",
+                    "font-size": "10.5px",
+                    "font-weight": "600",
+                    "color": "var(--color-accent)",
+                    "#": ["$Flame", "$Label"],
+
+                    "$Flame": {
+                        "#element": "div",
+                        "width": "11px",
+                        "height": "11px",
+                        "background-color": "var(--color-accent)",
+                        "mask": "url(resources/icon/flame.svg) center/contain no-repeat",
+                        "-webkit-mask": "url(resources/icon/flame.svg) center/contain no-repeat"
+                    },
+                    "$Label": {
+                        "#element": "span",
+                        "#content": "heating"
+                    }
+                },
+
+                "$OfflineTag": {
+                    "#element": "div",
+                    "@id": "room-/I/-offline-tag",
+                    "display": "none",
+                    "align-items": "center",
+                    "gap": "3px",
+                    "font-size": "10.5px",
+                    "font-weight": "500",
+                    "color": "var(--color-status-warn)",
+                    "#": ["$WifiSlash", "$Label"],
+
+                    "$WifiSlash": {
+                        "#element": "div",
+                        "width": "11px",
+                        "height": "11px",
+                        "background-color": "var(--color-status-warn)",
+                        "mask": "url(resources/icon/offline.svg) center/contain no-repeat",
+                        "-webkit-mask": "url(resources/icon/offline.svg) center/contain no-repeat"
+                    },
+                    "$Label": {
+                        "#element": "span",
+                        "#content": "offline"
+                    }
+                }
+            },
+
+            "$Subline": {
+                "#element": "div",
+                "@id": "room-/I/-subline",
+                "font-size": "var(--type-subline-size)",
+                "font-weight": "var(--type-subline-weight)",
+                "color": "var(--color-text-secondary)",
+                "white-space": "nowrap",
+                "overflow": "hidden",
+                "text-overflow": "ellipsis"
+            }
+        },
+
+        "$Spacer": {
+            "#element": "div",
+            "flex": "1"
+        },
+
+        "$TempBlock": {
+            "#element": "div",
+            "display": "flex",
+            "flex-direction": "column",
+            "align-items": "flex-end",
+            "flex-shrink": "0",
+            "#": ["$CurrentRow", "$Setpoint"],
+
+            "$CurrentRow": {
+                "#element": "div",
+                "display": "flex",
+                "align-items": "baseline",
+                "#": ["$Temp", "$Unit"],
+
+                "$Temp": {
+                    "#element": "span",
+                    "@id": "room-/I/-temp",
+                    "font-size": "var(--type-current-temp-size)",
+                    "font-weight": "var(--type-current-temp-weight)",
+                    "letter-spacing": "var(--type-current-temp-track)",
+                    "color": "var(--color-text-primary)"
+                },
+
+                "$Unit": {
+                    "#element": "span",
+                    "font-size": "11px",
+                    "color": "var(--color-text-muted)",
+                    "margin-left": "2px",
+                    "#content": "°C"
+                }
+            },
+
+            "$Setpoint": {
+                "#element": "div",
+                "@id": "room-/I/-setpoint",
+                "font-size": "11px",
+                "color": "var(--color-text-muted)",
+                "margin-top": "2px"
+            }
+        },
+
+        "$Chevron": {
+            "#element": "div",
+            "@id": "room-/I/-chevron",
+            "width": "14px",
+            "height": "14px",
+            "flex-shrink": "0",
+            "background-color": "var(--color-text-disabled)",
+            "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+            "transition": "transform var(--motion-chevron-rotate)"
         }
     },
 
-    "$TextBlock": {
+    "$Expansion": {
         "#element": "div",
-        "display": "flex",
+        "@id": "room-/I/-expansion",
+        "display": "none",
         "flex-direction": "column",
-        "gap": "2px",
-        "min-width": "0",
-        "#": ["$NameRow", "$Subline"],
+        "padding": "4px var(--space-card-pad) 18px var(--space-card-pad)",
+        "border-top": "1px solid var(--color-border-divider-soft)",
+        "#": ["$ModeBlock", "$TargetBlock", "$BoostBlock", "$EditBtn"],
 
-        "$NameRow": {
+        "$ModeBlock": {
             "#element": "div",
+            "#": ["$ModeLabel", "$ModePill"],
+
+            "$ModeLabel": {
+                "#element": "div",
+                "margin": "14px 0 8px 0",
+                "font-size": "var(--type-section-label-size)",
+                "font-weight": "var(--type-section-label-weight)",
+                "letter-spacing": "var(--type-section-label-track)",
+                "color": "var(--color-text-meta)",
+                "text-transform": "uppercase",
+                "#content": "Mode"
+            },
+            "$ModePill": {
+                "#element": "div",
+                "background": "var(--color-surface-sunk)",
+                "padding": "4px",
+                "border-radius": "12px",
+                "display": "grid",
+                "grid-template-columns": "1fr 1fr 1fr",
+                "gap": "6px",
+                "#": ["$BtnTimed", "$BtnOn", "$BtnOff"],
+
+                "$BtnTimed": { "$ID": "room-/I/-mode-timed", "$Label": "Timed", "#": "$ModeBtn" },
+                "$BtnOn":    { "$ID": "room-/I/-mode-on",    "$Label": "On",    "#": "$ModeBtn" },
+                "$BtnOff":   { "$ID": "room-/I/-mode-off",   "$Label": "Off",   "#": "$ModeBtn" },
+
+                "$ModeBtn": {
+                    "#element": "button",
+                    "@id": "$ID",
+                    "padding": "10px 6px",
+                    "border": "0",
+                    "border-radius": "9px",
+                    "background": "transparent",
+                    "color": "var(--color-text-muted)",
+                    "font-family": "inherit",
+                    "font-size": "13px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "$Label"
+                }
+            }
+        },
+
+        "$TargetBlock": {
+            "#element": "div",
+            "@id": "room-/I/-target-block",
+            "#": ["$TargetLabel", "$TargetRow"],
+
+            "$TargetLabel": {
+                "#element": "div",
+                "margin": "16px 0 8px 0",
+                "font-size": "var(--type-section-label-size)",
+                "font-weight": "var(--type-section-label-weight)",
+                "letter-spacing": "var(--type-section-label-track)",
+                "color": "var(--color-text-meta)",
+                "text-transform": "uppercase",
+                "#content": "Target"
+            },
+            "$TargetRow": {
+                "#element": "div",
+                "display": "flex",
+                "gap": "12px",
+                "align-items": "stretch",
+                "#": ["$Minus", "$Tile", "$Plus"],
+
+                "$Minus": {
+                    "#element": "button",
+                    "@id": "room-/I/-target-minus",
+                    "width": "54px",
+                    "height": "54px",
+                    "border-radius": "var(--radius-step-btn)",
+                    "background": "var(--color-surface-card)",
+                    "border": "0",
+                    "cursor": "pointer",
+                    "box-shadow": "var(--shadow-step-btn)",
+                    "color": "var(--color-accent)",
+                    "font-size": "22px",
+                    "font-weight": "400",
+                    "font-family": "inherit",
+                    "flex-shrink": "0",
+                    "padding": "0",
+                    "#content": "−"
+                },
+                "$Tile": {
+                    "#element": "div",
+                    "flex": "1",
+                    "padding": "14px 8px",
+                    "background": "var(--color-accent-10)",
+                    "border": "1px solid var(--color-accent-20)",
+                    "border-radius": "var(--radius-target-tile)",
+                    "display": "flex",
+                    "flex-direction": "column",
+                    "align-items": "center",
+                    "justify-content": "center",
+                    "#": ["$NumberRow", "$Caption"],
+
+                    "$NumberRow": {
+                        "#element": "div",
+                        "display": "flex",
+                        "align-items": "baseline",
+                        "#": ["$Number", "$Unit"],
+
+                        "$Number": {
+                            "#element": "span",
+                            "@id": "room-/I/-target-value",
+                            "font-size": "var(--type-target-big-size)",
+                            "font-weight": "var(--type-target-big-weight)",
+                            "letter-spacing": "var(--type-target-big-track)",
+                            "color": "var(--color-text-primary)"
+                        },
+                        "$Unit": {
+                            "#element": "span",
+                            "font-size": "15px",
+                            "font-weight": "500",
+                            "color": "var(--color-accent)",
+                            "margin-left": "4px",
+                            "#content": "°C"
+                        }
+                    },
+                    "$Caption": {
+                        "#element": "div",
+                        "font-size": "11px",
+                        "font-weight": "400",
+                        "color": "var(--color-text-secondary)",
+                        "margin-top": "4px",
+                        "#content": "Target temperature"
+                    }
+                },
+                "$Plus": {
+                    "#element": "button",
+                    "@id": "room-/I/-target-plus",
+                    "width": "54px",
+                    "height": "54px",
+                    "border-radius": "var(--radius-step-btn)",
+                    "background": "var(--color-surface-card)",
+                    "border": "0",
+                    "cursor": "pointer",
+                    "box-shadow": "var(--shadow-step-btn)",
+                    "color": "var(--color-accent)",
+                    "font-size": "22px",
+                    "font-weight": "400",
+                    "font-family": "inherit",
+                    "flex-shrink": "0",
+                    "padding": "0",
+                    "#content": "+"
+                }
+            }
+        },
+
+        "$BoostBlock": {
+            "#element": "div",
+            "@id": "room-/I/-boost-block",
+            "#": ["$BoostHeader", "$BoostGrid"],
+
+            "$BoostHeader": {
+                "#element": "div",
+                "margin": "18px 0 8px 0",
+                "display": "flex",
+                "align-items": "center",
+                "#": ["$BoostLabel", "$Spacer", "$BoostCancel"],
+
+                "$BoostLabel": {
+                    "#element": "div",
+                    "font-size": "var(--type-section-label-size)",
+                    "font-weight": "var(--type-section-label-weight)",
+                    "letter-spacing": "var(--type-section-label-track)",
+                    "color": "var(--color-text-meta)",
+                    "text-transform": "uppercase",
+                    "#content": "Boost"
+                },
+                "$Spacer": {
+                    "#element": "div",
+                    "flex": "1"
+                },
+                "$BoostCancel": {
+                    "#element": "button",
+                    "@id": "room-/I/-boost-cancel",
+                    "background": "transparent",
+                    "border": "0",
+                    "color": "var(--color-accent)",
+                    "font-size": "12px",
+                    "font-weight": "500",
+                    "font-family": "inherit",
+                    "cursor": "pointer",
+                    "padding": "0",
+                    "display": "none",
+                    "#content": "Cancel"
+                }
+            },
+            "$BoostGrid": {
+                "#element": "div",
+                "display": "grid",
+                "grid-template-columns": "1fr 1fr 1fr",
+                "gap": "6px",
+                "#": ["$B30", "$B1h", "$B2h"],
+
+                "$B30": { "$ID": "room-/I/-boost-30", "$Label": "30 min", "#": "$BoostBtn" },
+                "$B1h": { "$ID": "room-/I/-boost-1h", "$Label": "1 hr",   "#": "$BoostBtn" },
+                "$B2h": { "$ID": "room-/I/-boost-2h", "$Label": "2 hr",   "#": "$BoostBtn" },
+
+                "$BoostBtn": {
+                    "#element": "button",
+                    "@id": "$ID",
+                    "padding": "10px 6px",
+                    "background": "var(--color-surface-card)",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "10px",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "13px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "$Label"
+                }
+            }
+        },
+
+        "$EditBtn": {
+            "#element": "button",
+            "@id": "room-/I/-edit-schedule",
+            "width": "100%",
+            "margin-top": "14px",
+            "padding": "12px 14px",
+            "border": "1px solid var(--color-border-hairline)",
+            "border-radius": "12px",
+            "background": "var(--color-surface-card)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "13.5px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)",
             "display": "flex",
             "align-items": "center",
             "gap": "8px",
-            "#": ["$Name", "$HeatingTag", "$OfflineTag"],
+            "#": ["$Label", "$Spacer", "$Chev"],
 
-            "$Name": {
-                "#element": "div",
-                "@id": "room-/I/-name",
-                "font-size": "var(--type-room-name-size)",
-                "font-weight": "var(--type-room-name-weight)",
-                "letter-spacing": "var(--type-room-name-track)",
-                "color": "var(--color-text-primary)"
-            },
-
-            "$HeatingTag": {
-                "#element": "div",
-                "@id": "room-/I/-heating-tag",
-                "display": "none",
-                "align-items": "center",
-                "gap": "3px",
-                "font-size": "10.5px",
-                "font-weight": "600",
-                "color": "var(--color-accent)",
-                "#": ["$Flame", "$Label"],
-
-                "$Flame": {
-                    "#element": "div",
-                    "width": "11px",
-                    "height": "11px",
-                    "background-color": "var(--color-accent)",
-                    "mask": "url(resources/icon/flame.svg) center/contain no-repeat",
-                    "-webkit-mask": "url(resources/icon/flame.svg) center/contain no-repeat"
-                },
-                "$Label": {
-                    "#element": "span",
-                    "#content": "heating"
-                }
-            },
-
-            "$OfflineTag": {
-                "#element": "div",
-                "@id": "room-/I/-offline-tag",
-                "display": "none",
-                "align-items": "center",
-                "gap": "3px",
-                "font-size": "10.5px",
-                "font-weight": "500",
-                "color": "var(--color-status-warn)",
-                "#": ["$WifiSlash", "$Label"],
-
-                "$WifiSlash": {
-                    "#element": "div",
-                    "width": "11px",
-                    "height": "11px",
-                    "background-color": "var(--color-status-warn)",
-                    "mask": "url(resources/icon/offline.svg) center/contain no-repeat",
-                    "-webkit-mask": "url(resources/icon/offline.svg) center/contain no-repeat"
-                },
-                "$Label": {
-                    "#element": "span",
-                    "#content": "offline"
-                }
-            }
-        },
-
-        "$Subline": {
-            "#element": "div",
-            "@id": "room-/I/-subline",
-            "font-size": "var(--type-subline-size)",
-            "font-weight": "var(--type-subline-weight)",
-            "color": "var(--color-text-secondary)",
-            "white-space": "nowrap",
-            "overflow": "hidden",
-            "text-overflow": "ellipsis"
-        }
-    },
-
-    "$Spacer": {
-        "#element": "div",
-        "flex": "1"
-    },
-
-    "$TempBlock": {
-        "#element": "div",
-        "display": "flex",
-        "flex-direction": "column",
-        "align-items": "flex-end",
-        "flex-shrink": "0",
-        "#": ["$CurrentRow", "$Setpoint"],
-
-        "$CurrentRow": {
-            "#element": "div",
-            "display": "flex",
-            "align-items": "baseline",
-            "#": ["$Temp", "$Unit"],
-
-            "$Temp": {
+            "$Label": {
                 "#element": "span",
-                "@id": "room-/I/-temp",
-                "font-size": "var(--type-current-temp-size)",
-                "font-weight": "var(--type-current-temp-weight)",
-                "letter-spacing": "var(--type-current-temp-track)",
-                "color": "var(--color-text-primary)"
+                "#content": "Edit schedule"
             },
-
-            "$Unit": {
-                "#element": "span",
-                "font-size": "11px",
-                "color": "var(--color-text-muted)",
-                "margin-left": "2px",
-                "#content": "°C"
+            "$Spacer": {
+                "#element": "div",
+                "flex": "1"
+            },
+            "$Chev": {
+                "#element": "div",
+                "width": "14px",
+                "height": "14px",
+                "background-color": "var(--color-text-disabled)",
+                "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+                "transform": "rotate(-90deg)",
+                "flex-shrink": "0"
             }
-        },
-
-        "$Setpoint": {
-            "#element": "div",
-            "@id": "room-/I/-setpoint",
-            "font-size": "11px",
-            "color": "var(--color-text-muted)",
-            "margin-top": "2px"
         }
-    },
-
-    "$Chevron": {
-        "#element": "div",
-        "@id": "room-/I/-chevron",
-        "width": "14px",
-        "height": "14px",
-        "flex-shrink": "0",
-        "background-color": "var(--color-text-disabled)",
-        "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
-        "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
-        "transition": "transform var(--motion-chevron-rotate)"
     }
 }
