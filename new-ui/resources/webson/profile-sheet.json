@@ -1,8 +1,8 @@
 {
-    "#doc": "ProfileSheet content — tagline, profile override list, weekly calendar, manage button. Renders as a sibling of menu-sheet inside sheet-content; shell.as flips display between the two.",
+    "#doc": "Combined ProfileSheet — profile list (select + rename + delete in one row), Add button, collapsible Calendar with state-coded header, Save/Cancel at bottom. All changes batch through Save.",
     "#element": "div",
     "@id": "profile-sheet",
-    "#": ["$Tagline", "$UseNowLabel", "$ProfileList", "$CalendarLabel", "$CalendarCard", "$ManageButton"],
+    "#": ["$Tagline", "$ProfileList", "$AddBtn", "$CalendarHeader", "$CalendarCard", "$Buttons"],
 
     "$Tagline": {
         "#element": "div",
@@ -11,92 +11,140 @@
         "font-size": "13px",
         "font-weight": "400",
         "color": "var(--color-text-secondary)",
-        "#content": "Override today's profile, or let the calendar decide."
-    },
-
-    "$UseNowLabel": {
-        "#element": "div",
-        "margin": "18px 0 8px 0",
-        "font-size": "var(--type-section-label-size)",
-        "font-weight": "var(--type-section-label-weight)",
-        "letter-spacing": "var(--type-section-label-track)",
-        "color": "var(--color-text-meta)",
-        "text-transform": "uppercase",
-        "#content": "Use now"
+        "#content": "Tap to select. Pencil renames, ✕ deletes. Save to apply."
     },
 
     "$ProfileList": {
         "#element": "div",
         "@id": "profile-list",
+        "margin-top": "16px",
+        "max-height": "260px",
+        "overflow-y": "auto",
         "display": "flex",
         "flex-direction": "column",
         "gap": "8px"
     },
 
-    "$CalendarLabel": {
+    "$AddBtn": {
         "#element": "button",
-        "@id": "profile-calendar-toggle",
+        "@id": "profile-add-btn",
         "width": "100%",
-        "margin": "22px 0 8px 0",
-        "padding": "10px 14px",
-        "border": "1px solid var(--color-border-hairline)",
+        "margin-top": "10px",
+        "padding": "10px",
         "border-radius": "12px",
         "background": "transparent",
-        "display": "flex",
-        "align-items": "center",
-        "gap": "10px",
+        "border": "1px dashed var(--color-border-hairline)",
         "cursor": "pointer",
         "font-family": "inherit",
-        "#": ["$CalLabel", "$CalSpacer", "$CalState"],
+        "font-size": "14px",
+        "font-weight": "500",
+        "color": "var(--color-text-primary)",
+        "#content": "+ Add profile (duplicate current)"
+    },
 
-        "$CalLabel": {
-            "#element": "div",
-            "font-size": "var(--type-section-label-size)",
-            "font-weight": "var(--type-section-label-weight)",
-            "letter-spacing": "var(--type-section-label-track)",
-            "color": "var(--color-text-meta)",
-            "text-transform": "uppercase",
-            "#content": "Calendar"
+    "$CalendarHeader": {
+        "#element": "div",
+        "@id": "profile-calendar-header",
+        "width": "100%",
+        "margin-top": "20px",
+        "border-radius": "12px",
+        "background": "transparent",
+        "border": "1px solid var(--color-border-hairline)",
+        "display": "flex",
+        "align-items": "stretch",
+        "overflow": "hidden",
+        "box-sizing": "border-box",
+        "#": ["$CalExpand", "$CalToggle"],
+
+        "$CalExpand": {
+            "#element": "button",
+            "@id": "profile-calendar-expand",
+            "flex": "1",
+            "min-width": "0",
+            "padding": "12px 14px",
+            "background": "transparent",
+            "border": "none",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "10px",
+            "#": ["$CalTitle", "$CalSpacer", "$CalChev"],
+
+            "$CalTitle": {
+                "#element": "div",
+                "@id": "profile-calendar-title",
+                "font-size": "var(--type-section-label-size)",
+                "font-weight": "var(--type-section-label-weight)",
+                "letter-spacing": "var(--type-section-label-track)",
+                "text-transform": "uppercase",
+                "color": "var(--color-text-meta)",
+                "#content": "Calendar inactive"
+            },
+            "$CalSpacer": {
+                "#element": "div",
+                "flex": "1"
+            },
+            "$CalChev": {
+                "#element": "div",
+                "@id": "profile-calendar-chev",
+                "width": "12px",
+                "height": "12px",
+                "background-color": "var(--color-text-disabled)",
+                "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+                "flex-shrink": "0"
+            }
         },
-        "$CalSpacer": { "#element": "div", "flex": "1" },
-        "$CalState": {
-            "#element": "div",
-            "@id": "profile-calendar-state",
-            "font-size": "13px",
+
+        "$CalToggle": {
+            "#element": "button",
+            "@id": "profile-calendar-toggle",
+            "padding": "0 16px",
+            "background": "transparent",
+            "border": "none",
+            "border-left": "1px solid var(--color-border-hairline)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "12px",
             "font-weight": "600",
-            "color": "var(--color-text-primary)"
+            "color": "var(--color-text-disabled)",
+            "min-width": "60px",
+            "#content": "OFF"
         }
     },
 
     "$CalendarCard": {
         "#element": "div",
         "@id": "profile-calendar-card",
+        "margin-top": "8px",
         "border": "1px solid var(--color-border-hairline)",
         "border-radius": "12px",
         "overflow": "hidden",
+        "display": "none",
         "#": ["$D1", "$D2", "$D3", "$D4", "$D5", "$D6", "$D7"],
 
-        "$D1": { "$ID": "calendar-mon", "$Day": "Mon", "$Profile": "Monday-Friday", "#": "$DayRow" },
-        "$D2": { "$ID": "calendar-tue", "$Day": "Tue", "$Profile": "Monday-Friday", "#": "$DayRow" },
-        "$D3": { "$ID": "calendar-wed", "$Day": "Wed", "$Profile": "Monday-Friday", "#": "$DayRow" },
-        "$D4": { "$ID": "calendar-thu", "$Day": "Thu", "$Profile": "Monday-Friday", "#": "$DayRow" },
-        "$D5": { "$ID": "calendar-fri", "$Day": "Fri", "$Profile": "Monday-Friday", "#": "$DayRow" },
-        "$D6": { "$ID": "calendar-sat", "$Day": "Sat", "$Profile": "Weekend",       "#": "$DayRow" },
-        "$D7": { "$ID": "calendar-sun", "$Day": "Sun", "$Profile": "Weekend",       "#": "$DayRow" },
+        "$D1": { "$ID": "calendar-mon", "$Day": "Mon", "#": "$DayRow" },
+        "$D2": { "$ID": "calendar-tue", "$Day": "Tue", "#": "$DayRow" },
+        "$D3": { "$ID": "calendar-wed", "$Day": "Wed", "#": "$DayRow" },
+        "$D4": { "$ID": "calendar-thu", "$Day": "Thu", "#": "$DayRow" },
+        "$D5": { "$ID": "calendar-fri", "$Day": "Fri", "#": "$DayRow" },
+        "$D6": { "$ID": "calendar-sat", "$Day": "Sat", "#": "$DayRow" },
+        "$D7": { "$ID": "calendar-sun", "$Day": "Sun", "#": "$DayRow" },
 
         "$DayRow": {
             "#element": "div",
             "@id": "$ID",
-            "padding": "12px 14px",
+            "padding": "10px 14px",
             "display": "flex",
             "align-items": "center",
             "gap": "10px",
             "border-top": "1px solid var(--color-border-divider-soft)",
-            "#": ["$DayEl", "$ProfileEl", "$Spacer", "$Chev"],
+            "#": ["$DayEl", "$ProfileEl", "$Spacer", "$EditBtn"],
 
             "$DayEl": {
                 "#element": "div",
-                "width": "38px",
+                "width": "36px",
                 "font-size": "13px",
                 "font-weight": "600",
                 "color": "var(--color-text-secondary)",
@@ -104,42 +152,71 @@
             },
             "$ProfileEl": {
                 "#element": "div",
+                "@id": "$ID-profile",
                 "font-size": "14px",
                 "font-weight": "400",
-                "color": "var(--color-text-primary)",
-                "#content": "$Profile"
+                "color": "var(--color-text-primary)"
             },
-            "$Spacer": {
-                "#element": "div",
-                "flex": "1"
-            },
-            "$Chev": {
-                "#element": "div",
-                "width": "14px",
-                "height": "14px",
-                "background-color": "#CCCCCC",
-                "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
-                "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
-                "transform": "rotate(-90deg)",
-                "flex-shrink": "0"
+            "$Spacer": { "#element": "div", "flex": "1" },
+            "$EditBtn": {
+                "#element": "button",
+                "@id": "$ID-edit",
+                "width": "28px",
+                "height": "28px",
+                "padding": "0",
+                "border-radius": "6px",
+                "background": "transparent",
+                "border": "1px solid var(--color-border-hairline)",
+                "cursor": "pointer",
+                "font-family": "inherit",
+                "font-size": "13px",
+                "color": "var(--color-text-secondary)",
+                "flex-shrink": "0",
+                "display": "flex",
+                "align-items": "center",
+                "justify-content": "center",
+                "#content": "✎"
             }
         }
     },
 
-    "$ManageButton": {
-        "#element": "button",
-        "@id": "profile-manage-btn",
-        "width": "100%",
-        "margin-top": "14px",
-        "padding": "12px",
-        "border-radius": "12px",
-        "background": "transparent",
-        "border": "1px solid var(--color-border-hairline)",
-        "cursor": "pointer",
-        "font-family": "inherit",
-        "font-size": "14px",
-        "font-weight": "400",
-        "color": "var(--color-text-primary)",
-        "#content": "Manage profiles…"
+    "$Buttons": {
+        "#element": "div",
+        "margin-top": "20px",
+        "display": "flex",
+        "gap": "10px",
+        "#": ["$CancelBtn", "$SaveBtn"],
+
+        "$CancelBtn": {
+            "#element": "button",
+            "@id": "profile-cancel-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-surface-card)",
+            "border": "1px solid var(--color-border-hairline)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)",
+            "#content": "Cancel"
+        },
+
+        "$SaveBtn": {
+            "#element": "button",
+            "@id": "profile-save-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-accent)",
+            "border": "1px solid var(--color-accent)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "600",
+            "color": "white",
+            "#content": "Save changes"
+        }
     }
 }

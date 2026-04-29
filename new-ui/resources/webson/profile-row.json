@@ -1,51 +1,86 @@
 {
-    "#doc": "ProfileRow template — rendered once per profile into profile-list. /I/ is replaced with the profile index. Label content is set by shell.as after render.",
-    "#element": "button",
+    "#doc": "ProfileRow template — rendered once per profile in the combined ProfileSheet. /I/ replaced with the profile index. shell.as fills the label and wires three click targets: row body (select), pencil (rename), X (delete).",
+    "#element": "div",
     "@id": "profile-row-/I/",
     "width": "100%",
-    "padding": "14px",
+    "padding": "10px 12px",
     "border-radius": "12px",
     "border": "1px solid var(--color-border-hairline)",
     "background": "var(--color-surface-card)",
     "display": "flex",
     "align-items": "center",
-    "gap": "12px",
-    "cursor": "pointer",
-    "text-align": "left",
-    "font-family": "inherit",
+    "gap": "10px",
     "box-sizing": "border-box",
-    "#": ["$Dot", "$Label", "$Spacer", "$ActiveChip"],
+    "#": ["$Body", "$Spacer", "$RenameBtn", "$DeleteBtn"],
 
-    "$Dot": {
-        "#element": "div",
-        "@id": "profile-row-/I/-dot",
-        "width": "18px",
-        "height": "18px",
-        "border-radius": "50%",
-        "border": "1.5px solid #CCC",
+    "$Body": {
+        "#element": "button",
+        "@id": "profile-row-/I/-body",
+        "flex": "1",
+        "min-width": "0",
+        "padding": "4px 0",
         "background": "transparent",
-        "box-sizing": "border-box",
-        "flex-shrink": "0"
-    },
-    "$Label": {
-        "#element": "div",
-        "@id": "profile-row-/I/-label",
+        "border": "none",
+        "cursor": "pointer",
+        "text-align": "left",
+        "font-family": "inherit",
         "font-size": "15px",
         "font-weight": "500",
-        "color": "var(--color-text-primary)"
+        "color": "var(--color-text-primary)",
+        "white-space": "nowrap",
+        "overflow": "hidden",
+        "text-overflow": "ellipsis",
+        "#": ["$Label"],
+
+        "$Label": {
+            "#element": "span",
+            "@id": "profile-row-/I/-label"
+        }
     },
+
     "$Spacer": {
         "#element": "div",
-        "flex": "1"
+        "width": "4px",
+        "flex-shrink": "0"
     },
-    "$ActiveChip": {
-        "#element": "div",
-        "@id": "profile-row-/I/-active-chip",
-        "font-size": "11px",
-        "font-weight": "600",
-        "letter-spacing": "0.4px",
-        "color": "var(--color-accent)",
-        "display": "none",
-        "#content": "ACTIVE"
+
+    "$RenameBtn": {
+        "#element": "button",
+        "@id": "profile-row-/I/-rename",
+        "width": "32px",
+        "height": "32px",
+        "padding": "0",
+        "border-radius": "8px",
+        "background": "transparent",
+        "border": "1px solid var(--color-border-hairline)",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "font-size": "15px",
+        "color": "var(--color-text-secondary)",
+        "flex-shrink": "0",
+        "display": "flex",
+        "align-items": "center",
+        "justify-content": "center",
+        "#content": "✎"
+    },
+
+    "$DeleteBtn": {
+        "#element": "button",
+        "@id": "profile-row-/I/-delete",
+        "width": "32px",
+        "height": "32px",
+        "padding": "0",
+        "border-radius": "8px",
+        "background": "transparent",
+        "border": "1px solid var(--color-border-hairline)",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "font-size": "14px",
+        "color": "#C8392E",
+        "flex-shrink": "0",
+        "display": "flex",
+        "align-items": "center",
+        "justify-content": "center",
+        "#content": "✕"
     }
 }
