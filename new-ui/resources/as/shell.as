@@ -369,6 +369,14 @@
 	attach SystemId to `top-bar-system-id`
 	set the content of SystemId to `…`
 
+!	Panic-button for stranded credentials. The hamburger button is the only
+!	always-visible UI element, so wire it now (synchronously, before MQTT)
+!	to a credentials-reset action. BuildHomeScreen re-binds it later for
+!	the full menu sheet, so this handler only fires when BuildHomeScreen
+!	never ran (i.e. MQTT hasn't connected and no map has arrived).
+	attach MenuButton to `top-bar-menu-btn`
+	on click MenuButton gosub to ResetCredentialsAndReload
+
 !	Day-of-week and month-name lookup tables for the SummaryCard date.
 !	`the day` is JS getDay (0=Sun); `the month` is getMonth (0=Jan).
 	put `[]` into DayNames
@@ -641,7 +649,7 @@ BuildHomeScreen:
 	attach MenuRowSystem to `menu-row-system`
 	on click MenuRowSystem
 	begin
-		log `Menu: Boiler & system (stub)`
+		gosub to ResetCredentialsAndReload
 	end
 	attach MenuRowNotifications to `menu-row-notifications`
 	on click MenuRowNotifications
@@ -2395,6 +2403,21 @@ SaveEditingProfiles:
 	if EditingCalendarData is not empty set property `calendar-data` of Result to EditingCalendarData
 	gosub to PostUiRequest
 	gosub to CloseProfileSheet
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Wipe the four credential keys from localStorage and reload, so the
+!	user gets re-prompted for Broker / Username / Password / MAC. Useful
+!	when a typo has stranded the page on connect.
+ResetCredentialsAndReload:
+	clear ConfirmFlag
+	if confirm `Reset stored credentials and reload? You'll be prompted to re-enter them.` set ConfirmFlag
+	if not ConfirmFlag return
+	put empty into storage as `dev-broker`
+	put empty into storage as `dev-username`
+	put empty into storage as `dev-password`
+	put empty into storage as `dev-mac`
+	set the location to the location
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
