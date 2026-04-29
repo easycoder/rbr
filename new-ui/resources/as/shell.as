@@ -263,6 +263,9 @@
 	variable TempInt
 	variable LoopK
 	variable NowMinutes
+	variable BoostUntil
+	variable BoostRemaining
+	variable BoostText
 	variable NextTimeStr
 	variable NextTempVal
 	variable NextTempStr
@@ -862,8 +865,28 @@ BuildRoomEntry:
 		end
 	end
 
-!	Boost: deferred to slice 09b (outbound user actions).
+!	Boost: when mode is `boost`, compute remaining time from the room's
+!	`until` field (a ms end-timestamp the controller sets when boost is
+!	applied). Round up to the next minute, format as "N min(s)". Mirrors
+!	the legacy formula in rbr.as:910-920.
 	set property `boost` of NewRoom to empty
+	if LegacyMode is `boost`
+	begin
+		put property `until` of LegacyRoom into BoostUntil
+		if BoostUntil is not empty
+		begin
+			put BoostUntil into BoostRemaining
+			take the timestamp from BoostRemaining
+			if BoostRemaining is greater than 0
+			begin
+				divide BoostRemaining by 60000
+				add 1 to BoostRemaining
+				if BoostRemaining is 1 put `1 min` into BoostText
+				else put BoostRemaining cat ` mins` into BoostText
+				set property `boost` of NewRoom to BoostText
+			end
+		end
+	end
 
 !	Current schedule period: walk events in order, pick the first whose
 !	`until` time is still in the future. nextTime = end of current period;
@@ -1883,12 +1906,12 @@ ComputeSummaryStats:
 	if HeatingCount is 0
 	begin
 		put `Nothing calling for heat` into TitleText
-		put `Boiler idle` into SubtitleText
+		put `System idle` into SubtitleText
 	end
 	else if HeatingCount is 1
 	begin
 		put HeatingNames cat ` is calling for heat` into TitleText
-		put `Boiler firing` into SubtitleText
+		put `System firing` into SubtitleText
 	end
 	else
 	begin
@@ -2004,7 +2027,11 @@ RenderRoom:
 	if Sensor is `yes` put `Outdoor sensor` into SublineText
 	else if Offline is `yes` put property `offlineReason` of Room into SublineText
 	else if Mode is `Off` put empty into SublineText
-	else if Mode is `Boost` put `Boost active` into SublineText
+	else if Mode is `Boost`
+	begin
+		if BoostVal is empty put `Boost active` into SublineText
+		else put `Boost · ` cat BoostVal cat ` left` into SublineText
+	end
 	else if Mode is `On`
 	begin
 		if TargetTemp is not empty put TargetTemp cat `°` into SublineText
