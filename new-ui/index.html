@@ -5,9 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Room By Room</title>
     <link rel="icon" href="../favicon.ico" type="image/x-icon">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#E86A33">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="RBR">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
     <link rel="stylesheet" href="resources/css/tokens.css">
     <script type='text/javascript' src='https://rbrheating.com/dist/allspeak.js?v=26042301'></script>
     <script type='text/javascript' src='https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js'></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js').catch(err => {
+            console.warn('SW registration failed:', err);
+          });
+        });
+      }
+    </script>
   </head>
 
   <body>

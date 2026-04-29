@@ -33,3 +33,16 @@ jobs:
               resources/$dir/ \
               rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/resources/$dir/
           done
+
+      - name: Bump PWA service-worker cache version
+        run: |
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          sed -i "s/const CACHE_VERSION = '[^']*';/const CACHE_VERSION = 'sha-${SHORT_SHA}';/" new-ui/sw.js
+          grep CACHE_VERSION new-ui/sw.js | head -1
+
+      - name: Deploy new UI (PWA)
+        run: |
+          rsync -avz --no-perms --delete \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            new-ui/ \
+            rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/new-ui/
