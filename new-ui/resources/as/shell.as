@@ -67,6 +67,24 @@
 	button DayPickerCloseBtn
 	div DayPickerList
 	button DayPill
+	div ScheduleSheetEl
+	button ScheduleProfilePillBtn
+	div ScheduleProfileValue
+	div ScheduleProfileChev
+	div ScheduleProfilePicker
+	button SchedProfilePill
+	div SchedulePeriodList
+	button ScheduleAddBtn
+	button ScheduleSaveBtn
+	button ScheduleCancelBtn
+	div PeriodCardEl
+	div PeriodTimeValue
+	button PeriodTimeMinusBtn
+	button PeriodTimePlusBtn
+	div PeriodTempValue
+	button PeriodTempMinusBtn
+	button PeriodTempPlusBtn
+	button PeriodDeleteBtn
 
 !	Per-row interactive elements (indexed via `index X to RoomIndex` in the
 !	render loop so each click handler can recover its row via `the index of X`).
@@ -254,6 +272,49 @@
 	variable PropName
 	variable ProfName
 	variable ConfirmFlag
+
+!	Schedule editor state.
+	variable ScheduleSheetWebson
+	variable PeriodCardJson
+	variable PeriodCardText
+	variable EditingEvents
+	variable EditingEventsCount
+	variable EditingRoomLegacyIdx
+	variable EditingRoomName
+	variable PeriodIdx
+	variable PeriodIdxStr
+	variable PeriodEvent
+	variable PeriodTime
+	variable PeriodTemp
+	variable PeriodTempTenths
+	variable EventA
+	variable EventB
+	variable SortI
+	variable SortJ
+	variable SortAUntil
+	variable SortBUntil
+	variable SortAMinutes
+	variable SortBMinutes
+	variable SortedEvents
+	variable EditTcalendar
+	variable EditingProfilesForSchedule
+	variable EditingRoomsForSchedule
+	variable ClonedEvent
+	variable SortJplus1
+	variable ScheduleH
+	variable ScheduleM
+	variable LiveProfiles
+	variable LiveProfileForRoom
+	variable LiveRoomsForRoom
+	variable LiveRoomForSchedule
+	variable EditingProfileIdx
+	variable EditingProfileName
+	variable ScheduleDirty
+	variable ScheduleProfilePickerOpen
+	variable SchedProfilePillIdx
+	variable SchedProfilePillIdxStr
+	variable SchedProfilePillJson
+	variable SchedProfilePillText
 	variable LegacyRooms
 	variable LegacyRoomCount
 	variable LegacyIdx
@@ -599,6 +660,7 @@ BuildHomeScreen:
 	begin
 		set style `display` of MenuSheetEl to `block`
 		set style `display` of ProfileSheetEl to `none`
+		set style `display` of ScheduleSheetEl to `none`
 		set the content of SheetTitleEl to `Menu`
 		gosub to OpenSheet
 	end
@@ -693,6 +755,31 @@ BuildHomeScreen:
 	on click ProfileAddBtn gosub to AddEditProfile
 	on click ProfileSaveBtn gosub to SaveEditingProfiles
 	on click ProfileCancelBtn gosub to CloseProfileSheet
+
+!	Schedule editor sheet — sibling sheet inside sheet-content. Rendered
+!	once; opened on demand via the per-room "Edit schedule" button.
+	rest get PeriodCardJson from `resources/webson/schedule-period.json?v=` cat now
+		or go to LoadFailed
+	rest get SchedProfilePillJson from `resources/webson/sched-profile-pill.json?v=` cat now
+		or go to LoadFailed
+	rest get ScheduleSheetWebson from `resources/webson/schedule-editor.json?v=` cat now
+		or go to LoadFailed
+	render ScheduleSheetWebson in SheetContent
+	attach ScheduleSheetEl to `schedule-editor-sheet`
+	set style `display` of ScheduleSheetEl to `none`
+	attach ScheduleProfilePillBtn to `schedule-profile-pill`
+	attach ScheduleProfileValue to `schedule-profile-value`
+	attach ScheduleProfileChev to `schedule-profile-chev`
+	attach ScheduleProfilePicker to `schedule-profile-picker`
+	attach SchedulePeriodList to `schedule-period-list`
+	attach ScheduleAddBtn to `schedule-add-btn`
+	attach ScheduleSaveBtn to `schedule-save-btn`
+	attach ScheduleCancelBtn to `schedule-cancel-btn`
+
+	on click ScheduleProfilePillBtn gosub to ToggleSchedProfilePicker
+	on click ScheduleAddBtn gosub to AddSchedulePeriod
+	on click ScheduleSaveBtn gosub to SaveScheduleEditor
+	on click ScheduleCancelBtn gosub to CloseScheduleEditor
 
 !	Background tick — re-pick the gradient at hour boundaries. Forked once
 !	on first build; subsequent refreshes don't re-fork.
@@ -814,6 +901,7 @@ BuildRoomEntry:
 	put property `name` of LegacyRoom into LegacyName
 	set property `name` of NewRoom to LegacyName
 	set property `id` of NewRoom to `room-` cat RoomsListIdx
+	set property `legacyIdx` of NewRoom to LegacyIdx
 	set property `sensor` of NewRoom to `no`
 
 !	Mode: legacy lowercase → new-UI title-case. Anything unrecognised → Off.
@@ -1284,7 +1372,7 @@ WireRoomInteractions:
 	on click EditScheduleBtn
 	begin
 		put the index of EditScheduleBtn into ClickIndex
-		log `Edit schedule (stub) for room ` cat ClickIndex
+		gosub to OpenScheduleEditor
 	end
 	return
 
@@ -1599,6 +1687,7 @@ OpenProfileSheet:
 	set style `display` of CalendarCardEl to `none`
 	set style `transform` of CalendarChev to `rotate(0deg)`
 	set style `display` of MenuSheetEl to `none`
+	set style `display` of ScheduleSheetEl to `none`
 	set style `display` of ProfileSheetEl to `block`
 	set the content of SheetTitleEl to `Profile`
 	gosub to OpenSheet
@@ -1724,6 +1813,403 @@ HideAllDayPickers:
 
 CloseAllDayPickers:
 	gosub to HideAllDayPickers
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Schedule editor — per-room timed-mode events[] editor. Opens from each
+!	room's "Edit schedule" button. Edits batch into EditingEvents; Save
+!	sorts by `until` and ships an Update Profiles uirequest with the host
+!	room's events replaced. Cancel discards.
+
+!	Update the profile pill's value text from EditingProfileIdx.
+PaintSchedProfilePill:
+	put element EditingProfileIdx of Profiles into ProfileN
+	put property `name` of ProfileN into EditingProfileName
+	set the content of ScheduleProfileValue to EditingProfileName
+	return
+
+!	Toggle the profile picker open/closed. Renders pills on open.
+ToggleSchedProfilePicker:
+	if ScheduleProfilePickerOpen
+	begin
+		clear ScheduleProfilePickerOpen
+		set style `display` of ScheduleProfilePicker to `none`
+		set style `transform` of ScheduleProfileChev to `rotate(0deg)`
+		return
+	end
+	gosub to RenderSchedProfilePicker
+	set ScheduleProfilePickerOpen
+	set style `display` of ScheduleProfilePicker to `flex`
+	set style `transform` of ScheduleProfileChev to `rotate(180deg)`
+	return
+
+!	Render one pill per profile into the picker. Tapping a pill swaps the
+!	editor to that profile (after a confirm if there are unsaved edits).
+!	Pill IDs use the same template as the calendar day-picker pills, so we
+!	clear the picker first to avoid stale-DOM duplicate-id collisions.
+RenderSchedProfilePicker:
+	clear ScheduleProfilePicker
+	put the json count of Profiles into LegacyProfileCount
+	if LegacyProfileCount is 0 return
+	set the elements of SchedProfilePill to LegacyProfileCount
+	put 0 into SchedProfilePillIdx
+	while SchedProfilePillIdx is less than LegacyProfileCount
+	begin
+		put SchedProfilePillJson into SchedProfilePillText
+		put `` cat SchedProfilePillIdx into SchedProfilePillIdxStr
+		replace `/I/` with SchedProfilePillIdxStr in SchedProfilePillText
+		render SchedProfilePillText in ScheduleProfilePicker
+
+		index SchedProfilePill to SchedProfilePillIdx
+		attach SchedProfilePill to `sched-profile-pill-` cat SchedProfilePillIdxStr
+		put element SchedProfilePillIdx of Profiles into ProfileN
+		set the content of SchedProfilePill to property `name` of ProfileN
+		if SchedProfilePillIdx is EditingProfileIdx
+		begin
+			set style `border-color` of SchedProfilePill to `var(--color-accent)`
+			set style `color` of SchedProfilePill to `var(--color-accent)`
+		end
+
+		on click SchedProfilePill
+		begin
+			put the index of SchedProfilePill into SchedProfilePillIdx
+			gosub to SwapEditingProfile
+		end
+
+		increment SchedProfilePillIdx
+	end
+	return
+
+!	Swap the editor to SchedProfilePillIdx. If there are unsaved edits,
+!	confirm first; on cancel, leave everything alone.
+SwapEditingProfile:
+	if SchedProfilePillIdx is EditingProfileIdx
+	begin
+		gosub to ToggleSchedProfilePicker
+		return
+	end
+	if ScheduleDirty
+	begin
+		clear ConfirmFlag
+		if confirm `Discard unsaved changes to this profile?` set ConfirmFlag
+		if not ConfirmFlag return
+	end
+	put SchedProfilePillIdx into EditingProfileIdx
+	clear ScheduleDirty
+	gosub to CloneEventsForEditing
+	gosub to RenderSchedulePeriods
+	gosub to PaintSchedProfilePill
+	clear ScheduleProfilePickerOpen
+	set style `display` of ScheduleProfilePicker to `none`
+	set style `transform` of ScheduleProfileChev to `rotate(0deg)`
+	return
+
+!	Open: snapshot the room's events into EditingEvents (defaulting to the
+!	active profile), render period cards, swap the visible sheet. The user
+!	can then swap to a different profile via the profile-pill at the top.
+OpenScheduleEditor:
+	put element ClickIndex of RoomsList into Room
+	put property `name` of Room into EditingRoomName
+	put property `legacyIdx` of Room into EditingRoomLegacyIdx
+	put CurrentProfile into EditingProfileIdx
+	clear ScheduleDirty
+	clear ScheduleProfilePickerOpen
+	set style `display` of ScheduleProfilePicker to `none`
+	set style `transform` of ScheduleProfileChev to `rotate(0deg)`
+	gosub to CloneEventsForEditing
+	gosub to RenderSchedulePeriods
+	gosub to PaintSchedProfilePill
+	set style `display` of MenuSheetEl to `none`
+	set style `display` of ProfileSheetEl to `none`
+	set style `display` of ScheduleSheetEl to `block`
+	set the content of SheetTitleEl to `Schedule for ` cat EditingRoomName
+	gosub to OpenSheet
+	return
+
+!	Cancel: just close. EditingEvents is left to rot; next open rebuilds.
+CloseScheduleEditor:
+	gosub to CloseSheet
+	return
+
+!	Convert the host room's events array into start-time display rows.
+!	The map stores end-time + temp-up-to-then; the editor shows start-time
+!	+ target-from-then. Conversion (cyclic):
+!	    display[i].start  = events[i].until
+!	    display[i].target = events[(i+1) mod N].temp
+!	Each display row is a fresh {} so edits don't bleed back into the Map.
+CloneEventsForEditing:
+	put `[]` into EditingEvents
+	put property `profiles` of Map into LiveProfiles
+	put element EditingProfileIdx of LiveProfiles into LiveProfileForRoom
+	put property `rooms` of LiveProfileForRoom into LiveRoomsForRoom
+	put element EditingRoomLegacyIdx of LiveRoomsForRoom into LiveRoomForSchedule
+	put property `events` of LiveRoomForSchedule into LegacyEvents
+	if LegacyEvents is empty
+	begin
+		put 0 into EditingEventsCount
+		return
+	end
+	put the json count of LegacyEvents into LegacyEventCount
+	put 0 into LoopE
+	while LoopE is less than LegacyEventCount
+	begin
+		put element LoopE of LegacyEvents into LegacyEvent
+		put `{}` into ClonedEvent
+		set property `start` of ClonedEvent to property `until` of LegacyEvent
+		put LoopE into NewIdx
+		increment NewIdx
+		put NewIdx modulo LegacyEventCount into NewIdx
+		put element NewIdx of LegacyEvents into EventA
+		set property `target` of ClonedEvent to property `temp` of EventA
+		set element LoopE of EditingEvents to ClonedEvent
+		increment LoopE
+	end
+	put LegacyEventCount into EditingEventsCount
+	return
+
+!	Tear down + rebuild the period cards from EditingEvents. Each card
+!	wires four steppers (time -/+, temp -/+) and a delete button.
+RenderSchedulePeriods:
+	clear SchedulePeriodList
+	if EditingEventsCount is 0 return
+	set the elements of PeriodCardEl to EditingEventsCount
+	set the elements of PeriodTimeValue to EditingEventsCount
+	set the elements of PeriodTempValue to EditingEventsCount
+	set the elements of PeriodTimeMinusBtn to EditingEventsCount
+	set the elements of PeriodTimePlusBtn to EditingEventsCount
+	set the elements of PeriodTempMinusBtn to EditingEventsCount
+	set the elements of PeriodTempPlusBtn to EditingEventsCount
+	set the elements of PeriodDeleteBtn to EditingEventsCount
+
+	put 0 into PeriodIdx
+	while PeriodIdx is less than EditingEventsCount
+	begin
+		put PeriodCardJson into PeriodCardText
+		put `` cat PeriodIdx into PeriodIdxStr
+		replace `/I/` with PeriodIdxStr in PeriodCardText
+		render PeriodCardText in SchedulePeriodList
+
+		index PeriodCardEl to PeriodIdx
+		attach PeriodCardEl to `schedule-period-` cat PeriodIdxStr
+		index PeriodTimeValue to PeriodIdx
+		attach PeriodTimeValue to `schedule-period-` cat PeriodIdxStr cat `-time-value`
+		index PeriodTempValue to PeriodIdx
+		attach PeriodTempValue to `schedule-period-` cat PeriodIdxStr cat `-temp-value`
+		index PeriodTimeMinusBtn to PeriodIdx
+		attach PeriodTimeMinusBtn to `schedule-period-` cat PeriodIdxStr cat `-time-minus`
+		index PeriodTimePlusBtn to PeriodIdx
+		attach PeriodTimePlusBtn to `schedule-period-` cat PeriodIdxStr cat `-time-plus`
+		index PeriodTempMinusBtn to PeriodIdx
+		attach PeriodTempMinusBtn to `schedule-period-` cat PeriodIdxStr cat `-temp-minus`
+		index PeriodTempPlusBtn to PeriodIdx
+		attach PeriodTempPlusBtn to `schedule-period-` cat PeriodIdxStr cat `-temp-plus`
+		index PeriodDeleteBtn to PeriodIdx
+		attach PeriodDeleteBtn to `schedule-period-` cat PeriodIdxStr cat `-delete`
+
+		gosub to PaintPeriodValues
+
+		on click PeriodTimeMinusBtn
+		begin
+			put the index of PeriodTimeMinusBtn into PeriodIdx
+			put -15 into ScheduleM
+			gosub to StepPeriodTime
+		end
+		on click PeriodTimePlusBtn
+		begin
+			put the index of PeriodTimePlusBtn into PeriodIdx
+			put 15 into ScheduleM
+			gosub to StepPeriodTime
+		end
+		on click PeriodTempMinusBtn
+		begin
+			put the index of PeriodTempMinusBtn into PeriodIdx
+			put -5 into PeriodTempTenths
+			gosub to StepPeriodTemp
+		end
+		on click PeriodTempPlusBtn
+		begin
+			put the index of PeriodTempPlusBtn into PeriodIdx
+			put 5 into PeriodTempTenths
+			gosub to StepPeriodTemp
+		end
+		on click PeriodDeleteBtn
+		begin
+			put the index of PeriodDeleteBtn into PeriodIdx
+			gosub to DeleteSchedulePeriod
+		end
+
+		increment PeriodIdx
+	end
+	return
+
+!	Paint just the start + target values for PeriodIdx (avoid full re-render
+!	on every stepper tap). Reads EditingEvents[PeriodIdx].
+PaintPeriodValues:
+	index PeriodTimeValue to PeriodIdx
+	index PeriodTempValue to PeriodIdx
+	put element PeriodIdx of EditingEvents into PeriodEvent
+	put property `start` of PeriodEvent into PeriodTime
+	set the content of PeriodTimeValue to PeriodTime
+	put `` cat property `target` of PeriodEvent into PeriodTemp
+	put the index of `.` in PeriodTemp into DotIdx
+	if DotIdx is less than 0 put PeriodTemp cat `.0` into PeriodTemp
+	set the content of PeriodTempValue to PeriodTemp cat `°`
+	return
+
+!	Step the period's start time by ScheduleM (±15) min, wrapping at 24:00.
+!	Update the displayed value in place; don't re-sort here so the user can
+!	drift through midnight without rows jumping.
+StepPeriodTime:
+	put element PeriodIdx of EditingEvents into PeriodEvent
+	put property `start` of PeriodEvent into TempStr
+	gosub to ParseTimeMinutes
+	add TempTenths to ScheduleM
+	if ScheduleM is less than 0 add 1440 to ScheduleM
+	put ScheduleM modulo 1440 into ScheduleM
+	gosub to MinutesToHHMM
+	set property `start` of PeriodEvent to TempStr
+	set element PeriodIdx of EditingEvents to PeriodEvent
+	set ScheduleDirty
+	gosub to PaintPeriodValues
+	return
+
+!	Step the period's target by PeriodTempTenths (±5 = ±0.5°), clamping
+!	to [5.0, 30.0].
+StepPeriodTemp:
+	put element PeriodIdx of EditingEvents into PeriodEvent
+	put `` cat property `target` of PeriodEvent into TempStr
+	gosub to ToTenths
+	add PeriodTempTenths to TempTenths
+	if TempTenths is less than 50 put 50 into TempTenths
+	if TempTenths is greater than 300 put 300 into TempTenths
+	gosub to TenthsToString
+	set property `target` of PeriodEvent to TempStr
+	set element PeriodIdx of EditingEvents to PeriodEvent
+	set ScheduleDirty
+	gosub to PaintPeriodValues
+	return
+
+!	Add a new period starting at midnight, target 18.0°. Sort happens on
+!	Save, so the new one slots into chronological order then.
+AddSchedulePeriod:
+	put `{}` into ClonedEvent
+	set property `start` of ClonedEvent to `00:00`
+	set property `target` of ClonedEvent to `18.0`
+	set element EditingEventsCount of EditingEvents to ClonedEvent
+	increment EditingEventsCount
+	set ScheduleDirty
+	gosub to RenderSchedulePeriods
+	return
+
+!	Delete period at PeriodIdx. Rebuild the array without it, re-render.
+DeleteSchedulePeriod:
+	put `[]` into NewProfilesArray
+	put 0 into NewIdx
+	put 0 into LoopE
+	while LoopE is less than EditingEventsCount
+	begin
+		if LoopE is not PeriodIdx
+		begin
+			put element LoopE of EditingEvents into PeriodEvent
+			set element NewIdx of NewProfilesArray to PeriodEvent
+			increment NewIdx
+		end
+		increment LoopE
+	end
+	put NewProfilesArray into EditingEvents
+	put NewIdx into EditingEventsCount
+	set ScheduleDirty
+	gosub to RenderSchedulePeriods
+	return
+
+!	Bubble-sort EditingEvents in place by `start` time (minutes). N is
+!	small (typical schedules are ≤6 periods) so simple O(n²) is fine.
+SortEvents:
+	if EditingEventsCount is less than 2 return
+	put 0 into SortI
+	while SortI is less than EditingEventsCount
+	begin
+		put 0 into SortJ
+		while SortJ is less than EditingEventsCount
+		begin
+			put SortJ into SortJplus1
+			increment SortJplus1
+			if SortJplus1 is less than EditingEventsCount
+			begin
+				put element SortJ of EditingEvents into EventA
+				put element SortJplus1 of EditingEvents into EventB
+				put property `start` of EventA into TempStr
+				gosub to ParseTimeMinutes
+				put TempTenths into SortAMinutes
+				put property `start` of EventB into TempStr
+				gosub to ParseTimeMinutes
+				put TempTenths into SortBMinutes
+				if SortAMinutes is greater than SortBMinutes
+				begin
+					set element SortJ of EditingEvents to EventB
+					set element SortJplus1 of EditingEvents to EventA
+				end
+			end
+			increment SortJ
+		end
+		increment SortI
+	end
+	return
+
+!	Convert ScheduleM (0–1439 minutes) into TempStr "HH:MM" with zero-pad.
+MinutesToHHMM:
+	put ScheduleM into ScheduleH
+	divide ScheduleH by 60
+	put ScheduleM modulo 60 into ScheduleM
+	if ScheduleH is less than 10 put `0` cat ScheduleH into TempStr
+	else put `` cat ScheduleH into TempStr
+	put TempStr cat `:` into TempStr
+	if ScheduleM is less than 10 put TempStr cat `0` cat ScheduleM into TempStr
+	else put TempStr cat ScheduleM into TempStr
+	return
+
+!	Save: sort by start time, convert display rows back to events form
+!	(end-time + temp-up-to-then), splice into the host room's slot in the
+!	live profiles array, ship Update Profiles. Conversion (cyclic):
+!	    events[i].until = display[i].start
+!	    events[i].temp  = display[(i-1+N) mod N].target
+SaveScheduleEditor:
+	gosub to SortEvents
+	put `[]` into SortedEvents
+	put 0 into LoopE
+	while LoopE is less than EditingEventsCount
+	begin
+		put element LoopE of EditingEvents into PeriodEvent
+		put `{}` into ClonedEvent
+		set property `until` of ClonedEvent to property `start` of PeriodEvent
+		put LoopE into NewIdx
+		if NewIdx is 0 put EditingEventsCount into NewIdx
+		take 1 from NewIdx
+		put element NewIdx of EditingEvents into EventA
+		set property `temp` of ClonedEvent to property `target` of EventA
+		set element LoopE of SortedEvents to ClonedEvent
+		increment LoopE
+	end
+
+	put property `profiles` of Map into LiveProfiles
+	put element EditingProfileIdx of LiveProfiles into LiveProfileForRoom
+	put property `rooms` of LiveProfileForRoom into LiveRoomsForRoom
+	put element EditingRoomLegacyIdx of LiveRoomsForRoom into LiveRoomForSchedule
+	set property `events` of LiveRoomForSchedule to SortedEvents
+	set element EditingRoomLegacyIdx of LiveRoomsForRoom to LiveRoomForSchedule
+	set property `rooms` of LiveProfileForRoom to LiveRoomsForRoom
+	set element EditingProfileIdx of LiveProfiles to LiveProfileForRoom
+
+	put `{}` into Result
+	set property `Action` of Result to `Update Profiles`
+	set property `profiles` of Result to LiveProfiles
+	set property `profile` of Result to CurrentProfile
+	if CalendarOn set property `calendar` of Result to `on`
+	else set property `calendar` of Result to `off`
+	put property `calendar-data` of Map into CalendarData
+	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
+	gosub to PostUiRequest
+	gosub to CloseScheduleEditor
 	return
 
 !	Tear down + rebuild the profile list from EditingProfiles. Called on

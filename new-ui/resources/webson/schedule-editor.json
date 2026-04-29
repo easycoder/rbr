@@ -1,0 +1,141 @@
+{
+    "#doc": "Schedule editor sheet — per-room timed-mode period editor. Periods stack vertically; each one is rendered from schedule-period.json. Add appends a sensible default; Save sorts by `until` and ships an Update Profiles uirequest. Renders as a sibling sheet inside sheet-content.",
+    "#element": "div",
+    "@id": "schedule-editor-sheet",
+    "#": ["$Tagline", "$ProfilePill", "$ProfilePicker", "$PeriodList", "$AddBtn", "$Buttons"],
+
+    "$Tagline": {
+        "#element": "div",
+        "margin-top": "2px",
+        "font-size": "13px",
+        "font-weight": "400",
+        "color": "var(--color-text-secondary)",
+        "#content": "Periods run cyclically over 24 hours. Save to apply, Cancel to discard."
+    },
+
+    "$ProfilePill": {
+        "#element": "button",
+        "@id": "schedule-profile-pill",
+        "width": "100%",
+        "margin-top": "12px",
+        "padding": "10px 14px",
+        "border-radius": "12px",
+        "background": "transparent",
+        "border": "1px solid var(--color-border-hairline)",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "display": "flex",
+        "align-items": "center",
+        "gap": "10px",
+        "#": ["$ProfileLabel", "$ProfileValue", "$ProfileSpacer", "$ProfileChev"],
+
+        "$ProfileLabel": {
+            "#element": "div",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "text-transform": "uppercase",
+            "color": "var(--color-text-meta)",
+            "#content": "Profile"
+        },
+        "$ProfileValue": {
+            "#element": "div",
+            "@id": "schedule-profile-value",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)"
+        },
+        "$ProfileSpacer": { "#element": "div", "flex": "1" },
+        "$ProfileChev": {
+            "#element": "div",
+            "@id": "schedule-profile-chev",
+            "width": "12px",
+            "height": "12px",
+            "background-color": "var(--color-text-disabled)",
+            "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+            "flex-shrink": "0"
+        }
+    },
+
+    "$ProfilePicker": {
+        "#element": "div",
+        "@id": "schedule-profile-picker",
+        "margin-top": "8px",
+        "padding": "10px 12px",
+        "border-radius": "10px",
+        "background": "var(--color-surface-card)",
+        "border": "1px solid var(--color-border-hairline)",
+        "display": "none",
+        "flex-wrap": "wrap",
+        "gap": "6px"
+    },
+
+    "$PeriodList": {
+        "#element": "div",
+        "@id": "schedule-period-list",
+        "margin-top": "16px",
+        "max-height": "55vh",
+        "overflow-y": "auto",
+        "display": "flex",
+        "flex-direction": "column",
+        "gap": "10px"
+    },
+
+    "$AddBtn": {
+        "#element": "button",
+        "@id": "schedule-add-btn",
+        "width": "100%",
+        "margin-top": "12px",
+        "padding": "10px",
+        "border-radius": "12px",
+        "background": "transparent",
+        "border": "1px dashed var(--color-border-hairline)",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "font-size": "14px",
+        "font-weight": "500",
+        "color": "var(--color-text-primary)",
+        "#content": "+ Add period"
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "margin-top": "20px",
+        "display": "flex",
+        "gap": "10px",
+        "#": ["$CancelBtn", "$SaveBtn"],
+
+        "$CancelBtn": {
+            "#element": "button",
+            "@id": "schedule-cancel-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-surface-card)",
+            "border": "1px solid var(--color-border-hairline)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)",
+            "#content": "Cancel"
+        },
+
+        "$SaveBtn": {
+            "#element": "button",
+            "@id": "schedule-save-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-accent)",
+            "border": "1px solid var(--color-accent)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "600",
+            "color": "white",
+            "#content": "Save schedule"
+        }
+    }
+}

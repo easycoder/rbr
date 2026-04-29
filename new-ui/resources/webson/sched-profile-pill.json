@@ -1,0 +1,14 @@
+{
+    "#doc": "Profile pill rendered into the schedule editor's profile picker. /I/ replaced with the profile index. Distinct IDs from calendar-pill.json so the two pickers' DOM never collides.",
+    "#element": "button",
+    "@id": "sched-profile-pill-/I/",
+    "padding": "6px 12px",
+    "border-radius": "8px",
+    "background": "transparent",
+    "border": "1px solid var(--color-border-hairline)",
+    "cursor": "pointer",
+    "font-family": "inherit",
+    "font-size": "13px",
+    "font-weight": "500",
+    "color": "var(--color-text-primary)"
+}
