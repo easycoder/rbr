@@ -2417,7 +2417,7 @@ ResetCredentialsAndReload:
 	put empty into storage as `dev-username`
 	put empty into storage as `dev-password`
 	put empty into storage as `dev-mac`
-	set the location to the location
+	location the location
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

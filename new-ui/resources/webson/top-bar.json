@@ -4,11 +4,12 @@
     "display": "flex",
     "align-items": "center",
     "gap": "12px",
-    "padding": "10px 18px 8px 18px",
-    "background": "rgba(255,255,255,0.82)",
+    "padding": "14px 18px 12px 18px",
+    "background": "rgba(255,255,255,0.96)",
     "backdrop-filter": "blur(16px)",
     "-webkit-backdrop-filter": "blur(16px)",
-    "border-bottom": "1px solid rgba(0,0,0,0.05)",
+    "border-bottom": "1px solid rgba(0,0,0,0.1)",
+    "box-shadow": "0 1px 8px rgba(0,0,0,0.06)",
     "position": "sticky",
     "top": "0",
     "z-index": "10",
@@ -16,9 +17,9 @@
 
     "$Mark": {
         "#element": "div",
-        "width": "34px",
-        "height": "34px",
-        "border-radius": "10px",
+        "width": "38px",
+        "height": "38px",
+        "border-radius": "11px",
         "background": "var(--color-accent)",
         "box-shadow": "var(--shadow-house-mark)",
         "display": "flex",
@@ -57,10 +58,10 @@
         "$SystemId": {
             "#element": "div",
             "@id": "top-bar-system-id",
-            "font-size": "11px",
-            "font-weight": "400",
-            "color": "var(--color-text-muted)",
-            "margin-top": "-1px"
+            "font-size": "13px",
+            "font-weight": "500",
+            "color": "var(--color-text-secondary)",
+            "margin-top": "0"
         }
     },
 

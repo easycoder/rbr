@@ -50,9 +50,9 @@
     /* ---------- Typography ---------- */
     --font-stack: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
 
-    --type-app-name-size:         17px;
-    --type-app-name-weight:       600;
-    --type-app-name-track:        -0.3px;
+    --type-app-name-size:         20px;
+    --type-app-name-weight:       700;
+    --type-app-name-track:        -0.4px;
 
     --type-sheet-title-size:      17px;
     --type-sheet-title-weight:    600;
