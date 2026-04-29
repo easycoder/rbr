@@ -63,6 +63,10 @@
 	div ProfileLabel
 	button ProfileRenameBtn
 	button ProfileDeleteBtn
+	div DayPickerEl
+	button DayPickerCloseBtn
+	div DayPickerList
+	button DayPill
 
 !	Per-row interactive elements (indexed via `index X to RoomIndex` in the
 !	render loop so each click handler can recover its row via `the index of X`).
@@ -232,11 +236,23 @@
 	variable NewActiveIdx
 	variable LoopE
 	variable DayIds
+	variable DayNamesShort
 	variable DayIdStr
 	variable DayPropName
 	variable DayEntry
 	variable DayProfileName
 	variable DayLoopI
+	variable DayEditTargetIdx
+	variable PillIdx
+	variable PillIdxStr
+	variable PillRowText
+	variable PillRowJson
+	variable LegacyCalData
+	variable LegacyCalCount
+	variable LegacyCalEntry
+	variable ClonedEntry
+	variable PropName
+	variable ProfName
 	variable ConfirmFlag
 	variable LegacyRooms
 	variable LegacyRoomCount
@@ -608,10 +624,11 @@ BuildHomeScreen:
 
 	rest get ProfileRowJson from `resources/webson/profile-row.json?v=` cat now
 		or go to LoadFailed
+	rest get PillRowJson from `resources/webson/calendar-pill.json?v=` cat now
+		or go to LoadFailed
 
-!	Day-id table maps a 0–6 index (Monday-first) to the DOM ids baked into
-!	profile-sheet.json's calendar card. Day-row visuals get refreshed on
-!	open via ApplyDayProfiles; edit buttons are stubs (stage 4).
+!	Day-id and short-name tables, indexed Monday-first to match the legacy
+!	calendar-data array shape (day0=Mon ... day6=Sun).
 	put `[]` into DayIds
 	set element 0 of DayIds to `mon`
 	set element 1 of DayIds to `tue`
@@ -621,9 +638,21 @@ BuildHomeScreen:
 	set element 5 of DayIds to `sat`
 	set element 6 of DayIds to `sun`
 
+	put `[]` into DayNamesShort
+	set element 0 of DayNamesShort to `Monday`
+	set element 1 of DayNamesShort to `Tuesday`
+	set element 2 of DayNamesShort to `Wednesday`
+	set element 3 of DayNamesShort to `Thursday`
+	set element 4 of DayNamesShort to `Friday`
+	set element 5 of DayNamesShort to `Saturday`
+	set element 6 of DayNamesShort to `Sunday`
+
 	set the elements of DayRow to 7
 	set the elements of DayProfileEl to 7
 	set the elements of DayEditBtn to 7
+	set the elements of DayPickerEl to 7
+	set the elements of DayPickerList to 7
+	set the elements of DayPickerCloseBtn to 7
 	put 0 into DayLoopI
 	while DayLoopI is less than 7
 	begin
@@ -634,9 +663,21 @@ BuildHomeScreen:
 		attach DayProfileEl to `calendar-` cat DayIdStr cat `-profile`
 		index DayEditBtn to DayLoopI
 		attach DayEditBtn to `calendar-` cat DayIdStr cat `-edit`
+		index DayPickerEl to DayLoopI
+		attach DayPickerEl to `calendar-` cat DayIdStr cat `-picker`
+		index DayPickerList to DayLoopI
+		attach DayPickerList to `calendar-` cat DayIdStr cat `-picker-list`
+		index DayPickerCloseBtn to DayLoopI
+		attach DayPickerCloseBtn to `calendar-` cat DayIdStr cat `-picker-close`
 		on click DayEditBtn
 		begin
-			log `Calendar day edit (stub — stage 4)`
+			put the index of DayEditBtn into DayEditTargetIdx
+			gosub to OpenDayPicker
+		end
+		on click DayPickerCloseBtn
+		begin
+			put the index of DayPickerCloseBtn into DayEditTargetIdx
+			gosub to CloseDayPicker
 		end
 		increment DayLoopI
 	end
@@ -1546,13 +1587,14 @@ OpenProfileSheet:
 	gosub to CloneProfilesForEditing
 	clear EditingCalendarOn
 	if CalendarOn set EditingCalendarOn
-	put property `calendar-data` of Map into EditingCalendarData
+	gosub to CloneCalendarData
 	put ActiveProfileName into EditingActiveName
 	gosub to RenderProfileRows
 	gosub to ApplyActiveProfile
 	gosub to ApplyCalendarHeaderState
 	gosub to ApplyDayProfiles
 	gosub to ValidateEditingProfiles
+	gosub to HideAllDayPickers
 	clear CalendarCardExpanded
 	set style `display` of CalendarCardEl to `none`
 	set style `transform` of CalendarChev to `rotate(0deg)`
@@ -1584,6 +1626,104 @@ CloneProfilesForEditing:
 		increment LoopE
 	end
 	put LegacyProfileCount into EditingProfilesCount
+	return
+
+!	Deep-clone Map.calendar-data → EditingCalendarData. Each entry holds a
+!	single `day<i>-profile` string. Pads to 7 entries if the controller
+!	sent fewer, so the day-picker can always write into a defined slot.
+CloneCalendarData:
+	put `[]` into EditingCalendarData
+	put property `calendar-data` of Map into LegacyCalData
+	if LegacyCalData is empty put 0 into LegacyCalCount
+	else put the json count of LegacyCalData into LegacyCalCount
+	put 0 into LoopE
+	while LoopE is less than LegacyCalCount
+	begin
+		put element LoopE of LegacyCalData into LegacyCalEntry
+		put `{}` into ClonedEntry
+		put `day` cat LoopE cat `-profile` into PropName
+		put property PropName of LegacyCalEntry into ProfName
+		if ProfName is not empty set property PropName of ClonedEntry to ProfName
+		set element LoopE of EditingCalendarData to ClonedEntry
+		increment LoopE
+	end
+	while LegacyCalCount is less than 7
+	begin
+		put `{}` into ClonedEntry
+		set element LegacyCalCount of EditingCalendarData to ClonedEntry
+		increment LegacyCalCount
+	end
+	return
+
+!	Open the day-picker embedded directly under day DayEditTargetIdx (0–6).
+!	Hides any other open picker first, then renders one pill per profile in
+!	EditingProfiles into THIS day's picker-list. Pill-click writes the
+!	profile name back into EditingCalendarData and closes the picker.
+OpenDayPicker:
+	gosub to HideAllDayPickers
+	index DayPickerList to DayEditTargetIdx
+	clear DayPickerList
+	if EditingProfilesCount is greater than 0
+	begin
+		set the elements of DayPill to EditingProfilesCount
+		put 0 into PillIdx
+		while PillIdx is less than EditingProfilesCount
+		begin
+			put PillRowJson into PillRowText
+			put `` cat PillIdx into PillIdxStr
+			replace `/I/` with PillIdxStr in PillRowText
+			render PillRowText in DayPickerList
+
+			index DayPill to PillIdx
+			attach DayPill to `calendar-day-pill-` cat PillIdxStr
+			put element PillIdx of EditingProfiles into EditProfileN
+			set the content of DayPill to property `name` of EditProfileN
+
+			on click DayPill
+			begin
+				put the index of DayPill into PillIdx
+				put element PillIdx of EditingProfiles into EditProfileN
+				put property `name` of EditProfileN into ProfileName
+				put `day` cat DayEditTargetIdx cat `-profile` into PropName
+				put element DayEditTargetIdx of EditingCalendarData into DayEntry
+				if DayEntry is empty put `{}` into DayEntry
+				set property PropName of DayEntry to ProfileName
+				set element DayEditTargetIdx of EditingCalendarData to DayEntry
+				gosub to ApplyDayProfiles
+				gosub to CloseAllDayPickers
+			end
+
+			increment PillIdx
+		end
+	end
+	index DayPickerEl to DayEditTargetIdx
+	set style `display` of DayPickerEl to `block`
+	return
+
+!	Close one specific day's picker (used by its ✕ button). DayEditTargetIdx
+!	identifies which.
+CloseDayPicker:
+	index DayPickerEl to DayEditTargetIdx
+	set style `display` of DayPickerEl to `none`
+	return
+
+!	Hide every day-picker AND empty every picker-list. Clearing the lists
+!	prevents stale pill DOM elements (which all share the id pattern
+!	`calendar-day-pill-N`) from blocking the next render's attach by id.
+HideAllDayPickers:
+	put 0 into DayLoopI
+	while DayLoopI is less than 7
+	begin
+		index DayPickerEl to DayLoopI
+		set style `display` of DayPickerEl to `none`
+		index DayPickerList to DayLoopI
+		clear DayPickerList
+		increment DayLoopI
+	end
+	return
+
+CloseAllDayPickers:
+	gosub to HideAllDayPickers
 	return
 
 !	Tear down + rebuild the profile list from EditingProfiles. Called on

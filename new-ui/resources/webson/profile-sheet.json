@@ -134,48 +134,108 @@
 
         "$DayRow": {
             "#element": "div",
-            "@id": "$ID",
-            "padding": "10px 14px",
-            "display": "flex",
-            "align-items": "center",
-            "gap": "10px",
+            "@id": "$ID-wrap",
             "border-top": "1px solid var(--color-border-divider-soft)",
-            "#": ["$DayEl", "$ProfileEl", "$Spacer", "$EditBtn"],
+            "#": ["$Row", "$Picker"],
 
-            "$DayEl": {
+            "$Row": {
                 "#element": "div",
-                "width": "36px",
-                "font-size": "13px",
-                "font-weight": "600",
-                "color": "var(--color-text-secondary)",
-                "#content": "$Day"
-            },
-            "$ProfileEl": {
-                "#element": "div",
-                "@id": "$ID-profile",
-                "font-size": "14px",
-                "font-weight": "400",
-                "color": "var(--color-text-primary)"
-            },
-            "$Spacer": { "#element": "div", "flex": "1" },
-            "$EditBtn": {
-                "#element": "button",
-                "@id": "$ID-edit",
-                "width": "28px",
-                "height": "28px",
-                "padding": "0",
-                "border-radius": "6px",
-                "background": "transparent",
-                "border": "1px solid var(--color-border-hairline)",
-                "cursor": "pointer",
-                "font-family": "inherit",
-                "font-size": "13px",
-                "color": "var(--color-text-secondary)",
-                "flex-shrink": "0",
+                "@id": "$ID",
+                "padding": "10px 14px",
                 "display": "flex",
                 "align-items": "center",
-                "justify-content": "center",
-                "#content": "✎"
+                "gap": "10px",
+                "#": ["$DayEl", "$ProfileEl", "$Spacer", "$EditBtn"],
+
+                "$DayEl": {
+                    "#element": "div",
+                    "width": "36px",
+                    "font-size": "13px",
+                    "font-weight": "600",
+                    "color": "var(--color-text-secondary)",
+                    "#content": "$Day"
+                },
+                "$ProfileEl": {
+                    "#element": "div",
+                    "@id": "$ID-profile",
+                    "font-size": "14px",
+                    "font-weight": "400",
+                    "color": "var(--color-text-primary)"
+                },
+                "$Spacer": { "#element": "div", "flex": "1" },
+                "$EditBtn": {
+                    "#element": "button",
+                    "@id": "$ID-edit",
+                    "width": "28px",
+                    "height": "28px",
+                    "padding": "0",
+                    "border-radius": "6px",
+                    "background": "transparent",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "cursor": "pointer",
+                    "font-family": "inherit",
+                    "font-size": "13px",
+                    "color": "var(--color-text-secondary)",
+                    "flex-shrink": "0",
+                    "display": "flex",
+                    "align-items": "center",
+                    "justify-content": "center",
+                    "#content": "✎"
+                }
+            },
+
+            "$Picker": {
+                "#element": "div",
+                "@id": "$ID-picker",
+                "padding": "0 14px 12px 14px",
+                "background": "var(--color-surface-card)",
+                "display": "none",
+                "#": ["$PickerHeader", "$PickerList"],
+
+                "$PickerHeader": {
+                    "#element": "div",
+                    "display": "flex",
+                    "align-items": "center",
+                    "gap": "8px",
+                    "margin-bottom": "8px",
+                    "#": ["$PickerLabel", "$PickerSpacer", "$PickerCloseBtn"],
+
+                    "$PickerLabel": {
+                        "#element": "div",
+                        "font-size": "12px",
+                        "font-weight": "500",
+                        "color": "var(--color-text-secondary)",
+                        "#content": "Pick a profile"
+                    },
+                    "$PickerSpacer": { "#element": "div", "flex": "1" },
+                    "$PickerCloseBtn": {
+                        "#element": "button",
+                        "@id": "$ID-picker-close",
+                        "width": "24px",
+                        "height": "24px",
+                        "padding": "0",
+                        "border-radius": "6px",
+                        "background": "transparent",
+                        "border": "1px solid var(--color-border-hairline)",
+                        "cursor": "pointer",
+                        "font-family": "inherit",
+                        "font-size": "12px",
+                        "color": "var(--color-text-secondary)",
+                        "flex-shrink": "0",
+                        "display": "flex",
+                        "align-items": "center",
+                        "justify-content": "center",
+                        "#content": "✕"
+                    }
+                },
+
+                "$PickerList": {
+                    "#element": "div",
+                    "@id": "$ID-picker-list",
+                    "display": "flex",
+                    "flex-wrap": "wrap",
+                    "gap": "6px"
+                }
             }
         }
     },

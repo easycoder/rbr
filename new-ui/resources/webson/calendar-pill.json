@@ -1,0 +1,14 @@
+{
+    "#doc": "Profile pill rendered into the calendar day-picker. /I/ replaced with the profile index. shell.as fills the label (profile name) and wires the click.",
+    "#element": "button",
+    "@id": "calendar-day-pill-/I/",
+    "padding": "6px 12px",
+    "border-radius": "8px",
+    "background": "transparent",
+    "border": "1px solid var(--color-border-hairline)",
+    "cursor": "pointer",
+    "font-family": "inherit",
+    "font-size": "13px",
+    "font-weight": "500",
+    "color": "var(--color-text-primary)"
+}
