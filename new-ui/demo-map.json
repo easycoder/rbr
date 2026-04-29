@@ -1,0 +1,167 @@
+{
+    "_doc": "Demo / marketing-mode map. Loaded when no MQTT credentials are present, so the home screen has lifelike data while the About sheet pitches the system.",
+    "name": "QED6 · Demo home",
+    "profile": 0,
+    "calendar": "off",
+    "calendar-data": [
+        { "day0-profile": "Weekday" },
+        { "day1-profile": "Weekday" },
+        { "day2-profile": "Weekday" },
+        { "day3-profile": "Weekday" },
+        { "day4-profile": "Weekday" },
+        { "day5-profile": "Weekend" },
+        { "day6-profile": "Weekend" }
+    ],
+    "profiles": [
+        {
+            "name": "Weekday",
+            "rooms": [
+                {
+                    "name": "Kitchen",
+                    "sensor": "demo-kit",
+                    "relays": ["demo-relay-kit"],
+                    "mode": "timed",
+                    "target": 21,
+                    "events": [
+                        { "until": "07:30", "temp": "16.0" },
+                        { "until": "10:00", "temp": "21.0" },
+                        { "until": "17:00", "temp": "17.0" },
+                        { "until": "22:00", "temp": "21.0" }
+                    ],
+                    "relay": "on",
+                    "linked": "yes",
+                    "status": "good",
+                    "temperature": 1850,
+                    "battery": 72,
+                    "statusMessage": ""
+                },
+                {
+                    "name": "Living room",
+                    "sensor": "demo-liv",
+                    "relays": ["demo-relay-liv"],
+                    "mode": "timed",
+                    "target": 20.5,
+                    "events": [
+                        { "until": "07:30", "temp": "16.0" },
+                        { "until": "17:00", "temp": "16.0" },
+                        { "until": "22:30", "temp": "20.5" }
+                    ],
+                    "relay": "on",
+                    "linked": "yes",
+                    "status": "good",
+                    "temperature": 1980,
+                    "battery": 64,
+                    "statusMessage": ""
+                },
+                {
+                    "name": "Office",
+                    "sensor": "demo-off",
+                    "relays": ["demo-relay-off"],
+                    "mode": "boost",
+                    "target": 22,
+                    "events": [
+                        { "until": "09:00", "temp": "18.0" },
+                        { "until": "17:30", "temp": "21.0" },
+                        { "until": "22:00", "temp": "18.0" }
+                    ],
+                    "relay": "on",
+                    "linked": "yes",
+                    "status": "good",
+                    "temperature": 2120,
+                    "battery": 58,
+                    "until": 8888888888888,
+                    "statusMessage": ""
+                },
+                {
+                    "name": "Main bedroom",
+                    "sensor": "demo-mbed",
+                    "relays": ["demo-relay-mbed"],
+                    "mode": "timed",
+                    "target": 18,
+                    "events": [
+                        { "until": "07:00", "temp": "15.0" },
+                        { "until": "09:00", "temp": "20.0" },
+                        { "until": "22:30", "temp": "16.0" }
+                    ],
+                    "relay": "off",
+                    "linked": "yes",
+                    "status": "good",
+                    "temperature": 1730,
+                    "battery": 41,
+                    "statusMessage": ""
+                },
+                {
+                    "name": "Guest bedroom",
+                    "sensor": "demo-gbed",
+                    "relays": ["demo-relay-gbed"],
+                    "mode": "off",
+                    "target": 0,
+                    "events": [],
+                    "relay": "off",
+                    "linked": "yes",
+                    "status": "good",
+                    "temperature": 1690,
+                    "battery": 88,
+                    "statusMessage": ""
+                },
+                {
+                    "name": "Bathroom",
+                    "sensor": "demo-bath",
+                    "relays": ["demo-relay-bath"],
+                    "mode": "timed",
+                    "target": 22,
+                    "events": [
+                        { "until": "07:00", "temp": "18.0" },
+                        { "until": "09:00", "temp": "22.0" },
+                        { "until": "21:00", "temp": "18.0" },
+                        { "until": "23:00", "temp": "22.0" }
+                    ],
+                    "relay": "on",
+                    "linked": "yes",
+                    "status": "warn",
+                    "temperature": 2100,
+                    "battery": 18,
+                    "statusMessage": "Sensor: no report for 14 min"
+                },
+                {
+                    "name": "Outside",
+                    "sensor": "demo-out",
+                    "relays": [],
+                    "mode": "off",
+                    "target": 0,
+                    "events": [],
+                    "relay": "off",
+                    "linked": "yes",
+                    "status": "good",
+                    "temperature": 720,
+                    "battery": 51,
+                    "statusMessage": ""
+                }
+            ]
+        },
+        {
+            "name": "Weekend",
+            "rooms": [
+                {
+                    "name": "Kitchen",
+                    "sensor": "demo-kit",
+                    "relays": ["demo-relay-kit"],
+                    "mode": "timed",
+                    "target": 21,
+                    "events": [
+                        { "until": "08:30", "temp": "20.0" },
+                        { "until": "10:30", "temp": "16.0" },
+                        { "until": "16:00", "temp": "20.5" },
+                        { "until": "23:00", "temp": "21.0" }
+                    ],
+                    "relay": "on",
+                    "linked": "yes",
+                    "status": "good",
+                    "temperature": 1850,
+                    "battery": 72,
+                    "statusMessage": ""
+                }
+            ]
+        }
+    ]
+}

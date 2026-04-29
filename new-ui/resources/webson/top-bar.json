@@ -16,16 +16,21 @@
     "#": ["$Mark", "$Text", "$Spacer", "$MenuBtn"],
 
     "$Mark": {
-        "#element": "div",
+        "#element": "button",
+        "@id": "top-bar-mark",
+        "@aria-label": "About Room By Room",
         "width": "38px",
         "height": "38px",
         "border-radius": "11px",
         "background": "var(--color-accent)",
+        "border": "0",
+        "padding": "0",
         "box-shadow": "var(--shadow-house-mark)",
         "display": "flex",
         "align-items": "center",
         "justify-content": "center",
         "flex-shrink": "0",
+        "cursor": "pointer",
         "#": "$Glyph",
 
         "$Glyph": {

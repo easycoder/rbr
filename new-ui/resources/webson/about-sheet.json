@@ -1,0 +1,210 @@
+{
+    "#doc": "About sheet — tabbed marketing + manual surface. Auto-opens on first visit when there are no credentials; tap the house mark in the top bar to re-open. Tabs are 'About' (marketing pitch with feature list and a 'Set up my system' CTA) and 'Manual' (placeholder).",
+    "#element": "div",
+    "@id": "about-sheet",
+    "#": ["$Tabs", "$Bodies"],
+
+    "$Tabs": {
+        "#element": "div",
+        "display": "flex",
+        "gap": "4px",
+        "padding": "4px",
+        "background": "rgba(0,0,0,0.04)",
+        "border-radius": "10px",
+        "#": ["$TabAbout", "$TabManual"],
+
+        "$TabAbout": {
+            "#element": "button",
+            "@id": "about-tab-about",
+            "flex": "1",
+            "padding": "8px",
+            "border": "none",
+            "border-radius": "8px",
+            "background": "var(--color-surface-card)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "600",
+            "color": "var(--color-text-primary)",
+            "box-shadow": "0 1px 3px rgba(0,0,0,0.08)",
+            "#content": "About"
+        },
+        "$TabManual": {
+            "#element": "button",
+            "@id": "about-tab-manual",
+            "flex": "1",
+            "padding": "8px",
+            "border": "none",
+            "border-radius": "8px",
+            "background": "transparent",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-muted)",
+            "#content": "Manual"
+        }
+    },
+
+    "$Bodies": {
+        "#element": "div",
+        "margin-top": "16px",
+        "#": ["$AboutBody", "$ManualBody"],
+
+        "$AboutBody": {
+            "#element": "div",
+            "@id": "about-body-about",
+            "display": "block",
+            "#": ["$Header", "$Lead", "$Features", "$CTA"],
+
+            "$Header": {
+                "#element": "div",
+                "display": "flex",
+                "align-items": "center",
+                "gap": "14px",
+                "margin-bottom": "16px",
+                "#": ["$Mark", "$Titles"],
+
+                "$Mark": {
+                    "#element": "div",
+                    "width": "52px",
+                    "height": "52px",
+                    "border-radius": "14px",
+                    "background": "var(--color-accent)",
+                    "box-shadow": "var(--shadow-house-mark)",
+                    "display": "flex",
+                    "align-items": "center",
+                    "justify-content": "center",
+                    "flex-shrink": "0",
+                    "#": "$Glyph",
+
+                    "$Glyph": {
+                        "#element": "img",
+                        "@src": "resources/icon/house.svg",
+                        "@alt": "",
+                        "width": "30px",
+                        "height": "30px",
+                        "pointer-events": "none"
+                    }
+                },
+
+                "$Titles": {
+                    "#element": "div",
+                    "display": "flex",
+                    "flex-direction": "column",
+                    "line-height": "1.2",
+                    "#": ["$Name", "$Tagline"],
+
+                    "$Name": {
+                        "#element": "div",
+                        "font-size": "22px",
+                        "font-weight": "700",
+                        "letter-spacing": "-0.5px",
+                        "color": "var(--color-text-primary)",
+                        "#content": "Room By Room"
+                    },
+                    "$Tagline": {
+                        "#element": "div",
+                        "font-size": "14px",
+                        "font-weight": "500",
+                        "color": "var(--color-text-secondary)",
+                        "margin-top": "2px",
+                        "#content": "Smart heating, room by room."
+                    }
+                }
+            },
+
+            "$Lead": {
+                "#element": "p",
+                "margin": "0 0 16px 0",
+                "font-size": "14px",
+                "line-height": "1.5",
+                "color": "var(--color-text-primary)",
+                "#content": "Room By Room is a smart home heating control system. It gives you fine-grained, room-level control over your heating — keeping you comfortable in the rooms you use, and saving energy in the ones you don't."
+            },
+
+            "$Features": {
+                "#element": "ul",
+                "margin": "0",
+                "padding": "0",
+                "list-style": "none",
+                "display": "flex",
+                "flex-direction": "column",
+                "gap": "10px",
+                "#": ["$F1", "$F2", "$F3", "$F4", "$F5", "$F6"],
+
+                "$F1": { "$Text": "Independent control of the heating in every room.", "#": "$Feature" },
+                "$F2": { "$Text": "Saves money by only heating rooms that are actually used.", "#": "$Feature" },
+                "$F3": { "$Text": "Remote control from any smartphone or laptop.", "#": "$Feature" },
+                "$F4": { "$Text": "Works with off-the-shelf relays, TRVs and thermometers — build the system exactly as you want it.", "#": "$Feature" },
+                "$F5": { "$Text": "The controller can be any small computer: a mini-PC, a Raspberry Pi, or similar.", "#": "$Feature" },
+                "$F6": { "$Text": "Records times and temperatures for your own use; never shared with third parties.", "#": "$Feature" },
+
+                "$Feature": {
+                    "#element": "li",
+                    "display": "flex",
+                    "align-items": "flex-start",
+                    "gap": "10px",
+                    "font-size": "13.5px",
+                    "line-height": "1.5",
+                    "color": "var(--color-text-primary)",
+                    "#": ["$Check", "$Body"],
+
+                    "$Check": {
+                        "#element": "span",
+                        "display": "inline-flex",
+                        "align-items": "center",
+                        "justify-content": "center",
+                        "width": "20px",
+                        "height": "20px",
+                        "border-radius": "50%",
+                        "background": "var(--color-accent-10)",
+                        "color": "var(--color-accent)",
+                        "font-size": "12px",
+                        "font-weight": "700",
+                        "flex-shrink": "0",
+                        "margin-top": "1px",
+                        "#content": "✓"
+                    },
+                    "$Body": {
+                        "#element": "span",
+                        "flex": "1",
+                        "#content": "$Text"
+                    }
+                }
+            },
+
+            "$CTA": {
+                "#element": "button",
+                "@id": "about-cta-setup",
+                "width": "100%",
+                "margin-top": "20px",
+                "padding": "14px",
+                "border-radius": "12px",
+                "background": "var(--color-accent)",
+                "border": "1px solid var(--color-accent)",
+                "cursor": "pointer",
+                "font-family": "inherit",
+                "font-size": "15px",
+                "font-weight": "600",
+                "color": "white",
+                "display": "none",
+                "#content": "Set up my system →"
+            }
+        },
+
+        "$ManualBody": {
+            "#element": "div",
+            "@id": "about-body-manual",
+            "display": "none",
+            "padding": "20px",
+            "border-radius": "12px",
+            "background": "var(--color-surface-card)",
+            "border": "1px solid var(--color-border-hairline)",
+            "text-align": "center",
+            "color": "var(--color-text-secondary)",
+            "font-size": "13px",
+            "#content": "User manual coming soon."
+        }
+    }
+}

@@ -33,6 +33,8 @@ const APP_SHELL = [
     './resources/webson/schedule-editor.json',
     './resources/webson/schedule-period.json',
     './resources/webson/sched-profile-pill.json',
+    './resources/webson/about-sheet.json',
+    './demo-map.json',
     './resources/icon/app-icon.svg',
     './resources/icon/boost.svg',
     './resources/icon/calendar.svg',

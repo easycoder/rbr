@@ -10,6 +10,13 @@
 	div TopBarHolder
 	div MainHolder
 	div SystemId
+	button HouseMark
+	div AboutSheetEl
+	button AboutTabAbout
+	button AboutTabManual
+	div AboutBodyAbout
+	div AboutBodyManual
+	button AboutCtaSetup
 	div RoomName
 	div HeatingTag
 	div OfflineTag
@@ -230,6 +237,8 @@
 	variable TargetForServer
 	variable LoopP
 	variable CalendarOn
+	variable DemoMode
+	variable AboutSheetWebson
 	variable ProfileIdx
 	variable ProfileRowText
 	variable ProfileRowJson
@@ -435,18 +444,20 @@ NoCredentialsFile:
 		get MAC from storage as `dev-mac`
 		if MAC is `null` put empty into MAC
 		if MAC is `undefined` put empty into MAC
-		if Broker is empty
-		begin
-			put prompt `Dev credentials:` cat newline cat `MQTT Broker URL:` into Broker
-			put prompt `Dev credentials:` cat newline cat `Username:` into Username
-			put prompt `Dev credentials:` cat newline cat `Password:` into Password
-			put prompt `Dev credentials:` cat newline cat `Controller MAC address:` into MAC
-			if Broker is empty go to LoadFailed
-			put Broker into storage as `dev-broker`
-			put Username into storage as `dev-username`
-			put Password into storage as `dev-password`
-			put MAC into storage as `dev-mac`
-		end
+	end
+
+!	No credentials → demo / marketing mode. Render the home from a baked
+!	demo map and open the About sheet (with the "Set up my system" CTA
+!	visible) so first-time visitors see what RBR does. Skip MQTT entirely.
+	clear DemoMode
+	if Broker is empty
+	begin
+		set DemoMode
+		rest get ReceivedMessage from `demo-map.json?v=` cat now
+			or go to LoadFailed
+		gosub to OnMapReceived
+		gosub to OpenAboutSheet
+		stop
 	end
 
 	if Port is empty put 443 into Port
@@ -508,7 +519,7 @@ OnMapReceived:
 		set FirstMapDone
 		gosub to BuildHomeScreen
 		put `refresh` into Prompt
-		fork to MapPollTask
+		if not DemoMode fork to MapPollTask
 	end
 	else
 	begin
@@ -788,6 +799,27 @@ BuildHomeScreen:
 	on click ScheduleAddBtn gosub to AddSchedulePeriod
 	on click ScheduleSaveBtn gosub to SaveScheduleEditor
 	on click ScheduleCancelBtn gosub to CloseScheduleEditor
+
+!	About sheet — sibling sheet inside sheet-content. Auto-opens on first
+!	visit when there are no credentials; tap the house mark in the topbar
+!	to re-open at any time.
+	rest get AboutSheetWebson from `resources/webson/about-sheet.json?v=` cat now
+		or go to LoadFailed
+	render AboutSheetWebson in SheetContent
+	attach AboutSheetEl to `about-sheet`
+	set style `display` of AboutSheetEl to `none`
+	attach AboutTabAbout to `about-tab-about`
+	attach AboutTabManual to `about-tab-manual`
+	attach AboutBodyAbout to `about-body-about`
+	attach AboutBodyManual to `about-body-manual`
+	attach AboutCtaSetup to `about-cta-setup`
+
+	on click AboutTabAbout gosub to ShowAboutTabAbout
+	on click AboutTabManual gosub to ShowAboutTabManual
+	on click AboutCtaSetup gosub to SetupMySystem
+
+	attach HouseMark to `top-bar-mark`
+	on click HouseMark gosub to OpenAboutSheet
 
 !	Background tick — re-pick the gradient at hour boundaries. Forked once
 !	on first build; subsequent refreshes don't re-fork.
@@ -2421,10 +2453,87 @@ ResetCredentialsAndReload:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	About sheet flow. Auto-opened in demo mode (no credentials) and on tap
+!	of the house mark in the topbar at any time.
+
+!	Open: hide other sheets, show About, set title, reveal the CTA only
+!	when in demo mode (so existing users don't see a setup prompt).
+OpenAboutSheet:
+	set style `display` of MenuSheetEl to `none`
+	set style `display` of ProfileSheetEl to `none`
+	set style `display` of ScheduleSheetEl to `none`
+	set style `display` of AboutSheetEl to `block`
+	if DemoMode set style `display` of AboutCtaSetup to `block`
+	else set style `display` of AboutCtaSetup to `none`
+	gosub to ShowAboutTabAbout
+	set the content of SheetTitleEl to `About`
+	gosub to OpenSheet
+	return
+
+!	Tab swap: About body visible, Manual body hidden. Active tab pill gets
+!	the surface-card background + drop shadow, inactive gets transparent.
+ShowAboutTabAbout:
+	set style `display` of AboutBodyAbout to `block`
+	set style `display` of AboutBodyManual to `none`
+	set style `background` of AboutTabAbout to `var(--color-surface-card)`
+	set style `box-shadow` of AboutTabAbout to `0 1px 3px rgba(0,0,0,0.08)`
+	set style `color` of AboutTabAbout to `var(--color-text-primary)`
+	set style `font-weight` of AboutTabAbout to `600`
+	set style `background` of AboutTabManual to `transparent`
+	set style `box-shadow` of AboutTabManual to `none`
+	set style `color` of AboutTabManual to `var(--color-text-muted)`
+	set style `font-weight` of AboutTabManual to `500`
+	return
+
+ShowAboutTabManual:
+	set style `display` of AboutBodyAbout to `none`
+	set style `display` of AboutBodyManual to `block`
+	set style `background` of AboutTabAbout to `transparent`
+	set style `box-shadow` of AboutTabAbout to `none`
+	set style `color` of AboutTabAbout to `var(--color-text-muted)`
+	set style `font-weight` of AboutTabAbout to `500`
+	set style `background` of AboutTabManual to `var(--color-surface-card)`
+	set style `box-shadow` of AboutTabManual to `0 1px 3px rgba(0,0,0,0.08)`
+	set style `color` of AboutTabManual to `var(--color-text-primary)`
+	set style `font-weight` of AboutTabManual to `600`
+	return
+
+!	"Set up my system" CTA. Prompts for the four credential fields, saves
+!	to localStorage, and reloads — the reload picks up the new creds and
+!	jumps into MQTT mode. Cancelling any prompt aborts the whole sequence
+!	(no partial saves so we don't leave the user half-configured).
+SetupMySystem:
+	put prompt `Connect to your controller.` cat newline cat `MQTT Broker URL:` into Broker
+	if Broker is empty return
+	if Broker is `null` return
+	if Broker is `undefined` return
+	put prompt `Connect to your controller.` cat newline cat `Username:` into Username
+	if Username is empty return
+	if Username is `null` return
+	if Username is `undefined` return
+	put prompt `Connect to your controller.` cat newline cat `Password:` into Password
+	if Password is empty return
+	if Password is `null` return
+	if Password is `undefined` return
+	put prompt `Connect to your controller.` cat newline cat `Controller MAC address:` into MAC
+	if MAC is empty return
+	if MAC is `null` return
+	if MAC is `undefined` return
+	put Broker into storage as `dev-broker`
+	put Username into storage as `dev-username`
+	put Password into storage as `dev-password`
+	put MAC into storage as `dev-mac`
+	location the location
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Ship the Result JSON object to the controller as a uirequest. Optimistic
 !	pattern: local state has already been mutated; on send failure we just
-!	alert and let the user retry. The next refresh will reconcile.
+!	alert and let the user retry. The next refresh will reconcile. In
+!	demo mode (no controller configured) the send is a no-op so visitors
+!	can poke the UI without errors.
 PostUiRequest:
+	if DemoMode return
 	log `Sending uirequest: ` cat Result
 	send to ServerTopic
 		sender MyTopic
