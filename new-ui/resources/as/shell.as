@@ -110,6 +110,8 @@
 	button Boost30Btn
 	button Boost1hBtn
 	button Boost2hBtn
+	div AdvanceBlockEl
+	button AdvanceBtn
 	button EditScheduleBtn
 
 	variable LayoutWebson
@@ -174,6 +176,7 @@
 	variable Ttarget
 	variable LastTarget
 	variable BoostDur
+	variable Advance
 	variable TempStr
 	variable TempTenths
 	variable TempT
@@ -593,6 +596,8 @@ BuildHomeScreen:
 	set the elements of Boost1hBtn to RoomCount
 	set the elements of Boost2hBtn to RoomCount
 	set the elements of BoostCancelBtn to RoomCount
+	set the elements of AdvanceBlockEl to RoomCount
+	set the elements of AdvanceBtn to RoomCount
 	set the elements of EditScheduleBtn to RoomCount
 
 	put 0 into RoomIndex
@@ -951,6 +956,12 @@ BuildRoomEntry:
 	else if LegacyMode is `on` put `On` into Mode
 	else if LegacyMode is `boost` put `Boost` into Mode
 	set property `mode` of NewRoom to Mode
+
+!	Advance: controller stores `A` (advanced) or `-` (normal). Empty / missing
+!	defaults to `-` so the toggle starts from a known off state.
+	put property `advance` of LegacyRoom into Advance
+	if Advance is empty put `-` into Advance
+	set property `advance` of NewRoom to Advance
 
 !	Temperature: legacy hundredths integer → "X.Y" string. 0 / empty → empty.
 	put property `temperature` of LegacyRoom into LegacyTemp
@@ -1407,6 +1418,16 @@ WireRoomInteractions:
 		gosub to CancelBoost
 	end
 
+	index AdvanceBlockEl to RoomIndex
+	attach AdvanceBlockEl to `room-` cat RoomIndex cat `-advance-block`
+	index AdvanceBtn to RoomIndex
+	attach AdvanceBtn to `room-` cat RoomIndex cat `-advance-btn`
+	on click AdvanceBtn
+	begin
+		put the index of AdvanceBtn into ClickIndex
+		gosub to ToggleAdvance
+	end
+
 	index EditScheduleBtn to RoomIndex
 	attach EditScheduleBtn to `room-` cat RoomIndex cat `-edit-schedule`
 	on click EditScheduleBtn
@@ -1458,11 +1479,27 @@ PaintExpansion:
 	if Tmode is `Off` gosub to ActivateModeOff
 	if Tmode is `Boost` gosub to ActivateModeTimed
 
-!	Target tile — hide whole block when mode = Off, otherwise show + set value.
+!	Target tile vs Advance row — Timed mode hides the manual target (the
+!	schedule provides it) and shows the Advance toggle instead. Off hides
+!	both. On / Boost show the target tile and hide Advance.
 	index TargetBlockEl to ClickIndex
-	if Tmode is `Off` set style `display` of TargetBlockEl to `none`
+	index AdvanceBlockEl to ClickIndex
+	if Tmode is `Timed`
+	begin
+		set style `display` of TargetBlockEl to `none`
+		set style `display` of AdvanceBlockEl to `block`
+		put property `advance` of Room into Advance
+		if Advance is empty put `-` into Advance
+		gosub to PaintAdvanceBtn
+	end
+	else if Tmode is `Off`
+	begin
+		set style `display` of TargetBlockEl to `none`
+		set style `display` of AdvanceBlockEl to `none`
+	end
 	else
 	begin
+		set style `display` of AdvanceBlockEl to `none`
 		set style `display` of TargetBlockEl to `block`
 		index TargetValueEl to ClickIndex
 		if Ttarget is empty set the content of TargetValueEl to `20.0`
@@ -1693,6 +1730,53 @@ CancelBoost:
 	set property `Mode` of Result to `timed`
 	set property `Boost` of Result to 0
 	gosub to PostUiRequest
+	return
+
+!	Toggle the Advance state for the current room. Optimistic local flip,
+!	then ship the new desired state in an "Operating Mode" uirequest. The
+!	controller treats any non-empty `advance` field on a `timed` mode
+!	command as a toggle, so sending the new state value moves it to that
+!	state regardless of how the controller currently sees it. The next map
+!	refresh reconciles. AdvanceBtn must already be indexed to ClickIndex.
+ToggleAdvance:
+	put element ClickIndex of RoomsList into Room
+	put property `advance` of Room into Advance
+	if Advance is empty put `-` into Advance
+	if Advance is `A` put `-` into Advance
+	else put `A` into Advance
+	set property `advance` of Room to Advance
+	set element ClickIndex of RoomsList to Room
+	gosub to AfterStateChange
+
+	put property `name` of Room into RoomNameForServer
+	put `{}` into Result
+	set property `Action` of Result to `Operating Mode`
+	set property `Room` of Result to RoomNameForServer
+	set property `Mode` of Result to `timed`
+	set property `advance` of Result to Advance
+	gosub to PostUiRequest
+	return
+
+!	Style the Advance button for the current Advance value. Reads Advance,
+!	expects AdvanceBtn already indexed to the target row.
+PaintAdvanceBtn:
+	index AdvanceBtn to ClickIndex
+	if Advance is `A`
+	begin
+		set the content of AdvanceBtn to `On`
+		set style `background` of AdvanceBtn to `var(--color-accent-10)`
+		set style `border` of AdvanceBtn to `1.5px solid var(--color-accent)`
+		set style `color` of AdvanceBtn to `var(--color-accent)`
+		set style `font-weight` of AdvanceBtn to `600`
+	end
+	else
+	begin
+		set the content of AdvanceBtn to `Off`
+		set style `background` of AdvanceBtn to `var(--color-surface-card)`
+		set style `border` of AdvanceBtn to `1px solid var(--color-border-hairline)`
+		set style `color` of AdvanceBtn to `var(--color-text-primary)`
+		set style `font-weight` of AdvanceBtn to `500`
+	end
 	return
 
 !	Lowercase the title-case Mode (Timed/On/Off/Boost) into ModeForServer
