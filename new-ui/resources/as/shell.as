@@ -98,6 +98,7 @@
 	input DeviceEditorSensor
 	button DeviceEditorRtRBRNow
 	button DeviceEditorRtShelly
+	button DeviceEditorRtZigbee
 	button DeviceEditorLinkedBtn
 	textarea DeviceEditorRelays
 	button DeviceEditorSaveBtn
@@ -876,6 +877,7 @@ BuildHomeScreen:
 	attach DeviceEditorSensor to `device-editor-sensor`
 	attach DeviceEditorRtRBRNow to `device-editor-rt-rbrnow`
 	attach DeviceEditorRtShelly to `device-editor-rt-shelly`
+	attach DeviceEditorRtZigbee to `device-editor-rt-zigbee`
 	attach DeviceEditorLinkedBtn to `device-editor-linked-btn`
 	attach DeviceEditorRelays to `device-editor-relays`
 	attach DeviceEditorSaveBtn to `device-editor-save-btn`
@@ -889,6 +891,11 @@ BuildHomeScreen:
 	on click DeviceEditorRtShelly
 	begin
 		put `Shelly One` into EditingDevicesRelayType
+		gosub to PaintDeviceEditorRelayType
+	end
+	on click DeviceEditorRtZigbee
+	begin
+		put `Zigbee` into EditingDevicesRelayType
 		gosub to PaintDeviceEditorRelayType
 	end
 	on click DeviceEditorLinkedBtn
@@ -2514,6 +2521,7 @@ PaintDeviceEditorRelayType:
 	gosub to ResetDeviceEditorRtBtns
 	if EditingDevicesRelayType is `RBR-Now` gosub to ActivateRtRBRNow
 	else if EditingDevicesRelayType is `Shelly One` gosub to ActivateRtShelly
+	else if EditingDevicesRelayType is `Zigbee` gosub to ActivateRtZigbee
 	return
 
 ResetDeviceEditorRtBtns:
@@ -2525,6 +2533,10 @@ ResetDeviceEditorRtBtns:
 	set style `color` of DeviceEditorRtShelly to `var(--color-text-muted)`
 	set style `font-weight` of DeviceEditorRtShelly to `500`
 	set style `box-shadow` of DeviceEditorRtShelly to `none`
+	set style `background` of DeviceEditorRtZigbee to `transparent`
+	set style `color` of DeviceEditorRtZigbee to `var(--color-text-muted)`
+	set style `font-weight` of DeviceEditorRtZigbee to `500`
+	set style `box-shadow` of DeviceEditorRtZigbee to `none`
 	return
 
 ActivateRtRBRNow:
@@ -2539,6 +2551,13 @@ ActivateRtShelly:
 	set style `color` of DeviceEditorRtShelly to `var(--color-text-primary)`
 	set style `font-weight` of DeviceEditorRtShelly to `600`
 	set style `box-shadow` of DeviceEditorRtShelly to `0 1px 3px rgba(0,0,0,0.08)`
+	return
+
+ActivateRtZigbee:
+	set style `background` of DeviceEditorRtZigbee to `var(--color-surface-card)`
+	set style `color` of DeviceEditorRtZigbee to `var(--color-text-primary)`
+	set style `font-weight` of DeviceEditorRtZigbee to `600`
+	set style `box-shadow` of DeviceEditorRtZigbee to `0 1px 3px rgba(0,0,0,0.08)`
 	return
 
 !	Style the linked toggle button — On (accent border) / Off (plain).

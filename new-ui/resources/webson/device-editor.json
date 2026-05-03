@@ -70,12 +70,13 @@
             "padding": "4px",
             "border-radius": "12px",
             "display": "grid",
-            "grid-template-columns": "1fr 1fr",
+            "grid-template-columns": "1fr 1fr 1fr",
             "gap": "6px",
-            "#": ["$BtnRBRNow", "$BtnShelly"],
+            "#": ["$BtnRBRNow", "$BtnShelly", "$BtnZigbee"],
 
             "$BtnRBRNow": { "$ID": "device-editor-rt-rbrnow", "$Label": "RBR-Now",   "#": "$RTBtn" },
             "$BtnShelly": { "$ID": "device-editor-rt-shelly", "$Label": "Shelly One", "#": "$RTBtn" },
+            "$BtnZigbee": { "$ID": "device-editor-rt-zigbee", "$Label": "Zigbee",     "#": "$RTBtn" },
 
             "$RTBtn": {
                 "#element": "button",
