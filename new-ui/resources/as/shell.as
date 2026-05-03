@@ -335,6 +335,7 @@
 	variable LegacyRelayCount
 	variable LegacyName
 	variable LegacyMode
+	variable LegacyPrevMode
 	variable LegacyTemp
 	variable LegacyTarget
 	variable LegacyStatus
@@ -355,6 +356,7 @@
 	variable BoostUntil
 	variable BoostRemaining
 	variable BoostText
+	variable Tboost
 	variable NextTimeStr
 	variable NextTempVal
 	variable NextTempStr
@@ -949,12 +951,21 @@ BuildRoomEntry:
 	set property `legacyIdx` of NewRoom to LegacyIdx
 	set property `sensor` of NewRoom to `no`
 
-!	Mode: legacy lowercase → new-UI title-case. Anything unrecognised → Off.
+!	Mode: legacy lowercase → new-UI title-case. The UI tracks the underlying
+!	operating mode (Timed/On/Off); Boost is not a mode of its own, just a
+!	transient overlay. When the controller reports `boost`, derive the
+!	displayed mode from `prevmode` so the mode pill keeps its selection
+!	while the boost is in effect. Anything unrecognised → Off.
 	put property `mode` of LegacyRoom into LegacyMode
 	put `Off` into Mode
 	if LegacyMode is `timed` put `Timed` into Mode
 	else if LegacyMode is `on` put `On` into Mode
-	else if LegacyMode is `boost` put `Boost` into Mode
+	else if LegacyMode is `boost`
+	begin
+		put property `prevmode` of LegacyRoom into LegacyPrevMode
+		if LegacyPrevMode is `timed` put `Timed` into Mode
+		else if LegacyPrevMode is `on` put `On` into Mode
+	end
 	set property `mode` of NewRoom to Mode
 
 !	Advance: controller stores `A` (advanced) or `-` (normal). Empty / missing
@@ -974,19 +985,17 @@ BuildRoomEntry:
 		set property `temp` of NewRoom to TempStr
 	end
 
-!	Target: number → "X.Y" string. Off mode clears the target. Default 20.0.
-	if Mode is `Off` set property `target` of NewRoom to empty
+!	Target: number → "X.Y" string. Always populated (default 20.0) — Off
+!	rooms keep a target so the user can adjust it before applying a Boost.
+	put property `target` of LegacyRoom into LegacyTarget
+	if LegacyTarget is empty set property `target` of NewRoom to `20.0`
+	else if LegacyTarget is 0 set property `target` of NewRoom to `20.0`
 	else
 	begin
-		put property `target` of LegacyRoom into LegacyTarget
-		if LegacyTarget is empty set property `target` of NewRoom to `20.0`
-		else
-		begin
-			put `` cat LegacyTarget into TempStr
-			put the index of `.` in TempStr into DotIdx
-			if DotIdx is less than 0 put TempStr cat `.0` into TempStr
-			set property `target` of NewRoom to TempStr
-		end
+		put `` cat LegacyTarget into TempStr
+		put the index of `.` in TempStr into DotIdx
+		if DotIdx is less than 0 put TempStr cat `.0` into TempStr
+		set property `target` of NewRoom to TempStr
 	end
 
 !	Offline: controller verdict via `status` (`fail` → offline). Also treat
@@ -1478,7 +1487,9 @@ PaintExpansion:
 	put property `target` of Room into Ttarget
 	put property `boost` of Room into BoostDur
 
-!	Mode segmented control — re-attach per click then style.
+!	Mode segmented control — re-attach per click then style. Mode is always
+!	one of Timed/On/Off (Boost is a separate transient overlay handled via
+!	BoostDur, not a mode the pill ever shows as selected).
 	index ModeTimedBtn to ClickIndex
 	index ModeOnBtn to ClickIndex
 	index ModeOffBtn to ClickIndex
@@ -1486,11 +1497,10 @@ PaintExpansion:
 	if Tmode is `Timed` gosub to ActivateModeTimed
 	if Tmode is `On` gosub to ActivateModeOn
 	if Tmode is `Off` gosub to ActivateModeOff
-	if Tmode is `Boost` gosub to ActivateModeTimed
 
-!	Target tile vs Advance row — Timed mode hides the manual target (the
-!	schedule provides it) and shows the Advance toggle instead. Off hides
-!	both. On / Boost show the target tile and hide Advance.
+!	Target tile vs Advance row — Timed hides the manual target (schedule
+!	provides it) and shows the Advance toggle. On / Off show the target
+!	tile (Off keeps it visible so the user can pre-set a Boost target).
 	index TargetBlockEl to ClickIndex
 	index AdvanceBlockEl to ClickIndex
 	if Tmode is `Timed`
@@ -1501,11 +1511,6 @@ PaintExpansion:
 		if Advance is empty put `-` into Advance
 		gosub to PaintAdvanceBtn
 	end
-	else if Tmode is `Off`
-	begin
-		set style `display` of TargetBlockEl to `none`
-		set style `display` of AdvanceBlockEl to `none`
-	end
 	else
 	begin
 		set style `display` of AdvanceBlockEl to `none`
@@ -1515,9 +1520,11 @@ PaintExpansion:
 		else set the content of TargetValueEl to Ttarget
 	end
 
-!	Boost — hide whole block when mode = Off, otherwise show + style chips.
+!	Boost — hidden in On (boost on top of On is meaningless; the user can
+!	just adjust the target). Visible in Off and Timed so the user can
+!	override the schedule (Timed) or fire a one-off heating burst (Off).
 	index BoostBlockEl to ClickIndex
-	if Tmode is `Off` set style `display` of BoostBlockEl to `none`
+	if Tmode is `On` set style `display` of BoostBlockEl to `none`
 	else
 	begin
 		set style `display` of BoostBlockEl to `block`
@@ -1609,30 +1616,16 @@ ActivateBoost2h:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Mode change. Per spec: clear boost; mode→Off clears target; mode away
-!	from Off restores last target (default 20.0). Sends an "Operating Mode"
-!	uirequest to the controller after the local mutation.
+!	Mode change. Always clears any active boost (an explicit mode pick is
+!	a stronger signal than a transient boost). Target is preserved across
+!	all mode changes — Off rooms keep their target so the user can still
+!	adjust it. Sends an "Operating Mode" uirequest after the local mutation.
 ChangeMode:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
-	put property `target` of Room into Ttarget
 	if Tmode is NewMode return
 	set property `mode` of Room to NewMode
 	set property `boost` of Room to empty
-	if NewMode is `Off`
-	begin
-		if Ttarget is not empty set property `lastTarget` of Room to Ttarget
-		set property `target` of Room to empty
-	end
-	else
-	begin
-		if Ttarget is empty
-		begin
-			put property `lastTarget` of Room into LastTarget
-			if LastTarget is empty set property `target` of Room to `20.0`
-			else set property `target` of Room to LastTarget
-		end
-	end
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
 
@@ -1699,11 +1692,13 @@ WriteTargetTenths:
 	gosub to PostUiRequest
 	return
 
-!	Apply boost duration BoostDur ("30 min" / "1 hr" / "2 hr"). Per spec:
-!	also forces mode = Boost. Sends "Operating Mode" with boost=B<minutes>.
+!	Apply boost duration BoostDur ("30 min" / "1 hr" / "2 hr"). The local
+!	mode pill keeps its current selection — Boost is an overlay, not a
+!	mode. The controller stores the current mode as `prevmode` and reverts
+!	to it when the boost expires. Sends "Operating Mode" Mode=boost with
+!	boost=B<minutes> and the local target temperature.
 ApplyBoost:
 	put element ClickIndex of RoomsList into Room
-	set property `mode` of Room to `Boost`
 	set property `boost` of Room to BoostDur
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
@@ -1724,19 +1719,24 @@ ApplyBoost:
 	gosub to PostUiRequest
 	return
 
-!	Cancel boost. Per spec: revert to Timed and clear boost.
+!	Cancel an active boost. The local mode is the underlying mode (the
+!	one the user wants restored), so we just clear `boost` and ship the
+!	current mode back to the controller. The controller's stored `until`
+!	is left in place but is harmless since boost expiration only fires
+!	when the controller's own mode is `boost`.
 CancelBoost:
 	put element ClickIndex of RoomsList into Room
-	set property `mode` of Room to `Timed`
 	set property `boost` of Room to empty
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
 
 	put property `name` of Room into RoomNameForServer
+	put property `mode` of Room into Mode
+	gosub to LowercaseModeForServer
 	put `{}` into Result
 	set property `Action` of Result to `Operating Mode`
 	set property `Room` of Result to RoomNameForServer
-	set property `Mode` of Result to `timed`
+	set property `Mode` of Result to ModeForServer
 	set property `Boost` of Result to 0
 	gosub to PostUiRequest
 	return
@@ -2654,7 +2654,9 @@ AfterStateChange:
 	gosub to PaintSummary
 	return
 
-!	Recompute `calling` for the current Room.
+!	Recompute `calling` for the current Room. A room can call for heat
+!	when its underlying mode is not Off, OR when a Boost is active (which
+!	can layer on top of Off and still drive the relay).
 RecalcCalling:
 	put `no` into NewCalling
 	put property `sensor` of Room into Tsensor
@@ -2662,30 +2664,32 @@ RecalcCalling:
 	put property `mode` of Room into Tmode
 	put property `temp` of Room into Ttemp
 	put property `target` of Room into Ttarget
+	put property `boost` of Room into Tboost
 	if Tsensor is `no`
 	begin
 		if Toffline is `no`
 		begin
-			if Tmode is not `Off`
-			begin
-				if Ttemp is not empty
-				begin
-					if Ttarget is not empty
-					begin
-						put Ttemp into TempStr
-						gosub to ToTenths
-						put TempTenths into TempT
-						put Ttarget into TempStr
-						gosub to ToTenths
-						put TempTenths into TargetT
-						take TempT from TargetT giving Diff
-						if Diff is greater than 2 put `yes` into NewCalling
-					end
-				end
-			end
+			if Tmode is not `Off` gosub to ComputeCallingDiff
+			else if Tboost is not empty gosub to ComputeCallingDiff
 		end
 	end
 	set property `calling` of Room to NewCalling
+	return
+
+!	Inner branch of RecalcCalling: if the room is heating, compare temp
+!	to target and flip NewCalling on if we're 0.3°+ short. Reads Ttemp /
+!	Ttarget; writes NewCalling.
+ComputeCallingDiff:
+	if Ttemp is empty return
+	if Ttarget is empty return
+	put Ttemp into TempStr
+	gosub to ToTenths
+	put TempTenths into TempT
+	put Ttarget into TempStr
+	gosub to ToTenths
+	put TempTenths into TargetT
+	take TempT from TargetT giving Diff
+	if Diff is greater than 2 put `yes` into NewCalling
 	return
 
 !	Walk RoomsList and recompute the summary aggregates: HeatingCount,
@@ -2879,22 +2883,27 @@ RenderRoom:
 	put empty into SublineText
 	if Sensor is `yes` put `Outdoor sensor` into SublineText
 	else if Offline is `yes` put property `offlineReason` of Room into SublineText
-	else if Mode is `Off` put empty into SublineText
-	else if Mode is `Boost`
+	else
 	begin
-		if BoostVal is empty put `Boost active` into SublineText
-		else put `Boost · ` cat BoostVal cat ` left` into SublineText
-	end
-	else if Mode is `On`
-	begin
-		if TargetTemp is not empty put TargetTemp cat `°` into SublineText
-	end
-	else if Mode is `Timed`
-	begin
-		if NextTime is not empty
+		if Mode is `On`
 		begin
-			put NextTarget cat `°→` cat NextTime into SublineText
-			if Advance is `A` put SublineText cat ` (A)` into SublineText
+			if TargetTemp is not empty put TargetTemp cat `°` into SublineText
+		end
+		else if Mode is `Timed`
+		begin
+			if NextTime is not empty
+			begin
+				put NextTarget cat `°→` cat NextTime into SublineText
+				if Advance is `A` put SublineText cat ` (A)` into SublineText
+			end
+		end
+
+!		Boost overlay — prepend so the active boost is the most prominent
+!		bit of status. Layered on whatever the mode's own subline says.
+		if BoostVal is not empty
+		begin
+			if SublineText is empty put `Boost · ` cat BoostVal cat ` left` into SublineText
+			else put `Boost · ` cat BoostVal cat ` left · ` cat SublineText into SublineText
 		end
 	end
 
@@ -2936,8 +2945,9 @@ RenderRoom:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Decide chip bg / fg / icon-url and apply. Priority: sensor > offline > Off
-!	> Boost > calling-for-heat > default (Timed, not heating).
+!	Decide chip bg / fg / icon-url and apply. Priority: sensor > offline >
+!	boost-active > Off > On > calling-for-heat > default (Timed, not heating).
+!	Boost is detected via BoostVal so it can layer over Off or Timed.
 ApplyChipStyle:
 	put `var(--color-chip-ok-bg)` into ChipBg
 	put `var(--color-chip-ok-fg)` into ChipFg
@@ -2955,6 +2965,12 @@ ApplyChipStyle:
 		put `var(--color-chip-warn-fg)` into ChipFg
 		put `resources/icon/offline.svg` into ChipIconUrl
 	end
+	else if BoostVal is not empty
+	begin
+		put `var(--color-chip-heat-bg)` into ChipBg
+		put `var(--color-chip-heat-fg)` into ChipFg
+		put `resources/icon/boost.svg` into ChipIconUrl
+	end
 	else if Mode is `Off`
 	begin
 		put `var(--color-chip-neutral-bg)` into ChipBg
@@ -2966,12 +2982,6 @@ ApplyChipStyle:
 		put `var(--color-chip-heat-bg)` into ChipBg
 		put `var(--color-chip-heat-fg)` into ChipFg
 		put `resources/icon/on.svg` into ChipIconUrl
-	end
-	else if Mode is `Boost`
-	begin
-		put `var(--color-chip-heat-bg)` into ChipBg
-		put `var(--color-chip-heat-fg)` into ChipFg
-		put `resources/icon/boost.svg` into ChipIconUrl
 	end
 	else if CallingForHeat
 	begin
