@@ -1070,7 +1070,9 @@ BuildRoomEntry:
 
 !	Current schedule period: walk events in order, pick the first whose
 !	`until` time is still in the future. nextTime = end of current period;
-!	nextTarget = current period's target. Both empty if no events or all
+!	nextTarget = current period's target. When advance is on, jump to the
+!	next period (wrapping at end-of-day) so the subline reflects what the
+!	controller is actually heating to. Both empty if no events or all
 !	have already passed.
 	set property `nextTime` of NewRoom to empty
 	set property `nextTarget` of NewRoom to empty
@@ -1090,6 +1092,13 @@ BuildRoomEntry:
 			gosub to ParseTimeMinutes
 			if TempTenths is greater than NowMinutes
 			begin
+				if Advance is `A`
+				begin
+					increment LoopK
+					if LoopK is LegacyEventCount put 0 into LoopK
+					put element LoopK of LegacyEvents into LegacyEvent
+					put property `until` of LegacyEvent into NextTimeStr
+				end
 				put property `temp` of LegacyEvent into NextTempVal
 				set property `nextTime` of NewRoom to NextTimeStr
 				put `` cat NextTempVal into NextTempStr
@@ -2846,6 +2855,8 @@ RenderRoom:
 	put property `nextTime` of Room into NextTime
 	put property `nextTarget` of Room into NextTarget
 	put property `name` of Room into NameText
+	put property `advance` of Room into Advance
+	if Advance is empty put `-` into Advance
 
 	clear CallingForHeat
 	if property `calling` of Room is `yes` set CallingForHeat
@@ -2880,7 +2891,11 @@ RenderRoom:
 	end
 	else if Mode is `Timed`
 	begin
-		if NextTime is not empty put NextTarget cat `°→` cat NextTime into SublineText
+		if NextTime is not empty
+		begin
+			put NextTarget cat `°→` cat NextTime into SublineText
+			if Advance is `A` put SublineText cat ` (A)` into SublineText
+		end
 	end
 
 !	Battery-low + warn-state messages, appended for online rooms (offline
