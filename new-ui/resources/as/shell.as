@@ -10,6 +10,8 @@
 	div TopBarHolder
 	div MainHolder
 	div SystemId
+	button HeartbeatBtn
+	div HeartbeatDot
 	button HouseMark
 	div AboutSheetEl
 	button AboutTabAbout
@@ -383,6 +385,19 @@
 	attach SystemId to `top-bar-system-id`
 	set the content of SystemId to `…`
 
+	attach HeartbeatBtn to `top-bar-heartbeat`
+	attach HeartbeatDot to `top-bar-heartbeat-dot`
+	on click HeartbeatBtn gosub to RequestMap
+
+!	Tab resume — when the OS / browser un-throttles a backgrounded tab,
+!	the polling loop may have stalled. Fire an immediate refresh so the
+!	user sees current data without waiting for the next poll tick.
+	on resume
+	begin
+		log `Tab resumed; refreshing now`
+		gosub to RequestMap
+	end
+
 !	Panic-button for stranded credentials. The hamburger button is the only
 !	always-visible UI element, so wire it now (synchronously, before MQTT)
 !	to a credentials-reset action. BuildHomeScreen re-binds it later for
@@ -507,9 +522,24 @@ Connected:
 
 RequestMap:
 	log `Requesting map: ` cat Prompt
-	send to ServerTopic
-		sender MyTopic
-		action Prompt
+	if not DemoMode
+	begin
+		send to ServerTopic
+			sender MyTopic
+			action Prompt
+	end
+	gosub to PulseHeartbeat
+	return
+
+!	Briefly tint the topbar heartbeat dot to confirm a poll cycle fired.
+!	The dot's CSS transition fades the colour back, so we just snap on,
+!	pause long enough to be visible, then snap to the dim resting colour.
+!	Blocks the caller for ~0.5s — fine because RequestMap runs at the end
+!	of the 10-second poll loop.
+PulseHeartbeat:
+	set style `background-color` of HeartbeatDot to `var(--color-accent)`
+	wait 50 ticks
+	set style `background-color` of HeartbeatDot to `rgba(0,0,0,0.18)`
 	return
 
 !	Fired by `on mqtt message`. First message → BuildHomeScreen (full render).
