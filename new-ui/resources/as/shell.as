@@ -1120,12 +1120,12 @@ BuildRoomEntry:
 		end
 	end
 
-!	Calling: derived. Re-use the existing RecalcCalling logic on the new room.
-!	Write Room back to NewRoom defensively in case `put A into B` snapshots
-!	the JSON value rather than aliasing the reference.
-	put NewRoom into Room
-	gosub to RecalcCalling
-	put Room into NewRoom
+!	Calling: take the controller's authoritative relay state. It already
+!	accounts for unlinked relays, boost overlay, and hysteresis-free
+!	temp-vs-target comparison — re-deriving from temp/target in the UI
+!	gets it wrong (the UI's threshold doesn't match the controller's).
+	set property `calling` of NewRoom to `no`
+	if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
 	return
 
 !	Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string
@@ -2677,8 +2677,9 @@ RecalcCalling:
 	return
 
 !	Inner branch of RecalcCalling: if the room is heating, compare temp
-!	to target and flip NewCalling on if we're 0.3°+ short. Reads Ttemp /
-!	Ttarget; writes NewCalling.
+!	to target and flip NewCalling on if temp is below target. Mirrors the
+!	controller's SetRelay: relay on when TempNow < Target, no threshold.
+!	Reads Ttemp / Ttarget; writes NewCalling.
 ComputeCallingDiff:
 	if Ttemp is empty return
 	if Ttarget is empty return
@@ -2689,7 +2690,7 @@ ComputeCallingDiff:
 	gosub to ToTenths
 	put TempTenths into TargetT
 	take TempT from TargetT giving Diff
-	if Diff is greater than 2 put `yes` into NewCalling
+	if Diff is greater than 0 put `yes` into NewCalling
 	return
 
 !	Walk RoomsList and recompute the summary aggregates: HeatingCount,
