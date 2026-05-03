@@ -9,7 +9,7 @@
 //   - Cross-origin requests (the AllSpeak runtime CDN, MQTT broker WS) are
 //     pass-through — no caching, no interception.
 
-const CACHE_VERSION = 'rbr-v1-26050306';
+const CACHE_VERSION = 'rbr-v1-26050307';
 const CACHE_NAME = `rbr-cache-${CACHE_VERSION}`;
 
 const APP_SHELL = [
@@ -34,6 +34,7 @@ const APP_SHELL = [
     './resources/webson/schedule-period.json',
     './resources/webson/sched-profile-pill.json',
     './resources/webson/about-sheet.json',
+    './resources/webson/device-editor.json',
     './demo-map.json',
     './resources/icon/app-icon.svg',
     './resources/icon/boost.svg',

@@ -94,6 +94,14 @@
 	button PeriodTempMinusBtn
 	button PeriodTempPlusBtn
 	button PeriodDeleteBtn
+	div DeviceEditorSheetEl
+	input DeviceEditorSensor
+	button DeviceEditorRtRBRNow
+	button DeviceEditorRtShelly
+	button DeviceEditorLinkedBtn
+	textarea DeviceEditorRelays
+	button DeviceEditorSaveBtn
+	button DeviceEditorCancelBtn
 
 !	Per-row interactive elements (indexed via `index X to RoomIndex` in the
 !	render loop so each click handler can recover its row via `the index of X`).
@@ -115,6 +123,7 @@
 	div AdvanceBlockEl
 	button AdvanceBtn
 	button EditScheduleBtn
+	button EditDevicesBtn
 
 	variable LayoutWebson
 	variable TopBarWebson
@@ -359,6 +368,25 @@
 	variable BoostRemaining
 	variable BoostText
 	variable Tboost
+
+!	Device editor state. EditingDevicesRoomLegacyIdx pins the legacy-room
+!	slot we're editing across all live profiles (the same physical room
+!	exists in every profile, so device fields are written to all slots).
+	variable DeviceEditorWebson
+	variable EditingDevicesRoomLegacyIdx
+	variable EditingDevicesRoomName
+	variable EditingDevicesRelayType
+	variable EditingDevicesLinked
+	variable EditingDevicesSensor
+	variable EditingDevicesRelaysText
+	variable LiveProfileForDevices
+	variable LiveRoomsForDevices
+	variable LiveRoomForDevices
+	variable RelayLinesArray
+	variable RelayLine
+	variable RelayLineIdx
+	variable DeviceProfileLoopI
+	variable DeviceProfileCount
 	variable NextTimeStr
 	variable NextTempVal
 	variable NextTempStr
@@ -631,6 +659,7 @@ BuildHomeScreen:
 	set the elements of AdvanceBlockEl to RoomCount
 	set the elements of AdvanceBtn to RoomCount
 	set the elements of EditScheduleBtn to RoomCount
+	set the elements of EditDevicesBtn to RoomCount
 
 	put 0 into RoomIndex
 	while RoomIndex is less than RoomCount
@@ -836,6 +865,40 @@ BuildHomeScreen:
 	on click ScheduleAddBtn gosub to AddSchedulePeriod
 	on click ScheduleSaveBtn gosub to SaveScheduleEditor
 	on click ScheduleCancelBtn gosub to CloseScheduleEditor
+
+!	Device editor sheet — sibling sheet inside sheet-content. Opened on
+!	demand via the per-room "Edit devices" button.
+	rest get DeviceEditorWebson from `resources/webson/device-editor.json?v=` cat now
+		or go to LoadFailed
+	render DeviceEditorWebson in SheetContent
+	attach DeviceEditorSheetEl to `device-editor-sheet`
+	set style `display` of DeviceEditorSheetEl to `none`
+	attach DeviceEditorSensor to `device-editor-sensor`
+	attach DeviceEditorRtRBRNow to `device-editor-rt-rbrnow`
+	attach DeviceEditorRtShelly to `device-editor-rt-shelly`
+	attach DeviceEditorLinkedBtn to `device-editor-linked-btn`
+	attach DeviceEditorRelays to `device-editor-relays`
+	attach DeviceEditorSaveBtn to `device-editor-save-btn`
+	attach DeviceEditorCancelBtn to `device-editor-cancel-btn`
+
+	on click DeviceEditorRtRBRNow
+	begin
+		put `RBR-Now` into EditingDevicesRelayType
+		gosub to PaintDeviceEditorRelayType
+	end
+	on click DeviceEditorRtShelly
+	begin
+		put `Shelly One` into EditingDevicesRelayType
+		gosub to PaintDeviceEditorRelayType
+	end
+	on click DeviceEditorLinkedBtn
+	begin
+		if EditingDevicesLinked is `yes` put `no` into EditingDevicesLinked
+		else put `yes` into EditingDevicesLinked
+		gosub to PaintDeviceEditorLinked
+	end
+	on click DeviceEditorSaveBtn gosub to SaveDeviceEditor
+	on click DeviceEditorCancelBtn gosub to CloseDeviceEditor
 
 !	About sheet — sibling sheet inside sheet-content. Auto-opens on first
 !	visit when there are no credentials; tap the house mark in the topbar
@@ -1482,6 +1545,14 @@ WireRoomInteractions:
 	begin
 		put the index of EditScheduleBtn into ClickIndex
 		gosub to OpenScheduleEditor
+	end
+
+	index EditDevicesBtn to RoomIndex
+	attach EditDevicesBtn to `room-` cat RoomIndex cat `-edit-devices`
+	on click EditDevicesBtn
+	begin
+		put the index of EditDevicesBtn into ClickIndex
+		gosub to OpenDeviceEditor
 	end
 	return
 
@@ -2373,6 +2444,184 @@ SaveScheduleEditor:
 	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
 	gosub to PostUiRequest
 	gosub to CloseScheduleEditor
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Device editor — per-room thermometer + relay configuration. Opens from
+!	each room's "Edit devices" button. Edits are local until Save, which
+!	writes the new sensor / relay-type / relays / linked fields onto every
+!	profile's slot for this room (the device wiring is physical, shared
+!	across profiles) and ships an Update Rooms uirequest.
+
+!	Open: snapshot the room's device fields into the editing scratch vars,
+!	paint the inputs, swap the visible sheet.
+OpenDeviceEditor:
+	put element ClickIndex of RoomsList into Room
+	put property `name` of Room into EditingDevicesRoomName
+	put property `legacyIdx` of Room into EditingDevicesRoomLegacyIdx
+
+!	Pull the live device fields from the active profile's room slot. The
+!	device wiring is the same in every profile, so reading from the active
+!	one is equivalent to reading from any other.
+	put property `profiles` of Map into LiveProfiles
+	put element CurrentProfile of LiveProfiles into LiveProfileForDevices
+	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
+	put element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices into LiveRoomForDevices
+
+	put property `sensor` of LiveRoomForDevices into EditingDevicesSensor
+	put property `relayType` of LiveRoomForDevices into EditingDevicesRelayType
+	if EditingDevicesRelayType is empty put `RBR-Now` into EditingDevicesRelayType
+	put property `linked` of LiveRoomForDevices into EditingDevicesLinked
+	if EditingDevicesLinked is empty put `yes` into EditingDevicesLinked
+
+!	Flatten the relays array into a newline-joined string for the textarea.
+	put property `relays` of LiveRoomForDevices into RelayLinesArray
+	put empty into EditingDevicesRelaysText
+	if RelayLinesArray is not empty
+	begin
+		put 0 into RelayLineIdx
+		while RelayLineIdx is less than the json count of RelayLinesArray
+		begin
+			put element RelayLineIdx of RelayLinesArray into RelayLine
+			if EditingDevicesRelaysText is empty put RelayLine into EditingDevicesRelaysText
+			else put EditingDevicesRelaysText cat newline cat RelayLine into EditingDevicesRelaysText
+			increment RelayLineIdx
+		end
+	end
+
+	set the content of DeviceEditorSensor to EditingDevicesSensor
+	set the content of DeviceEditorRelays to EditingDevicesRelaysText
+	gosub to PaintDeviceEditorRelayType
+	gosub to PaintDeviceEditorLinked
+
+	set style `display` of MenuSheetEl to `none`
+	set style `display` of ProfileSheetEl to `none`
+	set style `display` of ScheduleSheetEl to `none`
+	set style `display` of DeviceEditorSheetEl to `block`
+	set the content of SheetTitleEl to `Devices for ` cat EditingDevicesRoomName
+	gosub to OpenSheet
+	return
+
+!	Cancel: just close. Editing scratch vars are left to rot; next open
+!	rebuilds them from the live map.
+CloseDeviceEditor:
+	gosub to CloseSheet
+	return
+
+!	Style the relay-type pill — highlight the current EditingDevicesRelayType,
+!	dim the other.
+PaintDeviceEditorRelayType:
+	gosub to ResetDeviceEditorRtBtns
+	if EditingDevicesRelayType is `RBR-Now` gosub to ActivateRtRBRNow
+	else if EditingDevicesRelayType is `Shelly One` gosub to ActivateRtShelly
+	return
+
+ResetDeviceEditorRtBtns:
+	set style `background` of DeviceEditorRtRBRNow to `transparent`
+	set style `color` of DeviceEditorRtRBRNow to `var(--color-text-muted)`
+	set style `font-weight` of DeviceEditorRtRBRNow to `500`
+	set style `box-shadow` of DeviceEditorRtRBRNow to `none`
+	set style `background` of DeviceEditorRtShelly to `transparent`
+	set style `color` of DeviceEditorRtShelly to `var(--color-text-muted)`
+	set style `font-weight` of DeviceEditorRtShelly to `500`
+	set style `box-shadow` of DeviceEditorRtShelly to `none`
+	return
+
+ActivateRtRBRNow:
+	set style `background` of DeviceEditorRtRBRNow to `var(--color-surface-card)`
+	set style `color` of DeviceEditorRtRBRNow to `var(--color-text-primary)`
+	set style `font-weight` of DeviceEditorRtRBRNow to `600`
+	set style `box-shadow` of DeviceEditorRtRBRNow to `0 1px 3px rgba(0,0,0,0.08)`
+	return
+
+ActivateRtShelly:
+	set style `background` of DeviceEditorRtShelly to `var(--color-surface-card)`
+	set style `color` of DeviceEditorRtShelly to `var(--color-text-primary)`
+	set style `font-weight` of DeviceEditorRtShelly to `600`
+	set style `box-shadow` of DeviceEditorRtShelly to `0 1px 3px rgba(0,0,0,0.08)`
+	return
+
+!	Style the linked toggle button — On (accent border) / Off (plain).
+PaintDeviceEditorLinked:
+	if EditingDevicesLinked is `yes`
+	begin
+		set the content of DeviceEditorLinkedBtn to `On`
+		set style `background` of DeviceEditorLinkedBtn to `var(--color-accent-10)`
+		set style `border` of DeviceEditorLinkedBtn to `1.5px solid var(--color-accent)`
+		set style `color` of DeviceEditorLinkedBtn to `var(--color-accent)`
+		set style `font-weight` of DeviceEditorLinkedBtn to `600`
+	end
+	else
+	begin
+		set the content of DeviceEditorLinkedBtn to `Off`
+		set style `background` of DeviceEditorLinkedBtn to `var(--color-surface-card)`
+		set style `border` of DeviceEditorLinkedBtn to `1px solid var(--color-border-hairline)`
+		set style `color` of DeviceEditorLinkedBtn to `var(--color-text-primary)`
+		set style `font-weight` of DeviceEditorLinkedBtn to `500`
+	end
+	return
+
+!	Save: read the current input values, splice the device fields into
+!	every profile's slot for this room, ship Update Rooms with the rooms
+!	array of the active profile (the controller's UpdateProfile applies
+!	the same change to all profiles when fields are device-shaped).
+SaveDeviceEditor:
+	put the content of DeviceEditorSensor into EditingDevicesSensor
+	put the content of DeviceEditorRelays into EditingDevicesRelaysText
+
+!	Split the textarea content on newlines, strip empties, into an array.
+	put `[]` into RelayLinesArray
+	put 0 into RelayLineIdx
+	put 0 into LoopE
+	if EditingDevicesRelaysText is not empty
+	begin
+		split EditingDevicesRelaysText on newline giving RelayLine
+		while LoopE is less than the elements of RelayLine
+		begin
+			index RelayLine to LoopE
+			if RelayLine is not empty
+			begin
+				set element RelayLineIdx of RelayLinesArray to RelayLine
+				increment RelayLineIdx
+			end
+			increment LoopE
+		end
+	end
+
+!	Walk every profile and write the device fields onto its room slot.
+	put property `profiles` of Map into LiveProfiles
+	put the json count of LiveProfiles into DeviceProfileCount
+	put 0 into DeviceProfileLoopI
+	while DeviceProfileLoopI is less than DeviceProfileCount
+	begin
+		put element DeviceProfileLoopI of LiveProfiles into LiveProfileForDevices
+		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
+		put element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices into LiveRoomForDevices
+		set property `sensor` of LiveRoomForDevices to EditingDevicesSensor
+		set property `relayType` of LiveRoomForDevices to EditingDevicesRelayType
+		set property `linked` of LiveRoomForDevices to EditingDevicesLinked
+		set property `relays` of LiveRoomForDevices to RelayLinesArray
+		set element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices to LiveRoomForDevices
+		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
+		set element DeviceProfileLoopI of LiveProfiles to LiveProfileForDevices
+		increment DeviceProfileLoopI
+	end
+
+!	Ship the full profiles array via Update Profiles. The controller's
+!	Update Rooms only touches the active profile, but device fields are
+!	physical and shared across profiles, so we send the whole profiles
+!	tree (already mutated in every slot above). Mirrors how the schedule
+!	editor saves edits.
+	put `{}` into Result
+	set property `Action` of Result to `Update Profiles`
+	set property `profiles` of Result to LiveProfiles
+	set property `profile` of Result to CurrentProfile
+	if CalendarOn set property `calendar` of Result to `on`
+	else set property `calendar` of Result to `off`
+	put property `calendar-data` of Map into CalendarData
+	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
+	gosub to PostUiRequest
+	gosub to CloseDeviceEditor
 	return
 
 !	Tear down + rebuild the profile list from EditingProfiles. Called on

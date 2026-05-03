@@ -44,7 +44,6 @@ The UI is a static webapp — must be served via HTTP (not `file://`) because it
 - `resources/webson/` — Webson JSON UI layout definitions
 - `resources/css/`, `resources/icon/`, `resources/img/` — Static assets
 - `RBRNow/` — MicroPython firmware for ESP32 devices (master/slave networking via ESP-Now)
-- `plugins/ec_p100.py` — EasyCoder plugin for TP-Link P100 smart plug control
 - `rbr_ui/`, `rbrconf/` — Python GUI tools for configuration
 - `config.json` — RBR-Now device network configuration (SSIDs, MACs, pin mappings)
 - `map.json` — System map: rooms, thermometer MACs, device types, modes, timing schedules
