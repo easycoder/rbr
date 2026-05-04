@@ -19,7 +19,7 @@
         "gap": "12px",
         "cursor": "pointer",
         "user-select": "none",
-        "#": ["$Chip", "$TextBlock", "$Spacer", "$TempBlock", "$Chevron"],
+        "#": ["$Chip", "$TextBlock", "$Spacer", "$TempBlock", "$InfoBtn"],
 
         "$Chip": {
             "#element": "div",
@@ -178,16 +178,33 @@
             }
         },
 
-        "$Chevron": {
-            "#element": "div",
-            "@id": "room-/I/-chevron",
-            "width": "14px",
-            "height": "14px",
+        "$InfoBtn": {
+            "#doc": "Tap to open the room info sheet (relay state, last reading, battery, etc). The button's click handler in shell.as cancels event propagation, so a tap here opens the info sheet instead of toggling the row's expansion.",
+            "#element": "button",
+            "@id": "room-/I/-info-btn",
+            "@aria-label": "Room info",
+            "width": "28px",
+            "height": "28px",
+            "padding": "0",
+            "border": "0",
+            "background": "transparent",
+            "border-radius": "50%",
+            "cursor": "pointer",
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
             "flex-shrink": "0",
-            "background-color": "var(--color-text-disabled)",
-            "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
-            "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
-            "transition": "transform var(--motion-chevron-rotate)"
+            "#": "$InfoIcon",
+
+            "$InfoIcon": {
+                "#element": "div",
+                "width": "16px",
+                "height": "16px",
+                "background-color": "var(--color-text-disabled)",
+                "mask": "url(resources/icon/info.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/info.svg) center/contain no-repeat",
+                "pointer-events": "none"
+            }
         }
     },
 

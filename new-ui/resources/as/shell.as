@@ -27,7 +27,6 @@
 	div Setpoint
 	div Chip
 	div ChipIcon
-	div Chevron
 	div SummaryTitle
 	div SummarySubtitle
 	div SummaryChip
@@ -118,11 +117,17 @@
 	button OutsideSheetSaveBtn
 	button OutsideSheetCancelBtn
 	div SummaryOutsideFrost
+	div InfoSheetEl
+	div InfoRelayValue
+	div InfoTempValue
+	div InfoHumidityValue
+	div InfoBatteryValue
+	div InfoAgeValue
 
 !	Per-row interactive elements (indexed via `index X to RoomIndex` in the
 !	render loop so each click handler can recover its row via `the index of X`).
 	button RestRow
-	div ChevronEl
+	button InfoBtn
 	div ExpansionEl
 	button ModeTimedBtn
 	button ModeOnBtn
@@ -383,6 +388,16 @@
 	variable BoostRemaining
 	variable BoostText
 	variable Tboost
+
+!	Info sheet state.
+	variable InfoSheetWebson
+	variable InfoSheetOpen
+	variable InfoSheetRoomIdx
+	variable InfoAgeMs
+	variable InfoAgeMin
+	variable InfoBatteryVal
+	variable InfoHumidityVal
+	variable InfoRelayVal
 
 !	System sheet state. SystemType is "Boiler" or "Heat Pump"; stored on
 !	the map root so the controller can fan it out to fuel-aware logic.
@@ -695,7 +710,7 @@ BuildHomeScreen:
 !	Pre-size every indexed per-row variable. Without this, `index X to N`
 !	for N > 0 raises "out of range" — the array has to be allocated first.
 	set the elements of RestRow to RoomCount
-	set the elements of ChevronEl to RoomCount
+	set the elements of InfoBtn to RoomCount
 	set the elements of ExpansionEl to RoomCount
 	set the elements of TargetBlockEl to RoomCount
 	set the elements of TargetValueEl to RoomCount
@@ -990,6 +1005,18 @@ BuildHomeScreen:
 	on click OutsideSheetSaveBtn gosub to SaveOutsideSheet
 	on click OutsideSheetCancelBtn gosub to CloseOutsideSheet
 
+!	Info sheet — opened from each room row's info button.
+	rest get InfoSheetWebson from `resources/webson/info-sheet.json?v=` cat now
+		or go to LoadFailed
+	render InfoSheetWebson in SheetContent
+	attach InfoSheetEl to `info-sheet`
+	set style `display` of InfoSheetEl to `none`
+	attach InfoRelayValue to `info-relay`
+	attach InfoTempValue to `info-temp`
+	attach InfoHumidityValue to `info-humidity`
+	attach InfoBatteryValue to `info-battery`
+	attach InfoAgeValue to `info-age`
+
 !	About sheet — sibling sheet inside sheet-content. Auto-opens on first
 !	visit when there are no credentials; tap the house mark in the topbar
 !	to re-open at any time.
@@ -1037,6 +1064,11 @@ RefreshHomeScreen:
 	begin
 		put ExpandedIndex into ClickIndex
 		gosub to PaintExpansion
+	end
+	if InfoSheetOpen
+	begin
+		put element InfoSheetRoomIdx of RoomsList into Room
+		gosub to PaintInfoSheet
 	end
 	return
 
@@ -1252,9 +1284,11 @@ BuildRoomEntry:
 	end
 
 !	Battery: flag low (≤20%) so the sub-line can warn during normal operation.
-!	0 / empty means "no reading" — don't flag those.
+!	0 / empty means "no reading" — don't flag those. Also pass the raw
+!	value through for the info sheet to display verbatim.
 	set property `batteryLow` of NewRoom to `no`
 	put property `battery` of LegacyRoom into LegacyBattery
+	set property `battery` of NewRoom to LegacyBattery
 	if LegacyBattery is not empty
 	begin
 		if LegacyBattery is greater than 0
@@ -1262,6 +1296,13 @@ BuildRoomEntry:
 			if LegacyBattery is less than 21 set property `batteryLow` of NewRoom to `yes`
 		end
 	end
+
+!	Info-sheet extras: relay state, humidity, sensor-age (in ms since the
+!	thermometer last reported). Humidity and sensorAge come from the
+!	controller's RoomStatus pass; both are empty when not available.
+	set property `relay` of NewRoom to property `relay` of LegacyRoom
+	set property `humidity` of NewRoom to property `humidity` of LegacyRoom
+	set property `sensorAge` of NewRoom to property `sensorAge` of LegacyRoom
 
 !	Boost: when mode is `boost`, compute remaining time from the room's
 !	`until` field (a ms end-timestamp the controller sets when boost is
@@ -1453,6 +1494,7 @@ HideAllSheets:
 	set style `display` of DeviceEditorSheetEl to `none`
 	set style `display` of SystemSheetEl to `none`
 	set style `display` of OutsideSheetEl to `none`
+	set style `display` of InfoSheetEl to `none`
 	set style `display` of AboutSheetEl to `none`
 	return
 
@@ -1575,8 +1617,13 @@ WireRoomInteractions:
 		gosub to ToggleExpansion
 	end
 
-	index ChevronEl to RoomIndex
-	attach ChevronEl to `room-` cat RoomIndex cat `-chevron`
+	index InfoBtn to RoomIndex
+	attach InfoBtn to `room-` cat RoomIndex cat `-info-btn`
+	on click InfoBtn
+	begin
+		put the index of InfoBtn into ClickIndex
+		gosub to OpenInfoSheet
+	end
 	index ExpansionEl to RoomIndex
 	attach ExpansionEl to `room-` cat RoomIndex cat `-expansion`
 	index TargetBlockEl to RoomIndex
@@ -1685,8 +1732,6 @@ ToggleExpansion:
 	begin
 		index ExpansionEl to ExpandedIndex
 		set style `display` of ExpansionEl to `none`
-		index ChevronEl to ExpandedIndex
-		set style `transform` of ChevronEl to `rotate(0deg)`
 		if ExpandedIndex is ClickIndex
 		begin
 			put -1 into ExpandedIndex
@@ -1695,8 +1740,6 @@ ToggleExpansion:
 	end
 	index ExpansionEl to ClickIndex
 	set style `display` of ExpansionEl to `flex`
-	index ChevronEl to ClickIndex
-	set style `transform` of ChevronEl to `rotate(180deg)`
 	put ClickIndex into ExpandedIndex
 	gosub to PaintExpansion
 	return
@@ -2564,6 +2607,61 @@ SaveScheduleEditor:
 	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
 	gosub to PostUiRequest
 	gosub to CloseScheduleEditor
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Room info sheet — opened from each room row's info button. Read-only
+!	snapshot of the room's current readings (relay, temperature, humidity,
+!	battery, last-report age). Refreshes whenever the next map arrives via
+!	RefreshHomeScreen → PaintInfoSheet.
+OpenInfoSheet:
+	put ClickIndex into InfoSheetRoomIdx
+	put element InfoSheetRoomIdx of RoomsList into Room
+	gosub to PaintInfoSheet
+	gosub to HideAllSheets
+	set style `display` of InfoSheetEl to `block`
+	set the content of SheetTitleEl to property `name` of Room
+	set InfoSheetOpen
+	gosub to OpenSheet
+	return
+
+CloseInfoSheet:
+	clear InfoSheetOpen
+	gosub to CloseSheet
+	return
+
+!	Format the readings for the open info sheet. Each value falls back to
+!	`—` when the data isn't available (sensor never reported, no humidity
+!	channel, etc).
+PaintInfoSheet:
+	put property `relay` of Room into InfoRelayVal
+	if InfoRelayVal is `on` set the content of InfoRelayValue to `On`
+	else if InfoRelayVal is `off` set the content of InfoRelayValue to `Off`
+	else set the content of InfoRelayValue to `—`
+
+	put property `temp` of Room into TempStr
+	if TempStr is empty set the content of InfoTempValue to `—`
+	else set the content of InfoTempValue to TempStr cat `°C`
+
+	put property `humidity` of Room into InfoHumidityVal
+	if InfoHumidityVal is empty set the content of InfoHumidityValue to `—`
+	else set the content of InfoHumidityValue to `` cat InfoHumidityVal cat `%`
+
+	put property `battery` of Room into InfoBatteryVal
+	if InfoBatteryVal is empty set the content of InfoBatteryValue to `—`
+	else if InfoBatteryVal is 0 set the content of InfoBatteryValue to `—`
+	else set the content of InfoBatteryValue to `` cat InfoBatteryVal cat `%`
+
+	put property `sensorAge` of Room into InfoAgeMs
+	if InfoAgeMs is empty set the content of InfoAgeValue to `—`
+	else
+	begin
+		put InfoAgeMs into InfoAgeMin
+		divide InfoAgeMin by 60000
+		if InfoAgeMin is less than 1 set the content of InfoAgeValue to `<1 min ago`
+		else if InfoAgeMin is 1 set the content of InfoAgeValue to `1 min ago`
+		else set the content of InfoAgeValue to `` cat InfoAgeMin cat ` min ago`
+	end
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -3540,10 +3638,6 @@ RenderRoom:
 	attach OfflineTag to `room-` cat IndexStr cat `-offline-tag`
 	if Offline is `yes` set style `display` of OfflineTag to `inline-flex`
 	else set style `display` of OfflineTag to `none`
-
-	attach Chevron to `room-` cat IndexStr cat `-chevron`
-	if Sensor is `yes` set style `display` of Chevron to `none`
-	else set style `display` of Chevron to `block`
 
 	put empty into SublineText
 	if Sensor is `yes` put `Outdoor sensor` into SublineText

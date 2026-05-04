@@ -1,0 +1,50 @@
+{
+    "#doc": "Room info sheet — opened from each room row's info button. Shows live readings (temperature, humidity, battery, last-report age) and the relay state. Read-only; closes via the standard sheet close.",
+    "#element": "div",
+    "@id": "info-sheet",
+    "#": ["$Stats"],
+
+    "$Stats": {
+        "#element": "div",
+        "margin-top": "8px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "12px",
+        "overflow": "hidden",
+        "#": ["$RowRelay", "$RowTemp", "$RowHumidity", "$RowBattery", "$RowAge"],
+
+        "$RowRelay": { "$ID": "info-relay",    "$Label": "RADIATOR",       "#": "$Row" },
+        "$RowTemp":  { "$ID": "info-temp",     "$Label": "TEMPERATURE",    "#": "$Row" },
+        "$RowHumidity": { "$ID": "info-humidity", "$Label": "HUMIDITY",    "#": "$Row" },
+        "$RowBattery": { "$ID": "info-battery", "$Label": "SENSOR BATTERY", "#": "$Row" },
+        "$RowAge":   { "$ID": "info-age",      "$Label": "LAST REPORT",     "#": "$Row" },
+
+        "$Row": {
+            "#element": "div",
+            "padding": "12px 14px",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "10px",
+            "border-top": "1px solid var(--color-border-divider-soft)",
+            "background": "var(--color-surface-card)",
+            "#": ["$LabelEl", "$Spacer", "$ValueEl"],
+
+            "$LabelEl": {
+                "#element": "div",
+                "font-size": "var(--type-section-label-size)",
+                "font-weight": "var(--type-section-label-weight)",
+                "letter-spacing": "var(--type-section-label-track)",
+                "text-transform": "uppercase",
+                "color": "var(--color-text-meta)",
+                "#content": "$Label"
+            },
+            "$Spacer": { "#element": "div", "flex": "1" },
+            "$ValueEl": {
+                "#element": "div",
+                "@id": "$ID",
+                "font-size": "14px",
+                "font-weight": "500",
+                "color": "var(--color-text-primary)"
+            }
+        }
+    }
+}

@@ -513,6 +513,12 @@ ProcessRoom:
             begin
                 set TempNow to entry `temp` of Thermometer
                 set entry `battery` of RoomSpec to entry `batt` of Thermometer
+                ! Surface battery and humidity on the Room itself so the
+                ! map sent to the UI carries the latest reading. Humidity
+                ! is optional (only some thermometers report it).
+                set entry `battery` of Room to entry `batt` of Thermometer
+                if Thermometer has entry `hum`
+                    set entry `humidity` of Room to entry `hum` of Thermometer
             end
             else log RoomName cat ` sensor ` cat Sensor cat ` has not reported recently`
         end
@@ -753,7 +759,9 @@ RoomStatus:
             put entry `ts` of Thermometer into T
             put now into SensorAge
             take T from SensorAge
-!           SensorAge is now milliseconds since last report.
+!           SensorAge is now milliseconds since last report. Surface it
+!           on Room so the UI's info sheet can show "N min ago".
+            set entry `sensorAge` of Room to SensorAge
 !           Warn at 45 min (2700000ms), fail at 60 min (3600000ms). The
 !           45-min warn threshold matches the staleness gate above that
 !           empties TempNow, so a stale sensor and a `warn` status both
