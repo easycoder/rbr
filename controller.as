@@ -93,6 +93,7 @@
     variable RelayFails
     variable SensorAge
     variable RoomStatus
+    variable PriorStatus
     variable MapFilename
 
     ! Reusable variables - but be careful!
@@ -503,7 +504,11 @@ ProcessRoom:
         begin
             put entry Sensor of Thermometers into Thermometer
             put entry `ts` of Thermometer into T
-            add 1800000 to T
+            ! Staleness gate: if last report is older than 45 min (the warn
+            ! threshold) we treat the room as having no current reading,
+            ! which leaves TempNow empty and hence forces the relay off in
+            ! SetRelay. Mirrors RoomStatus's `warn` threshold below.
+            add 2700000 to T
             if T is greater than now
             begin
                 set TempNow to entry `temp` of Thermometer
@@ -665,7 +670,18 @@ ProcessRequestRelay:
 ! Decide if a relay should be on or off
 SetRelay:
     put RelayState into RelayStateWas
+    ! Read the previous cycle's status as a safety override. If the room
+    ! was already classified as `warn` (stale sensor or repeated relay
+    ! failures) or `fail`, we leave the relay off regardless of mode or
+    ! current temperature reading. This belt-and-braces protects against
+    ! paths that could keep TempNow populated past the staleness gate
+    ! (e.g. an RBR-Now relay reporting its own temperature when the
+    ! configured thermometer is dead).
+    put empty into PriorStatus
+    if Room has entry `status` put entry `status` of Room into PriorStatus
     if Mode is `off` set RelayState to `off`
+    else if PriorStatus is `warn` set RelayState to `off`
+    else if PriorStatus is `fail` set RelayState to `off`
     else if entry `linked` of Room is `no`
     begin
         ! Unlinked relays are driven directly by mode, not by target/temperature.
@@ -729,10 +745,13 @@ RoomStatus:
             put entry `ts` of Thermometer into T
             put now into SensorAge
             take T from SensorAge
-!           SensorAge is now milliseconds since last report
-!           30 minutes = 1800000ms, 10 minutes = 600000ms
+!           SensorAge is now milliseconds since last report.
+!           Warn at 45 min (2700000ms), fail at 60 min (3600000ms). The
+!           45-min warn threshold matches the staleness gate above that
+!           empties TempNow, so a stale sensor and a `warn` status both
+!           force the relay off at the same point.
             if SensorAge is greater than 3600000 put `fail` into RoomStatus
-            else if SensorAge is greater than 1800000
+            else if SensorAge is greater than 2700000
             begin
                 if RoomStatus is not `fail` put `warn` into RoomStatus
             end
