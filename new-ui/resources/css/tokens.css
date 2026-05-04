@@ -32,8 +32,11 @@
 
     --color-chip-neutral-bg: #F1F3F5;
     --color-chip-neutral-fg: #999999;
-    --color-chip-ok-bg:      #E8F4EC;
-    --color-chip-ok-fg:      #3A8C5F;
+    /* Blue rather than green — red/green confusion is the most common form
+       of colour-blindness, and the chip-heat colour is a warm orange that
+       reads close to red. Blue against orange is unambiguous for everyone. */
+    --color-chip-ok-bg:      #E6EFF7;
+    --color-chip-ok-fg:      #2F75B5;
     --color-chip-warn-bg:    #FFF4E0;
     --color-chip-warn-fg:    #C78A1A;
     --color-chip-heat-bg:    var(--color-accent-8);
