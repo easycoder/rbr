@@ -86,6 +86,8 @@
     variable ZK
     variable Version
     variable RemoteVersion
+    variable UpdateCheckCounter
+    variable SysResult
     variable LoopCount
     variable UpdateCount
     variable WaitCounter
@@ -122,6 +124,7 @@
     reset Temperatures
     set LoopCount to 0
     set UpdateCount to 0
+    set UpdateCheckCounter to 0
     set PriorityRoomIndex to -1
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -209,28 +212,8 @@ Start:
     set RequestState to `off`
     set RequestStateWas to `off`
 
-    ! Check for a newer version
-    get RemoteVersion from url `https://rbrheating.com/version`
-        or log `Warning: could not check for updates`
-    if RemoteVersion is not empty
-    begin
-        replace ` ` with `` in RemoteVersion
-        replace newline with `` in RemoteVersion
-        if file `.version` exists load Version from `.version`
-        else put `0` into Version
-        replace ` ` with `` in Version
-        replace newline with `` in Version
-        if RemoteVersion is greater than Version
-        begin
-            log `Updating from version ` cat Version cat ` to ` cat RemoteVersion
-            download `https://rbrheating.com/controller.as` to `controller.as`
-            save RemoteVersion to `.version`
-            log `Update complete. Restarting...`
-            system background `sleep 5 && allspeak controller.as`
-            exit
-        end
-        else log `Controller version ` cat Version cat ` is up to date`
-    end
+    ! Check for a newer version (also called periodically from MainLoop).
+    gosub to CheckForUpdate
 
     gosub to ProcessAllRooms
 
@@ -239,6 +222,17 @@ Start:
 !   It waits 5 seconds between runs. This can be adjusted but 5 seconds seems optimal.
 MainLoop:
     ! log `MainLoop`
+    ! Hourly auto-update check. MainLoop runs every ~5s (720 cycles ≈ 1h),
+    ! so this hits the version endpoint at most once an hour. If a newer
+    ! version exists, CheckForUpdate exits the process and systemd /
+    ! `system background ... allspeak controller.as` relaunches us.
+    increment UpdateCheckCounter
+    if UpdateCheckCounter is greater than 720
+    begin
+        set UpdateCheckCounter to 0
+        gosub to CheckForUpdate
+    end
+
     ! Wait for 5 seconds
     set WaitCounter to 50
     while WaitCounter is greater than 0
@@ -823,6 +817,50 @@ UpdateProfiles:
 UpdateMap:
     set entry `profiles` of Map to Profiles
     return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Auto-update. Reads the version stamp at https://rbrheating.com/version
+!   and compares with the locally-stored .version. If the remote is newer,
+!   pulls the three runtime source files (controller.as, deviceControl.as,
+!   simulator.as), records the new version, and exits — controller.service
+!   relaunches us via its `system background sleep 5 && allspeak ...` line.
+!
+!   Each file is downloaded to a `.new` sidecar, then mv'd into place once
+!   all three downloads have succeeded, so a network failure mid-update
+!   leaves the previous working copies untouched. Called once at startup
+!   and again every hour from MainLoop.
+CheckForUpdate:
+    get RemoteVersion from url `https://rbrheating.com/version`
+        or begin
+            log `Warning: could not check for updates`
+            return
+        end
+    if RemoteVersion is empty return
+    replace ` ` with `` in RemoteVersion
+    replace newline with `` in RemoteVersion
+    if file `.version` exists load Version from `.version`
+    else put `0` into Version
+    replace ` ` with `` in Version
+    replace newline with `` in Version
+    if RemoteVersion is not greater than Version
+    begin
+        log `Controller version ` cat Version cat ` is up to date`
+        return
+    end
+    log `Updating from version ` cat Version cat ` to ` cat RemoteVersion
+    download `https://rbrheating.com/controller.as` to `controller.as.new`
+    download `https://rbrheating.com/deviceControl.as` to `deviceControl.as.new`
+    download `https://rbrheating.com/simulator.as` to `simulator.as.new`
+!   Atomically swap each .new into place. mv on the same filesystem is
+!   atomic so a controller crash mid-swap leaves us with either the old
+!   or the new file, never a torn write.
+    put system `mv -f controller.as.new controller.as` into SysResult
+    put system `mv -f deviceControl.as.new deviceControl.as` into SysResult
+    put system `mv -f simulator.as.new simulator.as` into SysResult
+    save RemoteVersion to `.version`
+    log `Update applied. Restarting...`
+    system background `sleep 5 && allspeak controller.as`
+    exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Force an update now. This will short-circuit the 10-second main loop
