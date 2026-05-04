@@ -152,7 +152,6 @@
 	variable MenuWebson
 	variable ProfileWebson
 	variable RoomRowText
-	variable Seed
 	variable RoomsList
 	variable Room
 	variable RoomIndex
@@ -205,7 +204,6 @@
 	variable NewMode
 	variable Tmode
 	variable Ttarget
-	variable LastTarget
 	variable BoostDur
 	variable Advance
 	variable TempStr
@@ -269,7 +267,6 @@
 	variable BoostMinutes
 	variable RoomNameForServer
 	variable TargetForServer
-	variable LoopP
 	variable CalendarOn
 	variable DemoMode
 	variable AboutSheetWebson
@@ -287,7 +284,6 @@
 	variable EditingActiveValid
 	variable CalendarCardExpanded
 	variable EditIdx
-	variable EditIdxStr
 	variable EditClickIdx
 	variable EditProfileN
 	variable ClonedProfile
@@ -299,7 +295,6 @@
 	variable DayIds
 	variable DayNamesShort
 	variable DayIdStr
-	variable DayPropName
 	variable DayEntry
 	variable DayProfileName
 	variable DayLoopI
@@ -334,14 +329,9 @@
 	variable EventB
 	variable SortI
 	variable SortJ
-	variable SortAUntil
-	variable SortBUntil
 	variable SortAMinutes
 	variable SortBMinutes
 	variable SortedEvents
-	variable EditTcalendar
-	variable EditingProfilesForSchedule
-	variable EditingRoomsForSchedule
 	variable ClonedEvent
 	variable SortJplus1
 	variable ScheduleH
@@ -540,7 +530,8 @@
 		or go to TryServerCredentials
 	if Credentials is not empty go to ApplyCredentials
 TryServerCredentials:
-	rest get Credentials from `credentials.php`
+!	credentials.php lives at the site root, one level above new-ui/.
+	rest get Credentials from `../credentials.php`
 		or go to NoCredentialsFile
 ApplyCredentials:
 	if Credentials is not empty
@@ -589,7 +580,7 @@ NoCredentialsFile:
 
 	dummy
 	mqtt
-		token `rbr` Password
+		token Username Password
 		id MyID
 		broker Broker
 		port Port
