@@ -1193,11 +1193,13 @@ BuildRoomEntry:
 		set property `target` of NewRoom to TempStr
 	end
 
-!	Offline: controller verdict via `status` (`fail` → offline). Also treat
-!	a linked room with no temperature as offline (the thermometer hasn't
-!	reported yet — common for Zigbee sensors after a restart). Categorise
-!	the reason from statusMessage so the sub-line tells the user *what*
-!	is wrong, not just "No signal".
+!	Offline: a relay that's not responding is a real fault — mark offline.
+!	A stale sensor is *not* a fault by itself: the room may simply be at
+!	a steady temperature that triggers no Zigbee reports. The controller
+!	preserves the last known temperature in that case, and we keep showing
+!	it with a soft "No recent temperature change" warn message instead of
+!	blanking the display. A linked room that has never reported is the
+!	one sensor case that does go offline (no last-known value to show).
 	set property `offline` of NewRoom to `no`
 	put `No signal` into OfflineReason
 	put property `status` of LegacyRoom into LegacyStatus
@@ -1216,24 +1218,36 @@ BuildRoomEntry:
 
 	if LegacyStatus is `fail`
 	begin
-		set property `offline` of NewRoom to `yes`
-		if the index of `Sensor` in LegacyStatusMessage is greater than -1
-			put `Thermometer not reporting` into OfflineReason
-		else if the index of `Relay` in LegacyStatusMessage is greater than -1
+		if the index of `Relay` in LegacyStatusMessage is greater than -1
+		begin
+			set property `offline` of NewRoom to `yes`
 			put `Relay not responding` into OfflineReason
+		end
 	end
 
 	set property `offlineReason` of NewRoom to OfflineReason
 
-!	Warn-state message: surface the controller's diagnostic for online rooms
-!	whose status is "warn" (e.g. "Sensor: no report for 12 min"). For failed
-!	rooms the same message has already shaped offlineReason.
+!	Warn-state message: surface the controller's diagnostic for online
+!	rooms. A stale-sensor message ("Sensor: no report for N min") is
+!	softened to "No recent temperature change" since the room may simply
+!	be at a steady temperature; we keep displaying the last known value.
+!	Other warn messages (e.g. relay failures shy of the offline threshold)
+!	pass through verbatim. The same softening applies to a `fail`-status
+!	room when the cause is sensor-side (we didn't go offline above).
 	set property `warnMessage` of NewRoom to empty
 	if property `offline` of NewRoom is `no`
 	begin
 		if LegacyStatus is `warn`
 		begin
-			if LegacyStatusMessage is not empty set property `warnMessage` of NewRoom to LegacyStatusMessage
+			if the index of `Sensor` in LegacyStatusMessage is greater than -1
+				set property `warnMessage` of NewRoom to `No recent temperature change`
+			else if LegacyStatusMessage is not empty
+				set property `warnMessage` of NewRoom to LegacyStatusMessage
+		end
+		else if LegacyStatus is `fail`
+		begin
+			if the index of `Sensor` in LegacyStatusMessage is greater than -1
+				set property `warnMessage` of NewRoom to `No recent temperature change`
 		end
 	end
 

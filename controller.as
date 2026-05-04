@@ -519,11 +519,18 @@ ProcessRoom:
         else log RoomName cat ` sensor ` cat Sensor cat ` has not yet reported`
     end
     put entry `temperature` of Room into TempWas
-    set entry `temperature` of Room to TempNow
-    if TempNow is not TempWas
+    ! Preserve the last known reading when TempNow is empty (sensor stale).
+    ! Status moves to `warn` on its own which both forces the relay off in
+    ! SetRelay and lets the UI show a soft "no recent change" warning over
+    ! the last known value, instead of blanking the temperature display.
+    if TempNow is not empty
     begin
-        log RoomName cat `: temp changed ` cat TempWas cat ` -> ` cat TempNow
-        set MapHasChanged
+        set entry `temperature` of Room to TempNow
+        if TempNow is not TempWas
+        begin
+            log RoomName cat `: temp changed ` cat TempWas cat ` -> ` cat TempNow
+            set MapHasChanged
+        end
     end
     put entry `relays` of Room into Relays
     put entry `relayType` of Room into RelayType
@@ -642,7 +649,7 @@ ProcessReply:
             increment I
         end
         set entry `relayfails` of Room to RelayFails
-        set entry `temperature` of Room to TempNow
+        if TempNow is not empty set entry `temperature` of Room to TempNow
         gosub to SetRelay
     end
     go to RoomStatus
@@ -701,8 +708,9 @@ SetRelay:
     set entry `relay` of Room to RelayState
     if RelayState is `on` set HeatingRequested
 
-    ! Update the room record
-    set entry `temperature` of Room to TempNow
+    ! Update the room record. Temperature is left alone when TempNow is
+    ! empty so the UI can keep showing the last known reading.
+    if TempNow is not empty set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodActive
 RoomStatus:
