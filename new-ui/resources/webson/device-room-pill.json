@@ -1,0 +1,14 @@
+{
+    "#doc": "Room pill rendered into the device editor's room picker. /I/ replaced with the room index. Distinct IDs from sched-profile-pill.json and calendar-pill.json so DOM never collides.",
+    "#element": "button",
+    "@id": "device-room-pill-/I/",
+    "padding": "6px 12px",
+    "border-radius": "8px",
+    "background": "transparent",
+    "border": "1px solid var(--color-border-hairline)",
+    "cursor": "pointer",
+    "font-family": "inherit",
+    "font-size": "13px",
+    "font-weight": "500",
+    "color": "var(--color-text-primary)"
+}

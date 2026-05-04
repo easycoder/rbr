@@ -1,0 +1,157 @@
+{
+    "#doc": "Outside thermometer + frost protection sheet. Names the outdoor Zigbee thermometer (or blank if none) and sets a frost-protect trigger temperature (blank disables protection). When the outside temperature falls to the trigger and no rooms are calling, the controller fires the request/demand relay and the home screen shows a snowflake next to the outside temperature plus a 'Frost protection active' status.",
+    "#element": "div",
+    "@id": "outside-sheet",
+    "#": ["$Tagline", "$SensorBlock", "$FrostBlock", "$Buttons"],
+
+    "$Tagline": {
+        "#element": "div",
+        "margin-top": "2px",
+        "font-size": "13px",
+        "font-weight": "400",
+        "color": "var(--color-text-secondary)",
+        "#content": "Configure the outside thermometer and frost protection. Save to apply, Cancel to discard."
+    },
+
+    "$SensorBlock": {
+        "#element": "div",
+        "margin-top": "14px",
+        "#": ["$SensorLabel", "$SensorInput", "$SensorHint"],
+
+        "$SensorLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "Outside thermometer (Zigbee)"
+        },
+
+        "$SensorInput": {
+            "#element": "input",
+            "@id": "outside-sheet-sensor",
+            "@type": "text",
+            "@spellcheck": "false",
+            "@autocapitalize": "none",
+            "@autocomplete": "off",
+            "@placeholder": "(none)",
+            "width": "100%",
+            "padding": "10px 12px",
+            "border": "1px solid var(--color-border-hairline)",
+            "border-radius": "10px",
+            "background": "var(--color-surface-card)",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "color": "var(--color-text-primary)",
+            "box-sizing": "border-box"
+        },
+
+        "$SensorHint": {
+            "#element": "div",
+            "margin-top": "6px",
+            "font-size": "11px",
+            "color": "var(--color-text-muted)",
+            "#content": "Leave blank if the system has no outdoor sensor."
+        }
+    },
+
+    "$FrostBlock": {
+        "#element": "div",
+        "margin-top": "16px",
+        "#": ["$FrostLabel", "$FrostRow", "$FrostHint"],
+
+        "$FrostLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "Frost protection trigger"
+        },
+
+        "$FrostRow": {
+            "#element": "div",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "8px",
+            "#": ["$FrostInput", "$FrostUnit"],
+
+            "$FrostInput": {
+                "#element": "input",
+                "@id": "outside-sheet-frost",
+                "@type": "text",
+                "@spellcheck": "false",
+                "@autocomplete": "off",
+                "@placeholder": "(off)",
+                "width": "5em",
+                "padding": "10px 12px",
+                "border": "1px solid var(--color-border-hairline)",
+                "border-radius": "10px",
+                "background": "var(--color-surface-card)",
+                "font-family": "inherit",
+                "font-size": "14px",
+                "color": "var(--color-text-primary)",
+                "text-align": "center",
+                "box-sizing": "border-box"
+            },
+            "$FrostUnit": {
+                "#element": "div",
+                "font-size": "14px",
+                "color": "var(--color-text-secondary)",
+                "#content": "°C"
+            }
+        },
+
+        "$FrostHint": {
+            "#element": "div",
+            "margin-top": "6px",
+            "font-size": "11px",
+            "color": "var(--color-text-muted)",
+            "#content": "Leave blank to disable. When the outside temperature falls to this value and no rooms are calling for heat, the demand relay fires."
+        }
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "margin-top": "20px",
+        "display": "flex",
+        "gap": "10px",
+        "#": ["$CancelBtn", "$SaveBtn"],
+
+        "$CancelBtn": {
+            "#element": "button",
+            "@id": "outside-sheet-cancel-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-surface-card)",
+            "border": "1px solid var(--color-border-hairline)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)",
+            "#content": "Cancel"
+        },
+
+        "$SaveBtn": {
+            "#element": "button",
+            "@id": "outside-sheet-save-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-accent)",
+            "border": "1px solid var(--color-accent)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "600",
+            "color": "white",
+            "#content": "Save"
+        }
+    }
+}

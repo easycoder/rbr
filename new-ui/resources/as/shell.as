@@ -60,11 +60,9 @@
 	button ProfileAddBtn
 	button ProfileSaveBtn
 	button ProfileCancelBtn
-	button MenuRowProfiles
-	button MenuRowRooms
-	button MenuRowHoliday
 	button MenuRowSystem
-	button MenuRowNotifications
+	button MenuRowDevices
+	button MenuRowOutside
 	button MenuRowHelp
 	div ProfileListHolder
 	div ProfileRow
@@ -95,6 +93,11 @@
 	button PeriodTempPlusBtn
 	button PeriodDeleteBtn
 	div DeviceEditorSheetEl
+	button DeviceEditorRoomPill
+	div DeviceEditorRoomValue
+	div DeviceEditorRoomChev
+	div DeviceEditorRoomPicker
+	button DeviceRoomPill
 	input DeviceEditorSensor
 	button DeviceEditorRtRBRNow
 	button DeviceEditorRtShelly
@@ -103,6 +106,18 @@
 	textarea DeviceEditorRelays
 	button DeviceEditorSaveBtn
 	button DeviceEditorCancelBtn
+	div SystemSheetEl
+	input SystemSheetName
+	button SystemSheetTypeBoiler
+	button SystemSheetTypeHeatPump
+	button SystemSheetSaveBtn
+	button SystemSheetCancelBtn
+	div OutsideSheetEl
+	input OutsideSheetSensor
+	input OutsideSheetFrost
+	button OutsideSheetSaveBtn
+	button OutsideSheetCancelBtn
+	div SummaryOutsideFrost
 
 !	Per-row interactive elements (indexed via `index X to RoomIndex` in the
 !	render loop so each click handler can recover its row via `the index of X`).
@@ -124,7 +139,6 @@
 	div AdvanceBlockEl
 	button AdvanceBtn
 	button EditScheduleBtn
-	button EditDevicesBtn
 
 	variable LayoutWebson
 	variable TopBarWebson
@@ -370,10 +384,47 @@
 	variable BoostText
 	variable Tboost
 
+!	System sheet state. SystemType is "Boiler" or "Heat Pump"; stored on
+!	the map root so the controller can fan it out to fuel-aware logic.
+	variable SystemSheetWebson
+	variable EditingSystemName
+	variable EditingSystemType
+	variable SystemType
+
+!	Outside sheet state. The outside thermometer lives in the legacy "room
+!	with empty relays" slot of every profile; sensor name and frost-trigger
+!	(ptemp) are fanned out to all profiles on save. FrostActive is derived
+!	per refresh from the controller's `frostActive` flag if present, else
+!	computed locally (outside temp ≤ trigger and no rooms calling).
+	variable OutsideSheetWebson
+	variable OutsideSensor
+	variable FrostTrigger
+	variable EditingOutsideSensor
+	variable EditingFrostTrigger
+	variable FrostActive
+	variable OutsideTempTenths
+	variable FrostTriggerTenths
+	variable NegativeFlag
+	variable OutsideRoomLegacyIdx
+	variable OutsideRoomFound
+	variable LiveProfileForOutside
+	variable LiveRoomsForOutside
+	variable LiveRoomForOutside
+	variable OutsideProfileLoopI
+
 !	Device editor state. EditingDevicesRoomLegacyIdx pins the legacy-room
 !	slot we're editing across all live profiles (the same physical room
 !	exists in every profile, so device fields are written to all slots).
+!	EditingDevicesRoomIdx is the index into RoomsList (filters out outdoor
+!	sensor rooms); the room picker lets the user swap rooms within the
+!	editor without leaving the sheet.
 	variable DeviceEditorWebson
+	variable DeviceRoomPillJson
+	variable DeviceRoomPillText
+	variable DeviceRoomPillIdx
+	variable DeviceRoomPillIdxStr
+	variable DeviceRoomPickerOpen
+	variable EditingDevicesRoomIdx
 	variable EditingDevicesRoomLegacyIdx
 	variable EditingDevicesRoomName
 	variable EditingDevicesRelayType
@@ -621,6 +672,7 @@ BuildHomeScreen:
 	attach SummarySubtitle to `summary-subtitle`
 	attach SummaryAvg to `summary-avg`
 	attach SummaryOutside to `summary-outside`
+	attach SummaryOutsideFrost to `summary-outside-frost`
 	attach SummaryToday to `summary-today`
 	attach SummaryProfileName to `summary-profile-name`
 	attach SummaryChip to `summary-chip`
@@ -660,7 +712,6 @@ BuildHomeScreen:
 	set the elements of AdvanceBlockEl to RoomCount
 	set the elements of AdvanceBtn to RoomCount
 	set the elements of EditScheduleBtn to RoomCount
-	set the elements of EditDevicesBtn to RoomCount
 
 	put 0 into RoomIndex
 	while RoomIndex is less than RoomCount
@@ -708,32 +759,15 @@ BuildHomeScreen:
 	on click SheetCloseBtn gosub to CloseSheet
 	on click SheetScrim gosub to CloseSheet
 
-!	Menu row click stubs — each just logs until its target module lands.
-	attach MenuRowProfiles to `menu-row-profiles`
-	on click MenuRowProfiles
-	begin
-		gosub to OpenProfileSheet
-	end
-	attach MenuRowRooms to `menu-row-rooms`
-	on click MenuRowRooms
-	begin
-		log `Menu: Rooms & thermostats (stub)`
-	end
-	attach MenuRowHoliday to `menu-row-holiday`
-	on click MenuRowHoliday
-	begin
-		log `Menu: Holiday mode (stub)`
-	end
+!	Menu row click handlers. System / Devices / Outside open their own
+!	sheets; Help is wired but inactive (no target sheet yet — placeholder
+!	for a future help/about flow).
 	attach MenuRowSystem to `menu-row-system`
-	on click MenuRowSystem
-	begin
-		gosub to ResetCredentialsAndReload
-	end
-	attach MenuRowNotifications to `menu-row-notifications`
-	on click MenuRowNotifications
-	begin
-		log `Menu: Notifications (stub)`
-	end
+	on click MenuRowSystem gosub to OpenSystemSheet
+	attach MenuRowDevices to `menu-row-devices`
+	on click MenuRowDevices gosub to OpenDeviceEditor
+	attach MenuRowOutside to `menu-row-outside`
+	on click MenuRowOutside gosub to OpenOutsideSheet
 	attach MenuRowHelp to `menu-row-help`
 	on click MenuRowHelp
 	begin
@@ -744,9 +778,8 @@ BuildHomeScreen:
 	attach MenuButton to `top-bar-menu-btn`
 	on click MenuButton
 	begin
+		gosub to HideAllSheets
 		set style `display` of MenuSheetEl to `block`
-		set style `display` of ProfileSheetEl to `none`
-		set style `display` of ScheduleSheetEl to `none`
 		set the content of SheetTitleEl to `Menu`
 		gosub to OpenSheet
 	end
@@ -867,13 +900,20 @@ BuildHomeScreen:
 	on click ScheduleSaveBtn gosub to SaveScheduleEditor
 	on click ScheduleCancelBtn gosub to CloseScheduleEditor
 
-!	Device editor sheet — sibling sheet inside sheet-content. Opened on
-!	demand via the per-room "Edit devices" button.
+!	Device editor sheet — sibling sheet inside sheet-content. Opened from
+!	the menu's "Devices" row. The room picker at the top swaps which room
+!	is being edited without leaving the sheet.
+	rest get DeviceRoomPillJson from `resources/webson/device-room-pill.json?v=` cat now
+		or go to LoadFailed
 	rest get DeviceEditorWebson from `resources/webson/device-editor.json?v=` cat now
 		or go to LoadFailed
 	render DeviceEditorWebson in SheetContent
 	attach DeviceEditorSheetEl to `device-editor-sheet`
 	set style `display` of DeviceEditorSheetEl to `none`
+	attach DeviceEditorRoomPill to `device-editor-room-pill`
+	attach DeviceEditorRoomValue to `device-editor-room-value`
+	attach DeviceEditorRoomChev to `device-editor-room-chev`
+	attach DeviceEditorRoomPicker to `device-editor-room-picker`
 	attach DeviceEditorSensor to `device-editor-sensor`
 	attach DeviceEditorRtRBRNow to `device-editor-rt-rbrnow`
 	attach DeviceEditorRtShelly to `device-editor-rt-shelly`
@@ -882,6 +922,8 @@ BuildHomeScreen:
 	attach DeviceEditorRelays to `device-editor-relays`
 	attach DeviceEditorSaveBtn to `device-editor-save-btn`
 	attach DeviceEditorCancelBtn to `device-editor-cancel-btn`
+
+	on click DeviceEditorRoomPill gosub to ToggleDeviceRoomPicker
 
 	on click DeviceEditorRtRBRNow
 	begin
@@ -906,6 +948,47 @@ BuildHomeScreen:
 	end
 	on click DeviceEditorSaveBtn gosub to SaveDeviceEditor
 	on click DeviceEditorCancelBtn gosub to CloseDeviceEditor
+
+!	System type & name sheet — opened from the menu's "System type & name"
+!	row. Edits the map's name + systemType fields.
+	rest get SystemSheetWebson from `resources/webson/system-sheet.json?v=` cat now
+		or go to LoadFailed
+	render SystemSheetWebson in SheetContent
+	attach SystemSheetEl to `system-sheet`
+	set style `display` of SystemSheetEl to `none`
+	attach SystemSheetName to `system-sheet-name`
+	attach SystemSheetTypeBoiler to `system-sheet-type-boiler`
+	attach SystemSheetTypeHeatPump to `system-sheet-type-heatpump`
+	attach SystemSheetSaveBtn to `system-sheet-save-btn`
+	attach SystemSheetCancelBtn to `system-sheet-cancel-btn`
+
+	on click SystemSheetTypeBoiler
+	begin
+		put `Boiler` into EditingSystemType
+		gosub to PaintSystemSheetType
+	end
+	on click SystemSheetTypeHeatPump
+	begin
+		put `Heat Pump` into EditingSystemType
+		gosub to PaintSystemSheetType
+	end
+	on click SystemSheetSaveBtn gosub to SaveSystemSheet
+	on click SystemSheetCancelBtn gosub to CloseSystemSheet
+
+!	Outside thermometer + frost protection sheet — opened from the menu's
+!	"Outside thermometer" row. Edits the sensor and ptemp on the legacy
+!	"room with empty relays" slot of every profile.
+	rest get OutsideSheetWebson from `resources/webson/outside-sheet.json?v=` cat now
+		or go to LoadFailed
+	render OutsideSheetWebson in SheetContent
+	attach OutsideSheetEl to `outside-sheet`
+	set style `display` of OutsideSheetEl to `none`
+	attach OutsideSheetSensor to `outside-sheet-sensor`
+	attach OutsideSheetFrost to `outside-sheet-frost`
+	attach OutsideSheetSaveBtn to `outside-sheet-save-btn`
+	attach OutsideSheetCancelBtn to `outside-sheet-cancel-btn`
+	on click OutsideSheetSaveBtn gosub to SaveOutsideSheet
+	on click OutsideSheetCancelBtn gosub to CloseOutsideSheet
 
 !	About sheet — sibling sheet inside sheet-content. Auto-opens on first
 !	visit when there are no credentials; tap the house mark in the topbar
@@ -1003,12 +1086,18 @@ MapToRooms:
 	put element CurrentProfile of Profiles into ActiveProfile
 	put property `name` of ActiveProfile into ActiveProfileName
 	put property `name` of Map into SystemName
+	put property `systemType` of Map into SystemType
+	if SystemType is empty put `Boiler` into SystemType
 	put property `rooms` of ActiveProfile into LegacyRooms
 	put the json count of LegacyRooms into LegacyRoomCount
 
 	put `[]` into RoomsList
 	put 0 into RoomsListIdx
 	put empty into OutsideTemp
+	put empty into OutsideSensor
+	put empty into FrostTrigger
+	clear OutsideRoomFound
+	put 0 into OutsideRoomLegacyIdx
 
 	put 0 into LegacyIdx
 	while LegacyIdx is less than LegacyRoomCount
@@ -1018,7 +1107,13 @@ MapToRooms:
 		put the json count of LegacyRelays into LegacyRelayCount
 		if LegacyRelayCount is 0
 		begin
-!			Outdoor sensor entry: take its temperature, skip the room.
+!			Outdoor sensor entry: pin its slot index for the device editor,
+!			capture its sensor name + frost trigger, take its temperature.
+!			Skip the room (no card).
+			set OutsideRoomFound
+			put LegacyIdx into OutsideRoomLegacyIdx
+			put property `sensor` of LegacyRoom into OutsideSensor
+			put property `ptemp` of LegacyRoom into FrostTrigger
 			put property `temperature` of LegacyRoom into LegacyTemp
 			if LegacyTemp is not empty
 			begin
@@ -1333,6 +1428,20 @@ CloseSheet:
 	set style `pointer-events` of SheetRoot to `none`
 	return
 
+!	Every sibling sheet under sheet-content lives at display:block when
+!	visible. Each Open<X> routine must hide all the others first; calling
+!	this before flipping a single sheet's display:block is the single
+!	chokepoint that prevents one sheet bleeding through another.
+HideAllSheets:
+	set style `display` of MenuSheetEl to `none`
+	set style `display` of ProfileSheetEl to `none`
+	set style `display` of ScheduleSheetEl to `none`
+	set style `display` of DeviceEditorSheetEl to `none`
+	set style `display` of SystemSheetEl to `none`
+	set style `display` of OutsideSheetEl to `none`
+	set style `display` of AboutSheetEl to `none`
+	return
+
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Walk all profile rows; the one matching EditingActiveName gets shaded
 !	background + accent border. When EditingCalendarOn, the row body (the
@@ -1552,14 +1661,6 @@ WireRoomInteractions:
 	begin
 		put the index of EditScheduleBtn into ClickIndex
 		gosub to OpenScheduleEditor
-	end
-
-	index EditDevicesBtn to RoomIndex
-	attach EditDevicesBtn to `room-` cat RoomIndex cat `-edit-devices`
-	on click EditDevicesBtn
-	begin
-		put the index of EditDevicesBtn into ClickIndex
-		gosub to OpenDeviceEditor
 	end
 	return
 
@@ -1927,8 +2028,7 @@ OpenProfileSheet:
 	clear CalendarCardExpanded
 	set style `display` of CalendarCardEl to `none`
 	set style `transform` of CalendarChev to `rotate(0deg)`
-	set style `display` of MenuSheetEl to `none`
-	set style `display` of ScheduleSheetEl to `none`
+	gosub to HideAllSheets
 	set style `display` of ProfileSheetEl to `block`
 	set the content of SheetTitleEl to `Profile`
 	gosub to OpenSheet
@@ -2160,8 +2260,7 @@ OpenScheduleEditor:
 	gosub to CloneEventsForEditing
 	gosub to RenderSchedulePeriods
 	gosub to PaintSchedProfilePill
-	set style `display` of MenuSheetEl to `none`
-	set style `display` of ProfileSheetEl to `none`
+	gosub to HideAllSheets
 	set style `display` of ScheduleSheetEl to `block`
 	set the content of SheetTitleEl to `Schedule for ` cat EditingRoomName
 	gosub to OpenSheet
@@ -2454,22 +2553,186 @@ SaveScheduleEditor:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	System type & name sheet — opened from the menu's first row. Edits the
+!	map root's `name` and `systemType` fields. Save ships System Name + a
+!	separate Update message for systemType (the controller's System Name
+!	handler doesn't yet read systemType; storing it on the map keeps the
+!	field around for future controller-side fuel-aware logic).
+OpenSystemSheet:
+	put SystemName into EditingSystemName
+	put SystemType into EditingSystemType
+	if EditingSystemType is empty put `Boiler` into EditingSystemType
+	set the content of SystemSheetName to EditingSystemName
+	gosub to PaintSystemSheetType
+	gosub to HideAllSheets
+	set style `display` of SystemSheetEl to `block`
+	set the content of SheetTitleEl to `System type & name`
+	gosub to OpenSheet
+	return
+
+CloseSystemSheet:
+	gosub to CloseSheet
+	return
+
+PaintSystemSheetType:
+	gosub to ResetSystemSheetTypeBtns
+	if EditingSystemType is `Boiler` gosub to ActivateSystemTypeBoiler
+	else if EditingSystemType is `Heat Pump` gosub to ActivateSystemTypeHeatPump
+	return
+
+ResetSystemSheetTypeBtns:
+	set style `background` of SystemSheetTypeBoiler to `transparent`
+	set style `color` of SystemSheetTypeBoiler to `var(--color-text-muted)`
+	set style `font-weight` of SystemSheetTypeBoiler to `500`
+	set style `box-shadow` of SystemSheetTypeBoiler to `none`
+	set style `background` of SystemSheetTypeHeatPump to `transparent`
+	set style `color` of SystemSheetTypeHeatPump to `var(--color-text-muted)`
+	set style `font-weight` of SystemSheetTypeHeatPump to `500`
+	set style `box-shadow` of SystemSheetTypeHeatPump to `none`
+	return
+
+ActivateSystemTypeBoiler:
+	set style `background` of SystemSheetTypeBoiler to `var(--color-surface-card)`
+	set style `color` of SystemSheetTypeBoiler to `var(--color-text-primary)`
+	set style `font-weight` of SystemSheetTypeBoiler to `600`
+	set style `box-shadow` of SystemSheetTypeBoiler to `0 1px 3px rgba(0,0,0,0.08)`
+	return
+
+ActivateSystemTypeHeatPump:
+	set style `background` of SystemSheetTypeHeatPump to `var(--color-surface-card)`
+	set style `color` of SystemSheetTypeHeatPump to `var(--color-text-primary)`
+	set style `font-weight` of SystemSheetTypeHeatPump to `600`
+	set style `box-shadow` of SystemSheetTypeHeatPump to `0 1px 3px rgba(0,0,0,0.08)`
+	return
+
+!	Save: ship a System Name uirequest with both the name and the systemType.
+!	The controller's existing System Name handler picks up `name`; systemType
+!	is included as an additional map-root field that the controller can
+!	preserve until it grows fuel-aware logic.
+SaveSystemSheet:
+	put the content of SystemSheetName into EditingSystemName
+	set property `name` of Map to EditingSystemName
+	set property `systemType` of Map to EditingSystemType
+	put EditingSystemName into SystemName
+	put EditingSystemType into SystemType
+	gosub to PaintSummary
+
+	put `{}` into Result
+	set property `Action` of Result to `System Name`
+	set property `name` of Result to EditingSystemName
+	set property `systemType` of Result to EditingSystemType
+	gosub to PostUiRequest
+	gosub to CloseSystemSheet
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Outside thermometer + frost protection sheet — edits the sensor name
+!	and ptemp on the "room with empty relays" slot of every profile.
+
+OpenOutsideSheet:
+	put OutsideSensor into EditingOutsideSensor
+	put FrostTrigger into EditingFrostTrigger
+	set the content of OutsideSheetSensor to EditingOutsideSensor
+	set the content of OutsideSheetFrost to EditingFrostTrigger
+	gosub to HideAllSheets
+	set style `display` of OutsideSheetEl to `block`
+	set the content of SheetTitleEl to `Outside thermometer`
+	gosub to OpenSheet
+	return
+
+CloseOutsideSheet:
+	gosub to CloseSheet
+	return
+
+!	Save: read inputs, fan out the sensor and ptemp/protect fields across
+!	every profile's outside-room slot, ship Update Profiles. If no outside
+!	room exists in the map yet, this is a no-op (the controller would need
+!	to add the slot first — flagged in the spec, not handled here).
+SaveOutsideSheet:
+	if not OutsideRoomFound
+	begin
+		alert `No outside-thermometer slot found in the map. The controller needs to add one first.`
+		return
+	end
+	put the content of OutsideSheetSensor into EditingOutsideSensor
+	put the content of OutsideSheetFrost into EditingFrostTrigger
+
+	put property `profiles` of Map into LiveProfiles
+	put the json count of LiveProfiles into DeviceProfileCount
+	put 0 into OutsideProfileLoopI
+	while OutsideProfileLoopI is less than DeviceProfileCount
+	begin
+		put element OutsideProfileLoopI of LiveProfiles into LiveProfileForOutside
+		put property `rooms` of LiveProfileForOutside into LiveRoomsForOutside
+		put element OutsideRoomLegacyIdx of LiveRoomsForOutside into LiveRoomForOutside
+		set property `sensor` of LiveRoomForOutside to EditingOutsideSensor
+		if EditingFrostTrigger is empty
+		begin
+			set property `protect` of LiveRoomForOutside to `no`
+			set property `ptemp` of LiveRoomForOutside to empty
+		end
+		else
+		begin
+			set property `protect` of LiveRoomForOutside to `yes`
+			set property `ptemp` of LiveRoomForOutside to EditingFrostTrigger
+		end
+		set element OutsideRoomLegacyIdx of LiveRoomsForOutside to LiveRoomForOutside
+		set property `rooms` of LiveProfileForOutside to LiveRoomsForOutside
+		set element OutsideProfileLoopI of LiveProfiles to LiveProfileForOutside
+		increment OutsideProfileLoopI
+	end
+
+	put `{}` into Result
+	set property `Action` of Result to `Update Profiles`
+	set property `profiles` of Result to LiveProfiles
+	set property `profile` of Result to CurrentProfile
+	if CalendarOn set property `calendar` of Result to `on`
+	else set property `calendar` of Result to `off`
+	put property `calendar-data` of Map into CalendarData
+	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
+	gosub to PostUiRequest
+
+	put EditingOutsideSensor into OutsideSensor
+	put EditingFrostTrigger into FrostTrigger
+	gosub to CloseOutsideSheet
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Device editor — per-room thermometer + relay configuration. Opens from
 !	each room's "Edit devices" button. Edits are local until Save, which
 !	writes the new sensor / relay-type / relays / linked fields onto every
 !	profile's slot for this room (the device wiring is physical, shared
 !	across profiles) and ships an Update Rooms uirequest.
 
-!	Open: snapshot the room's device fields into the editing scratch vars,
-!	paint the inputs, swap the visible sheet.
+!	Open from the menu: pick the first room in RoomsList as the default
+!	(it's already filtered to non-sensor rooms), load its device fields,
+!	swap the visible sheet. The room picker at the top lets the user
+!	change selection without leaving the sheet.
 OpenDeviceEditor:
-	put element ClickIndex of RoomsList into Room
+	if RoomCount is 0
+	begin
+		alert `No rooms in the system yet.`
+		return
+	end
+	put 0 into EditingDevicesRoomIdx
+	gosub to LoadDeviceEditorRoom
+	clear DeviceRoomPickerOpen
+	set style `display` of DeviceEditorRoomPicker to `none`
+	set style `transform` of DeviceEditorRoomChev to `rotate(0deg)`
+	gosub to HideAllSheets
+	set style `display` of DeviceEditorSheetEl to `block`
+	set the content of SheetTitleEl to `Devices`
+	gosub to OpenSheet
+	return
+
+!	Pull device fields for room at RoomsList[EditingDevicesRoomIdx] into
+!	the editing scratch vars and the input controls. Used on initial open
+!	and again when the picker swaps rooms.
+LoadDeviceEditorRoom:
+	put element EditingDevicesRoomIdx of RoomsList into Room
 	put property `name` of Room into EditingDevicesRoomName
 	put property `legacyIdx` of Room into EditingDevicesRoomLegacyIdx
 
-!	Pull the live device fields from the active profile's room slot. The
-!	device wiring is the same in every profile, so reading from the active
-!	one is equivalent to reading from any other.
 	put property `profiles` of Map into LiveProfiles
 	put element CurrentProfile of LiveProfiles into LiveProfileForDevices
 	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
@@ -2481,7 +2744,6 @@ OpenDeviceEditor:
 	put property `linked` of LiveRoomForDevices into EditingDevicesLinked
 	if EditingDevicesLinked is empty put `yes` into EditingDevicesLinked
 
-!	Flatten the relays array into a newline-joined string for the textarea.
 	put property `relays` of LiveRoomForDevices into RelayLinesArray
 	put empty into EditingDevicesRelaysText
 	if RelayLinesArray is not empty
@@ -2496,17 +2758,65 @@ OpenDeviceEditor:
 		end
 	end
 
+	set the content of DeviceEditorRoomValue to EditingDevicesRoomName
 	set the content of DeviceEditorSensor to EditingDevicesSensor
 	set the content of DeviceEditorRelays to EditingDevicesRelaysText
 	gosub to PaintDeviceEditorRelayType
 	gosub to PaintDeviceEditorLinked
+	return
 
-	set style `display` of MenuSheetEl to `none`
-	set style `display` of ProfileSheetEl to `none`
-	set style `display` of ScheduleSheetEl to `none`
-	set style `display` of DeviceEditorSheetEl to `block`
-	set the content of SheetTitleEl to `Devices for ` cat EditingDevicesRoomName
-	gosub to OpenSheet
+!	Toggle the room picker open/closed. Rebuild the pill list each open
+!	(rooms can be added/removed between sessions; the picker contents
+!	must reflect current state).
+ToggleDeviceRoomPicker:
+	if DeviceRoomPickerOpen
+	begin
+		clear DeviceRoomPickerOpen
+		set style `display` of DeviceEditorRoomPicker to `none`
+		set style `transform` of DeviceEditorRoomChev to `rotate(0deg)`
+		return
+	end
+	gosub to RenderDeviceRoomPicker
+	set DeviceRoomPickerOpen
+	set style `display` of DeviceEditorRoomPicker to `flex`
+	set style `transform` of DeviceEditorRoomChev to `rotate(180deg)`
+	return
+
+!	One pill per room in RoomsList. Tapping a pill loads that room's
+!	device fields and closes the picker.
+RenderDeviceRoomPicker:
+	clear DeviceEditorRoomPicker
+	if RoomCount is 0 return
+	set the elements of DeviceRoomPill to RoomCount
+	put 0 into DeviceRoomPillIdx
+	while DeviceRoomPillIdx is less than RoomCount
+	begin
+		put DeviceRoomPillJson into DeviceRoomPillText
+		put `` cat DeviceRoomPillIdx into DeviceRoomPillIdxStr
+		replace `/I/` with DeviceRoomPillIdxStr in DeviceRoomPillText
+		render DeviceRoomPillText in DeviceEditorRoomPicker
+
+		index DeviceRoomPill to DeviceRoomPillIdx
+		attach DeviceRoomPill to `device-room-pill-` cat DeviceRoomPillIdxStr
+		put element DeviceRoomPillIdx of RoomsList into Room
+		set the content of DeviceRoomPill to property `name` of Room
+		if DeviceRoomPillIdx is EditingDevicesRoomIdx
+		begin
+			set style `border-color` of DeviceRoomPill to `var(--color-accent)`
+			set style `color` of DeviceRoomPill to `var(--color-accent)`
+		end
+
+		on click DeviceRoomPill
+		begin
+			put the index of DeviceRoomPill into EditingDevicesRoomIdx
+			gosub to LoadDeviceEditorRoom
+			clear DeviceRoomPickerOpen
+			set style `display` of DeviceEditorRoomPicker to `none`
+			set style `transform` of DeviceEditorRoomChev to `rotate(0deg)`
+		end
+
+		increment DeviceRoomPillIdx
+	end
 	return
 
 !	Cancel: just close. Editing scratch vars are left to rot; next open
@@ -2850,9 +3160,7 @@ ResetCredentialsAndReload:
 !	Open: hide other sheets, show About, set title, reveal the CTA only
 !	when in demo mode (so existing users don't see a setup prompt).
 OpenAboutSheet:
-	set style `display` of MenuSheetEl to `none`
-	set style `display` of ProfileSheetEl to `none`
-	set style `display` of ScheduleSheetEl to `none`
+	gosub to HideAllSheets
 	set style `display` of AboutSheetEl to `block`
 	if DemoMode set style `display` of AboutCtaSetup to `block`
 	else set style `display` of AboutCtaSetup to `none`
@@ -3057,7 +3365,37 @@ ComputeSummaryStats:
 	put `—` into OutsideText
 	if OutsideTemp is not empty put OutsideTemp cat `°` into OutsideText
 
-	if HeatingCount is 0
+!	Frost protection: trust the controller's `frostActive` flag if it sets
+!	one, otherwise compute locally — active when a trigger is set, the
+!	outdoor temperature is at-or-below it, and no rooms are calling.
+	clear FrostActive
+	if property `frostActive` of Map is `yes` set FrostActive
+	else
+	begin
+		if FrostTrigger is not empty
+		begin
+			if OutsideTemp is not empty
+			begin
+				if HeatingCount is 0
+				begin
+					put OutsideTemp into TempStr
+					gosub to ToTenths
+					put TempTenths into OutsideTempTenths
+					put FrostTrigger into TempStr
+					gosub to ToTenths
+					put TempTenths into FrostTriggerTenths
+					if OutsideTempTenths is not greater than FrostTriggerTenths set FrostActive
+				end
+			end
+		end
+	end
+
+	if FrostActive
+	begin
+		put `Frost protection active` into TitleText
+		put `Demand relay firing` into SubtitleText
+	end
+	else if HeatingCount is 0
 	begin
 		put `Nothing calling for heat` into TitleText
 		put `System idle` into SubtitleText
@@ -3094,6 +3432,9 @@ PaintSummary:
 	end
 	if SystemName is not empty set the content of SystemId to SystemName
 
+	if FrostActive set style `display` of SummaryOutsideFrost to `inline-block`
+	else set style `display` of SummaryOutsideFrost to `none`
+
 	if HeatingCount is 0
 	begin
 		set style `background` of SummaryChip to `var(--color-chip-neutral-bg)`
@@ -3119,23 +3460,34 @@ FormatTodayString:
 	put DayName cat ` ` cat DateDN cat ` ` cat MonthName into TempStr
 	return
 
-!	String "X.Y" → integer tenths (e.g. "20.5" → 205). Uses TempStr in,
-!	TempTenths out. Mirrors the inline logic in the summary pass.
+!	String "X.Y" → integer tenths (e.g. "20.5" → 205, "-1.7" → -17). Uses
+!	TempStr in, TempTenths out. Negative inputs need a sign-strip pass
+!	first because parsing "left 2 of '-0.5'" → "-0" → 0 silently loses
+!	the sign for sub-1° magnitudes.
 ToTenths:
 	put 0 into TempTenths
 	if TempStr is empty return
+	clear NegativeFlag
+	if left 1 of TempStr is `-`
+	begin
+		set NegativeFlag
+		put from 1 of TempStr into TempStr
+	end
 	put the index of `.` in TempStr into DotIdx
 	if DotIdx is less than 0
 	begin
 		put the value of TempStr into TempTenths
 		multiply TempTenths by 10
-		return
 	end
-	put the value of left DotIdx of TempStr into TempTenths
-	multiply TempTenths by 10
-	increment DotIdx
-	put the value of from DotIdx of TempStr into DecPart
-	add DecPart to TempTenths
+	else
+	begin
+		put the value of left DotIdx of TempStr into TempTenths
+		multiply TempTenths by 10
+		increment DotIdx
+		put the value of from DotIdx of TempStr into DecPart
+		add DecPart to TempTenths
+	end
+	if NegativeFlag multiply TempTenths by -1
 	return
 
 !	Integer tenths → "X.Y" string. Uses TempTenths in, TempStr out.

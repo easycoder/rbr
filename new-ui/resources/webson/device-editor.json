@@ -1,8 +1,8 @@
 {
-    "#doc": "Device editor sheet — per-room thermometer + relay configuration. Sensor name, relay type (segmented pill: RBR-Now / Shelly One), linked toggle, relay names list (one per line). Save ships an Update Rooms uirequest with the full rooms array.",
+    "#doc": "Device editor sheet — per-room thermometer + relay configuration. Room picker at top (selects which room to edit), then sensor name, relay type pill, linked toggle, relay names list. Save ships an Update Profiles uirequest with the full profiles array (device fields fanned out to all profiles).",
     "#element": "div",
     "@id": "device-editor-sheet",
-    "#": ["$Tagline", "$SensorBlock", "$RelayTypeBlock", "$LinkedBlock", "$RelaysBlock", "$Buttons"],
+    "#": ["$Tagline", "$RoomPill", "$RoomPicker", "$SensorBlock", "$RelayTypeBlock", "$LinkedBlock", "$RelaysBlock", "$Buttons"],
 
     "$Tagline": {
         "#element": "div",
@@ -10,7 +10,65 @@
         "font-size": "13px",
         "font-weight": "400",
         "color": "var(--color-text-secondary)",
-        "#content": "Configure the thermometer and relays for this room. Save to apply, Cancel to discard."
+        "#content": "Configure the thermometer and relays for the selected room. Save to apply, Cancel to discard."
+    },
+
+    "$RoomPill": {
+        "#element": "button",
+        "@id": "device-editor-room-pill",
+        "width": "100%",
+        "margin-top": "12px",
+        "padding": "10px 14px",
+        "border-radius": "12px",
+        "background": "transparent",
+        "border": "1px solid var(--color-border-hairline)",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "display": "flex",
+        "align-items": "center",
+        "gap": "10px",
+        "#": ["$RoomLabel", "$RoomValue", "$RoomSpacer", "$RoomChev"],
+
+        "$RoomLabel": {
+            "#element": "div",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "text-transform": "uppercase",
+            "color": "var(--color-text-meta)",
+            "#content": "Room"
+        },
+        "$RoomValue": {
+            "#element": "div",
+            "@id": "device-editor-room-value",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)"
+        },
+        "$RoomSpacer": { "#element": "div", "flex": "1" },
+        "$RoomChev": {
+            "#element": "div",
+            "@id": "device-editor-room-chev",
+            "width": "12px",
+            "height": "12px",
+            "background-color": "var(--color-text-disabled)",
+            "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
+            "flex-shrink": "0"
+        }
+    },
+
+    "$RoomPicker": {
+        "#element": "div",
+        "@id": "device-editor-room-picker",
+        "margin-top": "8px",
+        "padding": "10px 12px",
+        "border-radius": "10px",
+        "background": "var(--color-surface-card)",
+        "border": "1px solid var(--color-border-hairline)",
+        "display": "none",
+        "flex-wrap": "wrap",
+        "gap": "6px"
     },
 
     "$SensorBlock": {

@@ -125,7 +125,7 @@
         "$OutCol": {
             "#element": "div",
             "padding": "0 4px",
-            "#": ["$Label", "$Value"],
+            "#": ["$Label", "$ValueRow"],
 
             "$Label": {
                 "#element": "div",
@@ -138,13 +138,33 @@
                 "#content": "OUTSIDE"
             },
 
-            "$Value": {
+            "$ValueRow": {
                 "#element": "div",
-                "@id": "summary-outside",
-                "font-size": "var(--type-stat-value-size)",
-                "font-weight": "var(--type-stat-value-weight)",
-                "letter-spacing": "var(--type-stat-value-track)",
-                "color": "var(--color-text-primary)"
+                "display": "flex",
+                "align-items": "center",
+                "gap": "5px",
+                "#": ["$Value", "$Snowflake"],
+
+                "$Value": {
+                    "#element": "div",
+                    "@id": "summary-outside",
+                    "font-size": "var(--type-stat-value-size)",
+                    "font-weight": "var(--type-stat-value-weight)",
+                    "letter-spacing": "var(--type-stat-value-track)",
+                    "color": "var(--color-text-primary)"
+                },
+                "$Snowflake": {
+                    "#doc": "Visible only while frost protection is active.",
+                    "#element": "div",
+                    "@id": "summary-outside-frost",
+                    "width": "14px",
+                    "height": "14px",
+                    "background-color": "var(--color-accent)",
+                    "mask": "url(resources/icon/snowflake.svg) center/contain no-repeat",
+                    "-webkit-mask": "url(resources/icon/snowflake.svg) center/contain no-repeat",
+                    "display": "none",
+                    "flex-shrink": "0"
+                }
             }
         },
 

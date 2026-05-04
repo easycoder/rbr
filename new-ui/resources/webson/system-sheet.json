@@ -1,0 +1,135 @@
+{
+    "#doc": "System type & name sheet — heating type (Boiler / Heat Pump) and the system display name. Save ships System Name + a systemType field on the map. Renders as a sibling sheet inside sheet-content.",
+    "#element": "div",
+    "@id": "system-sheet",
+    "#": ["$Tagline", "$NameBlock", "$TypeBlock", "$Buttons"],
+
+    "$Tagline": {
+        "#element": "div",
+        "margin-top": "2px",
+        "font-size": "13px",
+        "font-weight": "400",
+        "color": "var(--color-text-secondary)",
+        "#content": "Name the system and pick the heating type. Save to apply, Cancel to discard."
+    },
+
+    "$NameBlock": {
+        "#element": "div",
+        "margin-top": "14px",
+        "#": ["$NameLabel", "$NameInput"],
+
+        "$NameLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "System name"
+        },
+
+        "$NameInput": {
+            "#element": "input",
+            "@id": "system-sheet-name",
+            "@type": "text",
+            "@spellcheck": "false",
+            "@autocomplete": "off",
+            "width": "100%",
+            "padding": "10px 12px",
+            "border": "1px solid var(--color-border-hairline)",
+            "border-radius": "10px",
+            "background": "var(--color-surface-card)",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "color": "var(--color-text-primary)",
+            "box-sizing": "border-box"
+        }
+    },
+
+    "$TypeBlock": {
+        "#element": "div",
+        "margin-top": "14px",
+        "#": ["$TypeLabel", "$TypePill"],
+
+        "$TypeLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "Heating type"
+        },
+
+        "$TypePill": {
+            "#element": "div",
+            "background": "var(--color-surface-sunk)",
+            "padding": "4px",
+            "border-radius": "12px",
+            "display": "grid",
+            "grid-template-columns": "1fr 1fr",
+            "gap": "6px",
+            "#": ["$BtnBoiler", "$BtnHeatPump"],
+
+            "$BtnBoiler":   { "$ID": "system-sheet-type-boiler",   "$Label": "Boiler",    "#": "$TypeBtn" },
+            "$BtnHeatPump": { "$ID": "system-sheet-type-heatpump", "$Label": "Heat Pump", "#": "$TypeBtn" },
+
+            "$TypeBtn": {
+                "#element": "button",
+                "@id": "$ID",
+                "padding": "10px 6px",
+                "border": "0",
+                "border-radius": "9px",
+                "background": "transparent",
+                "color": "var(--color-text-muted)",
+                "font-family": "inherit",
+                "font-size": "13px",
+                "font-weight": "500",
+                "cursor": "pointer",
+                "#content": "$Label"
+            }
+        }
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "margin-top": "20px",
+        "display": "flex",
+        "gap": "10px",
+        "#": ["$CancelBtn", "$SaveBtn"],
+
+        "$CancelBtn": {
+            "#element": "button",
+            "@id": "system-sheet-cancel-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-surface-card)",
+            "border": "1px solid var(--color-border-hairline)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)",
+            "#content": "Cancel"
+        },
+
+        "$SaveBtn": {
+            "#element": "button",
+            "@id": "system-sheet-save-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-accent)",
+            "border": "1px solid var(--color-accent)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "600",
+            "color": "white",
+            "#content": "Save"
+        }
+    }
+}
