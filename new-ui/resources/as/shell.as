@@ -526,48 +526,50 @@
 	set element 10 of MonthNames to `Nov`
 	set element 11 of MonthNames to `Dec`
 
-!	MQTT credentials. Try a deploy-provided credentials.json, then fall back
-!	to localStorage prompts (same keys as the legacy UI so a single first-run
-!	prompt covers both).
+!	MQTT credentials. The broker / port / username / password are shared
+!	across all customers and served by credentials.php (which reads from
+!	`../<HTTP_HOST>.txt` — see credentials.example.json for the schema).
+!	The per-system MAC is the only thing the user has to enter, and we
+!	cache it in localStorage so the prompt fires only on first run.
+!
+!	A site-local credentials.json (deploy-provided) takes priority over
+!	the shared endpoint — useful for offline / on-IXHUB testing where
+!	credentials.php isn't reachable.
 	no cache
 	rest get Credentials from `credentials.json`
+		or go to TryServerCredentials
+	if Credentials is not empty go to ApplyCredentials
+TryServerCredentials:
+	rest get Credentials from `credentials.php`
 		or go to NoCredentialsFile
+ApplyCredentials:
 	if Credentials is not empty
 	begin
 		put property `broker` of Credentials into Broker
 		put property `port` of Credentials into Port
 		put property `username` of Credentials into Username
 		put property `password` of Credentials into Password
-		put property `mac` of Credentials into MAC
 		if Broker is `localhost`
 		begin
 			if the hostname is not `localhost` put the hostname into Broker
 		end
 	end
 NoCredentialsFile:
-	if Broker is empty
-	begin
-		get Broker from storage as `dev-broker`
-		if Broker is `null` put empty into Broker
-		if Broker is `undefined` put empty into Broker
-		get Username from storage as `dev-username`
-		if Username is `null` put empty into Username
-		if Username is `undefined` put empty into Username
-		get Password from storage as `dev-password`
-		if Password is `null` put empty into Password
-		if Password is `undefined` put empty into Password
-		get MAC from storage as `dev-mac`
-		if MAC is `null` put empty into MAC
-		if MAC is `undefined` put empty into MAC
-	end
+!	MAC is per-system and never lives on the server. Read it from
+!	localStorage so the user only has to enter it once.
+	get MAC from storage as `dev-mac`
+	if MAC is `null` put empty into MAC
+	if MAC is `undefined` put empty into MAC
 
-!	No credentials → demo / marketing mode. Render the home from a baked
-!	demo map and open the About sheet (with the "Set up my system" CTA
-!	visible) so first-time visitors see what RBR does. Skip MQTT entirely.
+!	No usable credentials → demo / marketing mode. We need a broker (either
+!	from credentials.json / credentials.php) and a MAC (from localStorage).
+!	Either missing → render the home from a baked demo map and open the
+!	About sheet so first-time visitors see what RBR does. Skip MQTT.
 	clear DemoMode
-	if Broker is empty
+	if Broker is empty set DemoMode
+	if MAC is empty set DemoMode
+	if DemoMode
 	begin
-		set DemoMode
 		rest get ReceivedMessage from `demo-map.json?v=` cat now
 			or go to LoadFailed
 		gosub to OnMapReceived
@@ -3251,12 +3253,14 @@ SaveEditingProfiles:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Wipe the four credential keys from localStorage and reload, so the
-!	user gets re-prompted for Broker / Username / Password / MAC. Useful
-!	when a typo has stranded the page on connect.
+!	Wipe the stored MAC and reload — useful when a typo has stranded the
+!	page on connect. Broker / username / password now come from the server
+!	via credentials.php, so they're not in localStorage to clear.
+!	Older keys (dev-broker / dev-username / dev-password) from the prior
+!	four-prompt setup are also cleared, so an upgraded install is tidy.
 ResetCredentialsAndReload:
 	clear ConfirmFlag
-	if confirm `Reset stored credentials and reload? You'll be prompted to re-enter them.` set ConfirmFlag
+	if confirm `Reset stored MAC and reload? You'll be prompted to re-enter it.` set ConfirmFlag
 	if not ConfirmFlag return
 	put empty into storage as `dev-broker`
 	put empty into storage as `dev-username`
@@ -3309,30 +3313,15 @@ ShowAboutTabManual:
 	set style `font-weight` of AboutTabManual to `600`
 	return
 
-!	"Set up my system" CTA. Prompts for the four credential fields, saves
-!	to localStorage, and reloads — the reload picks up the new creds and
-!	jumps into MQTT mode. Cancelling any prompt aborts the whole sequence
-!	(no partial saves so we don't leave the user half-configured).
+!	"Set up my system" CTA. Broker / username / password are now shared
+!	and fetched from credentials.php, so the only thing the user has to
+!	supply is their controller's MAC address. Stored in localStorage and
+!	picked up on the next page load.
 SetupMySystem:
-	put prompt `Connect to your controller.` cat newline cat `MQTT Broker URL:` into Broker
-	if Broker is empty return
-	if Broker is `null` return
-	if Broker is `undefined` return
-	put prompt `Connect to your controller.` cat newline cat `Username:` into Username
-	if Username is empty return
-	if Username is `null` return
-	if Username is `undefined` return
-	put prompt `Connect to your controller.` cat newline cat `Password:` into Password
-	if Password is empty return
-	if Password is `null` return
-	if Password is `undefined` return
-	put prompt `Connect to your controller.` cat newline cat `Controller MAC address:` into MAC
+	put prompt `Enter your controller's MAC address` cat newline cat `(printed on the device, format aa:bb:cc:dd:ee:ff):` into MAC
 	if MAC is empty return
 	if MAC is `null` return
 	if MAC is `undefined` return
-	put Broker into storage as `dev-broker`
-	put Username into storage as `dev-username`
-	put Password into storage as `dev-password`
 	put MAC into storage as `dev-mac`
 	location the location
 	return
