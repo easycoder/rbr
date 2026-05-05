@@ -689,6 +689,11 @@ OnMapReceived:
 	return
 
 !	10-second poll: re-request the map so the UI tracks live state.
+!	After each request the watchdog checks how long it's been since the
+!	last reply. If we go more than 60 s with the tab visible (six missed
+!	cycles) the MQTT WebSocket is almost certainly dead — common on
+!	mobile when the OS / carrier NAT closes idle sockets without the
+!	client noticing. Force a reload to rebuild MQTT from scratch.
 MapPollTask:
 	while true
 	begin
@@ -699,6 +704,17 @@ MapPollTask:
 			take 1 from PollWait
 		end
 		gosub to RequestMap
+		if LastReceivedAt is not empty
+		begin
+			put now into ResumeAge
+			take LastReceivedAt from ResumeAge
+			if ResumeAge is greater than 60000
+			begin
+				log `No MQTT replies for ` cat ResumeAge cat ` ms; reloading`
+				location the location
+				return
+			end
+		end
 	end
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
