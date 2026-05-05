@@ -239,6 +239,7 @@
 	variable LastReceivedAt
 	variable ResumeAge
 	variable ConsecutiveSendFailures
+	variable FirstMapAttempts
 
 !	Map ingestion / transformation state.
 	variable Map
@@ -633,11 +634,38 @@ NoCredentialsFile:
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	First-render path: triggered when MQTT connects. Asks the controller
 !	for a full map; the response handler (OnMapReceived) does the rest.
+!	Forks a watchdog that reloads if the first map doesn't arrive in 30s
+!	(common on mobile when the WebSocket connects but the subscription is
+!	silently dropped before the controller's reply lands).
 Connected:
 	put `first` into Prompt
 	clear FirstMapDone
 	gosub to RequestMap
+	fork to FirstMapWatchdog
 	stop
+
+!	If the first map hasn't arrived after 30 seconds, the MQTT subscription
+!	is almost certainly dead. Force a reload to rebuild the connection.
+!	Capped at 3 attempts via localStorage so a genuinely unreachable
+!	controller doesn't put us in an infinite reload loop.
+FirstMapWatchdog:
+	wait 30 seconds
+	if FirstMapDone return
+	log `First map didn't arrive in 30s`
+	get FirstMapAttempts from storage as `first-map-attempts`
+	if FirstMapAttempts is `null` put 0 into FirstMapAttempts
+	if FirstMapAttempts is `undefined` put 0 into FirstMapAttempts
+	if FirstMapAttempts is empty put 0 into FirstMapAttempts
+	increment FirstMapAttempts
+	put FirstMapAttempts into storage as `first-map-attempts`
+	if FirstMapAttempts is greater than 2
+	begin
+		alert `Cannot reach controller. Please check your network and reload.`
+		return
+	end
+	log `Reloading (first-map attempt ` cat FirstMapAttempts cat `)`
+	location the location
+	return
 
 RequestMap:
 !	Default Prompt so a spurious early call (e.g. on resume firing during
@@ -677,6 +705,7 @@ OnMapReceived:
 	if not FirstMapDone
 	begin
 		set FirstMapDone
+		put 0 into storage as `first-map-attempts`
 		gosub to BuildHomeScreen
 		put `refresh` into Prompt
 		if not DemoMode fork to MapPollTask
