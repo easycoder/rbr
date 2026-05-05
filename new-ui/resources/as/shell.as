@@ -236,6 +236,8 @@
 	variable Prompt
 	variable FirstMapDone
 	variable PollWait
+	variable LastReceivedAt
+	variable ResumeAge
 
 !	Map ingestion / transformation state.
 	variable Map
@@ -474,12 +476,27 @@
 	attach HeartbeatDot to `top-bar-heartbeat-dot`
 	on click HeartbeatBtn gosub to RequestMap
 
-!	Tab resume — when the OS / browser un-throttles a backgrounded tab,
-!	the polling loop may have stalled. Fire an immediate refresh so the
-!	user sees current data without waiting for the next poll tick.
+!	Tab resume — when the OS un-throttles a backgrounded tab, the MQTT
+!	WebSocket may have been silently torn down by the OS or network.
+!	The MQTT client doesn't always notice, so a `send` succeeds into a
+!	dead socket and no reply ever comes back. If the last message we
+!	received is older than 5 minutes, force a full page reload to rebuild
+!	MQTT from scratch. For shorter resumes (briefly switched apps), just
+!	trigger an immediate refresh.
 	on resume
 	begin
-		log `Tab resumed; refreshing now`
+		log `Tab resumed`
+		if LastReceivedAt is not empty
+		begin
+			put now into ResumeAge
+			take LastReceivedAt from ResumeAge
+			if ResumeAge is greater than 300000
+			begin
+				log `Stale data on resume (` cat ResumeAge cat ` ms); reloading`
+				location the location
+				return
+			end
+		end
 		gosub to RequestMap
 	end
 
@@ -616,14 +633,13 @@ RequestMap:
 			sender MyTopic
 			action Prompt
 	end
-	gosub to PulseHeartbeat
 	return
 
-!	Briefly tint the topbar heartbeat dot to confirm a poll cycle fired.
-!	The dot's CSS transition fades the colour back, so we just snap on,
-!	pause long enough to be visible, then snap to the dim resting colour.
-!	Blocks the caller for ~0.5s — fine because RequestMap runs at the end
-!	of the 10-second poll loop.
+!	Briefly tint the topbar heartbeat dot to confirm fresh data arrived.
+!	Pulsing on RECEIVE rather than send means a dead-but-not-yet-detected
+!	WebSocket (common after a phone wake-up) shows up as the dot going
+!	quiet — an honest signal — instead of false-positive pulses from a
+!	send that "succeeded" into a closed socket.
 PulseHeartbeat:
 	set style `background-color` of HeartbeatDot to `var(--color-accent)`
 	wait 50 ticks
@@ -636,6 +652,7 @@ OnMapReceived:
 	if ReceivedMessage is empty return
 	put ReceivedMessage into Map
 	put empty into ReceivedMessage
+	put now into LastReceivedAt
 	gosub to MapToRooms
 	if not FirstMapDone
 	begin
@@ -648,6 +665,7 @@ OnMapReceived:
 	begin
 		gosub to RefreshHomeScreen
 	end
+	gosub to PulseHeartbeat
 	return
 
 !	10-second poll: re-request the map so the UI tracks live state.
