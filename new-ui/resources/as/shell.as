@@ -99,10 +99,10 @@
 	button DeviceRoomPill
 	input DeviceEditorSensor
 	button DeviceEditorRtRBRNow
-	button DeviceEditorRtShelly
 	button DeviceEditorRtZigbee
 	button DeviceEditorLinkedBtn
 	textarea DeviceEditorRelays
+	input DeviceEditorRequest
 	button DeviceEditorSaveBtn
 	button DeviceEditorCancelBtn
 	div SystemSheetEl
@@ -238,6 +238,7 @@
 	variable PollWait
 	variable LastReceivedAt
 	variable ResumeAge
+	variable ConsecutiveSendFailures
 
 !	Map ingestion / transformation state.
 	variable Map
@@ -398,6 +399,15 @@
 	variable EditingSystemType
 	variable SystemType
 
+!	Demand-relay state. RequestRelay holds the current map.request value;
+!	EditingRequestRelay is the in-flight value while the Devices sheet is
+!	open. Save ships a `Request Relay` uirequest only when the value has
+!	actually changed, so opening Devices, switching rooms, and clicking
+!	Save without touching the demand-relay field doesn't gratuitously
+!	republish it.
+	variable RequestRelay
+	variable EditingRequestRelay
+
 !	Outside sheet state. The outside thermometer lives in the legacy "room
 !	with empty relays" slot of every profile; sensor name and frost-trigger
 !	(ptemp) are fanned out to all profiles on save. FrostActive is derived
@@ -486,6 +496,10 @@
 	on resume
 	begin
 		log `Tab resumed`
+!		Don't try to RequestMap before MQTT has connected and the first
+!		map cycle has run — the topic objects and Prompt aren't reliably
+!		set yet, and the next normal poll will catch up on its own.
+		if not FirstMapDone return
 		if LastReceivedAt is not empty
 		begin
 			put now into ResumeAge
@@ -626,12 +640,18 @@ Connected:
 	stop
 
 RequestMap:
+!	Default Prompt so a spurious early call (e.g. on resume firing during
+!	a window where the page backgrounded mid-load) can't trigger the
+!	runtime's "missing action field" check.
+	if Prompt is empty put `refresh` into Prompt
 	log `Requesting map: ` cat Prompt
 	if not DemoMode
 	begin
 		send to ServerTopic
 			sender MyTopic
 			action Prompt
+			giving SendOK
+		if not SendOK log `MQTT poll send failed; will retry next cycle`
 	end
 	return
 
@@ -942,10 +962,10 @@ BuildHomeScreen:
 	attach DeviceEditorRoomPicker to `device-editor-room-picker`
 	attach DeviceEditorSensor to `device-editor-sensor`
 	attach DeviceEditorRtRBRNow to `device-editor-rt-rbrnow`
-	attach DeviceEditorRtShelly to `device-editor-rt-shelly`
 	attach DeviceEditorRtZigbee to `device-editor-rt-zigbee`
 	attach DeviceEditorLinkedBtn to `device-editor-linked-btn`
 	attach DeviceEditorRelays to `device-editor-relays`
+	attach DeviceEditorRequest to `device-editor-request`
 	attach DeviceEditorSaveBtn to `device-editor-save-btn`
 	attach DeviceEditorCancelBtn to `device-editor-cancel-btn`
 
@@ -954,11 +974,6 @@ BuildHomeScreen:
 	on click DeviceEditorRtRBRNow
 	begin
 		put `RBR-Now` into EditingDevicesRelayType
-		gosub to PaintDeviceEditorRelayType
-	end
-	on click DeviceEditorRtShelly
-	begin
-		put `Shelly One` into EditingDevicesRelayType
 		gosub to PaintDeviceEditorRelayType
 	end
 	on click DeviceEditorRtZigbee
@@ -1131,6 +1146,7 @@ MapToRooms:
 	put property `name` of Map into SystemName
 	put property `systemType` of Map into SystemType
 	if SystemType is empty put `Boiler` into SystemType
+	put property `request` of Map into RequestRelay
 	put property `rooms` of ActiveProfile into LegacyRooms
 	put the json count of LegacyRooms into LegacyRoomCount
 
@@ -2839,6 +2855,10 @@ OpenDeviceEditor:
 	end
 	put 0 into EditingDevicesRoomIdx
 	gosub to LoadDeviceEditorRoom
+!	Demand-relay name is system-wide — load it once on open, NOT in
+!	LoadDeviceEditorRoom (which fires every time the room picker swaps).
+	put RequestRelay into EditingRequestRelay
+	set the content of DeviceEditorRequest to EditingRequestRelay
 	clear DeviceRoomPickerOpen
 	set style `display` of DeviceEditorRoomPicker to `none`
 	set style `transform` of DeviceEditorRoomChev to `rotate(0deg)`
@@ -2953,7 +2973,6 @@ CloseDeviceEditor:
 PaintDeviceEditorRelayType:
 	gosub to ResetDeviceEditorRtBtns
 	if EditingDevicesRelayType is `RBR-Now` gosub to ActivateRtRBRNow
-	else if EditingDevicesRelayType is `Shelly One` gosub to ActivateRtShelly
 	else if EditingDevicesRelayType is `Zigbee` gosub to ActivateRtZigbee
 	return
 
@@ -2962,10 +2981,6 @@ ResetDeviceEditorRtBtns:
 	set style `color` of DeviceEditorRtRBRNow to `var(--color-text-muted)`
 	set style `font-weight` of DeviceEditorRtRBRNow to `500`
 	set style `box-shadow` of DeviceEditorRtRBRNow to `none`
-	set style `background` of DeviceEditorRtShelly to `transparent`
-	set style `color` of DeviceEditorRtShelly to `var(--color-text-muted)`
-	set style `font-weight` of DeviceEditorRtShelly to `500`
-	set style `box-shadow` of DeviceEditorRtShelly to `none`
 	set style `background` of DeviceEditorRtZigbee to `transparent`
 	set style `color` of DeviceEditorRtZigbee to `var(--color-text-muted)`
 	set style `font-weight` of DeviceEditorRtZigbee to `500`
@@ -2977,13 +2992,6 @@ ActivateRtRBRNow:
 	set style `color` of DeviceEditorRtRBRNow to `var(--color-text-primary)`
 	set style `font-weight` of DeviceEditorRtRBRNow to `600`
 	set style `box-shadow` of DeviceEditorRtRBRNow to `0 1px 3px rgba(0,0,0,0.08)`
-	return
-
-ActivateRtShelly:
-	set style `background` of DeviceEditorRtShelly to `var(--color-surface-card)`
-	set style `color` of DeviceEditorRtShelly to `var(--color-text-primary)`
-	set style `font-weight` of DeviceEditorRtShelly to `600`
-	set style `box-shadow` of DeviceEditorRtShelly to `0 1px 3px rgba(0,0,0,0.08)`
 	return
 
 ActivateRtZigbee:
@@ -3073,6 +3081,22 @@ SaveDeviceEditor:
 	put property `calendar-data` of Map into CalendarData
 	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
 	gosub to PostUiRequest
+
+!	Demand-relay name — system-wide, lives at map root. Only ship a
+!	`Request Relay` uirequest if the value actually changed, so reopening
+!	the sheet and saving without touching the field is a no-op on the
+!	server. Update the local mirror either way.
+	put the content of DeviceEditorRequest into EditingRequestRelay
+	if EditingRequestRelay is not RequestRelay
+	begin
+		set property `request` of Map to EditingRequestRelay
+		put EditingRequestRelay into RequestRelay
+		put `{}` into Result
+		set property `Action` of Result to `Request Relay`
+		set property `request` of Result to EditingRequestRelay
+		gosub to PostUiRequest
+	end
+
 	gosub to CloseDeviceEditor
 	return
 
@@ -3349,10 +3373,20 @@ PostUiRequest:
 		action `uirequest`
 		message Result
 		giving SendOK
-	if not SendOK
+	if SendOK
 	begin
-		log `WARNING: MQTT send failed (no broker acknowledgment)`
-		alert `Request failed - please retry`
+		put 0 into ConsecutiveSendFailures
+		return
+	end
+	log `WARNING: MQTT send failed (no broker acknowledgment)`
+	increment ConsecutiveSendFailures
+!	Only surface a user-facing alert once the failure looks persistent —
+!	transient hiccups (suspended WebSocket, brief network blip) clear up
+!	on their own as the poll loop reconnects. Three strikes = noisy.
+	if ConsecutiveSendFailures is greater than 2
+	begin
+		alert `Connection problem. Please reload the page if this persists.`
+		put 0 into ConsecutiveSendFailures
 	end
 	return
 

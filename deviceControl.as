@@ -68,12 +68,14 @@ RunController:
 !    log `RunController:` cat the message
     put the message into RoomSpec
 
-    ! See if this room is the request relay
+    ! See if this room is the request relay. The request/demand relay is
+    ! Zigbee — it drives the boiler and so lives on the same bridge as the
+    ! room relays (was ESP-Now in the original ESP32 + RBR-Now setup).
     if RoomSpec has entry `request`
     begin
         put entry `request` of RoomSpec into RelayName
         put entry `relay state` of RoomSpec into Message
-        gosub to MessageESPDevice
+        gosub to MessageZigbeeDevice
         reset Replies
         append Reply to Replies
         send Replies to sender
@@ -95,7 +97,6 @@ RunController:
         put item R of Relays into RelayName
 !        log `Do relay ` cat RelayName cat `type ` cat RelayType cat ` in ` cat RoomName
         if RelayType is `RBR-Now` gosub to MessageESPDevice
-        else if RelayType is `Shelly One` gosub to MessageShellyDevice
         else if RelayType is `Zigbee` gosub to MessageZigbeeDevice
         append Reply to Replies
         increment R
@@ -144,28 +145,6 @@ MessageESPDevice:
         log `Bad response from ` cat RelayName cat `: ` cat Reply
         set Reply to empty
     end
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Send a message to a Shelly One device
-MessageShellyDevice:
-    put `http://` cat RelayName cat `/relay/0?turn=` cat RelayState into URL
-!    log URL
-    get Response from url URL
-    or begin
-        set Reply to empty
-        return
-    end
-!    log RelayName cat ` ` cat Response
-    reset Values
-    set entry `uptime` of Values to 0
-    if Response has entry `ison`
-    begin
-        if entry `ison` of Response is true set entry `state` of Values to `on`
-        else set entry `state` of Values to `off`
-        put Values into Reply
-    end
-    else set Reply to empty
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

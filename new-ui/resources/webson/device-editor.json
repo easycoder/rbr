@@ -2,7 +2,7 @@
     "#doc": "Device editor sheet — per-room thermometer + relay configuration. Room picker at top (selects which room to edit), then sensor name, relay type pill, linked toggle, relay names list. Save ships an Update Profiles uirequest with the full profiles array (device fields fanned out to all profiles).",
     "#element": "div",
     "@id": "device-editor-sheet",
-    "#": ["$Tagline", "$RoomPill", "$RoomPicker", "$SensorBlock", "$RelayTypeBlock", "$LinkedBlock", "$RelaysBlock", "$Buttons"],
+    "#": ["$Tagline", "$RoomPill", "$RoomPicker", "$SensorBlock", "$RelayTypeBlock", "$LinkedBlock", "$RelaysBlock", "$RequestRelayBlock", "$Buttons"],
 
     "$Tagline": {
         "#element": "div",
@@ -128,13 +128,12 @@
             "padding": "4px",
             "border-radius": "12px",
             "display": "grid",
-            "grid-template-columns": "1fr 1fr 1fr",
+            "grid-template-columns": "1fr 1fr",
             "gap": "6px",
-            "#": ["$BtnRBRNow", "$BtnShelly", "$BtnZigbee"],
+            "#": ["$BtnRBRNow", "$BtnZigbee"],
 
-            "$BtnRBRNow": { "$ID": "device-editor-rt-rbrnow", "$Label": "RBR-Now",   "#": "$RTBtn" },
-            "$BtnShelly": { "$ID": "device-editor-rt-shelly", "$Label": "Shelly One", "#": "$RTBtn" },
-            "$BtnZigbee": { "$ID": "device-editor-rt-zigbee", "$Label": "Zigbee",     "#": "$RTBtn" },
+            "$BtnRBRNow": { "$ID": "device-editor-rt-rbrnow", "$Label": "RBR-Now", "#": "$RTBtn" },
+            "$BtnZigbee": { "$ID": "device-editor-rt-zigbee", "$Label": "Zigbee",  "#": "$RTBtn" },
 
             "$RTBtn": {
                 "#element": "button",
@@ -240,6 +239,53 @@
             "color": "var(--color-text-primary)",
             "box-sizing": "border-box",
             "resize": "vertical"
+        }
+    },
+
+    "$RequestRelayBlock": {
+        "#doc": "System-wide setting (not per-room): the Zigbee relay that drives the boiler whenever any room is calling for heat. Blank = the system has no demand relay.",
+        "#element": "div",
+        "margin-top": "20px",
+        "padding-top": "16px",
+        "border-top": "1px solid var(--color-border-divider-soft)",
+        "#": ["$RequestLabel", "$RequestInput", "$RequestHint"],
+
+        "$RequestLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "Demand relay (Zigbee)"
+        },
+
+        "$RequestInput": {
+            "#element": "input",
+            "@id": "device-editor-request",
+            "@type": "text",
+            "@spellcheck": "false",
+            "@autocapitalize": "none",
+            "@autocomplete": "off",
+            "@placeholder": "(none)",
+            "width": "100%",
+            "padding": "10px 12px",
+            "border": "1px solid var(--color-border-hairline)",
+            "border-radius": "10px",
+            "background": "var(--color-surface-card)",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "color": "var(--color-text-primary)",
+            "box-sizing": "border-box"
+        },
+
+        "$RequestHint": {
+            "#element": "div",
+            "margin-top": "6px",
+            "font-size": "11px",
+            "color": "var(--color-text-muted)",
+            "#content": "Leave blank if your boiler doesn't need an external demand relay."
         }
     },
 
