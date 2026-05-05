@@ -694,13 +694,18 @@ PulseHeartbeat:
 	set style `background-color` of HeartbeatDot to `rgba(0,0,0,0.18)`
 	return
 
-!	Fired by `on mqtt message`. First message → BuildHomeScreen (full render).
-!	Subsequent messages → RefreshHomeScreen (in-place update).
+!	Fired by `on mqtt message`. The controller replies to every refresh —
+!	with the full map when state has changed, otherwise with an empty
+!	message that's purely a round-trip ping. We update LastReceivedAt
+!	and pulse the heartbeat for *any* reply (the connection is healthy)
+!	but only do the render work when there's actual map data.
+!	First non-empty message → BuildHomeScreen; subsequent ones → RefreshHomeScreen.
 OnMapReceived:
+	put now into LastReceivedAt
+	gosub to PulseHeartbeat
 	if ReceivedMessage is empty return
 	put ReceivedMessage into Map
 	put empty into ReceivedMessage
-	put now into LastReceivedAt
 	gosub to MapToRooms
 	if not FirstMapDone
 	begin
@@ -714,7 +719,6 @@ OnMapReceived:
 	begin
 		gosub to RefreshHomeScreen
 	end
-	gosub to PulseHeartbeat
 	return
 
 !	10-second poll: re-request the map so the UI tracks live state.

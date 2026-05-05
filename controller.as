@@ -340,14 +340,20 @@ HandleMessages:
         end
         else if Action is `refresh`
         begin
-            ! Refresh acts as a heartbeat for sender tracking.
-            ! Push only when there is fresh map state to send.
+            ! Refresh acts as a heartbeat. If the map changed, push the
+            ! full map to all senders. Otherwise reply with an empty
+            ! message to just the requester — the UI uses any reply as
+            ! a "round-trip is alive" signal driving its heartbeat dot
+            ! and stall-detection watchdog.
             if MapHasChanged
             begin
-!                log `HandleMessages: refresh from ` cat SenderName cat ` -> send map`
                 gosub to SendMapToUI
             end
-!            else log `HandleMessages: refresh from ` cat SenderName cat ` -> no change`
+            else
+            begin
+                set MessageText to empty
+                gosub to SendMessage
+            end
         end
         else if Action is `uirequest` gosub to ProcessUIRequest
         else if Action is `sendemail` gosub to SendEmail
