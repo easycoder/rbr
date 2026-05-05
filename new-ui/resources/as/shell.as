@@ -1240,7 +1240,7 @@ BuildRoomEntry:
 !	A stale sensor is *not* a fault by itself: the room may simply be at
 !	a steady temperature that triggers no Zigbee reports. The controller
 !	preserves the last known temperature in that case, and we keep showing
-!	it with a soft "No recent temperature change" warn message instead of
+!	it with a soft "No recent change" warn message instead of
 !	blanking the display. A linked room that has never reported is the
 !	one sensor case that does go offline (no last-known value to show).
 	set property `offline` of NewRoom to `no`
@@ -1272,7 +1272,7 @@ BuildRoomEntry:
 
 !	Warn-state message: surface the controller's diagnostic for online
 !	rooms. A stale-sensor message ("Sensor: no report for N min") is
-!	softened to "No recent temperature change" since the room may simply
+!	softened to "No recent change" since the room may simply
 !	be at a steady temperature; we keep displaying the last known value.
 !	Other warn messages (e.g. relay failures shy of the offline threshold)
 !	pass through verbatim. The same softening applies to a `fail`-status
@@ -1283,14 +1283,14 @@ BuildRoomEntry:
 		if LegacyStatus is `warn`
 		begin
 			if the index of `Sensor` in LegacyStatusMessage is greater than -1
-				set property `warnMessage` of NewRoom to `No recent temperature change`
+				set property `warnMessage` of NewRoom to `No recent change`
 			else if LegacyStatusMessage is not empty
 				set property `warnMessage` of NewRoom to LegacyStatusMessage
 		end
 		else if LegacyStatus is `fail`
 		begin
 			if the index of `Sensor` in LegacyStatusMessage is greater than -1
-				set property `warnMessage` of NewRoom to `No recent temperature change`
+				set property `warnMessage` of NewRoom to `No recent change`
 		end
 	end
 
