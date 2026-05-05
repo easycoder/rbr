@@ -71,10 +71,13 @@ RunController:
     ! See if this room is the request relay. The request/demand relay is
     ! Zigbee — it drives the boiler and so lives on the same bridge as the
     ! room relays (was ESP-Now in the original ESP32 + RBR-Now setup).
+    ! MessageZigbeeDevice reads RelayState (not Message) to build its URL,
+    ! so populate both to match the room-relay path below.
     if RoomSpec has entry `request`
     begin
         put entry `request` of RoomSpec into RelayName
-        put entry `relay state` of RoomSpec into Message
+        put entry `relay state` of RoomSpec into RelayState
+        put RelayState into Message
         gosub to MessageZigbeeDevice
         reset Replies
         append Reply to Replies

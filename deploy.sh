@@ -28,6 +28,14 @@ set -euo pipefail
 REMOTE="rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com"
 LOCAL="$(cd "$(dirname "$0")" && pwd)"
 
+# SSH connection multiplexing — share a single SSH session across all the
+# rsync calls below. Without this, each rsync re-pays the SSH handshake
+# cost (which can be 30+ s on a slow link); with it, only the first one
+# pays. ControlPersist keeps the master alive briefly after the script
+# exits so an immediate re-run is also fast.
+SSH_CTL="/tmp/ssh-rbr-%r@%h:%p"
+SSH_OPTS="ssh -o ControlMaster=auto -o ControlPath=$SSH_CTL -o ControlPersist=60"
+
 RELEASE=0
 for arg in "$@"; do
     case "$arg" in
@@ -39,7 +47,7 @@ done
 echo "Deploying RBR to ${REMOTE}..."
 
 # Root-level web files (legacy UI)
-rsync -rvz --no-perms \
+rsync -rvz --no-perms -e "$SSH_OPTS" \
     "$LOCAL/index.html" \
     "$LOCAL/favicon.ico" \
     "$LOCAL/auth.php" \
@@ -50,7 +58,7 @@ rsync -rvz --no-perms \
 # Resources subdirectories — --delete keeps remote in sync with local
 for dir in as css icon img json webson; do
     echo "  resources/$dir"
-    rsync -rvz --no-perms --delete \
+    rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
         "$LOCAL/resources/$dir/" \
         "$REMOTE/resources/$dir/"
 done
@@ -58,7 +66,7 @@ done
 # Controller AllSpeak source files. Always pushed so the cloud copy is
 # current, but customer IXHUBs won't pull them until the version bumps.
 echo "Deploying controller files..."
-rsync -vz --no-perms \
+rsync -vz --no-perms -e "$SSH_OPTS" \
     "$LOCAL/controller.as" \
     "$LOCAL/deviceControl.as" \
     "$LOCAL/simulator.as" \
@@ -71,7 +79,7 @@ if [[ $RELEASE -eq 1 ]]; then
     NEW_VERSION="$(date +%y%m%d%H%M)"
     echo "$NEW_VERSION" > "$LOCAL/version"
     echo "Releasing version $NEW_VERSION..."
-    rsync -vz --no-perms "$LOCAL/version" "$REMOTE/"
+    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/version" "$REMOTE/"
     echo "Done. IXHUB controllers will pick up version $NEW_VERSION on their next hourly check."
 else
     echo "Done. Files uploaded; version stamp unchanged. Run with --release to publish to customers."

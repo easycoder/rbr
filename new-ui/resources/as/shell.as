@@ -235,6 +235,7 @@
 	variable ReceivedMessage
 	variable Prompt
 	variable FirstMapDone
+	variable SheetsReady
 	variable PollWait
 	variable LastReceivedAt
 	variable ResumeAge
@@ -703,7 +704,25 @@ PulseHeartbeat:
 OnMapReceived:
 	put now into LastReceivedAt
 	gosub to PulseHeartbeat
-	if ReceivedMessage is empty return
+	if ReceivedMessage is empty
+	begin
+		log `OnMapReceived: empty payload — heartbeat only`
+		return
+	end
+!	Validate BEFORE clobbering Map. A ping or malformed payload that
+!	overwrites Map.profiles silently corrupts every Save handler (they
+!	read Map.profiles to build their uirequests).
+	if property `profiles` of ReceivedMessage is empty
+	begin
+		log `OnMapReceived: payload has no profiles — discarded (Map preserved)`
+		put empty into ReceivedMessage
+		return
+	end
+!	Diagnostic: dump the full payload so it can be pasted into JSON Lint
+!	to verify structure if anything downstream complains. Comment out
+!	once the bug is hunted down — these payloads are large.
+	log `OnMapReceived: applying new map`
+	log ReceivedMessage
 	put ReceivedMessage into Map
 	put empty into ReceivedMessage
 	gosub to MapToRooms
@@ -1112,6 +1131,10 @@ BuildHomeScreen:
 
 	attach HouseMark to `top-bar-mark`
 	on click HouseMark gosub to OpenAboutSheet
+
+!	All sibling sheets are now attached — flag the world ready so
+!	HideAllSheets stops being a no-op when called from click handlers.
+	set SheetsReady
 
 !	Background tick — re-pick the gradient at hour boundaries. Forked once
 !	on first build; subsequent refreshes don't re-fork.
@@ -1563,7 +1586,11 @@ CloseSheet:
 !	visible. Each Open<X> routine must hide all the others first; calling
 !	this before flipping a single sheet's display:block is the single
 !	chokepoint that prevents one sheet bleeding through another.
+!	The SheetsReady gate prevents a tap during BuildHomeScreen — when
+!	the menu button has been wired but later sheets aren't attached yet
+!	— from runtime-erroring on an unattached element.
 HideAllSheets:
+	if not SheetsReady return
 	set style `display` of MenuSheetEl to `none`
 	set style `display` of ProfileSheetEl to `none`
 	set style `display` of ScheduleSheetEl to `none`
@@ -2902,6 +2929,15 @@ OpenDeviceEditor:
 		alert `No rooms in the system yet.`
 		return
 	end
+!	Refuse to open if Map.profiles is missing — LoadDeviceEditorRoom
+!	would otherwise try to walk an empty array and runtime-error on
+!	`element 0 of <empty>`. Same guard the Save handlers carry.
+	if property `profiles` of Map is empty
+	begin
+		log `OpenDeviceEditor: Map.profiles empty — aborting`
+		alert `Map data not loaded — please reload the page.`
+		return
+	end
 	put 0 into EditingDevicesRoomIdx
 	gosub to LoadDeviceEditorRoom
 !	Demand-relay name is system-wide — load it once on open, NOT in
@@ -2926,6 +2962,17 @@ LoadDeviceEditorRoom:
 	put property `legacyIdx` of Room into EditingDevicesRoomLegacyIdx
 
 	put property `profiles` of Map into LiveProfiles
+!	Defensive guard: if the map has been wiped (corrupt save, controller
+!	hadn't sent a real map yet, etc.) bail out with a clear message
+!	instead of letting `element N of <empty>` runtime-error. The picker
+!	can land here directly via room-pill clicks, so the OpenDeviceEditor
+!	guard above isn't enough.
+	if LiveProfiles is empty
+	begin
+		log `LoadDeviceEditorRoom: Map.profiles empty — aborting`
+		alert `Map data not loaded — please reload the page.`
+		return
+	end
 	put element CurrentProfile of LiveProfiles into LiveProfileForDevices
 	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
 	put element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices into LiveRoomForDevices

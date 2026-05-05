@@ -8,7 +8,7 @@
   User=linaro
   WorkingDirectory=/home/linaro
   ExecStart=/bin/bash -c 'until getent hosts rbrheating.duckdns.org > /dev/null 2>&1; do sleep 2; done; exec /usr/bin/allspeak controller.as'
-  Restart=on-failure
+  Restart=always
   RestartSec=5
 
   [Install]

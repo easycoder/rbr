@@ -3,3 +3,15 @@ RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(verify|register|recover)$ auth.php?action=$1 [QSA,L]
 RewriteRule ^credentials$ credentials.php [QSA,L]
+
+# Never cache sw.js. The PWA's service worker is the gatekeeper for every
+# other asset cached on the client; if the browser serves a stale sw.js
+# from its HTTP cache, version bumps in CACHE_VERSION don't propagate
+# until the cache eventually expires (hours). Forcing a fresh fetch
+# every time means a deploy lands on every visitor on their next page
+# load, not when their browser feels like it.
+<Files "sw.js">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</Files>
