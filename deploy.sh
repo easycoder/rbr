@@ -4,6 +4,7 @@
 # Layout on the server:
 #   /                   <- legacy UI entry points (index.html, auth.php, ...)
 #   /resources/         <- legacy UI resources
+#   /new-ui/            <- new UI (PWA) — index.html, sw.js, resources/, icons/
 #   /controller.as      <- AllSpeak controller source pulled by IXHUB
 #   /deviceControl.as   <- ditto
 #   /simulator.as       <- ditto
@@ -62,6 +63,15 @@ for dir in as css icon img json webson; do
         "$LOCAL/resources/$dir/" \
         "$REMOTE/resources/$dir/"
 done
+
+# New UI tree (PWA). One rsync of the whole new-ui/ directory keeps it
+# in lock-step with the local copy, including shell.as, sw.js, webson
+# templates, icons and the manifest. --delete prunes anything removed
+# locally so stale files can't linger on the server.
+echo "Deploying new-ui/..."
+rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
+    "$LOCAL/new-ui/" \
+    "$REMOTE/new-ui/"
 
 # Controller AllSpeak source files. Always pushed so the cloud copy is
 # current, but customer IXHUBs won't pull them until the version bumps.
