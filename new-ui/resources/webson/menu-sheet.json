@@ -21,8 +21,8 @@
         },
         "$Row2": {
             "$ID": "menu-row-devices",
-            "$Label": "Devices",
-            "$Sub": "Sensors and relays",
+            "$Label": "Rooms and Devices",
+            "$Sub": "Add, rename, reorder; assign sensors and relays",
             "#": "$Row"
         },
         "$Row3": {

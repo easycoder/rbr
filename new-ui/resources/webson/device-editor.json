@@ -59,6 +59,7 @@
     },
 
     "$RoomPicker": {
+        "#doc": "Container revealed when the user taps the room pill. Holds a vertical list of room rows (rendered by shell.as into $RoomList) plus an Add Room button as a fixed sibling that survives the clear-and-rebuild on each render.",
         "#element": "div",
         "@id": "device-editor-room-picker",
         "margin-top": "8px",
@@ -67,8 +68,33 @@
         "background": "var(--color-surface-card)",
         "border": "1px solid var(--color-border-hairline)",
         "display": "none",
-        "flex-wrap": "wrap",
-        "gap": "6px"
+        "flex-direction": "column",
+        "gap": "8px",
+        "#": ["$RoomList", "$AddRoomBtn"],
+
+        "$RoomList": {
+            "#element": "div",
+            "@id": "device-editor-room-list",
+            "display": "flex",
+            "flex-direction": "column",
+            "gap": "6px"
+        },
+
+        "$AddRoomBtn": {
+            "#element": "button",
+            "@id": "device-editor-add-room",
+            "width": "100%",
+            "padding": "10px",
+            "border-radius": "10px",
+            "background": "transparent",
+            "border": "1px dashed var(--color-border-hairline)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)",
+            "#content": "+ Add room"
+        }
     },
 
     "$SensorBlock": {
