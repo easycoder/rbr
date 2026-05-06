@@ -854,9 +854,30 @@ CheckForUpdate:
         return
     end
     log `Updating from version ` cat Version cat ` to ` cat RemoteVersion
+!   All-or-nothing download. If any of the three fetches fails, we clean
+!   up whatever partial .new files we already wrote and return without
+!   touching the live .as files or .version. Next hourly CheckForUpdate
+!   sees the same higher remote version and retries the whole thing.
     download `https://rbrheating.com/controller.as` to `controller.as.new`
+        on failure
+        begin
+            log `Update aborted: download of controller.as failed`
+            return
+        end
     download `https://rbrheating.com/deviceControl.as` to `deviceControl.as.new`
+        on failure
+        begin
+            log `Update aborted: download of deviceControl.as failed`
+            put system `rm -f controller.as.new` into SysResult
+            return
+        end
     download `https://rbrheating.com/simulator.as` to `simulator.as.new`
+        on failure
+        begin
+            log `Update aborted: download of simulator.as failed`
+            put system `rm -f controller.as.new deviceControl.as.new` into SysResult
+            return
+        end
 !   Atomically swap each .new into place. mv on the same filesystem is
 !   atomic so a controller crash mid-swap leaves us with either the old
 !   or the new file, never a torn write.
