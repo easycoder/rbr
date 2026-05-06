@@ -3283,7 +3283,7 @@ DeleteRoomInEditingProfiles:
 	begin
 		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
 		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		delete element RoomEditIdxForOp of LiveRoomsForDevices
+		json delete element RoomEditIdxForOp of LiveRoomsForDevices
 		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
 		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
 		increment DeviceProfileLoopI
