@@ -136,6 +136,7 @@
 	button InfoBtn
 	div ExpansionEl
 	button ModeTimedBtn
+	button ModeBoostBtn
 	button ModeOnBtn
 	button ModeOffBtn
 	div TargetBlockEl
@@ -143,7 +144,7 @@
 	button TargetMinusBtn
 	button TargetPlusBtn
 	div BoostBlockEl
-	button BoostCancelBtn
+	button BoostOffBtn
 	button Boost30Btn
 	button Boost1hBtn
 	button Boost2hBtn
@@ -212,6 +213,31 @@
 	variable Ttarget
 	variable BoostDur
 	variable Advance
+!	Boost-panel state. BoostPanelOpenIndex == ClickIndex while the user is
+!	configuring a Boost from a non-Boost mode (controls visible, target seeded,
+!	nothing committed yet). Cleared on commit, on Off-button cancel, on mode
+!	change, or when the expansion is closed. BoostSeedTarget is the transient
+!	target shown in the tile during Configuring (so we don't mutate Room.target
+!	until the user commits).
+	variable BoostPanelOpenIndex
+	variable BoostSeedTarget
+	variable BoostState
+	variable TargetVis
+	variable PanelWasOpen
+!	Scratch state for SyncCurrentRoomToMap (and the boost-until inline
+!	updates in ApplyBoost / BoostOffTapped). Keeps Map.profiles in step with
+!	RoomsList after each per-room toggle so a subsequent Save that ships
+!	`Update Profiles` doesn't revert the change.
+	variable SyncProfiles
+	variable SyncProfile
+	variable SyncRooms
+	variable SyncLegacyRoom
+	variable SyncLegacyIdx
+	variable SyncUiMode
+	variable SyncBaseMode
+	variable SyncBoost
+	variable SyncBoostUntil
+	variable SyncPrevModeLegacy
 	variable TempStr
 	variable TempTenths
 	variable TempT
@@ -368,6 +394,7 @@
 	variable LegacyName
 	variable LegacyMode
 	variable LegacyPrevMode
+	variable PrevMode
 	variable LegacyTemp
 	variable LegacyTarget
 	variable LegacyStatus
@@ -388,7 +415,6 @@
 	variable BoostUntil
 	variable BoostRemaining
 	variable BoostText
-	variable Tboost
 
 !	Info sheet state.
 	variable InfoSheetWebson
@@ -741,7 +767,7 @@ OnMapReceived:
 !	to verify structure if anything downstream complains. Comment out
 !	once the bug is hunted down — these payloads are large.
 	log `OnMapReceived: applying new map`
-	log ReceivedMessage
+!	log ReceivedMessage
 	put ReceivedMessage into Map
 	put empty into ReceivedMessage
 	gosub to MapToRooms
@@ -825,6 +851,7 @@ BuildHomeScreen:
 
 	put -1 into ExpandedIndex
 
+	put -1 into BoostPanelOpenIndex
 !	Pre-size every indexed per-row variable. Without this, `index X to N`
 !	for N > 0 raises "out of range" — the array has to be allocated first.
 	set the elements of RestRow to RoomCount
@@ -834,6 +861,7 @@ BuildHomeScreen:
 	set the elements of TargetValueEl to RoomCount
 	set the elements of BoostBlockEl to RoomCount
 	set the elements of ModeTimedBtn to RoomCount
+	set the elements of ModeBoostBtn to RoomCount
 	set the elements of ModeOnBtn to RoomCount
 	set the elements of ModeOffBtn to RoomCount
 	set the elements of TargetMinusBtn to RoomCount
@@ -841,7 +869,7 @@ BuildHomeScreen:
 	set the elements of Boost30Btn to RoomCount
 	set the elements of Boost1hBtn to RoomCount
 	set the elements of Boost2hBtn to RoomCount
-	set the elements of BoostCancelBtn to RoomCount
+	set the elements of BoostOffBtn to RoomCount
 	set the elements of AdvanceBlockEl to RoomCount
 	set the elements of AdvanceBtn to RoomCount
 	set the elements of EditScheduleBtn to RoomCount
@@ -1299,22 +1327,25 @@ BuildRoomEntry:
 	set property `legacyIdx` of NewRoom to LegacyIdx
 	set property `sensor` of NewRoom to `no`
 
-!	Mode: legacy lowercase → new-UI title-case. The UI tracks the underlying
-!	operating mode (Timed/On/Off); Boost is not a mode of its own, just a
-!	transient overlay. When the controller reports `boost`, derive the
-!	displayed mode from `prevmode` so the mode pill keeps its selection
-!	while the boost is in effect. Anything unrecognised → Off.
+!	Mode: legacy lowercase → new-UI title-case. Boost is a peer mode in the
+!	new UI; when the controller reports `boost`, surface that as Mode="Boost"
+!	and capture `prevmode` (Title-case) on the NewRoom so SyncCurrentRoomToMap
+!	can round-trip it. Anything unrecognised → Off.
 	put property `mode` of LegacyRoom into LegacyMode
 	put `Off` into Mode
+	put empty into PrevMode
 	if LegacyMode is `timed` put `Timed` into Mode
 	else if LegacyMode is `on` put `On` into Mode
 	else if LegacyMode is `boost`
 	begin
+		put `Boost` into Mode
 		put property `prevmode` of LegacyRoom into LegacyPrevMode
-		if LegacyPrevMode is `timed` put `Timed` into Mode
-		else if LegacyPrevMode is `on` put `On` into Mode
+		put `Off` into PrevMode
+		if LegacyPrevMode is `timed` put `Timed` into PrevMode
+		else if LegacyPrevMode is `on` put `On` into PrevMode
 	end
 	set property `mode` of NewRoom to Mode
+	set property `prevMode` of NewRoom to PrevMode
 
 !	Advance: controller stores `A` (advanced) or `-` (normal). Empty / missing
 !	defaults to `-` so the toggle starts from a known off state.
@@ -1430,6 +1461,7 @@ BuildRoomEntry:
 !	applied). Round up to the next minute, format as "N min(s)". Mirrors
 !	the legacy formula in rbr.as:910-920.
 	set property `boost` of NewRoom to empty
+	set property `boostRemaining` of NewRoom to 0
 	if LegacyMode is `boost`
 	begin
 		put property `until` of LegacyRoom into BoostUntil
@@ -1444,6 +1476,7 @@ BuildRoomEntry:
 				if BoostRemaining is 1 put `1 min` into BoostText
 				else put BoostRemaining cat ` mins` into BoostText
 				set property `boost` of NewRoom to BoostText
+				set property `boostRemaining` of NewRoom to BoostRemaining
 			end
 		end
 	end
@@ -1488,6 +1521,26 @@ BuildRoomEntry:
 				put LegacyEventCount into LoopK
 			end
 			increment LoopK
+		end
+		! Walked all events with none in the future today — we're in the
+		! wrap-around period that runs from the last event's `until` to
+		! tomorrow's first. Use event 0, plus the advance offset if set.
+		if property `nextTime` of NewRoom is empty
+		begin
+			put 0 into LoopK
+			if Advance is `A`
+			begin
+				increment LoopK
+				if LoopK is LegacyEventCount put 0 into LoopK
+			end
+			put element LoopK of LegacyEvents into LegacyEvent
+			put property `until` of LegacyEvent into NextTimeStr
+			put property `temp` of LegacyEvent into NextTempVal
+			set property `nextTime` of NewRoom to NextTimeStr
+			put `` cat NextTempVal into NextTempStr
+			put the index of `.` in NextTempStr into DotIdx
+			if DotIdx is less than 0 put NextTempStr cat `.0` into NextTempStr
+			set property `nextTarget` of NewRoom to NextTempStr
 		end
 	end
 
@@ -1766,6 +1819,13 @@ WireRoomInteractions:
 		put `Timed` into NewMode
 		gosub to ChangeMode
 	end
+	index ModeBoostBtn to RoomIndex
+	attach ModeBoostBtn to `room-` cat RoomIndex cat `-mode-boost`
+	on click ModeBoostBtn
+	begin
+		put the index of ModeBoostBtn into ClickIndex
+		gosub to OpenBoostPanel
+	end
 	index ModeOnBtn to RoomIndex
 	attach ModeOnBtn to `room-` cat RoomIndex cat `-mode-on`
 	on click ModeOnBtn
@@ -1823,12 +1883,12 @@ WireRoomInteractions:
 		gosub to ApplyBoost
 	end
 
-	index BoostCancelBtn to RoomIndex
-	attach BoostCancelBtn to `room-` cat RoomIndex cat `-boost-cancel`
-	on click BoostCancelBtn
+	index BoostOffBtn to RoomIndex
+	attach BoostOffBtn to `room-` cat RoomIndex cat `-boost-off`
+	on click BoostOffBtn
 	begin
-		put the index of BoostCancelBtn into ClickIndex
-		gosub to CancelBoost
+		put the index of BoostOffBtn into ClickIndex
+		gosub to BoostOffTapped
 	end
 
 	index AdvanceBlockEl to RoomIndex
@@ -1860,9 +1920,13 @@ ToggleExpansion:
 		if ExpandedIndex is ClickIndex
 		begin
 			put -1 into ExpandedIndex
+			put -1 into BoostPanelOpenIndex
 			return
 		end
 	end
+!	Closing one expansion to open another — drop any in-flight Boost panel
+!	from the previously-open row.
+	put -1 into BoostPanelOpenIndex
 	index ExpansionEl to ClickIndex
 	set style `display` of ExpansionEl to `flex`
 	put ClickIndex into ExpandedIndex
@@ -1870,65 +1934,102 @@ ToggleExpansion:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Paint the expansion controls for room ClickIndex (mode pill highlight,
-!	target value, boost chip highlight, section visibility).
+!	Paint the expansion controls for room ClickIndex.
+!
+!	Three boost-related UI states drive visibility/highlight:
+!	  - active:      Room.mode == "Boost" (controller boost in progress)
+!	  - configuring: BoostPanelOpenIndex == ClickIndex AND mode != "Boost"
+!	                 (user has tapped the Boost mode button but not yet
+!	                 picked a duration)
+!	  - none:        neither
+!
+!	Layout matrix:
+!	  Mode    State          Mode pill    Target row   Advance row   Boost row
+!	  Timed   none           Timed lit    hidden       visible       hidden
+!	  Timed   configuring    Timed lit    visible      hidden        visible (Off lit)
+!	  On      none           On lit       visible      hidden        hidden
+!	  On      configuring    On lit       visible      hidden        visible (Off lit)
+!	  Off     none           Off lit      hidden       hidden        hidden
+!	  Off     configuring    Off lit      visible      hidden        visible (Off lit)
+!	  Boost   active         Boost lit    visible      hidden        visible (none lit)
+!
+!	The Configuring state's target tile is sourced from BoostSeedTarget
+!	(seeded by OpenBoostPanel). All other states show Room.target. The
+!	mode pill in Configuring stays on the underlying mode — Boost only
+!	becomes "selected" once the user commits a duration.
 PaintExpansion:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
 	put property `target` of Room into Ttarget
-	put property `boost` of Room into BoostDur
 
-!	Mode segmented control — re-attach per click then style. Mode is always
-!	one of Timed/On/Off (Boost is a separate transient overlay handled via
-!	BoostDur, not a mode the pill ever shows as selected).
+	put `none` into BoostState
+	if Tmode is `Boost` put `active` into BoostState
+	else if BoostPanelOpenIndex is ClickIndex put `configuring` into BoostState
+
+!	Mode pill highlight.
 	index ModeTimedBtn to ClickIndex
+	index ModeBoostBtn to ClickIndex
 	index ModeOnBtn to ClickIndex
 	index ModeOffBtn to ClickIndex
 	gosub to ResetModeBtn
-	if Tmode is `Timed` gosub to ActivateModeTimed
-	if Tmode is `On` gosub to ActivateModeOn
-	if Tmode is `Off` gosub to ActivateModeOff
+	if BoostState is `active` gosub to ActivateModeBoost
+	else if Tmode is `Timed` gosub to ActivateModeTimed
+	else if Tmode is `On` gosub to ActivateModeOn
+	else if Tmode is `Off` gosub to ActivateModeOff
 
-!	Target tile vs Advance row — Timed hides the manual target (schedule
-!	provides it) and shows the Advance toggle. On / Off show the target
-!	tile (Off keeps it visible so the user can pre-set a Boost target).
+!	Target tile.
 	index TargetBlockEl to ClickIndex
+	index TargetValueEl to ClickIndex
+	put `none` into TargetVis
+	if BoostState is `active` put `block` into TargetVis
+	else if BoostState is `configuring` put `block` into TargetVis
+	else if Tmode is `On` put `block` into TargetVis
+	set style `display` of TargetBlockEl to TargetVis
+	if TargetVis is `block`
+	begin
+		if BoostState is `configuring`
+		begin
+			if BoostSeedTarget is empty set the content of TargetValueEl to `20.0`
+			else set the content of TargetValueEl to BoostSeedTarget
+		end
+		else
+		begin
+			if Ttarget is empty set the content of TargetValueEl to `20.0`
+			else set the content of TargetValueEl to Ttarget
+		end
+	end
+
+!	Advance row — only in Timed (and not when the Boost panel has taken
+!	the slot via Configuring).
 	index AdvanceBlockEl to ClickIndex
 	if Tmode is `Timed`
 	begin
-		set style `display` of TargetBlockEl to `none`
-		set style `display` of AdvanceBlockEl to `block`
-		put property `advance` of Room into Advance
-		if Advance is empty put `-` into Advance
-		gosub to PaintAdvanceBtn
+		if BoostState is `configuring` set style `display` of AdvanceBlockEl to `none`
+		else
+		begin
+			set style `display` of AdvanceBlockEl to `block`
+			put property `advance` of Room into Advance
+			if Advance is empty put `-` into Advance
+			gosub to PaintAdvanceBtn
+		end
 	end
-	else
-	begin
-		set style `display` of AdvanceBlockEl to `none`
-		set style `display` of TargetBlockEl to `block`
-		index TargetValueEl to ClickIndex
-		if Ttarget is empty set the content of TargetValueEl to `20.0`
-		else set the content of TargetValueEl to Ttarget
-	end
+	else set style `display` of AdvanceBlockEl to `none`
 
-!	Boost — hidden in On (boost on top of On is meaningless; the user can
-!	just adjust the target). Visible in Off and Timed so the user can
-!	override the schedule (Timed) or fire a one-off heating burst (Off).
+!	Boost row — visible in active or configuring. The Off button is the
+!	"cancel" affordance: lit while configuring (no commit yet); active
+!	state shows no duration lit (the duration buttons act as
+!	"replace duration" while a boost is running, the Off button cancels).
 	index BoostBlockEl to ClickIndex
-	if Tmode is `On` set style `display` of BoostBlockEl to `none`
+	if BoostState is `none` set style `display` of BoostBlockEl to `none`
 	else
 	begin
 		set style `display` of BoostBlockEl to `block`
+		index BoostOffBtn to ClickIndex
 		index Boost30Btn to ClickIndex
 		index Boost1hBtn to ClickIndex
 		index Boost2hBtn to ClickIndex
 		gosub to ResetBoostBtn
-		if BoostDur is `30 min` gosub to ActivateBoost30
-		if BoostDur is `1 hr` gosub to ActivateBoost1h
-		if BoostDur is `2 hr` gosub to ActivateBoost2h
-		index BoostCancelBtn to ClickIndex
-		if BoostDur is empty set style `display` of BoostCancelBtn to `none`
-		else set style `display` of BoostCancelBtn to `inline-block`
+		if BoostState is `configuring` gosub to ActivateBoostOff
 	end
 	return
 
@@ -1939,6 +2040,10 @@ ResetModeBtn:
 	set style `color` of ModeTimedBtn to `var(--color-text-muted)`
 	set style `font-weight` of ModeTimedBtn to `500`
 	set style `box-shadow` of ModeTimedBtn to `none`
+	set style `background` of ModeBoostBtn to `transparent`
+	set style `color` of ModeBoostBtn to `var(--color-text-muted)`
+	set style `font-weight` of ModeBoostBtn to `500`
+	set style `box-shadow` of ModeBoostBtn to `none`
 	set style `background` of ModeOnBtn to `transparent`
 	set style `color` of ModeOnBtn to `var(--color-text-muted)`
 	set style `font-weight` of ModeOnBtn to `500`
@@ -1956,6 +2061,13 @@ ActivateModeTimed:
 	set style `box-shadow` of ModeTimedBtn to `0 1px 3px rgba(0,0,0,0.08)`
 	return
 
+ActivateModeBoost:
+	set style `background` of ModeBoostBtn to `var(--color-surface-card)`
+	set style `color` of ModeBoostBtn to `var(--color-text-primary)`
+	set style `font-weight` of ModeBoostBtn to `600`
+	set style `box-shadow` of ModeBoostBtn to `0 1px 3px rgba(0,0,0,0.08)`
+	return
+
 ActivateModeOn:
 	set style `background` of ModeOnBtn to `var(--color-surface-card)`
 	set style `color` of ModeOnBtn to `var(--color-text-primary)`
@@ -1971,6 +2083,10 @@ ActivateModeOff:
 	return
 
 ResetBoostBtn:
+	set style `background` of BoostOffBtn to `var(--color-surface-card)`
+	set style `border` of BoostOffBtn to `1px solid var(--color-border-hairline)`
+	set style `color` of BoostOffBtn to `var(--color-text-primary)`
+	set style `font-weight` of BoostOffBtn to `500`
 	set style `background` of Boost30Btn to `var(--color-surface-card)`
 	set style `border` of Boost30Btn to `1px solid var(--color-border-hairline)`
 	set style `color` of Boost30Btn to `var(--color-text-primary)`
@@ -1983,6 +2099,13 @@ ResetBoostBtn:
 	set style `border` of Boost2hBtn to `1px solid var(--color-border-hairline)`
 	set style `color` of Boost2hBtn to `var(--color-text-primary)`
 	set style `font-weight` of Boost2hBtn to `500`
+	return
+
+ActivateBoostOff:
+	set style `background` of BoostOffBtn to `var(--color-accent-10)`
+	set style `border` of BoostOffBtn to `1.5px solid var(--color-accent)`
+	set style `color` of BoostOffBtn to `var(--color-accent)`
+	set style `font-weight` of BoostOffBtn to `600`
 	return
 
 ActivateBoost30:
@@ -2007,18 +2130,90 @@ ActivateBoost2h:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Open the Boost-configuring panel. No controller traffic — purely UI.
+!	If the room is already in Boost mode (active), this is a no-op (panel
+!	is already shown by PaintExpansion). Otherwise: seed BoostSeedTarget
+!	with the next-period target, raised to current temp if the room is
+!	already at or above that target — so a tap-Boost on a warm room shows
+!	a target ≥ current, and the user must consciously bump it to ask for
+!	more heat. Falls back to the room's stored target then 20.0 when no
+!	schedule events exist.
+OpenBoostPanel:
+	put element ClickIndex of RoomsList into Room
+	put property `mode` of Room into Tmode
+	if Tmode is `Boost` return
+
+	put property `nextTarget` of Room into Ttarget
+	if Ttarget is empty put property `target` of Room into Ttarget
+	if Ttarget is empty put `20.0` into Ttarget
+
+	put property `temp` of Room into TempVal
+	if TempVal is not empty
+	begin
+		put TempVal into TempStr
+		gosub to ToTenths
+		put TempTenths into TempT
+		put Ttarget into TempStr
+		gosub to ToTenths
+		put TempTenths into TargetT
+		if TempT is greater than TargetT
+		begin
+			put TempT into TempTenths
+			gosub to TenthsToString
+			put TempStr into Ttarget
+		end
+	end
+	put Ttarget into BoostSeedTarget
+	put ClickIndex into BoostPanelOpenIndex
+	gosub to PaintExpansion
+	return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Mode change. Always clears any active boost (an explicit mode pick is
-!	a stronger signal than a transient boost). Target is preserved across
-!	all mode changes — Off rooms keep their target so the user can still
-!	adjust it. Sends an "Operating Mode" uirequest after the local mutation.
+!	a stronger signal than a transient boost) and any in-flight Boost-
+!	configuring panel state. Target is preserved across all mode changes
+!	— Off rooms keep their target so the user can still adjust it.
+!	Sends an "Operating Mode" uirequest after the local mutation.
 ChangeMode:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
-	if Tmode is NewMode return
+
+!	Close any open Boost-configuring panel for this row first. Tapping a
+!	mode pill (any of them) is a stronger signal than the half-open panel.
+	clear PanelWasOpen
+	if BoostPanelOpenIndex is ClickIndex
+	begin
+		put -1 into BoostPanelOpenIndex
+		put empty into BoostSeedTarget
+		set PanelWasOpen
+	end
+
+	if Tmode is NewMode
+	begin
+!		Same mode tapped — only do work if we just closed the panel.
+		if PanelWasOpen gosub to PaintExpansion
+		return
+	end
+
+!	Leaving Boost mode: drop the bookkeeping that was tracking the active
+!	boost. The cancel-boost message goes via the standard ChangeMode
+!	"Operating Mode" payload (Mode=<new>, Boost=0 for Timed).
+	if Tmode is `Boost`
+	begin
+		set property `boostRemaining` of Room to 0
+		set property `prevMode` of Room to empty
+	end
+
 	set property `mode` of Room to NewMode
 	set property `boost` of Room to empty
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
+	gosub to SyncCurrentRoomToMap
+	if Tmode is `Boost`
+	begin
+		put 0 into SyncBoostUntil
+		gosub to SyncCurrentRoomBoostUntil
+	end
 
 	put NewMode into Mode
 	gosub to LowercaseModeForServer
@@ -2034,6 +2229,9 @@ ChangeMode:
 		set property `advance` of Result to `none`
 		set property `target` of Result to TargetForServer
 	end
+!	Leaving Boost (any direction) — explicitly tell the controller to drop
+!	its boost state, mirroring the old CancelBoost path's `Boost: 0`.
+	if Tmode is `Boost` set property `Boost` of Result to 0
 	gosub to PostUiRequest
 	return
 
@@ -2052,8 +2250,24 @@ StepTargetDown:
 	gosub to WriteTargetTenths
 	return
 
+!	Target source for the +/- step buttons. In the Configuring state the
+!	user is editing BoostSeedTarget (the about-to-commit boost target);
+!	otherwise we read Room.target.
 LoadTargetTenths:
 	put element ClickIndex of RoomsList into Room
+	put property `mode` of Room into Tmode
+	if BoostPanelOpenIndex is ClickIndex
+	begin
+		if Tmode is not `Boost`
+		begin
+			put BoostSeedTarget into Ttarget
+			if Ttarget is empty put `20.0` into Ttarget
+			put Ttarget into TempStr
+			gosub to ToTenths
+			put TempTenths into TargetT
+			return
+		end
+	end
 	put property `target` of Room into Ttarget
 	if Ttarget is empty put `20.0` into Ttarget
 	put Ttarget into TempStr
@@ -2061,15 +2275,32 @@ LoadTargetTenths:
 	put TempTenths into TargetT
 	return
 
-!	Target step persisted: write the new target, then ship "Operating Mode"
-!	with the unchanged mode + new target. Controller decides whether to
-!	override the schedule (Timed) or just update the setpoint (On/Boost).
+!	Target step persisted. Three cases:
+!	  - Configuring: update BoostSeedTarget only (no controller traffic; the
+!	    seed is committed when the user picks a duration).
+!	  - Boost active: persist target + resend the boost duration so the
+!	    controller's `until` is preserved (a bare mode=boost with no boost
+!	    field re-derives until = now → boost expires immediately).
+!	  - Otherwise: send "Operating Mode" with the unchanged mode + new
+!	    target. Controller decides whether to override the schedule (Timed)
+!	    or just update the setpoint (On).
 WriteTargetTenths:
 	put TargetT into TempTenths
 	gosub to TenthsToString
+	put property `mode` of Room into Tmode
+	if BoostPanelOpenIndex is ClickIndex
+	begin
+		if Tmode is not `Boost`
+		begin
+			put TempStr into BoostSeedTarget
+			gosub to PaintExpansion
+			return
+		end
+	end
 	set property `target` of Room to TempStr
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
+	gosub to SyncCurrentRoomToMap
 
 	put property `mode` of Room into Mode
 	gosub to LowercaseModeForServer
@@ -2080,24 +2311,53 @@ WriteTargetTenths:
 	set property `Room` of Result to RoomNameForServer
 	set property `Mode` of Result to ModeForServer
 	set property `target` of Result to TargetForServer
+	if Tmode is `Boost`
+	begin
+		put property `boostRemaining` of Room into BoostMinutes
+		if BoostMinutes is empty put 1 into BoostMinutes
+		else if BoostMinutes is less than 1 put 1 into BoostMinutes
+		set property `boost` of Result to `B` cat BoostMinutes
+	end
 	gosub to PostUiRequest
 	return
 
-!	Apply boost duration BoostDur ("30 min" / "1 hr" / "2 hr"). The local
-!	mode pill keeps its current selection — Boost is an overlay, not a
-!	mode. The controller stores the current mode as `prevmode` and reverts
-!	to it when the boost expires. Sends "Operating Mode" Mode=boost with
-!	boost=B<minutes> and the local target temperature.
+!	Commit a Boost: the user has tapped a duration button (30 min / 1 hr
+!	/ 2 hr). Promotes Room.mode to "Boost", captures the underlying mode
+!	as prevMode (so SyncCurrentRoomToMap can mirror legacy `prevmode`),
+!	moves BoostSeedTarget → Room.target if we were in Configuring, and
+!	clears the panel state. Then ships an "Operating Mode" uirequest
+!	with mode=boost, boost=B<minutes>, target=<new>. The controller
+!	stores prevmode itself based on its mode at message-receive time.
 ApplyBoost:
 	put element ClickIndex of RoomsList into Room
-	set property `boost` of Room to BoostDur
-	set element ClickIndex of RoomsList to Room
-	gosub to AfterStateChange
+	put property `mode` of Room into Tmode
+	if Tmode is not `Boost` set property `prevMode` of Room to Tmode
+	if BoostPanelOpenIndex is ClickIndex
+	begin
+		if BoostSeedTarget is not empty set property `target` of Room to BoostSeedTarget
+	end
 
 	put 0 into BoostMinutes
 	if BoostDur is `30 min` put 30 into BoostMinutes
 	else if BoostDur is `1 hr` put 60 into BoostMinutes
 	else if BoostDur is `2 hr` put 120 into BoostMinutes
+
+	set property `mode` of Room to `Boost`
+	set property `boostRemaining` of Room to BoostMinutes
+	if BoostMinutes is 1 set property `boost` of Room to `1 min`
+	else set property `boost` of Room to BoostMinutes cat ` mins`
+	set element ClickIndex of RoomsList to Room
+
+	put -1 into BoostPanelOpenIndex
+	put empty into BoostSeedTarget
+
+	gosub to AfterStateChange
+	gosub to SyncCurrentRoomToMap
+	put BoostMinutes into SyncBoostUntil
+	multiply SyncBoostUntil by 60000
+	add now to SyncBoostUntil
+	gosub to SyncCurrentRoomBoostUntil
+
 	put property `name` of Room into RoomNameForServer
 	put property `target` of Room into TargetForServer
 	put `{}` into Result
@@ -2110,19 +2370,43 @@ ApplyBoost:
 	gosub to PostUiRequest
 	return
 
-!	Cancel an active boost. The local mode is the underlying mode (the
-!	one the user wants restored), so we just clear `boost` and ship the
-!	current mode back to the controller. The controller's stored `until`
-!	is left in place but is harmless since boost expiration only fires
-!	when the controller's own mode is `boost`.
-CancelBoost:
+!	The Boost panel's "Off" duration button. Two cases:
+!	  - Configuring (panel open, mode != Boost): just close the panel
+!	    and discard the seeded target. No controller traffic.
+!	  - Active (mode == Boost): cancel the boost. Revert mode to prevMode
+!	    locally, clear boost-text + boostRemaining + prevMode, and ship
+!	    a cancel "Operating Mode" uirequest (mode=<prev>, Boost=0). The
+!	    controller's stale `until` is harmless because expiration only
+!	    fires when the controller's own mode is `boost`.
+BoostOffTapped:
 	put element ClickIndex of RoomsList into Room
+	put property `mode` of Room into Tmode
+	if Tmode is not `Boost`
+	begin
+		if BoostPanelOpenIndex is ClickIndex
+		begin
+			put -1 into BoostPanelOpenIndex
+			put empty into BoostSeedTarget
+			gosub to PaintExpansion
+		end
+		return
+	end
+
+	put property `prevMode` of Room into PrevMode
+	if PrevMode is empty put `Off` into PrevMode
+	set property `mode` of Room to PrevMode
 	set property `boost` of Room to empty
+	set property `boostRemaining` of Room to 0
+	set property `prevMode` of Room to empty
 	set element ClickIndex of RoomsList to Room
+
 	gosub to AfterStateChange
+	gosub to SyncCurrentRoomToMap
+	put 0 into SyncBoostUntil
+	gosub to SyncCurrentRoomBoostUntil
 
 	put property `name` of Room into RoomNameForServer
-	put property `mode` of Room into Mode
+	put PrevMode into Mode
 	gosub to LowercaseModeForServer
 	put `{}` into Result
 	set property `Action` of Result to `Operating Mode`
@@ -2148,6 +2432,8 @@ ToggleAdvance:
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
 
+	gosub to SyncCurrentRoomToMap
+
 	put property `name` of Room into RoomNameForServer
 	put `{}` into Result
 	set property `Action` of Result to `Operating Mode`
@@ -2155,6 +2441,68 @@ ToggleAdvance:
 	set property `Mode` of Result to `timed`
 	set property `advance` of Result to Advance
 	gosub to PostUiRequest
+	return
+
+!	Mirror the locally-mutated Room (RoomsList[ClickIndex]) back into
+!	Map.profiles[CurrentProfile].rooms[legacyIdx], translating new-UI fields
+!	(title-case mode, boost overlay) to legacy form. Called after every
+!	per-room state change so any subsequent Save that ships `Update Profiles`
+!	(Outside, System, Profile, Schedule, Devices) carries fresh data and
+!	doesn't revert the toggle. Boost-specific `until` is handled inline at
+!	each call site that owns it (ApplyBoost / BoostOffTapped / ChangeMode).
+SyncCurrentRoomToMap:
+	put property `legacyIdx` of Room into SyncLegacyIdx
+	put property `profiles` of Map into SyncProfiles
+	put element CurrentProfile of SyncProfiles into SyncProfile
+	put property `rooms` of SyncProfile into SyncRooms
+	put element SyncLegacyIdx of SyncRooms into SyncLegacyRoom
+
+	set property `advance` of SyncLegacyRoom to property `advance` of Room
+	set property `target` of SyncLegacyRoom to property `target` of Room
+
+!	Mode: title-case → lowercase. When the new-UI mode is "Boost", the
+!	legacy mode is `boost` and `prevmode` carries the lowercase underlying
+!	mode (held on Room.prevMode). Otherwise it's a straight title→lower
+!	mapping with `prevmode` left alone (the controller manages it).
+	put property `mode` of Room into SyncUiMode
+	if SyncUiMode is `Boost`
+	begin
+		set property `mode` of SyncLegacyRoom to `boost`
+		put property `prevMode` of Room into SyncBaseMode
+		put `off` into SyncPrevModeLegacy
+		if SyncBaseMode is `Timed` put `timed` into SyncPrevModeLegacy
+		else if SyncBaseMode is `On` put `on` into SyncPrevModeLegacy
+		set property `prevmode` of SyncLegacyRoom to SyncPrevModeLegacy
+	end
+	else
+	begin
+		put `off` into SyncBaseMode
+		if SyncUiMode is `Timed` put `timed` into SyncBaseMode
+		else if SyncUiMode is `On` put `on` into SyncBaseMode
+		set property `mode` of SyncLegacyRoom to SyncBaseMode
+	end
+
+	set element SyncLegacyIdx of SyncRooms to SyncLegacyRoom
+	set property `rooms` of SyncProfile to SyncRooms
+	set element CurrentProfile of SyncProfiles to SyncProfile
+	set property `profiles` of Map to SyncProfiles
+	return
+
+!	Write the boost-expiry timestamp on the current room's legacy slot.
+!	BoostMinutes (already in scope at the call site) is multiplied by 60000
+!	and added to `now`, matching the controller's own boost setup. Pass 0
+!	to clear the field on cancel.
+SyncCurrentRoomBoostUntil:
+	put property `legacyIdx` of Room into SyncLegacyIdx
+	put property `profiles` of Map into SyncProfiles
+	put element CurrentProfile of SyncProfiles into SyncProfile
+	put property `rooms` of SyncProfile into SyncRooms
+	put element SyncLegacyIdx of SyncRooms into SyncLegacyRoom
+	set property `until` of SyncLegacyRoom to SyncBoostUntil
+	set element SyncLegacyIdx of SyncRooms to SyncLegacyRoom
+	set property `rooms` of SyncProfile to SyncRooms
+	set element CurrentProfile of SyncProfiles to SyncProfile
+	set property `profiles` of Map to SyncProfiles
 	return
 
 !	Style the Advance button for the current Advance value. Reads Advance,
@@ -3746,7 +4094,7 @@ SetupMySystem:
 !	can poke the UI without errors.
 PostUiRequest:
 	if DemoMode return
-	log `Sending uirequest: ` cat Result
+	log `Sending uirequest: ` cat property `Action` of Result
 	send to ServerTopic
 		sender MyTopic
 		action `uirequest`
@@ -3784,8 +4132,9 @@ AfterStateChange:
 	return
 
 !	Recompute `calling` for the current Room. A room can call for heat
-!	when its underlying mode is not Off, OR when a Boost is active (which
-!	can layer on top of Off and still drive the relay).
+!	when its mode is not Off (Boost is its own mode that always drives
+!	the relay; Off-with-an-active-boost is now mode == "Boost" with
+!	prevMode == "Off", so this single test covers both cases).
 RecalcCalling:
 	put `no` into NewCalling
 	put property `sensor` of Room into Tsensor
@@ -3793,13 +4142,11 @@ RecalcCalling:
 	put property `mode` of Room into Tmode
 	put property `temp` of Room into Ttemp
 	put property `target` of Room into Ttarget
-	put property `boost` of Room into Tboost
 	if Tsensor is `no`
 	begin
 		if Toffline is `no`
 		begin
 			if Tmode is not `Off` gosub to ComputeCallingDiff
-			else if Tboost is not empty gosub to ComputeCallingDiff
 		end
 	end
 	set property `calling` of Room to NewCalling
@@ -4067,13 +4414,11 @@ RenderRoom:
 				if Advance is `A` put SublineText cat ` (A)` into SublineText
 			end
 		end
-
-!		Boost overlay — prepend so the active boost is the most prominent
-!		bit of status. Layered on whatever the mode's own subline says.
-		if BoostVal is not empty
+		else if Mode is `Boost`
 		begin
-			if SublineText is empty put `Boost · ` cat BoostVal cat ` left` into SublineText
-			else put `Boost · ` cat BoostVal cat ` left · ` cat SublineText into SublineText
+			if BoostVal is empty put `Boost` into SublineText
+			else put `Boost · ` cat BoostVal cat ` left` into SublineText
+			if TargetTemp is not empty put SublineText cat ` · ` cat TargetTemp cat `°` into SublineText
 		end
 	end
 

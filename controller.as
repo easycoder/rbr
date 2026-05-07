@@ -467,7 +467,7 @@ ProcessAllRooms:
         ! Initialisation
 
         index PeriodWas to R
-        set PeriodWas to 0
+        set PeriodWas to -1
         index PeriodActive to R
         set PeriodActive to 0
         set RelayStateWas to empty
@@ -725,7 +725,7 @@ RoomStatus:
         ! If the period or the relay state have changed, signal an immediate update,
         ! as any onliine UI needs to know right away
         ! otherwise just update the map and wait for the next update time
-        if PeriodActive is not PeriodWas and entry `advance` of Room is not `A`
+        if PeriodWas is not -1 and PeriodActive is not PeriodWas and entry `advance` of Room is not `A`
         begin
 !            log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow cat ` ` cat entry `advance` of Room
             log `Force an update (period change)`
@@ -937,17 +937,22 @@ FCP2:
     ! Deal with Advance
     if entry `advance` of Room is `A`
     begin
-        ! Compute the active period
-        add 1 to PeriodNow giving P
-        if P is EventCount put 0 into P
-        set PeriodActive to P
-        ! This is the period that applies for the advance
-        set entry `period` of Room to PeriodActive
-        ! If there's a period change while in advance, cancel the advance
-        if PeriodNow is not PeriodWas
+        ! If the period has rolled since advance was set, cancel it and
+        ! leave PeriodActive at the natural current period (PeriodNow).
+        ! Otherwise, shift PeriodActive to the next slot for the advance.
+        if PeriodWas is not -1 and PeriodNow is not PeriodWas
         begin
             log RoomName cat `: Cancelling the advance`
             set entry `advance` of Room to `-`
+            set entry `period` of Room to PeriodActive
+            gosub to ForceUpdate
+        end
+        else
+        begin
+            add 1 to PeriodNow giving P
+            if P is EventCount put 0 into P
+            set PeriodActive to P
+            set entry `period` of Room to PeriodActive
         end
     end
 
