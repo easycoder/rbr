@@ -415,6 +415,11 @@
 	variable BoostUntil
 	variable BoostRemaining
 	variable BoostText
+	variable BoostTickI
+	variable BoostTickRoom
+	variable BoostTickUntil
+	variable BoostTickRemaining
+	variable BoostTickPrevText
 
 !	Info sheet state.
 	variable InfoSheetWebson
@@ -1190,6 +1195,10 @@ BuildHomeScreen:
 !	on first build; subsequent refreshes don't re-fork.
 	fork to BackgroundTick
 
+!	Boost-countdown tick — re-derive "N mins left" locally between map
+!	pushes so a quiet room's countdown doesn't appear frozen.
+	fork to BoostTick
+
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1462,11 +1471,13 @@ BuildRoomEntry:
 !	the legacy formula in rbr.as:910-920.
 	set property `boost` of NewRoom to empty
 	set property `boostRemaining` of NewRoom to 0
+	set property `boostUntilMs` of NewRoom to 0
 	if LegacyMode is `boost`
 	begin
 		put property `until` of LegacyRoom into BoostUntil
 		if BoostUntil is not empty
 		begin
+			set property `boostUntilMs` of NewRoom to BoostUntil
 			put BoostUntil into BoostRemaining
 			take the timestamp from BoostRemaining
 			if BoostRemaining is greater than 0
@@ -1639,6 +1650,53 @@ BackgroundTick:
 		begin
 			put Hour into LastHour
 			gosub to ApplyBackground
+		end
+	end
+
+!	Boost-countdown tick. The controller only pushes a fresh map when state
+!	changes (temp / period / relay), so on a quiet room mid-boost the
+!	displayed "N mins left" text would otherwise stay frozen between
+!	pushes. We re-derive it locally from `boostUntilMs` every 30 s, which
+!	is purely cosmetic — the controller still owns the actual expiry.
+BoostTick:
+	while true
+	begin
+		wait 30 seconds
+		if RoomCount is greater than 0
+		begin
+			put 0 into BoostTickI
+			while BoostTickI is less than RoomCount
+			begin
+				put element BoostTickI of RoomsList into BoostTickRoom
+				if property `mode` of BoostTickRoom is `Boost`
+				begin
+					put property `boostUntilMs` of BoostTickRoom into BoostTickUntil
+					if BoostTickUntil is not empty
+					begin
+						put BoostTickUntil into BoostTickRemaining
+						take the timestamp from BoostTickRemaining
+						if BoostTickRemaining is greater than 0
+						begin
+							divide BoostTickRemaining by 60000
+							add 1 to BoostTickRemaining
+							if BoostTickRemaining is 1 put `1 min` into BoostText
+							else put BoostTickRemaining cat ` mins` into BoostText
+							put property `boost` of BoostTickRoom into BoostTickPrevText
+							if BoostTickPrevText is not BoostText
+							begin
+								set property `boost` of BoostTickRoom to BoostText
+								set property `boostRemaining` of BoostTickRoom to BoostTickRemaining
+								set element BoostTickI of RoomsList to BoostTickRoom
+								put BoostTickRoom into Room
+								put BoostTickI into RoomIndex
+								put `` cat RoomIndex into IndexStr
+								gosub to RenderRoom
+							end
+						end
+					end
+				end
+				increment BoostTickI
+			end
 		end
 	end
 
@@ -2346,6 +2404,10 @@ ApplyBoost:
 	set property `boostRemaining` of Room to BoostMinutes
 	if BoostMinutes is 1 set property `boost` of Room to `1 min`
 	else set property `boost` of Room to BoostMinutes cat ` mins`
+	put BoostMinutes into SyncBoostUntil
+	multiply SyncBoostUntil by 60000
+	add now to SyncBoostUntil
+	set property `boostUntilMs` of Room to SyncBoostUntil
 	set element ClickIndex of RoomsList to Room
 
 	put -1 into BoostPanelOpenIndex
@@ -2353,9 +2415,6 @@ ApplyBoost:
 
 	gosub to AfterStateChange
 	gosub to SyncCurrentRoomToMap
-	put BoostMinutes into SyncBoostUntil
-	multiply SyncBoostUntil by 60000
-	add now to SyncBoostUntil
 	gosub to SyncCurrentRoomBoostUntil
 
 	put property `name` of Room into RoomNameForServer
