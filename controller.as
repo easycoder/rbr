@@ -96,6 +96,10 @@
     variable SensorAge
     variable RoomStatus
     variable PriorStatus
+    variable BoostTemp
+    variable BoostExpired
+    variable BoostStartPeriod
+    variable NaturalPeriod
     variable MapFilename
 
     ! Reusable variables - but be careful!
@@ -562,42 +566,67 @@ ProcessRoom:
     end
     else if Mode is `boost`
     begin
-        ! Check if the boost has expired
+        clear BoostExpired
+
+        ! Time-based expiry (the controller-side `until` timestamp).
         put entry `until` of Room into T
         if T is not empty
         begin
-            if T is not greater than now
+            if T is not greater than now set BoostExpired
+        end
+
+        ! Period-boundary expiry — mirror the existing Advance auto-cancel
+        ! at schedule boundaries. We latch the natural period at boost-
+        ! start (`boostperiod`) on the first cycle so a boost engaged
+        ! mid-period doesn't immediately self-cancel; subsequent cycles
+        ! cancel as soon as the natural period rolls. Rooms with no
+        ! `events` skip this check.
+        if not BoostExpired
+        begin
+            if Room has entry `events`
             begin
-                ! Boost expired - revert to previous mode
-                if Room has entry `prevmode`
-                    set entry `mode` of Room to entry `prevmode` of Room
-                else set entry `mode` of Room to `timed`
-                delete entry `until` of Room
-                delete entry `prevmode` of Room
-                log RoomName cat `: Boost expired, reverting to ` cat entry `mode` of Room
-                gosub to ForceUpdate
-                put entry `mode` of Room into Mode
-                if Mode is `timed`
+                gosub to GetNaturalPeriod
+                if Room has entry `boostperiod`
                 begin
-                    gosub to FindCurrentPeriod
-                    put item PeriodActive of Events into Period
-                    put entry `temp` of Period into Temp
-                    gosub to ConvertTempToInt
-                    put Temp into Target
+                    put entry `boostperiod` of Room into BoostStartPeriod
+                    if NaturalPeriod is not BoostStartPeriod set BoostExpired
                 end
-                else if Mode is `on`
-                begin
-                    put entry `target` of Room into Temp
-                    gosub to ConvertTempToInt
-                    put Temp into Target
-                end
-                else
-                begin
-                    set Mode to `off`
-                    set RelayState to `off`
-                end
-                go to BoostDone
+                else set entry `boostperiod` of Room to NaturalPeriod
             end
+        end
+
+        if BoostExpired
+        begin
+            ! Revert to previous mode.
+            if Room has entry `prevmode`
+                set entry `mode` of Room to entry `prevmode` of Room
+            else set entry `mode` of Room to `timed`
+            delete entry `until` of Room
+            delete entry `prevmode` of Room
+            delete entry `boostperiod` of Room
+            log RoomName cat `: Boost expired, reverting to ` cat entry `mode` of Room
+            gosub to ForceUpdate
+            put entry `mode` of Room into Mode
+            if Mode is `timed`
+            begin
+                gosub to FindCurrentPeriod
+                put item PeriodActive of Events into Period
+                put entry `temp` of Period into Temp
+                gosub to ConvertTempToInt
+                put Temp into Target
+            end
+            else if Mode is `on`
+            begin
+                put entry `target` of Room into Temp
+                gosub to ConvertTempToInt
+                put Temp into Target
+            end
+            else
+            begin
+                set Mode to `off`
+                set RelayState to `off`
+            end
+            go to BoostDone
         end
         put entry `target` of Room into Temp
         gosub to ConvertTempToInt
@@ -690,16 +719,47 @@ SetRelay:
     ! paths that could keep TempNow populated past the staleness gate
     ! (e.g. an RBR-Now relay reporting its own temperature when the
     ! configured thermometer is dead).
+    !
+    ! Boost is the one mode that bypasses the staleness lockout: it's a
+    ! user-initiated, time-bounded override (the `until` timestamp is the
+    ! safety bound). For linked boost rooms we still honour the target
+    ! where we have any temperature data — last-known reading on the
+    ! room itself if TempNow has been emptied by the staleness gate. With
+    ! no temperature data at all, default the relay on so a boost on a
+    ! never-reported sensor still produces heat for its bounded duration.
     put empty into PriorStatus
     if Room has entry `status` put entry `status` of Room into PriorStatus
     if Mode is `off` set RelayState to `off`
+    else if Mode is `boost`
+    begin
+        if entry `linked` of Room is `no` set RelayState to `on`
+        else
+        begin
+            put TempNow into BoostTemp
+            if BoostTemp is empty put entry `temperature` of Room into BoostTemp
+            ! Normalise to integer hundredths if the source provided
+            ! a "X.Y" string (the simulator path can leave Room.temperature
+            ! in that form).
+            if BoostTemp is not empty
+            begin
+                if BoostTemp is not numeric
+                begin
+                    put BoostTemp into Temp
+                    gosub to ConvertTempToInt
+                    put Temp into BoostTemp
+                end
+            end
+            if BoostTemp is empty set RelayState to `on`
+            else if BoostTemp is less than Target set RelayState to `on`
+            else set RelayState to `off`
+        end
+    end
     else if PriorStatus is `warn` set RelayState to `off`
     else if PriorStatus is `fail` set RelayState to `off`
     else if entry `linked` of Room is `no`
     begin
         ! Unlinked relays are driven directly by mode, not by target/temperature.
         if Mode is `on` set RelayState to `on`
-        else if Mode is `boost` set RelayState to `on`
         else set RelayState to `off`
     end
     else
@@ -958,6 +1018,34 @@ FCP2:
 
     ! Save the non-advance current period
     set PeriodWas to PeriodNow
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Side-effect-free version of FindCurrentPeriod for the boost period-
+!   boundary check. Walks the room's events to find the index of the
+!   period containing `now` and returns it in NaturalPeriod. Does not
+!   touch PeriodActive / Period / Target / advance — used only as a
+!   reference value to compare against the boost-start latch.
+GetNaturalPeriod:
+    put entry `events` of Room into Events
+    put the count of Events into EventCount
+    put 0 into NaturalPeriod
+    if EventCount is 0 return
+GNP2:
+    if NaturalPeriod is EventCount
+    begin
+        ! Past the last event time — wrap to the first slot.
+        put 0 into NaturalPeriod
+        return
+    end
+    put item NaturalPeriod of Events into Period
+    put entry `until` of Period into Time
+    gosub to ConvertTimeToInt
+    if now is greater than Time
+    begin
+        increment NaturalPeriod
+        go to GNP2
+    end
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1294,6 +1382,9 @@ ProcessUIRequest:
         begin
             if Value2 is not `boost`
                 set entry `prevmode` of Room to Value2
+            ! Drop any stale period-latch from a prior boost so the next
+            ! ProcessRoom cycle records the current natural period fresh.
+            if Room has entry `boostperiod` delete entry `boostperiod` of Room
         end
         set entry `mode` of Room to Mode
         if Message has entry `target` set entry `target` of Room to entry `target` of Message
