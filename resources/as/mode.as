@@ -72,6 +72,7 @@
     variable X
     variable ProfileCount
     variable ProfileIndex
+    variable ScheduleType
     variable ProfileName
     variable SelectedProfile
     div ProfilePopup
@@ -296,7 +297,15 @@ ShowTimes:
         set style `display` of MaskLayer to `none`
         go to SelectCancel
     end
-    if PeriodEditScript is empty
+    put property `profiles` of Map into Profiles
+    put element SelectedProfile of Profiles into Profile
+    put property `rooms` of Profile into Rooms
+    put element ClickIndex of Rooms into RoomSpec
+    if RoomSpec has property `schedule-type` put property `schedule-type` of RoomSpec into ScheduleType
+    else put `events` into ScheduleType
+    if ScheduleType is `periods`
+        rest get PeriodEditScript from `resources/as/roomperiodedit.as?v=` cat now
+    else
         rest get PeriodEditScript from `resources/as/periodedit.as?v=` cat now
     run PeriodEditScript with MainPanel and Map and SelectedProfile and ClickIndex and Result
     set style `display` of MaskLayer to `none`

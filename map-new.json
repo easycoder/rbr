@@ -38,7 +38,15 @@
                     "statusMessage": "",
                     "humidity": 52,
                     "sensorAge": 409968,
-                    "until": 1778144217019
+                    "until": 1778144217019,
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "17:30",
+                            "off": "19:30",
+                            "temp": 21.0
+                        }
+                    ]
                 },
                 {
                     "name": "Sunroom",
@@ -73,7 +81,15 @@
                     "statusMessage": "Sensor: no report for 35 min",
                     "humidity": 43,
                     "sensorAge": 2139572,
-                    "until": 1778144344746
+                    "until": 1778144344746,
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "17:30",
+                            "off": "23:00",
+                            "temp": 23.5
+                        }
+                    ]
                 },
                 {
                     "name": "Lounge",
@@ -112,7 +128,20 @@
                     "relayfails": 0,
                     "statusMessage": "Sensor: no report for 16 min",
                     "humidity": 49,
-                    "sensorAge": 1002811
+                    "sensorAge": 1002811,
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "09:00",
+                            "off": "18:00",
+                            "temp": 17.0
+                        },
+                        {
+                            "on": "18:00",
+                            "off": "23:00",
+                            "temp": 24.0
+                        }
+                    ]
                 },
                 {
                     "name": "Bedroom 1",
@@ -155,7 +184,20 @@
                     "relayfails": 0,
                     "statusMessage": "Sensor: no report for 18 min",
                     "humidity": 43,
-                    "sensorAge": 1113186
+                    "sensorAge": 1113186,
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "07:00",
+                            "off": "08:00",
+                            "temp": 22.0
+                        },
+                        {
+                            "on": "22:30",
+                            "off": "23:30",
+                            "temp": 21
+                        }
+                    ]
                 },
                 {
                     "name": "Bedroom 2",
@@ -197,7 +239,20 @@
                     "relayfails": 0,
                     "statusMessage": "",
                     "humidity": 47,
-                    "sensorAge": 589218
+                    "sensorAge": 589218,
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "07:00",
+                            "off": "08:30",
+                            "temp": 22.0
+                        },
+                        {
+                            "on": "22:30",
+                            "off": "23:30",
+                            "temp": 22.0
+                        }
+                    ]
                 },
                 {
                     "name": "Hall",
@@ -240,7 +295,20 @@
                     "relayfails": 0,
                     "statusMessage": "Sensor: no report for 11 min",
                     "sensorAge": 714304,
-                    "humidity": 44.17
+                    "humidity": 44.17,
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "07:00",
+                            "off": "09:00",
+                            "temp": 17.0
+                        },
+                        {
+                            "on": "17:00",
+                            "off": "23:00",
+                            "temp": 17.0
+                        }
+                    ]
                 },
                 {
                     "name": "Office",
@@ -269,7 +337,9 @@
                     "relayfails": 0,
                     "statusMessage": "",
                     "humidity": 39.04,
-                    "sensorAge": 551981
+                    "sensorAge": 551981,
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Outside",
@@ -294,7 +364,9 @@
                     "relayfails": 0,
                     "statusMessage": "Sensor: no report for 164 min",
                     "sensorAge": 9879299,
-                    "humidity": 60.94
+                    "humidity": 60.94,
+                    "schedule-type": "events",
+                    "periods": []
                 }
             ]
         },
@@ -333,7 +405,15 @@
                     "battery": 27,
                     "period": 0,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "17:30",
+                            "off": "19:30",
+                            "temp": 21.0
+                        }
+                    ]
                 },
                 {
                     "name": "Sunroom",
@@ -369,7 +449,15 @@
                     "battery": 46,
                     "period": 1,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "16:30",
+                            "off": "23:00",
+                            "temp": 23
+                        }
+                    ]
                 },
                 {
                     "name": "Lounge",
@@ -406,7 +494,20 @@
                     "relay": "off",
                     "period": 1,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "09:00",
+                            "off": "17:00",
+                            "temp": 17.0
+                        },
+                        {
+                            "on": "17:00",
+                            "off": "23:00",
+                            "temp": 24.0
+                        }
+                    ]
                 },
                 {
                     "name": "Bedroom 1",
@@ -447,7 +548,20 @@
                     "battery": 43,
                     "period": 2,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "07:00",
+                            "off": "9:00",
+                            "temp": 22.0
+                        },
+                        {
+                            "on": "22:30",
+                            "off": "23:30",
+                            "temp": 21
+                        }
+                    ]
                 },
                 {
                     "name": "Bedroom 2",
@@ -487,7 +601,20 @@
                     "battery": 51,
                     "period": 0,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "08:00",
+                            "off": "09:00",
+                            "temp": 22.0
+                        },
+                        {
+                            "on": "22:30",
+                            "off": "23:30",
+                            "temp": 23.0
+                        }
+                    ]
                 },
                 {
                     "name": "Hall",
@@ -528,7 +655,20 @@
                     "battery": 42,
                     "period": 2,
                     "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 46 min"
+                    "statusMessage": "Sensor: no report for 46 min",
+                    "schedule-type": "events",
+                    "periods": [
+                        {
+                            "on": "07:00",
+                            "off": "09:00",
+                            "temp": 17.0
+                        },
+                        {
+                            "on": "17:00",
+                            "off": "23:00",
+                            "temp": 17.0
+                        }
+                    ]
                 },
                 {
                     "name": "Office",
@@ -557,7 +697,9 @@
                     "period": 0,
                     "relayfails": 0,
                     "until": 1777816604236,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Outside",
@@ -580,7 +722,9 @@
                     "battery": 47,
                     "period": 0,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 }
             ]
         },
@@ -609,7 +753,9 @@
                     "battery": 27,
                     "period": 0,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Sunroom",
@@ -633,7 +779,9 @@
                     "ptemp": "",
                     "period": 1,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Lounge",
@@ -657,7 +805,9 @@
                     "relay": "off",
                     "period": 1,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Bedroom 1",
@@ -681,7 +831,9 @@
                     "battery": 43,
                     "period": 2,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Bedroom 2",
@@ -704,7 +856,9 @@
                     "battery": 51,
                     "period": 0,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Hall",
@@ -728,7 +882,9 @@
                     "battery": 42,
                     "period": 2,
                     "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 14 min"
+                    "statusMessage": "Sensor: no report for 14 min",
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Office",
@@ -750,7 +906,9 @@
                     "advance": "-",
                     "period": 0,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 },
                 {
                     "name": "Outside",
@@ -773,7 +931,9 @@
                     "battery": 47,
                     "period": 0,
                     "relayfails": 0,
-                    "statusMessage": ""
+                    "statusMessage": "",
+                    "schedule-type": "events",
+                    "periods": []
                 }
             ]
         }
@@ -818,5 +978,6 @@
     "controller-ssid": "RBR-803f5da34f09",
     "controller-password": "r00m8Yr00m",
     "email": "gt@pobox.com",
-    "user-password": "767653"
+    "user-password": "767653",
+    "background-temp": 12
 }

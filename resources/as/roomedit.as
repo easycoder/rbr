@@ -21,6 +21,7 @@
     button EditNameButton
     button EditDevicesButton
     button EditTimesButton
+    button ScheduleTypeButton
     button HelpButton
     button CancelButton
     button DialogButton1
@@ -50,6 +51,7 @@
     variable List
     variable Script
     variable R
+    variable ScheduleType
 
 !    debug step
     
@@ -60,19 +62,35 @@ Editor:
     attach EditNameButton to `button-name`
     attach EditDevicesButton to `button-devices`
     attach EditTimesButton to `button-times`
+    attach ScheduleTypeButton to `button-schedule-type`
     attach HelpButton to `button-help`
     attach CancelButton to `button-cancel`
-    
+
     gosub to GetCurrentRooms
     put element ClickIndex of Rooms into Room
     set the content of RoomName to property `name` of Room
-    
+
+    if Room has property `schedule-type` put property `schedule-type` of Room into ScheduleType
+    else put `events` into ScheduleType
+    if ScheduleType is `periods`
+    begin
+        set the content of EditTimesButton to `Edit periods`
+        set the content of ScheduleTypeButton to `Switch to events`
+    end
+    else
+    begin
+        set the content of EditTimesButton to `Edit events`
+        set the content of ScheduleTypeButton to `Switch to periods`
+    end
+
     on click EditNameButton go to NameButtonCB
-    
+
     on click EditDevicesButton go to DevicesButtonCB
- 
+
     on click EditTimesButton go to TimesButtonCB
-    
+
+    on click ScheduleTypeButton go to ScheduleTypeButtonCB
+
     on click CancelButton go to ExitWithoutChanges
     
     on click HelpButton
@@ -297,11 +315,27 @@ GetCurrentRooms:
 	return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Edit the times
+!	Edit the times. Branches on schedule-type.
 TimesButtonCB:
-    rest get PeriodEditScript from `resources/as/periodedit.as?v=` cat now
+    if ScheduleType is `periods`
+        rest get PeriodEditScript from `resources/as/roomperiodedit.as?v=` cat now
+    else
+        rest get PeriodEditScript from `resources/as/periodedit.as?v=` cat now
     run PeriodEditScript with MainPanel and Map and CurrentProfile and ClickIndex and Result
 	exit
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!	Toggle the schedule type between events and periods, persist, and exit.
+ScheduleTypeButtonCB:
+    if ScheduleType is `periods` put `events` into ScheduleType
+    else put `periods` into ScheduleType
+    set property `schedule-type` of Room to ScheduleType
+    set element ClickIndex of Rooms to Room
+    gosub to CopyRoomsToMap
+    set property `action` of RequestData to `schedule-type`
+    set property `schedule-type` of RequestData to ScheduleType
+    set Changed
+    go to Exit
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !	Exit without changes

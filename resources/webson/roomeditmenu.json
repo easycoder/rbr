@@ -5,7 +5,7 @@
     "padding": "1em 0",
     "background": "#ffc",
     "#": ["$Title", "$Name", "$Devices",
-        "$Times", "$Pad", "$Save", "$Cancel", "$Pad", "$Help"],
+        "$Times", "$ScheduleType", "$Pad", "$Save", "$Cancel", "$Pad", "$Help"],
 
     "$Title": {
         "#element": "div",
@@ -33,6 +33,12 @@
     "$Times": {
         "$ID": "button-times",
         "$Label": "Edit timing schedule",
+        "#": "$Button"
+    },
+
+    "$ScheduleType": {
+        "$ID": "button-schedule-type",
+        "$Label": "Switch schedule type",
         "#": "$Button"
     },
 

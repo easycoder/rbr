@@ -101,6 +101,11 @@
     variable BoostStartPeriod
     variable NaturalPeriod
     variable MapFilename
+    variable ScheduleType
+    variable OnTime
+    variable OffTime
+    variable InPeriod
+    list PeriodList
 
     ! Reusable variables - but be careful!
     variable I
@@ -553,10 +558,13 @@ ProcessRoom:
     if Mode is `timed`
     begin
         gosub to FindCurrentPeriod
-        put item PeriodActive of Events into Period
-        put entry `temp` of Period into Temp
-        gosub to ConvertTempToInt
-        put Temp into Target
+        if ScheduleType is not `periods`
+        begin
+            put item PeriodActive of Events into Period
+            put entry `temp` of Period into Temp
+            gosub to ConvertTempToInt
+            put Temp into Target
+        end
     end
     else if Mode is `on`
     begin
@@ -610,10 +618,13 @@ ProcessRoom:
             if Mode is `timed`
             begin
                 gosub to FindCurrentPeriod
-                put item PeriodActive of Events into Period
-                put entry `temp` of Period into Temp
-                gosub to ConvertTempToInt
-                put Temp into Target
+                if ScheduleType is not `periods`
+                begin
+                    put item PeriodActive of Events into Period
+                    put entry `temp` of Period into Temp
+                    gosub to ConvertTempToInt
+                    put Temp into Target
+                end
             end
             else if Mode is `on`
             begin
@@ -958,8 +969,18 @@ ForceUpdate:
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Find which period we are in (to get the target temperature)
+! Find which period we are in (to get the target temperature).
+! Sets ScheduleType, then dispatches to either the events-based logic below
+! or FindCurrentPeriodFromPeriods. Callers that subsequently look at
+! `item PeriodActive of Events` must guard with `if ScheduleType is not periods`.
 FindCurrentPeriod:
+    set ScheduleType to `events`
+    if Room has entry `schedule-type` set ScheduleType to entry `schedule-type` of Room
+    if ScheduleType is `periods`
+    begin
+        gosub to FindCurrentPeriodFromPeriods
+        return
+    end
     put entry `events` of Room into Events
     put the count of Events into EventCount
     if EventCount is 0 return
@@ -1018,6 +1039,76 @@ FCP2:
 
     ! Save the non-advance current period
     set PeriodWas to PeriodNow
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Periods-mode equivalent of FindCurrentPeriod. Walks `periods` looking for
+!   one that contains `now` (handling wrap-around when on > off). Sets:
+!     - Target = matched period's temp (in hundredths) or background-temp.
+!     - PeriodActive = matching period index, or -1 if we fell through to
+!       background. Callers must NOT do `item PeriodActive of Events` in
+!       periods mode — guard with `if ScheduleType is not periods`.
+!   Advance and the boost period-boundary heuristic still use `events` for
+!   now (events remains in the data during the temporary phase).
+FindCurrentPeriodFromPeriods:
+    set PeriodActive to -1
+    if Room has entry `periods` put entry `periods` of Room into PeriodList
+    else
+    begin
+        gosub to PeriodsBackgroundTarget
+        return
+    end
+    put the count of PeriodList into EventCount
+    if EventCount is 0
+    begin
+        gosub to PeriodsBackgroundTarget
+        return
+    end
+    put 0 into I
+    while I is less than EventCount
+    begin
+        put item I of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        set OnTime to Time
+        put entry `off` of Period into Time
+        gosub to ConvertTimeToInt
+        set OffTime to Time
+        set InPeriod to 0
+        if OnTime is OffTime set InPeriod to 1
+        else if OnTime is less than OffTime
+        begin
+            if now is not less than OnTime
+                if now is less than OffTime set InPeriod to 1
+        end
+        else
+        begin
+            ! Wraps midnight: in-period when at-or-after `on`, OR before `off`.
+            if now is not less than OnTime set InPeriod to 1
+            else if now is less than OffTime set InPeriod to 1
+        end
+        if InPeriod is 1
+        begin
+            set PeriodActive to I
+            put entry `temp` of Period into Temp
+            gosub to ConvertTempToInt
+            put Temp into Target
+            return
+        end
+        increment I
+    end
+    gosub to PeriodsBackgroundTarget
+    return
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!   Set Target to the system background temperature (used when in periods mode
+!   and `now` falls outside every period). Leaves PeriodActive as set by caller.
+PeriodsBackgroundTarget:
+    if Map has entry `background-temp` put entry `background-temp` of Map into Temp
+    else put 12 into Temp
+    put `` cat Temp into Temp
+    gosub to ConvertTempToInt
+    put Temp into Target
     return
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1399,8 +1490,26 @@ ProcessUIRequest:
                 if Room has entry `events`
                 begin
                     gosub to FindCurrentPeriod
-                    put item PeriodActive of Events into Period
-                    set entry `target` of Room to entry `temp` of Period
+                    if ScheduleType is `periods`
+                    begin
+                        if PeriodActive is less than 0
+                        begin
+                            if Map has entry `background-temp`
+                                set entry `target` of Room to entry `background-temp` of Map
+                            else set entry `target` of Room to 12
+                        end
+                        else
+                        begin
+                            put entry `periods` of Room into PeriodList
+                            put item PeriodActive of PeriodList into Period
+                            set entry `target` of Room to entry `temp` of Period
+                        end
+                    end
+                    else
+                    begin
+                        put item PeriodActive of Events into Period
+                        set entry `target` of Room to entry `temp` of Period
+                    end
                 end
             end
         end
