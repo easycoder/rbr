@@ -1,5 +1,5 @@
 {
-    "#doc": "Schedule editor sheet — per-room timed-mode period editor. Periods stack vertically; each one is rendered from schedule-period.json. Add appends a sensible default; Save sorts by `until` and ships an Update Profiles uirequest. Renders as a sibling sheet inside sheet-content.",
+    "#doc": "Schedule editor sheet — per-room timed-mode period editor. Periods stack vertically; each is rendered from schedule-period.json. Add appends a sensible default; Save sorts by ON time and ships an Update Profiles uirequest. Renders as a sibling sheet inside sheet-content.",
     "#element": "div",
     "@id": "schedule-editor-sheet",
     "#": ["$Tagline", "$ProfilePill", "$ProfilePicker", "$PeriodList", "$AddBtn", "$Buttons"],

@@ -1,3 +1,8 @@
+!! Device controller module for RBR. Sits between the main controller (controller.as) and the physical relay devices, translating per-room commands into HTTP calls on either the RBR-Now ESP-Now hub or the local Zigbee bridge.
+!!
+!! Run as a sub-module of controller.as (via `run ... as DeviceModule`) — communication with the parent is by EasyCoder messaging, not MQTT. The parent stops the module by terminating; there is no explicit shutdown handshake.
+!!
+!! The script starts by declaring all the variables it uses, then performs basic initialisation: loads config.json to find the master device's IP, registers the on-message handler that routes incoming RoomSpecs, and signals the parent it is ready.
 !   deviceControl.as - a script to drive radiator relays and read temperatures
 
     script DeviceControl
@@ -15,8 +20,6 @@
     variable RelayName
     variable RelayType
     variable RelayState
-    variable Temp
-    variable Time
     variable MasterIPAddr
     variable DeviceName
     variable DeviceMAC
@@ -24,24 +27,27 @@
     variable Path
     variable Message
     variable Reply
-    variable I
     variable P
     variable N
     variable R
-    variable T
 
 !    debug step
     
-    ! Comms between thi module and the controller is done with EasyCoder messaging (not MQTT)
+    ! Comms between this module and the controller is done with EasyCoder messaging (not MQTT)
     log `Set up the device controller`
     gosub to SetupDeviceController
     on message go to RunController
     release parent
     log `Device controller is ready`
     stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Set up the controller
+!! @hash 38eefcfd
+!! @verified 38eefcfd
+!!!
+!! Locate the IP address of the RBR-Now master device and stash it in MasterIPAddr for later HTTP calls by MessageESPDevice.
+!!
+!! Walks the `devices` dictionary in config.json and picks the one whose `master` flag is true. There is at most one master per system (the only RBR-Now node with a Wi-Fi interface; all others reach it via the private ESP-Now mesh).
+!!
+!! If no master is present — for example a pure-Zigbee install with no RBR-Now legacy devices — MasterIPAddr is left empty and MessageESPDevice short-circuits silently. Run-time errors only surface when a room is actually configured with `relayType: RBR-Now`.
 SetupDeviceController:
     load Config from `config.json`
 !    log `Config: ` cat prettify Config
@@ -61,9 +67,20 @@ SetupDeviceController:
         increment N
     end
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Deal with the heating in a single room
+!! @hash 29131be6
+!! @verified 29131be6
+!!!
+!! Top-level message handler. Invoked by the EasyCoder runtime whenever controller.as sends us a RoomSpec via `send ... to DeviceModule`.
+!!
+!! Two message shapes are accepted:
+!!
+!! Request relay (boiler demand): RoomSpec has a `request` entry naming the relay and a `relay state` (`on`/`off`). The request/demand relay is Zigbee — it drives the boiler and lives on the same bridge as the room relays (it was ESP-Now in the original RBR-Now setup, hence the cross-references). We send the requested state to that single Zigbee device and reply with a single-element list.
+!!
+!! Room relay batch: RoomSpec carries `room name`, `relays` (one or more relay names — most rooms have one but some rooms control multiple radiators in parallel), `relay type` (`RBR-Now` or `Zigbee`), and `relay state`. The loop dispatches each named relay via the appropriate transport (MessageESPDevice for RBR-Now, MessageZigbeeDevice for Zigbee) and collects each device's response into Replies before sending the whole list back.
+!!
+!! The reply list lets controller.as track each relay individually — empty entries count as failures (incremented into the room's `relayfails`), numeric entries are temperature readings from the relay's own sensor, and string entries are BLE thermometer announcements forwarded by RBR-Now devices.
+!!
+!! MessageZigbeeDevice reads RelayState (not Message) to build its URL, so for the request-relay path we populate both to match the room-relay path. Each branch ends with `stop` rather than `return` because we are the registered on-message handler — `stop` returns control to the runtime to await the next message without re-entering the script body.
 RunController:
 !    log `RunController:` cat the message
     put the message into RoomSpec
@@ -106,9 +123,18 @@ RunController:
     end
     send Replies to sender
     stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Send a message to an ESP-Now device
+!! @hash d7af03a5
+!! @verified d7af03a5
+!!!
+!! Send a relay command to an RBR-Now (ESP32) device through the master hub via HTTP, and capture the device's response in Reply.
+!!
+!! RBR-Now devices live on a private ESP-Now mesh and aren't directly reachable from the LAN — the master is the only node with a Wi-Fi interface, so all traffic is tunnelled through it. The default URL form is `http://<master>/?mac=<short-mac>&msg=<state>`; the master strips its own header and forwards the `msg` payload over ESP-Now to the device identified by `mac`.
+!!
+!! A device record may carry a `path` entry that overrides the default endpoint, useful for devices running custom firmware that exposes a different URL shape. A comma inside the path acts as a placeholder for the MAC/message insertion point: text left of the comma is appended directly to the master URL, text right of it forms the `&msg=!` payload with the MAC and message comma-joined after it. A path with no comma is appended whole, with the MAC and message tacked on as `!<mac>,<msg>`.
+!!
+!! Short-circuits silently when MasterIPAddr is empty (no RBR-Now master configured) or when the named relay isn't in the devices dictionary (typo or stale config). Both leave Reply unset, so the caller treats it as a failure.
+!!
+!! On success the reply's leading `OK` is the master's per-message ack — anything past it carries the device's payload (its own temperature reading, or a BLE thermometer announcement) which controller.as's ProcessReply parses. A non-`OK` response is logged and Reply is cleared so the caller counts it as a failure.
 MessageESPDevice:
     if MasterIPAddr is empty return
     if Devices does not have entry RelayName return
@@ -149,9 +175,16 @@ MessageESPDevice:
         set Reply to empty
     end
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Send a message to a Zigbee device via the zigbee-bridge HTTP server
+!! @hash 24fc12ac
+!! @verified 24fc12ac
+!!!
+!! Send a relay command to a Zigbee device via the local zigbee-bridge HTTP server on 127.0.0.1:8889.
+!!
+!! The bridge translates HTTP to MQTT for zigbee2mqtt and returns the device's reported state as JSON. URL form is `http://127.0.0.1:8889/device/<name>?state=<on|off>`. The device name is the friendly name registered with zigbee2mqtt and must match the relay name in map.json.
+!!
+!! On success we build a small Values dictionary carrying the device's reported `state` (so the controller can confirm the relay actually flipped) and a placeholder `uptime` of 0, then return that as Reply. On bridge failure (network error, bridge not running) or a response with no `state` field, Reply is left empty so the caller counts it as a relay failure — same as a failed RBR-Now call.
+!!
+!! No master/IP setup is required here because the Zigbee bridge always runs on localhost. There is currently no equivalent of MessageESPDevice's path/custom-endpoint mechanism; a device is identified solely by its zigbee2mqtt friendly name.
 MessageZigbeeDevice:
     put `http://127.0.0.1:8889/device/` cat RelayName cat `?state=` cat RelayState into URL
 !    log URL
@@ -171,33 +204,6 @@ MessageZigbeeDevice:
     end
     else set Reply to empty
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Convert an HH:MM time into a number of seconds
-ConvertTimeToInt:
-    put `` cat Time into Time
-    put the index of `:` in Time into I
-    put the value of left I of Time into T
-    multiply T by 60
-    increment I
-    put the value of from I of Time into Time
-    add Time to T
-    multiply T by 60000 giving Time
-    add today to Time
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Convert a temperature string into a number of hundredths
-ConvertTempToInt:
-    if Temp is empty put 0 into Temp
-    put the index of `.` in Temp into I
-    if I is less than 0 multiply Temp by 100
-    else
-    begin
-        put the value of left I of Temp into T
-        multiply T by 100
-        increment I
-        put the value of from I of Temp into Temp
-        add T to Temp
-    end
-    return
+!! @hash 1f26f342
+!! @verified 1f26f342
+!!!

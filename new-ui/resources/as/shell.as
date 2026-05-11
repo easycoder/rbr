@@ -1,8 +1,12 @@
-!	Room By Room — new UI shell.
-!	Slices 02 (TopBar) + 03 (RoomRow rest state) + 04 (SummaryCard)
-!	+ 05 (Sheet chrome + MenuSheet) + 06 (ProfileSheet)
-!	+ 07 (RoomRow expansion: mode / target / boost / edit-schedule)
-!	+ 08 (Time-of-day background gradient).
+!! Room By Room — new UI shell. The single script that boots the mobile webapp, opens an MQTT WebSocket to the controller, ingests its map, renders the home screen, and routes every user gesture into a `uirequest` reply.
+!!
+!! Architecture in brief. The shell is a long-running message loop: MQTT connect → first map → render → 10-second polling refresh. The controller is authoritative for relay/schedule/temperature state; the UI mirrors it optimistically (mutating its local copy on user action, shipping a `uirequest`, and reconciling on the next map push). All sheet UIs follow the same pattern — snapshot live data into Editing* working copies on open, mutate locally, ship one `Update Profiles` (or `Update Rooms`) on Save, discard on Cancel.
+!!
+!! Resilience layers. MQTT WebSockets are silently torn down by mobile OSes when the tab is backgrounded; we paper over that with a tab-resume hook (reload if stale >5min, otherwise refresh), a 30-second first-map watchdog (capped at 3 attempts), and a poll-interval staleness check (reload if no reply for 60s). A demo mode kicks in when there are no credentials, rendering a baked map and the About sheet for marketing visits.
+!!
+!! Slice history (preserved for archaeology): 02 TopBar + 03 RoomRow + 04 SummaryCard + 05 Sheet chrome + MenuSheet + 06 ProfileSheet + 07 RoomRow expansion (mode/target/boost/edit-schedule) + 08 Time-of-day background gradient. Subsequent slices added Schedule editor, Device editor, System sheet, Outside sheet, Info sheet, About sheet.
+!!
+!! The script opens with all DOM-element handle declarations (one block per sheet or feature), then the script-level state variables grouped by concern, and finally the synchronous bootstrap that wires the topbar, fetches credentials, opens MQTT, and arms the message loop. Everything past `stop` (line ~702) is reached only via the message handler or click handlers.
 
 	script Shell
 
@@ -45,72 +49,20 @@
 	div SheetTitleEl
 	div SheetContent
 	div MenuSheetEl
-	div ProfileSheetEl
-	div ProfileTagline
-	div CalendarHeaderEl
-	button CalExpandBtn
-	div CalendarHeaderTitle
-	div CalendarChev
-	div CalendarCardEl
-	button CalendarToggleBtn
-	div DayRow
-	div DayProfileEl
-	button DayEditBtn
-	button ProfileAddBtn
-	button ProfileSaveBtn
-	button ProfileCancelBtn
 	button MenuRowSystem
 	button MenuRowDevices
 	button MenuRowOutside
 	button MenuRowHelp
-	div ProfileListHolder
-	div ProfileRow
-	button ProfileBody
-	div ProfileLabel
-	button ProfileRenameBtn
-	button ProfileDeleteBtn
-	div DayPickerEl
-	button DayPickerCloseBtn
-	div DayPickerList
-	button DayPill
+!	Owned by the profile-sheet module — declared here so HideAllSheets can
+!	hide it. The module attaches it independently for its own toggling.
+	div ProfileSheetEl
+!	Owned by the schedule-editor module — declared here so HideAllSheets
+!	can hide it. Each script gets its own DOM handle to the same element
+!	via attach-by-id.
 	div ScheduleSheetEl
-	button ScheduleProfilePillBtn
-	div ScheduleProfileValue
-	div ScheduleProfileChev
-	div ScheduleProfilePicker
-	button SchedProfilePill
-	div SchedulePeriodList
-	button ScheduleAddBtn
-	button ScheduleSaveBtn
-	button ScheduleCancelBtn
-	div PeriodCardEl
-	div PeriodTimeValue
-	button PeriodTimeMinusBtn
-	button PeriodTimePlusBtn
-	div PeriodTempValue
-	button PeriodTempMinusBtn
-	button PeriodTempPlusBtn
-	button PeriodDeleteBtn
+!	Owned by the device-editor module — declared here so HideAllSheets can
+!	hide it (same attach-by-id pattern as ScheduleSheetEl).
 	div DeviceEditorSheetEl
-	button DeviceEditorRoomPill
-	div DeviceEditorRoomValue
-	div DeviceEditorRoomChev
-	div DeviceEditorRoomPicker
-	div DeviceEditorRoomList
-	button DeviceEditorAddRoomBtn
-	button DeviceRoomEditName
-	button DeviceRoomEditUp
-	button DeviceRoomEditDown
-	button DeviceRoomEditPencil
-	button DeviceRoomEditDelete
-	input DeviceEditorSensor
-	button DeviceEditorRtRBRNow
-	button DeviceEditorRtZigbee
-	button DeviceEditorLinkedBtn
-	textarea DeviceEditorRelays
-	input DeviceEditorRequest
-	button DeviceEditorSaveBtn
-	button DeviceEditorCancelBtn
 	div SystemSheetEl
 	input SystemSheetName
 	button SystemSheetTypeBoiler
@@ -157,7 +109,6 @@
 	variable SummaryWebson
 	variable SheetWebson
 	variable MenuWebson
-	variable ProfileWebson
 	variable RoomRowText
 	variable RoomsList
 	variable Room
@@ -170,6 +121,7 @@
 	variable TargetTemp
 	variable NextTime
 	variable NextTarget
+	variable NextPrefix
 	variable Offline
 	variable Sensor
 	variable BoostVal
@@ -213,6 +165,7 @@
 	variable Ttarget
 	variable BoostDur
 	variable Advance
+	variable PrevMode
 !	Boost-panel state. BoostPanelOpenIndex == ClickIndex while the user is
 !	configuring a Boost from a non-Boost mode (controls visible, target seeded,
 !	nothing committed yet). Cleared on commit, on Off-button cancel, on mode
@@ -235,7 +188,6 @@
 	variable SyncLegacyIdx
 	variable SyncUiMode
 	variable SyncBaseMode
-	variable SyncBoost
 	variable SyncBoostUntil
 	variable SyncPrevModeLegacy
 	variable TempStr
@@ -268,25 +220,24 @@
 	variable Prompt
 	variable FirstMapDone
 	variable SheetsReady
-	variable PollWait
 	variable LastReceivedAt
 	variable ResumeAge
 	variable ConsecutiveSendFailures
 	variable FirstMapAttempts
+	variable HeartbeatCount
 
 !	Map ingestion / transformation state.
 	variable Map
+	variable MapResult
+	module MapToRoomsModule
+!	Scratch source-text holder for `rest get ModuleSrc ... ; run ModuleSrc as Module`.
+!	Re-used for every sub-module load.
+	variable ModuleSrc
 	variable Profiles
 	variable CurrentProfile
 	variable ActiveProfile
 	variable ActiveProfileName
 	variable SystemName
-	variable CalendarData
-	variable CalendarEntry
-	variable DayN
-	variable LoopJ
-	variable ProfileN
-	variable LegacyProfileCount
 
 !	Date-formatting lookup tables and scratch.
 	variable DayNames
@@ -306,114 +257,32 @@
 	variable TargetForServer
 	variable CalendarOn
 	variable DemoMode
+!	SendUpdateProfiles inputs — set by callers, read by the helper.
+	variable PayloadProfiles
+	variable PayloadActiveProfileIdx
+	variable PayloadCalendarOnFlag
+	variable PayloadCalendarData
 	variable AboutSheetWebson
-	variable ProfileIdx
-	variable ProfileRowText
-	variable ProfileRowJson
-	variable ProfileIdxStr
 
-!	Combined ProfileSheet state (selection + editing batched through Save).
-	variable EditingProfiles
-	variable EditingProfilesCount
-	variable EditingActiveName
-	variable EditingCalendarOn
-	variable EditingCalendarData
-	variable EditingActiveValid
-	variable CalendarCardExpanded
-	variable EditIdx
-	variable EditClickIdx
-	variable EditProfileN
-	variable ClonedProfile
-	variable NewProfileName
-	variable NewProfilesArray
-	variable NewIdx
-	variable NewActiveIdx
-	variable LoopE
-	variable DayIds
-	variable DayNamesShort
-	variable DayIdStr
-	variable DayEntry
-	variable DayProfileName
-	variable DayLoopI
-	variable DayEditTargetIdx
-	variable PillIdx
-	variable PillIdxStr
-	variable PillRowText
-	variable PillRowJson
-	variable LegacyCalData
-	variable LegacyCalCount
-	variable LegacyCalEntry
-	variable ClonedEntry
-	variable PropName
-	variable ProfName
+!	Profile sheet reply-state. The sheet itself lives in profile-sheet.as;
+!	we ship an open-message and park on the reply (cancelled / profiles /
+!	activeIdx / calendarOn / calendarData).
+	module ProfileSheetModule
+	variable ProfileResult
+!	Cross-routine scratch for confirm-dialog responses (still used by
+!	ResetCredentialsAndReload).
 	variable ConfirmFlag
 
-!	Schedule editor state.
-	variable ScheduleSheetWebson
-	variable PeriodCardJson
-	variable PeriodCardText
-	variable EditingEvents
-	variable EditingEventsCount
-	variable EditingRoomLegacyIdx
-	variable EditingRoomName
-	variable PeriodIdx
-	variable PeriodIdxStr
-	variable PeriodEvent
-	variable PeriodTime
-	variable PeriodTemp
-	variable PeriodTempTenths
-	variable EventA
-	variable EventB
-	variable SortI
-	variable SortJ
-	variable SortAMinutes
-	variable SortBMinutes
-	variable SortedEvents
-	variable ClonedEvent
-	variable SortJplus1
-	variable ScheduleH
-	variable ScheduleM
+!	Schedule editor reply-state. The editor itself lives in schedule-editor.as;
+!	we ship an open-message and park on the reply (cancelled / profiles).
+	module ScheduleEditorModule
+	variable OpenMsg
+	variable ScheduleResult
+!	LiveProfiles is the shared scratch the remaining sheet-save handlers
+!	(SaveOutsideSheet, etc) use to splice their per-sheet edits into a
+!	fresh profiles array.
 	variable LiveProfiles
-	variable LiveProfileForRoom
-	variable LiveRoomsForRoom
-	variable LiveRoomForSchedule
-	variable EditingProfileIdx
-	variable EditingProfileName
-	variable ScheduleDirty
-	variable ScheduleProfilePickerOpen
-	variable SchedProfilePillIdx
-	variable SchedProfilePillIdxStr
-	variable SchedProfilePillJson
-	variable SchedProfilePillText
-	variable LegacyRooms
-	variable LegacyRoomCount
-	variable LegacyIdx
-	variable LegacyRoom
-	variable LegacyRelays
-	variable LegacyRelayCount
-	variable LegacyName
-	variable LegacyMode
-	variable LegacyPrevMode
-	variable PrevMode
-	variable LegacyTemp
-	variable LegacyTarget
-	variable LegacyStatus
-	variable LegacyStatusMessage
-	variable LegacyLinked
-	variable OfflineReason
-	variable LegacyBattery
 	variable WarnMessage
-	variable LegacyEvents
-	variable LegacyEventCount
-	variable LegacyEvent
-	variable NewRoom
-	variable RoomsListIdx
-	variable Hundredths
-	variable TempInt
-	variable LoopK
-	variable NowMinutes
-	variable BoostUntil
-	variable BoostRemaining
 	variable BoostText
 	variable BoostTickI
 	variable BoostTickRoom
@@ -439,13 +308,11 @@
 	variable SystemType
 
 !	Demand-relay state. RequestRelay holds the current map.request value;
-!	EditingRequestRelay is the in-flight value while the Devices sheet is
-!	open. Save ships a `Request Relay` uirequest only when the value has
-!	actually changed, so opening Devices, switching rooms, and clicking
-!	Save without touching the demand-relay field doesn't gratuitously
-!	republish it.
+!	the in-flight editing value lives in the device-editor module while
+!	its sheet is open. Save (in the module) returns the new value and a
+!	`requestRelayChanged: yes|no` flag, and OpenDeviceEditor ships a
+!	`Request Relay` uirequest only when the flag is yes.
 	variable RequestRelay
-	variable EditingRequestRelay
 
 !	Outside sheet state. The outside thermometer lives in the legacy "room
 !	with empty relays" slot of every profile; sensor name and frost-trigger
@@ -468,54 +335,40 @@
 	variable LiveRoomForOutside
 	variable OutsideProfileLoopI
 
-!	Device editor state. EditingProfilesForDevices is a working copy of
-!	the entire Map.profiles tree — operations on the room list (add /
-!	move / rename / delete) mutate this copy, then Save ships it as
-!	one Update Profiles uirequest. Each profile's events array stays
-!	attached to its room because mutations preserve room objects in
-!	place — only their order and fields change.
-!
-!	EditingDevicesRoomLegacyIdx pins which room's device fields are
-!	currently displayed (legacy index into profile.rooms, not a filtered
-!	display index — handlers can mutate by this index directly).
-	variable DeviceEditorWebson
-	variable DeviceRoomPillJson
-	variable DeviceRoomPillText
-	variable DeviceRoomPillIdx
-	variable DeviceRoomPillIdxStr
-	variable DeviceRoomPickerOpen
-	variable EditingProfilesForDevices
-	variable EditingProfilesCountForDevices
-	variable EditingDevicesRoomLegacyIdx
-	variable EditingDevicesRoomName
-	variable EditingDevicesRelayType
-	variable EditingDevicesLinked
-	variable EditingDevicesSensor
-	variable EditingDevicesRelaysText
-	variable RoomEntry
-	variable RoomEditCount
-	variable RoomEditIdxForOp
-	variable PrevLegacyIdx
-	variable NextLegacyIdx
-	variable NewRoomName
-	variable SwapTarget
-	variable RoomToInsert
-	variable LiveProfileForDevices
-	variable LiveRoomsForDevices
-	variable LiveRoomForDevices
-	variable RelayLinesArray
-	variable RelayLine
-	variable RelayLineIdx
-	variable DeviceProfileLoopI
+!	Device editor reply-state. The editor itself lives in device-editor.as;
+!	we ship an open-message and park on the reply (cancelled / profiles /
+!	requestRelay / requestRelayChanged).
+	module DeviceEditorModule
+	variable DeviceResult
+!	OutsideSheet profile-count scratch (the var name is historic — was
+!	shared with the now-extracted device editor; it's used only by
+!	SaveOutsideSheet's fan-out loop).
 	variable DeviceProfileCount
-	variable NextTimeStr
-	variable NextTempVal
-	variable NextTempStr
+!! @hash e168e589
+!!!
+!! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
+!!
+!! Sequence: attach the #app container, apply the time-of-day background gradient, render the outer three-zone layout (layout.json) and the top bar (top-bar.json). Wire the heartbeat dot, the tab-resume hook, and the hamburger button (initially bound to a credentials-reset action — re-bound to the full menu sheet later by BuildHomeScreen).
+!!
+!! Credentials are fetched in priority order: local credentials.json (deploy-provided, used on IXHUB/offline test installs) → server credentials.php (the shared production endpoint) → no credentials. The MAC is read from localStorage; missing broker OR missing MAC triggers demo mode, which renders demo-map.json and opens the About sheet so first-time visitors see what RBR does without any backend.
+!!
+!! Otherwise MQTT connects to broker:port with username/password and the per-session MyID topic. `on mqtt connect` jumps to Connected; `on mqtt message` dumps every payload through OnMapReceived. The final `stop` parks the script while the runtime drives the rest of execution through registered handlers.
+!!
+!! Credentials labels (TryServerCredentials / ApplyCredentials / NoCredentialsFile) are intermediate branch targets within the credentials-loading flow, not independent entry points.
 
 	attach AppRoot to `app` or begin
 		alert `Missing #app container in index.html`
 		stop
 	end
+
+!	Map-to-rooms translation runs as a sub-module so the bulk of the legacy→new-UI
+!	translation (~490 lines) lives in its own file. Loaded once here; called by
+!	OnMapReceived on every map push via `send Map to MapToRoomsModule and assign reply to MapResult`.
+!	The JS dialect's `run` takes a variable holding source code (not a filename),
+!	so we fetch via `rest get` first.
+	rest get ModuleSrc from `resources/as/map-to-rooms.as?v=` cat now
+		or go to LoadFailed
+	run ModuleSrc as MapToRoomsModule
 
 	set style `min-height` of AppRoot to `100vh`
 	gosub to ApplyBackground
@@ -661,7 +514,6 @@ NoCredentialsFile:
 		name MyID
 		qos 1
 
-	dummy
 	mqtt
 		token Username Password
 		id MyID
@@ -681,24 +533,20 @@ NoCredentialsFile:
 		gosub to OnMapReceived
 	end
 	stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	First-render path: triggered when MQTT connects. Asks the controller
-!	for a full map; the response handler (OnMapReceived) does the rest.
-!	Forks a watchdog that reloads if the first map doesn't arrive in 30s
-!	(common on mobile when the WebSocket connects but the subscription is
-!	silently dropped before the controller's reply lands).
+!! @hash 35bfa8e5
+!!!
+!! First-render path: fired by `on mqtt connect`. Sets the Prompt to `first` so the controller sends a full map (rather than the empty-payload heartbeat used for refreshes), then forks a watchdog and parks.
+!!
+!! The watchdog handles a common mobile failure mode where the WebSocket opens but the MQTT subscription is silently dropped before the controller's reply lands — without it the UI hangs forever showing the loading state. Capped at 3 attempts via localStorage so a genuinely unreachable controller doesn't become an infinite reload loop.
 Connected:
 	put `first` into Prompt
 	clear FirstMapDone
 	gosub to RequestMap
 	fork to FirstMapWatchdog
 	stop
-
-!	If the first map hasn't arrived after 30 seconds, the MQTT subscription
-!	is almost certainly dead. Force a reload to rebuild the connection.
-!	Capped at 3 attempts via localStorage so a genuinely unreachable
-!	controller doesn't put us in an infinite reload loop.
+!! @hash 188df672
+!!!
+!! Forked watchdog. Sleeps 30 seconds; if the first map still hasn't arrived, the MQTT subscription is almost certainly dead — force a full reload to rebuild the connection. Capped at 3 attempts via localStorage so an unreachable controller is reported with an alert rather than an infinite reload loop.
 FirstMapWatchdog:
 	wait 30 seconds
 	if FirstMapDone return
@@ -717,11 +565,12 @@ FirstMapWatchdog:
 	log `Reloading (first-map attempt ` cat FirstMapAttempts cat `)`
 	location the location
 	return
-
+!! @hash 4fe2712f
+!!!
+!! Send a single map request to the controller. Used both for the initial `first` push and the recurring `refresh` heartbeat — the action string is whatever Prompt happens to hold.
+!!
+!! Default the Prompt to `refresh` if it's empty so a spurious early call (e.g. on resume firing during a window where the page backgrounded mid-load) can't trigger the runtime's "missing action field" check on the controller side. Send failure is logged but otherwise silent — the next poll cycle retries, and persistent failures eventually trip the staleness watchdog.
 RequestMap:
-!	Default Prompt so a spurious early call (e.g. on resume firing during
-!	a window where the page backgrounded mid-load) can't trigger the
-!	runtime's "missing action field" check.
 	if Prompt is empty put `refresh` into Prompt
 	log `Requesting map: ` cat Prompt
 	if not DemoMode
@@ -733,40 +582,49 @@ RequestMap:
 		if not SendOK log `MQTT poll send failed; will retry next cycle`
 	end
 	return
-
-!	Briefly tint the topbar heartbeat dot to confirm fresh data arrived.
-!	Pulsing on RECEIVE rather than send means a dead-but-not-yet-detected
-!	WebSocket (common after a phone wake-up) shows up as the dot going
-!	quiet — an honest signal — instead of false-positive pulses from a
-!	send that "succeeded" into a closed socket.
+!! @hash db7f9c56
+!!!
+!! Briefly tint the topbar heartbeat dot to confirm a fresh reply arrived.
+!!
+!! Pulsing on RECEIVE rather than send means a dead-but-not-yet-detected WebSocket (common after a phone wake-up) shows up as the dot going quiet — an honest signal — instead of false-positive pulses from a send that "succeeded" into a closed socket. Called from OnMapReceived for every reply (full map or empty heartbeat ping), since either proves the round-trip is alive.
 PulseHeartbeat:
 	set style `background-color` of HeartbeatDot to `var(--color-accent)`
 	wait 50 ticks
 	set style `background-color` of HeartbeatDot to `rgba(0,0,0,0.18)`
 	return
-
-!	Fired by `on mqtt message`. The controller replies to every refresh —
-!	with the full map when state has changed, otherwise with an empty
-!	message that's purely a round-trip ping. We update LastReceivedAt
-!	and pulse the heartbeat for *any* reply (the connection is healthy)
-!	but only do the render work when there's actual map data.
-!	First non-empty message → BuildHomeScreen; subsequent ones → RefreshHomeScreen.
+!! @hash 2ad91a5c
+!!!
+!! Fired by `on mqtt message`. Routes incoming controller payloads into the right render path: BuildHomeScreen for the first one, RefreshHomeScreen thereafter.
+!!
+!! The controller replies to every refresh — with the full map when state has changed, otherwise with an empty payload that's purely a round-trip ping. We update LastReceivedAt and pulse the heartbeat for *any* reply (the connection is healthy) but only do render work when there's actual map data.
+!!
+!! Validates BEFORE clobbering Map: a ping or malformed payload that overwrites Map.profiles would silently corrupt every Save handler (they read Map.profiles to build their `uirequests`). On invalid input we discard and preserve the previous Map.
+!!
+!! After the first successful build, fork to MapPollTask to keep the UI in sync. Skipped in demo mode (no controller to poll).
 OnMapReceived:
 	put now into LastReceivedAt
 	gosub to PulseHeartbeat
 	if ReceivedMessage is empty
 	begin
-		log `OnMapReceived: empty payload — heartbeat only`
+		increment HeartbeatCount
 		return
 	end
 !	Validate BEFORE clobbering Map. A ping or malformed payload that
 !	overwrites Map.profiles silently corrupts every Save handler (they
-!	read Map.profiles to build their uirequests).
+!	read Map.profiles to build their uirequests). Either form (empty
+!	payload, or payload-without-profiles) is the controller's heartbeat
+!	reply — count it and drop, so we get one summary line per real map
+!	rather than one log line per poll.
 	if property `profiles` of ReceivedMessage is empty
 	begin
-		log `OnMapReceived: payload has no profiles — discarded (Map preserved)`
+		increment HeartbeatCount
 		put empty into ReceivedMessage
 		return
+	end
+	if HeartbeatCount is greater than 0
+	begin
+		log `OnMapReceived: ` cat HeartbeatCount cat ` heartbeats since last map`
+		put 0 into HeartbeatCount
 	end
 !	Diagnostic: dump the full payload so it can be pasted into JSON Lint
 !	to verify structure if anything downstream complains. Comment out
@@ -775,7 +633,25 @@ OnMapReceived:
 !	log ReceivedMessage
 	put ReceivedMessage into Map
 	put empty into ReceivedMessage
-	gosub to MapToRooms
+!	Ship the legacy map to the translation module and unpack the reply into our globals.
+	send Map to MapToRoomsModule and assign reply to MapResult
+	put property `rooms` of MapResult into RoomsList
+	put property `roomCount` of MapResult into RoomCount
+	put property `outsideTemp` of MapResult into OutsideTemp
+	put property `outsideSensor` of MapResult into OutsideSensor
+	put property `frostTrigger` of MapResult into FrostTrigger
+	clear OutsideRoomFound
+	if property `outsideRoomFound` of MapResult is `yes` set OutsideRoomFound
+	put property `outsideRoomLegacyIdx` of MapResult into OutsideRoomLegacyIdx
+	put property `profiles` of MapResult into Profiles
+	put property `currentProfile` of MapResult into CurrentProfile
+	put property `activeProfile` of MapResult into ActiveProfile
+	put property `activeProfileName` of MapResult into ActiveProfileName
+	put property `systemName` of MapResult into SystemName
+	put property `systemType` of MapResult into SystemType
+	put property `requestRelay` of MapResult into RequestRelay
+	clear CalendarOn
+	if property `calendarOn` of MapResult is `on` set CalendarOn
 	if not FirstMapDone
 	begin
 		set FirstMapDone
@@ -789,22 +665,15 @@ OnMapReceived:
 		gosub to RefreshHomeScreen
 	end
 	return
-
-!	10-second poll: re-request the map so the UI tracks live state.
-!	After each request the watchdog checks how long it's been since the
-!	last reply. If we go more than 60 s with the tab visible (six missed
-!	cycles) the MQTT WebSocket is almost certainly dead — common on
-!	mobile when the OS / carrier NAT closes idle sockets without the
-!	client noticing. Force a reload to rebuild MQTT from scratch.
+!! @hash 2dd4d4b4
+!!!
+!! 10-second poll loop forked once OnMapReceived has built the home screen. Each cycle: wait 10 seconds, request a fresh map, then check how long it's been since the last reply.
+!!
+!! If we go more than 60 seconds (six missed cycles) with the tab visible, the MQTT WebSocket is almost certainly dead — common on mobile when the OS / carrier NAT closes idle sockets without the client noticing. Force a reload to rebuild MQTT from scratch.
 MapPollTask:
 	while true
 	begin
-		put 10 into PollWait
-		while PollWait is not 0
-		begin
-			wait 1 second
-			take 1 from PollWait
-		end
+		wait 10 seconds
 		gosub to RequestMap
 		if LastReceivedAt is not empty
 		begin
@@ -818,10 +687,17 @@ MapPollTask:
 			end
 		end
 	end
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Build the home screen for the first time. Renders SummaryCard, room rows,
-!	and sheet chrome. Calls ComputeSummaryStats once data is in place.
+!! @hash beb328fa
+!!!
+!! One-shot home-screen builder. Runs on the first non-empty map, never again — subsequent updates go through RefreshHomeScreen.
+!!
+!! Two render passes plus sheet chrome. Pass 1: SummaryCard into MainHolder (rendered first so it sits visually on top of the room list). Pass 2: each RoomRow into MainHolder via the room-row.json template, with `/I/` substituted for the room index — every row's element IDs include this index so each handler can recover its row via `the index of X`.
+!!
+!! Sheet chrome (sheet.json) is rendered once into AppRoot; each subsequent sheet (Menu, Profile, Schedule, Device, System, Outside, Info, About) is rendered into SheetContent and starts at display:none. HideAllSheets is the single chokepoint that prevents one sheet bleeding through another.
+!!
+!! Every indexed per-row variable (RestRow, InfoBtn, ExpansionEl, ModeTimedBtn, etc.) MUST be pre-sized with `set the elements of X to RoomCount` before any `index X to N` for N > 0 — the array has to be allocated first, otherwise the index call raises "out of range".
+!!
+!! Forks BackgroundTick and BoostTick at the end so the gradient and per-room boost countdowns keep ticking independently of map pushes.
 BuildHomeScreen:
 !	First-pass summary stats from the freshly-built RoomsList.
 	gosub to ComputeSummaryStats
@@ -908,13 +784,11 @@ BuildHomeScreen:
 		or go to LoadFailed
 	render MenuWebson in SheetContent
 
-	rest get ProfileWebson from `resources/webson/profile-sheet.json?v=` cat now
-		or go to LoadFailed
-	render ProfileWebson in SheetContent
-
 	attach MenuSheetEl to `menu-sheet`
-	attach ProfileSheetEl to `profile-sheet`
-	set style `display` of ProfileSheetEl to `none`
+!	ProfileSheet lives in its own module (profile-sheet.as). It renders its
+!	sheet into the same sheet-content container, attaches its own DOM, and
+!	wires its own click handlers. Loaded below; the local ProfileSheetEl
+!	handle exists only so HideAllSheets can hide it when another sheet opens.
 
 	attach SheetRoot to `sheet-root`
 	attach SheetScrim to `sheet-scrim`
@@ -954,164 +828,39 @@ BuildHomeScreen:
 !	at open time; all changes batch through Save / discard via Cancel.
 	on click ProfilePill gosub to OpenProfileSheet
 
-!	Set up the static parts of the ProfileSheet: holder, tagline, calendar
-!	header + content, day rows. Profile rows are rebuilt every open since
-!	their count and contents come from the working copy.
-	attach ProfileListHolder to `profile-list`
-	attach ProfileTagline to `profile-tagline`
-	attach ProfileAddBtn to `profile-add-btn`
-	attach ProfileSaveBtn to `profile-save-btn`
-	attach ProfileCancelBtn to `profile-cancel-btn`
-	attach CalendarHeaderEl to `profile-calendar-header`
-	attach CalExpandBtn to `profile-calendar-expand`
-	attach CalendarHeaderTitle to `profile-calendar-title`
-	attach CalendarChev to `profile-calendar-chev`
-	attach CalendarCardEl to `profile-calendar-card`
-	attach CalendarToggleBtn to `profile-calendar-toggle`
-
-	rest get ProfileRowJson from `resources/webson/profile-row.json?v=` cat now
+!	Profile sheet module — owns the sheet DOM (profile list, calendar header,
+!	day grid, per-day pickers) and its editing flow. Loaded after sheet-content
+!	exists; parks on `on message` until the user taps the profile pill.
+	rest get ModuleSrc from `resources/as/profile-sheet.as?v=` cat now
 		or go to LoadFailed
-	rest get PillRowJson from `resources/webson/calendar-pill.json?v=` cat now
+	run ModuleSrc as ProfileSheetModule
+!	Local handle to the sheet element the module rendered, so HideAllSheets
+!	can hide it when another sheet opens.
+	attach ProfileSheetEl to `profile-sheet`
+
+!	Schedule editor lives in its own module (schedule-editor.as). The module
+!	renders its sheet into the same sheet-content container, attaches its own
+!	DOM, and wires its own click handlers. Loaded here (after sheet-content
+!	exists) and parks on `on message` until the user clicks Edit Schedule
+!	for a room — OpenScheduleEditor below ships the open-payload and blocks
+!	on the reply.
+	rest get ModuleSrc from `resources/as/schedule-editor.as?v=` cat now
 		or go to LoadFailed
-
-!	Day-id and short-name tables, indexed Monday-first to match the legacy
-!	calendar-data array shape (day0=Mon ... day6=Sun).
-	put `[]` into DayIds
-	set element 0 of DayIds to `mon`
-	set element 1 of DayIds to `tue`
-	set element 2 of DayIds to `wed`
-	set element 3 of DayIds to `thu`
-	set element 4 of DayIds to `fri`
-	set element 5 of DayIds to `sat`
-	set element 6 of DayIds to `sun`
-
-	put `[]` into DayNamesShort
-	set element 0 of DayNamesShort to `Monday`
-	set element 1 of DayNamesShort to `Tuesday`
-	set element 2 of DayNamesShort to `Wednesday`
-	set element 3 of DayNamesShort to `Thursday`
-	set element 4 of DayNamesShort to `Friday`
-	set element 5 of DayNamesShort to `Saturday`
-	set element 6 of DayNamesShort to `Sunday`
-
-	set the elements of DayRow to 7
-	set the elements of DayProfileEl to 7
-	set the elements of DayEditBtn to 7
-	set the elements of DayPickerEl to 7
-	set the elements of DayPickerList to 7
-	set the elements of DayPickerCloseBtn to 7
-	put 0 into DayLoopI
-	while DayLoopI is less than 7
-	begin
-		put element DayLoopI of DayIds into DayIdStr
-		index DayRow to DayLoopI
-		attach DayRow to `calendar-` cat DayIdStr
-		index DayProfileEl to DayLoopI
-		attach DayProfileEl to `calendar-` cat DayIdStr cat `-profile`
-		index DayEditBtn to DayLoopI
-		attach DayEditBtn to `calendar-` cat DayIdStr cat `-edit`
-		index DayPickerEl to DayLoopI
-		attach DayPickerEl to `calendar-` cat DayIdStr cat `-picker`
-		index DayPickerList to DayLoopI
-		attach DayPickerList to `calendar-` cat DayIdStr cat `-picker-list`
-		index DayPickerCloseBtn to DayLoopI
-		attach DayPickerCloseBtn to `calendar-` cat DayIdStr cat `-picker-close`
-		on click DayEditBtn
-		begin
-			put the index of DayEditBtn into DayEditTargetIdx
-			gosub to OpenDayPicker
-		end
-		on click DayPickerCloseBtn
-		begin
-			put the index of DayPickerCloseBtn into DayEditTargetIdx
-			gosub to CloseDayPicker
-		end
-		increment DayLoopI
-	end
-
-	clear CalendarCardExpanded
-	on click CalExpandBtn gosub to ToggleCalendarCard
-	on click CalendarToggleBtn
-	begin
-		if EditingCalendarOn clear EditingCalendarOn else set EditingCalendarOn
-		gosub to ApplyCalendarHeaderState
-		gosub to ApplyActiveProfile
-	end
-	on click ProfileAddBtn gosub to AddEditProfile
-	on click ProfileSaveBtn gosub to SaveEditingProfiles
-	on click ProfileCancelBtn gosub to CloseProfileSheet
-
-!	Schedule editor sheet — sibling sheet inside sheet-content. Rendered
-!	once; opened on demand via the per-room "Edit schedule" button.
-	rest get PeriodCardJson from `resources/webson/schedule-period.json?v=` cat now
-		or go to LoadFailed
-	rest get SchedProfilePillJson from `resources/webson/sched-profile-pill.json?v=` cat now
-		or go to LoadFailed
-	rest get ScheduleSheetWebson from `resources/webson/schedule-editor.json?v=` cat now
-		or go to LoadFailed
-	render ScheduleSheetWebson in SheetContent
+	run ModuleSrc as ScheduleEditorModule
+!	Local handle to the sheet element the module rendered, so HideAllSheets
+!	can hide it when another sheet opens.
 	attach ScheduleSheetEl to `schedule-editor-sheet`
-	set style `display` of ScheduleSheetEl to `none`
-	attach ScheduleProfilePillBtn to `schedule-profile-pill`
-	attach ScheduleProfileValue to `schedule-profile-value`
-	attach ScheduleProfileChev to `schedule-profile-chev`
-	attach ScheduleProfilePicker to `schedule-profile-picker`
-	attach SchedulePeriodList to `schedule-period-list`
-	attach ScheduleAddBtn to `schedule-add-btn`
-	attach ScheduleSaveBtn to `schedule-save-btn`
-	attach ScheduleCancelBtn to `schedule-cancel-btn`
 
-	on click ScheduleProfilePillBtn gosub to ToggleSchedProfilePicker
-	on click ScheduleAddBtn gosub to AddSchedulePeriod
-	on click ScheduleSaveBtn gosub to SaveScheduleEditor
-	on click ScheduleCancelBtn gosub to CloseScheduleEditor
-
-!	Device editor sheet — sibling sheet inside sheet-content. Opened from
-!	the menu's "Devices" row. The room picker at the top swaps which room
-!	is being edited without leaving the sheet.
-	rest get DeviceRoomPillJson from `resources/webson/device-room-pill.json?v=` cat now
+!	Device editor lives in its own module (device-editor.as). Loaded here
+!	(after sheet-content exists) and parks on `on message` until the user
+!	clicks the menu's "Devices" row — OpenDeviceEditor below ships the
+!	open-payload and blocks on the reply.
+	rest get ModuleSrc from `resources/as/device-editor.as?v=` cat now
 		or go to LoadFailed
-	rest get DeviceEditorWebson from `resources/webson/device-editor.json?v=` cat now
-		or go to LoadFailed
-	render DeviceEditorWebson in SheetContent
+	run ModuleSrc as DeviceEditorModule
+!	Local handle to the sheet element the module rendered, so HideAllSheets
+!	can hide it when another sheet opens.
 	attach DeviceEditorSheetEl to `device-editor-sheet`
-	set style `display` of DeviceEditorSheetEl to `none`
-	attach DeviceEditorRoomPill to `device-editor-room-pill`
-	attach DeviceEditorRoomValue to `device-editor-room-value`
-	attach DeviceEditorRoomChev to `device-editor-room-chev`
-	attach DeviceEditorRoomPicker to `device-editor-room-picker`
-	attach DeviceEditorRoomList to `device-editor-room-list`
-	attach DeviceEditorAddRoomBtn to `device-editor-add-room`
-	attach DeviceEditorSensor to `device-editor-sensor`
-	attach DeviceEditorRtRBRNow to `device-editor-rt-rbrnow`
-	attach DeviceEditorRtZigbee to `device-editor-rt-zigbee`
-	attach DeviceEditorLinkedBtn to `device-editor-linked-btn`
-	attach DeviceEditorRelays to `device-editor-relays`
-	attach DeviceEditorRequest to `device-editor-request`
-	attach DeviceEditorSaveBtn to `device-editor-save-btn`
-	attach DeviceEditorCancelBtn to `device-editor-cancel-btn`
-
-	on click DeviceEditorRoomPill gosub to ToggleDeviceRoomPicker
-	on click DeviceEditorAddRoomBtn gosub to AddRoomToEditingProfiles
-
-	on click DeviceEditorRtRBRNow
-	begin
-		put `RBR-Now` into EditingDevicesRelayType
-		gosub to PaintDeviceEditorRelayType
-	end
-	on click DeviceEditorRtZigbee
-	begin
-		put `Zigbee` into EditingDevicesRelayType
-		gosub to PaintDeviceEditorRelayType
-	end
-	on click DeviceEditorLinkedBtn
-	begin
-		if EditingDevicesLinked is `yes` put `no` into EditingDevicesLinked
-		else put `yes` into EditingDevicesLinked
-		gosub to PaintDeviceEditorLinked
-	end
-	on click DeviceEditorSaveBtn gosub to SaveDeviceEditor
-	on click DeviceEditorCancelBtn gosub to CloseDeviceEditor
 
 !	System type & name sheet — opened from the menu's "System type & name"
 !	row. Edits the map's name + systemType fields.
@@ -1137,7 +886,7 @@ BuildHomeScreen:
 		gosub to PaintSystemSheetType
 	end
 	on click SystemSheetSaveBtn gosub to SaveSystemSheet
-	on click SystemSheetCancelBtn gosub to CloseSystemSheet
+	on click SystemSheetCancelBtn gosub to CloseSheet
 
 !	Outside thermometer + frost protection sheet — opened from the menu's
 !	"Outside thermometer" row. Edits the sensor and ptemp on the legacy
@@ -1152,7 +901,7 @@ BuildHomeScreen:
 	attach OutsideSheetSaveBtn to `outside-sheet-save-btn`
 	attach OutsideSheetCancelBtn to `outside-sheet-cancel-btn`
 	on click OutsideSheetSaveBtn gosub to SaveOutsideSheet
-	on click OutsideSheetCancelBtn gosub to CloseOutsideSheet
+	on click OutsideSheetCancelBtn gosub to CloseSheet
 
 !	Info sheet — opened from each room row's info button.
 	rest get InfoSheetWebson from `resources/webson/info-sheet.json?v=` cat now
@@ -1200,12 +949,13 @@ BuildHomeScreen:
 	fork to BoostTick
 
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Refresh path: re-render every room in place + recompute the summary.
-!	Assumes RoomCount is unchanged from the initial build. If a room's
-!	expansion panel is open, repaint its inner controls so a controller-
-!	side change (e.g. legacy UI changed mode) propagates immediately.
+!! @hash 116cebd7
+!!!
+!! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
+!!
+!! Assumes RoomCount is unchanged from the initial build — adding or removing rooms takes a Save through the Devices sheet plus a fresh map, and the controller-side handler currently sends a full new map (which OnMapReceived treats as a refresh, not a first-build). If RoomCount changes silently the indexed per-row variables will be the wrong size.
+!!
+!! If a room's expansion panel is open, repaint its inner controls so a controller-side change (e.g. the legacy UI changed mode for that room) propagates immediately rather than waiting for the user to close-and-reopen the expansion. Same logic for an open Info sheet.
 RefreshHomeScreen:
 	put 0 into RoomIndex
 	while RoomIndex is less than RoomCount
@@ -1228,353 +978,9 @@ RefreshHomeScreen:
 		gosub to PaintInfoSheet
 	end
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Walk the controller's map, build the new-UI RoomsList from scratch.
-!	Filters out the outdoor sensor entry (room with empty `relays`) and
-!	feeds its temperature into OutsideTemp instead.
-MapToRooms:
-	put property `profiles` of Map into Profiles
-	put property `profile` of Map into CurrentProfile
-	if CurrentProfile is empty put 0 into CurrentProfile
-
-!	Calendar lock state — when on, manual profile selection is masked.
-	clear CalendarOn
-	if property `calendar` of Map is `on` set CalendarOn
-
-!	If the calendar is on, today's profile-name overrides Map.profile.
-!	`the day` returns 0=Sunday (JS getDay), so shift +6 mod 7 to make
-!	Monday=0 to match the Monday-first calendar-data array.
-	if property `calendar` of Map is `on`
-	begin
-		put property `calendar-data` of Map into CalendarData
-		if CalendarData is not empty
-		begin
-			put the day into DayN
-			add 6 to DayN
-			put DayN modulo 7 into DayN
-			put element DayN of CalendarData into CalendarEntry
-			if CalendarEntry is not empty
-			begin
-				put property `day` cat DayN cat `-profile` of CalendarEntry into DayProfileName
-				if DayProfileName is not empty
-				begin
-					put the json count of Profiles into LegacyProfileCount
-					put 0 into LoopJ
-					while LoopJ is less than LegacyProfileCount
-					begin
-						put element LoopJ of Profiles into ProfileN
-						if property `name` of ProfileN is DayProfileName put LoopJ into CurrentProfile
-						increment LoopJ
-					end
-				end
-			end
-		end
-	end
-
-	put element CurrentProfile of Profiles into ActiveProfile
-	put property `name` of ActiveProfile into ActiveProfileName
-	put property `name` of Map into SystemName
-	put property `systemType` of Map into SystemType
-	if SystemType is empty put `Boiler` into SystemType
-	put property `request` of Map into RequestRelay
-	put property `rooms` of ActiveProfile into LegacyRooms
-	put the json count of LegacyRooms into LegacyRoomCount
-
-	put `[]` into RoomsList
-	put 0 into RoomsListIdx
-	put empty into OutsideTemp
-	put empty into OutsideSensor
-	put empty into FrostTrigger
-	clear OutsideRoomFound
-	put 0 into OutsideRoomLegacyIdx
-
-	put 0 into LegacyIdx
-	while LegacyIdx is less than LegacyRoomCount
-	begin
-		put element LegacyIdx of LegacyRooms into LegacyRoom
-		put property `relays` of LegacyRoom into LegacyRelays
-		put the json count of LegacyRelays into LegacyRelayCount
-		if LegacyRelayCount is 0
-		begin
-!			Outdoor sensor entry: pin its slot index for the device editor,
-!			capture its sensor name + frost trigger, take its temperature.
-!			Skip the room (no card).
-			set OutsideRoomFound
-			put LegacyIdx into OutsideRoomLegacyIdx
-			put property `sensor` of LegacyRoom into OutsideSensor
-			put property `ptemp` of LegacyRoom into FrostTrigger
-			put property `temperature` of LegacyRoom into LegacyTemp
-			if LegacyTemp is not empty
-			begin
-				if LegacyTemp is not 0
-				begin
-					put LegacyTemp into TempStr
-					gosub to FormatHundredths
-					put TempStr into OutsideTemp
-				end
-			end
-		end
-		else
-		begin
-			gosub to BuildRoomEntry
-			set element RoomsListIdx of RoomsList to NewRoom
-			increment RoomsListIdx
-		end
-		increment LegacyIdx
-	end
-	put RoomsListIdx into RoomCount
-	return
-
-!	Build a single new-UI room entry from a legacy controller-map room.
-!	Inputs: LegacyRoom, RoomsListIdx. Output: NewRoom (a fresh JSON object).
-BuildRoomEntry:
-	put `{}` into NewRoom
-	put property `name` of LegacyRoom into LegacyName
-	set property `name` of NewRoom to LegacyName
-	set property `id` of NewRoom to `room-` cat RoomsListIdx
-	set property `legacyIdx` of NewRoom to LegacyIdx
-	set property `sensor` of NewRoom to `no`
-
-!	Mode: legacy lowercase → new-UI title-case. Boost is a peer mode in the
-!	new UI; when the controller reports `boost`, surface that as Mode="Boost"
-!	and capture `prevmode` (Title-case) on the NewRoom so SyncCurrentRoomToMap
-!	can round-trip it. Anything unrecognised → Off.
-	put property `mode` of LegacyRoom into LegacyMode
-	put `Off` into Mode
-	put empty into PrevMode
-	if LegacyMode is `timed` put `Timed` into Mode
-	else if LegacyMode is `on` put `On` into Mode
-	else if LegacyMode is `boost`
-	begin
-		put `Boost` into Mode
-		put property `prevmode` of LegacyRoom into LegacyPrevMode
-		put `Off` into PrevMode
-		if LegacyPrevMode is `timed` put `Timed` into PrevMode
-		else if LegacyPrevMode is `on` put `On` into PrevMode
-	end
-	set property `mode` of NewRoom to Mode
-	set property `prevMode` of NewRoom to PrevMode
-
-!	Advance: controller stores `A` (advanced) or `-` (normal). Empty / missing
-!	defaults to `-` so the toggle starts from a known off state.
-	put property `advance` of LegacyRoom into Advance
-	if Advance is empty put `-` into Advance
-	set property `advance` of NewRoom to Advance
-
-!	Temperature: legacy hundredths integer → "X.Y" string. 0 / empty → empty.
-	put property `temperature` of LegacyRoom into LegacyTemp
-	if LegacyTemp is empty set property `temp` of NewRoom to empty
-	else if LegacyTemp is 0 set property `temp` of NewRoom to empty
-	else
-	begin
-		put LegacyTemp into TempStr
-		gosub to FormatHundredths
-		set property `temp` of NewRoom to TempStr
-	end
-
-!	Target: number → "X.Y" string. Always populated (default 20.0) — Off
-!	rooms keep a target so the user can adjust it before applying a Boost.
-	put property `target` of LegacyRoom into LegacyTarget
-	if LegacyTarget is empty set property `target` of NewRoom to `20.0`
-	else if LegacyTarget is 0 set property `target` of NewRoom to `20.0`
-	else
-	begin
-		put `` cat LegacyTarget into TempStr
-		put the index of `.` in TempStr into DotIdx
-		if DotIdx is less than 0 put TempStr cat `.0` into TempStr
-		set property `target` of NewRoom to TempStr
-	end
-
-!	Offline: a relay that's not responding is a real fault — mark offline.
-!	A stale sensor is *not* a fault by itself: the room may simply be at
-!	a steady temperature that triggers no Zigbee reports. The controller
-!	preserves the last known temperature in that case, and we keep showing
-!	it with a soft "No recent change" warn message instead of
-!	blanking the display. A linked room that has never reported is the
-!	one sensor case that does go offline (no last-known value to show).
-	set property `offline` of NewRoom to `no`
-	put `No signal` into OfflineReason
-	put property `status` of LegacyRoom into LegacyStatus
-	put property `statusMessage` of LegacyRoom into LegacyStatusMessage
-	put property `linked` of LegacyRoom into LegacyLinked
-
-	if LegacyLinked is `yes`
-	begin
-		put property `temperature` of LegacyRoom into LegacyTemp
-		if LegacyTemp is empty
-		begin
-			set property `offline` of NewRoom to `yes`
-			put `Thermometer not reporting` into OfflineReason
-		end
-	end
-
-	if LegacyStatus is `fail`
-	begin
-		if the index of `Relay` in LegacyStatusMessage is greater than -1
-		begin
-			set property `offline` of NewRoom to `yes`
-			put `Relay not responding` into OfflineReason
-		end
-	end
-
-	set property `offlineReason` of NewRoom to OfflineReason
-
-!	Warn-state message: surface the controller's diagnostic for online
-!	rooms. A stale-sensor message ("Sensor: no report for N min") is
-!	softened to "No recent change" since the room may simply
-!	be at a steady temperature; we keep displaying the last known value.
-!	Other warn messages (e.g. relay failures shy of the offline threshold)
-!	pass through verbatim. The same softening applies to a `fail`-status
-!	room when the cause is sensor-side (we didn't go offline above).
-	set property `warnMessage` of NewRoom to empty
-	if property `offline` of NewRoom is `no`
-	begin
-		if LegacyStatus is `warn`
-		begin
-			if the index of `Sensor` in LegacyStatusMessage is greater than -1
-				set property `warnMessage` of NewRoom to `No recent change`
-			else if LegacyStatusMessage is not empty
-				set property `warnMessage` of NewRoom to LegacyStatusMessage
-		end
-		else if LegacyStatus is `fail`
-		begin
-			if the index of `Sensor` in LegacyStatusMessage is greater than -1
-				set property `warnMessage` of NewRoom to `No recent change`
-		end
-	end
-
-!	Battery: flag low (≤20%) so the sub-line can warn during normal operation.
-!	0 / empty means "no reading" — don't flag those. Also pass the raw
-!	value through for the info sheet to display verbatim.
-	set property `batteryLow` of NewRoom to `no`
-	put property `battery` of LegacyRoom into LegacyBattery
-	set property `battery` of NewRoom to LegacyBattery
-	if LegacyBattery is not empty
-	begin
-		if LegacyBattery is greater than 0
-		begin
-			if LegacyBattery is less than 21 set property `batteryLow` of NewRoom to `yes`
-		end
-	end
-
-!	Info-sheet extras: relay state, humidity, sensor-age (in ms since the
-!	thermometer last reported). Humidity and sensorAge come from the
-!	controller's RoomStatus pass; both are empty when not available.
-	set property `relay` of NewRoom to property `relay` of LegacyRoom
-	set property `humidity` of NewRoom to property `humidity` of LegacyRoom
-	set property `sensorAge` of NewRoom to property `sensorAge` of LegacyRoom
-
-!	Boost: when mode is `boost`, compute remaining time from the room's
-!	`until` field (a ms end-timestamp the controller sets when boost is
-!	applied). Round up to the next minute, format as "N min(s)". Mirrors
-!	the legacy formula in rbr.as:910-920.
-	set property `boost` of NewRoom to empty
-	set property `boostRemaining` of NewRoom to 0
-	set property `boostUntilMs` of NewRoom to 0
-	if LegacyMode is `boost`
-	begin
-		put property `until` of LegacyRoom into BoostUntil
-		if BoostUntil is not empty
-		begin
-			set property `boostUntilMs` of NewRoom to BoostUntil
-			put BoostUntil into BoostRemaining
-			take the timestamp from BoostRemaining
-			if BoostRemaining is greater than 0
-			begin
-				divide BoostRemaining by 60000
-				add 1 to BoostRemaining
-				if BoostRemaining is 1 put `1 min` into BoostText
-				else put BoostRemaining cat ` mins` into BoostText
-				set property `boost` of NewRoom to BoostText
-				set property `boostRemaining` of NewRoom to BoostRemaining
-			end
-		end
-	end
-
-!	Current schedule period: walk events in order, pick the first whose
-!	`until` time is still in the future. nextTime = end of current period;
-!	nextTarget = current period's target. When advance is on, jump to the
-!	next period (wrapping at end-of-day) so the subline reflects what the
-!	controller is actually heating to. Both empty if no events or all
-!	have already passed.
-	set property `nextTime` of NewRoom to empty
-	set property `nextTarget` of NewRoom to empty
-	put property `events` of LegacyRoom into LegacyEvents
-	if LegacyEvents is not empty
-	begin
-		put the json count of LegacyEvents into LegacyEventCount
-		put the hour into NowMinutes
-		multiply NowMinutes by 60
-		add the minute to NowMinutes
-		put 0 into LoopK
-		while LoopK is less than LegacyEventCount
-		begin
-			put element LoopK of LegacyEvents into LegacyEvent
-			put property `until` of LegacyEvent into NextTimeStr
-			put NextTimeStr into TempStr
-			gosub to ParseTimeMinutes
-			if TempTenths is greater than NowMinutes
-			begin
-				if Advance is `A`
-				begin
-					increment LoopK
-					if LoopK is LegacyEventCount put 0 into LoopK
-					put element LoopK of LegacyEvents into LegacyEvent
-					put property `until` of LegacyEvent into NextTimeStr
-				end
-				put property `temp` of LegacyEvent into NextTempVal
-				set property `nextTime` of NewRoom to NextTimeStr
-				put `` cat NextTempVal into NextTempStr
-				put the index of `.` in NextTempStr into DotIdx
-				if DotIdx is less than 0 put NextTempStr cat `.0` into NextTempStr
-				set property `nextTarget` of NewRoom to NextTempStr
-				put LegacyEventCount into LoopK
-			end
-			increment LoopK
-		end
-		! Walked all events with none in the future today — we're in the
-		! wrap-around period that runs from the last event's `until` to
-		! tomorrow's first. Use event 0, plus the advance offset if set.
-		if property `nextTime` of NewRoom is empty
-		begin
-			put 0 into LoopK
-			if Advance is `A`
-			begin
-				increment LoopK
-				if LoopK is LegacyEventCount put 0 into LoopK
-			end
-			put element LoopK of LegacyEvents into LegacyEvent
-			put property `until` of LegacyEvent into NextTimeStr
-			put property `temp` of LegacyEvent into NextTempVal
-			set property `nextTime` of NewRoom to NextTimeStr
-			put `` cat NextTempVal into NextTempStr
-			put the index of `.` in NextTempStr into DotIdx
-			if DotIdx is less than 0 put NextTempStr cat `.0` into NextTempStr
-			set property `nextTarget` of NewRoom to NextTempStr
-		end
-	end
-
-!	Calling: take the controller's authoritative relay state. It already
-!	accounts for unlinked relays, boost overlay, and hysteresis-free
-!	temp-vs-target comparison — re-deriving from temp/target in the UI
-!	gets it wrong (the UI's threshold doesn't match the controller's).
-	set property `calling` of NewRoom to `no`
-	if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
-	return
-
-!	Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string
-!	with a single decimal digit (19.8). In-place via TempStr.
-FormatHundredths:
-	put TempStr modulo 100 into Hundredths
-	put TempStr into TempInt
-	divide TempInt by 100
-	divide Hundredths by 10
-	put `` cat TempInt cat `.` cat Hundredths into TempStr
-	return
-
-!	Parse TempStr ("HH:MM" or "H:MM") into minutes-since-midnight; output
-!	via TempTenths. Empty / malformed input yields 0.
+!! @hash d559715a
+!!!
+!! Parse TempStr ("HH:MM" or "H:MM") into minutes-since-midnight; output via TempTenths (the variable name is historic — it carries minutes here, not tenths). Empty / malformed input yields 0.
 ParseTimeMinutes:
 	put 0 into TempTenths
 	if TempStr is empty return
@@ -1586,11 +992,13 @@ ParseTimeMinutes:
 	put the value of from DotIdx of TempStr into DecPart
 	add DecPart to TempTenths
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Pick the time-of-day gradient stops by hour bucket and apply both the
-!	linear gradient + a soft white radial glow to AppRoot in one stacked
-!	background. Cards/sheets sit in front via normal stacking.
+!! @hash 3a38eab5
+!!!
+!! Pick the time-of-day gradient stops by hour bucket and apply both a linear gradient and a soft white radial glow to AppRoot in one stacked background.
+!!
+!! Six hour buckets: 0–6 (night/early-morning), 6–10 (dawn), 10–15 (midday), 15–19 (afternoon), 19–22 (sunset), 22+ (night). Cards and sheets sit in front via normal CSS stacking.
+!!
+!! `background-attachment: fixed` keeps the gradient anchored to the viewport when the room list scrolls, which costs nothing on modern mobile.
 ApplyBackground:
 	put the hour into Hour
 	put `#FDF6EC` into GTop
@@ -1637,9 +1045,9 @@ ApplyBackground:
 	set style `background` of AppRoot to BgValue
 	set style `background-attachment` of AppRoot to `fixed`
 	return
-
-!	Hourly tick. Polls `the hour` once a minute and re-applies if it changed.
-!	A minute is fine — boundaries don't need sub-minute precision.
+!! @hash da4604ae
+!!!
+!! Forked once on first build. Polls `the hour` once a minute and re-applies ApplyBackground if the hour bucket changed. A minute is fine — bucket boundaries don't need sub-minute precision and a one-minute lag at the transition is invisible to the user.
 BackgroundTick:
 	put the hour into LastHour
 	while true
@@ -1652,12 +1060,13 @@ BackgroundTick:
 			gosub to ApplyBackground
 		end
 	end
-
-!	Boost-countdown tick. The controller only pushes a fresh map when state
-!	changes (temp / period / relay), so on a quiet room mid-boost the
-!	displayed "N mins left" text would otherwise stay frozen between
-!	pushes. We re-derive it locally from `boostUntilMs` every 30 s, which
-!	is purely cosmetic — the controller still owns the actual expiry.
+!! @hash 5369729b
+!!!
+!! Forked once on first build. Re-derives the "N mins left" text on every boosted room every 30 seconds.
+!!
+!! The controller only pushes a fresh map when state changes (temperature / period / relay), so on a quiet room mid-boost the displayed countdown text would otherwise stay frozen between pushes. This tick is purely cosmetic — the controller still owns the actual expiry timestamp, and the countdown is recomputed from `boostUntilMs` (the absolute end time the controller set when the boost was applied).
+!!
+!! When the text changes we re-render the room row in place so the chip / subline update immediately, without waiting for the next refresh.
 BoostTick:
 	while true
 	begin
@@ -1699,10 +1108,9 @@ BoostTick:
 			end
 		end
 	end
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Open / close the bottom sheet. CSS transitions handle the motion; we
-!	just flip opacity, transform and the root's pointer-events.
+!! @hash 15347efe
+!!!
+!! Open / close the bottom sheet. CSS transitions handle the motion; the code just flips opacity, transform, and the root's pointer-events. CloseSheet is the mirror image.
 OpenSheet:
 	set style `pointer-events` of SheetRoot to `auto`
 	set style `opacity` of SheetScrim to `1`
@@ -1714,14 +1122,11 @@ CloseSheet:
 	set style `transform` of SheetContainer to `translateY(100%)`
 	set style `pointer-events` of SheetRoot to `none`
 	return
-
-!	Every sibling sheet under sheet-content lives at display:block when
-!	visible. Each Open<X> routine must hide all the others first; calling
-!	this before flipping a single sheet's display:block is the single
-!	chokepoint that prevents one sheet bleeding through another.
-!	The SheetsReady gate prevents a tap during BuildHomeScreen — when
-!	the menu button has been wired but later sheets aren't attached yet
-!	— from runtime-erroring on an unattached element.
+!! @hash 5de73def
+!!!
+!! Hide every sibling sheet under sheet-content. Each Open<X> routine must call this before flipping a single sheet's display:block — the single chokepoint that prevents one sheet bleeding through another.
+!!
+!! The SheetsReady gate prevents a tap during BuildHomeScreen — when the menu button has been wired but later sheets aren't attached yet — from runtime-erroring on an unattached element.
 HideAllSheets:
 	if not SheetsReady return
 	set style `display` of MenuSheetEl to `none`
@@ -1733,117 +1138,13 @@ HideAllSheets:
 	set style `display` of InfoSheetEl to `none`
 	set style `display` of AboutSheetEl to `none`
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Walk all profile rows; the one matching EditingActiveName gets shaded
-!	background + accent border. When EditingCalendarOn, the row body (the
-!	select target) is dimmed to signal that selection is locked, while the
-!	pencil + ✕ buttons stay at full opacity (admin actions still allowed).
-ApplyActiveProfile:
-	put 0 into ProfileIdx
-	while ProfileIdx is less than EditingProfilesCount
-	begin
-		index ProfileRow to ProfileIdx
-		index ProfileBody to ProfileIdx
-		put element ProfileIdx of EditingProfiles into EditProfileN
-		if property `name` of EditProfileN is EditingActiveName
-		begin
-			set style `border` of ProfileRow to `1.5px solid var(--color-accent)`
-			set style `background` of ProfileRow to `var(--color-accent-10)`
-		end
-		else
-		begin
-			set style `border` of ProfileRow to `1px solid var(--color-border-hairline)`
-			set style `background` of ProfileRow to `var(--color-surface-card)`
-		end
-		if EditingCalendarOn
-		begin
-			set style `opacity` of ProfileBody to `0.45`
-			set style `cursor` of ProfileBody to `default`
-		end
-		else
-		begin
-			set style `opacity` of ProfileBody to `1`
-			set style `cursor` of ProfileBody to `pointer`
-		end
-		increment ProfileIdx
-	end
-	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Calendar header painting based on EditingCalendarOn. The outer pill
-!	gets bg/border colour-coding so state is visible at a glance even when
-!	the day-grid is collapsed; the right-side toggle button shows ON/OFF.
-ApplyCalendarHeaderState:
-	if EditingCalendarOn
-	begin
-		set the content of CalendarHeaderTitle to `Calendar active`
-		set style `background` of CalendarHeaderEl to `var(--color-accent-10)`
-		set style `border-color` of CalendarHeaderEl to `var(--color-accent)`
-		set the content of CalendarToggleBtn to `ON`
-		set style `color` of CalendarToggleBtn to `var(--color-accent)`
-	end
-	else
-	begin
-		set the content of CalendarHeaderTitle to `Calendar inactive`
-		set style `background` of CalendarHeaderEl to `transparent`
-		set style `border-color` of CalendarHeaderEl to `var(--color-border-hairline)`
-		set the content of CalendarToggleBtn to `OFF`
-		set style `color` of CalendarToggleBtn to `var(--color-text-disabled)`
-	end
-	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Toggle the calendar card's expansion. UI-only; no state mutation.
-ToggleCalendarCard:
-	if CalendarCardExpanded
-	begin
-		clear CalendarCardExpanded
-		set style `display` of CalendarCardEl to `none`
-		set style `transform` of CalendarChev to `rotate(0deg)`
-	end
-	else
-	begin
-		set CalendarCardExpanded
-		set style `display` of CalendarCardEl to `block`
-		set style `transform` of CalendarChev to `rotate(180deg)`
-	end
-	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Paint the 7 day rows from EditingCalendarData. Each entry's property is
-!	`day<i>-profile`. Empty / missing → em-dash placeholder.
-ApplyDayProfiles:
-	put 0 into DayLoopI
-	while DayLoopI is less than 7
-	begin
-		index DayProfileEl to DayLoopI
-		if EditingCalendarData is empty
-		begin
-			set the content of DayProfileEl to `—`
-		end
-		else
-		begin
-			put element DayLoopI of EditingCalendarData into DayEntry
-			if DayEntry is empty
-			begin
-				set the content of DayProfileEl to `—`
-			end
-			else
-			begin
-				put property `day` cat DayLoopI cat `-profile` of DayEntry into DayProfileName
-				if DayProfileName is empty set the content of DayProfileEl to `—`
-				else set the content of DayProfileEl to DayProfileName
-			end
-		end
-		increment DayLoopI
-	end
-	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Per-row wiring. Indexes each interactive element to RoomIndex so the
-!	click handlers can recover the firing row via `the index of X`. Called
-!	once per non-sensor row from the render loop.
+!! @hash 56513531
+!!!
+!! Wire every interactive element of a single room row. Called once per non-sensor row from the BuildHomeScreen render loop, with RoomIndex pre-set to the row being wired.
+!!
+!! Indexes each per-row element (RestRow, InfoBtn, ExpansionEl, the four mode buttons, target +/- , the four boost buttons, advance, edit-schedule) to its row, attaches each to the DOM id pattern `room-<i>-<element>`, and registers a click handler. Click handlers recover their firing row via `the index of X` and dispatch to the appropriate routine after capturing ClickIndex.
+!!
+!! Sensor (outdoor) rows skip this entirely — they have no chevron, no expansion, no interactions.
 WireRoomInteractions:
 	index RestRow to RoomIndex
 	attach RestRow to `room-` cat RoomIndex cat `-rest`
@@ -1967,9 +1268,9 @@ WireRoomInteractions:
 		gosub to OpenScheduleEditor
 	end
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Toggle expansion for ClickIndex. Closes any other open expansion first.
+!! @hash 5c4af55e
+!!!
+!! Toggle the expansion panel for the row at ClickIndex. Only one expansion can be open at a time; if a different row's panel is already open, close it first. Also drops any in-flight Boost-configuring panel state from the previously-open row.
 ToggleExpansion:
 	if ExpandedIndex is not -1
 	begin
@@ -1990,31 +1291,33 @@ ToggleExpansion:
 	put ClickIndex into ExpandedIndex
 	gosub to PaintExpansion
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Paint the expansion controls for room ClickIndex.
-!
-!	Three boost-related UI states drive visibility/highlight:
-!	  - active:      Room.mode == "Boost" (controller boost in progress)
-!	  - configuring: BoostPanelOpenIndex == ClickIndex AND mode != "Boost"
-!	                 (user has tapped the Boost mode button but not yet
-!	                 picked a duration)
-!	  - none:        neither
-!
-!	Layout matrix:
-!	  Mode    State          Mode pill    Target row   Advance row   Boost row
-!	  Timed   none           Timed lit    hidden       visible       hidden
-!	  Timed   configuring    Timed lit    visible      hidden        visible (Off lit)
-!	  On      none           On lit       visible      hidden        hidden
-!	  On      configuring    On lit       visible      hidden        visible (Off lit)
-!	  Off     none           Off lit      hidden       hidden        hidden
-!	  Off     configuring    Off lit      visible      hidden        visible (Off lit)
-!	  Boost   active         Boost lit    visible      hidden        visible (none lit)
-!
-!	The Configuring state's target tile is sourced from BoostSeedTarget
-!	(seeded by OpenBoostPanel). All other states show Room.target. The
-!	mode pill in Configuring stays on the underlying mode — Boost only
-!	becomes "selected" once the user commits a duration.
+!! @hash e736fc0c
+!!!
+!! Paint the expansion controls for room ClickIndex. Three boost-related UI states drive visibility / highlight:
+!!
+!! `active` — Room.mode == "Boost" (controller boost in progress).
+!!
+!! `configuring` — BoostPanelOpenIndex == ClickIndex AND mode != "Boost" (the user has tapped the Boost mode button but hasn't yet picked a duration).
+!!
+!! `none` — neither.
+!!
+!! Layout matrix (mode × state):
+!!
+!! Timed / none → Timed pill lit, Advance row visible, Target and Boost rows hidden.
+!!
+!! Timed / configuring → Timed pill lit, Target row visible (showing BoostSeedTarget), Advance hidden, Boost row visible with Off lit.
+!!
+!! On / none → On pill lit, Target row visible (showing Room.target), Advance and Boost rows hidden.
+!!
+!! On / configuring → On pill lit, Target visible (BoostSeedTarget), Advance hidden, Boost row visible with Off lit.
+!!
+!! Off / none → Off pill lit, all rows hidden.
+!!
+!! Off / configuring → Off pill lit, Target visible (BoostSeedTarget), Advance hidden, Boost row visible with Off lit.
+!!
+!! Boost / active → Boost pill lit, Target visible (Room.target), Advance hidden, Boost row visible with no duration lit (duration buttons act as "replace duration" while a boost is running; Off cancels).
+!!
+!! The mode pill in Configuring stays on the underlying mode — Boost only becomes "selected" once the user commits a duration via ApplyBoost.
 PaintExpansion:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
@@ -2068,6 +1371,7 @@ PaintExpansion:
 			set style `display` of AdvanceBlockEl to `block`
 			put property `advance` of Room into Advance
 			if Advance is empty put `-` into Advance
+			index AdvanceBtn to ClickIndex
 			gosub to PaintAdvanceBtn
 		end
 	end
@@ -2090,9 +1394,11 @@ PaintExpansion:
 		if BoostState is `configuring` gosub to ActivateBoostOff
 	end
 	return
-
-!	Mode-button styling helpers. The buttons are already at the right slot
-!	via the `index` calls in PaintExpansion.
+!! @hash 010e2a92
+!!!
+!! Mode-button and boost-button styling helpers. Reset routines blank every button's selected look; Activate<X> routines apply the "lit" look (card background, drop shadow, primary text, weight 600) to one specific button. The buttons are already at the right slot via the `index` calls in PaintExpansion.
+!!
+!! ResetBoostBtn / ActivateBoost30 / Activate1h / Activate2h follow the same pattern but use accent-coloured borders rather than drop shadows because the boost row is the only place where multiple buttons can compete to be lit.
 ResetModeBtn:
 	set style `background` of ModeTimedBtn to `transparent`
 	set style `color` of ModeTimedBtn to `var(--color-text-muted)`
@@ -2186,16 +1492,13 @@ ActivateBoost2h:
 	set style `color` of Boost2hBtn to `var(--color-accent)`
 	set style `font-weight` of Boost2hBtn to `600`
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Open the Boost-configuring panel. No controller traffic — purely UI.
-!	If the room is already in Boost mode (active), this is a no-op (panel
-!	is already shown by PaintExpansion). Otherwise: seed BoostSeedTarget
-!	with the next-period target, raised to current temp if the room is
-!	already at or above that target — so a tap-Boost on a warm room shows
-!	a target ≥ current, and the user must consciously bump it to ask for
-!	more heat. Falls back to the room's stored target then 20.0 when no
-!	schedule events exist.
+!! @hash dd06764c
+!!!
+!! Open the Boost-configuring panel for the current row. No controller traffic — purely UI state.
+!!
+!! If the room is already in Boost mode (active), this is a no-op — the panel is already shown by PaintExpansion. Otherwise: seed BoostSeedTarget with the next-period target, raised to the current room temperature if the room is already at or above that target. The intent is that a tap-Boost on a warm room shows a target ≥ current, so the user must consciously bump it to ask for more heat (rather than accidentally engaging a boost that immediately satisfies and does nothing).
+!!
+!! Falls back to the room's stored target, then to 20.0, when no schedule periods exist.
 OpenBoostPanel:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
@@ -2225,13 +1528,15 @@ OpenBoostPanel:
 	put ClickIndex into BoostPanelOpenIndex
 	gosub to PaintExpansion
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Mode change. Always clears any active boost (an explicit mode pick is
-!	a stronger signal than a transient boost) and any in-flight Boost-
-!	configuring panel state. Target is preserved across all mode changes
-!	— Off rooms keep their target so the user can still adjust it.
-!	Sends an "Operating Mode" uirequest after the local mutation.
+!! @hash 512f68b3
+!!!
+!! Switch the current room into NewMode. Always clears any active boost (an explicit mode pick is a stronger signal than a transient boost) and any in-flight Boost-configuring panel state.
+!!
+!! Target is preserved across all mode changes — Off rooms keep their target so the user can still adjust it before applying a Boost. If the same mode is tapped twice with no Boost-panel open, we no-op.
+!!
+!! Leaving Boost mode: drops the bookkeeping that was tracking the active boost (boostRemaining, prevMode) locally, then ships an "Operating Mode" uirequest with the new mode and an explicit `Boost: 0` so the controller drops its own boost state. The cancel-boost message goes via the same payload rather than a separate CancelBoost path.
+!!
+!! For `On` mode the payload carries the room's target so the controller knows what setpoint to hold. For `Timed` an explicit `Boost: 0` is sent to clear any controller-side boost. SyncCurrentRoomToMap mirrors the change into the local Map copy so subsequent Save handlers don't revert it.
 ChangeMode:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
@@ -2292,8 +1597,11 @@ ChangeMode:
 	if Tmode is `Boost` set property `Boost` of Result to 0
 	gosub to PostUiRequest
 	return
-
-!	Step the target up or down by 0.5 (5 tenths) with clamp [50, 300].
+!! @hash 378b6001
+!!!
+!! Target steppers. StepTargetUp / StepTargetDown adjust by 0.5° (= 5 tenths) per tap, clamped to [50, 300] (= 5.0° to 30.0°). LoadTargetTenths reads the current target (BoostSeedTarget while configuring, Room.target otherwise) into TargetT; WriteTargetTenths writes it back and decides the right side effect — purely local for the configuring case, persist + resend the boost duration for an active boost (so the controller's `until` is preserved), otherwise an "Operating Mode" with the unchanged mode + new target.
+!!
+!! A bare mode=boost message with no boost field would cause the controller to re-derive `until = now`, expiring the boost immediately — hence the explicit resend of the duration during active-boost target edits.
 StepTargetUp:
 	gosub to LoadTargetTenths
 	add 5 to TargetT
@@ -2378,14 +1686,13 @@ WriteTargetTenths:
 	end
 	gosub to PostUiRequest
 	return
-
-!	Commit a Boost: the user has tapped a duration button (30 min / 1 hr
-!	/ 2 hr). Promotes Room.mode to "Boost", captures the underlying mode
-!	as prevMode (so SyncCurrentRoomToMap can mirror legacy `prevmode`),
-!	moves BoostSeedTarget → Room.target if we were in Configuring, and
-!	clears the panel state. Then ships an "Operating Mode" uirequest
-!	with mode=boost, boost=B<minutes>, target=<new>. The controller
-!	stores prevmode itself based on its mode at message-receive time.
+!! @hash d8c364b0
+!!!
+!! Commit a Boost. The user has tapped a duration button (30 min / 1 hr / 2 hr) inside the configuring panel, or while a boost is already active (to replace the running duration).
+!!
+!! Promotes Room.mode to "Boost", captures the underlying mode as prevMode (so SyncCurrentRoomToMap can mirror it back to the controller's `prevmode` field), moves BoostSeedTarget → Room.target if we were in Configuring, clears the panel state, then ships an "Operating Mode" uirequest with mode=boost, boost=B<minutes>, advance=none, target=<new>.
+!!
+!! The controller stores its own `prevmode` based on its mode at message-receive time, but we still send a local prevMode mirror so that SyncCurrentRoomToMap keeps the local Map.profiles consistent with the controller's view.
 ApplyBoost:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
@@ -2428,15 +1735,13 @@ ApplyBoost:
 	set property `target` of Result to TargetForServer
 	gosub to PostUiRequest
 	return
-
-!	The Boost panel's "Off" duration button. Two cases:
-!	  - Configuring (panel open, mode != Boost): just close the panel
-!	    and discard the seeded target. No controller traffic.
-!	  - Active (mode == Boost): cancel the boost. Revert mode to prevMode
-!	    locally, clear boost-text + boostRemaining + prevMode, and ship
-!	    a cancel "Operating Mode" uirequest (mode=<prev>, Boost=0). The
-!	    controller's stale `until` is harmless because expiration only
-!	    fires when the controller's own mode is `boost`.
+!! @hash 40f33462
+!!!
+!! The Boost panel's "Off" duration button. Two cases:
+!!
+!! Configuring (panel open, mode != Boost): just close the panel and discard the seeded target. No controller traffic — nothing was ever committed.
+!!
+!! Active (mode == Boost): cancel the boost. Locally revert mode to prevMode, clear boost text / boostRemaining / prevMode, and ship a cancel "Operating Mode" uirequest with mode=<prev>, Boost=0. The controller's stale `until` is harmless because expiration only fires when the controller's own mode is `boost` — once mode is back to the underlying value, `until` is ignored.
 BoostOffTapped:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
@@ -2474,13 +1779,13 @@ BoostOffTapped:
 	set property `Boost` of Result to 0
 	gosub to PostUiRequest
 	return
-
-!	Toggle the Advance state for the current room. Optimistic local flip,
-!	then ship the new desired state in an "Operating Mode" uirequest. The
-!	controller treats any non-empty `advance` field on a `timed` mode
-!	command as a toggle, so sending the new state value moves it to that
-!	state regardless of how the controller currently sees it. The next map
-!	refresh reconciles. AdvanceBtn must already be indexed to ClickIndex.
+!! @hash dfe08fb8
+!!!
+!! Toggle the Advance state for the current room. Optimistic local flip, then ship the new desired state in an "Operating Mode" uirequest.
+!!
+!! The controller treats any non-empty `advance` field on a `timed` mode command as a toggle, so sending the new state value moves it to that state regardless of how the controller currently sees it. The next map refresh reconciles.
+!!
+!! AdvanceBtn must already be indexed to ClickIndex (the click handler in WireRoomInteractions ensures this).
 ToggleAdvance:
 	put element ClickIndex of RoomsList into Room
 	put property `advance` of Room into Advance
@@ -2501,14 +1806,15 @@ ToggleAdvance:
 	set property `advance` of Result to Advance
 	gosub to PostUiRequest
 	return
-
-!	Mirror the locally-mutated Room (RoomsList[ClickIndex]) back into
-!	Map.profiles[CurrentProfile].rooms[legacyIdx], translating new-UI fields
-!	(title-case mode, boost overlay) to legacy form. Called after every
-!	per-room state change so any subsequent Save that ships `Update Profiles`
-!	(Outside, System, Profile, Schedule, Devices) carries fresh data and
-!	doesn't revert the toggle. Boost-specific `until` is handled inline at
-!	each call site that owns it (ApplyBoost / BoostOffTapped / ChangeMode).
+!! @hash e3009772
+!!!
+!! Mirror the locally-mutated Room (RoomsList[ClickIndex]) back into Map.profiles[CurrentProfile].rooms[legacyIdx], translating new-UI fields (Title-case mode, Boost-as-peer-mode overlay) into the legacy controller form.
+!!
+!! Called after every per-room state change so any subsequent Save that ships `Update Profiles` (Outside, System, Profile, Schedule, Devices) carries fresh data and doesn't accidentally revert the per-room toggle the user just made.
+!!
+!! Mode translation: Title-case → lowercase. When the new-UI mode is "Boost", the legacy mode is `boost` and `prevmode` carries the lowercase underlying mode (held on Room.prevMode). Otherwise a straight Title→lower mapping with `prevmode` left alone (the controller manages it).
+!!
+!! Boost-specific `until` is handled separately by SyncCurrentRoomBoostUntil so the timestamp can be cleared on cancel without going through the mode-mapping logic.
 SyncCurrentRoomToMap:
 	put property `legacyIdx` of Room into SyncLegacyIdx
 	put property `profiles` of Map into SyncProfiles
@@ -2546,11 +1852,11 @@ SyncCurrentRoomToMap:
 	set element CurrentProfile of SyncProfiles to SyncProfile
 	set property `profiles` of Map to SyncProfiles
 	return
-
-!	Write the boost-expiry timestamp on the current room's legacy slot.
-!	BoostMinutes (already in scope at the call site) is multiplied by 60000
-!	and added to `now`, matching the controller's own boost setup. Pass 0
-!	to clear the field on cancel.
+!! @hash d089d1f6
+!!!
+!! Write SyncBoostUntil (the boost-expiry timestamp, or 0 on cancel) onto the current room's legacy slot in Map.profiles. Called by ApplyBoost (with a future timestamp), ChangeMode and BoostOffTapped (with 0 to clear).
+!!
+!! Mirrors the controller's own boost setup: timestamp = now + minutes × 60000.
 SyncCurrentRoomBoostUntil:
 	put property `legacyIdx` of Room into SyncLegacyIdx
 	put property `profiles` of Map into SyncProfiles
@@ -2563,11 +1869,10 @@ SyncCurrentRoomBoostUntil:
 	set element CurrentProfile of SyncProfiles to SyncProfile
 	set property `profiles` of Map to SyncProfiles
 	return
-
-!	Style the Advance button for the current Advance value. Reads Advance,
-!	expects AdvanceBtn already indexed to the target row.
+!! @hash 0991d205
+!!!
+!! Style the Advance button for the current Advance value. Reads the Advance variable; caller must `index AdvanceBtn to ClickIndex` first.
 PaintAdvanceBtn:
-	index AdvanceBtn to ClickIndex
 	if Advance is `A`
 	begin
 		set the content of AdvanceBtn to `On`
@@ -2585,567 +1890,71 @@ PaintAdvanceBtn:
 		set style `font-weight` of AdvanceBtn to `500`
 	end
 	return
-
-!	Lowercase the title-case Mode (Timed/On/Off/Boost) into ModeForServer
-!	(timed/on/off/boost) for the controller's payload format.
+!! @hash bbd8389e
+!!!
+!! Lowercase the Title-case Mode (Timed/On/Off/Boost) into ModeForServer (timed/on/off/boost) for the controller's payload format. Reads the global Mode variable in, writes ModeForServer out — callers must `put <newmode> into Mode` first.
 LowercaseModeForServer:
 	put `off` into ModeForServer
 	if Mode is `Timed` put `timed` into ModeForServer
 	else if Mode is `On` put `on` into ModeForServer
 	else if Mode is `Boost` put `boost` into ModeForServer
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Combined ProfileSheet — selection (active row) + edits (rename, delete,
-!	add) + calendar toggle + day-profile mappings all batch through Save.
-!	Cancel just closes; the editing snapshot is rebuilt fresh on next open.
-
-!	Open: snapshot Map state into the Editing* working copies, render rows,
-!	apply highlights, collapse the calendar card, swap the visible sheet.
+!! @hash 51017bf2
+!!!
+!! Open the combined ProfileSheet via the profile-sheet.as module. Ships the current profiles snapshot + active profile name + calendar state and parks on the reply.
+!!
+!! The module returns either `{cancelled: yes}` (Cancel) or `{cancelled: no, profiles, activeIdx, calendarOn, calendarData}` (Save). On a save we ship the full Update Profiles via SendUpdateProfiles. The active idx may have changed (rename of active profile, or explicit row selection), so we use whatever the module computed rather than CurrentProfile.
 OpenProfileSheet:
-	gosub to CloneProfilesForEditing
-	clear EditingCalendarOn
-	if CalendarOn set EditingCalendarOn
-	gosub to CloneCalendarData
-	put ActiveProfileName into EditingActiveName
-	gosub to RenderProfileRows
-	gosub to ApplyActiveProfile
-	gosub to ApplyCalendarHeaderState
-	gosub to ApplyDayProfiles
-	gosub to ValidateEditingProfiles
-	gosub to HideAllDayPickers
-	clear CalendarCardExpanded
-	set style `display` of CalendarCardEl to `none`
-	set style `transform` of CalendarChev to `rotate(0deg)`
+	put `{}` into OpenMsg
+	set property `profiles` of OpenMsg to property `profiles` of Map
+	set property `activeProfileName` of OpenMsg to ActiveProfileName
+	if CalendarOn set property `calendarOn` of OpenMsg to `on`
+	else set property `calendarOn` of OpenMsg to `off`
+	set property `calendarData` of OpenMsg to property `calendar-data` of Map
 	gosub to HideAllSheets
-	set style `display` of ProfileSheetEl to `block`
 	set the content of SheetTitleEl to `Profile`
 	gosub to OpenSheet
-	return
-
-!	Cancel: just close. Editing snapshot is left to rot; next open rebuilds.
-CloseProfileSheet:
+	send OpenMsg to ProfileSheetModule and assign reply to ProfileResult
 	gosub to CloseSheet
-	return
-
-!	Shallow-clone Profiles → EditingProfiles. Each profile is a fresh {} so
-!	name edits don't bleed back. The rooms array is aliased; per-room data
-!	editing is a future slice (schedule editor).
-CloneProfilesForEditing:
-	put `[]` into EditingProfiles
-	put the json count of Profiles into LegacyProfileCount
-	put 0 into LoopE
-	while LoopE is less than LegacyProfileCount
+	if property `cancelled` of ProfileResult is `no`
 	begin
-		put element LoopE of Profiles into ProfileN
-		put `{}` into ClonedProfile
-		set property `name` of ClonedProfile to property `name` of ProfileN
-		set property `rooms` of ClonedProfile to property `rooms` of ProfileN
-		set element LoopE of EditingProfiles to ClonedProfile
-		increment LoopE
-	end
-	put LegacyProfileCount into EditingProfilesCount
-	return
-
-!	Deep-clone Map.calendar-data → EditingCalendarData. Each entry holds a
-!	single `day<i>-profile` string. Pads to 7 entries if the controller
-!	sent fewer, so the day-picker can always write into a defined slot.
-CloneCalendarData:
-	put `[]` into EditingCalendarData
-	put property `calendar-data` of Map into LegacyCalData
-	if LegacyCalData is empty put 0 into LegacyCalCount
-	else put the json count of LegacyCalData into LegacyCalCount
-	put 0 into LoopE
-	while LoopE is less than LegacyCalCount
-	begin
-		put element LoopE of LegacyCalData into LegacyCalEntry
-		put `{}` into ClonedEntry
-		put `day` cat LoopE cat `-profile` into PropName
-		put property PropName of LegacyCalEntry into ProfName
-		if ProfName is not empty set property PropName of ClonedEntry to ProfName
-		set element LoopE of EditingCalendarData to ClonedEntry
-		increment LoopE
-	end
-	while LegacyCalCount is less than 7
-	begin
-		put `{}` into ClonedEntry
-		set element LegacyCalCount of EditingCalendarData to ClonedEntry
-		increment LegacyCalCount
+		put property `profiles` of ProfileResult into PayloadProfiles
+		put property `activeIdx` of ProfileResult into PayloadActiveProfileIdx
+		if property `calendarOn` of ProfileResult is `on` set PayloadCalendarOnFlag
+		else clear PayloadCalendarOnFlag
+		put property `calendarData` of ProfileResult into PayloadCalendarData
+		gosub to SendUpdateProfiles
 	end
 	return
-
-!	Open the day-picker embedded directly under day DayEditTargetIdx (0–6).
-!	Hides any other open picker first, then renders one pill per profile in
-!	EditingProfiles into THIS day's picker-list. Pill-click writes the
-!	profile name back into EditingCalendarData and closes the picker.
-OpenDayPicker:
-	gosub to HideAllDayPickers
-	index DayPickerList to DayEditTargetIdx
-	clear DayPickerList
-	if EditingProfilesCount is greater than 0
-	begin
-		set the elements of DayPill to EditingProfilesCount
-		put 0 into PillIdx
-		while PillIdx is less than EditingProfilesCount
-		begin
-			put PillRowJson into PillRowText
-			put `` cat PillIdx into PillIdxStr
-			replace `/I/` with PillIdxStr in PillRowText
-			render PillRowText in DayPickerList
-
-			index DayPill to PillIdx
-			attach DayPill to `calendar-day-pill-` cat PillIdxStr
-			put element PillIdx of EditingProfiles into EditProfileN
-			set the content of DayPill to property `name` of EditProfileN
-
-			on click DayPill
-			begin
-				put the index of DayPill into PillIdx
-				put element PillIdx of EditingProfiles into EditProfileN
-				put property `name` of EditProfileN into ProfileName
-				put `day` cat DayEditTargetIdx cat `-profile` into PropName
-				put element DayEditTargetIdx of EditingCalendarData into DayEntry
-				if DayEntry is empty put `{}` into DayEntry
-				set property PropName of DayEntry to ProfileName
-				set element DayEditTargetIdx of EditingCalendarData to DayEntry
-				gosub to ApplyDayProfiles
-				gosub to CloseAllDayPickers
-			end
-
-			increment PillIdx
-		end
-	end
-	index DayPickerEl to DayEditTargetIdx
-	set style `display` of DayPickerEl to `block`
-	return
-
-!	Close one specific day's picker (used by its ✕ button). DayEditTargetIdx
-!	identifies which.
-CloseDayPicker:
-	index DayPickerEl to DayEditTargetIdx
-	set style `display` of DayPickerEl to `none`
-	return
-
-!	Hide every day-picker AND empty every picker-list. Clearing the lists
-!	prevents stale pill DOM elements (which all share the id pattern
-!	`calendar-day-pill-N`) from blocking the next render's attach by id.
-HideAllDayPickers:
-	put 0 into DayLoopI
-	while DayLoopI is less than 7
-	begin
-		index DayPickerEl to DayLoopI
-		set style `display` of DayPickerEl to `none`
-		index DayPickerList to DayLoopI
-		clear DayPickerList
-		increment DayLoopI
-	end
-	return
-
-CloseAllDayPickers:
-	gosub to HideAllDayPickers
-	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Schedule editor — per-room timed-mode events[] editor. Opens from each
-!	room's "Edit schedule" button. Edits batch into EditingEvents; Save
-!	sorts by `until` and ships an Update Profiles uirequest with the host
-!	room's events replaced. Cancel discards.
-
-!	Update the profile pill's value text from EditingProfileIdx.
-PaintSchedProfilePill:
-	put element EditingProfileIdx of Profiles into ProfileN
-	put property `name` of ProfileN into EditingProfileName
-	set the content of ScheduleProfileValue to EditingProfileName
-	return
-
-!	Toggle the profile picker open/closed. Renders pills on open.
-ToggleSchedProfilePicker:
-	if ScheduleProfilePickerOpen
-	begin
-		clear ScheduleProfilePickerOpen
-		set style `display` of ScheduleProfilePicker to `none`
-		set style `transform` of ScheduleProfileChev to `rotate(0deg)`
-		return
-	end
-	gosub to RenderSchedProfilePicker
-	set ScheduleProfilePickerOpen
-	set style `display` of ScheduleProfilePicker to `flex`
-	set style `transform` of ScheduleProfileChev to `rotate(180deg)`
-	return
-
-!	Render one pill per profile into the picker. Tapping a pill swaps the
-!	editor to that profile (after a confirm if there are unsaved edits).
-!	Pill IDs use the same template as the calendar day-picker pills, so we
-!	clear the picker first to avoid stale-DOM duplicate-id collisions.
-RenderSchedProfilePicker:
-	clear ScheduleProfilePicker
-	put the json count of Profiles into LegacyProfileCount
-	if LegacyProfileCount is 0 return
-	set the elements of SchedProfilePill to LegacyProfileCount
-	put 0 into SchedProfilePillIdx
-	while SchedProfilePillIdx is less than LegacyProfileCount
-	begin
-		put SchedProfilePillJson into SchedProfilePillText
-		put `` cat SchedProfilePillIdx into SchedProfilePillIdxStr
-		replace `/I/` with SchedProfilePillIdxStr in SchedProfilePillText
-		render SchedProfilePillText in ScheduleProfilePicker
-
-		index SchedProfilePill to SchedProfilePillIdx
-		attach SchedProfilePill to `sched-profile-pill-` cat SchedProfilePillIdxStr
-		put element SchedProfilePillIdx of Profiles into ProfileN
-		set the content of SchedProfilePill to property `name` of ProfileN
-		if SchedProfilePillIdx is EditingProfileIdx
-		begin
-			set style `border-color` of SchedProfilePill to `var(--color-accent)`
-			set style `color` of SchedProfilePill to `var(--color-accent)`
-		end
-
-		on click SchedProfilePill
-		begin
-			put the index of SchedProfilePill into SchedProfilePillIdx
-			gosub to SwapEditingProfile
-		end
-
-		increment SchedProfilePillIdx
-	end
-	return
-
-!	Swap the editor to SchedProfilePillIdx. If there are unsaved edits,
-!	confirm first; on cancel, leave everything alone.
-SwapEditingProfile:
-	if SchedProfilePillIdx is EditingProfileIdx
-	begin
-		gosub to ToggleSchedProfilePicker
-		return
-	end
-	if ScheduleDirty
-	begin
-		clear ConfirmFlag
-		if confirm `Discard unsaved changes to this profile?` set ConfirmFlag
-		if not ConfirmFlag return
-	end
-	put SchedProfilePillIdx into EditingProfileIdx
-	clear ScheduleDirty
-	gosub to CloneEventsForEditing
-	gosub to RenderSchedulePeriods
-	gosub to PaintSchedProfilePill
-	clear ScheduleProfilePickerOpen
-	set style `display` of ScheduleProfilePicker to `none`
-	set style `transform` of ScheduleProfileChev to `rotate(0deg)`
-	return
-
-!	Open: snapshot the room's events into EditingEvents (defaulting to the
-!	active profile), render period cards, swap the visible sheet. The user
-!	can then swap to a different profile via the profile-pill at the top.
+!! @hash ece45f8c
+!!!
+!! Open the schedule editor for the room at ClickIndex. The schedule-editor.as module owns the sheet's DOM and logic; we just ship the open-payload and park on the reply.
+!!
+!! Snapshot the current Map state (profiles + active profile index), build the open dict, open the sheet chrome with the room's title, then send-and-block. The module renders its own period cards, runs its own event loop until the user clicks Save or Cancel, and ships back `{cancelled: yes|no, profiles}`. On a Save reply we ship the resulting Update Profiles via SendUpdateProfiles. CloseSheet animates the chrome closed in either case.
 OpenScheduleEditor:
 	put element ClickIndex of RoomsList into Room
-	put property `name` of Room into EditingRoomName
-	put property `legacyIdx` of Room into EditingRoomLegacyIdx
-	put CurrentProfile into EditingProfileIdx
-	clear ScheduleDirty
-	clear ScheduleProfilePickerOpen
-	set style `display` of ScheduleProfilePicker to `none`
-	set style `transform` of ScheduleProfileChev to `rotate(0deg)`
-	gosub to CloneEventsForEditing
-	gosub to RenderSchedulePeriods
-	gosub to PaintSchedProfilePill
+	put `{}` into OpenMsg
+	set property `roomName` of OpenMsg to property `name` of Room
+	set property `roomLegacyIdx` of OpenMsg to property `legacyIdx` of Room
+	set property `profileIdx` of OpenMsg to CurrentProfile
+	set property `profiles` of OpenMsg to property `profiles` of Map
 	gosub to HideAllSheets
-	set style `display` of ScheduleSheetEl to `block`
-	set the content of SheetTitleEl to `Schedule for ` cat EditingRoomName
+	set the content of SheetTitleEl to `Schedule for ` cat property `name` of Room
 	gosub to OpenSheet
-	return
-
-!	Cancel: just close. EditingEvents is left to rot; next open rebuilds.
-CloseScheduleEditor:
+	send OpenMsg to ScheduleEditorModule and assign reply to ScheduleResult
 	gosub to CloseSheet
-	return
-
-!	Convert the host room's events array into start-time display rows.
-!	The map stores end-time + temp-up-to-then; the editor shows start-time
-!	+ target-from-then. Conversion (cyclic):
-!	    display[i].start  = events[i].until
-!	    display[i].target = events[(i+1) mod N].temp
-!	Each display row is a fresh {} so edits don't bleed back into the Map.
-CloneEventsForEditing:
-	put `[]` into EditingEvents
-	put property `profiles` of Map into LiveProfiles
-	put element EditingProfileIdx of LiveProfiles into LiveProfileForRoom
-	put property `rooms` of LiveProfileForRoom into LiveRoomsForRoom
-	put element EditingRoomLegacyIdx of LiveRoomsForRoom into LiveRoomForSchedule
-	put property `events` of LiveRoomForSchedule into LegacyEvents
-	if LegacyEvents is empty
+	if property `cancelled` of ScheduleResult is `no`
 	begin
-		put 0 into EditingEventsCount
-		return
-	end
-	put the json count of LegacyEvents into LegacyEventCount
-	put 0 into LoopE
-	while LoopE is less than LegacyEventCount
-	begin
-		put element LoopE of LegacyEvents into LegacyEvent
-		put `{}` into ClonedEvent
-		set property `start` of ClonedEvent to property `until` of LegacyEvent
-		put LoopE into NewIdx
-		increment NewIdx
-		put NewIdx modulo LegacyEventCount into NewIdx
-		put element NewIdx of LegacyEvents into EventA
-		set property `target` of ClonedEvent to property `temp` of EventA
-		set element LoopE of EditingEvents to ClonedEvent
-		increment LoopE
-	end
-	put LegacyEventCount into EditingEventsCount
-	return
-
-!	Tear down + rebuild the period cards from EditingEvents. Each card
-!	wires four steppers (time -/+, temp -/+) and a delete button.
-RenderSchedulePeriods:
-	clear SchedulePeriodList
-	if EditingEventsCount is 0 return
-	set the elements of PeriodCardEl to EditingEventsCount
-	set the elements of PeriodTimeValue to EditingEventsCount
-	set the elements of PeriodTempValue to EditingEventsCount
-	set the elements of PeriodTimeMinusBtn to EditingEventsCount
-	set the elements of PeriodTimePlusBtn to EditingEventsCount
-	set the elements of PeriodTempMinusBtn to EditingEventsCount
-	set the elements of PeriodTempPlusBtn to EditingEventsCount
-	set the elements of PeriodDeleteBtn to EditingEventsCount
-
-	put 0 into PeriodIdx
-	while PeriodIdx is less than EditingEventsCount
-	begin
-		put PeriodCardJson into PeriodCardText
-		put `` cat PeriodIdx into PeriodIdxStr
-		replace `/I/` with PeriodIdxStr in PeriodCardText
-		render PeriodCardText in SchedulePeriodList
-
-		index PeriodCardEl to PeriodIdx
-		attach PeriodCardEl to `schedule-period-` cat PeriodIdxStr
-		index PeriodTimeValue to PeriodIdx
-		attach PeriodTimeValue to `schedule-period-` cat PeriodIdxStr cat `-time-value`
-		index PeriodTempValue to PeriodIdx
-		attach PeriodTempValue to `schedule-period-` cat PeriodIdxStr cat `-temp-value`
-		index PeriodTimeMinusBtn to PeriodIdx
-		attach PeriodTimeMinusBtn to `schedule-period-` cat PeriodIdxStr cat `-time-minus`
-		index PeriodTimePlusBtn to PeriodIdx
-		attach PeriodTimePlusBtn to `schedule-period-` cat PeriodIdxStr cat `-time-plus`
-		index PeriodTempMinusBtn to PeriodIdx
-		attach PeriodTempMinusBtn to `schedule-period-` cat PeriodIdxStr cat `-temp-minus`
-		index PeriodTempPlusBtn to PeriodIdx
-		attach PeriodTempPlusBtn to `schedule-period-` cat PeriodIdxStr cat `-temp-plus`
-		index PeriodDeleteBtn to PeriodIdx
-		attach PeriodDeleteBtn to `schedule-period-` cat PeriodIdxStr cat `-delete`
-
-		gosub to PaintPeriodValues
-
-		on click PeriodTimeMinusBtn
-		begin
-			put the index of PeriodTimeMinusBtn into PeriodIdx
-			put -15 into ScheduleM
-			gosub to StepPeriodTime
-		end
-		on click PeriodTimePlusBtn
-		begin
-			put the index of PeriodTimePlusBtn into PeriodIdx
-			put 15 into ScheduleM
-			gosub to StepPeriodTime
-		end
-		on click PeriodTempMinusBtn
-		begin
-			put the index of PeriodTempMinusBtn into PeriodIdx
-			put -5 into PeriodTempTenths
-			gosub to StepPeriodTemp
-		end
-		on click PeriodTempPlusBtn
-		begin
-			put the index of PeriodTempPlusBtn into PeriodIdx
-			put 5 into PeriodTempTenths
-			gosub to StepPeriodTemp
-		end
-		on click PeriodDeleteBtn
-		begin
-			put the index of PeriodDeleteBtn into PeriodIdx
-			gosub to DeleteSchedulePeriod
-		end
-
-		increment PeriodIdx
+		put property `profiles` of ScheduleResult into PayloadProfiles
+		put CurrentProfile into PayloadActiveProfileIdx
+		if CalendarOn set PayloadCalendarOnFlag else clear PayloadCalendarOnFlag
+		put property `calendar-data` of Map into PayloadCalendarData
+		gosub to SendUpdateProfiles
 	end
 	return
-
-!	Paint just the start + target values for PeriodIdx (avoid full re-render
-!	on every stepper tap). Reads EditingEvents[PeriodIdx].
-PaintPeriodValues:
-	index PeriodTimeValue to PeriodIdx
-	index PeriodTempValue to PeriodIdx
-	put element PeriodIdx of EditingEvents into PeriodEvent
-	put property `start` of PeriodEvent into PeriodTime
-	set the content of PeriodTimeValue to PeriodTime
-	put `` cat property `target` of PeriodEvent into PeriodTemp
-	put the index of `.` in PeriodTemp into DotIdx
-	if DotIdx is less than 0 put PeriodTemp cat `.0` into PeriodTemp
-	set the content of PeriodTempValue to PeriodTemp cat `°`
-	return
-
-!	Step the period's start time by ScheduleM (±15) min, wrapping at 24:00.
-!	Update the displayed value in place; don't re-sort here so the user can
-!	drift through midnight without rows jumping.
-StepPeriodTime:
-	put element PeriodIdx of EditingEvents into PeriodEvent
-	put property `start` of PeriodEvent into TempStr
-	gosub to ParseTimeMinutes
-	add TempTenths to ScheduleM
-	if ScheduleM is less than 0 add 1440 to ScheduleM
-	put ScheduleM modulo 1440 into ScheduleM
-	gosub to MinutesToHHMM
-	set property `start` of PeriodEvent to TempStr
-	set element PeriodIdx of EditingEvents to PeriodEvent
-	set ScheduleDirty
-	gosub to PaintPeriodValues
-	return
-
-!	Step the period's target by PeriodTempTenths (±5 = ±0.5°), clamping
-!	to [5.0, 30.0].
-StepPeriodTemp:
-	put element PeriodIdx of EditingEvents into PeriodEvent
-	put `` cat property `target` of PeriodEvent into TempStr
-	gosub to ToTenths
-	add PeriodTempTenths to TempTenths
-	if TempTenths is less than 50 put 50 into TempTenths
-	if TempTenths is greater than 300 put 300 into TempTenths
-	gosub to TenthsToString
-	set property `target` of PeriodEvent to TempStr
-	set element PeriodIdx of EditingEvents to PeriodEvent
-	set ScheduleDirty
-	gosub to PaintPeriodValues
-	return
-
-!	Add a new period starting at midnight, target 18.0°. Sort happens on
-!	Save, so the new one slots into chronological order then.
-AddSchedulePeriod:
-	put `{}` into ClonedEvent
-	set property `start` of ClonedEvent to `00:00`
-	set property `target` of ClonedEvent to `18.0`
-	set element EditingEventsCount of EditingEvents to ClonedEvent
-	increment EditingEventsCount
-	set ScheduleDirty
-	gosub to RenderSchedulePeriods
-	return
-
-!	Delete period at PeriodIdx. Rebuild the array without it, re-render.
-DeleteSchedulePeriod:
-	put `[]` into NewProfilesArray
-	put 0 into NewIdx
-	put 0 into LoopE
-	while LoopE is less than EditingEventsCount
-	begin
-		if LoopE is not PeriodIdx
-		begin
-			put element LoopE of EditingEvents into PeriodEvent
-			set element NewIdx of NewProfilesArray to PeriodEvent
-			increment NewIdx
-		end
-		increment LoopE
-	end
-	put NewProfilesArray into EditingEvents
-	put NewIdx into EditingEventsCount
-	set ScheduleDirty
-	gosub to RenderSchedulePeriods
-	return
-
-!	Bubble-sort EditingEvents in place by `start` time (minutes). N is
-!	small (typical schedules are ≤6 periods) so simple O(n²) is fine.
-SortEvents:
-	if EditingEventsCount is less than 2 return
-	put 0 into SortI
-	while SortI is less than EditingEventsCount
-	begin
-		put 0 into SortJ
-		while SortJ is less than EditingEventsCount
-		begin
-			put SortJ into SortJplus1
-			increment SortJplus1
-			if SortJplus1 is less than EditingEventsCount
-			begin
-				put element SortJ of EditingEvents into EventA
-				put element SortJplus1 of EditingEvents into EventB
-				put property `start` of EventA into TempStr
-				gosub to ParseTimeMinutes
-				put TempTenths into SortAMinutes
-				put property `start` of EventB into TempStr
-				gosub to ParseTimeMinutes
-				put TempTenths into SortBMinutes
-				if SortAMinutes is greater than SortBMinutes
-				begin
-					set element SortJ of EditingEvents to EventB
-					set element SortJplus1 of EditingEvents to EventA
-				end
-			end
-			increment SortJ
-		end
-		increment SortI
-	end
-	return
-
-!	Convert ScheduleM (0–1439 minutes) into TempStr "HH:MM" with zero-pad.
-MinutesToHHMM:
-	put ScheduleM into ScheduleH
-	divide ScheduleH by 60
-	put ScheduleM modulo 60 into ScheduleM
-	if ScheduleH is less than 10 put `0` cat ScheduleH into TempStr
-	else put `` cat ScheduleH into TempStr
-	put TempStr cat `:` into TempStr
-	if ScheduleM is less than 10 put TempStr cat `0` cat ScheduleM into TempStr
-	else put TempStr cat ScheduleM into TempStr
-	return
-
-!	Save: sort by start time, convert display rows back to events form
-!	(end-time + temp-up-to-then), splice into the host room's slot in the
-!	live profiles array, ship Update Profiles. Conversion (cyclic):
-!	    events[i].until = display[i].start
-!	    events[i].temp  = display[(i-1+N) mod N].target
-SaveScheduleEditor:
-	gosub to SortEvents
-	put `[]` into SortedEvents
-	put 0 into LoopE
-	while LoopE is less than EditingEventsCount
-	begin
-		put element LoopE of EditingEvents into PeriodEvent
-		put `{}` into ClonedEvent
-		set property `until` of ClonedEvent to property `start` of PeriodEvent
-		put LoopE into NewIdx
-		if NewIdx is 0 put EditingEventsCount into NewIdx
-		take 1 from NewIdx
-		put element NewIdx of EditingEvents into EventA
-		set property `temp` of ClonedEvent to property `target` of EventA
-		set element LoopE of SortedEvents to ClonedEvent
-		increment LoopE
-	end
-
-	put property `profiles` of Map into LiveProfiles
-	put element EditingProfileIdx of LiveProfiles into LiveProfileForRoom
-	put property `rooms` of LiveProfileForRoom into LiveRoomsForRoom
-	put element EditingRoomLegacyIdx of LiveRoomsForRoom into LiveRoomForSchedule
-	set property `events` of LiveRoomForSchedule to SortedEvents
-	set element EditingRoomLegacyIdx of LiveRoomsForRoom to LiveRoomForSchedule
-	set property `rooms` of LiveProfileForRoom to LiveRoomsForRoom
-	set element EditingProfileIdx of LiveProfiles to LiveProfileForRoom
-
-	put `{}` into Result
-	set property `Action` of Result to `Update Profiles`
-	set property `profiles` of Result to LiveProfiles
-	set property `profile` of Result to CurrentProfile
-	if CalendarOn set property `calendar` of Result to `on`
-	else set property `calendar` of Result to `off`
-	put property `calendar-data` of Map into CalendarData
-	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
-	gosub to PostUiRequest
-	gosub to CloseScheduleEditor
-	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Room info sheet — opened from each room row's info button. Read-only
-!	snapshot of the room's current readings (relay, temperature, humidity,
-!	battery, last-report age). Refreshes whenever the next map arrives via
-!	RefreshHomeScreen → PaintInfoSheet.
+!! @hash 9fdc73c7
+!!!
+!! Open the read-only room-info sheet for the room at ClickIndex. Shows the current readings (relay, temperature, humidity, battery, last-report age) and stays open across map refreshes — RefreshHomeScreen detects InfoSheetOpen and calls PaintInfoSheet to update the values in place.
 OpenInfoSheet:
 	put ClickIndex into InfoSheetRoomIdx
 	put element InfoSheetRoomIdx of RoomsList into Room
@@ -3156,15 +1965,18 @@ OpenInfoSheet:
 	set InfoSheetOpen
 	gosub to OpenSheet
 	return
-
+!! @hash 413b2fe9
+!!!
+!! Close the info sheet and clear InfoSheetOpen so RefreshHomeScreen stops repainting it.
 CloseInfoSheet:
 	clear InfoSheetOpen
 	gosub to CloseSheet
 	return
-
-!	Format the readings for the open info sheet. Each value falls back to
-!	`—` when the data isn't available (sensor never reported, no humidity
-!	channel, etc).
+!! @hash f9d3ecc3
+!!!
+!! Format the readings for the open info sheet. Each value falls back to `—` when the data isn't available (sensor never reported, no humidity channel, battery not yet known, etc).
+!!
+!! Age is formatted from `sensorAge` (milliseconds since last report) as "<1 min ago", "1 min ago", or "N min ago". Caller must have set Room to the room being displayed.
 PaintInfoSheet:
 	put property `relay` of Room into InfoRelayVal
 	if InfoRelayVal is `on` set the content of InfoRelayValue to `On`
@@ -3195,13 +2007,11 @@ PaintInfoSheet:
 		else set the content of InfoAgeValue to `` cat InfoAgeMin cat ` min ago`
 	end
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	System type & name sheet — opened from the menu's first row. Edits the
-!	map root's `name` and `systemType` fields. Save ships System Name + a
-!	separate Update message for systemType (the controller's System Name
-!	handler doesn't yet read systemType; storing it on the map keeps the
-!	field around for future controller-side fuel-aware logic).
+!! @hash dcb3ec9a
+!!!
+!! Open the system type & name sheet from the menu's "System" row.
+!!
+!! Snapshots SystemName and SystemType into the Editing* vars, paints the type-pill highlight, swaps the visible sheet. The controller's existing System Name handler picks up `name`; `systemType` is included as an additional map-root field that the controller currently just preserves, ready for future fuel-aware logic (Boiler vs Heat Pump scheduling differs in optimisation targets).
 OpenSystemSheet:
 	put SystemName into EditingSystemName
 	put SystemType into EditingSystemType
@@ -3213,11 +2023,9 @@ OpenSystemSheet:
 	set the content of SheetTitleEl to `System type & name`
 	gosub to OpenSheet
 	return
-
-CloseSystemSheet:
-	gosub to CloseSheet
-	return
-
+!! @hash e11582d7
+!!!
+!! Paint and activation helpers for the Boiler / Heat Pump type pill. Reset blanks both pills; Activate<X> applies the lit look (card background, drop shadow, weight 600) to the matching pill.
 PaintSystemSheetType:
 	gosub to ResetSystemSheetTypeBtns
 	if EditingSystemType is `Boiler` gosub to ActivateSystemTypeBoiler
@@ -3248,11 +2056,9 @@ ActivateSystemTypeHeatPump:
 	set style `font-weight` of SystemSheetTypeHeatPump to `600`
 	set style `box-shadow` of SystemSheetTypeHeatPump to `0 1px 3px rgba(0,0,0,0.08)`
 	return
-
-!	Save: ship a System Name uirequest with both the name and the systemType.
-!	The controller's existing System Name handler picks up `name`; systemType
-!	is included as an additional map-root field that the controller can
-!	preserve until it grows fuel-aware logic.
+!! @hash f78e46ed
+!!!
+!! Save the system type & name edits. Writes the new fields into Map locally, refreshes the summary, then ships a single `System Name` uirequest carrying both `name` and `systemType` as map-root fields.
 SaveSystemSheet:
 	put the content of SystemSheetName into EditingSystemName
 	set property `name` of Map to EditingSystemName
@@ -3266,13 +2072,15 @@ SaveSystemSheet:
 	set property `name` of Result to EditingSystemName
 	set property `systemType` of Result to EditingSystemType
 	gosub to PostUiRequest
-	gosub to CloseSystemSheet
+	gosub to CloseSheet
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Outside thermometer + frost protection sheet — edits the sensor name
-!	and ptemp on the "room with empty relays" slot of every profile.
-
+!! @hash 68cd9583
+!!!
+!! Open the Outside thermometer + frost protection sheet from the menu's Outside row.
+!!
+!! The outside thermometer lives in the legacy "room with empty relays" slot of every profile. Its `sensor` and `ptemp` fields are fanned out across every profile on save so the controller sees the same outdoor config regardless of which profile is active. FrostActive (used by the summary card) is derived per refresh from the controller's `frostActive` flag if present, else computed locally (outside temp ≤ trigger AND no rooms calling).
+!!
+!! Snapshots the current OutsideSensor / FrostTrigger into the Editing* vars, sets the input contents, swaps the visible sheet.
 OpenOutsideSheet:
 	put OutsideSensor into EditingOutsideSensor
 	put FrostTrigger into EditingFrostTrigger
@@ -3283,15 +2091,13 @@ OpenOutsideSheet:
 	set the content of SheetTitleEl to `Outside thermometer`
 	gosub to OpenSheet
 	return
-
-CloseOutsideSheet:
-	gosub to CloseSheet
-	return
-
-!	Save: read inputs, fan out the sensor and ptemp/protect fields across
-!	every profile's outside-room slot, ship Update Profiles. If no outside
-!	room exists in the map yet, this is a no-op (the controller would need
-!	to add the slot first — flagged in the spec, not handled here).
+!! @hash 49a64a64
+!!!
+!! Save the outside-sensor edits. Read the inputs, fan the sensor name + ptemp/protect fields across every profile's outside-room slot in the local Map, ship a full `Update Profiles` uirequest, then update the local OutsideSensor / FrostTrigger mirrors.
+!!
+!! If no outside room exists in the map yet (controller never registered one) the save is aborted with an alert — the controller would need to add the slot first, which isn't a UI flow yet.
+!!
+!! An empty FrostTrigger means "frost protection off" — sets `protect: no` and clears `ptemp`. Any non-empty value sets `protect: yes` and writes the trigger temperature.
 SaveOutsideSheet:
 	if not OutsideRoomFound
 	begin
@@ -3326,32 +2132,23 @@ SaveOutsideSheet:
 		increment OutsideProfileLoopI
 	end
 
-	put `{}` into Result
-	set property `Action` of Result to `Update Profiles`
-	set property `profiles` of Result to LiveProfiles
-	set property `profile` of Result to CurrentProfile
-	if CalendarOn set property `calendar` of Result to `on`
-	else set property `calendar` of Result to `off`
-	put property `calendar-data` of Map into CalendarData
-	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
-	gosub to PostUiRequest
+	put LiveProfiles into PayloadProfiles
+	put CurrentProfile into PayloadActiveProfileIdx
+	if CalendarOn set PayloadCalendarOnFlag else clear PayloadCalendarOnFlag
+	put property `calendar-data` of Map into PayloadCalendarData
+	gosub to SendUpdateProfiles
 
 	put EditingOutsideSensor into OutsideSensor
 	put EditingFrostTrigger into FrostTrigger
-	gosub to CloseOutsideSheet
+	gosub to CloseSheet
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Device editor — per-room thermometer + relay configuration. Opens from
-!	each room's "Edit devices" button. Edits are local until Save, which
-!	writes the new sensor / relay-type / relays / linked fields onto every
-!	profile's slot for this room (the device wiring is physical, shared
-!	across profiles) and ships an Update Rooms uirequest.
-
-!	Open from the menu: clone Map.profiles into the working copy, pick
-!	the first non-outside room as the initial selection, load its device
-!	fields, swap the visible sheet. Edits stay in EditingProfilesForDevices
-!	until the user clicks Save (or Cancel discards them).
+!! @hash 4dda8018
+!!!
+!! Open the device editor for room + device configuration. The device-editor.as module owns the sheet's DOM and logic; we just ship the open-payload and park on the reply.
+!!
+!! Two outbound payloads on a non-cancelled save: Update Profiles for the room-list and per-room device-field changes, plus Request Relay (only when the demand-relay value actually changed). Module signals the latter via `requestRelayChanged: yes` in the reply.
+!!
+!! Aborts early with an alert if there are no rooms yet, or if Map.profiles is empty (shouldn't happen post-bootstrap, defensive check).
 OpenDeviceEditor:
 	if RoomCount is 0
 	begin
@@ -3364,719 +2161,38 @@ OpenDeviceEditor:
 		alert `Map data not loaded — please reload the page.`
 		return
 	end
-	gosub to CloneProfilesForDevices
-	gosub to PickFirstRoomForDevices
-	gosub to LoadDeviceEditorRoom
-!	Demand-relay name is system-wide — load it once on open, NOT in
-!	LoadDeviceEditorRoom (which fires every time the room picker swaps).
-	put RequestRelay into EditingRequestRelay
-	set the content of DeviceEditorRequest to EditingRequestRelay
-	clear DeviceRoomPickerOpen
-	set style `display` of DeviceEditorRoomPicker to `none`
-	set style `transform` of DeviceEditorRoomChev to `rotate(0deg)`
+	put `{}` into OpenMsg
+	set property `profiles` of OpenMsg to property `profiles` of Map
+	set property `currentProfile` of OpenMsg to CurrentProfile
+	set property `requestRelay` of OpenMsg to RequestRelay
 	gosub to HideAllSheets
-	set style `display` of DeviceEditorSheetEl to `block`
 	set the content of SheetTitleEl to `Rooms and Devices`
 	gosub to OpenSheet
-	return
-
-!	Deep-enough copy of Map.profiles into EditingProfilesForDevices. Every
-!	mutation downstream (move/add/delete/rename, plus the device-field
-!	commit on Save) reads-modifies-writes through value-typed slots, so
-!	the top-level put-into copy is sufficient to isolate edits from the
-!	live Map.
-CloneProfilesForDevices:
-	put property `profiles` of Map into EditingProfilesForDevices
-	put the json count of EditingProfilesForDevices into EditingProfilesCountForDevices
-	return
-
-!	Set EditingDevicesRoomLegacyIdx to the first non-outside room in the
-!	current profile's rooms array. Used on initial open and after a
-!	delete that wiped the previously-selected room.
-PickFirstRoomForDevices:
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put 0 into EditingDevicesRoomLegacyIdx
-	put 0 into RoomEditCount
-	while RoomEditCount is less than the json count of LiveRoomsForDevices
-	begin
-		put element RoomEditCount of LiveRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is not empty
-		begin
-			put RoomEditCount into EditingDevicesRoomLegacyIdx
-			put the json count of LiveRoomsForDevices into RoomEditCount
-		end
-		increment RoomEditCount
-	end
-	return
-
-!	Pull device fields for the currently-selected room out of the working
-!	copy into the input controls. Called on initial open and again when
-!	the picker swaps rooms or a list operation changes which room is shown.
-LoadDeviceEditorRoom:
-	if EditingProfilesForDevices is empty
-	begin
-		log `LoadDeviceEditorRoom: editing copy empty — aborting`
-		alert `Map data not loaded — please reload the page.`
-		return
-	end
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices into LiveRoomForDevices
-	put property `name` of LiveRoomForDevices into EditingDevicesRoomName
-
-	put property `sensor` of LiveRoomForDevices into EditingDevicesSensor
-	put property `relayType` of LiveRoomForDevices into EditingDevicesRelayType
-	if EditingDevicesRelayType is empty put `RBR-Now` into EditingDevicesRelayType
-	put property `linked` of LiveRoomForDevices into EditingDevicesLinked
-	if EditingDevicesLinked is empty put `yes` into EditingDevicesLinked
-
-	put property `relays` of LiveRoomForDevices into RelayLinesArray
-	put empty into EditingDevicesRelaysText
-	if RelayLinesArray is not empty
-	begin
-		put 0 into RelayLineIdx
-		while RelayLineIdx is less than the json count of RelayLinesArray
-		begin
-			put element RelayLineIdx of RelayLinesArray into RelayLine
-			if EditingDevicesRelaysText is empty put RelayLine into EditingDevicesRelaysText
-			else put EditingDevicesRelaysText cat newline cat RelayLine into EditingDevicesRelaysText
-			increment RelayLineIdx
-		end
-	end
-
-	set the content of DeviceEditorRoomValue to EditingDevicesRoomName
-	set the content of DeviceEditorSensor to EditingDevicesSensor
-	set the content of DeviceEditorRelays to EditingDevicesRelaysText
-	gosub to PaintDeviceEditorRelayType
-	gosub to PaintDeviceEditorLinked
-	return
-
-!	Toggle the room picker open/closed. Rebuild the list each open
-!	(adds/moves/deletes between sessions, current selection highlight).
-ToggleDeviceRoomPicker:
-	if DeviceRoomPickerOpen
-	begin
-		clear DeviceRoomPickerOpen
-		set style `display` of DeviceEditorRoomPicker to `none`
-		set style `transform` of DeviceEditorRoomChev to `rotate(0deg)`
-		return
-	end
-	gosub to RenderDeviceRoomPicker
-	set DeviceRoomPickerOpen
-	set style `display` of DeviceEditorRoomPicker to `flex`
-	set style `transform` of DeviceEditorRoomChev to `rotate(180deg)`
-	return
-
-!	One row per non-outside room in the current profile's rooms array
-!	(all profiles have the same rooms, [CurrentProfile] is just convenient).
-!	Each row carries its own legacy index in the indexed-button slots, so
-!	click handlers can recover it with `the index of`. The outside room
-!	(empty relays) is rendered nowhere and never moved/deleted/renamed.
-RenderDeviceRoomPicker:
-	clear DeviceEditorRoomList
-	if EditingProfilesForDevices is empty return
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put the json count of LiveRoomsForDevices into RoomEditCount
-	if RoomEditCount is 0 return
-	set the elements of DeviceRoomEditName to RoomEditCount
-	set the elements of DeviceRoomEditUp to RoomEditCount
-	set the elements of DeviceRoomEditDown to RoomEditCount
-	set the elements of DeviceRoomEditPencil to RoomEditCount
-	set the elements of DeviceRoomEditDelete to RoomEditCount
-
-!	Find the first / last non-outside legacy indices so we can hide the
-!	up arrow on the first row and the down arrow on the last.
-	gosub to FindRoomListEnds
-
-	put 0 into DeviceRoomPillIdx
-	while DeviceRoomPillIdx is less than RoomEditCount
-	begin
-		put element DeviceRoomPillIdx of LiveRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is empty
-		begin
-!			Skip the outside-sensor entry — not edited from this list.
-			increment DeviceRoomPillIdx
-		end
-		else
-		begin
-			put DeviceRoomPillJson into DeviceRoomPillText
-			put `` cat DeviceRoomPillIdx into DeviceRoomPillIdxStr
-			replace `/I/` with DeviceRoomPillIdxStr in DeviceRoomPillText
-			render DeviceRoomPillText in DeviceEditorRoomList
-
-			index DeviceRoomEditName to DeviceRoomPillIdx
-			attach DeviceRoomEditName to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-name`
-			set the content of DeviceRoomEditName to property `name` of RoomEntry
-			if DeviceRoomPillIdx is EditingDevicesRoomLegacyIdx
-				set style `color` of DeviceRoomEditName to `var(--color-accent)`
-
-			index DeviceRoomEditUp to DeviceRoomPillIdx
-			attach DeviceRoomEditUp to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-up`
-			if DeviceRoomPillIdx is PrevLegacyIdx set style `visibility` of DeviceRoomEditUp to `hidden`
-
-			index DeviceRoomEditDown to DeviceRoomPillIdx
-			attach DeviceRoomEditDown to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-down`
-			if DeviceRoomPillIdx is NextLegacyIdx set style `visibility` of DeviceRoomEditDown to `hidden`
-
-			index DeviceRoomEditPencil to DeviceRoomPillIdx
-			attach DeviceRoomEditPencil to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-edit`
-
-			index DeviceRoomEditDelete to DeviceRoomPillIdx
-			attach DeviceRoomEditDelete to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-delete`
-
-			on click DeviceRoomEditName
-			begin
-				put the index of DeviceRoomEditName into EditingDevicesRoomLegacyIdx
-				gosub to LoadDeviceEditorRoom
-				clear DeviceRoomPickerOpen
-				set style `display` of DeviceEditorRoomPicker to `none`
-				set style `transform` of DeviceEditorRoomChev to `rotate(0deg)`
-			end
-			on click DeviceRoomEditUp
-			begin
-				put the index of DeviceRoomEditUp into RoomEditIdxForOp
-				gosub to MoveRoomUpInEditingProfiles
-			end
-			on click DeviceRoomEditDown
-			begin
-				put the index of DeviceRoomEditDown into RoomEditIdxForOp
-				gosub to MoveRoomDownInEditingProfiles
-			end
-			on click DeviceRoomEditPencil
-			begin
-				put the index of DeviceRoomEditPencil into RoomEditIdxForOp
-				gosub to RenameRoomInEditingProfiles
-			end
-			on click DeviceRoomEditDelete
-			begin
-				put the index of DeviceRoomEditDelete into RoomEditIdxForOp
-				gosub to DeleteRoomInEditingProfiles
-			end
-
-			increment DeviceRoomPillIdx
-		end
-	end
-	return
-
-!	Walk the current profile's rooms array, capture the lowest and
-!	highest legacy indices that are non-outside rooms — used by the
-!	render loop to hide the up arrow on the first non-outside row and
-!	the down arrow on the last.
-FindRoomListEnds:
-	put -1 into PrevLegacyIdx
-	put -1 into NextLegacyIdx
-	put 0 into DeviceProfileLoopI
-	while DeviceProfileLoopI is less than RoomEditCount
-	begin
-		put element DeviceProfileLoopI of LiveRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is not empty
-		begin
-			if PrevLegacyIdx is -1 put DeviceProfileLoopI into PrevLegacyIdx
-			put DeviceProfileLoopI into NextLegacyIdx
-		end
-		increment DeviceProfileLoopI
-	end
-	return
-
-!	Move the room at RoomEditIdxForOp up — swap it with the previous
-!	non-outside room in EVERY profile's rooms array. Re-render the picker
-!	(and update the selected room's stored idx if it was one of the swapped).
-MoveRoomUpInEditingProfiles:
-	! Find the previous non-outside legacy idx (search backwards from idx-1)
-	put RoomEditIdxForOp into SwapTarget
-	decrement SwapTarget
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	while SwapTarget is not less than 0
-	begin
-		put element SwapTarget of LiveRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is not empty
-		begin
-			gosub to SwapRoomsAcrossProfiles
-			gosub to RenderDeviceRoomPicker
-			return
-		end
-		decrement SwapTarget
-	end
-	return
-
-MoveRoomDownInEditingProfiles:
-	put RoomEditIdxForOp into SwapTarget
-	increment SwapTarget
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put the json count of LiveRoomsForDevices into RoomEditCount
-	while SwapTarget is less than RoomEditCount
-	begin
-		put element SwapTarget of LiveRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is not empty
-		begin
-			gosub to SwapRoomsAcrossProfiles
-			gosub to RenderDeviceRoomPicker
-			return
-		end
-		increment SwapTarget
-	end
-	return
-
-!	Swap rooms[RoomEditIdxForOp] and rooms[SwapTarget] in every profile.
-!	If the swap involves the currently-selected room, follow it so the
-!	device-fields panel keeps showing the same room.
-SwapRoomsAcrossProfiles:
-	put 0 into DeviceProfileLoopI
-	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
-	begin
-		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
-		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		put element RoomEditIdxForOp of LiveRoomsForDevices into LiveRoomForDevices
-		put element SwapTarget of LiveRoomsForDevices into RoomEntry
-		set element RoomEditIdxForOp of LiveRoomsForDevices to RoomEntry
-		set element SwapTarget of LiveRoomsForDevices to LiveRoomForDevices
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
-		increment DeviceProfileLoopI
-	end
-	if EditingDevicesRoomLegacyIdx is RoomEditIdxForOp put SwapTarget into EditingDevicesRoomLegacyIdx
-	else if EditingDevicesRoomLegacyIdx is SwapTarget put RoomEditIdxForOp into EditingDevicesRoomLegacyIdx
-	return
-
-!	Prompt for a new name and apply to rooms[RoomEditIdxForOp].name in
-!	every profile. Cancel / blank input = no-op.
-RenameRoomInEditingProfiles:
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put element RoomEditIdxForOp of LiveRoomsForDevices into RoomEntry
-	put property `name` of RoomEntry into TempStr
-	put prompt `Rename room:` cat newline cat TempStr into NewRoomName
-	if NewRoomName is empty return
-	if NewRoomName is `null` return
-	if NewRoomName is `undefined` return
-	put 0 into DeviceProfileLoopI
-	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
-	begin
-		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
-		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		put element RoomEditIdxForOp of LiveRoomsForDevices into LiveRoomForDevices
-		set property `name` of LiveRoomForDevices to NewRoomName
-		set element RoomEditIdxForOp of LiveRoomsForDevices to LiveRoomForDevices
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
-		increment DeviceProfileLoopI
-	end
-	if RoomEditIdxForOp is EditingDevicesRoomLegacyIdx
-	begin
-		put NewRoomName into EditingDevicesRoomName
-		set the content of DeviceEditorRoomValue to EditingDevicesRoomName
-	end
-	gosub to RenderDeviceRoomPicker
-	return
-
-!	Confirm and remove rooms[RoomEditIdxForOp] from every profile. If the
-!	deleted room was the currently-selected one, re-pick the first
-!	non-outside room and reload the device fields.
-DeleteRoomInEditingProfiles:
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put element RoomEditIdxForOp of LiveRoomsForDevices into RoomEntry
-	put property `name` of RoomEntry into TempStr
-	clear ConfirmFlag
-	if confirm `Delete room "` cat TempStr cat `"?` set ConfirmFlag
-	if not ConfirmFlag return
-
-	put 0 into DeviceProfileLoopI
-	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
-	begin
-		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
-		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		json delete element RoomEditIdxForOp of LiveRoomsForDevices
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
-		increment DeviceProfileLoopI
-	end
-
-!	Adjust the selected room's stored idx for the shift caused by the delete.
-	if RoomEditIdxForOp is EditingDevicesRoomLegacyIdx
-	begin
-		gosub to PickFirstRoomForDevices
-		gosub to LoadDeviceEditorRoom
-	end
-	else if RoomEditIdxForOp is less than EditingDevicesRoomLegacyIdx
-	begin
-		decrement EditingDevicesRoomLegacyIdx
-	end
-	gosub to RenderDeviceRoomPicker
-	return
-
-!	Append a fresh "Unnamed" room to every profile's rooms array. Each
-!	profile's new room starts with empty events (no schedule yet) and
-!	default device fields the user will fill in via the inputs below.
-AddRoomToEditingProfiles:
-	put 0 into DeviceProfileLoopI
-	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
-	begin
-		put `{}` into RoomToInsert
-		set property `name` of RoomToInsert to `Unnamed`
-		set property `sensor` of RoomToInsert to empty
-		set property `relays` of RoomToInsert to `[]`
-		set property `relayType` of RoomToInsert to `Zigbee`
-		set property `linked` of RoomToInsert to `yes`
-		set property `mode` of RoomToInsert to `off`
-		set property `target` of RoomToInsert to 0
-		set property `events` of RoomToInsert to `[]`
-		set property `relay` of RoomToInsert to `off`
-		set property `advance` of RoomToInsert to `-`
-		set property `prevmode` of RoomToInsert to `off`
-		set property `protect` of RoomToInsert to `no`
-
-		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
-		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		put the json count of LiveRoomsForDevices into RoomEditCount
-		set element RoomEditCount of LiveRoomsForDevices to RoomToInsert
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
-		increment DeviceProfileLoopI
-	end
-	gosub to RenderDeviceRoomPicker
-	return
-
-!	Cancel: just close. Editing scratch vars are left to rot; next open
-!	rebuilds them from the live map.
-CloseDeviceEditor:
+	send OpenMsg to DeviceEditorModule and assign reply to DeviceResult
 	gosub to CloseSheet
-	return
-
-!	Style the relay-type pill — highlight the current EditingDevicesRelayType,
-!	dim the other.
-PaintDeviceEditorRelayType:
-	gosub to ResetDeviceEditorRtBtns
-	if EditingDevicesRelayType is `RBR-Now` gosub to ActivateRtRBRNow
-	else if EditingDevicesRelayType is `Zigbee` gosub to ActivateRtZigbee
-	return
-
-ResetDeviceEditorRtBtns:
-	set style `background` of DeviceEditorRtRBRNow to `transparent`
-	set style `color` of DeviceEditorRtRBRNow to `var(--color-text-muted)`
-	set style `font-weight` of DeviceEditorRtRBRNow to `500`
-	set style `box-shadow` of DeviceEditorRtRBRNow to `none`
-	set style `background` of DeviceEditorRtZigbee to `transparent`
-	set style `color` of DeviceEditorRtZigbee to `var(--color-text-muted)`
-	set style `font-weight` of DeviceEditorRtZigbee to `500`
-	set style `box-shadow` of DeviceEditorRtZigbee to `none`
-	return
-
-ActivateRtRBRNow:
-	set style `background` of DeviceEditorRtRBRNow to `var(--color-surface-card)`
-	set style `color` of DeviceEditorRtRBRNow to `var(--color-text-primary)`
-	set style `font-weight` of DeviceEditorRtRBRNow to `600`
-	set style `box-shadow` of DeviceEditorRtRBRNow to `0 1px 3px rgba(0,0,0,0.08)`
-	return
-
-ActivateRtZigbee:
-	set style `background` of DeviceEditorRtZigbee to `var(--color-surface-card)`
-	set style `color` of DeviceEditorRtZigbee to `var(--color-text-primary)`
-	set style `font-weight` of DeviceEditorRtZigbee to `600`
-	set style `box-shadow` of DeviceEditorRtZigbee to `0 1px 3px rgba(0,0,0,0.08)`
-	return
-
-!	Style the linked toggle button — On (accent border) / Off (plain).
-PaintDeviceEditorLinked:
-	if EditingDevicesLinked is `yes`
+	if property `cancelled` of DeviceResult is `no`
 	begin
-		set the content of DeviceEditorLinkedBtn to `On`
-		set style `background` of DeviceEditorLinkedBtn to `var(--color-accent-10)`
-		set style `border` of DeviceEditorLinkedBtn to `1.5px solid var(--color-accent)`
-		set style `color` of DeviceEditorLinkedBtn to `var(--color-accent)`
-		set style `font-weight` of DeviceEditorLinkedBtn to `600`
-	end
-	else
-	begin
-		set the content of DeviceEditorLinkedBtn to `Off`
-		set style `background` of DeviceEditorLinkedBtn to `var(--color-surface-card)`
-		set style `border` of DeviceEditorLinkedBtn to `1px solid var(--color-border-hairline)`
-		set style `color` of DeviceEditorLinkedBtn to `var(--color-text-primary)`
-		set style `font-weight` of DeviceEditorLinkedBtn to `500`
-	end
-	return
-
-!	Save: read the current input values, splice the device fields into
-!	every profile's slot for this room, ship Update Rooms with the rooms
-!	array of the active profile (the controller's UpdateProfile applies
-!	the same change to all profiles when fields are device-shaped).
-SaveDeviceEditor:
-	if EditingProfilesForDevices is empty
-	begin
-		log `SaveDeviceEditor: editing copy empty — aborting`
-		alert `Map data not loaded — please reload the page.`
-		return
-	end
-	put the content of DeviceEditorSensor into EditingDevicesSensor
-	put the content of DeviceEditorRelays into EditingDevicesRelaysText
-
-!	Split the textarea content on newlines, strip empties, into an array.
-	put `[]` into RelayLinesArray
-	put 0 into RelayLineIdx
-	put 0 into LoopE
-	if EditingDevicesRelaysText is not empty
-	begin
-		split EditingDevicesRelaysText on newline giving RelayLine
-		while LoopE is less than the elements of RelayLine
+		put property `profiles` of DeviceResult into PayloadProfiles
+		put CurrentProfile into PayloadActiveProfileIdx
+		if CalendarOn set PayloadCalendarOnFlag else clear PayloadCalendarOnFlag
+		put property `calendar-data` of Map into PayloadCalendarData
+		gosub to SendUpdateProfiles
+		if property `requestRelayChanged` of DeviceResult is `yes`
 		begin
-			index RelayLine to LoopE
-			if RelayLine is not empty
-			begin
-				set element RelayLineIdx of RelayLinesArray to RelayLine
-				increment RelayLineIdx
-			end
-			increment LoopE
+			put property `requestRelay` of DeviceResult into RequestRelay
+			set property `request` of Map to RequestRelay
+			put `{}` into Result
+			set property `Action` of Result to `Request Relay`
+			set property `request` of Result to RequestRelay
+			gosub to PostUiRequest
 		end
 	end
-
-!	Apply the device-field edits for the currently-selected room across
-!	every profile in the working copy. The room-list edits (move / add
-!	/ rename / delete) have already been applied to EditingProfilesForDevices
-!	by their handlers, so a single trip through here gets everything
-!	committed and ready to ship.
-	put 0 into DeviceProfileLoopI
-	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
-	begin
-		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
-		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		put element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices into LiveRoomForDevices
-		set property `sensor` of LiveRoomForDevices to EditingDevicesSensor
-		set property `relayType` of LiveRoomForDevices to EditingDevicesRelayType
-		set property `linked` of LiveRoomForDevices to EditingDevicesLinked
-		set property `relays` of LiveRoomForDevices to RelayLinesArray
-		set element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices to LiveRoomForDevices
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
-		increment DeviceProfileLoopI
-	end
-
-!	Ship the full profiles array via Update Profiles. Same pattern the
-!	schedule editor uses — the controller's UpdateProfile only writes
-!	the named profile slot, but our payload covers every profile so the
-!	rooms structure stays identical across them.
-	put `{}` into Result
-	set property `Action` of Result to `Update Profiles`
-	set property `profiles` of Result to EditingProfilesForDevices
-	set property `profile` of Result to CurrentProfile
-	if CalendarOn set property `calendar` of Result to `on`
-	else set property `calendar` of Result to `off`
-	put property `calendar-data` of Map into CalendarData
-	if CalendarData is not empty set property `calendar-data` of Result to CalendarData
-	gosub to PostUiRequest
-
-!	Demand-relay name — system-wide, lives at map root. Only ship a
-!	`Request Relay` uirequest if the value actually changed, so reopening
-!	the sheet and saving without touching the field is a no-op on the
-!	server. Update the local mirror either way.
-	put the content of DeviceEditorRequest into EditingRequestRelay
-	if EditingRequestRelay is not RequestRelay
-	begin
-		set property `request` of Map to EditingRequestRelay
-		put EditingRequestRelay into RequestRelay
-		put `{}` into Result
-		set property `Action` of Result to `Request Relay`
-		set property `request` of Result to EditingRequestRelay
-		gosub to PostUiRequest
-	end
-
-	gosub to CloseDeviceEditor
 	return
-
-!	Tear down + rebuild the profile list from EditingProfiles. Called on
-!	open and after every edit (rename / delete / add). Each row wires three
-!	click targets: body (select), pencil (rename), ✕ (delete).
-RenderProfileRows:
-	clear ProfileListHolder
-	if EditingProfilesCount is 0 return
-	set the elements of ProfileRow to EditingProfilesCount
-	set the elements of ProfileBody to EditingProfilesCount
-	set the elements of ProfileLabel to EditingProfilesCount
-	set the elements of ProfileRenameBtn to EditingProfilesCount
-	set the elements of ProfileDeleteBtn to EditingProfilesCount
-
-	put 0 into ProfileIdx
-	while ProfileIdx is less than EditingProfilesCount
-	begin
-		put ProfileRowJson into ProfileRowText
-		put `` cat ProfileIdx into ProfileIdxStr
-		replace `/I/` with ProfileIdxStr in ProfileRowText
-		render ProfileRowText in ProfileListHolder
-
-		index ProfileRow to ProfileIdx
-		attach ProfileRow to `profile-row-` cat ProfileIdxStr
-		index ProfileBody to ProfileIdx
-		attach ProfileBody to `profile-row-` cat ProfileIdxStr cat `-body`
-		index ProfileLabel to ProfileIdx
-		attach ProfileLabel to `profile-row-` cat ProfileIdxStr cat `-label`
-		index ProfileRenameBtn to ProfileIdx
-		attach ProfileRenameBtn to `profile-row-` cat ProfileIdxStr cat `-rename`
-		index ProfileDeleteBtn to ProfileIdx
-		attach ProfileDeleteBtn to `profile-row-` cat ProfileIdxStr cat `-delete`
-
-		put element ProfileIdx of EditingProfiles into EditProfileN
-		set the content of ProfileLabel to property `name` of EditProfileN
-
-		on click ProfileBody
-		begin
-			if EditingCalendarOn
-			begin
-				alert `Profiles cannot be accessed while the Calendar is on.`
-				return
-			end
-			put the index of ProfileBody into EditClickIdx
-			put element EditClickIdx of EditingProfiles into EditProfileN
-			put property `name` of EditProfileN into EditingActiveName
-			gosub to ApplyActiveProfile
-			gosub to ValidateEditingProfiles
-		end
-		on click ProfileRenameBtn
-		begin
-			put the index of ProfileRenameBtn into EditClickIdx
-			gosub to RenameEditProfile
-		end
-		on click ProfileDeleteBtn
-		begin
-			put the index of ProfileDeleteBtn into EditClickIdx
-			gosub to DeleteEditProfile
-		end
-
-		increment ProfileIdx
-	end
-	return
-
-!	Rename: prompt for a new name, write it back. If the renamed profile
-!	WAS the active one, update EditingActiveName to track. Re-render rows.
-RenameEditProfile:
-	put element EditClickIdx of EditingProfiles into EditProfileN
-	put property `name` of EditProfileN into ProfileName
-	put prompt `Rename profile:` cat newline cat ProfileName into NewProfileName
-	if NewProfileName is empty return
-	if NewProfileName is `null` return
-	if NewProfileName is `undefined` return
-	set property `name` of EditProfileN to NewProfileName
-	set element EditClickIdx of EditingProfiles to EditProfileN
-	if ProfileName is EditingActiveName put NewProfileName into EditingActiveName
-	gosub to RenderProfileRows
-	gosub to ApplyActiveProfile
-	gosub to ValidateEditingProfiles
-	return
-
-!	Delete: confirm, rebuild EditingProfiles without the entry, re-render.
-!	If the active profile was deleted, Save will be disabled by validate.
-DeleteEditProfile:
-	put element EditClickIdx of EditingProfiles into EditProfileN
-	put property `name` of EditProfileN into ProfileName
-	put `Delete profile "` cat ProfileName cat `"?` into TempStr
-	clear ConfirmFlag
-	if confirm TempStr set ConfirmFlag
-	if not ConfirmFlag return
-	put `[]` into NewProfilesArray
-	put 0 into NewIdx
-	put 0 into LoopE
-	while LoopE is less than EditingProfilesCount
-	begin
-		if LoopE is not EditClickIdx
-		begin
-			put element LoopE of EditingProfiles into EditProfileN
-			set element NewIdx of NewProfilesArray to EditProfileN
-			increment NewIdx
-		end
-		increment LoopE
-	end
-	put NewProfilesArray into EditingProfiles
-	put NewIdx into EditingProfilesCount
-	gosub to RenderProfileRows
-	gosub to ApplyActiveProfile
-	gosub to ValidateEditingProfiles
-	return
-
-!	Add: clone the active profile (so the new one inherits room schedules),
-!	prompt for a name, append.
-AddEditProfile:
-	put -1 into EditIdx
-	put 0 into LoopE
-	while LoopE is less than EditingProfilesCount
-	begin
-		put element LoopE of EditingProfiles into EditProfileN
-		if property `name` of EditProfileN is EditingActiveName put LoopE into EditIdx
-		increment LoopE
-	end
-	if EditIdx is -1 put 0 into EditIdx
-
-	put prompt `Name for new profile (duplicating current):` into NewProfileName
-	if NewProfileName is empty return
-	if NewProfileName is `null` return
-	if NewProfileName is `undefined` return
-
-	put element EditIdx of EditingProfiles into EditProfileN
-	put `{}` into ClonedProfile
-	set property `name` of ClonedProfile to NewProfileName
-	set property `rooms` of ClonedProfile to property `rooms` of EditProfileN
-	set element EditingProfilesCount of EditingProfiles to ClonedProfile
-	increment EditingProfilesCount
-	gosub to RenderProfileRows
-	gosub to ApplyActiveProfile
-	gosub to ValidateEditingProfiles
-	return
-
-!	Validate: Save is disabled if EditingActiveName isn't present in
-!	EditingProfiles (user deleted the active one without picking another).
-ValidateEditingProfiles:
-	clear EditingActiveValid
-	put 0 into LoopE
-	while LoopE is less than EditingProfilesCount
-	begin
-		put element LoopE of EditingProfiles into EditProfileN
-		if property `name` of EditProfileN is EditingActiveName set EditingActiveValid
-		increment LoopE
-	end
-	if EditingActiveValid
-	begin
-		set style `opacity` of ProfileSaveBtn to `1`
-		set style `cursor` of ProfileSaveBtn to `pointer`
-	end
-	else
-	begin
-		set style `opacity` of ProfileSaveBtn to `0.5`
-		set style `cursor` of ProfileSaveBtn to `not-allowed`
-	end
-	return
-
-!	Save: ship Update Profiles with the full editing snapshot — profiles,
-!	active index, calendar on/off, calendar-data — committing all batched
-!	changes in one round trip. Closes the sheet on success.
-SaveEditingProfiles:
-	if not EditingActiveValid return
-	put 0 into NewActiveIdx
-	put 0 into LoopE
-	while LoopE is less than EditingProfilesCount
-	begin
-		put element LoopE of EditingProfiles into EditProfileN
-		if property `name` of EditProfileN is EditingActiveName put LoopE into NewActiveIdx
-		increment LoopE
-	end
-
-	put `{}` into Result
-	set property `Action` of Result to `Update Profiles`
-	set property `profiles` of Result to EditingProfiles
-	set property `profile` of Result to NewActiveIdx
-	if EditingCalendarOn set property `calendar` of Result to `on`
-	else set property `calendar` of Result to `off`
-	if EditingCalendarData is not empty set property `calendar-data` of Result to EditingCalendarData
-	gosub to PostUiRequest
-	gosub to CloseProfileSheet
-	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Wipe the stored MAC and reload — useful when a typo has stranded the
-!	page on connect. Broker / username / password now come from the server
-!	via credentials.php, so they're not in localStorage to clear.
-!	Older keys (dev-broker / dev-username / dev-password) from the prior
-!	four-prompt setup are also cleared, so an upgraded install is tidy.
+!! @hash 1f636809
+!!!
+!! Panic-button handler for stranded credentials. Wipes the stored MAC and reloads — useful when a typo has stranded the page on connect.
+!!
+!! Broker / username / password now come from credentials.php so they're not in localStorage to clear. Older keys (dev-broker / dev-username / dev-password) from the prior four-prompt setup are also cleared, so an upgraded install ends up tidy. Wired to the hamburger button before BuildHomeScreen runs — once the menu sheet is built, the hamburger gets re-bound to open the menu.
 ResetCredentialsAndReload:
 	clear ConfirmFlag
 	if confirm `Reset stored MAC and reload? You'll be prompted to re-enter it.` set ConfirmFlag
@@ -4087,13 +2203,11 @@ ResetCredentialsAndReload:
 	put empty into storage as `dev-mac`
 	location the location
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	About sheet flow. Auto-opened in demo mode (no credentials) and on tap
-!	of the house mark in the topbar at any time.
-
-!	Open: hide other sheets, show About, set title, reveal the CTA only
-!	when in demo mode (so existing users don't see a setup prompt).
+!! @hash 80980e08
+!!!
+!! Open the About sheet. Auto-opened in demo mode (no credentials yet) so first-time visitors see what RBR is; otherwise reachable via tap-on-the-house-mark in the topbar at any time.
+!!
+!! The "Set up my system" CTA is only revealed in demo mode — existing users with credentials don't see a setup prompt that doesn't apply to them. Sheet defaults to the About tab; the Manual tab is selectable via the tab pills below the header.
 OpenAboutSheet:
 	gosub to HideAllSheets
 	set style `display` of AboutSheetEl to `block`
@@ -4103,9 +2217,9 @@ OpenAboutSheet:
 	set the content of SheetTitleEl to `About`
 	gosub to OpenSheet
 	return
-
-!	Tab swap: About body visible, Manual body hidden. Active tab pill gets
-!	the surface-card background + drop shadow, inactive gets transparent.
+!! @hash 12cdf0fa
+!!!
+!! About-sheet tab swappers. Active tab pill gets the surface-card background + drop shadow + bold; inactive gets transparent. Body visibility follows.
 ShowAboutTabAbout:
 	set style `display` of AboutBodyAbout to `block`
 	set style `display` of AboutBodyManual to `none`
@@ -4131,11 +2245,9 @@ ShowAboutTabManual:
 	set style `color` of AboutTabManual to `var(--color-text-primary)`
 	set style `font-weight` of AboutTabManual to `600`
 	return
-
-!	"Set up my system" CTA. Broker / username / password are now shared
-!	and fetched from credentials.php, so the only thing the user has to
-!	supply is their controller's MAC address. Stored in localStorage and
-!	picked up on the next page load.
+!! @hash c5aac8db
+!!!
+!! "Set up my system" CTA. Broker / username / password are now shared and fetched from credentials.php, so the only thing the user has to supply is the controller's MAC address. Stored in localStorage and picked up on the next page load via `location the location`.
 SetupMySystem:
 	put prompt `Enter your controller's MAC address` cat newline cat `(printed on the device, format aa:bb:cc:dd:ee:ff):` into MAC
 	if MAC is empty return
@@ -4144,13 +2256,15 @@ SetupMySystem:
 	put MAC into storage as `dev-mac`
 	location the location
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Ship the Result JSON object to the controller as a uirequest. Optimistic
-!	pattern: local state has already been mutated; on send failure we just
-!	alert and let the user retry. The next refresh will reconcile. In
-!	demo mode (no controller configured) the send is a no-op so visitors
-!	can poke the UI without errors.
+!! @hash 9ea89fc1
+!!!
+!! Ship the Result JSON object to the controller as a `uirequest`.
+!!
+!! Optimistic pattern: every caller has already mutated local state to reflect the change. On send failure we just bump a consecutive-failure counter; the next refresh will reconcile the controller's view (or the user can reload the page).
+!!
+!! Transient hiccups (suspended WebSocket, brief network blip) clear on their own as the poll loop reconnects. We only surface a user-facing alert once we've seen three consecutive failures, so the noise stays low. The alert reset is destructive (puts us back to 0) so the next batch of three failures will alert again.
+!!
+!! In demo mode (no controller configured) the send is a no-op — visitors can poke the UI without throwing errors.
 PostUiRequest:
 	if DemoMode return
 	log `Sending uirequest: ` cat property `Action` of Result
@@ -4175,10 +2289,26 @@ PostUiRequest:
 		put 0 into ConsecutiveSendFailures
 	end
 	return
-
-!	After any state change: recompute `calling`, re-render the rest row,
-!	repaint the expansion, and refresh the summary card. Room and ClickIndex
-!	must be set.
+!! @hash 3e399f34
+!!!
+!! Build and ship an `Update Profiles` uirequest. Callers set the four Payload* inputs first: PayloadProfiles (the profiles array), PayloadActiveProfileIdx (the active profile index), PayloadCalendarOnFlag (set/cleared), and PayloadCalendarData (the calendar-data array, or empty to omit).
+!!
+!! Folds the four lines of skeleton + the calendar-on/off if + the calendar-data conditional into one gosub, avoiding the same payload-construction sequence in SaveScheduleEditor / SaveOutsideSheet / SaveDeviceEditor / SaveEditingProfiles.
+SendUpdateProfiles:
+	put `{}` into Result
+	set property `Action` of Result to `Update Profiles`
+	set property `profiles` of Result to PayloadProfiles
+	set property `profile` of Result to PayloadActiveProfileIdx
+	if PayloadCalendarOnFlag set property `calendar` of Result to `on`
+	else set property `calendar` of Result to `off`
+	if PayloadCalendarData is not empty set property `calendar-data` of Result to PayloadCalendarData
+	gosub to PostUiRequest
+	return
+!! @hash 85af1368
+!!!
+!! Per-room post-change repaint. Called from every interactive change handler (ChangeMode, WriteTargetTenths, ApplyBoost, BoostOffTapped, ToggleAdvance) after the local Room dict has been mutated.
+!!
+!! Recomputes `calling` for this room, writes the updated Room back into RoomsList[ClickIndex], re-renders the rest row, repaints the expansion panel, and refreshes the summary card. Room and ClickIndex must be set on entry.
 AfterStateChange:
 	gosub to RecalcCalling
 	set element ClickIndex of RoomsList to Room
@@ -4189,11 +2319,13 @@ AfterStateChange:
 	gosub to ComputeSummaryStats
 	gosub to PaintSummary
 	return
-
-!	Recompute `calling` for the current Room. A room can call for heat
-!	when its mode is not Off (Boost is its own mode that always drives
-!	the relay; Off-with-an-active-boost is now mode == "Boost" with
-!	prevMode == "Off", so this single test covers both cases).
+!! @hash eb6faa04
+!!!
+!! Recompute `calling` (the "this room wants heat right now" flag) for the current Room. Optimistic local update — the controller's authoritative answer follows on the next map push.
+!!
+!! A sensor (outdoor) row never calls. An offline room never calls. An online room can call when its mode is not Off — Boost is its own mode and always drives the relay until expiry; Off-with-an-active-boost is now mode == "Boost" with prevMode == "Off", so the single Mode-not-Off test covers both cases.
+!!
+!! ComputeCallingDiff is the actual temp-vs-target compare: relay on when current < target with no hysteresis, matching the controller's SetRelay logic. Re-deriving in the UI keeps the summary card consistent with what the user just clicked, without waiting for the round trip.
 RecalcCalling:
 	put `no` into NewCalling
 	put property `sensor` of Room into Tsensor
@@ -4210,11 +2342,9 @@ RecalcCalling:
 	end
 	set property `calling` of Room to NewCalling
 	return
-
-!	Inner branch of RecalcCalling: if the room is heating, compare temp
-!	to target and flip NewCalling on if temp is below target. Mirrors the
-!	controller's SetRelay: relay on when TempNow < Target, no threshold.
-!	Reads Ttemp / Ttarget; writes NewCalling.
+!! @hash 09e8f9a0
+!!!
+!! Inner branch of RecalcCalling. Compares Ttemp to Ttarget (both as integer tenths via ToTenths) and flips NewCalling to `yes` if temp is below target. Mirrors the controller's SetRelay: relay on when TempNow < Target, no hysteresis.
 ComputeCallingDiff:
 	if Ttemp is empty return
 	if Ttarget is empty return
@@ -4227,10 +2357,15 @@ ComputeCallingDiff:
 	take TempT from TargetT giving Diff
 	if Diff is greater than 0 put `yes` into NewCalling
 	return
-
-!	Walk RoomsList and recompute the summary aggregates: HeatingCount,
-!	HeatingNames, AvgText, OutsideText, TitleText, SubtitleText. Read by
-!	PaintSummary. Called once at startup and again from AfterStateChange.
+!! @hash d04ce3fd
+!!!
+!! Walk RoomsList and recompute the SummaryCard aggregates. Sets HeatingCount, HeatingNames, AvgText, OutsideText, TitleText, SubtitleText — all consumed by PaintSummary.
+!!
+!! Average temperature is the mean of online rooms' temperatures, in tenths-of-a-degree internally to keep the integer arithmetic clean, then formatted as "X.Y°". OutsideTemp is owned by MapToRooms (extracted from the outdoor sensor entry which is filtered out of RoomsList) — we don't reset it here.
+!!
+!! Frost protection: trust the controller's `frostActive` flag if it sets one (the controller knows things the UI doesn't, like demand-relay state). Otherwise compute locally: active when a trigger is set, the outdoor temperature is at-or-below it, AND no rooms are calling.
+!!
+!! Title/subtitle picks one of four messages: "Frost protection active" (overrides everything), "Nothing calling for heat" (idle), "<Room> is calling for heat" (single), or "<N> rooms calling for heat" with comma-joined names (multi).
 ComputeSummaryStats:
 	put 0 into HeatingCount
 	put empty into HeatingNames
@@ -4340,11 +2475,11 @@ ComputeSummaryStats:
 		put HeatingNames into SubtitleText
 	end
 	return
-
-!	Push the aggregates from ComputeSummaryStats into the SummaryCard DOM.
-!	Element vars must already be attached. Also refreshes today's date,
-!	the active profile name, and the system ID — all of which depend on
-!	live data and so can't be set during synchronous startup.
+!! @hash 37c33f16
+!!!
+!! Push the aggregates from ComputeSummaryStats into the SummaryCard DOM. Element vars must already be attached (BuildHomeScreen does this once at startup).
+!!
+!! Also refreshes today's date string, the active profile name, and the system ID — all of which depend on live data and so can't be set during synchronous startup. The frost-active badge in the outside row toggles inline-block vs none. The summary chip background/icon swap heat vs neutral based on HeatingCount.
 PaintSummary:
 	set the content of SummaryTitle to TitleText
 	set the content of SummarySubtitle to SubtitleText
@@ -4377,9 +2512,9 @@ PaintSummary:
 		set style `display` of SummaryDot to `block`
 	end
 	return
-
-!	Build today's date as "Mon 23 Apr" into TempStr. Uses DayNames /
-!	MonthNames lookups built once during synchronous startup.
+!! @hash b874b78c
+!!!
+!! Build today's date as "Mon 23 Apr" into TempStr. Uses DayNames / MonthNames lookup tables built once during synchronous startup.
 FormatTodayString:
 	put the day into DateD
 	put the day number into DateDN
@@ -4388,11 +2523,11 @@ FormatTodayString:
 	put element DateM of MonthNames into MonthName
 	put DayName cat ` ` cat DateDN cat ` ` cat MonthName into TempStr
 	return
-
-!	String "X.Y" → integer tenths (e.g. "20.5" → 205, "-1.7" → -17). Uses
-!	TempStr in, TempTenths out. Negative inputs need a sign-strip pass
-!	first because parsing "left 2 of '-0.5'" → "-0" → 0 silently loses
-!	the sign for sub-1° magnitudes.
+!! @hash 6a52d8f9
+!!!
+!! Convert a temperature string "X.Y" into integer tenths (e.g. "20.5" → 205, "-1.7" → -17). Uses TempStr in, TempTenths out.
+!!
+!! Negative inputs need a sign-strip pass first because parsing `left 2 of '-0.5'` yields "-0" → 0, silently losing the sign for sub-1° magnitudes. We strip the leading `-`, parse the magnitude, then flip the sign back at the end.
 ToTenths:
 	put 0 into TempTenths
 	if TempStr is empty return
@@ -4418,17 +2553,34 @@ ToTenths:
 	end
 	if NegativeFlag multiply TempTenths by -1
 	return
-
-!	Integer tenths → "X.Y" string. Uses TempTenths in, TempStr out.
+!! @hash ead9f49b
+!!!
+!! Reverse of ToTenths: integer tenths → "X.Y" string. TempTenths in, TempStr out. Used after target steppers to convert the internal tenths value back to display form.
 TenthsToString:
 	put TempTenths into AvgInt
 	put TempTenths modulo 10 into AvgDec
 	divide AvgInt by 10
 	put AvgInt cat `.` cat AvgDec into TempStr
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Render one room into the already-built row matching IndexStr / Room.
+!! @hash 3855d409
+!!!
+!! Render the contents of one room row. Caller must set RoomIndex, IndexStr, and Room first; the per-row DOM has already been built by BuildHomeScreen's render-loop, so this is content-only updates (room name, heating tag, offline tag, subline, temperature, chip styling).
+!!
+!! The subline summarises the room's current schedule context:
+!!
+!! Sensor row → "Outdoor sensor".
+!!
+!! Offline row → the offlineReason text from BuildRoomEntry ("Thermometer not reporting", "Relay not responding", etc).
+!!
+!! On mode → "<target>°" (the held setpoint).
+!!
+!! Timed mode → "<nextTarget>°→<nextTime>" for an active period, or "Off until <nextTime>" with BG prefix for an inter-period gap; suffix " (A)" when Advance is active.
+!!
+!! Boost mode → "Boost · <minutes-left> · <target>°".
+!!
+!! Battery-low and warn-state messages are appended for online rooms.
+!!
+!! Setpoint slot is left empty pending a more useful per-room secondary value. Element stays attached so the layout slot is reserved.
 RenderRoom:
 	put property `mode` of Room into Mode
 	put property `temp` of Room into TempVal
@@ -4438,6 +2590,7 @@ RenderRoom:
 	put property `boost` of Room into BoostVal
 	put property `nextTime` of Room into NextTime
 	put property `nextTarget` of Room into NextTarget
+	put property `nextPrefix` of Room into NextPrefix
 	put property `name` of Room into NameText
 	put property `advance` of Room into Advance
 	if Advance is empty put `-` into Advance
@@ -4469,8 +2622,14 @@ RenderRoom:
 		begin
 			if NextTime is not empty
 			begin
-				put NextTarget cat `°→` cat NextTime into SublineText
+				if NextPrefix is `BG ` put `Off until ` cat NextTime into SublineText
+				else put NextTarget cat `°→` cat NextTime into SublineText
 				if Advance is `A` put SublineText cat ` (A)` into SublineText
+			end
+			else if NextTarget is not empty
+			begin
+				if NextPrefix is `BG ` put `Off` into SublineText
+				else put NextTarget cat `°` into SublineText
 			end
 		end
 		else if Mode is `Boost`
@@ -4517,11 +2676,13 @@ RenderRoom:
 
 	gosub to ApplyChipStyle
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!	Decide chip bg / fg / icon-url and apply. Priority: sensor > offline >
-!	boost-active > Off > On > calling-for-heat > default (Timed, not heating).
-!	Boost is detected via BoostVal so it can layer over Off or Timed.
+!! @hash 41f9abfb
+!!!
+!! Decide the chip background / foreground / icon-url and apply them.
+!!
+!! Priority order: sensor (outdoor) → offline → boost-active → Off → On → calling-for-heat → default (Timed, not heating). Boost is detected via BoostVal (the "N mins left" string) rather than Mode so it can layer over Off or Timed even when the controller's mode hasn't yet rolled to `boost`.
+!!
+!! The icon is rendered as a CSS mask so the same SVG can be tinted via background-color — both `mask` and `-webkit-mask` are set for cross-browser support.
 ApplyChipStyle:
 	put `var(--color-chip-ok-bg)` into ChipBg
 	put `var(--color-chip-ok-fg)` into ChipFg
@@ -4572,8 +2733,11 @@ ApplyChipStyle:
 	set style `mask` of ChipIcon to MaskCss
 	set style `-webkit-mask` of ChipIcon to MaskCss
 	return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! @hash 2ba0f914
+!!!
+!! Terminal failure handler. Reached via `or go to LoadFailed` from every `rest get` template fetch in the bootstrap region — a missing or malformed Webson template means the UI can't render, so we alert and stop rather than limping on with broken state.
 LoadFailed:
 	alert `Failed to load UI template`
 	stop
+!! @hash 34c0ed2e
+!!!

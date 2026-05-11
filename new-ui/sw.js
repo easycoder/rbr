@@ -1,15 +1,20 @@
 // Room By Room PWA service worker.
 //
-// Strategy:
-//   - App-shell static assets (HTML, CSS, .as, webson, icons) are cache-first
-//     so the page loads offline. Cache name carries a version that bumps with
-//     each deploy; old caches are purged on activate.
-//   - credentials.json is network-first (fall back to cache) so deploy-time
-//     config changes take effect on the next online visit.
+// Strategy: NETWORK-FIRST for all same-origin GET requests.
+//   - Every request tries the network first; on success the response is
+//     cached for offline fallback. On network failure (offline / DNS / 5xx)
+//     the cached copy is served instead.
+//   - This keeps active development friction-free: edits land within one
+//     refresh, no need to bump CACHE_VERSION or clear site data when a
+//     source file changes. The PWA still works offline because the cache
+//     fills up as the user browses online.
+//   - APP_SHELL is precached on install so the very first offline visit
+//     after install has something to serve. Subsequent online visits keep
+//     it fresh.
 //   - Cross-origin requests (the AllSpeak runtime CDN, MQTT broker WS) are
 //     pass-through — no caching, no interception.
 
-const CACHE_VERSION = 'rbr-v1-26050605';
+const CACHE_VERSION = 'rbr-v1-26051201';
 const CACHE_NAME = `rbr-cache-${CACHE_VERSION}`;
 
 const APP_SHELL = [
@@ -57,11 +62,21 @@ const APP_SHELL = [
     './resources/icon/edit.svg'
 ];
 
+// Install: fetch every app-shell asset with cache: 'reload' so we bypass the
+// HTTP cache AND the previously-installed SW's fetch handler. If we just used
+// cache.addAll() it would default to cache: 'default' and the old SW would
+// intercept these fetches and serve them from its OLD cache — meaning a SW
+// version bump would happily populate the new cache with stale content and
+// nothing would ever escape. cache: 'reload' forces network.
 self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL))
-            .then(() => self.skipWaiting())
-    );
+    event.waitUntil((async () => {
+        const cache = await caches.open(CACHE_NAME);
+        await Promise.all(APP_SHELL.map(async url => {
+            const res = await fetch(url, { cache: 'reload' });
+            if (res && res.ok) await cache.put(url, res);
+        }));
+        await self.skipWaiting();
+    })());
 });
 
 self.addEventListener('activate', event => {
@@ -80,31 +95,24 @@ self.addEventListener('fetch', event => {
     // Only handle same-origin GET. Everything else passes through.
     if (req.method !== 'GET' || url.origin !== self.location.origin) return;
 
-    // Network-first for credentials so a re-deploy takes effect immediately.
-    if (url.pathname.endsWith('/credentials.json')) {
-        event.respondWith(
-            fetch(req).then(res => {
+    // Network-first for every same-origin request. On a successful network
+    // response, refresh the cache copy (so the next offline load gets the
+    // latest known-good version). On network failure, fall back to whatever
+    // the cache has for this URL — `ignoreSearch: true` strips the `?v=...`
+    // query so the cache match isn't defeated by per-load timestamp busts.
+    event.respondWith((async () => {
+        try {
+            const res = await fetch(req);
+            if (res && res.status === 200 && res.type === 'basic') {
                 const copy = res.clone();
-                caches.open(CACHE_NAME).then(c => c.put(req, copy));
-                return res;
-            }).catch(() => caches.match(req))
-        );
-        return;
-    }
-
-    // Cache-first for everything else under our scope. The `?v=` cat now
-    // cache-busting query is stripped during match so subsequent loads with
-    // different timestamps still hit the cache.
-    event.respondWith(
-        caches.match(req, { ignoreSearch: true }).then(cached => {
+                const cache = await caches.open(CACHE_NAME);
+                cache.put(req, copy);
+            }
+            return res;
+        } catch (err) {
+            const cached = await caches.match(req, { ignoreSearch: true });
             if (cached) return cached;
-            return fetch(req).then(res => {
-                if (res && res.status === 200 && res.type === 'basic') {
-                    const copy = res.clone();
-                    caches.open(CACHE_NAME).then(c => c.put(req, copy));
-                }
-                return res;
-            });
-        })
-    );
+            throw err;
+        }
+    })());
 });

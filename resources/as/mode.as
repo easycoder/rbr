@@ -55,7 +55,6 @@
     variable Target
     variable RoomName
     variable CurrentMode
-    variable PeriodEditScript
     variable ModeWebson
     variable Integer
     variable Password
@@ -72,7 +71,6 @@
     variable X
     variable ProfileCount
     variable ProfileIndex
-    variable ScheduleType
     variable ProfileName
     variable SelectedProfile
     div ProfilePopup
@@ -84,7 +82,6 @@
 
 	get Host from storage as `host`
 
-	put empty into PeriodEditScript
     get Server from storage as `server`
     get MAC from storage as `MAC`
     get Password from storage as `password`
@@ -297,17 +294,8 @@ ShowTimes:
         set style `display` of MaskLayer to `none`
         go to SelectCancel
     end
-    put property `profiles` of Map into Profiles
-    put element SelectedProfile of Profiles into Profile
-    put property `rooms` of Profile into Rooms
-    put element ClickIndex of Rooms into RoomSpec
-    if RoomSpec has property `schedule-type` put property `schedule-type` of RoomSpec into ScheduleType
-    else put `events` into ScheduleType
-    if ScheduleType is `periods`
-        rest get PeriodEditScript from `resources/as/roomperiodedit.as?v=` cat now
-    else
-        rest get PeriodEditScript from `resources/as/periodedit.as?v=` cat now
-    run PeriodEditScript with MainPanel and Map and SelectedProfile and ClickIndex and Result
+!	Schedule editing has moved to the new UI. The "edit timed schedule"
+!	icon on the legacy mode panel is now a no-op shell.
     set style `display` of MaskLayer to `none`
     exit
 

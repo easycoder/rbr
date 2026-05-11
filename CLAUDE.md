@@ -6,16 +6,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Room By Room (RBR) is an open-source smart central heating control system. It has three components:
 
-1. **Controller** — Python/EasyCoder scripts running on an Orange Pi Zero 2 that manage heating per-room via BLE thermometers and WiFi-connected relay devices (RBR-Now ESP32 modules)
-2. **UI** — A browser-based mobile webapp written in JavaScript EasyCoder with Webson-rendered DOM, served from `index.html`
+1. **Controller** — Python/AllSpeak scripts running on an Orange Pi Zero 2 that manage heating per-room via BLE thermometers and WiFi-connected relay devices (RBR-Now ESP32 modules)
+2. **UI** — A browser-based mobile webapp written in JavaScript AllSpeak with Webson-rendered DOM, served from `index.html`
 3. **REST server** — PHP on shared hosting (not in this repo)
 
 Communication between controller and UI is via MQTT (broker: `rbrheating.duckdns.org`).
 
 ## Key Technologies
 
-- **EasyCoder**: A high-level scripting language with both Python and JavaScript dialects. Scripts use the `.ecs` extension. The Python runtime lives in a separate repo at `~/dev/easycoder/easycoder-py` (set via `EASYCODER_SRC` env var). The JS runtime modules are in `easycoder/`.
-- **Webson**: JSON-based DOM rendering. Layout definitions are in `resources/webson/*.json`. Element IDs in Webson must stay in sync with `.ecs` scripts that attach to them.
+- **AllSpeak**: A high-level scripting language with both Python and JavaScript dialects. Scripts use the `.as` extension. The Python runtime lives in a separate repo at `~/dev/easycoder/easycoder-py` (set via `EASYCODER_SRC` env var). The JS runtime modules are in `easycoder/`.
+- **Webson**: JSON-based DOM rendering. Layout definitions are in `resources/webson/*.json`. Element IDs in Webson must stay in sync with `.as` scripts that attach to them.
 - **MQTT**: Used for all controller-UI communication. Broker is `rbrheating.duckdns.org` (port 8883 for Python/controller, port 443 for JS/UI websocket). Auth: username `rbr`, password from `~/.mqtt_password`. Controller ID from `~/.mqtt_userid` (must match target device MAC, currently `38:54:39:34:62:d7/request`).
 - **ESP-Now**: Used for controller-to-device communication within the RBR-Now network
 
@@ -33,14 +33,14 @@ The UI is a static webapp — must be served via HTTP (not `file://`) because it
 
 ## Repository Structure
 
-- `controller.ecs` — Main controller script (EasyCoder Python dialect)
-- `controller.py` — Python launcher that loads the EasyCoder runtime and starts `newController.ecs`
-- `deviceControl.ecs` — Device control logic for RBR-Now relay/thermometer devices
-- `simulator.ecs` — Controller simulator for testing without hardware
-- `scanner.ecs`, `flash-device.ecs` — Device management utilities
-- `index.html` — UI entry point; embeds an EasyCoder loader script inline
-- `resources/easycoder/` — JavaScript EasyCoder runtime modules (Core.js, Browser.js, Webson.js, etc.)
-- `resources/ecs/` — UI EasyCoder scripts (rbr.ecs is main, plus mode/calendar/statistics/etc.)
+- `controller.as` — Main controller script (AllSpeak Python dialect)
+- `controller.py` — Python launcher that loads the AllSpeak runtime and starts `newController.as`
+- `deviceControl.as` — Device control logic for RBR-Now relay/thermometer devices
+- `simulator.as` — Controller simulator for testing without hardware
+- `scanner.as`, `flash-device.as` — Device management utilities
+- `index.html` — UI entry point; embeds an AllSpeak loader script inline
+- `resources/easycoder/` — JavaScript AllSpeak runtime modules (Core.js, Browser.js, Webson.js, etc.)
+- `resources/as/` — UI AllSpeak scripts (rbr.as is main, plus mode/calendar/statistics/etc.)
 - `resources/webson/` — Webson JSON UI layout definitions
 - `resources/css/`, `resources/icon/`, `resources/img/` — Static assets
 - `RBRNow/` — MicroPython firmware for ESP32 devices (master/slave networking via ESP-Now)
@@ -52,11 +52,11 @@ The UI is a static webapp — must be served via HTTP (not `file://`) because it
 
 ## Working Rules
 
-- **EasyCoder scripts are the source of truth for behavior** — make surgical changes, preserve command vocabulary and flow, prefer existing labels/subroutines
-- **Webson JSON defines UI structure** — renaming element IDs requires matching changes in `.ecs` scripts
+- **AllSpeak scripts are the source of truth for behavior** — make surgical changes, preserve command vocabulary and flow, prefer existing labels/subroutines
+- **Webson JSON defines UI structure** — renaming element IDs requires matching changes in `.as` scripts
 - **No build tools required** — the system runs directly from source files
-- If editing EasyCoder JS runtime modules, rebuild with `build-easycoder` in the easycoder repo
-- Symlinks to EasyCoder sources can be refreshed with `relink-easycoder.sh`
+- If editing AllSpeak JS runtime modules, rebuild with `build-easycoder` in the easycoder repo
+- Symlinks to AllSpeak sources can be refreshed with `relink-easycoder.sh`
 - Prefer explicit state handling over hidden side effects
 - Avoid modern JS syntax (`??`, optional chaining) for compatibility with older runtimes
 
@@ -66,7 +66,54 @@ The UI is a static webapp — must be served via HTTP (not `file://`) because it
 - `config.json` — RBR-Now network: device roles (master/slave), SSIDs, pin assignments, relay/LED config
 - Multiple profiles (e.g., Weekday, Weekend) with an optional calendar mapping days to profiles
 
-## EasyCoder Language Reference
+## AllSpeak Language Reference
 
-Use `/ecs-js` for JS dialect context and `/ecs-python` for Python dialect context. Use `/ecs-review` to check `.ecs` files for syntax correctness.
+Use `/as-js` for JS dialect context and `/as-python` for Python dialect context. Use `/as-review` to check `.as` files for syntax correctness.
 
+## Doc blocks — required for new `.as` code
+
+Every section of new `.as` code must be wrapped in a doc block:
+
+    !! Brief explanation of what this section does and why it exists.
+    !! Use multiple lines as needed. A bare `!!` line is a paragraph break.
+    SomeLabel:
+        ! the code
+        return
+    !! @hash <managed>      ← inserted by the analyser (don't write by hand)
+    !!!                     ← required terminator (three bangs)
+
+Rules:
+- Lead with the **why** or the design constraint, not a paraphrase of the code.
+- **One paragraph = one line.** Each paragraph of prose is a single `!! ...`
+line, however long. Bare `!!` separates paragraphs. Don't insert hard line
+breaks for visual wrapping — they render badly in Blocks mode (which
+word-wraps the doc pane) and they fight you when editing. The flat-mode
+editor will show very long source lines; that's accepted, since the prose
+is meant to be read in Blocks mode and AI tools don't care about line
+length.
+- Don't start a prose line with `@hash` or `@verified` — the parser treats
+those as metadata. Quote them ("@verified") if you must mention the names.
+- After any code change inside a block, refresh hashes with
+`python3 ./asdoc-check.py --write <file>`. Verifies that go stale show
+up as warnings — review the change and re-verify (asedit's Blocks mode has
+a one-click "Mark verified" button).
+- A file with no doc blocks at all is treated as opt-out (no errors, no
+warnings). Adopt the convention file-by-file as you touch them.
+
+Both implementations of the analyser validate the same convention:
+- `./asdoc-check.py` — Python CLI, recursive over a directory
+- `./asdoc-check-cli.as` — runs under the Python AllSpeak runtime
+- (browser-side parsing also lives inline in `asedit.as` for the editor)
+
+## Code review while documenting
+
+When adding doc blocks to existing code, treat it as a review pass, not just a documentation pass. While reading each section closely enough to write its prose, also surface anything that looks off:
+
+- **Unreachable symbols** — subroutines or labels with no caller; variables declared but never assigned, or assigned but never read.
+- **Dead code** — branches that can never be taken; lines after an unconditional `stop`/`exit`/`return` that nothing jumps to.
+- **Suspicious patterns** — duplicated logic that might want consolidating; hardcoded values that look like they should be variables; hidden coupling between sections (one writes a global the other quietly depends on).
+- **Doc/code disagreement** — comments, names, or nearby docs that contradict what the code actually does.
+
+Surface findings as a short list at the **start** of your response, separately from the doc-block edits. Don't silently fix them — let the user decide.
+
+The point of the doc-block convention is to force close reading; reporting what that reading turned up is the natural payoff.

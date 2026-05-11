@@ -1,4 +1,7 @@
-!   newController.as - the main program script
+!! RBR is a heating control system based on Zigbee relays and thermometers, with support for RBR-Now legacy devices.
+!!
+!! The script starts by declaring all the variables that it uses.
+!   controller.as - the main program script
 
 	info `This is the controller script for RBR`
 
@@ -26,7 +29,6 @@
     queue MessageQueue
     list Profiles
     list Rooms
-    list Events
     list SenderKeys
     list Replies
     list CalendarData
@@ -40,7 +42,6 @@
     variable TempWas
     variable Target
     variable TargetWas
-    variable PeriodNow
     variable PeriodWas
     variable PeriodActive
     variable Sensor
@@ -101,10 +102,13 @@
     variable BoostStartPeriod
     variable NaturalPeriod
     variable MapFilename
-    variable ScheduleType
     variable OnTime
     variable OffTime
     variable InPeriod
+    variable NaturalPeriodActive
+    variable NextAdvanceIdx
+    variable NextAdvanceMin
+    variable PI
     list PeriodList
 
     ! Reusable variables - but be careful!
@@ -115,14 +119,25 @@
     variable S
     variable T
     module DeviceModule
-
+!! @hash f7af243f
+!! @verified f7af243f
+!!!
+!! Basic initialisation.
+!! The system can run either with real hardware or wth a simulator. The latter is chosen if a file 'sim' exists.
 !    debug step
 
-    if file `sim` exists set Simulate else clear Simulate
+    if file `sim` exists
+    begin
+    	set Simulate
+        run `simulator.as` as DeviceModule
+    end
+    else
+    begin
+    	clear Simulate
+        run `deviceControl.as` as DeviceModule
+    end
 
-    ! Get the appropriate controller module
-    if Simulate run `simulator.as` as DeviceModule
-    else run `deviceControl.as` as DeviceModule
+!	Some variables need to be inialised at the start
     set LastMapSave to now
     clear MapHasChanged
     clear ThermometerUpdate
@@ -135,8 +150,12 @@
     set UpdateCount to 0
     set UpdateCheckCounter to 0
     set PriorityRoomIndex to -1
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! @hash ccb83ebf
+!! @verified ccb83ebf
+!!!
+!! Load credentials and set up MQTT. Credentials come from the server unless a local 'credentials' file exists.
+!!
+!! The system is identified by its MAC address. This is found using the 'ip link' command (Linux only) but can be overridden by a file '.mac_override' if the controller needs to run on a different host but still access the same system data.
 !   Load credentials
 	if file `credentials` exists load Credentials from `credentials`
     else
@@ -176,11 +195,6 @@
 !    log `Password is ` cat Password
 !    log `MAC is ` cat MAC
 
-!    ! Register controller with the server
-!    variable PairResult
-!    get PairResult from url `https://rbrheating.com/pair/` cat MAC
-!    log `Pair result: ` cat PairResult
-
     ! Set up MQTT
     init ServerTopic
         name MAC
@@ -202,13 +216,20 @@
         append ReceivedMessage to MessageQueue
     end
     stop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!! @hash 39624871
+!! @verified 39624871
+!!!
+!! Missing credentials signifies a non-recoverable error
 !   The main start point.
 NoCredentials:
     log `Error: Unable to load credentials from file or server`
     exit
-
+!! @hash 13655ac1
+!! @verified 13655ac1
+!!!
+!! Start by getting the thermometer data and the name of the request/demand relay if there is one.
+!!
+!! Check if a new version is available, then process the room list.
 Start:
     gosub to LoadMap
     put entry `profiles` of Map into Profiles
@@ -223,18 +244,27 @@ Start:
 
     ! Check for a newer version (also called periodically from MainLoop).
     gosub to CheckForUpdate
-
+!   Walk the list of rooms and process the needs of each one
     gosub to ProcessAllRooms
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   This the head of each loop
-!   It waits 5 seconds between runs. This can be adjusted but 5 seconds seems optimal.
+!! @hash 2e5e5cad
+!! @verified 2e5e5cad
+!!!
+!! This is the head of each loop.
+!! It waits 5 seconds between runs. This can be adjusted but 5 seconds seems optimal.
+!!
+!! Hourly auto-update check. MainLoop runs every ~5s (720 cycles ≈ 1h), so this hits the version endpoint at most once an hour. If a newer version exists, CheckForUpdate exits the process and systemd / `system background ... allspeak controller.as` relaunches us.
+!!
+!! Merge Zigbee thermometer data if any is available.
+!!
+!! If a room has priority (e.g. is waiting for an immediate response), process it before entering the main loop.
+!!
+!! Process each room, setting its radiator controller(s) ON or OFF according to the system logic.
+!!
+!! Process the request/demand relay. Note: the simulator does not have a request relay.
+!!
+!! Finally, if an immediate update was requested, notify the system that the map has changed, so the UIs will get updates without having to wait for the normal update cycle to complete.
 MainLoop:
     ! log `MainLoop`
-    ! Hourly auto-update check. MainLoop runs every ~5s (720 cycles ≈ 1h),
-    ! so this hits the version endpoint at most once an hour. If a newer
-    ! version exists, CheckForUpdate exits the process and systemd /
-    ! `system background ... allspeak controller.as` relaunches us.
     increment UpdateCheckCounter
     if UpdateCheckCounter is greater than 720
     begin
@@ -320,7 +350,14 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-
+!! @hash ce47a848
+!! @verified ce47a848
+!!!
+!! Drain the queue of messages received from the UI between MainLoop ticks.
+!!
+!! Four action types: `first` (one-shot at UI startup, triggers a full map push), `refresh` (10-second heartbeat from each connected UI — any reply doubles as a round-trip alive signal feeding the UI's heartbeat dot and stall-detection watchdog), `uirequest` (a user action handed off to ProcessUIRequest), and `sendemail` (registration/recovery email relay).
+!!
+!! Map and thermometer files are flushed to disk at most once a minute. Senders silent for more than 100 seconds are dropped from the recipient list so we stop pushing updates to disconnected UIs.
 HandleMessages:
     ! Check for incoming messages from the UI
     ! There are 3 Action types; `first`, `refresh` and `uirequest`
@@ -396,9 +433,12 @@ HandleMessages:
         increment S
     end
     go to MainLoop
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Load up the system map
+!! @hash b8cec348
+!! @verified b8cec348
+!!!
+!! Load the system map from disk, or build a fresh default map if the file is absent.
+!!
+!! Honours the simulate flag by reading map-sim.json instead of map.json. The default map has a single empty `Default` profile so the UI has something coherent to render at first launch.
 LoadMap:
     log `Load the system map`
     if Simulate set MapFilename to `map-sim.json` else set MapFilename to `map.json`
@@ -420,10 +460,14 @@ LoadMap:
     end
     set MapHasChanged
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   If the calendar is on, override SelectedProfile with the profile for today.
-!   Uses Monday=0 weekday numbering to match the calendar-data indices.
+!! @hash e3869999
+!! @verified e3869999
+!!!
+!! When the calendar feature is on, override SelectedProfile with the profile assigned to today's weekday.
+!!
+!! Uses Monday=0 weekday numbering to match how calendar-data is indexed in the map. A no-op when the calendar is off, when calendar-data is missing, or when the day's profile name doesn't resolve to any profile in the list.
+!!
+!! After testing that the calendar has an entry for the current day, the code looks up the profile held for that day, and checks it against the list of profiles. If one matches it is returned in SelectedProfile as the profile to use. 
 ResolveCalendarProfile:
     if entry `calendar` of Map is not `on` return
     if Map has entry `calendar-data`
@@ -448,9 +492,14 @@ ResolveCalendarProfile:
         end
     end
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Populate all the main map variables, then do a complete cycle of the system
+!! @hash fd56a9bc
+!! @verified fd56a9bc
+!!!
+!! Re-bind the per-room state arrays to the currently-selected profile and reset transient flags before a full processing cycle.
+!!
+!! Called once at startup and after any UI action that changes the active profile or rooms list (Update Rooms, Select Profile, Update Profiles).
+!!
+!! Sizes the parallel TargetWas/PeriodWas/PeriodActive/RelayStateWas arrays to match the new room count, clears stale advance-rq/boost/responses entries, and seeds PeriodWas to -1 so the first cycle's period-change check does not spuriously fire.
 ProcessAllRooms:
     gosub to ResolveCalendarProfile
     put item SelectedProfile of Profiles into Profile
@@ -479,15 +528,32 @@ ProcessAllRooms:
         set PeriodWas to -1
         index PeriodActive to R
         set PeriodActive to 0
+        index RelayStateWas to R
         set RelayStateWas to empty
         index TargetWas to R
         set TargetWas to 0
         increment R
     end
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Process a single room
+!! @hash 09455c73
+!! @verified 09455c73
+!!!
+!! Run one control cycle for a single room: read its current temperature, apply the active mode to derive a target, send a relay command to the device controller, and store the outcome on the Room dictionary for the UI.
+!!
+!! Mode handling:
+!! `timed` consults the room's schedule via FindCurrentPeriod and ApplyPeriodsAdvance.
+!!
+!! `on` uses the room's stored target.
+!!
+!! `boost` runs at the boost target until either the `until` timestamp expires or the natural period rolls over (then auto-reverts to prevmode).
+!!
+!! `off` forces the relay off.
+!!
+!! A boost engaged mid-period latches `boostperiod` so it doesn't self-cancel on its own first cycle.
+!!
+!! Sensor staleness: if the configured thermometer hasn't reported within 45 minutes the current reading is treated as missing, the relay is forced off (which in most cases will soon trigger a temperature change to be posted), and the last known temperature is preserved on the Room so the UI can show it greyed out rather than blank. Boost mode bypasses this gate (the `until` timestamp is the safety bound).
+!!
+!! Falls through to ProcessReply, which folds the device's reply back into the Room.
 ProcessRoom:
     put entry `name` of Room into RoomName
     put entry `sensor` of Room into Sensor
@@ -551,21 +617,9 @@ ProcessRoom:
     put entry `relayType` of Room into RelayType
     put entry `relay` of Room into RelayState
     put entry `mode` of Room into Mode
-    if Room has entry `period` put entry `period` of Room into PeriodNow
-    else put 0 into PeriodNow
 
     ! Deal with the various operating modes
-    if Mode is `timed`
-    begin
-        gosub to FindCurrentPeriod
-        if ScheduleType is not `periods`
-        begin
-            put item PeriodActive of Events into Period
-            put entry `temp` of Period into Temp
-            gosub to ConvertTempToInt
-            put Temp into Target
-        end
-    end
+    if Mode is `timed` gosub to FindCurrentPeriod
     else if Mode is `on`
     begin
         put entry `target` of Room into Temp
@@ -588,10 +642,10 @@ ProcessRoom:
         ! start (`boostperiod`) on the first cycle so a boost engaged
         ! mid-period doesn't immediately self-cancel; subsequent cycles
         ! cancel as soon as the natural period rolls. Rooms with no
-        ! `events` skip this check.
+        ! `periods` skip this check.
         if not BoostExpired
         begin
-            if Room has entry `events`
+            if Room has entry `periods`
             begin
                 gosub to GetNaturalPeriod
                 if Room has entry `boostperiod`
@@ -615,17 +669,7 @@ ProcessRoom:
             log RoomName cat `: Boost expired, reverting to ` cat entry `mode` of Room
             gosub to ForceUpdate
             put entry `mode` of Room into Mode
-            if Mode is `timed`
-            begin
-                gosub to FindCurrentPeriod
-                if ScheduleType is not `periods`
-                begin
-                    put item PeriodActive of Events into Period
-                    put entry `temp` of Period into Temp
-                    gosub to ConvertTempToInt
-                    put Temp into Target
-                end
-            end
+            if Mode is `timed` gosub to FindCurrentPeriod
             else if Mode is `on`
             begin
                 put entry `target` of Room into Temp
@@ -667,7 +711,16 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-
+!! @hash 5b7749f8
+!! @verified 5b7749f8
+!!!
+!! Fold the device controller's reply back into the Room state and re-decide the relay.
+!!
+!! The reply is a list with one entry per slot: an integer is a fresh temperature reading from the relay's own sensor, an empty value indicates a relay failure (we count consecutive ones into `relayfails` for RoomStatus to convert to warn/fail), and any other string is a BLE thermometer announcement we hand to RecordThermometer.
+!!
+!! After folding, SetRelay runs again so any updated temperature is reflected in the relay decision.
+!!
+!! Reused: also called via gosub from ProcessRequestRelay so the request relay's reply gets the same treatment.
 ProcessReply:
     if Replies is not empty
     begin
@@ -699,11 +752,14 @@ ProcessReply:
         gosub to SetRelay
     end
     go to RoomStatus
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Process the request relay, if any
-!   Some heating systems have a "request relay" that turns the boiler on
-!   whenever at least one room is demanding heat.
+!! @hash 63064a79
+!! @verified 63064a79
+!!!
+!! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
+!!
+!! HeatingRequested is set during SetRelay for any room whose relay went on this cycle; we read it here and reset it for the next cycle.
+!!
+!! Skipped entirely in simulation mode and on systems with no request relay configured.
 ProcessRequestRelay:
     if RequestName is empty log `No request relay`
     else
@@ -718,26 +774,22 @@ ProcessRequestRelay:
         gosub to ProcessReply
     end
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Decide if a relay should be on or off
+!! @hash ea51e1af
+!! @verified ea51e1af
+!!!
+!! Decide whether this room's relay should be on or off this cycle, based on mode, target, current temperature, and prior status.
+!!
+!! Read the previous cycle's status as a safety override. If the room was already classified as `warn` (stale sensor or repeated relay failures) or `fail`, we leave the relay off regardless of mode or current temperature reading. This belt-and-braces protects against paths that could keep TempNow populated past the staleness gate (e.g. an RBR-Now relay reporting its own temperature when the configured thermometer is dead).
+!!
+!! Boost is the one mode that bypasses the staleness lockout: it's a user-initiated, time-bounded override (the `until` timestamp is the safety bound). For linked boost rooms we still honour the target where we have any temperature data — last known reading on the room itself if TempNow has been emptied by the staleness gate. With no temperature data at all, default the relay to ON so a boost on a never-reported sensor still produces heat for its bounded duration.
+!!
+!! Safety overrides come first: a prior `warn`/`fail` status (from staleness or repeated relay failures) forces relay off regardless of mode, so a dead sensor cannot leave heat permanently on. Boost mode is the one exception — it's a user-initiated, time-bounded override (the `until` timestamp is the safety bound) and runs even when no temperature data is available at all.
+!!
+!! Unlinked relays (`linked: no`) are driven directly by mode rather than by target/temperature. For a linked room in `on` or `timed` mode, the relay turns on if the current temperature is below the target. SetRelay also signals the boiler request via HeatingRequested.
+!!
+!! Falls through to RoomStatus.
 SetRelay:
     put RelayState into RelayStateWas
-    ! Read the previous cycle's status as a safety override. If the room
-    ! was already classified as `warn` (stale sensor or repeated relay
-    ! failures) or `fail`, we leave the relay off regardless of mode or
-    ! current temperature reading. This belt-and-braces protects against
-    ! paths that could keep TempNow populated past the staleness gate
-    ! (e.g. an RBR-Now relay reporting its own temperature when the
-    ! configured thermometer is dead).
-    !
-    ! Boost is the one mode that bypasses the staleness lockout: it's a
-    ! user-initiated, time-bounded override (the `until` timestamp is the
-    ! safety bound). For linked boost rooms we still honour the target
-    ! where we have any temperature data — last-known reading on the
-    ! room itself if TempNow has been emptied by the staleness gate. With
-    ! no temperature data at all, default the relay on so a boost on a
-    ! never-reported sensor still produces heat for its bounded duration.
     put empty into PriorStatus
     if Room has entry `status` put entry `status` of Room into PriorStatus
     if Mode is `off` set RelayState to `off`
@@ -790,15 +842,23 @@ SetRelay:
     if TempNow is not empty set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodActive
+!! @hash d2926dac
+!! @verified d2926dac
+!!!
+!! Compute the room's health status (`good` / `warn` / `fail`) and a human-readable status message for the UI.
+!!
+!! Forces an immediate UI update on either a period change (advance off) or a relay-state change so the UI sees these promptly rather than waiting for the next 5-second tick.
+!!
+!! Status thresholds: relay failures > 5 -> warn, > 20 -> fail; sensor staleness > 45 min -> warn, > 60 min -> fail. The 45-minute warn threshold matches the staleness gate in ProcessRoom that empties TempNow, so a stale sensor and a `warn` status both force the relay off at the same point. SensorAge is surfaced on Room so the UI can show "N min ago".
+!!
+!! Falls through to UpdateRooms.
 RoomStatus:
     if Mode is `timed`
     begin
-        ! If the period or the relay state have changed, signal an immediate update,
-        ! as any onliine UI needs to know right away
-        ! otherwise just update the map and wait for the next update time
         if PeriodWas is not -1 and PeriodActive is not PeriodWas and entry `advance` of Room is not `A`
         begin
-!            log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow cat ` ` cat entry `advance` of Room
+!            log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
+                 cat ` ` cat entry `advance` of Room
             log `Force an update (period change)`
             gosub to ForceUpdate
         end
@@ -881,9 +941,12 @@ RoomStatus:
         end
     end
     set entry `statusMessage` of Room to Value
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Update part or all of of the map
+!! @hash 0c176079
+!! @verified e101ab9c
+!!!
+!! Cascading writers for the system map: callers gosub to whichever level they need, then control falls through up to UpdateMap and returns.
+!!
+!! UpdateRooms writes a single Room back into the Rooms list; UpdateProfile rewrites the profile's rooms list; UpdateProfiles writes the profile back into the profiles list; UpdateMap puts the profiles list back on the Map. Each level is a valid entry point.
 UpdateRooms:
 !    log `Update ` cat RoomName cat ` (` cat RoomIndex cat ` )`
     set item RoomIndex of Rooms to Room
@@ -894,18 +957,14 @@ UpdateProfiles:
 UpdateMap:
     set entry `profiles` of Map to Profiles
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Auto-update. Reads the version stamp at https://rbrheating.com/version
-!   and compares with the locally-stored .version. If the remote is newer,
-!   pulls the three runtime source files (controller.as, deviceControl.as,
-!   simulator.as), records the new version, and exits — controller.service
-!   relaunches us via its `system background sleep 5 && allspeak ...` line.
-!
-!   Each file is downloaded to a `.new` sidecar, then mv'd into place once
-!   all three downloads have succeeded, so a network failure mid-update
-!   leaves the previous working copies untouched. Called once at startup
-!   and again every hour from MainLoop.
+!! @hash b14a1967
+!! @verified b14a1967
+!!!
+!! Auto-update mechanism. Reads the version stamp at https://rbrheating.com/version and compares with the locally-stored .version. If the remote is newer, pulls the three runtime source files (controller.as, deviceControl.as, simulator.as), records the new version, and exits — controller.service relaunches us via its `system background sleep 5 && allspeak ...` line.
+!!
+!! All-or-nothing: each file is downloaded to a `.new` sidecar and only mv'd into place once all three downloads have succeeded, so a network failure mid-update leaves the previous working copies untouched. Atomic same-filesystem mv means a controller crash during the swap leaves either the old or new file, never a torn write.
+!!
+!! Called once at startup and every hour from MainLoop.
 CheckForUpdate:
     get RemoteVersion from url `https://rbrheating.com/version`
         or begin
@@ -959,115 +1018,52 @@ CheckForUpdate:
     log `Update applied. Restarting...`
     system background `sleep 5 && allspeak controller.as`
     exit
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Force an update now. This will short-circuit the 10-second main loop
+!! @hash 19bec5d0
+!! @verified 19bec5d0
+!!!
+!! Trigger an immediate UI update by setting both ImmediateUpdate (which short-circuits MainLoop's 5-second wait) and MapHasChanged (which makes SendMapToUI actually push). 
+!!
+!! Used by paths that want the UI to see a state change without waiting for the next tick: period rolls, relay state changes, mode changes, etc.
 ForceUpdate:
 !    log `Force an immediate update`
     set ImmediateUpdate
     set MapHasChanged
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Find which period we are in (to get the target temperature).
-! Sets ScheduleType, then dispatches to either the events-based logic below
-! or FindCurrentPeriodFromPeriods. Callers that subsequently look at
-! `item PeriodActive of Events` must guard with `if ScheduleType is not periods`.
+!! @hash 58722563
+!! @verified 58722563
+!!!
+!! Determine which scheduled period applies right now and set Target accordingly.
+!!
+!! Two phases.
+!! (1) Walk the room's `periods` list to identify NaturalPeriodActive — the index of the period containing `now` (wrap-aware via on > off), or -1 if `now` falls between every period. 
+!!
+!! (2) Apply the room's `advance` flag via ApplyPeriodsAdvance, then save NaturalPeriodActive into PeriodWas for the next cycle's roll-over comparison.
+!!
+!! Sets PeriodActive (-1 = background-targeted, >= 0 = period index) and Target. Iterates with PI rather than I because ConvertTimeToInt and ConvertTempToInt both clobber I.
 FindCurrentPeriod:
-    set ScheduleType to `events`
-    if Room has entry `schedule-type` set ScheduleType to entry `schedule-type` of Room
-    if ScheduleType is `periods`
-    begin
-        gosub to FindCurrentPeriodFromPeriods
-        return
-    end
-    put entry `events` of Room into Events
-    put the count of Events into EventCount
-    if EventCount is 0 return
-    set PeriodNow to 0
-FCP2:
-    if PeriodNow is EventCount
-    begin
-        ! We are past the last event time, so use the first
-        put 0 into PeriodNow
-        put item PeriodNow of Events into Period
-        put entry `until` of Period into Time
-        gosub to ConvertTimeToInt
-    end
-    else
-    begin
-        ! Check the current period. If we have passed it, move on.
-        put item PeriodNow of Events into Period
-        put entry `until` of Period into Time
-        gosub to ConvertTimeToInt
-        ! If we have passed this period, get the start of the next period and move on
-        if now is greater than Time
-        begin
-            increment PeriodNow
-            go to FCP2
-        end
-        ! Otherwise, we've found the period
-    end
-    set PeriodActive to PeriodNow
-
-    ! Now get the target temperature
-    put entry `temp` of Period into Temp
-    gosub to ConvertTempToInt
-    put Temp into Target
-
-    ! Deal with Advance
-    if entry `advance` of Room is `A`
-    begin
-        ! If the period has rolled since advance was set, cancel it and
-        ! leave PeriodActive at the natural current period (PeriodNow).
-        ! Otherwise, shift PeriodActive to the next slot for the advance.
-        if PeriodWas is not -1 and PeriodNow is not PeriodWas
-        begin
-            log RoomName cat `: Cancelling the advance`
-            set entry `advance` of Room to `-`
-            set entry `period` of Room to PeriodActive
-            gosub to ForceUpdate
-        end
-        else
-        begin
-            add 1 to PeriodNow giving P
-            if P is EventCount put 0 into P
-            set PeriodActive to P
-            set entry `period` of Room to PeriodActive
-        end
-    end
-
-    ! Save the non-advance current period
-    set PeriodWas to PeriodNow
-    return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Periods-mode equivalent of FindCurrentPeriod. Walks `periods` looking for
-!   one that contains `now` (handling wrap-around when on > off). Sets:
-!     - Target = matched period's temp (in hundredths) or background-temp.
-!     - PeriodActive = matching period index, or -1 if we fell through to
-!       background. Callers must NOT do `item PeriodActive of Events` in
-!       periods mode — guard with `if ScheduleType is not periods`.
-!   Advance and the boost period-boundary heuristic still use `events` for
-!   now (events remains in the data during the temporary phase).
-FindCurrentPeriodFromPeriods:
     set PeriodActive to -1
+    set NaturalPeriodActive to -1
     if Room has entry `periods` put entry `periods` of Room into PeriodList
     else
     begin
-        gosub to PeriodsBackgroundTarget
+        gosub to ApplyPeriodsAdvance
+        set PeriodWas to NaturalPeriodActive
         return
     end
     put the count of PeriodList into EventCount
     if EventCount is 0
     begin
-        gosub to PeriodsBackgroundTarget
+        gosub to ApplyPeriodsAdvance
+        set PeriodWas to NaturalPeriodActive
         return
     end
-    put 0 into I
-    while I is less than EventCount
+
+    ! Phase 1: determine the natural period (if any). Use PI (not I) as
+    ! the iterator — ConvertTimeToInt and ConvertTempToInt both clobber I.
+    put 0 into PI
+    while PI is less than EventCount
     begin
-        put item I of PeriodList into Period
+        put item PI of PeriodList into Period
         put entry `on` of Period into Time
         gosub to ConvertTimeToInt
         set OnTime to Time
@@ -1089,20 +1085,145 @@ FindCurrentPeriodFromPeriods:
         end
         if InPeriod is 1
         begin
-            set PeriodActive to I
-            put entry `temp` of Period into Temp
-            gosub to ConvertTempToInt
-            put Temp into Target
+            set NaturalPeriodActive to PI
+            put EventCount into PI
+        end
+        else increment PI
+    end
+
+    ! Phase 2: apply advance, then save natural for next cycle.
+    gosub to ApplyPeriodsAdvance
+    set PeriodWas to NaturalPeriodActive
+    return
+!! @hash bd73d6d4
+!! @verified bd73d6d4
+!!!
+!! Decide PeriodActive and Target from NaturalPeriodActive and the room's `advance` flag.
+!!
+!! PeriodList must be loaded by the caller (or left absent/empty for the no-periods edge case).
+!!
+!! Without advance, both simply mirror the natural state. With advance on (and no roll-over since it was engaged): from a natural period -> Target = background-temp (heat goes off until next natural on); from natural background -> Target = next period's temp (heat skips ahead and turns on now).
+!!
+!! Auto-cancels the moment the natural state would have rolled, so the user never has to remember to undo it.
+ApplyPeriodsAdvance:
+    if entry `advance` of Room is `A`
+    begin
+        ! Auto-cancel the advance once the natural state has rolled.
+        ! PeriodWas == -1 means "haven't latched yet" (fresh start), so
+        ! only cancel when there was a recorded prior state AND it
+        ! differs from the current natural state.
+        if PeriodWas is not -1 and NaturalPeriodActive is not PeriodWas
+        begin
+            log RoomName cat `: Cancelling the advance (periods)`
+            set entry `advance` of Room to `-`
+            set entry `period` of Room to NaturalPeriodActive
+            gosub to ForceUpdate
+            ! Fall through: use natural state.
+        end
+        else
+        begin
+            ! Apply the advance shift.
+            if NaturalPeriodActive is less than 0
+            begin
+                ! From background: skip ahead to the next period.
+                gosub to FindNextPeriodFromNow
+                if NextAdvanceIdx is less than 0
+                begin
+                    ! No periods at all — Target stays at background.
+                    set PeriodActive to -1
+                    gosub to PeriodsBackgroundTarget
+                end
+                else
+                begin
+                    set PeriodActive to NextAdvanceIdx
+                    put item NextAdvanceIdx of PeriodList into Period
+                    put entry `temp` of Period into Temp
+                    gosub to ConvertTempToInt
+                    put Temp into Target
+                end
+            end
+            else
+            begin
+                ! From a period: heat goes OFF (background-temp) until
+                ! the natural period would have ended.
+                set PeriodActive to -1
+                gosub to PeriodsBackgroundTarget
+            end
+            set entry `period` of Room to PeriodActive
             return
         end
-        increment I
     end
-    gosub to PeriodsBackgroundTarget
-    return
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Set Target to the system background temperature (used when in periods mode
-!   and `now` falls outside every period). Leaves PeriodActive as set by caller.
+    ! Natural state (advance not set, or just cancelled).
+    set PeriodActive to NaturalPeriodActive
+    if NaturalPeriodActive is less than 0 gosub to PeriodsBackgroundTarget
+    else
+    begin
+        put item NaturalPeriodActive of PeriodList into Period
+        put entry `temp` of Period into Temp
+        gosub to ConvertTempToInt
+        put Temp into Target
+    end
+    return
+!! @hash 46a58892
+!! @verified 46a58892
+!!!
+!! Find the next period chronologically: smallest `on` strictly after `now`, else (no on later today) wrap to the smallest `on` overall = tomorrow's first.
+!!
+!! Returns the period index in NextAdvanceIdx (-1 if PeriodList is empty).
+!!
+!! Used by ApplyPeriodsAdvance when an advance is engaged from background-time and we need to skip ahead to the next scheduled on-period.
+FindNextPeriodFromNow:
+    set NextAdvanceIdx to -1
+    if EventCount is 0 return
+    put 0 into PI
+    while PI is less than EventCount
+    begin
+        put item PI of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        if Time is greater than now
+        begin
+            if NextAdvanceIdx is less than 0
+            begin
+                set NextAdvanceMin to Time
+                set NextAdvanceIdx to PI
+            end
+            else if Time is less than NextAdvanceMin
+            begin
+                set NextAdvanceMin to Time
+                set NextAdvanceIdx to PI
+            end
+        end
+        increment PI
+    end
+    if NextAdvanceIdx is not less than 0 return
+    ! No on > now today — wrap to the smallest on overall.
+    put 0 into PI
+    while PI is less than EventCount
+    begin
+        put item PI of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        if NextAdvanceIdx is less than 0
+        begin
+            set NextAdvanceMin to Time
+            set NextAdvanceIdx to PI
+        end
+        else if Time is less than NextAdvanceMin
+        begin
+            set NextAdvanceMin to Time
+            set NextAdvanceIdx to PI
+        end
+        increment PI
+    end
+    return
+!! @hash b43dc6dd
+!! @verified b43dc6dd
+!!!
+!! Set Target to the system's background temperature, used in periods mode whenever `now` falls outside every period (or the room has none).
+!!
+!! Defaults to 12C when no background-temp is configured. Leaves PeriodActive untouched — the caller has already decided which period (or -1 = background) is active.
 PeriodsBackgroundTarget:
     if Map has entry `background-temp` put entry `background-temp` of Map into Temp
     else put 12 into Temp
@@ -1110,38 +1231,54 @@ PeriodsBackgroundTarget:
     gosub to ConvertTempToInt
     put Temp into Target
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Side-effect-free version of FindCurrentPeriod for the boost period-
-!   boundary check. Walks the room's events to find the index of the
-!   period containing `now` and returns it in NaturalPeriod. Does not
-!   touch PeriodActive / Period / Target / advance — used only as a
-!   reference value to compare against the boost-start latch.
+!! @hash 86cbeddf
+!! @verified 86cbeddf
+!!!
+!! Side-effect-free version of FindCurrentPeriod's first phase, used solely by the boost period-boundary check.
+!!
+!! Returns the index of the period containing `now` in NaturalPeriod (-1 if none). Does not touch PeriodActive / Period / Target / advance — this is a reference value for ProcessRoom to compare against the boost-start latch (`boostperiod`) so a boost can auto-cancel when the natural period rolls.
 GetNaturalPeriod:
-    put entry `events` of Room into Events
-    put the count of Events into EventCount
-    put 0 into NaturalPeriod
+    put -1 into NaturalPeriod
+    if Room has entry `periods` put entry `periods` of Room into PeriodList
+    else return
+    put the count of PeriodList into EventCount
     if EventCount is 0 return
-GNP2:
-    if NaturalPeriod is EventCount
+    put 0 into PI
+    while PI is less than EventCount
     begin
-        ! Past the last event time — wrap to the first slot.
-        put 0 into NaturalPeriod
-        return
-    end
-    put item NaturalPeriod of Events into Period
-    put entry `until` of Period into Time
-    gosub to ConvertTimeToInt
-    if now is greater than Time
-    begin
-        increment NaturalPeriod
-        go to GNP2
+        put item PI of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        set OnTime to Time
+        put entry `off` of Period into Time
+        gosub to ConvertTimeToInt
+        set OffTime to Time
+        set InPeriod to 0
+        if OnTime is OffTime set InPeriod to 1
+        else if OnTime is less than OffTime
+        begin
+            if now is not less than OnTime
+                if now is less than OffTime set InPeriod to 1
+        end
+        else
+        begin
+            if now is not less than OnTime set InPeriod to 1
+            else if now is less than OffTime set InPeriod to 1
+        end
+        if InPeriod is 1
+        begin
+            set NaturalPeriod to PI
+            put EventCount into PI
+        end
+        else increment PI
     end
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Record information about Mijia thermometers.
-!   This information is returned by RBR-Now relays as they detect BLE announcements
+!! @hash b55848a3
+!! @verified b55848a3
+!!!
+!! Record temperature/humidity/battery readings for Mijia BLE thermometers seen by RBR-Now relays.
+!!
+!! RBR-Now devices forward BLE announcements as a string in their reply payload; we parse the trailing `+`-delimited segment, split its semicolon fields (rssi;temp;hum;batt;mac-suffix), and stash a Thermometer record under `a4:c1:38:<suffix>` in the Thermometers dictionary. ThermometerUpdate is set so HandleMessages flushes thermometers.json on the next minute.
 RecordThermometer:
     if Reply is empty return
 !    log Reply
@@ -1177,9 +1314,12 @@ RecordThermometer:
         set the elements of Value to 1
     end
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Convert an HH:MM time into an int seconds value
+!! @hash 533978e4
+!! @verified 533978e4
+!!!
+!! Convert an HH:MM time string into an integer milliseconds-since-epoch value for today (Time variable in/out).
+!!
+!! Used throughout period scheduling to compare schedule times against `now`. Clobbers I and T as scratch — callers iterating over a list must use a different counter (PI is the project's convention).
 ConvertTimeToInt:
     put `` cat Time into Time
     put the index of `:` in Time into I
@@ -1191,9 +1331,12 @@ ConvertTimeToInt:
     multiply T by 60000 giving Time
     add today to Time
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Convert a temperature string into an int hundredths value
+!! @hash 2893761b
+!! @verified 2893761b
+!!!
+!! Convert a temperature string (e.g. "20.5") into an integer-hundredths value (2050). Temp variable in/out.
+!!
+!! The map stores temperatures as integer hundredths to avoid floating-point arithmetic at runtime; user-supplied values arrive as strings and need this conversion. Empty input becomes 0. Clobbers I and T as scratch — same warning as ConvertTimeToInt.
 ConvertTempToInt:
     if Temp is empty put 0 into Temp
     put the index of `.` in Temp into I
@@ -1208,9 +1351,12 @@ ConvertTempToInt:
         add T to Temp
     end
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Get a room's index given its name
+!! @hash 38e6b2c1
+!! @verified 38e6b2c1
+!!!
+!! Find a room by name and leave RoomIndex pointing at it (-1 if no match).
+!!
+!! Sets the Room dictionary as a side-effect by virtue of the index walk. Used by ResolveRoomFromMessage to translate UI room references into a usable index.
 GetRoomByName:
     set RoomIndex to 0
     while RoomIndex is less than RoomCount
@@ -1222,15 +1368,16 @@ GetRoomByName:
     ! Not found
     set RoomIndex to -1
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Resolve a room reference in a UI request message.
-! Accepted fields (first match wins):
-!   - `Room` (room name)
-!   - `room name` (room name)
-!   - `roomnumber` (room index)
-! On success: RoomIndex >= 0 and Room is indexed.
-! On failure: RoomIndex = -1.
+!! @hash 7ac36668
+!! @verified 7ac36668
+!!!
+!! Resolve the room referenced by an incoming UI request.
+!!
+!! Accepts three field names for backward compatibility (`Room` and `room name` carry the room name; `roomnumber` carries the index); the first match wins.
+!!
+!! On success: RoomIndex >= 0 and the Room dictionary is indexed. On failure: RoomIndex = -1.
+!!
+!! Used at the top of every UIRequest action that operates on a specific room.
 ResolveRoomFromMessage:
     if Message has entry `Room`
     begin
@@ -1268,30 +1415,18 @@ ResolveRoomFromMessage:
     end
     set RoomIndex to -1
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Process a request from the UI arriving by MQTT
-!   MQTT contract (action `uirequest`):
-!   Envelope: { sender, action:`uirequest`, message:<payload> }
-!   Payload can be either:
-!   1) Canonical object: { Action|action, ...action-specific fields... }
-!   2) Legacy module wrapper: { request:`Update`, data:{ action|Action, ... } }
-!
-!   Supported canonical actions and required payload fields:
-!   - `System Name`: `System Name` or `name`
-!   - `Request Relay`: `Request Relay` or `request`
-!   - `Add Room`: `Add Room` or `spec` (optional request relay field)
-!   - `Update Rooms`: `rooms` (full replacement array, used by delete/reorder)
-!   - `Select Profile`: `Profile` (legacy: `Select Profile`)
-!   - `Update Profiles`: `profiles`, `profile`, optional `calendar`, `calendar-data`
-!   - `Operating Mode`: room ref (`Room` | `room name` | `roomnumber`) and `Mode`|`mode`
-!       optional fields: `Advance`|`advance`, `target`|`Target`,
-!       and for boost `duration` or `boost`/`Boost` (e.g. `B30`)
-!   - `Periods`: room ref + `Periods`|`periods`
-!
-!   Action aliases accepted for compatibility:
-!   `request` -> `Request Relay`, `addroom` -> `Add Room`, `periods` -> `Periods`.
+!! @hash 4e68554c
+!! @verified 4e68554c
+!!!
+!! Dispatch a `uirequest` MQTT message to the appropriate map mutation.
+!!
+!! Envelope: { sender, action:`uirequest`, message:<payload> }. Payload is either a canonical object ({ Action|action, ... }) or a legacy module wrapper ({ request:`Update`, data:{ ... } }) which we unwrap. 
+!!
+!! Action names are normalised so the UI can be upgraded incrementally — `request`, `addroom`, `rooms`, `system name`, etc. all map to their canonical forms.
+!!
+!! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (full replacement array, used by delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites profiles list and optional calendar), `Operating Mode` (per-room mode change), and `Test`.
+!!
+!! Operating Mode handles all four modes plus the `Advance` toggle and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
 ProcessUIRequest:
     ! Legacy UI modules may still send {request:`Update`, data:{...}}.
     ! Unwrap only when there is no direct Action/action field.
@@ -1345,7 +1480,6 @@ ProcessUIRequest:
     else if Value is `select profile` put `Select Profile` into Action
     else if Value is `update profiles` put `Update Profiles` into Action
     else if Value is `operating mode` put `Operating Mode` into Action
-    else if Value is `periods` put `Periods` into Action
 
     if Action is `Test`
     begin
@@ -1487,29 +1621,18 @@ ProcessUIRequest:
             put Temp into Value
             if Value is less than 1
             begin
-                if Room has entry `events`
+                gosub to FindCurrentPeriod
+                if PeriodActive is less than 0
                 begin
-                    gosub to FindCurrentPeriod
-                    if ScheduleType is `periods`
-                    begin
-                        if PeriodActive is less than 0
-                        begin
-                            if Map has entry `background-temp`
-                                set entry `target` of Room to entry `background-temp` of Map
-                            else set entry `target` of Room to 12
-                        end
-                        else
-                        begin
-                            put entry `periods` of Room into PeriodList
-                            put item PeriodActive of PeriodList into Period
-                            set entry `target` of Room to entry `temp` of Period
-                        end
-                    end
-                    else
-                    begin
-                        put item PeriodActive of Events into Period
-                        set entry `target` of Room to entry `temp` of Period
-                    end
+                    if Map has entry `background-temp`
+                        set entry `target` of Room to entry `background-temp` of Map
+                    else set entry `target` of Room to 12
+                end
+                else
+                begin
+                    put entry `periods` of Room into PeriodList
+                    put item PeriodActive of PeriodList into Period
+                    set entry `target` of Room to entry `temp` of Period
                 end
             end
         end
@@ -1573,40 +1696,15 @@ ProcessUIRequest:
         put item RoomIndex of Rooms into RoomSpec
         if Mode is not `timed` or Value is empty gosub to ForceUpdate
     end
-    else if Action is `Periods`
-    begin
-        ! Here the UI has sent an updated period (event) table for the room
-        gosub to ResolveRoomFromMessage
-        if RoomIndex is less than 0
-        begin
-            log `UIRequest rejected: Periods needs valid room reference`
-            return
-        end
-        set PriorityRoomIndex to RoomIndex
-        if Message has entry `Periods` put entry `Periods` of Message into Value2
-        else if Message has entry `periods` put entry `periods` of Message into Value2
-        else
-        begin
-            log `UIRequest rejected: Periods needs Periods/periods`
-            return
-        end
-        log `Set the periods of ` cat entry `name` of Room cat ` to ` cat newline cat Value2
-        set entry `events` of Room to Value2
-        gosub to UpdateRooms
-        log `Force an update (Periods)`
-        gosub to ForceUpdate
-    end
     else log `UIRequest rejected: unsupported action ` cat Action
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   If the map has changed, send it to the UI, of which there may be more than one.
-!   If the map has not changed, do nothing.
+!! @hash 4dd81a04
+!! @verified 4dd81a04
+!!!
+!! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).
+!!
+!! Iterates the Senders dictionary, which HandleMessages prunes of any sender silent for over 100 seconds. Clears MapHasChanged after the push so subsequent calls in the same tick cycle don't re-send the same map.
 SendMapToUI:
     if MapHasChanged set MessageText to Map else set MessageText to empty
-!    set Text to `Send `
-!    if MessageText is empty set Text to Text cat `empty message` else set Text to Text cat `the map`
-!    set Text to Text cat ` to UI (` cat UpdateCount cat `/` cat LoopCount cat `)`
-!    log Text
     clear MapHasChanged
     put the keys of Senders into SenderKeys
     put the count of SenderKeys into L
@@ -1622,9 +1720,12 @@ SendMapToUI:
     end
     increment UpdateCount
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! Send a message to the UI by MQTT
+!! @hash a4fc17e8
+!! @verified a4fc17e8
+!!!
+!! Send a single MessageText payload to one Sender over MQTT.
+!!
+!! Wraps the message with action `confirm` (when ConfirmationRequested is set, used for actions that need an ack) or `reply` otherwise. Topic name and QoS come from the Sender record so each UI receives messages on its own MQTT topic.
 SendMessage:
     if Sender is empty return
     put entry `name` of Sender into SenderName
@@ -1644,10 +1745,12 @@ SendMessage:
         message MessageText
     clear ConfirmationRequested
     return
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   Send an email on behalf of the UI (registration or recovery)
-!   Message contains: {"to":"...","code":"...","type":"register|recover"}
+!! @hash 958a0b69
+!! @verified 958a0b69
+!!!
+!! Send an outbound email on behalf of the UI for registration or password recovery.
+!!
+!! Message contains `{ to, code, type:"register"|"recover" }`. Mail credentials (server/login/password/from) were loaded from credentials.php at startup. A failure is logged but otherwise silent — the UI gets no negative ack, since the user can't know whether their attempt reached the server anyway.
 SendEmail:
     put entry `to` of Message into Value
     put entry `code` of Message into Value2
@@ -1673,3 +1776,6 @@ SendEmail:
         log `SendEmail: sent recovery email to ` cat Value
     end
     return
+!! @hash b957d949
+!! @verified b957d949
+!!!
