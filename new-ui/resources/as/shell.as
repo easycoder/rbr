@@ -165,15 +165,16 @@
 	variable Ttarget
 	variable BoostDur
 	variable Advance
+	variable AdvanceNextTime
 	variable PrevMode
 !	Boost-panel state. BoostPanelOpenIndex == ClickIndex while the user is
-!	configuring a Boost from a non-Boost mode (controls visible, target seeded,
-!	nothing committed yet). Cleared on commit, on Off-button cancel, on mode
-!	change, or when the expansion is closed. BoostSeedTarget is the transient
-!	target shown in the tile during Configuring (so we don't mutate Room.target
-!	until the user commits).
+!	configuring a Boost from a non-Boost mode (duration buttons visible, no
+!	duration committed yet). Cleared on commit, on Off-button cancel, on
+!	mode change, or when the expansion is closed. The target tile during
+!	configuring shows Room.target directly — Boost and On share a single
+!	target, so any +/- edit while the panel is open is a real commit to
+!	Room.target (same path as in On mode), not a staged working copy.
 	variable BoostPanelOpenIndex
-	variable BoostSeedTarget
 	variable BoostState
 	variable TargetVis
 	variable PanelWasOpen
@@ -344,7 +345,7 @@
 !	shared with the now-extracted device editor; it's used only by
 !	SaveOutsideSheet's fan-out loop).
 	variable DeviceProfileCount
-!! @hash e168e589
+!! @hash 260d467c
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -1305,17 +1306,19 @@ ToggleExpansion:
 !!
 !! Timed / none → Timed pill lit, Advance row visible, Target and Boost rows hidden.
 !!
-!! Timed / configuring → Timed pill lit, Target row visible (showing BoostSeedTarget), Advance hidden, Boost row visible with Off lit.
+!! Timed / configuring → Timed pill lit, Target row visible (Room.target), Advance hidden, Boost row visible with Off lit.
 !!
-!! On / none → On pill lit, Target row visible (showing Room.target), Advance and Boost rows hidden.
+!! On / none → On pill lit, Target row visible (Room.target), Advance and Boost rows hidden.
 !!
-!! On / configuring → On pill lit, Target visible (BoostSeedTarget), Advance hidden, Boost row visible with Off lit.
+!! On / configuring → On pill lit, Target visible (Room.target), Advance hidden, Boost row visible with Off lit.
 !!
 !! Off / none → Off pill lit, all rows hidden.
 !!
-!! Off / configuring → Off pill lit, Target visible (BoostSeedTarget), Advance hidden, Boost row visible with Off lit.
+!! Off / configuring → Off pill lit, Target visible (Room.target), Advance hidden, Boost row visible with Off lit.
 !!
 !! Boost / active → Boost pill lit, Target visible (Room.target), Advance hidden, Boost row visible with no duration lit (duration buttons act as "replace duration" while a boost is running; Off cancels).
+!!
+!! Boost and On share a single target (Room.target). The tile shows Room.target in every visible state; +/- edits are committed immediately regardless of which mode is in scope.
 !!
 !! The mode pill in Configuring stays on the underlying mode — Boost only becomes "selected" once the user commits a duration via ApplyBoost.
 PaintExpansion:
@@ -1348,29 +1351,30 @@ PaintExpansion:
 	set style `display` of TargetBlockEl to TargetVis
 	if TargetVis is `block`
 	begin
-		if BoostState is `configuring`
-		begin
-			if BoostSeedTarget is empty set the content of TargetValueEl to `20.0`
-			else set the content of TargetValueEl to BoostSeedTarget
-		end
-		else
-		begin
-			if Ttarget is empty set the content of TargetValueEl to `20.0`
-			else set the content of TargetValueEl to Ttarget
-		end
+		if Ttarget is empty set the content of TargetValueEl to `20.0`
+		else set the content of TargetValueEl to Ttarget
 	end
 
 !	Advance row — only in Timed (and not when the Boost panel has taken
-!	the slot via Configuring).
+!	the slot via Configuring). Hidden entirely when no schedule is in
+!	view (nextTime empty) AND Advance is `-`, since there's nothing to
+!	skip to; still shown when Advance is already `A` so the user can
+!	cancel.
 	index AdvanceBlockEl to ClickIndex
 	if Tmode is `Timed`
 	begin
 		if BoostState is `configuring` set style `display` of AdvanceBlockEl to `none`
 		else
 		begin
-			set style `display` of AdvanceBlockEl to `block`
 			put property `advance` of Room into Advance
 			if Advance is empty put `-` into Advance
+			put property `nextTime` of Room into AdvanceNextTime
+			if Advance is `-`
+			begin
+				if AdvanceNextTime is empty set style `display` of AdvanceBlockEl to `none`
+				else set style `display` of AdvanceBlockEl to `block`
+			end
+			else set style `display` of AdvanceBlockEl to `block`
 			index AdvanceBtn to ClickIndex
 			gosub to PaintAdvanceBtn
 		end
@@ -1394,7 +1398,7 @@ PaintExpansion:
 		if BoostState is `configuring` gosub to ActivateBoostOff
 	end
 	return
-!! @hash 010e2a92
+!! @hash bbbbe071
 !!!
 !! Mode-button and boost-button styling helpers. Reset routines blank every button's selected look; Activate<X> routines apply the "lit" look (card background, drop shadow, primary text, weight 600) to one specific button. The buttons are already at the right slot via the `index` calls in PaintExpansion.
 !!
@@ -1496,39 +1500,15 @@ ActivateBoost2h:
 !!!
 !! Open the Boost-configuring panel for the current row. No controller traffic — purely UI state.
 !!
-!! If the room is already in Boost mode (active), this is a no-op — the panel is already shown by PaintExpansion. Otherwise: seed BoostSeedTarget with the next-period target, raised to the current room temperature if the room is already at or above that target. The intent is that a tap-Boost on a warm room shows a target ≥ current, so the user must consciously bump it to ask for more heat (rather than accidentally engaging a boost that immediately satisfies and does nothing).
-!!
-!! Falls back to the room's stored target, then to 20.0, when no schedule periods exist.
+!! If the room is already in Boost mode (active), this is a no-op — the panel is already shown by PaintExpansion. Otherwise just flips on the configuring state and repaints; the target tile picks up Room.target via PaintExpansion (Boost and On share a single target).
 OpenBoostPanel:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
 	if Tmode is `Boost` return
-
-	put property `nextTarget` of Room into Ttarget
-	if Ttarget is empty put property `target` of Room into Ttarget
-	if Ttarget is empty put `20.0` into Ttarget
-
-	put property `temp` of Room into TempVal
-	if TempVal is not empty
-	begin
-		put TempVal into TempStr
-		gosub to ToTenths
-		put TempTenths into TempT
-		put Ttarget into TempStr
-		gosub to ToTenths
-		put TempTenths into TargetT
-		if TempT is greater than TargetT
-		begin
-			put TempT into TempTenths
-			gosub to TenthsToString
-			put TempStr into Ttarget
-		end
-	end
-	put Ttarget into BoostSeedTarget
 	put ClickIndex into BoostPanelOpenIndex
 	gosub to PaintExpansion
 	return
-!! @hash 512f68b3
+!! @hash dd45da46
 !!!
 !! Switch the current room into NewMode. Always clears any active boost (an explicit mode pick is a stronger signal than a transient boost) and any in-flight Boost-configuring panel state.
 !!
@@ -1547,7 +1527,6 @@ ChangeMode:
 	if BoostPanelOpenIndex is ClickIndex
 	begin
 		put -1 into BoostPanelOpenIndex
-		put empty into BoostSeedTarget
 		set PanelWasOpen
 	end
 
@@ -1597,9 +1576,11 @@ ChangeMode:
 	if Tmode is `Boost` set property `Boost` of Result to 0
 	gosub to PostUiRequest
 	return
-!! @hash 378b6001
+!! @hash fea795ee
 !!!
-!! Target steppers. StepTargetUp / StepTargetDown adjust by 0.5° (= 5 tenths) per tap, clamped to [50, 300] (= 5.0° to 30.0°). LoadTargetTenths reads the current target (BoostSeedTarget while configuring, Room.target otherwise) into TargetT; WriteTargetTenths writes it back and decides the right side effect — purely local for the configuring case, persist + resend the boost duration for an active boost (so the controller's `until` is preserved), otherwise an "Operating Mode" with the unchanged mode + new target.
+!! Target steppers. StepTargetUp / StepTargetDown adjust by 0.5° (= 5 tenths) per tap, clamped to [50, 300] (= 5.0° to 30.0°). LoadTargetTenths reads Room.target into TargetT; WriteTargetTenths persists it back to Room.target and ships an "Operating Mode" with the current mode + new target. Boost-active edits additionally resend the boost duration so the controller's `until` is preserved.
+!!
+!! Boost-configuring and On share Room.target — there's no separate working copy, so every tap is a real commit regardless of which mode the user is in when they adjust the value. A user who bumps the target inside the Boost panel and then cancels the duration keeps the new target, same as if they'd been in On mode.
 !!
 !! A bare mode=boost message with no boost field would cause the controller to re-derive `until = now`, expiring the boost immediately — hence the explicit resend of the duration during active-boost target edits.
 StepTargetUp:
@@ -1616,24 +1597,11 @@ StepTargetDown:
 	gosub to WriteTargetTenths
 	return
 
-!	Target source for the +/- step buttons. In the Configuring state the
-!	user is editing BoostSeedTarget (the about-to-commit boost target);
-!	otherwise we read Room.target.
+!	Target source for the +/- step buttons. Always reads Room.target
+!	(Boost and On share the same target).
 LoadTargetTenths:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
-	if BoostPanelOpenIndex is ClickIndex
-	begin
-		if Tmode is not `Boost`
-		begin
-			put BoostSeedTarget into Ttarget
-			if Ttarget is empty put `20.0` into Ttarget
-			put Ttarget into TempStr
-			gosub to ToTenths
-			put TempTenths into TargetT
-			return
-		end
-	end
 	put property `target` of Room into Ttarget
 	if Ttarget is empty put `20.0` into Ttarget
 	put Ttarget into TempStr
@@ -1641,28 +1609,17 @@ LoadTargetTenths:
 	put TempTenths into TargetT
 	return
 
-!	Target step persisted. Three cases:
-!	  - Configuring: update BoostSeedTarget only (no controller traffic; the
-!	    seed is committed when the user picks a duration).
+!	Target step persisted. Two cases:
 !	  - Boost active: persist target + resend the boost duration so the
 !	    controller's `until` is preserved (a bare mode=boost with no boost
 !	    field re-derives until = now → boost expires immediately).
-!	  - Otherwise: send "Operating Mode" with the unchanged mode + new
-!	    target. Controller decides whether to override the schedule (Timed)
-!	    or just update the setpoint (On).
+!	  - Otherwise (On, Timed, Off, Boost-configuring): send "Operating
+!	    Mode" with the unchanged mode + new target. Controller decides
+!	    whether to use it now (On) or store it for later (Timed/Off).
 WriteTargetTenths:
 	put TargetT into TempTenths
 	gosub to TenthsToString
 	put property `mode` of Room into Tmode
-	if BoostPanelOpenIndex is ClickIndex
-	begin
-		if Tmode is not `Boost`
-		begin
-			put TempStr into BoostSeedTarget
-			gosub to PaintExpansion
-			return
-		end
-	end
 	set property `target` of Room to TempStr
 	set element ClickIndex of RoomsList to Room
 	gosub to AfterStateChange
@@ -1686,21 +1643,17 @@ WriteTargetTenths:
 	end
 	gosub to PostUiRequest
 	return
-!! @hash d8c364b0
+!! @hash 936acece
 !!!
 !! Commit a Boost. The user has tapped a duration button (30 min / 1 hr / 2 hr) inside the configuring panel, or while a boost is already active (to replace the running duration).
 !!
-!! Promotes Room.mode to "Boost", captures the underlying mode as prevMode (so SyncCurrentRoomToMap can mirror it back to the controller's `prevmode` field), moves BoostSeedTarget → Room.target if we were in Configuring, clears the panel state, then ships an "Operating Mode" uirequest with mode=boost, boost=B<minutes>, advance=none, target=<new>.
+!! Promotes Room.mode to "Boost", captures the underlying mode as prevMode (so SyncCurrentRoomToMap can mirror it back to the controller's `prevmode` field), clears the panel state, then ships an "Operating Mode" uirequest with mode=boost, boost=B<minutes>, advance=none, target=Room.target. The target is whatever Room.target was before — Boost and On share it, and target +/- edits during configuring have already committed it.
 !!
 !! The controller stores its own `prevmode` based on its mode at message-receive time, but we still send a local prevMode mirror so that SyncCurrentRoomToMap keeps the local Map.profiles consistent with the controller's view.
 ApplyBoost:
 	put element ClickIndex of RoomsList into Room
 	put property `mode` of Room into Tmode
 	if Tmode is not `Boost` set property `prevMode` of Room to Tmode
-	if BoostPanelOpenIndex is ClickIndex
-	begin
-		if BoostSeedTarget is not empty set property `target` of Room to BoostSeedTarget
-	end
 
 	put 0 into BoostMinutes
 	if BoostDur is `30 min` put 30 into BoostMinutes
@@ -1718,7 +1671,6 @@ ApplyBoost:
 	set element ClickIndex of RoomsList to Room
 
 	put -1 into BoostPanelOpenIndex
-	put empty into BoostSeedTarget
 
 	gosub to AfterStateChange
 	gosub to SyncCurrentRoomToMap
@@ -1735,11 +1687,11 @@ ApplyBoost:
 	set property `target` of Result to TargetForServer
 	gosub to PostUiRequest
 	return
-!! @hash 40f33462
+!! @hash 9f654a69
 !!!
 !! The Boost panel's "Off" duration button. Two cases:
 !!
-!! Configuring (panel open, mode != Boost): just close the panel and discard the seeded target. No controller traffic — nothing was ever committed.
+!! Configuring (panel open, mode != Boost): just close the panel. No controller traffic — any target edits the user made are already committed (Boost and On share Room.target, edits ship eagerly).
 !!
 !! Active (mode == Boost): cancel the boost. Locally revert mode to prevMode, clear boost text / boostRemaining / prevMode, and ship a cancel "Operating Mode" uirequest with mode=<prev>, Boost=0. The controller's stale `until` is harmless because expiration only fires when the controller's own mode is `boost` — once mode is back to the underlying value, `until` is ignored.
 BoostOffTapped:
@@ -1750,7 +1702,6 @@ BoostOffTapped:
 		if BoostPanelOpenIndex is ClickIndex
 		begin
 			put -1 into BoostPanelOpenIndex
-			put empty into BoostSeedTarget
 			gosub to PaintExpansion
 		end
 		return
@@ -1779,7 +1730,7 @@ BoostOffTapped:
 	set property `Boost` of Result to 0
 	gosub to PostUiRequest
 	return
-!! @hash dfe08fb8
+!! @hash 6518b52f
 !!!
 !! Toggle the Advance state for the current room. Optimistic local flip, then ship the new desired state in an "Operating Mode" uirequest.
 !!
@@ -1871,11 +1822,13 @@ SyncCurrentRoomBoostUntil:
 	return
 !! @hash 0991d205
 !!!
-!! Style the Advance button for the current Advance value. Reads the Advance variable; caller must `index AdvanceBtn to ClickIndex` first.
+!! Style the Advance button for the current Advance value. Active state ("Cancel the advance") gets the accent-tinted treatment; inactive state ("Advance to next schedule period (HH:MM)") gets the plain card surface. Reads the Advance and AdvanceNextTime globals; caller must `index AdvanceBtn to ClickIndex` first.
+!!
+!! AdvanceNextTime is the HH:MM the system would skip to when Advance is engaged from the current state — sourced from Room.nextTime by PaintExpansion, which has the live projection. After a local toggle the projection becomes stale for ~10s until the next map push reconciles, but the inactive→active flip hides the time in the label so the user doesn't see the stale value.
 PaintAdvanceBtn:
 	if Advance is `A`
 	begin
-		set the content of AdvanceBtn to `On`
+		set the content of AdvanceBtn to `Cancel the advance`
 		set style `background` of AdvanceBtn to `var(--color-accent-10)`
 		set style `border` of AdvanceBtn to `1.5px solid var(--color-accent)`
 		set style `color` of AdvanceBtn to `var(--color-accent)`
@@ -1883,14 +1836,16 @@ PaintAdvanceBtn:
 	end
 	else
 	begin
-		set the content of AdvanceBtn to `Off`
+		if AdvanceNextTime is empty
+			set the content of AdvanceBtn to `Advance to next schedule period`
+		else set the content of AdvanceBtn to `Advance to next schedule period (` cat AdvanceNextTime cat `)`
 		set style `background` of AdvanceBtn to `var(--color-surface-card)`
 		set style `border` of AdvanceBtn to `1px solid var(--color-border-hairline)`
 		set style `color` of AdvanceBtn to `var(--color-text-primary)`
 		set style `font-weight` of AdvanceBtn to `500`
 	end
 	return
-!! @hash bbd8389e
+!! @hash f222c162
 !!!
 !! Lowercase the Title-case Mode (Timed/On/Off/Boost) into ModeForServer (timed/on/off/boost) for the controller's payload format. Reads the global Mode variable in, writes ModeForServer out — callers must `put <newmode> into Mode` first.
 LowercaseModeForServer:
@@ -2325,6 +2280,8 @@ AfterStateChange:
 !!
 !! A sensor (outdoor) row never calls. An offline room never calls. An online room can call when its mode is not Off — Boost is its own mode and always drives the relay until expiry; Off-with-an-active-boost is now mode == "Boost" with prevMode == "Off", so the single Mode-not-Off test covers both cases.
 !!
+!! Target source matters and varies by mode. On and Boost: controller targets Room.target (the held setpoint), so compare against that. Timed: controller targets the current period's temp when in-period or background-temp when in a gap — both already projected into Room.nextTarget by map-to-rooms. Using Room.target in Timed mode would falsely call for heat whenever the persistent setpoint exceeds background-temp, even when the controller's real comparison (temp vs background-temp) says the relay should stay off; that mismatch can persist for minutes because the controller, seeing no state change, only sends empty heartbeat pings rather than a fresh map.
+!!
 !! ComputeCallingDiff is the actual temp-vs-target compare: relay on when current < target with no hysteresis, matching the controller's SetRelay logic. Re-deriving in the UI keeps the summary card consistent with what the user just clicked, without waiting for the round trip.
 RecalcCalling:
 	put `no` into NewCalling
@@ -2333,6 +2290,7 @@ RecalcCalling:
 	put property `mode` of Room into Tmode
 	put property `temp` of Room into Ttemp
 	put property `target` of Room into Ttarget
+	if Tmode is `Timed` put property `nextTarget` of Room into Ttarget
 	if Tsensor is `no`
 	begin
 		if Toffline is `no`
@@ -2342,7 +2300,7 @@ RecalcCalling:
 	end
 	set property `calling` of Room to NewCalling
 	return
-!! @hash 09e8f9a0
+!! @hash 533fa1d3
 !!!
 !! Inner branch of RecalcCalling. Compares Ttemp to Ttarget (both as integer tenths via ToTenths) and flips NewCalling to `yes` if temp is below target. Mirrors the controller's SetRelay: relay on when TempNow < Target, no hysteresis.
 ComputeCallingDiff:

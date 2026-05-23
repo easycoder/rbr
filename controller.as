@@ -93,6 +93,7 @@
     variable UpdateCount
     variable WaitCounter
     variable PriorityRoomIndex
+    variable TodayWas
     variable RelayFails
     variable SensorAge
     variable RoomStatus
@@ -119,7 +120,7 @@
     variable S
     variable T
     module DeviceModule
-!! @hash f7af243f
+!! @hash 1cc88c39
 !! @verified f7af243f
 !!!
 !! Basic initialisation.
@@ -216,7 +217,7 @@
         append ReceivedMessage to MessageQueue
     end
     stop
-!! @hash 39624871
+!! @hash a0b1539d
 !! @verified 39624871
 !!!
 !! Missing credentials signifies a non-recoverable error
@@ -252,9 +253,9 @@ Start:
 !! This is the head of each loop.
 !! It waits 5 seconds between runs. This can be adjusted but 5 seconds seems optimal.
 !!
-!! Hourly auto-update check. MainLoop runs every ~5s (720 cycles ≈ 1h), so this hits the version endpoint at most once an hour. If a newer version exists, CheckForUpdate exits the process and systemd / `system background ... allspeak controller.as` relaunches us.
+!! Day-rollover check: ResolveCalendarProfile only runs inside ProcessAllRooms, so without an explicit midnight detection the controller keeps processing yesterday's profile until a UI action re-triggers it. A `today` comparison at the top of each cycle catches the rollover and refreshes the profile.
 !!
-!! Merge Zigbee thermometer data if any is available.
+!! Hourly auto-update check. MainLoop runs every ~5s (720 cycles ≈ 1h), so this hits the version endpoint at most once an hour. If a newer version exists, CheckForUpdate exits the process and systemd / `system background ... allspeak controller.as` relaunches us.
 !!
 !! If a room has priority (e.g. is waiting for an immediate response), process it before entering the main loop.
 !!
@@ -265,6 +266,14 @@ Start:
 !! Finally, if an immediate update was requested, notify the system that the map has changed, so the UIs will get updates without having to wait for the normal update cycle to complete.
 MainLoop:
     ! log `MainLoop`
+    ! Detect a day rollover. ResolveCalendarProfile only runs inside
+    ! ProcessAllRooms, so without this the controller would keep
+    ! processing yesterday's profile until a UI action re-triggered it.
+    if today is not TodayWas
+    begin
+        log `Day rollover detected; refreshing profile selection`
+        gosub to ProcessAllRooms
+    end
     increment UpdateCheckCounter
     if UpdateCheckCounter is greater than 720
     begin
@@ -288,22 +297,6 @@ MainLoop:
 !            log `Update map from MainLoop`
             gosub SendMapToUI
         end
-    end
-
-    ! Merge Zigbee thermometer data if available
-    if file `zigbee-temperatures.json` exists
-    begin
-        load ZigbeeTemps from `zigbee-temperatures.json`
-        put the keys of ZigbeeTemps into ZigbeeTempKeys
-        set ZK to 0
-        while ZK is less than the count of ZigbeeTempKeys
-        begin
-            put item ZK of ZigbeeTempKeys into Value
-            put entry Value of ZigbeeTemps into ZigbeeTemp
-            set entry Value of Thermometers to ZigbeeTemp
-            increment ZK
-        end
-        set ThermometerUpdate
     end
 
     ! log `Repeat ` cat LoopCount
@@ -350,12 +343,14 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-!! @hash ce47a848
+!! @hash 7a3cda2d
 !! @verified ce47a848
 !!!
 !! Drain the queue of messages received from the UI between MainLoop ticks.
 !!
 !! Four action types: `first` (one-shot at UI startup, triggers a full map push), `refresh` (10-second heartbeat from each connected UI — any reply doubles as a round-trip alive signal feeding the UI's heartbeat dot and stall-detection watchdog), `uirequest` (a user action handed off to ProcessUIRequest), and `sendemail` (registration/recovery email relay).
+!!
+!! Once a minute we also pull the latest Zigbee thermometer readings from the bridge's zigbee-temperatures.json before flushing Thermometers back to disk. The merge lives here rather than in MainLoop's body so it isn't starved when a busy UI keeps short-circuiting the 5-second wait via `go to HandleMessages`. Without RBR-Now devices in play, this is the only path that updates Thermometers — RBR-Now installs get a parallel update from RecordThermometer during room processing.
 !!
 !! Map and thermometer files are flushed to disk at most once a minute. Senders silent for more than 100 seconds are dropped from the recipient list so we stop pushing updates to disconnected UIs.
 HandleMessages:
@@ -406,10 +401,29 @@ HandleMessages:
     end
     clear UIRequestPending
 
-    ! Save files periodically
+    ! Refresh Zigbee thermometers and save files, once a minute.
     add 60000 to LastMapSave giving T
     if T is less than now
     begin
+        ! Merge Zigbee thermometer data if available. Pairing this with
+        ! the save tick (rather than running it every MainLoop cycle)
+        ! guarantees Thermometers is refreshed at the same cadence as
+        ! thermometers.json is flushed, even when the wait loop in
+        ! MainLoop keeps short-circuiting before reaching its body.
+        if file `zigbee-temperatures.json` exists
+        begin
+            load ZigbeeTemps from `zigbee-temperatures.json`
+            put the keys of ZigbeeTemps into ZigbeeTempKeys
+            set ZK to 0
+            while ZK is less than the count of ZigbeeTempKeys
+            begin
+                put item ZK of ZigbeeTempKeys into Value
+                put entry Value of ZigbeeTemps into ZigbeeTemp
+                set entry Value of Thermometers to ZigbeeTemp
+                increment ZK
+            end
+            set ThermometerUpdate
+        end
 !        log `Save the map`
         if Simulate save prettify Map to `map-sim.json` else save prettify Map to `map.json`
         put now into LastMapSave
@@ -433,7 +447,7 @@ HandleMessages:
         increment S
     end
     go to MainLoop
-!! @hash b8cec348
+!! @hash 3cd8fa49
 !! @verified b8cec348
 !!!
 !! Load the system map from disk, or build a fresh default map if the file is absent.
@@ -499,7 +513,7 @@ ResolveCalendarProfile:
 !!
 !! Called once at startup and after any UI action that changes the active profile or rooms list (Update Rooms, Select Profile, Update Profiles).
 !!
-!! Sizes the parallel TargetWas/PeriodWas/PeriodActive/RelayStateWas arrays to match the new room count, clears stale advance-rq/boost/responses entries, and seeds PeriodWas to -1 so the first cycle's period-change check does not spuriously fire.
+!! Sizes the parallel TargetWas/PeriodWas/PeriodActive/RelayStateWas arrays to match the new room count, clears stale advance-rq/boost/responses entries, and seeds PeriodWas from each room's current natural period (via GetNaturalPeriod) so ApplyPeriodsAdvance's roll-over check works on the very next cycle — including the case where Advance was engaged in background time (where the previous -1 sentinel would have blocked auto-cancel). Also stamps TodayWas so MainLoop's day-rollover detector has a baseline.
 ProcessAllRooms:
     gosub to ResolveCalendarProfile
     put item SelectedProfile of Profiles into Profile
@@ -525,7 +539,13 @@ ProcessAllRooms:
         ! Initialisation
 
         index PeriodWas to R
-        set PeriodWas to -1
+        ! Seed PeriodWas with the room's *current* natural period instead
+        ! of the -1 sentinel, so ApplyPeriodsAdvance's roll-over check
+        ! works on the very next cycle. (A -1 sentinel collides with the
+        ! legitimate "in background" value and blocks the auto-cancel for
+        ! Advance engaged outside any period.)
+        gosub to GetNaturalPeriod
+        set PeriodWas to NaturalPeriod
         index PeriodActive to R
         set PeriodActive to 0
         index RelayStateWas to R
@@ -534,8 +554,9 @@ ProcessAllRooms:
         set TargetWas to 0
         increment R
     end
+    set TodayWas to today
     return
-!! @hash 09455c73
+!! @hash 63226fd2
 !! @verified 09455c73
 !!!
 !! Run one control cycle for a single room: read its current temperature, apply the active mode to derive a target, send a relay command to the device controller, and store the outcome on the Room dictionary for the UI.
@@ -855,10 +876,10 @@ SetRelay:
 RoomStatus:
     if Mode is `timed`
     begin
-        if PeriodWas is not -1 and PeriodActive is not PeriodWas and entry `advance` of Room is not `A`
+        if PeriodActive is not PeriodWas and entry `advance` of Room is not `A`
         begin
 !            log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
-                 cat ` ` cat entry `advance` of Room
+!                 cat ` ` cat entry `advance` of Room
             log `Force an update (period change)`
             gosub to ForceUpdate
         end
@@ -941,7 +962,7 @@ RoomStatus:
         end
     end
     set entry `statusMessage` of Room to Value
-!! @hash 0c176079
+!! @hash 842a5db9
 !! @verified e101ab9c
 !!!
 !! Cascading writers for the system map: callers gosub to whichever level they need, then control falls through up to UpdateMap and returns.
@@ -1109,10 +1130,11 @@ ApplyPeriodsAdvance:
     if entry `advance` of Room is `A`
     begin
         ! Auto-cancel the advance once the natural state has rolled.
-        ! PeriodWas == -1 means "haven't latched yet" (fresh start), so
-        ! only cancel when there was a recorded prior state AND it
-        ! differs from the current natural state.
-        if PeriodWas is not -1 and NaturalPeriodActive is not PeriodWas
+        ! PeriodWas is seeded from the room's current natural period in
+        ! ProcessAllRooms, so any value here is a real period index
+        ! (>= 0) or -1 for background — both legitimate engagement
+        ! anchors. A simple inequality is enough; no sentinel guard.
+        if NaturalPeriodActive is not PeriodWas
         begin
             log RoomName cat `: Cancelling the advance (periods)`
             set entry `advance` of Room to `-`
@@ -1165,7 +1187,7 @@ ApplyPeriodsAdvance:
         put Temp into Target
     end
     return
-!! @hash 46a58892
+!! @hash bfdf2fa2
 !! @verified 46a58892
 !!!
 !! Find the next period chronologically: smallest `on` strictly after `now`, else (no on later today) wrap to the smallest `on` overall = tomorrow's first.
@@ -1426,7 +1448,7 @@ ResolveRoomFromMessage:
 !!
 !! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (full replacement array, used by delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites profiles list and optional calendar), `Operating Mode` (per-room mode change), and `Test`.
 !!
-!! Operating Mode handles all four modes plus the `Advance` toggle and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
+!! Operating Mode handles all four modes plus the `Advance` toggle and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
 ProcessUIRequest:
     ! Legacy UI modules may still send {request:`Update`, data:{...}}.
     ! Unwrap only when there is no direct Action/action field.
@@ -1611,6 +1633,15 @@ ProcessUIRequest:
             ! ProcessRoom cycle records the current natural period fresh.
             if Room has entry `boostperiod` delete entry `boostperiod` of Room
         end
+        else if Value2 is `boost`
+        begin
+            ! Leaving boost without letting it expire naturally — clear
+            ! all boost-tracking fields so the map doesn't carry zombie
+            ! state into the next mode (and into future profile views).
+            delete entry `until` of Room
+            delete entry `prevmode` of Room
+            delete entry `boostperiod` of Room
+        end
         set entry `mode` of Room to Mode
         if Message has entry `target` set entry `target` of Room to entry `target` of Message
         else if Message has entry `Target` set entry `target` of Room to entry `Target` of Message
@@ -1697,7 +1728,7 @@ ProcessUIRequest:
         if Mode is not `timed` or Value is empty gosub to ForceUpdate
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 4dd81a04
+!! @hash 4d82911f
 !! @verified 4dd81a04
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).

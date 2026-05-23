@@ -372,7 +372,7 @@
         "$AdvanceBlock": {
             "#element": "div",
             "@id": "room-/I/-advance-block",
-            "#": ["$AdvanceLabel", "$AdvanceRow"],
+            "#": ["$AdvanceLabel", "$AdvanceBtn"],
 
             "$AdvanceLabel": {
                 "#element": "div",
@@ -384,42 +384,21 @@
                 "text-transform": "uppercase",
                 "#content": "Advance"
             },
-            "$AdvanceRow": {
-                "#element": "div",
-                "display": "flex",
-                "gap": "12px",
-                "align-items": "center",
-                "padding": "10px 14px",
-                "background": "var(--color-surface-card)",
+            "$AdvanceBtn": {
+                "#element": "button",
+                "@id": "room-/I/-advance-btn",
+                "width": "100%",
+                "padding": "12px 14px",
                 "border": "1px solid var(--color-border-hairline)",
                 "border-radius": "12px",
-                "#": ["$AdvanceText", "$Spacer", "$AdvanceBtn"],
-
-                "$AdvanceText": {
-                    "#element": "div",
-                    "font-size": "13px",
-                    "color": "var(--color-text-secondary)",
-                    "#content": "Skip to next schedule period"
-                },
-                "$Spacer": {
-                    "#element": "div",
-                    "flex": "1"
-                },
-                "$AdvanceBtn": {
-                    "#element": "button",
-                    "@id": "room-/I/-advance-btn",
-                    "padding": "8px 18px",
-                    "border": "1px solid var(--color-border-hairline)",
-                    "border-radius": "10px",
-                    "background": "var(--color-surface-card)",
-                    "color": "var(--color-text-primary)",
-                    "font-family": "inherit",
-                    "font-size": "13px",
-                    "font-weight": "500",
-                    "cursor": "pointer",
-                    "min-width": "60px",
-                    "#content": "Off"
-                }
+                "background": "var(--color-surface-card)",
+                "color": "var(--color-text-primary)",
+                "font-family": "inherit",
+                "font-size": "14px",
+                "font-weight": "500",
+                "cursor": "pointer",
+                "text-align": "center",
+                "#content": "Advance to next schedule period"
             }
         },
 

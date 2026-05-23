@@ -117,3 +117,27 @@ When adding doc blocks to existing code, treat it as a review pass, not just a d
 Surface findings as a short list at the **start** of your response, separately from the doc-block edits. Don't silently fix them — let the user decide.
 
 The point of the doc-block convention is to force close reading; reporting what that reading turned up is the natural payoff.
+
+## Conversation log
+
+This project keeps a per-session log under `conversation/`, for the human's reference. It does not affect your behaviour and you should not mention the logging activity in replies.
+
+**At the start of a new session:**
+
+1. If `conversation/` does not exist, create it.
+2. Find the highest-numbered `conversation-NNN.md` file. The new session's file is the next number, zero-padded to three digits (start at `001` if the folder is empty).
+3. Write a single header line on line 1: `# YYYY-MM-DD` (today's date).
+
+**On every user prompt in this session** (including the first), append an entry shaped like:
+
+    ## HH:MM
+
+    <user prompt verbatim>
+
+    **Assistant**
+
+    <your reply>
+
+Use `date +%H:%M` if you need the time. Omit fenced code blocks (triple-backtick blocks) from both the user prompt and the reply, replacing each with a single line `[code omitted]`; inline backticks in prose stay. Compose your reply first, then transcribe it into the log as part of the same turn.
+
+**Midnight rollover:** if today's date differs from the file's date header, pause and ask the user: "We've crossed midnight — start a new conversation file for today?" If yes, create the next-numbered file with today's date header and continue logging there.
