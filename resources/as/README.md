@@ -10,7 +10,7 @@ Put all files in the same directory as the scripts you want to edit.
 
 Start up the server:
 
-`easycoder scripted-server.ecs {port}`
+`allspeak scripted-server.ecs {port}`
 
 where {port} is a port number such as 8080, then open the editor in your browser at:
 
@@ -19,4 +19,4 @@ where {port} is a port number such as 8080, then open the editor in your browser
 This should start the editor.
 
 
-See the instructions in our [Primer](https://easycoder.github.io/primer.html).
+See the instructions in our [Primer](https://allspeak.ai/learn/).

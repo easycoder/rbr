@@ -1,6 +1,6 @@
 !! Device controller module for RBR. Sits between the main controller (controller.as) and the physical relay devices, translating per-room commands into HTTP calls on either the RBR-Now ESP-Now hub or the local Zigbee bridge.
 !!
-!! Run as a sub-module of controller.as (via `run ... as DeviceModule`) — communication with the parent is by EasyCoder messaging, not MQTT. The parent stops the module by terminating; there is no explicit shutdown handshake.
+!! Run as a sub-module of controller.as (via `run ... as DeviceModule`) — communication with the parent is by AllSpeak messaging, not MQTT. The parent stops the module by terminating; there is no explicit shutdown handshake.
 !!
 !! The script starts by declaring all the variables it uses, then performs basic initialisation: loads config.json to find the master device's IP, registers the on-message handler that routes incoming RoomSpecs, and signals the parent it is ready.
 !   deviceControl.as - a script to drive radiator relays and read temperatures
@@ -33,7 +33,7 @@
 
 !    debug step
     
-    ! Comms between this module and the controller is done with EasyCoder messaging (not MQTT)
+    ! Comms between this module and the controller is done with AllSpeak messaging (not MQTT)
     log `Set up the device controller`
     gosub to SetupDeviceController
     on message go to RunController
@@ -70,7 +70,7 @@ SetupDeviceController:
 !! @hash 29131be6
 !! @verified 29131be6
 !!!
-!! Top-level message handler. Invoked by the EasyCoder runtime whenever controller.as sends us a RoomSpec via `send ... to DeviceModule`.
+!! Top-level message handler. Invoked by the AllSpeak runtime whenever controller.as sends us a RoomSpec via `send ... to DeviceModule`.
 !!
 !! Two message shapes are accepted:
 !!

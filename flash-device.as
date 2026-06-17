@@ -1,4 +1,4 @@
-!   flash.ecs
+!   flash-device.as
 
 !   This script sets up all the firmware/software on an RBR-Now device
 

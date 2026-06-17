@@ -32,7 +32,7 @@
 
 !    debug step
     
-    ! Comms between thi module and the controller is done with EasyCoder messaging (not MQTT)
+    ! Comms between this module and the controller is done with AllSpeak messaging (not MQTT)
     log `Set up the device controller`
     gosub to SetupDeviceController
     on message go to RunController

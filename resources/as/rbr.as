@@ -335,7 +335,7 @@ SetupScreen:
     set style `height` of Body to `calc(100vh - 1em)`
 !    put empty into storage as `MAC`
 
-!	First get EasyCoder scripts and the various layout scripts
+!	First get AllSpeak scripts and the various layout scripts
     put empty into HelpScript
 
     put empty into MainMenuWebson

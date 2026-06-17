@@ -1,6 +1,6 @@
 !! Thermal simulator for RBR. Stands in for deviceControl.as when the controller is started against a `sim` flag, modelling how a room's temperature responds to the relay being on or off, biased by an outdoor-conditions envelope read from environment.csv.
 !!
-!! Run as a sub-module of controller.as (via `run ... as DeviceModule`) — communication with the parent is by EasyCoder messaging, not MQTT. Each RoomSpec carries the room name, current temperature, and relay state; we apply one step of the thermal model and reply with the new temperature so the controller treats us interchangeably with the real device controller.
+!! Run as a sub-module of controller.as (via `run ... as DeviceModule`) — communication with the parent is by AllSpeak messaging, not MQTT. Each RoomSpec carries the room name, current temperature, and relay state; we apply one step of the thermal model and reply with the new temperature so the controller treats us interchangeably with the real device controller.
 !!
 !! The script starts by declaring all the variables it uses, then performs basic initialisation: loads environment.csv to populate the time-of-day weather envelope (SetupSimulator), registers the on-message handler that runs each per-room simulation step, and signals the parent it is ready.
 !   simulator.as

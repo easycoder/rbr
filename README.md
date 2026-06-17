@@ -12,7 +12,7 @@ The repository software is in 3 parts:
   1. A REST server on public shared hosting. This is coded in PHP.
   1. A user interface, built as a browser-based mobile webapp. This is coded in JavaScript.
 
-Third-party tools are kept to a minimum. The project relies mainly on other products in the EasyCoder repository:
+Third-party tools are kept to a minimum. The project relies mainly on other products in the AllSpeak repository:
 
   - A high level scripting language coded in Python for the system controller
   - A similar high-level scripting language coded in JavaScript for the user interface
@@ -58,7 +58,7 @@ For each room, the controller uses the current operating mode to decide if a roo
 This is a very basic description; the code is somewhat more complex.
 
 ### The code
-All the controller code is written in EasyCoder, a high-level programming script that is well suited to the needs of this application. EasyCoder is itself written in Python and provides general language features in a more accessible form. It is described in its own repository.
+All the controller code is written in AllSpeak, a high-level programming language that is well suited to the needs of this application. AllSpeak is itself written in Python and provides general language features in a more accessible form. It is described in its own repository.
 
 ## Call for collaborators
 

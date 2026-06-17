@@ -1,4 +1,4 @@
-# Room By Room — Design Handoff for Claude Code
+# Room By Room — Design Handoff
 
 This document is the bridge between the visual prototype (`Room By Room.html`, built in React for design-time clarity) and the production implementation in **Webson** (DOM description) + **AllSpeak** (logic).
 

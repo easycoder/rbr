@@ -729,7 +729,7 @@ BoostDone:
     set entry `relay state` of RoomSpec
     to RelayState
 !    log RoomName cat ` ` cat RelayState
-    ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
+    ! Send the RoomSpec packet to the device controller using AllSpeak messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
 !! @hash 5b7749f8

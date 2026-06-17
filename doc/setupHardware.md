@@ -26,16 +26,16 @@ The steps required are as follows:
 1. In the Files panel, navigate to where you downloaded the RBR-Now files. Select all the files
  and upload them to the ESP32, overwriting anything that was already there.
 
-To avoid most of the above, here's an EasyCoder script that will do the job for you without using Thonny at all. First you need to install `ampy` from AdaFruit:
+To avoid most of the above, here's an AllSpeak script that will do the job for you without using Thonny at all. First you need to install `ampy` from AdaFruit:
 
 ```
 pip install adafruit-ampy
 ```
 
-Now create a new file, `flash.ecs` containing the following script. You may need to adjust one or more of the variables at the top of the file, under `Set things up`:
+Now create a new file, `flash-device.as` containing the following script. You may need to adjust one or more of the variables at the top of the file, under `Set things up`:
 
 ```
-!   flash.ecs
+!   flash-device.as
 
 !   This script sets up all the firmware/software on an RBR-Now device
 
@@ -111,7 +111,7 @@ Now create a new file, `flash.ecs` containing the following script. You may need
 And now give this command:
 
 ```
-easycoder flash.ecs
+allspeak flash-device.as
 ```
  
 At this point you can install the ESP32 into your device and power it up. From here on, everything is done using the configurator.

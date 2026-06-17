@@ -41,16 +41,16 @@ The master device has a slightly more complex configuration. When the configurat
 
 ## System prerequisites ##
 
-To run the configurator you will need EasyCoder. This should have been set up when the RBR software was installed, but if not you  can run
+To run the configurator you will need AllSpeak. This should have been set up when the RBR software was installed, but if not you  can run
 
 ```
-pip install -U easycoder
+pip install -U allspeak
 ```
 
-where the `-U` option makes sure that any older version you may have will be updated to the latest. EasyCoder will install in `~/.local/bin`, which may not be on your execution path. You can either adjust this (e.g. in `.profile`), or give the full path when you run EasyCoder, or set up an alias using the `ln` system command such as:
+where the `-U` option makes sure that any older version you may have will be updated to the latest. AllSpeak will install in `~/.local/bin`, which may not be on your execution path. You can either adjust this (e.g. in `.profile`), or give the full path when you run AllSpeak, or set up an alias using the `ln` system command such as:
 
 ```
-ln -s ~/.local/bin/easycoder ec
+ln -s ~/.local/bin/allspeak ec
 ```
 
 Next, create a text file `rbrconf.ecs` containing the following:
@@ -75,14 +75,14 @@ The line `get Script from url …` is a single line. It probably shows wrapped i
 Now issue this command:
 
 ```
-easycoder rbrconf.ecs
+allspeak rbrconf.ecs
 ```
 
 When the script runs it pulls the latest configurator code from the repository and runs that. So you never need to update the configurator yourself.
 
 ## The system configurator ##
 
-The configuration is a GUI application written in EasyCoder for Python. It runs exclusively on Linux because it requires the use of commands that are not available on Windows. Here is a screenshot of the application under development:
+The configuration is a GUI application written in AllSpeak for Python. It runs exclusively on Linux because it requires the use of commands that are not available on Windows. Here is a screenshot of the application under development:
 <br/>
 
 <img src="img/config.png" width="100%">

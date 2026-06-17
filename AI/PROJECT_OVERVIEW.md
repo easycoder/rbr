@@ -1,31 +1,58 @@
 # Project Overview (for AI)
 
 ## What this repo is
-Doclets is a searchable note/doclet system with:
-- EasyCoder scripts for app logic and UI flow
-- a Python doclet server/plugin for data access
-- MQTT for request/response communication
-- browser UI rendered from Webson JSON
+
+Room By Room (RBR) is an open-source smart central heating control system with:
+
+- **Controller** — Python AllSpeak scripts running on a Linux PC (e.g. IXHUB) that manage heating per-room via Zigbee thermometers and relays, plus legacy RBR-Now ESP32 devices
+- **UI** — A browser-based mobile webapp (PWA) written in JavaScript AllSpeak with Webson-rendered DOM
+- **REST server** — PHP on shared hosting (rbrheating.com, not in this repo)
+
+Communication between controller and UI is via MQTT.
 
 ## Key files
-- `doclets-js.ecs`: main JS/browser reader behavior in EasyCoder
-- `doclets.json`: Webson UI layout
-- `docletServer.ecs`: server-side EasyCoder script
-- `ec_doclets.py`: Python plugin with doclet search logic
-- `Browser.js`, `Core.js`, `JSON.js`, etc.: EasyCoder JS runtime modules
-- `Webson.js`: Webson renderer used by EasyCoder browser render command
+
+### Controller
+- `controller.as` — main controller loop: loads map, processes rooms, manages MQTT, calls device control
+- `deviceControl.as` — device-level operations: Zigbee relay on/off, RBR-Now relay on/off, temperature reading
+- `simulator.as` — standalone simulator for testing controller logic without real hardware
+
+### UI (legacy, served from root)
+- `index.html` — entry point, loads AllSpeak runtime and fetches `resources/as/rbr.as`
+- `resources/webson/*.json` — 40 Webson screen layouts
+- `resources/as/rbr.as` — main UI script
+- `resources/as/*.as` — supporting scripts (roomedit, profiles, statistics, etc.)
+
+### UI (new PWA, served from `/new-ui/`)
+- `new-ui/index.html` — PWA entry point with service worker and manifest
+- `new-ui/resources/as/shell.as` — single ~2700-line shell script that boots the app, opens MQTT, renders the home screen, and routes all user gestures
+- `new-ui/resources/as/*.as` — supporting scripts (profile-sheet, schedule-editor, map-to-rooms, device-editor)
+- `new-ui/resources/webson/*.json` — new UI Webson layouts
+- `new-ui/sw.js` — service worker with cache management
+
+### Infrastructure
+- `deploy.sh` — rsyncs UI + controller files to rbrheating.com (`--release` bumps version for customer IXHUBs)
+- `config.json` — RBR-Now device hardware configuration (pins, SSIDs, channels)
+- `devices.json` — room-to-relay mapping
+- `params.json` — controller runtime parameters
+- `RBRNow/` — MicroPython firmware source for RBR-Now ESP32 devices
+- `credentials.example.json` — MQTT/mail credential format for production deployment
 
 ## Main design choices
-- High-level behavior lives in EasyCoder scripts
-- MQTT is the preferred path for low-latency interaction
-- Webson is the preferred way to define/build screens
+- AllSpeak scripts handle all high-level behaviour (controller logic, UI flow)
+- MQTT is the sole communication path between controller and UI
+- Webson JSON defines screen structure; AllSpeak attaches to stable element IDs
+- The controller self-times 6×10-second processing cycles per invocation; re-launched every ~60s by cron or a process supervisor
+- No software frameworks; minimal dependencies for maintainability
 
 ## External references
-- EasyCoder repo: https://github.com/easycoder/easycoder.github.io
-- Webson repo (older, README still relevant): https://github.com/easycoder/webson
-- EasyCoder Codex intro: https://easycoder.github.io
+- AllSpeak language: https://allspeak.ai/learn/ (reference + idioms)
+- AllSpeak repo: https://github.com/easycoder/allspeak.ai
+- Webson: https://github.com/easycoder/webson
+- AllSpeak Codex intro: https://easycoder.github.io/allspeak.ai/codex
 
-## Current practical workflow
-- Keep local JS runtime files as symlinks in this repo
-- Build EasyCoder dist in easycoder repo using `build-easycoder`
-- For debugging runtime errors, prefer unminified `easycoder.js`
+## Practical workflow
+- Edit `.as` files directly; the human reviews that generated code reads sensibly
+- For JS runtime edits: update source in the allspeak repo, run `build-allspeak`, then `pin-allspeak.sh` to promote the dist file
+- For UI changes: update Webson JSON *and* matching AllSpeak `attach`/`on click` references together
+- Deploy with `./deploy.sh`; use `--release` to push the version stamp for customer controllers
