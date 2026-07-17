@@ -1,822 +1,958 @@
 {
-    "profiles": [
+  "profiles": [
+    {
+      "name": "Monday-Friday",
+      "rooms": [
         {
-            "name": "Monday-Friday",
-            "rooms": [
-                {
-                    "name": "Kitchen",
-                    "sensor": "Kitchen-thermometer",
-                    "relays": [
-                        "Kitchen-plinth",
-                        "Kitchen-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 21.0,
-                    "events": [
-                        {
-                            "until": "17:30",
-                            "temp": "15.0"
-                        },
-                        {
-                            "until": "19:30",
-                            "temp": "21.0"
-                        }
-                    ],
-                    "relay": "on",
-                    "protect": "no",
-                    "advance": "-",
-                    "relayType": "Zigbee",
-                    "prevmode": "timed",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1778173157150,
-                    "temperature": 2050,
-                    "battery": 100,
-                    "period": 1,
-                    "relayfails": 0,
-                    "statusMessage": "",
-                    "humidity": 52,
-                    "sensorAge": 409968,
-                    "until": 1778144217019
-                },
-                {
-                    "name": "Sunroom",
-                    "sensor": "Sunroom-thermometer",
-                    "relays": [
-                        "Sunroom-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 23.0,
-                    "events": [
-                        {
-                            "until": "17:30",
-                            "temp": 10
-                        },
-                        {
-                            "until": "23:00",
-                            "temp": "23.5"
-                        }
-                    ],
-                    "relay": "off",
-                    "protect": "no",
-                    "relayType": "Zigbee",
-                    "prevmode": "timed",
-                    "advance": "-",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1778173157561,
-                    "temperature": 2350,
-                    "battery": 100,
-                    "period": 1,
-                    "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 35 min",
-                    "humidity": 43,
-                    "sensorAge": 2139572,
-                    "until": 1778144344746
-                },
-                {
-                    "name": "Lounge",
-                    "sensor": "Lounge-thermometer",
-                    "relays": [
-                        "Lounge-radiators"
-                    ],
-                    "mode": "timed",
-                    "target": 15,
-                    "events": [
-                        {
-                            "until": "09:00",
-                            "temp": "15.0"
-                        },
-                        {
-                            "until": "18:00",
-                            "temp": "17.0"
-                        },
-                        {
-                            "until": "23:00",
-                            "temp": "24.0"
-                        }
-                    ],
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "advance": "-",
-                    "prevmode": "timed",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1778173157974,
-                    "temperature": 2030,
-                    "battery": 100,
-                    "relay": "off",
-                    "period": 1,
-                    "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 16 min",
-                    "humidity": 49,
-                    "sensorAge": 1002811
-                },
-                {
-                    "name": "Bedroom 1",
-                    "sensor": "Bedroom-1-thermometer",
-                    "relays": [
-                        "Bedroom-1-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 22,
-                    "events": [
-                        {
-                            "until": "07:00",
-                            "temp": 15
-                        },
-                        {
-                            "until": "08:00",
-                            "temp": "22.0"
-                        },
-                        {
-                            "until": "22:30",
-                            "temp": 15
-                        },
-                        {
-                            "until": "23:30",
-                            "temp": 21
-                        }
-                    ],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "advance": "-",
-                    "prevmode": "timed",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1778173158398,
-                    "temperature": 2330,
-                    "battery": 100,
-                    "period": 2,
-                    "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 18 min",
-                    "humidity": 43,
-                    "sensorAge": 1113186
-                },
-                {
-                    "name": "Bedroom 2",
-                    "sensor": "Bedroom-2-thermometer",
-                    "relays": [
-                        "Bedroom-2-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 23,
-                    "events": [
-                        {
-                            "until": "07:00",
-                            "temp": "15.0"
-                        },
-                        {
-                            "until": "08:30",
-                            "temp": "22.0"
-                        },
-                        {
-                            "until": "22:30",
-                            "temp": "16.0"
-                        },
-                        {
-                            "until": "23:30",
-                            "temp": "22.0"
-                        }
-                    ],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "ssid": "",
-                    "advance": "-",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1778173158818,
-                    "temperature": 2150,
-                    "battery": 100,
-                    "period": 2,
-                    "relayfails": 0,
-                    "statusMessage": "",
-                    "humidity": 47,
-                    "sensorAge": 589218
-                },
-                {
-                    "name": "Hall",
-                    "sensor": "Hall-thermometer",
-                    "relays": [
-                        "Hall-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 13,
-                    "events": [
-                        {
-                            "until": "07:00",
-                            "temp": "13.0"
-                        },
-                        {
-                            "until": "09:00",
-                            "temp": "17.0"
-                        },
-                        {
-                            "until": "17:00",
-                            "temp": "14.0"
-                        },
-                        {
-                            "until": "23:00",
-                            "temp": "17.0"
-                        }
-                    ],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "prevmode": "timed",
-                    "advance": "-",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1778173159235,
-                    "temperature": 2073,
-                    "battery": 100,
-                    "period": 3,
-                    "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 11 min",
-                    "sensorAge": 714304,
-                    "humidity": 44.17
-                },
-                {
-                    "name": "Office",
-                    "sensor": "Office-thermometer",
-                    "relays": [
-                        "Office-heater"
-                    ],
-                    "mode": "off",
-                    "target": 22,
-                    "events": [
-                        {
-                            "until": "07:00",
-                            "temp": 15
-                        }
-                    ],
-                    "relay": "off",
-                    "protect": "no",
-                    "relayType": "Zigbee",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1778173159629,
-                    "temperature": 2133,
-                    "battery": 32,
-                    "advance": "-",
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": "",
-                    "humidity": 39.04,
-                    "sensorAge": 551981
-                },
-                {
-                    "name": "Outside",
-                    "sensor": "Outside-thermometer",
-                    "relays": [],
-                    "mode": "off",
-                    "target": 0,
-                    "events": [],
-                    "relay": "off",
-                    "protect": "yes",
-                    "ptemp": "-0.5",
-                    "ssid": "",
-                    "relayType": "",
-                    "advance": "-",
-                    "prevmode": "off",
-                    "linked": "yes",
-                    "status": "fail",
-                    "timestamp": 1778173160043,
-                    "temperature": 1362,
-                    "battery": 51,
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 164 min",
-                    "sensorAge": 9879299,
-                    "humidity": 60.94
-                }
-            ]
+          "name": "Kitchen",
+          "sensor": "Kitchen-thermometer",
+          "relays": [
+            "Kitchen-plinth",
+            "Kitchen-radiator"
+          ],
+          "mode": "timed",
+          "target": 21,
+          "events": [
+            {
+              "until": "17:30",
+              "temp": "15.0"
+            },
+            {
+              "until": "19:30",
+              "temp": "21.0"
+            }
+          ],
+          "relay": "off",
+          "protect": "no",
+          "advance": "-",
+          "relayType": "Zigbee",
+          "prevmode": "timed",
+          "ssid": "",
+          "linked": "yes",
+          "status": "warn",
+          "timestamp": 1784319757112,
+          "temperature": 2410,
+          "battery": -1,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 47 min",
+          "humidity": 54,
+          "sensorAge": 2855776,
+          "until": 1778144217019,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "20:00",
+              "temp": "22.0"
+            }
+          ]
         },
         {
-            "name": "Weekend",
-            "rooms": [
-                {
-                    "name": "Kitchen",
-                    "sensor": "Kitchen-thermometer",
-                    "relays": [
-                        "Kitchen-plinth",
-                        "Kitchen-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 15,
-                    "events": [
-                        {
-                            "until": "17:30",
-                            "temp": "15.0"
-                        },
-                        {
-                            "until": "19:30",
-                            "temp": "21.0"
-                        }
-                    ],
-                    "relay": "off",
-                    "protect": "no",
-                    "advance": "-",
-                    "relayType": "Zigbee",
-                    "prevmode": "timed",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777889378585,
-                    "temperature": 2060,
-                    "battery": 27,
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Sunroom",
-                    "sensor": "Sunroom-thermometer",
-                    "relays": [
-                        "Sunroom-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 10,
-                    "events": [
-                        {
-                            "until": "07:00",
-                            "temp": 10
-                        },
-                        {
-                            "temp": "14.0",
-                            "until": "16:30"
-                        },
-                        {
-                            "temp": 23,
-                            "until": "23:00"
-                        }
-                    ],
-                    "relay": "off",
-                    "protect": "no",
-                    "relayType": "Zigbee",
-                    "prevmode": "timed",
-                    "advance": "-",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777889382455,
-                    "temperature": 2145,
-                    "battery": 46,
-                    "period": 1,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Lounge",
-                    "sensor": "Lounge-thermometer",
-                    "relays": [
-                        "Lounge-radiators"
-                    ],
-                    "mode": "timed",
-                    "target": 15,
-                    "events": [
-                        {
-                            "until": "09:00",
-                            "temp": "15.0"
-                        },
-                        {
-                            "until": "17:00",
-                            "temp": "17.0"
-                        },
-                        {
-                            "until": "23:00",
-                            "temp": "24.0"
-                        }
-                    ],
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "advance": "-",
-                    "prevmode": "timed",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777889382802,
-                    "temperature": 2170,
-                    "battery": 48,
-                    "relay": "off",
-                    "period": 1,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Bedroom 1",
-                    "sensor": "Bedroom-1-thermometer",
-                    "relays": [
-                        "Bedroom-1-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 22,
-                    "events": [
-                        {
-                            "temp": 15,
-                            "until": "07:00"
-                        },
-                        {
-                            "temp": "22.0",
-                            "until": "9:00"
-                        },
-                        {
-                            "temp": 15,
-                            "until": "22:30"
-                        },
-                        {
-                            "temp": 21,
-                            "until": "23:30"
-                        }
-                    ],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "advance": "-",
-                    "prevmode": "timed",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777889383928,
-                    "temperature": 2220,
-                    "battery": 43,
-                    "period": 2,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Bedroom 2",
-                    "sensor": "Bedroom-2-thermometer",
-                    "relays": [
-                        "Bedroom-2-radiator"
-                    ],
-                    "mode": "off",
-                    "target": 23,
-                    "events": [
-                        {
-                            "until": "08:00",
-                            "temp": "15.0"
-                        },
-                        {
-                            "until": "09:00",
-                            "temp": "22.0"
-                        },
-                        {
-                            "until": "22:30",
-                            "temp": "16.0"
-                        },
-                        {
-                            "until": "23:30",
-                            "temp": "23.0"
-                        }
-                    ],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "ssid": "",
-                    "advance": "-",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777889384289,
-                    "temperature": 2220,
-                    "battery": 51,
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Hall",
-                    "sensor": "Hall-thermometer",
-                    "relays": [
-                        "Hall-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 13,
-                    "events": [
-                        {
-                            "until": "07:00",
-                            "temp": "13.0"
-                        },
-                        {
-                            "until": "09:00",
-                            "temp": "17.0"
-                        },
-                        {
-                            "until": "17:00",
-                            "temp": "14.0"
-                        },
-                        {
-                            "until": "23:00",
-                            "temp": "17.0"
-                        }
-                    ],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "prevmode": "timed",
-                    "advance": "-",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "warn",
-                    "timestamp": 1777889383174,
-                    "temperature": "",
-                    "battery": 42,
-                    "period": 2,
-                    "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 46 min"
-                },
-                {
-                    "name": "Office",
-                    "sensor": "Office-thermometer",
-                    "relays": [
-                        "Office-heater"
-                    ],
-                    "mode": "off",
-                    "target": 20,
-                    "events": [
-                        {
-                            "until": "07:00",
-                            "temp": 15
-                        }
-                    ],
-                    "relay": "off",
-                    "protect": "no",
-                    "relayType": "Zigbee",
-                    "prevmode": "on",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777889383572,
-                    "temperature": 1550,
-                    "battery": 52,
-                    "advance": "-",
-                    "period": 0,
-                    "relayfails": 0,
-                    "until": 1777816604236,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Outside",
-                    "sensor": "Outside-thermometer",
-                    "relays": [],
-                    "mode": "off",
-                    "target": 0,
-                    "events": [],
-                    "relay": "off",
-                    "protect": "yes",
-                    "ptemp": "-0.5",
-                    "ssid": "",
-                    "relayType": "",
-                    "advance": "-",
-                    "prevmode": "off",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777889384437,
-                    "temperature": 1110,
-                    "battery": 47,
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                }
-            ]
+          "name": "Sunroom",
+          "sensor": "Sunroom-thermometer",
+          "relays": [
+            "Sunroom-radiator"
+          ],
+          "mode": "timed",
+          "target": 23,
+          "events": [
+            {
+              "until": "17:30",
+              "temp": 10
+            },
+            {
+              "until": "23:00",
+              "temp": "23.5"
+            }
+          ],
+          "relay": "off",
+          "protect": "no",
+          "relayType": "Zigbee",
+          "prevmode": "timed",
+          "advance": "-",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784319757442,
+          "temperature": 2500,
+          "battery": 100,
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 30 min",
+          "humidity": 47.4,
+          "sensorAge": 1820809,
+          "until": 1778144344746,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "23:00",
+              "temp": "23.0"
+            }
+          ]
         },
         {
-            "name": "All Off",
-            "rooms": [
-                {
-                    "name": "Kitchen",
-                    "sensor": "Kitchen-thermometer",
-                    "relays": [
-                        "Kitchen-plinth",
-                        "Kitchen-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 15,
-                    "events": [],
-                    "relay": "off",
-                    "protect": "no",
-                    "advance": "-",
-                    "relayType": "Zigbee",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777458246655,
-                    "temperature": 2100,
-                    "battery": 27,
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Sunroom",
-                    "sensor": "Sunroom-thermometer",
-                    "relays": [
-                        "Sunroom-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 12,
-                    "events": [],
-                    "relay": "off",
-                    "protect": "no",
-                    "relayType": "Zigbee",
-                    "prevmode": "timed",
-                    "advance": "-",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777458246997,
-                    "temperature": 3480,
-                    "battery": 46,
-                    "ptemp": "",
-                    "period": 1,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Lounge",
-                    "sensor": "Lounge-thermometer",
-                    "relays": [
-                        "Lounge-radiators"
-                    ],
-                    "mode": "timed",
-                    "target": 15,
-                    "events": [],
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "advance": "-",
-                    "prevmode": "timed",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777458247416,
-                    "temperature": 2190,
-                    "battery": 48,
-                    "relay": "off",
-                    "period": 1,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Bedroom 1",
-                    "sensor": "Bedroom-1-thermometer",
-                    "relays": [
-                        "Bedroom-1-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 22,
-                    "events": [],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "advance": "-",
-                    "prevmode": "timed",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777458248533,
-                    "temperature": 2300,
-                    "battery": 43,
-                    "period": 2,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Bedroom 2",
-                    "sensor": "Bedroom-2-thermometer",
-                    "relays": [
-                        "Bedroom-2-radiator"
-                    ],
-                    "mode": "off",
-                    "target": 23,
-                    "events": [],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "ssid": "",
-                    "advance": "-",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777458248847,
-                    "temperature": 2230,
-                    "battery": 51,
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Hall",
-                    "sensor": "Hall-thermometer",
-                    "relays": [
-                        "Hall-radiator"
-                    ],
-                    "mode": "timed",
-                    "target": 13,
-                    "events": [],
-                    "relay": "off",
-                    "relayType": "Zigbee",
-                    "protect": "no",
-                    "prevmode": "timed",
-                    "advance": "-",
-                    "ssid": "",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777458247783,
-                    "temperature": 2096,
-                    "battery": 42,
-                    "period": 2,
-                    "relayfails": 0,
-                    "statusMessage": "Sensor: no report for 14 min"
-                },
-                {
-                    "name": "Office",
-                    "sensor": "Office-thermometer",
-                    "relays": [
-                        "Office-heater"
-                    ],
-                    "mode": "off",
-                    "target": 22.5,
-                    "events": [],
-                    "relay": "off",
-                    "protect": "no",
-                    "relayType": "Zigbee",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777458248188,
-                    "temperature": 2480,
-                    "battery": 52,
-                    "advance": "-",
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                },
-                {
-                    "name": "Outside",
-                    "sensor": "Outside-thermometer",
-                    "relays": [],
-                    "mode": "off",
-                    "target": 0,
-                    "events": [],
-                    "relay": "off",
-                    "protect": "yes",
-                    "ptemp": "-0.5",
-                    "ssid": "",
-                    "relayType": "",
-                    "advance": "-",
-                    "prevmode": "off",
-                    "linked": "yes",
-                    "status": "good",
-                    "timestamp": 1777458248943,
-                    "temperature": 1240,
-                    "battery": 47,
-                    "period": 0,
-                    "relayfails": 0,
-                    "statusMessage": ""
-                }
-            ]
+          "name": "Lounge",
+          "sensor": "Lounge-thermometer",
+          "relays": [
+            "Lounge-radiators"
+          ],
+          "mode": "off",
+          "target": 15,
+          "events": [
+            {
+              "until": "09:00",
+              "temp": "15.0"
+            },
+            {
+              "until": "18:00",
+              "temp": "17.0"
+            },
+            {
+              "until": "23:00",
+              "temp": "24.0"
+            }
+          ],
+          "relayType": "Zigbee",
+          "protect": "no",
+          "advance": "-",
+          "prevmode": "timed",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784319757759,
+          "temperature": 2420,
+          "battery": 100,
+          "relay": "off",
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 50.3,
+          "sensorAge": 62279,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "23:00",
+              "temp": "21.0"
+            }
+          ]
+        },
+        {
+          "name": "Bedroom 1",
+          "sensor": "Bedroom-1-thermometer",
+          "relays": [
+            "Bedroom-1-radiator"
+          ],
+          "mode": "timed",
+          "target": 22,
+          "events": [
+            {
+              "until": "07:00",
+              "temp": 15
+            },
+            {
+              "until": "08:00",
+              "temp": "22.0"
+            },
+            {
+              "until": "22:30",
+              "temp": 15
+            },
+            {
+              "until": "23:30",
+              "temp": 21
+            }
+          ],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "advance": "-",
+          "prevmode": "timed",
+          "ssid": "",
+          "linked": "yes",
+          "status": "warn",
+          "timestamp": 1784319758091,
+          "temperature": 2510,
+          "battery": 90,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 51 min",
+          "humidity": 45,
+          "sensorAge": 3115618,
+          "periods": [
+            {
+              "on": "07:00",
+              "off": "08:00",
+              "temp": "22.5"
+            },
+            {
+              "on": "22:30",
+              "off": "23:30",
+              "temp": "22.5"
+            }
+          ]
+        },
+        {
+          "name": "Bedroom 2",
+          "sensor": "Bedroom-2-thermometer",
+          "relays": [
+            "Bedroom-2-radiator"
+          ],
+          "mode": "timed",
+          "target": 23,
+          "events": [
+            {
+              "until": "07:00",
+              "temp": "15.0"
+            },
+            {
+              "until": "08:30",
+              "temp": "22.0"
+            },
+            {
+              "until": "22:30",
+              "temp": "16.0"
+            },
+            {
+              "until": "23:30",
+              "temp": "22.0"
+            }
+          ],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "ssid": "",
+          "advance": "-",
+          "linked": "yes",
+          "status": "warn",
+          "timestamp": 1784319758411,
+          "temperature": 2510,
+          "battery": -1,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 58 min",
+          "humidity": 47,
+          "sensorAge": 3485272,
+          "periods": [
+            {
+              "on": "07:00",
+              "off": "08:00",
+              "temp": "22.5"
+            },
+            {
+              "on": "22:30",
+              "off": "23:30",
+              "temp": "22.5"
+            }
+          ]
+        },
+        {
+          "name": "Hall",
+          "sensor": "Hall-thermometer",
+          "relays": [
+            "Hall-radiator"
+          ],
+          "mode": "timed",
+          "target": 13,
+          "events": [
+            {
+              "until": "07:00",
+              "temp": "13.0"
+            },
+            {
+              "until": "09:00",
+              "temp": "17.0"
+            },
+            {
+              "until": "17:00",
+              "temp": "14.0"
+            },
+            {
+              "until": "23:00",
+              "temp": "17.0"
+            }
+          ],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "prevmode": "timed",
+          "advance": "-",
+          "ssid": "",
+          "linked": "yes",
+          "status": "warn",
+          "timestamp": 1784319758741,
+          "temperature": 2480,
+          "battery": 90,
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 53 min",
+          "sensorAge": 3206710,
+          "humidity": 48,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "22:30",
+              "temp": "21.0"
+            }
+          ]
+        },
+        {
+          "name": "Office",
+          "sensor": "Office-thermometer",
+          "relays": [
+            "Office-heater"
+          ],
+          "mode": "off",
+          "target": 22,
+          "events": [
+            {
+              "until": "07:00",
+              "temp": 15
+            }
+          ],
+          "relay": "off",
+          "protect": "no",
+          "relayType": "Zigbee",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784319759058,
+          "temperature": 2462,
+          "battery": 33,
+          "advance": "-",
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 35.02,
+          "sensorAge": 161740
+        },
+        {
+          "name": "Outside",
+          "sensor": "Outside-thermometer",
+          "relays": [],
+          "mode": "off",
+          "target": 0,
+          "events": [],
+          "relay": "off",
+          "protect": "yes",
+          "ptemp": "-0.5",
+          "ssid": "",
+          "relayType": "",
+          "advance": "-",
+          "prevmode": "off",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784319759389,
+          "temperature": 1850,
+          "battery": 90,
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 33 min",
+          "sensorAge": 2008393,
+          "humidity": 63
         }
-    ],
-    "request": "Request-relay",
-    "calendar-data": [
+      ]
+    },
+    {
+      "name": "All Off",
+      "rooms": [
         {
-            "day0-profile": "Monday-Friday"
+          "name": "Kitchen",
+          "sensor": "Kitchen-thermometer",
+          "relays": [
+            "Kitchen-plinth",
+            "Kitchen-radiator"
+          ],
+          "mode": "off",
+          "target": 15,
+          "events": [],
+          "relay": "off",
+          "protect": "no",
+          "advance": "-",
+          "relayType": "Zigbee",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207356472,
+          "temperature": 2360,
+          "battery": -1,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 19 min",
+          "humidity": 51,
+          "sensorAge": 1151599
         },
         {
-            "day1-profile": "Monday-Friday"
+          "name": "Sunroom",
+          "sensor": "Sunroom-thermometer",
+          "relays": [
+            "Sunroom-radiator"
+          ],
+          "mode": "off",
+          "target": 12,
+          "events": [],
+          "relay": "off",
+          "protect": "no",
+          "relayType": "Zigbee",
+          "prevmode": "timed",
+          "advance": "-",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207356802,
+          "temperature": 2810,
+          "battery": 100,
+          "ptemp": "",
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 19 min",
+          "humidity": 37.4,
+          "sensorAge": 1182980
         },
         {
-            "day2-profile": "Monday-Friday"
+          "name": "Lounge",
+          "sensor": "Lounge-thermometer",
+          "relays": [
+            "Lounge-radiators"
+          ],
+          "mode": "off",
+          "target": 15,
+          "events": [],
+          "relayType": "Zigbee",
+          "protect": "no",
+          "advance": "-",
+          "prevmode": "timed",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207357130,
+          "temperature": 2450,
+          "battery": 100,
+          "relay": "off",
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 46.2,
+          "sensorAge": 537599
         },
         {
-            "day3-profile": "Monday-Friday"
+          "name": "Bedroom 1",
+          "sensor": "Bedroom-1-thermometer",
+          "relays": [
+            "Bedroom-1-radiator"
+          ],
+          "mode": "off",
+          "target": 22,
+          "events": [],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "advance": "-",
+          "prevmode": "timed",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207357463,
+          "temperature": 2560,
+          "battery": 90,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 46,
+          "sensorAge": 278620
         },
         {
-            "day4-profile": "Monday-Friday"
+          "name": "Bedroom 2",
+          "sensor": "Bedroom-2-thermometer",
+          "relays": [
+            "Bedroom-2-radiator"
+          ],
+          "mode": "off",
+          "target": 23,
+          "events": [],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "ssid": "",
+          "advance": "-",
+          "linked": "yes",
+          "status": "warn",
+          "timestamp": 1784207357791,
+          "temperature": 2230,
+          "battery": 51,
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 54 min",
+          "sensorAge": 3265085
         },
         {
-            "day5-profile": "Weekend"
+          "name": "Hall",
+          "sensor": "Hall-thermometer",
+          "relays": [
+            "Hall-radiator"
+          ],
+          "mode": "off",
+          "target": 13,
+          "events": [],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "prevmode": "timed",
+          "advance": "-",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207355847,
+          "temperature": 2470,
+          "battery": 90,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 47,
+          "sensorAge": 483606
         },
         {
-            "day6-profile": "Weekend"
+          "name": "Office",
+          "sensor": "Office-thermometer",
+          "relays": [
+            "Office-heater"
+          ],
+          "mode": "off",
+          "target": 22.5,
+          "events": [],
+          "relay": "off",
+          "protect": "no",
+          "relayType": "Zigbee",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207358120,
+          "temperature": 3409,
+          "battery": 33,
+          "advance": "-",
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 30.22,
+          "sensorAge": 309064
+        },
+        {
+          "name": "Outside",
+          "sensor": "Outside-thermometer",
+          "relays": [],
+          "mode": "off",
+          "target": 0,
+          "events": [],
+          "relay": "off",
+          "protect": "yes",
+          "ptemp": "-0.5",
+          "ssid": "",
+          "relayType": "",
+          "advance": "-",
+          "prevmode": "off",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207358449,
+          "temperature": 2039,
+          "battery": 90,
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 29 min",
+          "humidity": 64,
+          "sensorAge": 1778216
         }
-    ],
-    "calendar": "on",
-    "message": "confirm",
-    "address": "6 Queen Elizabeth Drive WF6 1JH",
-    "ssid": "RBR-803f5da34f09",
-    "password": "r00m8Yr00m",
-    "extenders": [
+      ]
+    },
+    {
+      "name": "Weekend",
+      "rooms": [
         {
-            "ssid": "RBR-ex-15A804",
-            "password": "test-system"
+          "name": "Kitchen",
+          "sensor": "Kitchen-thermometer",
+          "relays": [
+            "Kitchen-plinth",
+            "Kitchen-radiator"
+          ],
+          "mode": "timed",
+          "target": 21,
+          "events": [
+            {
+              "until": "17:30",
+              "temp": "15.0"
+            },
+            {
+              "until": "19:30",
+              "temp": "21.0"
+            }
+          ],
+          "relay": "off",
+          "protect": "no",
+          "advance": "-",
+          "relayType": "Zigbee",
+          "prevmode": "timed",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207322094,
+          "temperature": 2360,
+          "battery": -1,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 18 min",
+          "humidity": 51,
+          "sensorAge": 1117220,
+          "until": 1778144217019,
+          "periods": [
+            {
+              "on": "12:15",
+              "off": "14:00",
+              "temp": "22.0"
+            },
+            {
+              "on": "18:00",
+              "off": "20:00",
+              "temp": "22.0"
+            }
+          ]
+        },
+        {
+          "name": "Sunroom",
+          "sensor": "Sunroom-thermometer",
+          "relays": [
+            "Sunroom-radiator"
+          ],
+          "mode": "timed",
+          "target": 23,
+          "events": [
+            {
+              "until": "17:30",
+              "temp": 10
+            },
+            {
+              "until": "23:00",
+              "temp": "23.5"
+            }
+          ],
+          "relay": "off",
+          "protect": "no",
+          "relayType": "Zigbee",
+          "prevmode": "timed",
+          "advance": "-",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207322427,
+          "temperature": 2810,
+          "battery": 100,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 19 min",
+          "humidity": 37.4,
+          "sensorAge": 1148605,
+          "until": 1778144344746,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "23:00",
+              "temp": "23.0"
+            }
+          ]
+        },
+        {
+          "name": "Lounge",
+          "sensor": "Lounge-thermometer",
+          "relays": [
+            "Lounge-radiators"
+          ],
+          "mode": "timed",
+          "target": 15,
+          "events": [
+            {
+              "until": "09:00",
+              "temp": "15.0"
+            },
+            {
+              "until": "18:00",
+              "temp": "17.0"
+            },
+            {
+              "until": "23:00",
+              "temp": "24.0"
+            }
+          ],
+          "relayType": "Zigbee",
+          "protect": "no",
+          "advance": "-",
+          "prevmode": "timed",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207321452,
+          "temperature": 2450,
+          "battery": 100,
+          "relay": "off",
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 46.2,
+          "sensorAge": 501920,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "23:00",
+              "temp": "21.0"
+            }
+          ]
+        },
+        {
+          "name": "Bedroom 1",
+          "sensor": "Bedroom-1-thermometer",
+          "relays": [
+            "Bedroom-1-radiator"
+          ],
+          "mode": "timed",
+          "target": 22,
+          "events": [
+            {
+              "until": "07:00",
+              "temp": 15
+            },
+            {
+              "until": "08:00",
+              "temp": "22.0"
+            },
+            {
+              "until": "22:30",
+              "temp": 15
+            },
+            {
+              "until": "23:30",
+              "temp": 21
+            }
+          ],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "advance": "-",
+          "prevmode": "timed",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207322763,
+          "temperature": 2560,
+          "battery": 90,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 46,
+          "sensorAge": 243920,
+          "periods": [
+            {
+              "on": "07:00",
+              "off": "08:00",
+              "temp": "22.5"
+            },
+            {
+              "on": "22:30",
+              "off": "23:30",
+              "temp": "22.5"
+            }
+          ]
+        },
+        {
+          "name": "Bedroom 2",
+          "sensor": "Bedroom-2-thermometer",
+          "relays": [
+            "Bedroom-2-radiator"
+          ],
+          "mode": "timed",
+          "target": 23,
+          "events": [
+            {
+              "until": "07:00",
+              "temp": "15.0"
+            },
+            {
+              "until": "08:30",
+              "temp": "22.0"
+            },
+            {
+              "until": "22:30",
+              "temp": "16.0"
+            },
+            {
+              "until": "23:30",
+              "temp": "22.0"
+            }
+          ],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "ssid": "",
+          "advance": "-",
+          "linked": "yes",
+          "status": "warn",
+          "timestamp": 1784207323097,
+          "temperature": 2510,
+          "battery": -1,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 53 min",
+          "humidity": 46,
+          "sensorAge": 3230391,
+          "periods": [
+            {
+              "on": "07:00",
+              "off": "08:00",
+              "temp": "22.5"
+            },
+            {
+              "on": "22:30",
+              "off": "23:30",
+              "temp": "22.5"
+            }
+          ]
+        },
+        {
+          "name": "Hall",
+          "sensor": "Hall-thermometer",
+          "relays": [
+            "Hall-radiator"
+          ],
+          "mode": "timed",
+          "target": 13,
+          "events": [
+            {
+              "until": "07:00",
+              "temp": "13.0"
+            },
+            {
+              "until": "09:00",
+              "temp": "17.0"
+            },
+            {
+              "until": "17:00",
+              "temp": "14.0"
+            },
+            {
+              "until": "23:00",
+              "temp": "17.0"
+            }
+          ],
+          "relay": "off",
+          "relayType": "Zigbee",
+          "protect": "no",
+          "prevmode": "timed",
+          "advance": "-",
+          "ssid": "",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207323431,
+          "temperature": 2470,
+          "battery": 90,
+          "period": -1,
+          "relayfails": 0,
+          "statusMessage": "",
+          "sensorAge": 451189,
+          "humidity": 47,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "22:30",
+              "temp": "21.0"
+            }
+          ]
+        },
+        {
+          "name": "Office",
+          "sensor": "Office-thermometer",
+          "relays": [
+            "Office-heater"
+          ],
+          "mode": "off",
+          "target": 22,
+          "events": [
+            {
+              "until": "07:00",
+              "temp": 15
+            }
+          ],
+          "relay": "off",
+          "protect": "no",
+          "relayType": "Zigbee",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207323761,
+          "temperature": 3409,
+          "battery": 33,
+          "advance": "-",
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "",
+          "humidity": 30.22,
+          "sensorAge": 274706
+        },
+        {
+          "name": "Outside",
+          "sensor": "Outside-thermometer",
+          "relays": [],
+          "mode": "off",
+          "target": 0,
+          "events": [],
+          "relay": "off",
+          "protect": "yes",
+          "ptemp": "-0.5",
+          "ssid": "",
+          "relayType": "",
+          "advance": "-",
+          "prevmode": "off",
+          "linked": "yes",
+          "status": "good",
+          "timestamp": 1784207324096,
+          "temperature": 2039,
+          "battery": 90,
+          "period": 0,
+          "relayfails": 0,
+          "statusMessage": "Sensor: no report for 29 min",
+          "sensorAge": 1743863,
+          "humidity": 64
         }
-    ],
-    "name": "QED6 214",
-    "profile": 0,
-    "controller-ssid": "RBR-803f5da34f09",
-    "controller-password": "r00m8Yr00m",
-    "email": "gt@pobox.com",
-    "user-password": "767653"
+      ]
+    }
+  ],
+  "request": "Request relay",
+  "calendar-data": [
+    {
+      "day0-profile": "Monday-Friday"
+    },
+    {
+      "day1-profile": "Monday-Friday"
+    },
+    {
+      "day2-profile": "Monday-Friday"
+    },
+    {
+      "day3-profile": "Monday-Friday"
+    },
+    {
+      "day4-profile": "Monday-Friday"
+    },
+    {
+      "day5-profile": "Weekend"
+    },
+    {
+      "day6-profile": "Weekend"
+    }
+  ],
+  "calendar": "on",
+  "message": "confirm",
+  "address": "6 Queen Elizabeth Drive WF6 1JH",
+  "ssid": "RBR-803f5da34f09",
+  "password": "r00m8Yr00m",
+  "extenders": [
+    {
+      "ssid": "RBR-ex-15A804",
+      "password": "test-system"
+    }
+  ],
+  "name": "QED6 214",
+  "profile": 1,
+  "controller-ssid": "RBR-803f5da34f09",
+  "controller-password": "r00m8Yr00m",
+  "email": "gt@pobox.com",
+  "user-password": "767653"
 }

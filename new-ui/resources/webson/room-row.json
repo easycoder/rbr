@@ -239,27 +239,64 @@
                 "display": "grid",
                 "grid-template-columns": "1fr 1fr 1fr 1fr",
                 "gap": "6px",
-                "#": ["$BtnTimed", "$BtnBoost", "$BtnOn", "$BtnOff"],
-
-                "$BtnTimed": { "$ID": "room-/I/-mode-timed", "$Label": "Timed", "#": "$ModeBtn" },
-                "$BtnBoost": { "$ID": "room-/I/-mode-boost", "$Label": "Boost", "#": "$ModeBtn" },
-                "$BtnOn":    { "$ID": "room-/I/-mode-on",    "$Label": "On",    "#": "$ModeBtn" },
-                "$BtnOff":   { "$ID": "room-/I/-mode-off",   "$Label": "Off",   "#": "$ModeBtn" },
-
-                "$ModeBtn": {
-                    "#element": "button",
-                    "@id": "$ID",
-                    "padding": "10px 6px",
-                    "border": "0",
-                    "border-radius": "9px",
-                    "background": "transparent",
-                    "color": "var(--color-text-muted)",
-                    "font-family": "inherit",
-                    "font-size": "13px",
-                    "font-weight": "500",
-                    "cursor": "pointer",
-                    "#content": "$Label"
-                }
+                "#": [
+                    {
+                        "#element": "button",
+                        "@id": "room-/I/-mode-timed",
+                        "padding": "10px 6px",
+                        "border": "0",
+                        "border-radius": "9px",
+                        "background": "transparent",
+                        "color": "var(--color-text-muted)",
+                        "font-family": "inherit",
+                        "font-size": "13px",
+                        "font-weight": "500",
+                        "cursor": "pointer",
+                        "#content": "Timed"
+                    },
+                    {
+                        "#element": "button",
+                        "@id": "room-/I/-mode-boost",
+                        "padding": "10px 6px",
+                        "border": "0",
+                        "border-radius": "9px",
+                        "background": "transparent",
+                        "color": "var(--color-text-muted)",
+                        "font-family": "inherit",
+                        "font-size": "13px",
+                        "font-weight": "500",
+                        "cursor": "pointer",
+                        "#content": "Boost"
+                    },
+                    {
+                        "#element": "button",
+                        "@id": "room-/I/-mode-on",
+                        "padding": "10px 6px",
+                        "border": "0",
+                        "border-radius": "9px",
+                        "background": "transparent",
+                        "color": "var(--color-text-muted)",
+                        "font-family": "inherit",
+                        "font-size": "13px",
+                        "font-weight": "500",
+                        "cursor": "pointer",
+                        "#content": "On"
+                    },
+                    {
+                        "#element": "button",
+                        "@id": "room-/I/-mode-off",
+                        "padding": "10px 6px",
+                        "border": "0",
+                        "border-radius": "9px",
+                        "background": "transparent",
+                        "color": "var(--color-text-muted)",
+                        "font-family": "inherit",
+                        "font-size": "13px",
+                        "font-weight": "500",
+                        "cursor": "pointer",
+                        "#content": "Off"
+                    }
+                ]
             }
         },
 
@@ -422,27 +459,64 @@
                 "display": "grid",
                 "grid-template-columns": "1fr 1fr 1fr 1fr",
                 "gap": "6px",
-                "#": ["$BOff", "$B30", "$B1h", "$B2h"],
-
-                "$BOff": { "$ID": "room-/I/-boost-off", "$Label": "Off",   "#": "$BoostBtn" },
-                "$B30": { "$ID": "room-/I/-boost-30",  "$Label": "30 min", "#": "$BoostBtn" },
-                "$B1h": { "$ID": "room-/I/-boost-1h",  "$Label": "1 hr",   "#": "$BoostBtn" },
-                "$B2h": { "$ID": "room-/I/-boost-2h",  "$Label": "2 hr",   "#": "$BoostBtn" },
-
-                "$BoostBtn": {
-                    "#element": "button",
-                    "@id": "$ID",
-                    "padding": "10px 6px",
-                    "background": "var(--color-surface-card)",
-                    "border": "1px solid var(--color-border-hairline)",
-                    "border-radius": "10px",
-                    "color": "var(--color-text-primary)",
-                    "font-family": "inherit",
-                    "font-size": "13px",
-                    "font-weight": "500",
-                    "cursor": "pointer",
-                    "#content": "$Label"
-                }
+                "#": [
+                    {
+                        "#element": "button",
+                        "@id": "room-/I/-boost-off",
+                        "padding": "10px 6px",
+                        "background": "var(--color-surface-card)",
+                        "border": "1px solid var(--color-border-hairline)",
+                        "border-radius": "10px",
+                        "color": "var(--color-text-primary)",
+                        "font-family": "inherit",
+                        "font-size": "13px",
+                        "font-weight": "500",
+                        "cursor": "pointer",
+                        "#content": "Off"
+                    },
+                    {
+                        "#element": "button",
+                        "@id": "room-/I/-boost-30",
+                        "padding": "10px 6px",
+                        "background": "var(--color-surface-card)",
+                        "border": "1px solid var(--color-border-hairline)",
+                        "border-radius": "10px",
+                        "color": "var(--color-text-primary)",
+                        "font-family": "inherit",
+                        "font-size": "13px",
+                        "font-weight": "500",
+                        "cursor": "pointer",
+                        "#content": "30 min"
+                    },
+                    {
+                        "#element": "button",
+                        "@id": "room-/I/-boost-1h",
+                        "padding": "10px 6px",
+                        "background": "var(--color-surface-card)",
+                        "border": "1px solid var(--color-border-hairline)",
+                        "border-radius": "10px",
+                        "color": "var(--color-text-primary)",
+                        "font-family": "inherit",
+                        "font-size": "13px",
+                        "font-weight": "500",
+                        "cursor": "pointer",
+                        "#content": "1 hr"
+                    },
+                    {
+                        "#element": "button",
+                        "@id": "room-/I/-boost-2h",
+                        "padding": "10px 6px",
+                        "background": "var(--color-surface-card)",
+                        "border": "1px solid var(--color-border-hairline)",
+                        "border-radius": "10px",
+                        "color": "var(--color-text-primary)",
+                        "font-family": "inherit",
+                        "font-size": "13px",
+                        "font-weight": "500",
+                        "cursor": "pointer",
+                        "#content": "2 hr"
+                    }
+                ]
             }
         },
 

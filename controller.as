@@ -120,6 +120,11 @@
     variable S
     variable T
     module DeviceModule
+    dictionary DashboardData
+    dictionary RoomDash
+    list DashRooms
+    dictionary RequestDash
+    variable DashI
 !! @hash 1cc88c39
 !! @verified f7af243f
 !!!
@@ -263,6 +268,8 @@ Start:
 !!
 !! Process the request/demand relay. Note: the simulator does not have a request relay.
 !!
+!! Build and output a coloured terminal dashboard showing relay state, temperature, humidity, battery, and any warnings for each room — one `system background` call per cycle runs the Python dashboard renderer.
+!!
 !! Finally, if an immediate update was requested, notify the system that the map has changed, so the UIs will get updates without having to wait for the normal update cycle to complete.
 MainLoop:
     ! log `MainLoop`
@@ -337,6 +344,41 @@ MainLoop:
     ! Do the 'request' relay
     if not Simulate gosub to ProcessRequestRelay
 
+    ! Build and refresh the terminal dashboard with current room states.
+    ! Skipped in simulation mode since the simulator has its own display.
+    if not Simulate
+    begin
+        reset DashRooms
+        put 0 into DashI
+        while DashI is less than RoomCount
+        begin
+            index Room to DashI
+            reset RoomDash
+            set entry `name` of RoomDash to entry `name` of Room
+            if Room has entry `relay` set entry `relay` of RoomDash to entry `relay` of Room
+            if Room has entry `temperature` set entry `temperature` of RoomDash to entry `temperature` of Room
+            if Room has entry `humidity` set entry `humidity` of RoomDash to entry `humidity` of Room
+            if Room has entry `battery` set entry `battery` of RoomDash to entry `battery` of Room
+            if Room has entry `status` set entry `status` of RoomDash to entry `status` of Room
+            if Room has entry `sensorAge` set entry `sensorAge` of RoomDash to entry `sensorAge` of Room
+            if Room has entry `statusMessage` set entry `statusMessage` of RoomDash to entry `statusMessage` of Room
+            append RoomDash to DashRooms
+            increment DashI
+        end
+        set entry `rooms` of DashboardData to DashRooms
+        reset RequestDash
+        if RequestName is not empty
+        begin
+            set entry `name` of RequestDash to RequestName
+            set entry `relay` of RequestDash to RequestState
+            set entry `status` of RequestDash to `good`
+            set entry `request` of DashboardData to RequestDash
+        end
+        set entry `timestamp` of DashboardData to now
+        save prettify DashboardData to `/tmp/rbr-dashboard.json`
+        system background `python3 /home/graham/rbr/rbr-dashboard.py`
+    end
+
     ! Signal the map has changed
     if ImmediateUpdate
     begin
@@ -362,7 +404,7 @@ HandleMessages:
     while MessageQueue is not empty
     begin
         pop ReceivedMessage from MessageQueue
-!s        log ReceivedMessage
+!        log ReceivedMessage
         put entry `sender` of ReceivedMessage into Sender
         set entry `last` of Sender to now
         ! Build a dictionary of senders
@@ -616,9 +658,9 @@ ProcessRoom:
                 if Thermometer has entry `hum`
                     set entry `humidity` of Room to entry `hum` of Thermometer
             end
-            else log RoomName cat ` sensor ` cat Sensor cat ` has not reported recently`
+            ! else log RoomName cat ` sensor ` cat Sensor cat ` has not reported recently`
         end
-        else log RoomName cat ` sensor ` cat Sensor cat ` has not yet reported`
+        ! else log RoomName cat ` sensor ` cat Sensor cat ` has not yet reported`
     end
     put entry `temperature` of Room into TempWas
     ! Preserve the last known reading when TempNow is empty (sensor stale).
@@ -630,7 +672,7 @@ ProcessRoom:
         set entry `temperature` of Room to TempNow
         if TempNow is not TempWas
         begin
-            log RoomName cat `: temp changed ` cat TempWas cat ` -> ` cat TempNow
+            ! log RoomName cat `: temp changed ` cat TempWas cat ` -> ` cat TempNow
             set MapHasChanged
         end
     end
@@ -687,7 +729,7 @@ ProcessRoom:
             delete entry `until` of Room
             delete entry `prevmode` of Room
             delete entry `boostperiod` of Room
-            log RoomName cat `: Boost expired, reverting to ` cat entry `mode` of Room
+            ! log RoomName cat `: Boost expired, reverting to ` cat entry `mode` of Room
             gosub to ForceUpdate
             put entry `mode` of Room into Mode
             if Mode is `timed` gosub to FindCurrentPeriod
@@ -729,7 +771,7 @@ BoostDone:
     set entry `relay state` of RoomSpec
     to RelayState
 !    log RoomName cat ` ` cat RelayState
-    ! Send the RoomSpec packet to the device controller using AllSpeak messaging (not MQTT)
+    ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
 !! @hash 5b7749f8
@@ -880,7 +922,7 @@ RoomStatus:
         begin
 !            log RoomName cat `: Period ` cat PeriodWas cat `->` cat PeriodNow
 !                 cat ` ` cat entry `advance` of Room
-            log `Force an update (period change)`
+            ! log `Force an update (period change)`
             gosub to ForceUpdate
         end
     end
@@ -938,7 +980,7 @@ RoomStatus:
         if RelayFails is greater than 5
             put `Relay: ` cat RelayFails cat ` failures` into Value
         if RelayFails is not 0
-            log RoomName cat `: status=` cat RoomStatus cat ` relayfails=` cat RelayFails
+            ! log RoomName cat `: status=` cat RoomStatus cat ` relayfails=` cat RelayFails
     end
     if Sensor is not empty and not Simulate
     begin
@@ -1136,7 +1178,7 @@ ApplyPeriodsAdvance:
         ! anchors. A simple inequality is enough; no sentinel guard.
         if NaturalPeriodActive is not PeriodWas
         begin
-            log RoomName cat `: Cancelling the advance (periods)`
+            ! log RoomName cat `: Cancelling the advance (periods)`
             set entry `advance` of Room to `-`
             set entry `period` of Room to NaturalPeriodActive
             gosub to ForceUpdate
@@ -1678,16 +1720,16 @@ ProcessUIRequest:
                 if entry `advance` of Room is `-`
                 begin
                     ! Not already advanced, so set it up
-                    log RoomName cat ` set Advance`
+                    ! log RoomName cat ` set Advance`
                     set entry `advance` of Room to `A`
                 end
                 else
                 begin
                     ! Already advanced so cancel it
-                    log RoomName cat ` cancel Advance`
+                    ! log RoomName cat ` cancel Advance`
                     set entry `advance` of Room to `-`
                 end
-                log `Force an update (timed mode)`
+                ! log `Force an update (timed mode)`
                 gosub to ForceUpdate
             end
         end

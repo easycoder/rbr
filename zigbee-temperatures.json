@@ -1,9 +1,121 @@
 {
-  "Hall-thermometer": {
-    "ts": 1776109134522,
-    "temp": 2225,
-    "hum": 27.66,
+  "0xa4c1380ac131ffff": {
+    "ts": 1784065949913,
+    "temp": 2320,
+    "hum": 50.9,
+    "batt": 100,
+    "rssi": 0
+  },
+  "Sunroom Thermometer": {
+    "ts": 1784066139352,
+    "temp": 2320,
+    "hum": 50.9,
+    "batt": 100,
+    "rssi": 0
+  },
+  "Sunroom-Thermometer": {
+    "ts": 1784066696391,
+    "temp": 2320,
+    "hum": 50.9,
+    "batt": 100,
+    "rssi": 0
+  },
+  "Sunroom-thermometer": {
+    "ts": 1784317936632,
+    "temp": 2500,
+    "hum": 47.4,
+    "batt": 100,
+    "rssi": 0
+  },
+  "0xa4c13840d6e1a4a5": {
+    "ts": 1784136515873,
+    "temp": 2500,
+    "hum": 47,
     "batt": -1,
+    "rssi": 0
+  },
+  "Kitchen-thermometer": {
+    "ts": 1784316901335,
+    "temp": 2410,
+    "hum": 54,
+    "batt": -1,
+    "rssi": 0
+  },
+  "0xa4c1380ad23affff": {
+    "ts": 1784136594816,
+    "temp": 2490,
+    "hum": 44.2,
+    "batt": 100,
+    "rssi": 0
+  },
+  "Lounge-thermometer": {
+    "ts": 1784319695480,
+    "temp": 2420,
+    "hum": 50.3,
+    "batt": 100,
+    "rssi": 0
+  },
+  "0xa4c138d2e19d92b5": {
+    "ts": 1784136725753,
+    "temp": 2510,
+    "hum": 44,
+    "batt": 90,
+    "rssi": 0
+  },
+  "Hall-thermometer": {
+    "ts": 1784316552031,
+    "temp": 2480,
+    "hum": 48,
+    "batt": 90,
+    "rssi": 0
+  },
+  "0xa4c138d706f85f25": {
+    "ts": 1784136880700,
+    "temp": 2540,
+    "hum": 44,
+    "batt": 90,
+    "rssi": 0
+  },
+  "Bedroom-1-thermometer": {
+    "ts": 1784316642472,
+    "temp": 2510,
+    "hum": 45,
+    "batt": 90,
+    "rssi": 0
+  },
+  "0xa4c13864811832f9": {
+    "ts": 1784137016278,
+    "temp": 2560,
+    "hum": 46,
+    "batt": -1,
+    "rssi": 0
+  },
+  "Bedroom-2-thermometer": {
+    "ts": 1784316273138,
+    "temp": 2510,
+    "hum": 47,
+    "batt": -1,
+    "rssi": 0
+  },
+  "Office-thermometer": {
+    "ts": 1784319597318,
+    "temp": 2462,
+    "hum": 35.02,
+    "batt": 33,
+    "rssi": 0
+  },
+  "0xa4c13894e56732c3": {
+    "ts": 1784137450124,
+    "temp": 2320,
+    "hum": 54,
+    "batt": -1,
+    "rssi": 0
+  },
+  "Outside-thermometer": {
+    "ts": 1784317750996,
+    "temp": 1850,
+    "hum": 63,
+    "batt": 90,
     "rssi": 0
   }
 }

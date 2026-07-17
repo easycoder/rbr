@@ -35,14 +35,18 @@ def load_config():
     """Load MQTT config, same as zigbee-bridge.py."""
     config_path = os.path.join(script_dir, "zigbee-config.json")
     if os.path.exists(config_path):
-        with open(config_path) as f:
-            return json.load(f)
+        config = json.load(open(config_path))
+        # Default to TLS for cloud connections, off for localhost
+        if "tls" not in config:
+            config["tls"] = config.get("broker", "") not in ("localhost", "127.0.0.1")
+        return config
 
     config = {
         "broker": "rbrheating.duckdns.org",
         "port": 8883,
         "username": "rbr",
         "password": "",
+        "tls": True,
     }
     pw_path = os.path.expanduser("~/.mqtt_password")
     if os.path.exists(pw_path):
@@ -127,7 +131,7 @@ def _handle_event(payload):
 def connect_mqtt():
     global client
     config = load_config()
-    if not config["password"]:
+    if not config.get("password") and config.get("tls", True):
         print("Error: No MQTT password configured.")
         print("Create zigbee-config.json or ~/.mqtt_password")
         sys.exit(1)
@@ -136,8 +140,10 @@ def connect_mqtt():
         client_id=f"rbr-zigbee-pair-{os.getpid()}",
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2
     )
-    client.username_pw_set(config["username"], config["password"])
-    client.tls_set()
+    if config.get("username"):
+        client.username_pw_set(config["username"], config.get("password", ""))
+    if config.get("tls", False):
+        client.tls_set()
     client.on_connect = on_connect
     client.on_message = on_message
 

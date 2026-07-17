@@ -274,10 +274,10 @@ BuildRoomEntry:
 		if LegacyPrevMode is `timed` put `Timed` into PrevMode
 		else if LegacyPrevMode is `on` put `On` into PrevMode
 	end
-	set property `mode` of NewRoom to Mode
-	set property `prevMode` of NewRoom to PrevMode
+    set property `mode` of NewRoom to Mode
+    set property `prevMode` of NewRoom to PrevMode
 
-	put property `advance` of LegacyRoom into Advance
+    put property `advance` of LegacyRoom into Advance
 	if Advance is empty put `-` into Advance
 	set property `advance` of NewRoom to Advance
 

@@ -1339,7 +1339,7 @@ PaintExpansion:
 	if BoostState is `active` gosub to ActivateModeBoost
 	else if Tmode is `Timed` gosub to ActivateModeTimed
 	else if Tmode is `On` gosub to ActivateModeOn
-	else if Tmode is `Off` gosub to ActivateModeOff
+	else gosub to ActivateModeOff
 
 !	Target tile.
 	index TargetBlockEl to ClickIndex
@@ -2549,8 +2549,8 @@ RenderRoom:
 	put property `nextTime` of Room into NextTime
 	put property `nextTarget` of Room into NextTarget
 	put property `nextPrefix` of Room into NextPrefix
-	put property `name` of Room into NameText
-	put property `advance` of Room into Advance
+    put property `name` of Room into NameText
+    put property `advance` of Room into Advance
 	if Advance is empty put `-` into Advance
 
 	clear CallingForHeat
@@ -2558,6 +2558,8 @@ RenderRoom:
 
 	attach RoomName to `room-` cat IndexStr cat `-name`
 	set the content of RoomName to NameText
+	if CallingForHeat set style `color` of RoomName to `var(--color-accent)`
+	else set style `color` of RoomName to `#2F75B5`
 
 	attach HeatingTag to `room-` cat IndexStr cat `-heating-tag`
 	if CallingForHeat set style `display` of HeatingTag to `inline-flex`
