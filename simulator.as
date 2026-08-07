@@ -230,24 +230,13 @@ ConvertTimeToInt:
 !! @hash 2893761b
 !! @verified 2893761b
 !!!
-!! Convert a temperature string (e.g. "20.5") into an integer-hundredths value. Temp variable in/out.
+!! Convert a temperature string (e.g. "20.5") into an integer-hundredths value (2050). Temp variable in/out.
 !!
-!! Mirror of the same routine in controller.as. Empty input becomes 0. Clobbers I and T.
-!!
-!! NB: this version differs subtly from the controller's. The controller's variant compensates for single-digit fractional parts by multiplying by 10 (so "20.5" becomes 2050), where this one would yield 2005. In practice environment.csv and the simulator's params use whole-degree or two-digit-fractional values where this doesn't bite, but it remains a divergence between the two copies.
+!! Mirror of the same routine in controller.as. Empty input becomes 0. The `scale` operator makes this copy and the controller's identical — and incidentally fixes the old divergence here, where "20.5" used to yield 2005 instead of 2050 because this copy lacked the controller's single-digit-fraction compensation.
 ConvertTempToInt:
     if Temp is empty put 0 into Temp
-    put the index of `.` in Temp into I
-    if I is less than 0 multiply Temp by 100
-    else
-    begin
-        put the value of left I of Temp into T
-        multiply T by 100
-        increment I
-        put the value of from I of Temp into Temp
-        add T to Temp
-    end
+    put Temp scale 100 into Temp
     return
-!! @hash 49748387
+!! @hash 3c92fcd2
 !! @verified 49748387
 !!!

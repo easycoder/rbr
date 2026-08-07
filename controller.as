@@ -1324,22 +1324,12 @@ ConvertTimeToInt:
 !!!
 !! Convert a temperature string (e.g. "20.5") into an integer-hundredths value (2050). Temp variable in/out.
 !!
-!! The map stores temperatures as integer hundredths to avoid floating-point arithmetic at runtime; user-supplied values arrive as strings and need this conversion. Empty input becomes 0. Clobbers I and T as scratch — same warning as ConvertTimeToInt.
+!! The map stores temperatures as integer hundredths to avoid floating-point arithmetic at runtime; user-supplied values arrive as strings and need this conversion. Empty input becomes 0. The `scale` operator does the conversion with exact integer arithmetic (rounding half away from zero when the string carries more than two fractional digits) and handles negative values natively — no more split-on-the-dot dance, and no scratch vars clobbered (callers' "use PI not I" warnings are now moot but harmless).
 ConvertTempToInt:
     if Temp is empty put 0 into Temp
-    put the index of `.` in Temp into I
-    if I is less than 0 multiply Temp by 100
-    else
-    begin
-        put the value of left I of Temp into T
-        multiply T by 100
-        increment I
-        put the value of from I of Temp into Temp
-        if Temp is less than 10 multiply Temp by 10
-        add T to Temp
-    end
+    put Temp scale 100 into Temp
     return
-!! @hash 38e6b2c1
+!! @hash 3c92fcd2
 !! @verified 38e6b2c1
 !!!
 !! Find a room by name and leave RoomIndex pointing at it (-1 if no match).

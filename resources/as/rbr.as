@@ -18,6 +18,7 @@
     div RoomTempPanel
     div RoomToolsButton
     div RoomStatusButton
+    div RoomStatusMessagePanel
     div ModePanel
     div ModeHolder
     div TargetTemp
@@ -78,6 +79,7 @@
     variable RoomData
     variable RoomName
     variable RoomStatus
+    variable StatusMessage
     variable Timestamp
     variable IsAlive
     variable Battery
@@ -647,6 +649,7 @@ UpdateRooms:
         index RoomTempPanel to RoomIndex
         index RoomToolsButton to RoomIndex
         index RoomStatusButton to RoomIndex
+        index RoomStatusMessagePanel to RoomIndex
         index RoomStatus to RoomIndex
         index ModeText to RoomIndex
         index Snowflake to RoomIndex
@@ -678,6 +681,8 @@ UpdateRooms:
             attach RoomToolsButton to `room-tools-` cat RoomIndex or
                 go to NextRoom
             attach RoomStatusButton to `room-status-` cat RoomIndex or
+                go to NextRoom
+            attach RoomStatusMessagePanel to `room-statusmessage-` cat RoomIndex or
                 go to NextRoom
             attach Snowflake to `room-snowflake-` cat RoomIndex or
                 go to NextRoom
@@ -779,6 +784,18 @@ UpdateRooms:
             set style `background` of RoomStatusButton to `gold`
             set style `border` of RoomStatusButton to `1px solid brown`
         end
+
+        ! Show a status message under the room name when the controller has
+        ! flagged a problem (repeated relay failures, stale sensor). The
+        ! controller sends statusMessage with every map update; display it
+        ! only when non-empty so a healthy room shows nothing extra.
+        put property `statusMessage` of RoomSpec into StatusMessage
+        if StatusMessage is not empty
+        begin
+            set the content of RoomStatusMessagePanel to StatusMessage
+            set style `display` of RoomStatusMessagePanel to `block`
+        end
+        else set style `display` of RoomStatusMessagePanel to `none`
 
         ! Show the mode indicator
         put property `relays` of RoomSpec into Relays

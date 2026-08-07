@@ -1,2 +1,2 @@
 [permissions]
-allow = ["explore"]
+allow = ["explore", "Bash=cd /home/graham/dev/rbr && python3 -c \"\nimport json\nm = json.load(open('map.json'))\nfor p in m.get('profiles', []):\n    for r in p.get('rooms', []):\n        print(r.get('name'), '| type:', r.get('relayType'), '| relay:', r.get('relays'), '| linked:', r.get('linked'))\n    break\n\""]

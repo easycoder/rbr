@@ -29,6 +29,7 @@
     button BlocksPrev
     button BlocksNext
     button BlocksVerify
+    button BlocksVerifyAll
     button CloseBtn
     img PlusBtn
     img TabClose
@@ -84,6 +85,9 @@
     variable SecVerified   ! array: stored @verified, or empty
     variable SecHashState  ! array: fresh / stale / no-baseline / no-code
     variable SecVerifyState ! array: verified-fresh / verified-stale / unverified / verified-no-code
+    variable Found         ! 1 if the search term was found in section I
+    variable FoundPane     ! `code` or `doc` — pane that holds the match
+    variable SearchTerm    ! the text being searched for (survives RenderBlock/RenderToc, which reuse Tmp)
 
 !   -- Parser scratch (rebuilt every parse) --
     variable Lines         ! source split on newline
@@ -135,7 +139,7 @@
     variable FirstLine     ! first prose line of a block (for TOC label)
     variable NL
     variable J
-!! @hash 74f1e5a5
+!! @hash b4ba77d2
 !! @verified 82dc7ca8
 !!!
 !! The UI is described by a DOM element 'asedit-ui',
@@ -167,11 +171,12 @@
     attach BlocksNext to `se-blocks-next`
     attach BlocksBadge to `se-blocks-badge`
     attach BlocksVerify to `se-blocks-verify`
+    attach BlocksVerifyAll to `se-blocks-verify-all`
     attach BlocksCodePane to `se-blocks-code`
     attach BlocksDocPane to `se-blocks-doc`
     attach BlocksToc to `se-blocks-toc`
     attach BlocksDivider to `se-blocks-divider`
-!! @hash 21eabec3
+!! @hash e1a4268e
 !! @verified 9fa497ac
 !!!
 !! Some general initialisation
@@ -314,6 +319,7 @@ VersionDone:
     on click BlocksPrev go to PrevBlock
     on click BlocksNext go to NextBlock
     on click BlocksVerify go to MarkVerified
+    on click BlocksVerifyAll go to MarkAllVerified
 
     on pick BlocksDivider
     begin
@@ -339,7 +345,7 @@ VersionDone:
 
     put 0 into BlocksMode
     put 0 into BlockDirty
-!! @hash ef9f0fc0
+!! @hash 562a8033
 !! @verified d4e6253f
 !!!
 !! While editor is running it periodically saves changes made by the user
@@ -449,7 +455,7 @@ PollNext:
 !! @hash 528a0f6d
 !! @verified 528a0f6d
 !!!
-!! (explain)
+!! File browser overlay behind the Open button: lists the current directory, navigates into folders and back to the project root, and hands the chosen file to the tab-management section to open.
 !   -- File browser with directory navigation --
 ShowBrowser:
     ! Opening a tab while Blocks mode is up leaves the panes out of sync with
@@ -702,17 +708,101 @@ RebuildTabBar:
 !! @verified 1347598c
 !!!
 !! Here are some utility functions.
+!! DoFind searches in flat mode via CodeMirror's find dialog; in Blocks mode it jumps to the next block whose code or prose contains the text selected in either pane (wrapping around), highlighting the match so repeated presses walk through the hits.
 !   -- Find --
 DoFind:
+    if BlocksMode is 1 go to FindInBlocks
     codemirror find in ContentEditor
     stop
+
+FindInBlocks:
+    ! Blocks-mode find: walk the sections after the current one (wrapping)
+    ! for the term selected in either pane and jump to the first hit.
+    put the selected text into SearchTerm
+    if SearchTerm is empty
+    begin
+        set the content of StatusSpan to `Select text in a pane to search blocks`
+        fork to ClearStatus
+        stop
+    end
+    put CurBlock into I
+    add 1 to I
+    while I is not CurBlock
+    begin
+        put I modulo SecCount into I
+        if I is CurBlock go to FindNotFound
+        gosub to BlockContains
+        if Found is 1 go to FindMatch
+        add 1 to I
+    end
+FindNotFound:
+    set the content of StatusSpan to `No other block contains ` cat SearchTerm
+    fork to ClearStatus
+    stop
+FindMatch:
+    put I into CurBlock
+    gosub to RenderBlock
+    gosub to SelectOccurrence
+    put CurBlock into I
+    add 1 to I
+    set the content of StatusSpan to `Found in block ` cat I cat ` of ` cat SecCount
+    fork to ClearStatus
+    stop
+
+BlockContains:
+    ! Search section I's code then prose for the term (SearchTerm); sets Found and FoundPane.
+    put 0 into Found
+    index SecCode to I
+    put the position of SearchTerm in SecCode into Pos
+    if Pos is not less than 0
+    begin
+        put 1 into Found
+        put `code` into FoundPane
+        return
+    end
+    index SecProse to I
+    put the position of SearchTerm in SecProse into Pos
+    if Pos is not less than 0
+    begin
+        put 1 into Found
+        put `doc` into FoundPane
+    end
+    return
+
+SelectOccurrence:
+    ! Highlight the first occurrence of the term (SearchTerm) in the pane that matched.
+    if FoundPane is `code`
+    begin
+        index SecCode to CurBlock
+        put the position of SearchTerm in SecCode into Pos
+        if Pos is not less than 0
+        begin
+            put Pos into N
+            put the length of SearchTerm into M
+            add N to M
+            set the selection of BlocksCodePane from N to M
+        end
+    end
+    else
+    begin
+        index SecProse to CurBlock
+        put the position of SearchTerm in SecProse into Pos
+        if Pos is not less than 0
+        begin
+            put Pos into N
+            put the length of SearchTerm into M
+            add N to M
+            set the selection of BlocksDocPane from N to M
+        end
+    end
+    return
 
 !   -- Utilities --
 ClearStatus:
     wait 3 seconds
     set the content of StatusSpan to ``
     stop
-!! @hash df75e3d8
+!! @hash 74b13222
 !! @verified df75e3d8
 !!!
 !! Blocks parser. Walks the current Source line-by-line and populates the per-section arrays (Start, End, Prose, Code, Hash, Verified, HashState, VerifyState) plus the Outside-content array used to preserve text between sections during rebuild.
@@ -909,8 +999,8 @@ ScoreWithCode:
 !!!
 !! Blocks view.
 !! ToggleBlocks switches between flat and Blocks panes.
-!! EnterBlocks parses the current source and shows block 0.
-!! ExitBlocks flushes pending edits and reveals the flat pane again; the work is in DoExitBlocks so ShowBrowser can call it as a subroutine before opening a tab.
+!! EnterBlocks parses the current source, opens the block containing the flat editor's cursor line (so the pane lands where you were working), and scrolls the TOC to that block.
+!! ExitBlocks flushes pending edits, reveals the flat pane again, and scrolls it to the start of the block just viewed; the work is in DoExitBlocks so ShowBrowser can call it as a subroutine before opening a tab.
 !! RenderBlock paints the textareas and the toolbar badge for the current section.
 !! UpdateBadge derives badge text/colour from the section's hash and verify states.
 ToggleBlocks:
@@ -926,8 +1016,23 @@ EnterBlocks:
         fork to ClearStatus
         stop
     end
+    ! Open the block containing the flat editor's cursor: the last section
+    ! whose opener line is at or above the cursor's line, so a cursor in the
+    ! gap between two blocks lands on the block above. Falls back to block 0
+    ! when the cursor is above the first section.
+    codemirror get cursor of ContentEditor into Tmp
+    add 1 to Tmp
     put 0 into CurBlock
+    put 0 into I
+    while I is less than SecCount
+    begin
+        index SecStart to I
+        if SecStart is not greater than Tmp put I into CurBlock
+        add 1 to I
+    end
     put 1 into BlocksMode
+    ! The toggle button now leaves Blocks mode, so relabel it.
+    set the content of BlocksBtn to `Edit`
     set style `display` of EditorArea to `none`
     set style `display` of BlocksArea to `flex`
     ! Restore divider position from previous session if persisted.
@@ -938,6 +1043,9 @@ EnterBlocks:
     if StoredWidth is greater than 100
         set style `flex` of BlocksCodePane to `0 0 ` cat StoredWidth cat `px`
     gosub to RenderToc
+    ! Reveal the current block's row in the TOC sidebar.
+    index TocRow to CurBlock
+    scroll TocRow into view
     gosub to RenderBlock
     stop
 
@@ -949,9 +1057,28 @@ ExitBlocks:
 !   Exit Blocks mode (callable as a subroutine -- e.g. from ShowBrowser)
 DoExitBlocks:
     gosub to FlushBlock
+    ! Re-parse so SecStart reflects any line shifts from the flush rebuild.
+    gosub to ParseSource
     put 0 into BlocksMode
+    ! Back in flat mode the toggle button re-enters Blocks mode.
+    set the content of BlocksBtn to `Blocks`
     set style `display` of BlocksArea to `none`
     set style `display` of EditorArea to `block`
+    ! Scroll the flat editor so the start of the block just viewed is visible.
+    if SecCount is greater than 0
+    begin
+        ! Guard against a stale CurBlock (e.g. tab switched while in Blocks mode).
+        if CurBlock is not less than SecCount
+        begin
+            put SecCount into Tmp
+            take 1 from Tmp
+            put Tmp into CurBlock
+        end
+        index SecStart to CurBlock
+        put SecStart into Tmp
+        take 1 from Tmp
+        codemirror scroll to line Tmp in ContentEditor
+    end
     return
 
 NextBlock:
@@ -1008,8 +1135,8 @@ UpdateBadge:
         set style `background` of BlocksBadge to `#666`
     end
     return
-!! @hash e2a65195
-!! @verified b94f2261
+!! @hash 654c6d02
+!! @verified 654c6d02
 !!!
 !! Blocks save.
 !! FlushBlock pushes the current pane edits back into the
@@ -1107,6 +1234,9 @@ BuildSectionText:
 !! Mark verified — writes the current code's hash into the section's
 !! "@verified" slot, then flushes so the file picks it up. The badge turns
 !! green on the next render.
+!! MarkAllVerified does the same for every code-bearing section in one pass.
+!! It is a bulk, self-attestation action, so it asks for confirmation first —
+!! a single misclick would otherwise wipe the file's granular verification record.
 MarkVerified:
     if BlocksMode is 0 stop
     gosub to FlushBlock      ! ensure SecHash reflects current code first
@@ -1124,13 +1254,54 @@ MarkVerified:
     set the content of StatusSpan to `Marked verified`
     fork to ClearStatus
     stop
-!! @hash f2067b60
-!! @verified f2067b60
+
+MarkAllVerified:
+    if BlocksMode is 0 stop
+    gosub to FlushBlock      ! ensure the current block's hash is current too
+    ! Count the code-bearing sections; only those can carry a @verified mark.
+    put 0 into N
+    put 0 into I
+    while I is less than SecCount
+    begin
+        index SecHash to I
+        if SecHash is not empty add 1 to N
+        add 1 to I
+    end
+    if N is 0 stop
+    if N is 1 put `Mark 1 block as verified?` into Tmp
+    else put `Mark all ` cat N cat ` blocks as verified?` into Tmp
+    if confirm Tmp
+    begin
+        put 0 into I
+        while I is less than SecCount
+        begin
+            index SecHash to I
+            if SecHash is not empty
+            begin
+                index SecVerified to I
+                put SecHash into SecVerified
+                index SecVerifyState to I
+                put `verified-fresh` into SecVerifyState
+            end
+            add 1 to I
+        end
+        gosub to RebuildSource
+        codemirror set content of ContentEditor to Source
+        gosub to RenderBlock
+        if N is 1 put `Marked 1 block verified` into Tmp
+        else put `Marked ` cat N cat ` blocks verified` into Tmp
+        set the content of StatusSpan to Tmp
+        fork to ClearStatus
+    end
+    stop
+!! @hash b0f5bf9f
+!! @verified b0f5bf9f
 !!!
 !! Blocks TOC. Renders one row per parsed section in the BlocksToc
 !! sidebar, highlighting the current block. Each row's label is the
 !! first prose line of its section, truncated. Clicking a row flushes
 !! any pending edit and jumps to that block.
+!! Rows are shaded dark by verification state — green = verified, amber = stale, grey = unverified — so the blue current row stands out at a glance.
 RenderToc:
     set the content of BlocksToc to ``
     set the elements of TocRow to SecCount
@@ -1140,8 +1311,17 @@ RenderToc:
     begin
         index TocRow to J
         create TocRow in BlocksToc
-        if J is CurBlock set the style of TocRow to `padding:4px 10px;cursor:pointer;background:#1e88e5;color:white`
-        else set the style of TocRow to `padding:4px 10px;cursor:pointer`
+        put `padding:4px 10px;cursor:pointer` into Tmp
+        if J is CurBlock put Tmp cat `;background:#1e88e5;color:white` into Tmp
+        else
+        begin
+            index SecVerifyState to J
+            put SecVerifyState into VerifyState
+            if VerifyState is `verified-fresh` put Tmp cat `;background:#1b5e20` into Tmp
+            else if VerifyState is `verified-stale` put Tmp cat `;background:#a26d18` into Tmp
+            else put Tmp cat `;background:#3f3f3f` into Tmp
+        end
+        set the style of TocRow to Tmp
         index SecProse to J
         put SecProse into ProseSrc
         put the position of newline in ProseSrc into NL
@@ -1165,5 +1345,6 @@ JumpToBlock:
     put Tmp into CurBlock
     gosub to RenderBlock
     stop
-!! @hash ed01e660
+!! @hash 426884b9
+!! @verified 426884b9
 !!!

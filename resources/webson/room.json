@@ -22,32 +22,48 @@
     "$Name": {
         "#element": "div",
         "text-align": "left",
-        "line-height": "2em",
         "margin-left": "0.5em",
         "flex": 1,
-        "height": "2em",
-        "font-weight": "bold",
-        "cursor": "default",
-        "overflow": "wrap",
         "position": "relative",
-        "#": ["$NameText", "$Snowflake"],
+        "#": ["$NameTop", "$StatusMessage"],
 
-        "$NameText": {
+        "$NameTop": {
             "#element": "div",
-            "@id": "room-name-/ROOM/"
+            "line-height": "2em",
+            "height": "2em",
+            "font-weight": "bold",
+            "cursor": "default",
+            "overflow": "wrap",
+            "position": "relative",
+            "#": ["$NameText", "$Snowflake"],
+
+            "$NameText": {
+                "#element": "div",
+                "@id": "room-name-/ROOM/"
+            },
+
+            "$Snowflake": {
+                "#element": "img",
+                "@id": "room-snowflake-/ROOM/",
+                "@src": "resources/icon/snowflake.png",
+                "display": "block",
+                "position": "absolute",
+                "display": "none",
+                "top": 0,
+                "right": 0,
+                "width": "1em",
+                "height": "1em"
+            }
         },
 
-        "$Snowflake": {
-            "#element": "img",
-            "@id": "room-snowflake-/ROOM/",
-            "@src": "resources/icon/snowflake.png",
-            "display": "block",
-            "position": "absolute",
-            "display": "none",
-            "top": 0,
-            "right": 0,
-            "width": "1em",
-            "height": "1em"
+        "$StatusMessage": {
+            "#element": "div",
+            "@id": "room-statusmessage-/ROOM/",
+            "font-size": "0.75em",
+            "line-height": "1.2em",
+            "color": "#a00",
+            "padding-bottom": "0.2em",
+            "display": "none"
         }
     },
 

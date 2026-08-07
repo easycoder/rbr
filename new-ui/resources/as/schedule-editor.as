@@ -591,33 +591,13 @@ ParseTimeMinutes:
 	return
 !! @hash 3a38eab5
 !!!
-!! Convert "X.Y" string → integer tenths (e.g. "20.5" → 205). TempStr in, TempTenths out. Handles negative values by stripping the sign and re-applying. Local copy of shell.as's ToTenths.
+!! Convert "X.Y" string → integer tenths (e.g. "20.5" → 205). TempStr in, TempTenths out. Handles negative values natively via `scale`. Local copy of shell.as's ToTenths.
 ToTenths:
 	put 0 into TempTenths
 	if TempStr is empty return
-	clear NegativeFlag
-	if left 1 of TempStr is `-`
-	begin
-		set NegativeFlag
-		put from 1 of TempStr into TempStr
-	end
-	put the index of `.` in TempStr into DotIdx
-	if DotIdx is less than 0
-	begin
-		put the value of TempStr into TempTenths
-		multiply TempTenths by 10
-	end
-	else
-	begin
-		put the value of left DotIdx of TempStr into TempTenths
-		multiply TempTenths by 10
-		increment DotIdx
-		put the value of from DotIdx of TempStr into DecPart
-		add DecPart to TempTenths
-	end
-	if NegativeFlag multiply TempTenths by -1
+	put TempStr scale 10 into TempTenths
 	return
-!! @hash ead9f49b
+!! @hash 294c7e6e
 !!!
 !! Reverse of ToTenths: integer tenths → "X.Y" string. TempTenths in, TempStr out. Local copy of shell.as's TenthsToString.
 TenthsToString:

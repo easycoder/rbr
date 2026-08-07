@@ -254,7 +254,7 @@ BuildPeriodsFromEvents:
 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !   Convert TempStr (e.g. "15.0", 15, "21.5", "") into an integer in hundredths.
-!   Mirrors controller.as ConvertTempToInt.
+!   Mirrors controller.as ConvertTempToInt, now via the scale operator.
 TempStrToInt:
     put `` cat TempStr into TempStr
     if TempStr is empty
@@ -262,15 +262,5 @@ TempStrToInt:
         set TempInt to 0
         return
     end
-    put the index of `.` in TempStr into I
-    if I is less than 0 multiply TempStr by 100 giving TempInt
-    else
-    begin
-        put the value of left I of TempStr into TempInt
-        multiply TempInt by 100
-        increment I
-        put the value of from I of TempStr into J
-        if J is less than 10 multiply J by 10
-        add J to TempInt
-    end
+    put TempStr scale 100 into TempInt
     return

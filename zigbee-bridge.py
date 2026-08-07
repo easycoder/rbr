@@ -42,6 +42,36 @@ mqtt_client = None
 script_dir = os.path.dirname(os.path.abspath(__file__))
 temperatures_path = os.path.join(script_dir, "zigbee-temperatures.json")
 
+# A relay that hasn't been seen by zigbee2mqtt for this long (seconds) is
+# treated as non-responsive. The controller polls every ~5s, so a healthy
+# device refreshes last_seen constantly; 30 minutes is a very generous bound
+# that only trips when a device has genuinely stopped reporting (e.g. it was
+# powered down).
+OFFLINE_AFTER_SECONDS = 1800
+
+def _device_responding(state):
+    """True if a device should be treated as reachable.
+
+    Primary signal is zigbee2mqtt's per-device availability
+    (zigbee2mqtt/{name}/availability = "online"/"offline"): an explicitly
+    offline device is non-responsive, an explicitly online one is reachable
+    even if it has been quiet — availability is refreshed by zigbee2mqtt's own
+    pings, so treating a quiet-but-online device as dead would be a false
+    positive (and the controller's warn/fail status forces the relay off).
+    Only when availability is unknown — not enabled in zigbee2mqtt, or the
+    bridge restarted before the first availability message — do we fall back
+    to last_seen staleness with the generous OFFLINE_AFTER_SECONDS bound.
+    """
+    if state.get("available") is True:
+        return True
+    if state.get("available") is False:
+        return False
+    last_seen = state.get("last_seen", 0)
+    if last_seen and time.time() - last_seen > OFFLINE_AFTER_SECONDS:
+        return False
+    return True
+
+
 # ---------------------------------------------------------------------------
 # MQTT callbacks
 # ---------------------------------------------------------------------------
@@ -70,8 +100,27 @@ def on_message(client, userdata, msg):
     if topic.startswith("zigbee2mqtt/bridge/"):
         return
 
-    # Device state update: zigbee2mqtt/{friendly_name}
+    # Device availability: zigbee2mqtt/{friendly_name}/availability carries
+    # "online"/"offline" (zigbee2mqtt configured with availability: true).
+    # This is the reliable signal that a device — e.g. a powered-down relay —
+    # has stopped responding: its state messages simply stop arriving, so the
+    # cached state alone can never reveal it. deviceControl.as is told the
+    # device is non-responsive via the HTTP handler below.
     parts = topic.split("/")
+    if len(parts) == 3 and parts[2] == "availability":
+        device_name = parts[1]
+        # Only the two documented payloads are meaningful; ignore anything
+        # unexpected rather than guessing the device is offline.
+        if payload not in ("online", "offline"):
+            return
+        with device_states_lock:
+            state = device_states.setdefault(device_name, {})
+            state["available"] = (payload == "online")
+            print(f"Device {device_name} "
+                  f"{'online' if state['available'] else 'OFFLINE'}")
+        return
+
+    # Device state update: zigbee2mqtt/{friendly_name}
     if len(parts) == 2:
         device_name = parts[1]
         _handle_device_update(device_name, payload)
@@ -162,6 +211,10 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
         GET /device/{name}                 — return current state (no command)
         GET /devices                       — list all known devices
         GET /health                        — health check
+
+    /device returns a body with no `state` field when the device is offline
+    or hasn't been seen for a while, so callers can detect non-response
+    instead of trusting a stale cached state.
     """
 
     def do_GET(self):
@@ -198,6 +251,18 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
 
             with device_states_lock:
                 state = device_states.get(device_name, {})
+
+            # A device that zigbee2mqtt reports offline (or that hasn't been
+            # seen for a long time) is non-responsive. Return a body with no
+            # `state` field so deviceControl.as counts the reply as a relay
+            # failure and the controller can flag the room, instead of
+            # trusting a stale cached state (e.g. an "off" from days ago).
+            if not _device_responding(state):
+                self._respond(200, {
+                    "error": f"device {device_name} is not responding",
+                    "last_seen": state.get("last_seen", 0),
+                })
+                return
 
             # Return response in a format deviceControl.ecs can parse
             relay_state = state.get("state", "unknown")

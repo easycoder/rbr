@@ -2352,20 +2352,7 @@ ComputeSummaryStats:
 		begin
 			if Ttemp is not empty
 			begin
-				put the index of `.` in Ttemp into DotIdx
-				if DotIdx is less than 0
-				begin
-					put the value of Ttemp into TenthsOne
-					multiply TenthsOne by 10
-				end
-				else
-				begin
-					put the value of left DotIdx of Ttemp into TenthsOne
-					multiply TenthsOne by 10
-					increment DotIdx
-					put the value of from DotIdx of Ttemp into DecPart
-					add DecPart to TenthsOne
-				end
+				put Ttemp scale 10 into TenthsOne
 				add TenthsOne to SumTenths
 				increment AvgCount
 			end
@@ -2433,7 +2420,7 @@ ComputeSummaryStats:
 		put HeatingNames into SubtitleText
 	end
 	return
-!! @hash 37c33f16
+!! @hash ea876316
 !!!
 !! Push the aggregates from ComputeSummaryStats into the SummaryCard DOM. Element vars must already be attached (BuildHomeScreen does this once at startup).
 !!
@@ -2485,33 +2472,13 @@ FormatTodayString:
 !!!
 !! Convert a temperature string "X.Y" into integer tenths (e.g. "20.5" → 205, "-1.7" → -17). Uses TempStr in, TempTenths out.
 !!
-!! Negative inputs need a sign-strip pass first because parsing `left 2 of '-0.5'` yields "-0" → 0, silently losing the sign for sub-1° magnitudes. We strip the leading `-`, parse the magnitude, then flip the sign back at the end.
+!! The `scale` operator does the whole conversion exactly with integer arithmetic — including negative values, which the old hand-rolled dot-split handled badly for sub-1° magnitudes (`left 2 of '-0.5'` yields "-0" → 0, hence the previous sign-strip pass). Empty input still yields 0.
 ToTenths:
 	put 0 into TempTenths
 	if TempStr is empty return
-	clear NegativeFlag
-	if left 1 of TempStr is `-`
-	begin
-		set NegativeFlag
-		put from 1 of TempStr into TempStr
-	end
-	put the index of `.` in TempStr into DotIdx
-	if DotIdx is less than 0
-	begin
-		put the value of TempStr into TempTenths
-		multiply TempTenths by 10
-	end
-	else
-	begin
-		put the value of left DotIdx of TempStr into TempTenths
-		multiply TempTenths by 10
-		increment DotIdx
-		put the value of from DotIdx of TempStr into DecPart
-		add DecPart to TempTenths
-	end
-	if NegativeFlag multiply TempTenths by -1
+	put TempStr scale 10 into TempTenths
 	return
-!! @hash ead9f49b
+!! @hash 294c7e6e
 !!!
 !! Reverse of ToTenths: integer tenths → "X.Y" string. TempTenths in, TempStr out. Used after target steppers to convert the internal tenths value back to display form.
 TenthsToString:
