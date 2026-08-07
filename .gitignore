@@ -9,6 +9,7 @@ extras
 ESP
 map.json
 thermometers.json
+rbr-controller.tar.gz
 chat/chat-data
 chat/chat-config.json
 chat/chat-users.json

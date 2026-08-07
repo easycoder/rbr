@@ -85,10 +85,6 @@
     dictionary ZigbeeTemp
     list ZigbeeTempKeys
     variable ZK
-    variable Version
-    variable RemoteVersion
-    variable UpdateCheckCounter
-    variable SysResult
     variable LoopCount
     variable UpdateCount
     variable WaitCounter
@@ -154,7 +150,6 @@
     reset Temperatures
     set LoopCount to 0
     set UpdateCount to 0
-    set UpdateCheckCounter to 0
     set PriorityRoomIndex to -1
 !! @hash ccb83ebf
 !! @verified ccb83ebf
@@ -248,8 +243,6 @@ Start:
     set RequestState to `off`
     set RequestStateWas to `off`
 
-    ! Check for a newer version (also called periodically from MainLoop).
-    gosub to CheckForUpdate
 !   Walk the list of rooms and process the needs of each one
     gosub to ProcessAllRooms
 !! @hash 2e5e5cad
@@ -259,8 +252,6 @@ Start:
 !! It waits 5 seconds between runs. This can be adjusted but 5 seconds seems optimal.
 !!
 !! Day-rollover check: ResolveCalendarProfile only runs inside ProcessAllRooms, so without an explicit midnight detection the controller keeps processing yesterday's profile until a UI action re-triggers it. A `today` comparison at the top of each cycle catches the rollover and refreshes the profile.
-!!
-!! Hourly auto-update check. MainLoop runs every ~5s (720 cycles ≈ 1h), so this hits the version endpoint at most once an hour. If a newer version exists, CheckForUpdate exits the process and systemd / `system background ... allspeak controller.as` relaunches us.
 !!
 !! If a room has priority (e.g. is waiting for an immediate response), process it before entering the main loop.
 !!
@@ -280,12 +271,6 @@ MainLoop:
     begin
         log `Day rollover detected; refreshing profile selection`
         gosub to ProcessAllRooms
-    end
-    increment UpdateCheckCounter
-    if UpdateCheckCounter is greater than 720
-    begin
-        set UpdateCheckCounter to 0
-        gosub to CheckForUpdate
     end
 
     ! Wait for 5 seconds
@@ -1020,67 +1005,6 @@ UpdateProfiles:
 UpdateMap:
     set entry `profiles` of Map to Profiles
     return
-!! @hash b14a1967
-!! @verified b14a1967
-!!!
-!! Auto-update mechanism. Reads the version stamp at https://rbrheating.com/version and compares with the locally-stored .version. If the remote is newer, pulls the three runtime source files (controller.as, deviceControl.as, simulator.as), records the new version, and exits — controller.service relaunches us via its `system background sleep 5 && allspeak ...` line.
-!!
-!! All-or-nothing: each file is downloaded to a `.new` sidecar and only mv'd into place once all three downloads have succeeded, so a network failure mid-update leaves the previous working copies untouched. Atomic same-filesystem mv means a controller crash during the swap leaves either the old or new file, never a torn write.
-!!
-!! Called once at startup and every hour from MainLoop.
-CheckForUpdate:
-    get RemoteVersion from url `https://rbrheating.com/version`
-        or begin
-            log `Warning: could not check for updates`
-            return
-        end
-    if RemoteVersion is empty return
-    replace ` ` with `` in RemoteVersion
-    replace newline with `` in RemoteVersion
-    if file `.version` exists load Version from `.version`
-    else put `0` into Version
-    replace ` ` with `` in Version
-    replace newline with `` in Version
-    if RemoteVersion is not greater than Version
-    begin
-        log `Controller version ` cat Version cat ` is up to date`
-        return
-    end
-    log `Updating from version ` cat Version cat ` to ` cat RemoteVersion
-!   All-or-nothing download. If any of the three fetches fails, we clean
-!   up whatever partial .new files we already wrote and return without
-!   touching the live .as files or .version. Next hourly CheckForUpdate
-!   sees the same higher remote version and retries the whole thing.
-    download `https://rbrheating.com/controller.as` to `controller.as.new`
-        on failure
-        begin
-            log `Update aborted: download of controller.as failed`
-            return
-        end
-    download `https://rbrheating.com/deviceControl.as` to `deviceControl.as.new`
-        on failure
-        begin
-            log `Update aborted: download of deviceControl.as failed`
-            put system `rm -f controller.as.new` into SysResult
-            return
-        end
-    download `https://rbrheating.com/simulator.as` to `simulator.as.new`
-        on failure
-        begin
-            log `Update aborted: download of simulator.as failed`
-            put system `rm -f controller.as.new deviceControl.as.new` into SysResult
-            return
-        end
-!   Atomically swap each .new into place. mv on the same filesystem is
-!   atomic so a controller crash mid-swap leaves us with either the old
-!   or the new file, never a torn write.
-    put system `mv -f controller.as.new controller.as` into SysResult
-    put system `mv -f deviceControl.as.new deviceControl.as` into SysResult
-    put system `mv -f simulator.as.new simulator.as` into SysResult
-    save RemoteVersion to `.version`
-    log `Update applied. Restarting...`
-    system background `sleep 5 && allspeak controller.as`
-    exit
 !! @hash 19bec5d0
 !! @verified 19bec5d0
 !!!

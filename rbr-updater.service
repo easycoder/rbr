@@ -1,0 +1,12 @@
+[Unit]
+Description=RBR controller updater (one-shot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as root so it can restart the controller/bridge services after an
+# update. Only replaces code files in the RBR directory; machine-specific
+# data (credentials, .mac_override, map.json, ...) is never touched.
+# Adjust ExecStart to your RBR directory (the one containing controller.as).
+ExecStart=/usr/bin/python3 /home/graham/rbr/rbr-updater.py

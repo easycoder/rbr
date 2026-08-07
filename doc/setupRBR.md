@@ -2,6 +2,13 @@
 
 Here are the steps to be taken to set up a new RBR system.
 
+> **Minimum file set:** the definitive list of files that must be present on the
+> controller computer is in [CONTROLLER-FILES.md](CONTROLLER-FILES.md).
+>
+> **Updates:** automatic code updates are handled by the standalone updater
+> (`rbr-updater.py` + hourly systemd timer, installed by `rbr-setup.sh`) pulling
+> a versioned tarball from rbrheating.com — see [UPDATE-MECHANISM.md](UPDATE-MECHANISM.md).
+
 1. Install Linux on the system controller. Any variety will do. If your device has its own display, a desktop distribution is more appropriate, otherwise a server distribution will do fine. In either case you can control the system from an SSH connection.
 2. Log in with the default user account name and password.
 3. Download the setup script from the RBR website:

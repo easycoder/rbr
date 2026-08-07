@@ -336,9 +336,53 @@ echo "  → Created $RBR_DIR/credentials (broker: localhost, MAC: $MAC)"
 echo "  Note: mail credentials are placeholders — update if you need email features."
 
 # =========================================================================--
-# STEP 6 — (optional) Local UI web server
+# STEP 6 — RBR updater (automatic code updates)
 # =========================================================================--
-confirm "Step 6 — Local UI web server (optional)"
+confirm "Step 6 — Installing RBR updater (automatic updates)"
+
+if [[ ! -f "$RBR_DIR/rbr-updater.py" ]]; then
+    echo "  ⚠ rbr-updater.py not found in $RBR_DIR — skipping updater install"
+    echo "    (copy it from the repo if you want automatic updates)"
+else
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/rbr-updater.py"
+
+    cat > /etc/systemd/system/rbr-updater.service << SERVICE
+[Unit]
+Description=RBR controller updater (one-shot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as root so it can restart the controller/bridge services after an
+# update. Only replaces code files in ${RBR_DIR}; machine-specific data
+# (credentials, .mac_override, map.json, ...) is never touched.
+ExecStart=/usr/bin/python3 ${RBR_DIR}/rbr-updater.py
+SERVICE
+
+    cat > /etc/systemd/system/rbr-updater.timer << TIMER
+[Unit]
+Description=Run the RBR updater hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+TIMER
+
+    systemctl daemon-reload
+    systemctl enable rbr-updater.timer
+    systemctl start rbr-updater.timer
+    echo "  → rbr-updater.timer enabled (hourly check for rbr-controller.tar.gz)"
+fi
+
+# =========================================================================--
+# STEP 7 — (optional) Local UI web server
+# =========================================================================--
+confirm "Step 7 — Local UI web server (optional)"
 
 INSTALL_UI=""
 read -r -p "  Install a local web server for the UI? (y/N): " INSTALL_UI
@@ -385,6 +429,50 @@ JSON
     echo "  → Created $RBR_DIR/credentials.json for the UI (WebSocket on port $WS_PORT)"
 fi
 
+# =========================================================================--
+# STEP 8 — (optional) Run the controller as a systemd service
+# ===========================================================================
+confirm "Step 8 — Controller systemd service (optional)"
+
+INSTALL_CTRL=""
+read -r -p "  Run the controller as a service (auto-restart after updates)? (y/N): " INSTALL_CTRL
+if [[ "${INSTALL_CTRL,,}" == "y" ]]; then
+    # Locate the allspeak binary. When run under sudo, root's PATH often
+    # misses the user's ~/.local/bin where allspeak lives.
+    ALLSPEAK_BIN="$(command -v allspeak 2>/dev/null || true)"
+    if [[ -z "$ALLSPEAK_BIN" && -x "/home/$RBR_USER/.local/bin/allspeak" ]]; then
+        ALLSPEAK_BIN="/home/$RBR_USER/.local/bin/allspeak"
+    fi
+    if [[ -z "$ALLSPEAK_BIN" ]]; then
+        echo "  ⚠ Could not find the allspeak binary — skipping controller service"
+    else
+        cat > /etc/systemd/system/controller.service << SERVICE
+[Unit]
+Description=RBR Controller
+After=network-online.target mosquitto.service rbr-zigbee-bridge.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${RBR_USER}
+WorkingDirectory=${RBR_DIR}
+ExecStart=${ALLSPEAK_BIN} controller.as
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+        systemctl daemon-reload
+        systemctl enable controller.service
+        systemctl start controller.service
+        echo "  → controller.service running as $RBR_USER (restarts automatically after updates)"
+    fi
+fi
+
 # ===========================================================================
 # START EVERYTHING
 # ===========================================================================
@@ -410,6 +498,9 @@ echo "    zigbee2mqtt        $(systemctl is-active zigbee2mqtt)"
 echo "    rbr-zigbee-bridge  $(systemctl is-active rbr-zigbee-bridge)"
 if [[ -f /etc/systemd/system/rbr-ui.service ]]; then
     echo "    rbr-ui             $(systemctl is-active rbr-ui)"
+fi
+if [[ -f /etc/systemd/system/rbr-updater.timer ]]; then
+    echo "    rbr-updater.timer  $(systemctl is-active rbr-updater.timer)"
 fi
 echo ""
 echo "  Controller:"

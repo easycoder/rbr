@@ -5,11 +5,14 @@
 #   /                   <- legacy UI entry points (index.html, auth.php, ...)
 #   /resources/         <- legacy UI resources
 #   /new-ui/            <- new UI (PWA) — index.html, sw.js, resources/, icons/
-#   /controller.as      <- AllSpeak controller source pulled by IXHUB
+#   /controller.as      <- AllSpeak controller source (legacy pull)
 #   /deviceControl.as   <- ditto
 #   /simulator.as       <- ditto
-#   /version            <- single-line version stamp; bumping this triggers
-#                          IXHUB's CheckForUpdate to pull the .as files
+#   /rbr-controller.tar.gz <- versioned bundle of ALL controller runtime
+#                          files, pulled by the standalone updater
+#                          (rbr-updater.py) — see doc/UPDATE-MECHANISM.md
+#   /version            <- single-line version stamp; bumping this (with
+#                          --release) makes controllers apply the tarball
 #
 # Usage:
 #   ./deploy.sh             upload UI + .as files; do NOT bump the version.
@@ -82,15 +85,49 @@ rsync -vz --no-perms -e "$SSH_OPTS" \
     "$LOCAL/simulator.as" \
     "$REMOTE/"
 
+# Versioned controller tarball for the standalone updater (rbr-updater.py).
+# Contains ALL controller runtime files (the .as sources plus the Python
+# daemons) with a VERSION stamp embedded; controllers only apply it when
+# the stamp is newer than their local .version. Built after the version
+# stamp is final so a --release tarball carries the new stamp. See
+# doc/UPDATE-MECHANISM.md.
+build_controller_tarball() {
+    local BUILD_DIR
+    BUILD_DIR="$(mktemp -d)"
+    for f in controller.as deviceControl.as simulator.as \
+             zigbee-bridge.py zigbee-pair.py rbr-dashboard.py dashboard.txt \
+             rbr-updater.py; do
+        cp "$LOCAL/$f" "$BUILD_DIR/"
+    done
+    cp "$LOCAL/version" "$BUILD_DIR/VERSION"
+    tar -C "$BUILD_DIR" -czf "$LOCAL/rbr-controller.tar.gz" .
+    rm -rf "$BUILD_DIR"
+    echo "  → $LOCAL/rbr-controller.tar.gz (version $(cat "$LOCAL/version"))"
+}
+
+upload_controller_tarball() {
+    echo "Building controller update tarball..."
+    build_controller_tarball
+    echo "Uploading rbr-controller.tar.gz..."
+    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/rbr-controller.tar.gz" "$REMOTE/"
+}
+
 if [[ $RELEASE -eq 1 ]]; then
     # Bump and publish the version stamp. Format YYMMDDHHMM gives multiple
     # releases per day distinct, monotonically-increasing values that
-    # compare correctly as integers in CheckForUpdate.
+    # compare correctly as integers in rbr-updater.py.
     NEW_VERSION="$(date +%y%m%d%H%M)"
     echo "$NEW_VERSION" > "$LOCAL/version"
     echo "Releasing version $NEW_VERSION..."
+    # The tarball is built AFTER the bump so it embeds the new stamp;
+    # /version is uploaded last so mid-check controllers never see a new
+    # stamp paired with stale .as source.
+    upload_controller_tarball
     rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/version" "$REMOTE/"
-    echo "Done. IXHUB controllers will pick up version $NEW_VERSION on their next hourly check."
+    echo "Done. Controllers will pick up version $NEW_VERSION on their next hourly check."
 else
+    # No version bump: the tarball keeps the last release stamp, so
+    # controllers that already have it will skip it. Safe to iterate.
+    upload_controller_tarball
     echo "Done. Files uploaded; version stamp unchanged. Run with --release to publish to customers."
 fi
