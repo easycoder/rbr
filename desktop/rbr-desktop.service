@@ -1,0 +1,18 @@
+[Unit]
+Description=RBR Desktop UI
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${RBR_USER}
+WorkingDirectory=${RBR_DIR}/desktop
+Environment=QT_QPA_PLATFORM=xcb
+ExecStart=${ALLSPEAK_BIN} rbr-desktop.as
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
