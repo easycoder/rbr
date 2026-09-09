@@ -76,6 +76,15 @@ def fmt_humidity(hum):
         return "   --"
 
 
+def read_version():
+    """Applied controller version from .version (written by rbr-updater.py)."""
+    try:
+        with open(os.path.join(RBR_DIR, ".version")) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
 def fmt_sensor_age(ms):
     """Milliseconds → minutes string, or '   --' if absent. Fixed 5 chars."""
     if ms == "" or ms is None:
@@ -131,6 +140,13 @@ def render(data):
     ruler = "─" * (NAME_W + RELAY_W + TEMP_W + HUM_W + BATT_W + REP_W + 12)
     out.append(f"{GREY}{ruler}{RESET}")
     plain.append(ruler)
+
+    # Version line — lets you confirm a deployed update actually arrived
+    ver = read_version()
+    if ver:
+        ver_line = f"{GREY}version {ver}{RESET}"
+        out.append(ver_line)
+        plain.append(f"version {ver}")
 
     rooms = data.get("rooms", [])
     for r in rooms:

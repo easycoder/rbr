@@ -1,5 +1,5 @@
 {
-    "#doc": "MenuSheet content — four rows in a bordered card plus a small footer caption. Uses a $Row template with $ID/$Label/$Sub variables. Profiles & schedules are reached from the home screen's profile pill (not the menu).",
+    "#doc": "MenuSheet content — three rows in a bordered card plus a small footer caption. Uses a $Row template with $ID/$Label/$Sub variables. Profiles & schedules are reached from the home screen's profile pill (not the menu).",
     "#element": "div",
     "@id": "menu-sheet",
     "#": ["$Card", "$Footer"],
@@ -11,31 +11,25 @@
         "border-radius": "14px",
         "margin-top": "10px",
         "overflow": "hidden",
-        "#": ["$Row1", "$Row2", "$Row3", "$Row4"],
+        "#": ["$Row1", "$Row2", "$Row3"],
 
         "$Row1": {
             "$ID": "menu-row-system",
             "$Label": "System type & name",
             "$Sub": "",
-            "#": "$Row"
+            "#": ["$Row"]
         },
         "$Row2": {
             "$ID": "menu-row-devices",
             "$Label": "Rooms and Devices",
             "$Sub": "Add, rename, reorder; assign sensors and relays",
-            "#": "$Row"
+            "#": ["$Row"]
         },
         "$Row3": {
             "$ID": "menu-row-outside",
             "$Label": "Outside thermometer",
             "$Sub": "Frost protection",
-            "#": "$Row"
-        },
-        "$Row4": {
-            "$ID": "menu-row-help",
-            "$Label": "Help & support",
-            "$Sub": "",
-            "#": "$Row"
+            "#": ["$Row"]
         },
 
         "$Row": {

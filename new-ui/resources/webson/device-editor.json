@@ -158,8 +158,8 @@
             "gap": "6px",
             "#": ["$BtnRBRNow", "$BtnZigbee"],
 
-            "$BtnRBRNow": { "$ID": "device-editor-rt-rbrnow", "$Label": "RBR-Now", "#": "$RTBtn" },
-            "$BtnZigbee": { "$ID": "device-editor-rt-zigbee", "$Label": "Zigbee",  "#": "$RTBtn" },
+            "$BtnRBRNow": { "$ID": "device-editor-rt-rbrnow", "$Label": "RBR-Now", "#": ["$RTBtn"] },
+            "$BtnZigbee": { "$ID": "device-editor-rt-zigbee", "$Label": "Zigbee",  "#": ["$RTBtn"] },
 
             "$RTBtn": {
                 "#element": "button",

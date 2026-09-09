@@ -12,11 +12,11 @@
         "overflow": "hidden",
         "#": ["$RowRelay", "$RowTemp", "$RowHumidity", "$RowBattery", "$RowAge"],
 
-        "$RowRelay": { "$ID": "info-relay",    "$Label": "RADIATOR",       "#": "$Row" },
-        "$RowTemp":  { "$ID": "info-temp",     "$Label": "TEMPERATURE",    "#": "$Row" },
-        "$RowHumidity": { "$ID": "info-humidity", "$Label": "HUMIDITY",    "#": "$Row" },
-        "$RowBattery": { "$ID": "info-battery", "$Label": "SENSOR BATTERY", "#": "$Row" },
-        "$RowAge":   { "$ID": "info-age",      "$Label": "LAST REPORT",     "#": "$Row" },
+        "$RowRelay": { "$ID": "info-relay",    "$Label": "RADIATOR",       "#": ["$Row"] },
+        "$RowTemp":  { "$ID": "info-temp",     "$Label": "TEMPERATURE",    "#": ["$Row"] },
+        "$RowHumidity": { "$ID": "info-humidity", "$Label": "HUMIDITY",    "#": ["$Row"] },
+        "$RowBattery": { "$ID": "info-battery", "$Label": "SENSOR BATTERY", "#": ["$Row"] },
+        "$RowAge":   { "$ID": "info-age",      "$Label": "LAST REPORT",     "#": ["$Row"] },
 
         "$Row": {
             "#element": "div",

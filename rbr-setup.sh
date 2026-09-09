@@ -384,6 +384,36 @@ chmod 640 "$RBR_DIR/credentials"
 echo "  → Created $RBR_DIR/credentials (broker: localhost, MAC: $MAC)"
 echo "  Note: mail credentials are placeholders — update if you need email features."
 
+# ===========================================================================
+# STEP 5b — Heating-data log root (see doc/HEATING-DATA.md)
+# ===========================================================================
+# The controller writes room heating data (target/actual rows) under a root
+# named by $RBR_DIR/heatlog-root. Prefer a dedicated partition mounted at
+# /data/rbr-heating. Where none exists yet, a symlink at that path to a
+# folder on the root disk keeps the configured path identical everywhere.
+HEATLOG_ROOT="${HEATLOG_ROOT:-/data/rbr-heating}"
+if [[ -f "$RBR_DIR/heatlog-root" ]]; then
+    echo "  → heatlog-root already configured: $(cat "$RBR_DIR/heatlog-root")"
+elif [[ -d "$HEATLOG_ROOT" ]]; then
+    echo "$HEATLOG_ROOT" > "$RBR_DIR/heatlog-root"
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/heatlog-root"
+    chown "$RBR_USER:$RBR_USER" "$HEATLOG_ROOT" 2>/dev/null || true
+    echo "  → Created $RBR_DIR/heatlog-root → $HEATLOG_ROOT (existing dir/mount)"
+else
+    # No data partition yet: symlink to a folder in the controller user's
+    # home so the configured path is identical on every machine. Swap the
+    # symlink for a real partition mount later without code changes.
+    REAL_HEATLOG="/home/$RBR_USER/heating-data"
+    mkdir -p "$REAL_HEATLOG"
+    chown "$RBR_USER:$RBR_USER" "$REAL_HEATLOG"
+    mkdir -p "$(dirname "$HEATLOG_ROOT")"
+    ln -s "$REAL_HEATLOG" "$HEATLOG_ROOT"
+    echo "$HEATLOG_ROOT" > "$RBR_DIR/heatlog-root"
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/heatlog-root"
+    echo "  → Created symlink $HEATLOG_ROOT → $REAL_HEATLOG"
+    echo "    (no data partition found; see doc/HEATING-DATA.md to move it later)"
+fi
+
 # =========================================================================--
 # STEP 6 — RBR updater (automatic code updates)
 # =========================================================================--
@@ -513,6 +543,54 @@ SERVICE
         systemctl enable controller.service
         systemctl start controller.service
         echo "  → controller.service running as $RBR_USER (restarts automatically after updates)"
+    fi
+fi
+
+# ===========================================================================
+# STEP 8b — (optional) Run the RBR desktop UI as a systemd service
+# ===========================================================================
+confirm "Step 8b — RBR desktop UI service (optional)"
+
+INSTALL_UI=""
+read -r -p "  Run the desktop UI (PySide6 app) as a service? (y/N): " INSTALL_UI
+if [[ "${INSTALL_UI,,}" == "y" ]]; then
+    if [[ -z "$ALLSPEAK_BIN" ]]; then
+        echo "  ⚠ Could not find the allspeak binary — skipping desktop UI service"
+    else
+        echo "  Installing PySide6 for the graphics runtime..."
+        if ! python3 -c "import PySide6" 2>/dev/null; then
+            sudo -u "$RBR_USER" pip install --user pyside6 2>/dev/null \
+                || pip install --user pyside6 2>/dev/null \
+                || echo "  ⚠ PySide6 install failed — install it manually: pip install pyside6"
+        else
+            echo "  → PySide6 already present"
+        fi
+        cat > /etc/systemd/system/rbr-desktop.service << SERVICE
+[Unit]
+Description=RBR Desktop UI
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=${RBR_USER}
+WorkingDirectory=${RBR_DIR}/desktop
+Environment=QT_QPA_PLATFORM=xcb
+ExecStart=${ALLSPEAK_BIN} rbr-desktop.as
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+        systemctl daemon-reload
+        systemctl enable rbr-desktop.service
+        systemctl start rbr-desktop.service
+        echo "  → rbr-desktop.service running as $RBR_USER"
+        echo "    Copy desktop/config.example.json to desktop/config.json to point it at a LAN broker."
     fi
 fi
 

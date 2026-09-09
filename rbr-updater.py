@@ -29,8 +29,12 @@ How it works
 
 Only code files from the tarball are ever replaced. Machine-specific
 data (credentials, .mac_override, config.json, map.json,
-thermometers.json, zigbee-temperatures.json, .mqtt_password) is never
-touched — those files are not shipped in the tarball at all.
+thermometers.json, zigbee-temperatures.json, .mqtt_password,
+heatlog-root, heatlog-state.json) is never touched — those files are not
+shipped in the tarball at all. Every plain file that IS shipped in the
+tarball is applied, so runtime files that are new in a release (e.g.
+heatlog.py) reach controllers with that same release; TARBALL_FILES below
+is the minimum required set that a valid upload must contain.
 
 Usage:
     python3 rbr-updater.py [--url URL_OR_PATH] [--dir RBR_DIR] [--force] [--check]
@@ -38,7 +42,8 @@ Usage:
     --url    tarball location; default https://rbrheating.com/rbr-controller.tar.gz
     --dir    RBR directory; default = directory containing this script
     --force  apply even if the remote version is not newer
-    --check  report remote vs local versions and exit without applying
+    --check  full self-check: update infrastructure (files, units, timer)
+             plus remote-vs-local versions; changes nothing, works offline
 """
 
 import argparse
@@ -51,17 +56,22 @@ import tarfile
 import tempfile
 import urllib.request
 
-# The complete runtime file set. Every file must be present in the tarball
-# or the update is refused (guards against a truncated or wrong upload).
+# The minimum required runtime file set: every file here must be present in
+# the tarball or the update is refused (guards against a truncated or wrong
+# upload). Every plain file in the tarball is applied, so a file that is
+# NEW in a release (e.g. heatlog.py) installs with that same release —
+# there is no manifest to keep in sync and no one-release lag for additions.
 # VERSION is the release stamp; it is never copied into the RBR dir as a
 # file — it is recorded as .version instead.
 TARBALL_FILES = [
     "controller.as",
     "deviceControl.as",
     "simulator.as",
+    "diagnose.as",
     "zigbee-bridge.py",
     "zigbee-pair.py",
     "rbr-dashboard.py",
+    "heatlog.py",
     "dashboard.txt",
     "rbr-updater.py",
     "VERSION",
@@ -74,7 +84,7 @@ DOWNLOAD_TIMEOUT = 60
 
 # Services restarted when the corresponding files change. (name, [files])
 SERVICE_RULES = [
-    ("controller.service", ["controller.as", "deviceControl.as", "simulator.as"]),
+    ("controller.service", ["controller.as", "deviceControl.as", "simulator.as", "heatlog.py"]),
     ("rbr-zigbee-bridge.service", ["zigbee-bridge.py"]),
 ]
 
@@ -122,7 +132,13 @@ def _norm_name(name):
 
 
 def extract_tarball(tarball, staging):
-    """Extract and verify; returns {name: abs_path}. Raises on any problem."""
+    """Extract and verify; returns {name: abs_path} for EVERY plain file.
+
+    Every plain file in the tarball is staged and returned, so files that
+    are new in a release are applied by the same update that introduces
+    them. TARBALL_FILES is the minimum required set: an upload missing any
+    of those files is refused. Raises on any problem.
+    """
     try:
         with tarfile.open(tarball, "r:gz") as tf:
             # Safety: only plain files; reject symlinks/hardlinks/devices and
@@ -130,6 +146,7 @@ def extract_tarball(tarball, staging):
             # deploy.sh, but this keeps a compromised/mis-uploaded tarball
             # from writing outside the staging dir.
             members = []
+            files = {}
             for member in tf.getmembers():
                 norm = _norm_name(member.name)
                 if norm in ("", "."):
@@ -143,17 +160,15 @@ def extract_tarball(tarball, staging):
                     raise ValueError(f"unsupported file type in tarball: {member.name}")
                 member.name = norm
                 members.append(member)
+                files[norm] = os.path.join(staging, norm)
             tf.extractall(staging, members=members)
     except (tarfile.TarError, OSError, ValueError) as e:
         raise RuntimeError(f"invalid tarball: {e}")
 
-    extracted = {}
-    for name in TARBALL_FILES:
-        p = os.path.join(staging, name)
-        if not os.path.isfile(p):
-            raise RuntimeError(f"tarball missing required file: {name}")
-        extracted[name] = p
-    return extracted
+    missing = [n for n in TARBALL_FILES if n not in files]
+    if missing:
+        raise RuntimeError(f"tarball missing required file(s): {', '.join(missing)}")
+    return files
 
 
 def service_active(name):
@@ -183,12 +198,102 @@ def restart_service(name):
         return False
 
 
+def _unit_state(unit):
+    """Return (active, enabled) state strings for a systemd unit."""
+    try:
+        ra = subprocess.run(["systemctl", "is-active", unit],
+                            capture_output=True, text=True, timeout=15)
+        re_ = subprocess.run(["systemctl", "is-enabled", unit],
+                             capture_output=True, text=True, timeout=15)
+        active = (ra.stdout or ra.stderr).strip()
+        enabled = (re_.stdout or re_.stderr).strip()
+        if (active in ("not-found", "not found") or "could not be found" in active
+                or enabled in ("not-found", "not found") or "could not be found" in enabled):
+            return ("not installed", "not installed")
+        return (active, enabled)
+    except (subprocess.SubprocessError, FileNotFoundError):
+        return ("no systemd", "no systemd")
+
+
+# Files the updater manages; all must be present in the RBR dir.
+CHECK_FILES = [f for f in TARBALL_FILES if f != "VERSION"]
+
+# Units the update chain depends on. controller.service is optional — the
+# controller may legitimately be run manually (allspeak controller.as).
+CHECK_SERVICES = [
+    ("rbr-updater.service", True, "updater service (one-shot)"),
+    ("rbr-updater.timer", True, "updater timer (drives hourly runs)"),
+    ("mosquitto.service", True, "local MQTT broker"),
+    ("zigbee2mqtt.service", True, "Zigbee2MQTT (dongle bridge)"),
+    ("rbr-zigbee-bridge.service", True, "RBR HTTP/MQTT bridge (restarted on update)"),
+    ("controller.service", False, "controller (optional if run manually)"),
+]
+
+_ENABLED_OK = ("enabled", "static", "indirect", "alias")
+
+
+def check_infrastructure(rbr_dir):
+    """Self-check of the update chain. Returns 0 if healthy, 1 if problems."""
+    problems = 0
+    print("── RBR update infrastructure ──")
+
+    missing = [f for f in CHECK_FILES
+               if not os.path.isfile(os.path.join(rbr_dir, f))]
+    if missing:
+        problems += 1
+        print(f"  ✗ missing runtime files: {', '.join(missing)}")
+    else:
+        print(f"  ✓ all {len(CHECK_FILES)} runtime files present")
+
+    for unit, required, label in CHECK_SERVICES:
+        active, enabled = _unit_state(unit)
+        if active == "not installed":
+            if required:
+                problems += 1
+                print(f"  ✗ {label} ({unit}): NOT INSTALLED")
+            else:
+                print(f"  - {label} ({unit}): not installed (ok if run manually)")
+            continue
+        if active == "no systemd":
+            print(f"  ? {label} ({unit}): systemd unavailable")
+            continue
+        if active != "active":
+            if required:
+                problems += 1
+                print(f"  ✗ {label} ({unit}): {active} / {enabled}")
+            else:
+                print(f"  - {label} ({unit}): {active} (ok — run manually?)")
+        elif required and enabled not in _ENABLED_OK:
+            problems += 1
+            print(f"  ✗ {label} ({unit}): active but not enabled ({enabled})")
+        else:
+            print(f"  ✓ {label} ({unit}): {active} / {enabled}")
+
+    if problems:
+        print(f"── {problems} problem(s) found ──")
+        return 1
+    print("── all checks passed ──")
+    return 0
+
+
+def read_remote_version(tarball_path):
+    """Extract the VERSION stamp from a downloaded tarball; returns int."""
+    with tarfile.open(tarball_path, "r:gz") as tf:
+        member = next(
+            (m for m in tf.getmembers() if _norm_name(m.name) == "VERSION"), None
+        )
+        if member is None:
+            raise KeyError("VERSION")
+        return int(tf.extractfile(member).read().decode().strip())
+
+
 def main():
     ap = argparse.ArgumentParser(description="RBR controller updater")
     ap.add_argument("--url", default=DEFAULT_URL)
     ap.add_argument("--dir", default=os.path.dirname(os.path.abspath(__file__)))
     ap.add_argument("--force", action="store_true")
-    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--check", action="store_true",
+                    help="self-check infrastructure + versions, change nothing")
     args = ap.parse_args()
 
     rbr_dir = os.path.abspath(args.dir)
@@ -201,37 +306,42 @@ def main():
     tmp = tempfile.NamedTemporaryFile(prefix="rbr-update-", suffix=".tar.gz", delete=False)
     tmp.close()
     try:
+        download_ok = True
         try:
             download_tarball(args.url, tmp.name)
         except Exception as e:
-            log(f"Download failed: {e}")
-            return 1
+            download_ok = False
+            if args.check:
+                log(f"Download failed (offline?): {e}")
+            else:
+                log(f"Download failed: {e}")
+                return 1
 
-        # --- read remote version -----------------------------------------
-        # Extract just VERSION first (cheap) so we can gate before full extraction.
-        try:
-            with tarfile.open(tmp.name, "r:gz") as tf:
-                member = next(
-                    (m for m in tf.getmembers() if _norm_name(m.name) == "VERSION"), None
-                )
-                if member is None:
-                    raise KeyError("VERSION")
-                remote_raw = tf.extractfile(member).read().decode().strip()
-        except Exception as e:
-            log(f"Could not read VERSION from tarball: {e}")
-            return 1
-        try:
-            remote_version = int(remote_raw)
-        except ValueError:
-            log(f"Bad VERSION in tarball: {remote_raw!r}")
-            return 1
+        remote_version = None
+        if download_ok:
+            try:
+                remote_version = read_remote_version(tmp.name)
+            except Exception as e:
+                if args.check:
+                    log(f"Could not read VERSION from tarball: {e}")
+                else:
+                    log(f"Could not read VERSION from tarball: {e}")
+                    return 1
+
+        if args.check:
+            # Full self-check: update infrastructure + version comparison.
+            # Works even when the tarball is unreachable.
+            problems = check_infrastructure(rbr_dir)
+            local_version = read_local_version(rbr_dir)
+            if remote_version is not None:
+                log(f"Remote version {remote_version}, local version {local_version}")
+            else:
+                log(f"Local version {local_version} (remote unreachable)")
+            log("Check only — no changes made")
+            return 1 if problems else 0
 
         local_version = read_local_version(rbr_dir)
         log(f"Remote version {remote_version}, local version {local_version}")
-
-        if args.check:
-            log("Check only — no changes made")
-            return 0
 
         if not args.force and remote_version <= local_version:
             log(f"Up to date (local {local_version})")

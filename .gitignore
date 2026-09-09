@@ -9,7 +9,10 @@ extras
 ESP
 map.json
 thermometers.json
+heatlog-root
+heatlog-state.json
 rbr-controller.tar.gz
+rbr-controller.zip
 chat/chat-data
 chat/chat-config.json
 chat/chat-users.json
@@ -22,4 +25,5 @@ tests/thermometers.json
 tests/controller.as
 tests/simulator.as
 tests/deviceControl.as
+desktop/config.json
 test-results/

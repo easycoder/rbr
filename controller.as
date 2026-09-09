@@ -87,6 +87,10 @@
     variable ZK
     variable LoopCount
     variable UpdateCount
+    variable StartedVersion
+    variable CurrentVersion
+    variable VersionCheckCounter
+    variable DashboardEnabled
     variable WaitCounter
     variable PriorityRoomIndex
     variable TodayWas
@@ -121,7 +125,16 @@
     list DashRooms
     dictionary RequestDash
     variable DashI
-!! @hash 1cc88c39
+    dictionary HeatlogLast
+    dictionary HeatlogRow
+    variable HeatlogRoot
+    variable HeatlogTs
+    variable HeatlogTarget
+    variable HeatlogActual
+    variable HeatlogMode
+    variable HeatlogName
+    variable HeatlogDirty
+!! @hash 2507f342
 !! @verified f7af243f
 !!!
 !! Basic initialisation.
@@ -151,7 +164,21 @@
     set LoopCount to 0
     set UpdateCount to 0
     set PriorityRoomIndex to -1
-!! @hash ccb83ebf
+    if file `.version` exists load StartedVersion from `.version`
+    else set StartedVersion to `0`
+    replace ` ` with `` in StartedVersion
+    replace newline with `` in StartedVersion
+    log `Controller version ` cat StartedVersion
+    set VersionCheckCounter to 0
+    ! Command-line flag: `allspeak controller.as --no-dashboard` runs without
+    ! the terminal dashboard so log output stays visible in a foreground run
+    ! (the dashboard repaints the console and hides runtime messages).
+    put `yes` into DashboardEnabled
+    if argc is greater than 0
+    begin
+        if arg 0 is `--no-dashboard` put `no` into DashboardEnabled
+    end
+!! @hash 00315a5f
 !! @verified ccb83ebf
 !!!
 !! Load credentials and set up MQTT. Credentials come from the server unless a local 'credentials' file exists.
@@ -212,12 +239,11 @@
     on mqtt message
     begin
         put the mqtt message into ReceivedMessage
-!        log ReceivedMessage
         if entry `action` of ReceivedMessage is `uirequest` set UIRequestPending
         append ReceivedMessage to MessageQueue
     end
     stop
-!! @hash a0b1539d
+!! @hash dec90b28
 !! @verified 39624871
 !!!
 !! Missing credentials signifies a non-recoverable error
@@ -238,6 +264,32 @@ Start:
     if file `thermometers.json` exists load Thermometers from `thermometers.json`
     else reset Thermometers
 
+    ! Heat logging. Enabled when a `heatlog-root` file in the working
+    ! directory names the data root (one line: an absolute path — on the
+    ! controller a partition mount, on test machines a symlink to a local
+    ! directory). heatlog-state.json holds each room's last logged
+    ! target/actual/mode so a restart doesn't re-log the current state.
+    set HeatlogRoot to empty
+    if file `heatlog-root` exists
+    begin
+        load HeatlogRoot from `heatlog-root`
+        replace newline with `` in HeatlogRoot
+        ! The writer ships in the release tarball; if it has not reached
+        ! this machine yet (e.g. an update that predates heatlog.py),
+        ! disable logging with a clear warning rather than failing
+        ! silently on every change.
+        if file `heatlog.py` exists log `Heat logging enabled, root ` cat HeatlogRoot
+        else
+        begin
+            log `Heat logging disabled: heatlog.py not found (release not fully applied?)`
+            set HeatlogRoot to empty
+        end
+    end
+    else log `Heat logging disabled (no heatlog-root file)`
+    if file `heatlog-state.json` exists load HeatlogLast from `heatlog-state.json`
+    else reset HeatlogLast
+    clear HeatlogDirty
+
     if Map has entry `request` set RequestName to entry `request` of Map
     else set RequestName to empty
     set RequestState to `off`
@@ -245,7 +297,7 @@ Start:
 
 !   Walk the list of rooms and process the needs of each one
     gosub to ProcessAllRooms
-!! @hash 2e5e5cad
+!! @hash 61f2c635
 !! @verified 2e5e5cad
 !!!
 !! This is the head of each loop.
@@ -259,7 +311,7 @@ Start:
 !!
 !! Process the request/demand relay. Note: the simulator does not have a request relay.
 !!
-!! Build and output a coloured terminal dashboard showing relay state, temperature, humidity, battery, and any warnings for each room — one `system background` call per cycle runs the Python dashboard renderer.
+!! Build and output a coloured terminal dashboard showing relay state, temperature, humidity, battery, and any warnings for each room — one `system background` call per cycle runs the Python dashboard renderer. Skipped entirely when run with `--no-dashboard` (a command-line flag added 2026-08-30 so foreground runs show log output instead of the repainting dashboard — see the flag handling in the initialisation block).
 !!
 !! Finally, if an immediate update was requested, notify the system that the map has changed, so the UIs will get updates without having to wait for the normal update cycle to complete.
 MainLoop:
@@ -271,6 +323,25 @@ MainLoop:
     begin
         log `Day rollover detected; refreshing profile selection`
         gosub to ProcessAllRooms
+    end
+
+    ! If the updater (rbr-updater.py) has applied a new release, .version
+    ! changes on disk. We are still running the old in-memory code, so log
+    ! and exit — controller.service restarts us (or the operator restarts a
+    ! manual run) and we come back with the new code.
+    increment VersionCheckCounter
+    if VersionCheckCounter is greater than 12
+    begin
+        set VersionCheckCounter to 0
+        if file `.version` exists load CurrentVersion from `.version`
+        replace ` ` with `` in CurrentVersion
+        replace newline with `` in CurrentVersion
+        if CurrentVersion is not StartedVersion
+        begin
+            log `Update applied: version ` cat StartedVersion cat ` -> ` cat CurrentVersion
+            log `Restarting to load the new code`
+            exit
+        end
     end
 
     ! Wait for 5 seconds
@@ -360,8 +431,11 @@ MainLoop:
             set entry `request` of DashboardData to RequestDash
         end
         set entry `timestamp` of DashboardData to now
-        save prettify DashboardData to `/tmp/rbr-dashboard.json`
-        system background `python3 /home/graham/rbr/rbr-dashboard.py`
+        if DashboardEnabled
+        begin
+            save prettify DashboardData to `/tmp/rbr-dashboard.json`
+            system background `python3 /home/graham/rbr/rbr-dashboard.py`
+        end
     end
 
     ! Signal the map has changed
@@ -370,7 +444,7 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-!! @hash 7a3cda2d
+!! @hash aafbccbe
 !! @verified ce47a848
 !!!
 !! Drain the queue of messages received from the UI between MainLoop ticks.
@@ -391,16 +465,31 @@ HandleMessages:
         pop ReceivedMessage from MessageQueue
 !        log ReceivedMessage
         put entry `sender` of ReceivedMessage into Sender
+        ! Senders arrive in three shapes: a real object (JS UI), a JSON
+        ! string of the topic object (Python runtime / desktop app — e.g.
+        ! '{"name": "RBR-desktop-123", "qos": 1}'), or a bare string
+        ! (raw probes). Normalise them all to a dictionary so the
+        ! `set entry ... of Sender` calls below can't crash on a str.
+        ! (2026-08-30: the controller crashed on the string forms. Note:
+        ! `put json` is lenient — a bare string passes through unchanged —
+        ! and `is object` can't be used to test for a dict, so the check
+        ! is `has entry 'name'` after the parse.)
+        put json Sender into Sender
+        if Sender has no entry `name`
+        begin
+            put entry `sender` of ReceivedMessage into SenderName
+            put `{}` into Sender
+            set entry `name` of Sender to SenderName
+            set entry `qos` of Sender to 1
+        end
+        put entry `name` of Sender into SenderName
         set entry `last` of Sender to now
         ! Build a dictionary of senders
-        put entry `name` of Sender into SenderName
         set entry SenderName of Senders to Sender
         put entry `action` of ReceivedMessage into Action
         put entry `message` of ReceivedMessage into Message
-!        log `HandleMessages: action=` cat Action cat ` sender=` cat SenderName
         if Action is `first`
         begin
-!            log `HandleMessages: first from ` cat SenderName
             set MapHasChanged
             set StateChanged
 !            log `Update map from 'first'`
@@ -455,6 +544,13 @@ HandleMessages:
         if Simulate save prettify Map to `map-sim.json` else save prettify Map to `map.json`
         put now into LastMapSave
         if ThermometerUpdate save prettify Thermometers to `thermometers.json`
+        ! Persist heat-log change state once a minute (single writer) so a
+        ! restart resumes change detection without re-logging current state.
+        if HeatlogDirty
+        begin
+            save prettify HeatlogLast to `heatlog-state.json`
+            clear HeatlogDirty
+        end
     end
 
     ! If no messages have beeen received for 60 seconds, remove the sender from the list
@@ -474,7 +570,7 @@ HandleMessages:
         increment S
     end
     go to MainLoop
-!! @hash 3cd8fa49
+!! @hash c3d77012
 !! @verified b8cec348
 !!!
 !! Load the system map from disk, or build a fresh default map if the file is absent.
@@ -747,6 +843,9 @@ BoostDone:
     ! in this cycle carries the latest ON/OFF/timed decision.
     gosub to SetRelay
 
+    ! Record heating data on any change to target, actual, or mode.
+    if HeatlogRoot is not empty gosub to HeatlogRecord
+
     ! Build a pack of data and send it to the device controller or the simulator
     ! It will open/close the relay and return the current temperature of the room
     set entry `room name` of RoomSpec to RoomName
@@ -759,7 +858,7 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash 5b7749f8
+!! @hash 51d2f426
 !! @verified 5b7749f8
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
@@ -807,12 +906,18 @@ ProcessReply:
 !!
 !! HeatingRequested is set during SetRelay for any room whose relay went on this cycle; we read it here and reset it for the next cycle.
 !!
+!! The decided state is captured into RequestState so the terminal dashboard's RequestDash row shows the real request-relay state. It must be captured here, before the send: the final SetRelay run inside ProcessReply re-decides the last processed room and overwrites RelayState, and RequestState is read by the dashboard build later in the same cycle.
+!!
 !! Skipped entirely in simulation mode and on systems with no request relay configured.
 ProcessRequestRelay:
     if RequestName is empty log `No request relay`
     else
     begin
         if HeatingRequested put `on` into RelayState else put `off` into RelayState
+        ! Capture the decision for the dashboard — RequestState is read
+        ! when the RequestDash row is built in MainLoop, and RelayState is
+        ! clobbered by the final SetRelay run in ProcessReply below.
+        put RelayState into RequestState
         clear HeatingRequested
 !        log RequestName cat `: ` cat RelayState
         reset RoomSpec
@@ -822,7 +927,7 @@ ProcessRequestRelay:
         gosub to ProcessReply
     end
     return
-!! @hash ea51e1af
+!! @hash fe034a6a
 !! @verified ea51e1af
 !!!
 !! Decide whether this room's relay should be on or off this cycle, based on mode, target, current temperature, and prior status.
@@ -989,7 +1094,7 @@ RoomStatus:
         end
     end
     set entry `statusMessage` of Room to Value
-!! @hash 842a5db9
+!! @hash 0c6a4fc8
 !! @verified e101ab9c
 !!!
 !! Cascading writers for the system map: callers gosub to whichever level they need, then control falls through up to UpdateMap and returns.
@@ -1005,7 +1110,7 @@ UpdateProfiles:
 UpdateMap:
     set entry `profiles` of Map to Profiles
     return
-!! @hash 19bec5d0
+!! @hash b14a1967
 !! @verified 19bec5d0
 !!!
 !! Trigger an immediate UI update by setting both ImmediateUpdate (which short-circuits MainLoop's 5-second wait) and MapHasChanged (which makes SendMapToUI actually push). 
@@ -1153,7 +1258,7 @@ ApplyPeriodsAdvance:
         put Temp into Target
     end
     return
-!! @hash bfdf2fa2
+!! @hash a311f7af
 !! @verified 46a58892
 !!!
 !! Find the next period chronologically: smallest `on` strictly after `now`, else (no on later today) wrap to the smallest `on` overall = tomorrow's first.
@@ -1684,7 +1789,7 @@ ProcessUIRequest:
         if Mode is not `timed` or Value is empty gosub to ForceUpdate
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 4d82911f
+!! @hash 9ec5594e
 !! @verified 4dd81a04
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).
@@ -1765,4 +1870,88 @@ SendEmail:
     return
 !! @hash b957d949
 !! @verified b957d949
+!!!
+!!
+!! Record one heating-data row for the current room when its target, actual, or
+!! mode has changed since the last logged row, then spawn the CSV writer.
+!!
+!! Called from ProcessRoom after the relay decision, so Room is indexed and
+!! TempNow holds the fresh reading (or is empty — a gap in the log means no
+!! valid reading, not "no change"). Skipped when heat logging is disabled (no
+!! heatlog-root file), when the room has no thermometer, when the relay is
+!! unlinked (mode-driven rather than target/temperature), or when Target is
+!! missing. In off mode the logged target tracks the actual so no demand is
+!! implied; relay-on inference for analysis is mode c/p/b AND target > actual.
+!!
+!! Temperatures are logged in tenths of a degree (internal hundredths rounded
+!! by add 5 then divide by 10) and the timestamp in minutes since the epoch.
+!! Last-logged state lives in HeatlogLast keyed by room name and is persisted
+!! to heatlog-state.json once a minute by HandleMessages.
+HeatlogRecord:
+    if HeatlogRoot is empty return
+    put entry `sensor` of Room into Sensor
+    if Sensor is empty return
+    if entry `linked` of Room is `no` return
+    if TempNow is empty return
+    ! Actual temperature, hundredths -> tenths.
+    put TempNow into Temp
+    if Temp is not numeric gosub to ConvertTempToInt
+    add 5 to Temp
+    divide Temp by 10
+    put Temp into HeatlogActual
+    put entry `mode` of Room into Mode
+    if Mode is `off`
+    begin
+        ! Off mode: target tracks actual so the row never implies demand.
+        put HeatlogActual into HeatlogTarget
+        set HeatlogMode to `o`
+    end
+    else
+    begin
+        if Mode is `on` set HeatlogMode to `c`
+        else if Mode is `timed` set HeatlogMode to `p`
+        else if Mode is `boost` set HeatlogMode to `b`
+        else return
+        if Target is empty return
+        ! Target (hundredths) -> tenths.
+        put Target into Temp
+        if Temp is not numeric gosub to ConvertTempToInt
+        add 5 to Temp
+        divide Temp by 10
+        put Temp into HeatlogTarget
+    end
+    ! Append only when something changed since the last logged row.
+    ! A room key appears in HeatlogLast only once a row has been logged,
+    ! so a missing key always counts as a change (startup baseline).
+    if HeatlogLast has entry RoomName
+    begin
+        put entry RoomName of HeatlogLast into HeatlogRow
+        if HeatlogRow is not empty
+        begin
+            if entry `target` of HeatlogRow is HeatlogTarget
+            begin
+                if entry `actual` of HeatlogRow is HeatlogActual
+                begin
+                    if entry `mode` of HeatlogRow is HeatlogMode return
+                end
+            end
+        end
+    end
+    put now into HeatlogTs
+    divide HeatlogTs by 60000
+    ! The room name passes through the shell inside double quotes, so
+    ! neutralise anything that could break out of them; the writer
+    ! sanitises the folder name independently.
+    put RoomName into HeatlogName
+    replace `"` with `'` in HeatlogName
+    replace `$` with `-` in HeatlogName
+    system background `python3 heatlog.py --root "` cat HeatlogRoot cat `" --room "` cat HeatlogName cat `" --ts ` cat HeatlogTs cat ` --target ` cat HeatlogTarget cat ` --actual ` cat HeatlogActual cat ` --mode ` cat HeatlogMode
+    reset HeatlogRow
+    set entry `target` of HeatlogRow to HeatlogTarget
+    set entry `actual` of HeatlogRow to HeatlogActual
+    set entry `mode` of HeatlogRow to HeatlogMode
+    set entry RoomName of HeatlogLast to HeatlogRow
+    set HeatlogDirty
+    return
+!! @hash 73266ce3
 !!!

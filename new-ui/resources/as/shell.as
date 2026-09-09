@@ -52,7 +52,6 @@
 	button MenuRowSystem
 	button MenuRowDevices
 	button MenuRowOutside
-	button MenuRowHelp
 !	Owned by the profile-sheet module — declared here so HideAllSheets can
 !	hide it. The module attaches it independently for its own toggling.
 	div ProfileSheetEl
@@ -345,7 +344,7 @@
 !	shared with the now-extracted device editor; it's used only by
 !	SaveOutsideSheet's fan-out loop).
 	variable DeviceProfileCount
-!! @hash 260d467c
+!! @hash 0ad3d71c
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -800,20 +799,14 @@ BuildHomeScreen:
 	on click SheetCloseBtn gosub to CloseSheet
 	on click SheetScrim gosub to CloseSheet
 
-!	Menu row click handlers. System / Devices / Outside open their own
-!	sheets; Help is wired but inactive (no target sheet yet — placeholder
-!	for a future help/about flow).
+!	Menu row click handlers. System / Devices / Outside each open their
+!	own sheet.
 	attach MenuRowSystem to `menu-row-system`
 	on click MenuRowSystem gosub to OpenSystemSheet
 	attach MenuRowDevices to `menu-row-devices`
 	on click MenuRowDevices gosub to OpenDeviceEditor
 	attach MenuRowOutside to `menu-row-outside`
 	on click MenuRowOutside gosub to OpenOutsideSheet
-	attach MenuRowHelp to `menu-row-help`
-	on click MenuRowHelp
-	begin
-		log `Menu: Help & support (stub)`
-	end
 
 !	Hook up the top-bar menu button now that the sheet is ready.
 	attach MenuButton to `top-bar-menu-btn`
@@ -950,7 +943,7 @@ BuildHomeScreen:
 	fork to BoostTick
 
 	return
-!! @hash 116cebd7
+!! @hash efab0a4e
 !!!
 !! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
 !!

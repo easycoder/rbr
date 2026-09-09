@@ -133,12 +133,12 @@
                 "gap": "10px",
                 "#": ["$F1", "$F2", "$F3", "$F4", "$F5", "$F6"],
 
-                "$F1": { "$Text": "Independent control of the heating in every room.", "#": "$Feature" },
-                "$F2": { "$Text": "Saves money by only heating rooms that are actually used.", "#": "$Feature" },
-                "$F3": { "$Text": "Remote control from any smartphone or laptop.", "#": "$Feature" },
-                "$F4": { "$Text": "Works with off-the-shelf relays, TRVs and thermometers — build the system exactly as you want it.", "#": "$Feature" },
-                "$F5": { "$Text": "The controller can be any small computer: a mini-PC, a Raspberry Pi, or similar.", "#": "$Feature" },
-                "$F6": { "$Text": "Records times and temperatures for your own use; never shared with third parties.", "#": "$Feature" },
+                "$F1": { "$Text": "Independent control of the heating in every room.", "#": ["$Feature"] },
+                "$F2": { "$Text": "Saves money by only heating rooms that are actually used.", "#": ["$Feature"] },
+                "$F3": { "$Text": "Remote control from any smartphone or laptop.", "#": ["$Feature"] },
+                "$F4": { "$Text": "Works with off-the-shelf relays, TRVs and thermometers — build the system exactly as you want it.", "#": ["$Feature"] },
+                "$F5": { "$Text": "The controller can be any small computer: a mini-PC, a Raspberry Pi, or similar.", "#": ["$Feature"] },
+                "$F6": { "$Text": "Records times and temperatures for your own use; never shared with third parties.", "#": ["$Feature"] },
 
                 "$Feature": {
                     "#element": "li",

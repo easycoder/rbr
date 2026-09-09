@@ -74,7 +74,12 @@ touched by the updater: `credentials`, `.mqtt_password`, `.mac_override`,
    controller auto-restarts after updates; if no such service is running
    (e.g. the controller is run manually with `allspeak controller.as` in a
    terminal), the updater logs a notice instead of killing anything.
-8. If `rbr-updater.py` itself changed it is replaced and the process re-execs
+8. The controller also watches `.version` itself (in `MainLoop`, about once
+   a minute): when it changes on disk, it logs `Update applied: vX -> vY` and
+   exits. Under `controller.service` (Restart=always) systemd relaunches it;
+   for a manual run the message tells the operator to restart — so even
+   without the service, a manually-run controller picks up new code promptly.
+9. If `rbr-updater.py` itself changed it is replaced and the process re-execs
    once so the new code finishes the run.
 
 `.version` is recorded **after** the service restarts are attempted. A failed
@@ -85,10 +90,33 @@ version — so a transient restart failure self-heals on the next run.
 ### Manual use ###
 
 ```sh
-python3 rbr-updater.py --check                 # report versions, change nothing
+python3 rbr-updater.py --check                 # full self-check: infrastructure
+                                              # (files, updater timer, broker,
+                                              # bridge, controller) + versions;
+                                              # changes nothing, works offline
 python3 rbr-updater.py --url ./rbr-controller.tar.gz   # test with a local file
 python3 rbr-updater.py --force                 # re-apply current version
 ```
+
+`--check` exits 0 when the update chain is healthy, 1 when anything required is
+missing/inactive — so it can be run from cron or a watchdog, not just by hand.
+
+## Bootstrap pack (new installations) ###
+
+`deploy.sh` also builds **`rbr-controller.zip`** — the same runtime files plus
+`rbr-setup.sh` and the `VERSION` stamp — and uploads it alongside the
+**`get-controller.sh`** downloader. A brand-new machine needs no repo copy:
+
+```sh
+mkdir rbr && cd rbr
+wget https://rbrheating.com/get-controller.sh
+sh get-controller.sh
+```
+
+The downloader fetches the zip, unpacks it over the current directory
+(existing files are overwritten; machine-specific files not in the pack are
+untouched), writes `.version` from the embedded `VERSION`, and points the
+operator at the AllSpeak install and `sudo ./rbr-setup.sh`.
 
 ### Failure behaviour ###
 

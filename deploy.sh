@@ -11,6 +11,11 @@
 #   /rbr-controller.tar.gz <- versioned bundle of ALL controller runtime
 #                          files, pulled by the standalone updater
 #                          (rbr-updater.py) — see doc/UPDATE-MECHANISM.md
+#   /rbr-controller.zip   <- same files + rbr-setup.sh + VERSION: the
+#                          install pack fetched by get-controller.sh when
+#                          setting up a new controller
+#   /get-controller.sh    <- bootstrap downloader: wget it, run it, it
+#                          fetches and unpacks rbr-controller.zip
 #   /version            <- single-line version stamp; bumping this (with
 #                          --release) makes controllers apply the tarball
 #
@@ -83,20 +88,24 @@ rsync -vz --no-perms -e "$SSH_OPTS" \
     "$LOCAL/controller.as" \
     "$LOCAL/deviceControl.as" \
     "$LOCAL/simulator.as" \
+    "$LOCAL/diagnose.as" \
     "$REMOTE/"
 
+# Controller runtime files shipped in BOTH the updater tarball and the
+# bootstrap zip. VERSION (the deploy stamp) is added separately.
+CONTROLLER_FILES=(controller.as deviceControl.as simulator.as \
+                  diagnose.as zigbee-bridge.py zigbee-pair.py rbr-dashboard.py \
+                  heatlog.py dashboard.txt rbr-updater.py)
+
 # Versioned controller tarball for the standalone updater (rbr-updater.py).
-# Contains ALL controller runtime files (the .as sources plus the Python
-# daemons) with a VERSION stamp embedded; controllers only apply it when
-# the stamp is newer than their local .version. Built after the version
-# stamp is final so a --release tarball carries the new stamp. See
-# doc/UPDATE-MECHANISM.md.
+# Contains the controller runtime files with a VERSION stamp embedded;
+# controllers only apply it when the stamp is newer than their local
+# .version. Built after the version stamp is final so a --release tarball
+# carries the new stamp. See doc/UPDATE-MECHANISM.md.
 build_controller_tarball() {
     local BUILD_DIR
     BUILD_DIR="$(mktemp -d)"
-    for f in controller.as deviceControl.as simulator.as \
-             zigbee-bridge.py zigbee-pair.py rbr-dashboard.py dashboard.txt \
-             rbr-updater.py; do
+    for f in "${CONTROLLER_FILES[@]}"; do
         cp "$LOCAL/$f" "$BUILD_DIR/"
     done
     cp "$LOCAL/version" "$BUILD_DIR/VERSION"
@@ -112,6 +121,32 @@ upload_controller_tarball() {
     rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/rbr-controller.tar.gz" "$REMOTE/"
 }
 
+# Bootstrap install pack: the same runtime files plus rbr-setup.sh (so a
+# fresh machine can install the services) and the VERSION stamp. Fetched
+# by get-controller.sh when setting up a new controller.
+build_controller_zip() {
+    local BUILD_DIR
+    BUILD_DIR="$(mktemp -d)"
+    for f in "${CONTROLLER_FILES[@]}" rbr-setup.sh; do
+        cp "$LOCAL/$f" "$BUILD_DIR/"
+    done
+    cp "$LOCAL/version" "$BUILD_DIR/VERSION"
+    (cd "$BUILD_DIR" && zip -q "$LOCAL/rbr-controller.zip" \
+        controller.as deviceControl.as simulator.as diagnose.as zigbee-bridge.py \
+        zigbee-pair.py rbr-dashboard.py heatlog.py dashboard.txt rbr-updater.py \
+        rbr-setup.sh VERSION)
+    rm -rf "$BUILD_DIR"
+    echo "  → $LOCAL/rbr-controller.zip (version $(cat "$LOCAL/version"))"
+}
+
+upload_controller_pack() {
+    echo "Building controller install pack..."
+    build_controller_zip
+    echo "Uploading rbr-controller.zip + get-controller.sh..."
+    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/rbr-controller.zip" "$REMOTE/"
+    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/get-controller.sh" "$REMOTE/"
+}
+
 if [[ $RELEASE -eq 1 ]]; then
     # Bump and publish the version stamp. Format YYMMDDHHMM gives multiple
     # releases per day distinct, monotonically-increasing values that
@@ -119,15 +154,17 @@ if [[ $RELEASE -eq 1 ]]; then
     NEW_VERSION="$(date +%y%m%d%H%M)"
     echo "$NEW_VERSION" > "$LOCAL/version"
     echo "Releasing version $NEW_VERSION..."
-    # The tarball is built AFTER the bump so it embeds the new stamp;
-    # /version is uploaded last so mid-check controllers never see a new
-    # stamp paired with stale .as source.
+    # The tarball/zip are built AFTER the bump so they embed the new
+    # stamp; /version is uploaded last so mid-check controllers never see
+    # a new stamp paired with stale .as source.
     upload_controller_tarball
+    upload_controller_pack
     rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/version" "$REMOTE/"
     echo "Done. Controllers will pick up version $NEW_VERSION on their next hourly check."
 else
     # No version bump: the tarball keeps the last release stamp, so
     # controllers that already have it will skip it. Safe to iterate.
     upload_controller_tarball
+    upload_controller_pack
     echo "Done. Files uploaded; version stamp unchanged. Run with --release to publish to customers."
 fi

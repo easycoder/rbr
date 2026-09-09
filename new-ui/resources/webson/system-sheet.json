@@ -73,8 +73,8 @@
             "gap": "6px",
             "#": ["$BtnBoiler", "$BtnHeatPump"],
 
-            "$BtnBoiler":   { "$ID": "system-sheet-type-boiler",   "$Label": "Boiler",    "#": "$TypeBtn" },
-            "$BtnHeatPump": { "$ID": "system-sheet-type-heatpump", "$Label": "Heat Pump", "#": "$TypeBtn" },
+            "$BtnBoiler":   { "$ID": "system-sheet-type-boiler",   "$Label": "Boiler",    "#": ["$TypeBtn"] },
+            "$BtnHeatPump": { "$ID": "system-sheet-type-heatpump", "$Label": "Heat Pump", "#": ["$TypeBtn"] },
 
             "$TypeBtn": {
                 "#element": "button",

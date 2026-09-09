@@ -124,13 +124,13 @@
         "display": "none",
         "#": ["$D1", "$D2", "$D3", "$D4", "$D5", "$D6", "$D7"],
 
-        "$D1": { "$ID": "calendar-mon", "$Day": "Mon", "#": "$DayRow" },
-        "$D2": { "$ID": "calendar-tue", "$Day": "Tue", "#": "$DayRow" },
-        "$D3": { "$ID": "calendar-wed", "$Day": "Wed", "#": "$DayRow" },
-        "$D4": { "$ID": "calendar-thu", "$Day": "Thu", "#": "$DayRow" },
-        "$D5": { "$ID": "calendar-fri", "$Day": "Fri", "#": "$DayRow" },
-        "$D6": { "$ID": "calendar-sat", "$Day": "Sat", "#": "$DayRow" },
-        "$D7": { "$ID": "calendar-sun", "$Day": "Sun", "#": "$DayRow" },
+        "$D1": { "$ID": "calendar-mon", "$Day": "Mon", "#": ["$DayRow"] },
+        "$D2": { "$ID": "calendar-tue", "$Day": "Tue", "#": ["$DayRow"] },
+        "$D3": { "$ID": "calendar-wed", "$Day": "Wed", "#": ["$DayRow"] },
+        "$D4": { "$ID": "calendar-thu", "$Day": "Thu", "#": ["$DayRow"] },
+        "$D5": { "$ID": "calendar-fri", "$Day": "Fri", "#": ["$DayRow"] },
+        "$D6": { "$ID": "calendar-sat", "$Day": "Sat", "#": ["$DayRow"] },
+        "$D7": { "$ID": "calendar-sun", "$Day": "Sun", "#": ["$DayRow"] },
 
         "$DayRow": {
             "#element": "div",

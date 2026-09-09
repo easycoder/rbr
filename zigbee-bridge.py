@@ -27,7 +27,7 @@ import sys
 import tempfile
 import threading
 import time
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 
 import paho.mqtt.client as mqtt
@@ -49,7 +49,28 @@ temperatures_path = os.path.join(script_dir, "zigbee-temperatures.json")
 # powered down).
 OFFLINE_AFTER_SECONDS = 1800
 
-def _device_responding(state):
+# Fallback for devices that died BEFORE this bridge process started: they have
+# no cached state, no last_seen and (without availability enabled) no
+# availability message, so staleness alone can never flag them. Once a device
+# known to zigbee2mqtt (it appears in bridge/devices) has failed to report
+# anything for this grace period since bridge start, it is presumed dead. The
+# controller commands every relay every ~5s, so a healthy relay reports well
+# within the grace period.
+NEVER_SEEN_GRACE_SECONDS = 300
+BRIDGE_START_TIME = time.time()
+
+# After publishing a relay command we wait for the device to confirm it by
+# reporting the commanded state back through zigbee2mqtt. The cached state may
+# be months old (long shutdowns), so echoing it would make a dead relay look
+# healthy. The budget is a compromise: healthy relays confirm in well under a
+# second, while a dead device costs the controller up to CONFIRM_TIMEOUT per
+# failing relay per cycle (the server is threaded, so other requests still
+# get served during the wait).
+CONFIRM_TIMEOUT = 2.0
+CONFIRM_POLL = 0.25
+
+
+def _device_responding(state, device_name=None):
     """True if a device should be treated as reachable.
 
     Primary signal is zigbee2mqtt's per-device availability
@@ -61,6 +82,12 @@ def _device_responding(state):
     Only when availability is unknown — not enabled in zigbee2mqtt, or the
     bridge restarted before the first availability message — do we fall back
     to last_seen staleness with the generous OFFLINE_AFTER_SECONDS bound.
+
+    Final fallback: a device that zigbee2mqtt knows about (it is in
+    bridge_devices) but that has never reported since this bridge started is
+    treated as non-responsive after NEVER_SEEN_GRACE_SECONDS. This is the
+    "bridge restarted after the device died" case, where the bridge would
+    otherwise answer "unknown" forever.
     """
     if state.get("available") is True:
         return True
@@ -69,7 +96,35 @@ def _device_responding(state):
     last_seen = state.get("last_seen", 0)
     if last_seen and time.time() - last_seen > OFFLINE_AFTER_SECONDS:
         return False
+    if (not state and device_name in bridge_devices
+            and time.time() - BRIDGE_START_TIME > NEVER_SEEN_GRACE_SECONDS):
+        return False
     return True
+
+
+def _read_device_state(device_name):
+    """Snapshot the cached state for a device under the lock."""
+    with device_states_lock:
+        return device_states.get(device_name, {})
+
+
+def _wait_for_confirmation(device_name, desired_state):
+    """Poll the device cache until it reports the commanded state.
+
+    The cached state before a command may be months old (the system was
+    switched off for the summer), so we must not trust it: a device that
+    never confirms a command is dead or unreachable. Polls for up to
+    CONFIRM_TIMEOUT seconds; returns the final cached state either way.
+    """
+    deadline = time.time() + CONFIRM_TIMEOUT
+    while time.time() < deadline:
+        time.sleep(CONFIRM_POLL)
+        state = _read_device_state(device_name)
+        if not _device_responding(state, device_name):
+            return state  # went offline mid-wait; caller reports it
+        if state.get("state", "").upper() == desired_state:
+            return state
+    return _read_device_state(device_name)
 
 
 # ---------------------------------------------------------------------------
@@ -201,7 +256,11 @@ def _update_temperatures_file():
 # ---------------------------------------------------------------------------
 # HTTP request handler
 # ---------------------------------------------------------------------------
-class ZigbeeBridgeServer(HTTPServer):
+class ZigbeeBridgeServer(ThreadingHTTPServer):
+    # Threaded so /health and /devices stay responsive (and later relay
+    # commands aren't delayed) while a request is blocked in the
+    # command-confirmation poll. Shared state is lock-guarded; the
+    # controller itself serializes device commands.
     allow_reuse_address = True
 
 class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
@@ -212,9 +271,10 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
         GET /devices                       — list all known devices
         GET /health                        — health check
 
-    /device returns a body with no `state` field when the device is offline
-    or hasn't been seen for a while, so callers can detect non-response
-    instead of trusting a stale cached state.
+    /device returns a body with no `state` field when the device is offline,
+    hasn't been seen for a while, is unknown to zigbee2mqtt, or fails to
+    confirm a commanded state — so callers can detect non-response instead of
+    trusting a stale cached state (e.g. an "off" from before a long shutdown).
     """
 
     def do_GET(self):
@@ -227,9 +287,11 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
             return
 
         if path_parts[0] == "devices":
+            with device_states_lock:
+                states_snapshot = dict(device_states)
             self._respond(200, {
                 "devices": bridge_devices,
-                "states": {k: v for k, v in device_states.items()},
+                "states": states_snapshot,
             })
             return
 
@@ -246,26 +308,56 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
                     mqtt_client.publish(topic, payload, qos=1)
                     print(f"Published {payload} to {topic}")
 
-                # Wait briefly for state confirmation
-                time.sleep(0.3)
-
-            with device_states_lock:
-                state = device_states.get(device_name, {})
+            # Read the cached state. If a command was sent, wait for the
+            # device to confirm it: the pre-command cache may be months old,
+            # and echoing it back would make a dead relay look healthy. Note
+            # this only guards commanded *transitions* — a device that died
+            # while already matching the commanded state is caught by the
+            # availability/staleness checks in _device_responding.
+            state = _read_device_state(device_name)
+            if desired_state and state.get("state", "").upper() != desired_state:
+                state = _wait_for_confirmation(device_name, desired_state)
+                if state.get("state", "").upper() != desired_state:
+                    print(f"Device {device_name} did not confirm "
+                          f"{desired_state} (state={state.get('state', 'unknown')!r})")
 
             # A device that zigbee2mqtt reports offline (or that hasn't been
             # seen for a long time) is non-responsive. Return a body with no
             # `state` field so deviceControl.as counts the reply as a relay
             # failure and the controller can flag the room, instead of
             # trusting a stale cached state (e.g. an "off" from days ago).
-            if not _device_responding(state):
+            if not _device_responding(state, device_name):
                 self._respond(200, {
                     "error": f"device {device_name} is not responding",
                     "last_seen": state.get("last_seen", 0),
                 })
                 return
 
+            # A device with no cached state at all (unknown friendly name —
+            # renamed/removed in zigbee2mqtt, or the map is out of date) must
+            # not be answered with a placeholder `state`, or the controller
+            # would count it as a healthy relay. Flag it as a failure instead.
+            relay_state = state.get("state", "")
+            if not relay_state or relay_state == "unknown":
+                self._respond(200, {
+                    "error": f"device {device_name} has not reported a state",
+                    "last_seen": state.get("last_seen", 0),
+                })
+                return
+
+            # A commanded state the device never confirmed did not take
+            # effect — report it as a failure rather than a silent success.
+            # Note: the body must NOT carry a `state` key, or
+            # deviceControl.as would count it as a healthy reply.
+            if desired_state and relay_state.upper() != desired_state:
+                self._respond(200, {
+                    "error": f"device {device_name} did not confirm "
+                             f"state {desired_state}",
+                    "last_seen": state.get("last_seen", 0),
+                })
+                return
+
             # Return response in a format deviceControl.ecs can parse
-            relay_state = state.get("state", "unknown")
             self._respond(200, {
                 "state": relay_state,
                 "uptime": 0,
