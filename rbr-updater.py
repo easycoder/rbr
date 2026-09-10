@@ -198,6 +198,40 @@ def restart_service(name):
         return False
 
 
+def ensure_restart_policy():
+    """Make controller.service restart after ANY exit, not just failures.
+
+    controller.as exits cleanly (code 0) when a new release is applied, expecting
+    the service to bring it straight back. Units written by an older
+    rbr-setup.sh used Restart=on-failure, so that clean exit left the heating
+    controller DOWN until the next hourly watchdog run. A drop-in is used so the
+    unit file itself is untouched; when the unit is absent or already
+    Restart=always this is a no-op. Runs as root, like the rest of the updater.
+    """
+    dropin_dir = "/etc/systemd/system/controller.service.d"
+    dropin = os.path.join(dropin_dir, "restart.conf")
+    try:
+        r = subprocess.run(["systemctl", "show", "controller.service", "-p", "Restart"],
+                           capture_output=True, text=True, timeout=15)
+        if (r.stdout or "").strip().endswith("=always"):
+            return True
+        load = subprocess.run(["systemctl", "show", "controller.service", "-p", "LoadState"],
+                              capture_output=True, text=True, timeout=15)
+        if "not-found" in (load.stdout or ""):
+            return True  # controller isn't run as a service here — nothing to do
+        os.makedirs(dropin_dir, exist_ok=True)
+        with open(dropin, "w") as f:
+            f.write("[Service]\nRestart=always\nRestartSec=5\n")
+        subprocess.run(["systemctl", "daemon-reload"],
+                       capture_output=True, text=True, timeout=30)
+        log("controller.service: Restart=always set via drop-in — a clean exit "
+            "(as happens when an update is applied) now restarts automatically")
+        return True
+    except (OSError, subprocess.SubprocessError) as e:
+        log(f"Warning: could not set the controller restart policy: {e}")
+        return False
+
+
 def _unit_state(unit):
     """Return (active, enabled) state strings for a systemd unit."""
     try:
@@ -220,9 +254,13 @@ CHECK_FILES = [f for f in TARBALL_FILES if f != "VERSION"]
 
 # Units the update chain depends on. controller.service is optional — the
 # controller may legitimately be run manually (allspeak controller.as).
+# A 4th field of "oneshot" marks units that are only active *while they run*
+# (Type=oneshot), so their active state is meaningless between runs: for those
+# only presence + enabled state are checked.
 CHECK_SERVICES = [
-    ("rbr-updater.service", True, "updater service (one-shot)"),
+    ("rbr-updater.service", True, "updater service (one-shot)", "oneshot"),
     ("rbr-updater.timer", True, "updater timer (drives hourly runs)"),
+    ("rbr-watchdog.timer", True, "component watchdog timer (hourly health check)"),
     ("mosquitto.service", True, "local MQTT broker"),
     ("zigbee2mqtt.service", True, "Zigbee2MQTT (dongle bridge)"),
     ("rbr-zigbee-bridge.service", True, "RBR HTTP/MQTT bridge (restarted on update)"),
@@ -245,7 +283,9 @@ def check_infrastructure(rbr_dir):
     else:
         print(f"  ✓ all {len(CHECK_FILES)} runtime files present")
 
-    for unit, required, label in CHECK_SERVICES:
+    for entry in CHECK_SERVICES:
+        unit, required, label = entry[0], entry[1], entry[2]
+        oneshot = len(entry) > 3 and entry[3] == "oneshot"
         active, enabled = _unit_state(unit)
         if active == "not installed":
             if required:
@@ -256,6 +296,15 @@ def check_infrastructure(rbr_dir):
             continue
         if active == "no systemd":
             print(f"  ? {label} ({unit}): systemd unavailable")
+            continue
+        if oneshot:
+            # Inactive between runs is normal for Type=oneshot, so judge it on
+            # presence + enabled state only (a oneshot unit is 'static').
+            if required and enabled not in _ENABLED_OK:
+                problems += 1
+                print(f"  ✗ {label} ({unit}): not enabled ({enabled})")
+            else:
+                print(f"  ✓ {label} ({unit}): installed ({enabled}) — runs on its timer")
             continue
         if active != "active":
             if required:
@@ -398,6 +447,12 @@ def main():
                         f"{service} is not running (controller run manually?) — "
                         "restart the controller yourself to pick up new code"
                     )
+
+            # Make sure a *clean* controller exit also restarts it. controller.as
+            # exits 0 when a new release lands (it expects to be restarted with
+            # the new code), so Restart=on-failure would leave the heating
+            # controller down until something else noticed. Idempotent.
+            ensure_restart_policy()
 
             if restart_failed:
                 log(

@@ -51,7 +51,7 @@ chmod +x rbr-setup.sh rbr-updater.py 2>/dev/null || true
 echo ""
 echo "Done. Next steps:"
 echo "  1. Install AllSpeak (the controller runtime):"
-echo "       pip install allspeak        # add --break-system-packages if pip refuses"
+echo "       pip install allspeak-ai     # add --break-system-packages if pip refuses"
 echo "  2. Install the system services (mosquitto, zigbee2mqtt, bridge, updater):"
 echo "       sudo ./rbr-setup.sh"
 echo "  3. Run the controller:"

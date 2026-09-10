@@ -83,7 +83,7 @@ if [[ -z "$ALLSPEAK_BIN" && -x "/home/$RBR_USER/.local/bin/allspeak" ]]; then
 fi
 if [[ -z "$ALLSPEAK_BIN" ]]; then
     echo "  ⚠ AllSpeak is NOT installed — the controller cannot run without it."
-    echo "    Install it as $RBR_USER:  pip install allspeak"
+    echo "    Install it as $RBR_USER:  pip install allspeak-ai"
     echo "    (add --break-system-packages if pip refuses)"
     echo ""
 fi
@@ -416,7 +416,7 @@ fi
 
 # =========================================================================--
 # STEP 6 — RBR updater (automatic code updates)
-# =========================================================================--
+# ===========================================================================
 confirm "Step 6 — Installing RBR updater (automatic updates)"
 
 if [[ ! -f "$RBR_DIR/rbr-updater.py" ]]; then
@@ -459,8 +459,52 @@ TIMER
 fi
 
 # =========================================================================--
-# STEP 7 — (optional) Local UI web server
+# STEP 6b — RBR component watchdog (auto-restart down services)
+# ===========================================================================
+confirm "Step 6b — RBR component watchdog (hourly health check)"
+
+if [[ ! -f "$RBR_DIR/rbr-watchdog.sh" ]]; then
+    echo "  ⚠ rbr-watchdog.sh not found in $RBR_DIR — skipping watchdog install"
+    echo "    (it ships in rbr-controller.zip; re-run after fetching the pack)"
+else
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/rbr-watchdog.sh"
+    chmod 0755 "$RBR_DIR/rbr-watchdog.sh"
+
+    cat > /etc/systemd/system/rbr-watchdog.service << SERVICE
+[Unit]
+Description=RBR component health watchdog (restart any down core service)
+
+[Service]
+Type=oneshot
+# Runs as root so it can restart mosquitto/zigbee2mqtt/bridge/controller.
+# The script lives in ${RBR_DIR} so the hourly updater refreshes it when a
+# new release ships (rbr-watchdog.sh is part of rbr-controller.tar.gz).
+ExecStart=${RBR_DIR}/rbr-watchdog.sh
+SyslogIdentifier=rbr-watchdog
+SERVICE
+
+    cat > /etc/systemd/system/rbr-watchdog.timer << TIMER
+[Unit]
+Description=Run the RBR component watchdog hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target
+TIMER
+
+    systemctl daemon-reload
+    systemctl enable rbr-watchdog.timer
+    systemctl start rbr-watchdog.timer
+    echo "  → rbr-watchdog.timer enabled (hourly; restarts any down service)"
+fi
+
 # =========================================================================--
+# STEP 7 — (optional) Local UI web server
+# ===========================================================================
 confirm "Step 7 — Local UI web server (optional)"
 
 INSTALL_UI=""
@@ -622,6 +666,9 @@ if [[ -f /etc/systemd/system/rbr-ui.service ]]; then
 fi
 if [[ -f /etc/systemd/system/rbr-updater.timer ]]; then
     echo "    rbr-updater.timer  $(systemctl is-active rbr-updater.timer)"
+fi
+if [[ -f /etc/systemd/system/rbr-watchdog.timer ]]; then
+    echo "    rbr-watchdog.timer $(systemctl is-active rbr-watchdog.timer)"
 fi
 echo ""
 echo "  Controller:"

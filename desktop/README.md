@@ -42,7 +42,7 @@ Example `config.json` for a LAN computer:
   "username": "rbr", "password": "…" }
 ```
 
-Dependencies: the `allspeak` pip package and PySide6 (`pip install allspeak
+Dependencies: the `allspeak-ai` pip package and PySide6 (`pip install allspeak-ai
 pyside6`).
 
 ### On the controller (RBR Server)
@@ -54,7 +54,7 @@ controller's own display. Without the service, run it manually as above.
 ### On another computer on the LAN
 
 ```sh
-pip install allspeak pyside6
+pip install allspeak-ai pyside6
 git clone <rbr repo>  # or copy the desktop/ directory
 cd <repo>/desktop
 cp config.example.json config.json   # then edit the broker to the controller's LAN IP

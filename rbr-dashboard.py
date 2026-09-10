@@ -178,6 +178,12 @@ def render(data):
             if status == "warn":
                 warn = f"{YELLOW}{msg}{RESET}"
                 plain_warn = msg
+            elif status == "partial":
+                # Some (not all) relays in this room are not answering — the
+                # room still heats from the working relay(s), so show the
+                # amber warning rather than the red failure marker.
+                warn = f"{YELLOW}! {msg}{RESET}"
+                plain_warn = f"! {msg}"
             elif status == "fail":
                 warn = f"{RED}✗ {msg}{RESET}"
                 plain_warn = f"✗ {msg}"

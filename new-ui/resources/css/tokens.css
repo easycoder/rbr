@@ -93,6 +93,10 @@
     --type-subline-size:   12px;
     --type-subline-weight: 500;
 
+    /* Warning row sits below the subline: a touch smaller so a long relay
+       name (e.g. "Kitchen-plinth not responding") fits. */
+    --type-warn-size:      11px;
+
     --type-caption-size:   11px;
     --type-caption-weight: 400;
 
@@ -163,6 +167,10 @@ html, body {
     color: var(--color-text-primary);
     background: var(--color-surface-card);
     -webkit-font-smoothing: antialiased;
+    /* Stop mobile browsers inflating our small text ("font boosting"),
+       which made the warning row render larger than the lines above it. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
 }
 
 /*

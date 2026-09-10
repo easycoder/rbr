@@ -95,6 +95,16 @@
     variable PriorityRoomIndex
     variable TodayWas
     variable RelayFails
+    list OldRelayFails
+    list NewRelayFails
+    list RoomRelays
+    list RoomRelayFails
+    variable RelayFailsThis
+    variable RelayFailsWorst
+    variable RelayCount
+    variable FailedRelays
+    variable BadRelayName
+    variable RelayMsg
     variable SensorAge
     variable RoomStatus
     variable PriorStatus
@@ -134,7 +144,7 @@
     variable HeatlogMode
     variable HeatlogName
     variable HeatlogDirty
-!! @hash 2507f342
+!! @hash a7cbb067
 !! @verified f7af243f
 !!!
 !! Basic initialisation.
@@ -173,12 +183,14 @@
     ! Command-line flag: `allspeak controller.as --no-dashboard` runs without
     ! the terminal dashboard so log output stays visible in a foreground run
     ! (the dashboard repaints the console and hides runtime messages).
-    put `yes` into DashboardEnabled
+    ! Use set/clear (a boolean) rather than 'yes'/'no' strings: `if X` is true
+    ! for ANY non-empty string, so `put 'no' into X` never disabled anything.
+    set DashboardEnabled
     if argc is greater than 0
     begin
-        if arg 0 is `--no-dashboard` put `no` into DashboardEnabled
+        if arg 0 is `--no-dashboard` clear DashboardEnabled
     end
-!! @hash 00315a5f
+!! @hash 5d76167c
 !! @verified ccb83ebf
 !!!
 !! Load credentials and set up MQTT. Credentials come from the server unless a local 'credentials' file exists.
@@ -863,7 +875,7 @@ BoostDone:
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
 !!
-!! The reply is a list with one entry per slot: an integer is a fresh temperature reading from the relay's own sensor, an empty value indicates a relay failure (we count consecutive ones into `relayfails` for RoomStatus to convert to warn/fail), and any other string is a BLE thermometer announcement we hand to RecordThermometer.
+!! The reply is a list with one entry per slot: an integer is a fresh temperature reading from the relay's own sensor, an empty value indicates a relay failure, and any other string is a BLE thermometer announcement we hand to RecordThermometer. Failures are counted per relay into `relayfails` (a list parallel to the room's `relays`); each relay's count is reset only by that relay answering, so a dead relay cannot be masked by a healthy sibling in the same room. RoomStatus turns the counts into warn/fail (all relays down) or `partial` (some down).
 !!
 !! After folding, SetRelay runs again so any updated temperature is reflected in the relay decision.
 !!
@@ -871,20 +883,35 @@ BoostDone:
 ProcessReply:
     if Replies is not empty
     begin
-!       Track relay response quality
+!       Track relay response quality PER RELAY. `relayfails` is a list
+!       parallel to the room's `relays`, holding each relay's consecutive
+!       failure count. A relay that answers resets only its OWN count, so a
+!       dead relay can no longer be masked by a healthy sibling (a single
+!       room-wide counter was zeroed by any healthy reply, which is why a
+!       dead relay in a multi-relay room never surfaced).
+        reset OldRelayFails
+        if Room has entry `relayfails`
+        begin
+            put entry `relayfails` of Room into RelayFails
+!           Legacy maps stored one room-wide number for the whole room; it
+!           is discarded rather than copied, so a big stale count cannot
+!           flag every relay on the first cycle after this change.
+            if RelayFails is not numeric put RelayFails into OldRelayFails
+        end
+        reset NewRelayFails
         put 0 into I
-        put 0 into RelayFails
-        if Room has entry `relayfails` put entry `relayfails` of Room into RelayFails
         while I is less than the count of Replies
         begin
+            put 0 into RelayFailsThis
+            if I is less than the count of OldRelayFails put item I of OldRelayFails into RelayFailsThis
             put item I of Replies into Value
             if Value is empty
             begin
-                increment RelayFails
+                increment RelayFailsThis
             end
             else
             begin
-                set RelayFails to 0
+                set RelayFailsThis to 0
                 if Value is numeric put Value into TempNow
                 else
                 begin
@@ -892,14 +919,15 @@ ProcessReply:
                     if Reply is not empty gosub to RecordThermometer
                 end
             end
+            append RelayFailsThis to NewRelayFails
             increment I
         end
-        set entry `relayfails` of Room to RelayFails
+        set entry `relayfails` of Room to NewRelayFails
         if TempNow is not empty set entry `temperature` of Room to TempNow
         gosub to SetRelay
     end
     go to RoomStatus
-!! @hash 63064a79
+!! @hash 931c8b52
 !! @verified 63064a79
 !!!
 !! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
@@ -998,11 +1026,13 @@ SetRelay:
 !! @hash d2926dac
 !! @verified d2926dac
 !!!
-!! Compute the room's health status (`good` / `warn` / `fail`) and a human-readable status message for the UI.
+!! Compute the room's health status (`good` / `warn` / `fail` / `partial`) and a human-readable status message for the UI.
 !!
 !! Forces an immediate UI update on either a period change (advance off) or a relay-state change so the UI sees these promptly rather than waiting for the next 5-second tick.
 !!
-!! Status thresholds: relay failures > 5 -> warn, > 20 -> fail; sensor staleness > 45 min -> warn, > 60 min -> fail. The 45-minute warn threshold matches the staleness gate in ProcessRoom that empties TempNow, so a stale sensor and a `warn` status both force the relay off at the same point. SensorAge is surfaced on Room so the UI can show "N min ago".
+!! Relay health comes from the per-relay failure counts in `relayfails` (a list parallel to the room's `relays`). ALL relays failing > 5 cycles is `warn`, > 20 is `fail` — SetRelay forces the relays off for those, as before. Only SOME relays failing is `partial`: the room can still heat from the working relay(s), so it is flagged for the UI without the force-off, and the message names the relay that is not answering.
+!!
+!! Sensor staleness > 45 min -> warn, > 60 min -> fail. The 45-minute warn threshold matches the staleness gate in ProcessRoom that empties TempNow, so a stale sensor and a `warn` status both force the relay off at the same point. SensorAge is surfaced on Room so the UI can show "N min ago".
 !!
 !! Falls through to UpdateRooms.
 RoomStatus:
@@ -1026,12 +1056,53 @@ RoomStatus:
 !   Compute room status based on relay failures and thermometer staleness
     put `good` into RoomStatus
 
-!   Check relay failure count
+!   Check relay health. `relayfails` is a list parallel to the room's
+!   `relays`, one consecutive-failure count per relay. A room whose relays
+!   are ALL failing is a full failure (warn, then fail — SetRelay forces the
+!   relays off, as before). When only SOME relays fail, the room is
+!   `partial`: it can still heat from the working radiator(s), so the status
+!   is surfaced to the UI but does NOT trigger SetRelay's force-off.
+    put 0 into RelayFailsWorst
+    put 0 into FailedRelays
+    put 0 into RelayCount
+    put empty into BadRelayName
+    if Room has entry `relays`
+    begin
+        put entry `relays` of Room into RoomRelays
+        put the count of RoomRelays into RelayCount
+    end
     if Room has entry `relayfails`
     begin
         put entry `relayfails` of Room into RelayFails
-        if RelayFails is greater than 20 put `fail` into RoomStatus
-        else if RelayFails is greater than 5 put `warn` into RoomStatus
+!       numeric = legacy room-wide count, which is discarded
+        if RelayFails is not numeric put RelayFails into RoomRelayFails
+    end
+    if RoomRelayFails is not empty
+    begin
+        put 0 into I
+        while I is less than the count of RoomRelayFails
+        begin
+            put item I of RoomRelayFails into RelayFailsThis
+            if RelayFailsThis is greater than RelayFailsWorst put RelayFailsThis into RelayFailsWorst
+            if RelayFailsThis is greater than 5
+            begin
+                increment FailedRelays
+!               Remember the first failing relay's name for the message
+                if FailedRelays is 1 and I is less than RelayCount
+                    put item I of RoomRelays into BadRelayName
+            end
+            increment I
+        end
+    end
+    if FailedRelays is greater than 0
+    begin
+        if RelayCount is greater than 1 and FailedRelays is less than RelayCount
+            put `partial` into RoomStatus
+        else
+        begin
+            if RelayFailsWorst is greater than 20 put `fail` into RoomStatus
+            else put `warn` into RoomStatus
+        end
     end
 
 !   Check thermometer staleness (skip in simulation mode)
@@ -1062,15 +1133,26 @@ RoomStatus:
     set entry `status` of Room to RoomStatus
     set entry `timestamp` of Room to now
 
+!   Relay health is also surfaced explicitly (counts + a message naming the
+!   faulty relay) so the UI can show a partial-failure indicator even when the
+!   room status is masked by something else — a stale sensor pushes the status
+!   to `warn`, which would otherwise hide the relay fault entirely.
+    set entry `relaysFailed` of Room to FailedRelays
+    set entry `relaysTotal` of Room to RelayCount
+
 !   Build a status message for the UI
     put empty into Value
-    if Room has entry `relayfails`
+    put empty into RelayMsg
+    if FailedRelays is greater than 0
     begin
-        put entry `relayfails` of Room into RelayFails
-        if RelayFails is greater than 5
-            put `Relay: ` cat RelayFails cat ` failures` into Value
-        if RelayFails is not 0
-            ! log RoomName cat `: status=` cat RoomStatus cat ` relayfails=` cat RelayFails
+!       Partial failure: name the relay that is not answering so the room
+!       card's amber warning says which radiator is dead.
+        if RelayCount is greater than 1 and FailedRelays is less than RelayCount
+        begin
+            put `Relay: ` cat BadRelayName cat ` not responding` into Value
+            put BadRelayName cat ` not responding` into RelayMsg
+        end
+        else put `Relay: ` cat RelayFailsWorst cat ` failures` into Value
     end
     if Sensor is not empty and not Simulate
     begin
@@ -1094,7 +1176,8 @@ RoomStatus:
         end
     end
     set entry `statusMessage` of Room to Value
-!! @hash 0c6a4fc8
+    set entry `relayMessage` of Room to RelayMsg
+!! @hash 07a1a758
 !! @verified e101ab9c
 !!!
 !! Cascading writers for the system map: callers gosub to whichever level they need, then control falls through up to UpdateMap and returns.

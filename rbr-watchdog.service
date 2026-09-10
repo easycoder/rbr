@@ -1,0 +1,13 @@
+[Unit]
+Description=RBR component health watchdog (restart any down core service)
+
+[Service]
+Type=oneshot
+# Runs as root so it can restart mosquitto/zigbee2mqtt/bridge/controller.
+# The script lives in the controller runtime dir (/home/graham/rbr on the
+# default install) so the hourly updater refreshes it when a new release
+# ships — rbr-watchdog.sh is part of rbr-controller.tar.gz and is applied
+# by rbr-updater.py like any other runtime file. Installed by rbr-setup.sh
+# STEP 6b.
+ExecStart=/home/graham/rbr/rbr-watchdog.sh
+SyslogIdentifier=rbr-watchdog

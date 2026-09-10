@@ -122,6 +122,7 @@
 	variable NextTarget
 	variable NextPrefix
 	variable Offline
+	variable PartialFail
 	variable Sensor
 	variable BoostVal
 	variable NameText
@@ -283,6 +284,9 @@
 !	fresh profiles array.
 	variable LiveProfiles
 	variable WarnMessage
+	variable WarnText
+	div WarnRow
+	div WarnTextEl
 	variable BoostText
 	variable BoostTickI
 	variable BoostTickRoom
@@ -344,7 +348,7 @@
 !	shared with the now-extracted device editor; it's used only by
 !	SaveOutsideSheet's fan-out loop).
 	variable DeviceProfileCount
-!! @hash 0ad3d71c
+!! @hash 48c25f1b
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -1391,7 +1395,7 @@ PaintExpansion:
 		if BoostState is `configuring` gosub to ActivateBoostOff
 	end
 	return
-!! @hash bbbbe071
+!! @hash 0cd454d8
 !!!
 !! Mode-button and boost-button styling helpers. Reset routines blank every button's selected look; Activate<X> routines apply the "lit" look (card background, drop shadow, primary text, weight 600) to one specific button. The buttons are already at the right slot via the `index` calls in PaintExpansion.
 !!
@@ -2504,6 +2508,7 @@ RenderRoom:
 	put property `temp` of Room into TempVal
 	put property `target` of Room into TargetTemp
 	put property `offline` of Room into Offline
+	put property `partial` of Room into PartialFail
 	put property `sensor` of Room into Sensor
 	put property `boost` of Room into BoostVal
 	put property `nextTime` of Room into NextTime
@@ -2560,28 +2565,33 @@ RenderRoom:
 		end
 	end
 
-!	Battery-low + warn-state messages, appended for online rooms (offline
-!	rooms already carry a more important status message).
+!	Warnings move to their own row (with a warning icon) so they no longer
+!	compete with the schedule text for one ellipsised line — previously the
+!	warning was usually the part clipped ("Off until 18:00 · Relay: Kit…").
+!	Offline rooms keep their reason on the subline, so the row stays empty.
+	put empty into WarnText
 	if Sensor is `no`
 	begin
 		if Offline is `no`
 		begin
+			put property `warnMessage` of Room into WarnMessage
+			if WarnMessage is not empty put WarnMessage into WarnText
 			if property `batteryLow` of Room is `yes`
 			begin
-				if SublineText is empty put `Battery low` into SublineText
-				else put SublineText cat ` · Battery low` into SublineText
-			end
-			put property `warnMessage` of Room into WarnMessage
-			if WarnMessage is not empty
-			begin
-				if SublineText is empty put WarnMessage into SublineText
-				else put SublineText cat ` · ` cat WarnMessage into SublineText
+				if WarnText is empty put `Battery low` into WarnText
+				else put WarnText cat ` · Battery low` into WarnText
 			end
 		end
 	end
 
 	attach Subline to `room-` cat IndexStr cat `-subline`
 	set the content of Subline to SublineText
+
+	attach WarnRow to `room-` cat IndexStr cat `-warn-row`
+	if WarnText is empty set style `display` of WarnRow to `none`
+	else set style `display` of WarnRow to `flex`
+	attach WarnTextEl to `room-` cat IndexStr cat `-warn-text`
+	set the content of WarnTextEl to WarnText
 
 	attach TempEl to `room-` cat IndexStr cat `-temp`
 	if TempVal is empty set the content of TempEl to `—`
@@ -2596,7 +2606,7 @@ RenderRoom:
 
 	gosub to ApplyChipStyle
 	return
-!! @hash 41f9abfb
+!! @hash 9c0503ff
 !!!
 !! Decide the chip background / foreground / icon-url and apply them.
 !!
@@ -2619,6 +2629,15 @@ ApplyChipStyle:
 		put `var(--color-chip-warn-bg)` into ChipBg
 		put `var(--color-chip-warn-fg)` into ChipFg
 		put `resources/icon/offline.svg` into ChipIconUrl
+	end
+	else if PartialFail is `yes`
+	begin
+!		Partial relay failure: the room still heats from its working relay,
+!		so it keeps its normal temperature styling but wears the amber chip
+!		with a warning icon, and the subline names the relay (warnMessage).
+		put `var(--color-chip-warn-bg)` into ChipBg
+		put `var(--color-chip-warn-fg)` into ChipFg
+		put `resources/icon/warning.svg` into ChipIconUrl
 	end
 	else if BoostVal is not empty
 	begin
@@ -2653,7 +2672,7 @@ ApplyChipStyle:
 	set style `mask` of ChipIcon to MaskCss
 	set style `-webkit-mask` of ChipIcon to MaskCss
 	return
-!! @hash 2ba0f914
+!! @hash f513976c
 !!!
 !! Terminal failure handler. Reached via `or go to LoadFailed` from every `rest get` template fetch in the bootstrap region — a missing or malformed Webson template means the UI can't render, so we alert and stop rather than limping on with broken state.
 LoadFailed:

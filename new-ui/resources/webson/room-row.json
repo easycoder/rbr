@@ -51,7 +51,7 @@
             "flex-direction": "column",
             "gap": "2px",
             "min-width": "0",
-            "#": ["$NameRow", "$Subline"],
+            "#": ["$NameRow", "$Subline", "$WarnRow"],
 
             "$NameRow": {
                 "#element": "div",
@@ -129,6 +129,41 @@
                 "white-space": "nowrap",
                 "overflow": "hidden",
                 "text-overflow": "ellipsis"
+            },
+
+            "$WarnRow": {
+                "#doc": "Second line for warnings (relay not responding, no recent change, battery low). Own row so a warning never competes with the schedule text for space on the subline above; hidden when there is nothing to report.",
+                "#element": "div",
+                "@id": "room-/I/-warn-row",
+                "display": "none",
+                "align-items": "center",
+                "gap": "4px",
+                "margin-top": "3px",
+                "min-width": "0",
+                "font-size": "var(--type-warn-size, 11px)",
+                "font-weight": "500",
+                "color": "var(--color-status-warn)",
+                "#": ["$WarnIcon", "$WarnText"],
+
+                "$WarnIcon": {
+                    "#element": "div",
+                    "width": "10px",
+                    "height": "10px",
+                    "flex-shrink": "0",
+                    "background-color": "var(--color-status-warn)",
+                    "mask": "url(resources/icon/warning.svg) center/contain no-repeat",
+                    "-webkit-mask": "url(resources/icon/warning.svg) center/contain no-repeat"
+                },
+
+                "$WarnText": {
+                    "#element": "span",
+                    "@id": "room-/I/-warn-text",
+                    "flex": "1",
+                    "min-width": "0",
+                    "white-space": "nowrap",
+                    "overflow": "hidden",
+                    "text-overflow": "ellipsis"
+                }
             }
         },
 

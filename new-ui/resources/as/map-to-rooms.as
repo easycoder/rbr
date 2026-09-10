@@ -67,6 +67,9 @@
 	variable LegacyTarget
 	variable LegacyStatus
 	variable LegacyStatusMessage
+	variable LegacyRelaysFailed
+	variable LegacyRelaysTotal
+	variable LegacyRelayMsg
 	variable LegacyLinked
 	variable OfflineReason
 	variable LegacyBattery
@@ -103,7 +106,7 @@
 	on message go to Translate
 	release parent
 	stop
-!! @hash 5d2f1f88
+!! @hash d70757d5
 !!!
 !! Message handler. Unpacks the Map from the message, runs the translation, packs the output dict, ships it back. Boolean flags (CalendarOn, OutsideRoomFound) travel as "on"/"off" / "yes"/"no" strings because boolean state doesn't round-trip cleanly through JSON.
 Translate:
@@ -303,6 +306,7 @@ BuildRoomEntry:
 	end
 
 	set property `offline` of NewRoom to `no`
+	set property `partial` of NewRoom to `no`
 	put `No signal` into OfflineReason
 	put property `status` of LegacyRoom into LegacyStatus
 	put property `statusMessage` of LegacyRoom into LegacyStatusMessage
@@ -329,12 +333,35 @@ BuildRoomEntry:
 
 	set property `offlineReason` of NewRoom to OfflineReason
 
+!	Relay health comes straight from the controller's per-relay counts, so a
+!	dead relay among several is visible even when the room status says
+!	something else (a stale sensor pushes the status to `warn`). partial =
+!	some, but not all, relays faulty — the room still heats from the rest.
+	put property `relaysFailed` of LegacyRoom into LegacyRelaysFailed
+	put property `relaysTotal` of LegacyRoom into LegacyRelaysTotal
+	if LegacyStatus is `partial` set property `partial` of NewRoom to `yes`
+	else if LegacyRelaysFailed is not empty
+	begin
+		if LegacyRelaysFailed is greater than 0
+			if LegacyRelaysTotal is not empty
+				if LegacyRelaysFailed is less than LegacyRelaysTotal set property `partial` of NewRoom to `yes`
+	end
+
 	set property `warnMessage` of NewRoom to empty
 	if property `offline` of NewRoom is `no`
 	begin
-		if LegacyStatus is `warn`
+		if property `partial` of NewRoom is `yes`
 		begin
-			if the index of `Sensor` in LegacyStatusMessage is greater than -1
+!			Name the relay that is not answering, in the controller's words.
+			put property `relayMessage` of LegacyRoom into LegacyRelayMsg
+			if LegacyRelayMsg is not empty set property `warnMessage` of NewRoom to LegacyRelayMsg
+			else if LegacyStatusMessage is not empty set property `warnMessage` of NewRoom to LegacyStatusMessage
+		end
+		else if LegacyStatus is `warn`
+		begin
+			if the index of `Relay` in LegacyStatusMessage is greater than -1
+				set property `warnMessage` of NewRoom to LegacyStatusMessage
+			else if the index of `Sensor` in LegacyStatusMessage is greater than -1
 				set property `warnMessage` of NewRoom to `No recent change`
 			else if LegacyStatusMessage is not empty
 				set property `warnMessage` of NewRoom to LegacyStatusMessage
@@ -564,7 +591,7 @@ BuildRoomEntry:
 	set property `calling` of NewRoom to `no`
 	if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
 	return
-!! @hash ceacffc7
+!! @hash 4582c5e2
 !!!
 !! Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string (19.8). In-place via TempStr — caller passes the integer in, gets the string back out.
 FormatHundredths:
