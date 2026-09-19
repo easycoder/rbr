@@ -23,6 +23,7 @@ The bridge expects zigbee-config.json with MQTT broker details:
 import argparse
 import json
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -58,6 +59,23 @@ OFFLINE_AFTER_SECONDS = 1800
 # within the grace period.
 NEVER_SEEN_GRACE_SECONDS = 300
 BRIDGE_START_TIME = time.time()
+
+# zigbee2mqtt reports undelivered commands on zigbee2mqtt/bridge/logging:
+#   {"level":"error","message":"z2m: Publish 'set' 'state' to 'Hall-radiator'
+#    failed: 'Error: ZCL command ... timed out after 10000ms'"}
+#
+# These are mostly redundant re-assertions of a state the device already
+# holds — the controller re-commands every relay every ~5s — so they are NOT
+# counted as relay failures. Doing that would flag quiet-but-healthy relays
+# and force whole rooms off: measured on a live system, of 3619 such
+# failures, 3616 were `off` commands to relays already off and only 3 were
+# real `on` transitions. They are kept as a DIAGNOSTIC only, surfaced on
+# /health, because a device that never acknowledges is worth knowing about
+# before a room actually needs heat.
+set_failures = {}            # {friendly_name: {"count": int, "last": epoch}}
+set_failures_lock = threading.Lock()
+SET_FAILURE_PATTERN = re.compile(
+    r"Publish 'set' 'state' to '([^']+)' failed")
 
 # After publishing a relay command we wait for the device to confirm it by
 # reporting the commanded state back through zigbee2mqtt. The cached state may
@@ -151,6 +169,11 @@ def on_message(client, userdata, msg):
         print(f"Zigbee event: {json.dumps(payload)}")
         return
 
+    # Failed commands — diagnostic only, see set_failures.
+    if topic == "zigbee2mqtt/bridge/logging":
+        _handle_bridge_logging(payload)
+        return
+
     # Ignore other bridge topics
     if topic.startswith("zigbee2mqtt/bridge/"):
         return
@@ -196,6 +219,24 @@ def _handle_bridge_devices(devices_list):
             }
     bridge_devices = new_devices
     print(f"Zigbee2MQTT reports {len(new_devices)} device(s): {list(new_devices.keys())}")
+
+def _handle_bridge_logging(event):
+    """Record a failed zigbee2mqtt command for diagnostic visibility.
+
+    Diagnostic only: these are not relay failures (see set_failures). Counts
+    are per friendly name and never reset, so a reader should judge recency
+    from the `last` timestamp alongside the count.
+    """
+    if not isinstance(event, dict) or event.get("level") != "error":
+        return
+    match = SET_FAILURE_PATTERN.search(str(event.get("message", "")))
+    if not match:
+        return
+    device_name = match.group(1)
+    with set_failures_lock:
+        entry = set_failures.setdefault(device_name, {"count": 0, "last": 0.0})
+        entry["count"] += 1
+        entry["last"] = time.time()
 
 def _handle_device_update(device_name, payload):
     """Process a state update from a Zigbee device."""
@@ -269,7 +310,7 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
         GET /device/{name}?state=on|off   — send relay command, return state
         GET /device/{name}                 — return current state (no command)
         GET /devices                       — list all known devices
-        GET /health                        — health check
+        GET /health                        — health check (+ diagnostic setFailures)
 
     /device returns a body with no `state` field when the device is offline,
     hasn't been seen for a while, is unknown to zigbee2mqtt, or fails to
@@ -283,7 +324,18 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
 
         if path_parts[0] == "health":
-            self._respond(200, {"status": "ok", "devices": len(device_states)})
+            with set_failures_lock:
+                failures = {name: dict(entry)
+                            for name, entry in set_failures.items()}
+            self._respond(200, {
+                "status": "ok",
+                "devices": len(device_states),
+                # Diagnostic only: commands zigbee2mqtt could not deliver,
+                # keyed by friendly name, with the time of the most recent
+                # failure so a reader can tell "failing now" from "failed
+                # earlier". Never used to fail a relay — see set_failures.
+                "setFailures": failures,
+            })
             return
 
         if path_parts[0] == "devices":
