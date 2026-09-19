@@ -618,7 +618,10 @@ Wants=network-online.target
 Type=simple
 User=${RBR_USER}
 WorkingDirectory=${RBR_DIR}
-ExecStart=${ALLSPEAK_BIN} controller.as
+# --no-dashboard: the terminal dashboard repaints a console, and a service
+# has none — its output would only pile up in the journal. Run
+# 'allspeak controller.as' by hand (without the flag) to see the dashboard.
+ExecStart=${ALLSPEAK_BIN} controller.as --no-dashboard
 Restart=always
 RestartSec=5
 StandardOutput=journal

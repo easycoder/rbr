@@ -446,7 +446,15 @@ MainLoop:
         if DashboardEnabled
         begin
             save prettify DashboardData to `/tmp/rbr-dashboard.json`
-            system background `python3 /home/graham/rbr/rbr-dashboard.py`
+            ! Relative on purpose: the renderer ships next to this script and the
+            ! controller is always started from the install directory (the
+            ! systemd unit sets WorkingDirectory; manual runs are 'cd ~/rbr &&
+            ! allspeak controller.as'). An absolute path here only ever worked
+            ! on the one machine whose home directory it named, so every other
+            ! install logged 'can't open file' on each dashboard refresh. The
+            ! service unit passes --no-dashboard: a headless service has no
+            ! terminal to paint, so the JSON is all that matters there.
+            system background `python3 rbr-dashboard.py`
         end
     end
 
@@ -456,7 +464,7 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-!! @hash aafbccbe
+!! @hash d783738f
 !! @verified ce47a848
 !!!
 !! Drain the queue of messages received from the UI between MainLoop ticks.
