@@ -19,8 +19,11 @@
     dictionary Device
     dictionary StateMap
     dictionary StateData
+    dictionary Failures
+    dictionary Fault
     list Keys
     list Relays
+    list FaultKeys
     variable SelectedProfile
     variable RoomCount
     variable RoomName
@@ -31,13 +34,15 @@
     variable J
     variable N
     variable KeyName
+    variable FaultName
+    variable FK
     variable TestRelay
     dictionary TestResponse
 
     ! Entry point — top-level statements run first; dispatch to Main then exit.
     gosub to Main
     exit
-!! @hash 6eb00917
+!! @hash b1be0161
 !!!
 !! Main routine — run the diagnostic sections in order.
 !!
@@ -107,6 +112,35 @@ Bridge:
     begin
         if Response has entry `devices` ulog `  health: ok, ` cat entry `devices` of Response cat ` known device(s)`
         else ulog `  health: ` cat Response
+        ! Undelivered-command counts from the bridge, with the age of the most
+        ! recent one. DIAGNOSTIC ONLY: the controller does not treat these as
+        ! relay failures — most are redundant re-assertions of a state the
+        ! device already holds — so a count here does NOT mean a room has been
+        ! forced off. It means the device is not acknowledging commands, which
+        ! is worth knowing before a room actually needs heat. Counts are per
+        ! bridge process and reset when rbr-zigbee-bridge restarts.
+        if Response has entry `setFailures`
+        begin
+            put entry `setFailures` of Response into Failures
+            put the keys of Failures into FaultKeys
+            if the count of FaultKeys is 0
+                ulog `  undelivered commands: none since the bridge started`
+            else
+            begin
+                ulog `  undelivered commands (diagnostic only, not relay failures):`
+                set FK to 0
+                while FK is less than the count of FaultKeys
+                begin
+                    put item FK of FaultKeys into FaultName
+                    put entry FaultName of Failures into Fault
+                    if Fault has entry `age`
+                        ulog `    ` cat FaultName cat `: ` cat entry `count` of Fault cat ` failure(s), last ` cat entry `age` of Fault cat `s ago`
+                    else
+                        ulog `    ` cat FaultName cat `: ` cat entry `count` of Fault
+                    increment FK
+                end
+            end
+        end
         get Response from url `http://127.0.0.1:8889/devices`
         or begin
             clear BridgeUp
@@ -139,7 +173,7 @@ Bridge:
         end
     end
     return
-!! @hash 0e4a4d50
+!! @hash c7d27d5b
 !!!
 !! Section 3 — what the controller believes about each room in the selected profile: mode, target, temperature, status, and the relay name(s) it commands.
 !!

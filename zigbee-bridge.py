@@ -324,8 +324,12 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
         params = parse_qs(parsed.query)
 
         if path_parts[0] == "health":
+            now = time.time()
             with set_failures_lock:
-                failures = {name: dict(entry)
+                # `age` is derived here so a reader never has to do epoch
+                # arithmetic; `last` is kept for anything wanting an absolute
+                # time.
+                failures = {name: dict(entry, age=int(now - entry["last"]))
                             for name, entry in set_failures.items()}
             self._respond(200, {
                 "status": "ok",
