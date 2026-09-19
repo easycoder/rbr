@@ -270,7 +270,11 @@ else
 SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="zigbee-dongle", GROUP="dialout", MODE="0660"
 UDEV
     udevadm control --reload-rules
-    udevadm trigger
+    # --settle waits for udev to finish before the test below. A bare
+    # `udevadm trigger` returns immediately, so the symlink test lost the
+    # race and z2m was configured against the unstable /dev/ttyUSB* name
+    # instead of the symlink this rule exists to provide.
+    udevadm trigger --settle
     [[ -e /dev/zigbee-dongle ]] && DONGLE_DEVICE="/dev/zigbee-dongle"
     RESOLVED_DONGLE="${DONGLE_DEVICE}"
     echo "  → Dongle: $RESOLVED_DONGLE"
@@ -400,6 +404,30 @@ chown "$RBR_USER:$RBR_USER" "$RBR_DIR/credentials"
 chmod 640 "$RBR_DIR/credentials"
 echo "  → Created $RBR_DIR/credentials (broker: localhost, MAC: $MAC)"
 echo "  Note: mail credentials are placeholders — update if you need email features."
+
+# ===========================================================================
+# STEP 5c — config.json placeholder (Zigbee-only systems)
+# ===========================================================================
+# deviceControl.as does an unguarded `load Config from config.json` to find
+# the IP of the RBR-Now master device, so the file must exist even on a
+# system with no RBR-Now hardware: without it the controller dies on startup
+# and controller.service crash-loops ("Unable to read from config.json").
+# An empty `devices` map is the correct content for a pure-Zigbee install —
+# deviceControl then leaves MasterIPAddr empty and MessageESPDevice
+# short-circuits silently, as its docstring describes.
+# config.json is machine-specific and deliberately NOT in the install pack,
+# so create one only when missing; never overwrite a real RBR-Now config.
+if [[ -f "$RBR_DIR/config.json" ]]; then
+    echo "  → config.json already present — left untouched"
+else
+    cat > "$RBR_DIR/config.json" << JSON
+{
+    "devices": {}
+}
+JSON
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/config.json"
+    echo "  → Created $RBR_DIR/config.json (no RBR-Now devices — Zigbee-only)"
+fi
 
 # ===========================================================================
 # STEP 5b — Heating-data log root (see doc/HEATING-DATA.md)
