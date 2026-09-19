@@ -49,6 +49,8 @@
     variable RelayType
     variable RelayState
     variable RelayStateWas
+    variable SensorFresh
+    variable SensorFreshWas
     variable RequestState
     variable RequestStateWas
     variable RequestName
@@ -144,7 +146,7 @@
     variable HeatlogMode
     variable HeatlogName
     variable HeatlogDirty
-!! @hash a7cbb067
+!! @hash e41603ee
 !! @verified f7af243f
 !!!
 !! Basic initialisation.
@@ -387,6 +389,7 @@ MainLoop:
             index PeriodWas to P
             index PeriodActive to P
             index RelayStateWas to P
+            index SensorFreshWas to P
             set RoomIndex to P
             gosub to ProcessRoom
         end
@@ -403,6 +406,7 @@ MainLoop:
             index PeriodWas to R
             index PeriodActive to R
             index RelayStateWas to R
+            index SensorFreshWas to R
             set RoomIndex to R
             gosub to ProcessRoom
         end
@@ -464,7 +468,7 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-!! @hash d783738f
+!! @hash d99ec3a6
 !! @verified ce47a848
 !!!
 !! Drain the queue of messages received from the UI between MainLoop ticks.
@@ -656,7 +660,7 @@ ResolveCalendarProfile:
 !!
 !! Called once at startup and after any UI action that changes the active profile or rooms list (Update Rooms, Select Profile, Update Profiles).
 !!
-!! Sizes the parallel TargetWas/PeriodWas/PeriodActive/RelayStateWas arrays to match the new room count, clears stale advance-rq/boost/responses entries, and seeds PeriodWas from each room's current natural period (via GetNaturalPeriod) so ApplyPeriodsAdvance's roll-over check works on the very next cycle — including the case where Advance was engaged in background time (where the previous -1 sentinel would have blocked auto-cancel). Also stamps TodayWas so MainLoop's day-rollover detector has a baseline.
+!! Sizes the parallel TargetWas/PeriodWas/PeriodActive/RelayStateWas/SensorFreshWas arrays to match the new room count, clears stale advance-rq/boost/responses entries, and seeds PeriodWas from each room's current natural period (via GetNaturalPeriod) so ApplyPeriodsAdvance's roll-over check works on the very next cycle — including the case where Advance was engaged in background time (where the previous -1 sentinel would have blocked auto-cancel). Also stamps TodayWas so MainLoop's day-rollover detector has a baseline.
 ProcessAllRooms:
     gosub to ResolveCalendarProfile
     put item SelectedProfile of Profiles into Profile
@@ -667,6 +671,7 @@ ProcessAllRooms:
     set the elements of PeriodWas to RoomCount
     set the elements of PeriodActive to RoomCount
     set the elements of RelayStateWas to RoomCount
+    set the elements of SensorFreshWas to RoomCount
 
     set R to 0
     while R is less than RoomCount
@@ -693,13 +698,20 @@ ProcessAllRooms:
         set PeriodActive to 0
         index RelayStateWas to R
         set RelayStateWas to empty
+        ! SensorFreshWas starts unknown so each room's first processed cycle
+        ! counts as a transition and pushes one map to any UI already
+        ! connected. Harmless — the UI receives a map on `first` regardless —
+        ! and it means a room that is already stale at startup is reported as
+        ! such rather than silently appearing healthy.
+        index SensorFreshWas to R
+        set SensorFreshWas to empty
         index TargetWas to R
         set TargetWas to 0
         increment R
     end
     set TodayWas to today
     return
-!! @hash 63226fd2
+!! @hash 83aef399
 !! @verified 09455c73
 !!!
 !! Run one control cycle for a single room: read its current temperature, apply the active mode to derive a target, send a relay command to the device controller, and store the outcome on the Room dictionary for the UI.
@@ -715,7 +727,7 @@ ProcessAllRooms:
 !!
 !! A boost engaged mid-period latches `boostperiod` so it doesn't self-cancel on its own first cycle.
 !!
-!! Sensor staleness: if the configured thermometer hasn't reported within 45 minutes the current reading is treated as missing, the relay is forced off (which in most cases will soon trigger a temperature change to be posted), and the last known temperature is preserved on the Room so the UI can show it greyed out rather than blank. Boost mode bypasses this gate (the `until` timestamp is the safety bound).
+!! Sensor staleness: if the configured thermometer hasn't reported within 45 minutes the current reading is treated as missing, the relay is forced off (which in most cases will soon trigger a temperature change to be posted), and the last known temperature is preserved on the Room so the UI can show it greyed out rather than blank. Boost mode bypasses this gate (the `until` timestamp is the safety bound). A flip in freshness also marks the map changed, so connected UIs learn that the status moved without waiting for the temperature itself to differ.
 !!
 !! Falls through to ProcessReply, which folds the device's reply back into the Room.
 ProcessRoom:
@@ -763,6 +775,20 @@ ProcessRoom:
         end
         ! else log RoomName cat ` sensor ` cat Sensor cat ` has not yet reported`
     end
+    ! A flip in FRESHNESS is itself a UI-visible change. MapHasChanged used to
+    ! be set only when the temperature VALUE changed (see below), so a sensor
+    ! resuming after a long gap with the same reading left every open UI still
+    ! showing the soft "No recent change" warning until something else moved —
+    ! the warning outlived the condition it describes. Tracking the flip lets
+    ! the next UI heartbeat (10s) carry a fresh map and clear the warning.
+    set SensorFresh to 1
+    if TempNow is empty set SensorFresh to 0
+    if SensorFresh is not SensorFreshWas
+    begin
+        set MapHasChanged
+        put SensorFresh into SensorFreshWas
+    end
+
     put entry `temperature` of Room into TempWas
     ! Preserve the last known reading when TempNow is empty (sensor stale).
     ! Status moves to `warn` on its own which both forces the relay off in
@@ -878,7 +904,7 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash 51d2f426
+!! @hash a6c6d222
 !! @verified 5b7749f8
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
