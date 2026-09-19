@@ -51,11 +51,18 @@ confirm() {
 prompt_value() {
     local label="$1" var_name="$2" default="${3:-}"
     local val
+    # A failed read means stdin hit EOF — the script was run with stdin
+    # redirected from /dev/null, or from an answers file with too few lines.
+    # Without this guard the failure is invisible: the empty result is taken
+    # as the answer (and `0` would then be left unset). Say so and stop,
+    # rather than writing an empty MQTT password into credentials and
+    # zigbee-config.json.
+    local eof_msg="  ✗ No input available for '$label' — stdin is closed (EOF)."
     if [[ -n "$default" ]]; then
-        read -r -p "$label [$default]: " val
+        read -r -p "$label [$default]: " val || { echo "$eof_msg" >&2; exit 1; }
         echo "${val:-$default}"
     else
-        read -r -p "$label: " val
+        read -r -p "$label: " val || { echo "$eof_msg" >&2; exit 1; }
         echo "$val"
     fi
 }
@@ -293,7 +300,7 @@ mqtt:
 
 serial:
   port: ${RESOLVED_DONGLE}
-  adapter: ezsp
+  adapter: ember
 
 frontend:
   port: 8080
@@ -618,6 +625,10 @@ Wants=network-online.target
 Type=simple
 User=${RBR_USER}
 WorkingDirectory=${RBR_DIR}
+# Python block-buffers stdout when it is not a terminal, so without this the
+# controller's log lines reach the journal in bursts, or not at all until the
+# process exits — leaving 'journalctl -u controller.service' empty.
+Environment=PYTHONUNBUFFERED=1
 # --no-dashboard: the terminal dashboard repaints a console, and a service
 # has none — its output would only pile up in the journal. Run
 # 'allspeak controller.as' by hand (without the flag) to see the dashboard.
