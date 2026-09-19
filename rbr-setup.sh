@@ -72,7 +72,11 @@ detect_dongle() {
         [[ -e "$dev" ]] && { echo "$dev"; return; }
     done
 }
-DONGLE_DEVICE="$(detect_dongle)"
+# `|| true` matters: detect_dongle returns 1 when it finds nothing, and a
+# bare assignment would inherit that status — with `set -e` that kills the
+# script silently, before even the banner prints (and before Step 3's
+# "no dongle detected" prompt, which is the path this is meant to reach).
+DONGLE_DEVICE="$(detect_dongle || true)"
 
 # AllSpeak is deliberately NOT installed by this script — it's a pip package
 # that usually needs --break-system-packages, which is the operator's call.
