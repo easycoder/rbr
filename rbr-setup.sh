@@ -19,6 +19,11 @@
 #
 set -euo pipefail
 
+# Any unguarded failing command under `set -e` stops this script dead, and
+# until now it did so with no output whatsoever — the hardest possible
+# thing to diagnose from a console. Say where it died instead.
+trap 'rc=$?; printf "\n  ✗ rbr-setup.sh aborted (exit %s) at line %s of %s\n    Re-run with: sudo bash -x %s\n" "$rc" "$LINENO" "$0" "$0" >&2' ERR
+
 # ---------------------------------------------------------------------------
 # Config — adjust these to match your machine
 # ---------------------------------------------------------------------------
@@ -154,10 +159,17 @@ apt-get install -y \
 pip3 install paho-mqtt 2>/dev/null || pip3 install --break-system-packages paho-mqtt 2>/dev/null || true
 
 # Ensure Node.js is recent enough for Zigbee2MQTT (needs >= 18, but pnpm needs >= 22)
-NODE_MAJOR="$(node --version 2>/dev/null | sed 's/v//; s/\..*//')"
+# The `|| true` is load-bearing: on a machine with no Node.js this pipeline
+# fails with 127, and with `pipefail` a bare assignment would abort the
+# script right here — silently, mid-Step 1, before the "installing Node.js"
+# message below is ever reached.
+NODE_MAJOR="$( { node --version 2>/dev/null || true; } | sed 's/v//; s/\..*//')"
 if [[ -z "$NODE_MAJOR" || "$NODE_MAJOR" -lt 22 ]]; then
     echo "  Node.js v$(node --version 2>/dev/null || echo 'none') too old — installing Node.js 22.x..."
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+    # `curl -fsSL` is silent by design, and pipefail makes a failed download
+    # fatal — so without this guard a network hiccup kills setup with no clue.
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+        || { echo "  ✗ Could not fetch/run the Node.js 22.x setup script — check network access."; exit 1; }
     apt-get install -y nodejs
     echo "  Node.js $(node --version) installed"
 fi
@@ -237,7 +249,8 @@ fi
 # Install dependencies
 echo "  Running pnpm install (needs dev deps for TypeScript build)..."
 cd "$Z2M_DIR"
-pnpm install 2>&1 | tail -5
+pnpm install 2>&1 | tail -5 \
+    || echo "  ⚠ pnpm install failed — Zigbee2MQTT may not build (see output above)"
 echo "  pnpm install done"
 
 # --- Zigbee dongle: prompt if not detected, create udev symlink -----------
