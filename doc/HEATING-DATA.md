@@ -68,7 +68,12 @@ A row is **not** logged when:
   target-vs-actual has no meaning for it);
 - the sensor is stale (no fresh reading — a gap in the log means "no valid
   reading", not "no change"; the controller forces the relay off during
-  staleness, so nothing heating-relevant is missed).
+  staleness, so nothing heating-relevant is missed);
+- the row would be an **exact duplicate of the file's last line** — the
+  writer skips it (best effort). This makes the log immune to a controller
+  restart re-logging its baseline before the once-a-minute state flush, and
+  to two controller instances briefly overlapping; without it those show up
+  as identical repeated rows.
 
 ### Relay-state inference
 

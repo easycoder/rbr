@@ -21,7 +21,9 @@ Each line holds four comma-separated values:
 
 The relay-state inference documented for analysis is: the relay is on iff
 mode is one of c/p/b AND target > actual. Rows are appended on change only
-(controller-side concern); this script just appends one row safely.
+(controller-side concern); this script just appends one row safely. A row
+identical to the file's last line is skipped (best effort), so a controller
+restart re-logging its baseline cannot duplicate the previous row.
 
 Root resolution (in order):
   1. --root PATH
@@ -87,13 +89,39 @@ def day_csv_path(root, room, epoch_minutes):
     )
 
 
+def _last_row(path):
+    """Return the last data line already in `path` (best effort), or None."""
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+            if size == 0:
+                return None
+            # A row is ~30 bytes; a bounded tail read avoids loading a whole
+            # day file just to compare one line.
+            fh.seek(max(0, size - 4096))
+            data = fh.read()
+    except OSError:
+        return None
+    lines = data.splitlines()
+    return lines[-1].decode("ascii", "replace") if lines else None
+
+
 def append_row(root, room, epoch_minutes, target_tenths, actual_tenths, mode):
-    """Append one CSV row, creating the directory tree as needed. Returns the file path."""
+    """Append one CSV row, creating the directory tree as needed. Returns the file path.
+
+    A row identical to the file's last line is skipped (best effort — a
+    concurrent writer can still slip one past). That makes the log immune to
+    the common sources of exact-duplicate rows: a controller restart
+    re-logging the current state as its baseline before the once-a-minute
+    state flush, and two controller instances briefly overlapping.
+    """
     path = day_csv_path(root, room, epoch_minutes)
+    row = f"{int(epoch_minutes)},{int(target_tenths)},{int(actual_tenths)},{mode}"
+    if _last_row(path) == row:
+        return path
     path.parent.mkdir(parents=True, exist_ok=True)
-    line = f"{int(epoch_minutes)},{int(target_tenths)},{int(actual_tenths)},{mode}\n".encode(
-        "ascii"
-    )
+    line = (row + "\n").encode("ascii")
     # Binary unbuffered append: one O_APPEND write per row, so concurrent
     # appends from separate controller events cannot interleave.
     with open(path, "ab") as fh:

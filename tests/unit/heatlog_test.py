@@ -27,6 +27,12 @@ def utc_minutes(y, mo, d, h, mi):
     return stamp // 60
 
 
+def local_minutes(y, mo, d, h, mi):
+    """Epoch minutes for a local-time instant (timezone-independent test input)."""
+    stamp = int(datetime.datetime(y, mo, d, h, mi).timestamp())
+    return stamp // 60
+
+
 class DatePathTests(unittest.TestCase):
     """The day file must be derived from the row's own timestamp, local time."""
 
@@ -112,6 +118,37 @@ class AppendTests(unittest.TestCase):
         heatlog.append_row(self.root, "Main Bedroom", ts, 190, 188, "o")
         self.assertTrue((self.root / "Kitchen" / "2026" / "09" / "02.csv").is_file())
         self.assertTrue((self.root / "Main Bedroom" / "2026" / "09" / "02.csv").is_file())
+
+    def test_exact_duplicate_of_last_row_is_skipped(self):
+        """A restart re-logging its baseline must not duplicate the last row."""
+        ts = utc_minutes(2026, 9, 2, 8, 30)
+        for _ in range(4):
+            heatlog.append_row(self.root, "Sunroom", ts, 120, 218, "p")
+        f = self.root / "Sunroom" / "2026" / "09" / "02.csv"
+        self.assertEqual(f.read_text(encoding="ascii").splitlines(), [f"{ts},120,218,p"])
+
+    def test_non_duplicate_after_duplicate_is_kept(self):
+        ts = utc_minutes(2026, 9, 2, 8, 30)
+        heatlog.append_row(self.root, "Sunroom", ts, 120, 218, "p")
+        heatlog.append_row(self.root, "Sunroom", ts, 120, 218, "p")  # skipped
+        heatlog.append_row(self.root, "Sunroom", ts + 1, 120, 219, "p")
+        heatlog.append_row(self.root, "Sunroom", ts + 1, 120, 219, "p")  # skipped
+        f = self.root / "Sunroom" / "2026" / "09" / "02.csv"
+        self.assertEqual(
+            f.read_text(encoding="ascii").splitlines(),
+            [f"{ts},120,218,p", f"{ts + 1},120,219,p"],
+        )
+
+    def test_duplicate_check_is_per_file(self):
+        """The same row in a different day file is not a duplicate."""
+        # Local-day boundaries, so the test does not depend on the host timezone.
+        ts1 = local_minutes(2026, 9, 2, 23, 59)
+        ts2 = local_minutes(2026, 9, 3, 0, 0)
+        heatlog.append_row(self.root, "Sunroom", ts1, 120, 218, "p")
+        heatlog.append_row(self.root, "Sunroom", ts2, 120, 218, "p")
+        for day in ("02", "03"):
+            f = self.root / "Sunroom" / "2026" / "09" / f"{day}.csv"
+            self.assertEqual(len(f.read_text(encoding="ascii").splitlines()), 1)
 
     def test_append_through_symlinked_root(self):
         """A symlinked root must behave identically to a real directory."""
