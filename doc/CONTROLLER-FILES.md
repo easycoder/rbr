@@ -19,12 +19,17 @@ Extra files are harmless, but this list is the minimum.
 | `zigbee-pair.py` | Tool for pairing Zigbee devices | manual |
 | `rbr-dashboard.py` | Terminal dashboard renderer (reads `/tmp/rbr-dashboard.json` written by the controller) | manual |
 | `dashboard.txt` | Dashboard column headers — read by `rbr-dashboard.py` | manual |
+| `rbr-updater.py` | Applies code updates pulled from rbrheating.com (installed as an hourly timer) | auto (CheckForUpdate) |
+| `rbr-watchdog.sh` | Hourly health check — restarts any core service that is down | auto (CheckForUpdate) |
+| `rbr-mapbackup.py` | Keeps the last 10 valid `map.json` revisions and repairs a truncated map (2-minute timer) | auto (CheckForUpdate) |
 | `config.json` | RBR-Now device config — read by `deviceControl.as` to find the master device | manual (machine-specific) |
 | `credentials` | MQTT broker credentials — created by `rbr-setup.sh` | generated |
 | `.mqtt_password` | Stored MQTT password — created by `rbr-setup.sh` | generated |
 | `.mac_override` | Controller MAC (MQTT topic identity) — created by `rbr-setup.sh` | generated |
 | `.version` | Local version stamp compared against `rbrheating.com/version` | auto (CheckForUpdate) |
 | `map.json` | Room/schedule data — read AND written by the controller | live data |
+| `map-last-good.json` | Newest valid `map.json`, written by `rbr-mapbackup.py` — restored over a damaged map | live data |
+| `map-history/` | Rolling copies of the last 10 valid maps, written by `rbr-mapbackup.py` | live data |
 | `thermometers.json` | Temperature readings — created on first run | live data |
 | `zigbee-temperatures.json` | Zigbee readings written by the bridge, merged by the controller | live data |
 | `rbr-setup.sh` | The installer itself — keep it so setup can be re-run | manual |

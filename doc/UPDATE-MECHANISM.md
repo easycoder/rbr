@@ -38,7 +38,8 @@ services itself.
 ```
 controller.as      deviceControl.as   simulator.as
 zigbee-bridge.py   zigbee-pair.py     rbr-dashboard.py
-dashboard.txt      rbr-updater.py     VERSION
+dashboard.txt      rbr-updater.py     rbr-watchdog.sh
+rbr-mapbackup.py   VERSION
 ```
 
 `VERSION` is a copy of the `version` stamp. On a `--release` run the stamp is

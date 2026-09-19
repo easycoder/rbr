@@ -554,6 +554,55 @@ TIMER
     echo "  → rbr-watchdog.timer enabled (hourly; restarts any down service)"
 fi
 
+# ===========================================================================--
+# STEP 6c — RBR map.json history keeper (validate, snapshot, repair)
+# ===========================================================================--
+confirm "Step 6c — map.json history keeper"
+
+if [[ ! -f "$RBR_DIR/rbr-mapbackup.py" ]]; then
+    echo "  ⚠ rbr-mapbackup.py not found in $RBR_DIR — skipping map keeper install"
+    echo "    (it ships in rbr-controller.zip; re-run after fetching the pack)"
+else
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/rbr-mapbackup.py"
+    chmod 0755 "$RBR_DIR/rbr-mapbackup.py"
+
+    cat > /etc/systemd/system/rbr-mapbackup.service << SERVICE
+[Unit]
+Description=RBR map.json history keeper (validate, snapshot, repair)
+
+[Service]
+Type=oneshot
+User=${RBR_USER}
+WorkingDirectory=${RBR_DIR}
+# The controller writes map.json with AllSpeak's non-atomic save, so a power
+# cut can leave it truncated — and AllSpeak's \`load ... or ...\` clause covers
+# a missing file but not an unparseable one, which would crash-loop the
+# controller. This keeper validates the file, keeps the last 10 distinct
+# revisions in map-history/, and restores the newest good one if the live file
+# is unreadable (or moves a damaged file aside so the controller builds its
+# default map). Atomic writes throughout.
+ExecStart=/usr/bin/python3 ${RBR_DIR}/rbr-mapbackup.py
+SyslogIdentifier=rbr-mapbackup
+SERVICE
+
+    cat > /etc/systemd/system/rbr-mapbackup.timer << TIMER
+[Unit]
+Description=Run the RBR map keeper shortly after boot and every 2 minutes
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target
+TIMER
+
+    systemctl daemon-reload
+    systemctl enable rbr-mapbackup.timer
+    systemctl start rbr-mapbackup.timer
+    echo "  → rbr-mapbackup.timer enabled (last 10 map revisions kept in map-history/)"
+fi
+
 # =========================================================================--
 # STEP 7 — (optional) Local UI web server
 # ===========================================================================
@@ -728,6 +777,9 @@ if [[ -f /etc/systemd/system/rbr-updater.timer ]]; then
 fi
 if [[ -f /etc/systemd/system/rbr-watchdog.timer ]]; then
     echo "    rbr-watchdog.timer $(systemctl is-active rbr-watchdog.timer)"
+fi
+if [[ -f /etc/systemd/system/rbr-mapbackup.timer ]]; then
+    echo "    rbr-mapbackup.timer $(systemctl is-active rbr-mapbackup.timer)"
 fi
 echo ""
 echo "  Controller:"

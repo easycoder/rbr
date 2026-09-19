@@ -95,7 +95,8 @@ rsync -vz --no-perms -e "$SSH_OPTS" \
 # bootstrap zip. VERSION (the deploy stamp) is added separately.
 CONTROLLER_FILES=(controller.as deviceControl.as simulator.as \
                   diagnose.as zigbee-bridge.py zigbee-pair.py rbr-dashboard.py \
-                  heatlog.py dashboard.txt rbr-updater.py rbr-watchdog.sh)
+                  heatlog.py dashboard.txt rbr-updater.py rbr-watchdog.sh \
+                  rbr-mapbackup.py)
 
 # Versioned controller tarball for the standalone updater (rbr-updater.py).
 # Contains the controller runtime files with a VERSION stamp embedded;
@@ -134,7 +135,7 @@ build_controller_zip() {
     (cd "$BUILD_DIR" && zip -q "$LOCAL/rbr-controller.zip" \
         controller.as deviceControl.as simulator.as diagnose.as zigbee-bridge.py \
         zigbee-pair.py rbr-dashboard.py heatlog.py dashboard.txt rbr-updater.py \
-        rbr-watchdog.sh rbr-setup.sh VERSION)
+        rbr-watchdog.sh rbr-mapbackup.py rbr-setup.sh VERSION)
     rm -rf "$BUILD_DIR"
     echo "  → $LOCAL/rbr-controller.zip (version $(cat "$LOCAL/version"))"
 }
