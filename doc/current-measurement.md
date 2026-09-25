@@ -1,5 +1,7 @@
 # Current measurement
 
+> For how this could be built — files, data path, module boundary — see [PROPOSAL-current-measurement.md](PROPOSAL-current-measurement.md).
+
 The present RBR installations (there are only 2) read temperatures and control radiators but know nothing of the environment. I would like to position the product so as to offer particular advantages for all-electric installations, by monitoring current flow. I identify the following primary flows:
 
 1. Power from and to the grid

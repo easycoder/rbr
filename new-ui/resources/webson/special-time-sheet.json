@@ -1,0 +1,97 @@
+{
+    "#doc": "Time popup for the 'change the morning start time' special action. A single native time input, pre-filled by shell.as with the last time requested for this room (or the room's current morning start on first use). Rendered once into sheet-content alongside the other simple sheets.",
+    "#element": "div",
+    "@id": "special-time-sheet",
+    "#": ["$Tagline", "$TimeBlock", "$Hint", "$Buttons"],
+
+    "$Tagline": {
+        "#element": "div",
+        "margin-top": "2px",
+        "font-size": "13px",
+        "font-weight": "400",
+        "color": "var(--color-text-secondary)",
+        "#content": "Heating will come on at this time instead of the scheduled start. The off time is unchanged."
+    },
+
+    "$TimeBlock": {
+        "#element": "div",
+        "margin-top": "16px",
+        "#": ["$TimeLabel", "$TimeInput"],
+
+        "$TimeLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "Start time"
+        },
+
+        "$TimeInput": {
+            "#element": "input",
+            "@id": "special-time-input",
+            "@type": "time",
+            "width": "100%",
+            "padding": "12px",
+            "border": "1px solid var(--color-border-hairline)",
+            "border-radius": "10px",
+            "background": "var(--color-surface-card)",
+            "font-family": "inherit",
+            "font-size": "18px",
+            "font-weight": "600",
+            "color": "var(--color-text-primary)",
+            "box-sizing": "border-box"
+        }
+    },
+
+    "$Hint": {
+        "#element": "div",
+        "@id": "special-time-hint",
+        "margin-top": "10px",
+        "font-size": "12px",
+        "font-weight": "400",
+        "color": "var(--color-text-secondary)"
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "margin-top": "20px",
+        "display": "flex",
+        "gap": "10px",
+        "#": ["$CancelBtn", "$SaveBtn"],
+
+        "$CancelBtn": {
+            "#element": "button",
+            "@id": "special-time-cancel-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-surface-card)",
+            "border": "1px solid var(--color-border-hairline)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-primary)",
+            "#content": "Cancel"
+        },
+
+        "$SaveBtn": {
+            "#element": "button",
+            "@id": "special-time-save-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-accent)",
+            "border": "1px solid var(--color-accent)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "600",
+            "color": "white",
+            "#content": "Apply"
+        }
+    }
+}

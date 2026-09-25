@@ -2,7 +2,7 @@
 
 ## Runtime layers
 
-1. **AllSpeak runtime** — JavaScript (browser UI) or Python (controller on IXHUB)
+1. **AllSpeak runtime** — JavaScript (browser UI) or Python (controller, on a Linux mini-PC)
 2. **AllSpeak scripts** (`.as`) — application logic in both environments
 3. **Webson JSON** (`resources/webson/`, `new-ui/resources/webson/`) — UI structure
 4. **MQTT** — controller↔UI communication

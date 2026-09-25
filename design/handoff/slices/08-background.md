@@ -10,10 +10,8 @@ The outermost app container gets a vertical 3-stop gradient picked by the curren
 
 ## Implementation
 1. Pick gradient stops by `gradientForHour(now.hour)` (from `tokens`). Returns `[top, mid, bottom]`.
-2. Apply as a vertical linear gradient:
-   `linear-gradient(180deg, top 0%, mid 45%, bottom 100%)`.
-3. Overlay a non-interactive element on top with:
-   `radial-gradient(ellipse at 50% -20%, rgba(255,255,255,0.5) 0%, transparent 70%)`.
+2. Apply as a vertical linear gradient: `linear-gradient(180deg, top 0%, mid 45%, bottom 100%)`.
+3. Overlay a non-interactive element on top with: `radial-gradient(ellipse at 50% -20%, rgba(255,255,255,0.5) 0%, transparent 70%)`.
 4. Keep all cards / sheets / top bar above the gradient in z-order.
 
 ## Behaviour

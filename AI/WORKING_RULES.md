@@ -31,8 +31,7 @@ If you edit AllSpeak component JS files used in `build-allspeak`:
 4. bump the `?v=` cache-buster in `index.html` or `new-ui/index.html`
 
 ## Symlink workflow
-This repo may use local symlinks to AllSpeak sources and dist files.
-Use `pin-allspeak.sh` to refresh links from a local build.
+This repo may use local symlinks to AllSpeak sources and dist files. Use `pin-allspeak.sh` to refresh links from a local build.
 
 ## Debug checklist
 - UI glyphs/text appearing unexpectedly: inspect literal HTML around script tags

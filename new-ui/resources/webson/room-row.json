@@ -250,7 +250,7 @@
         "flex-direction": "column",
         "padding": "4px var(--space-card-pad) 18px var(--space-card-pad)",
         "border-top": "1px solid var(--color-border-divider-soft)",
-        "#": ["$ModeBlock", "$TargetBlock", "$AdvanceBlock", "$BoostBlock", "$EditBtn"],
+        "#": ["$ModeBlock", "$TargetBlock", "$AdvanceBlock", "$BoostBlock", "$SpecialBlock"],
 
         "$ModeBlock": {
             "#element": "div",
@@ -442,24 +442,16 @@
         },
 
         "$AdvanceBlock": {
+            "#doc": "Advance control. No section label — the button text names the action, and the block is only ever shown on its own between the target tile and the boost row.",
             "#element": "div",
             "@id": "room-/I/-advance-block",
-            "#": ["$AdvanceLabel", "$AdvanceBtn"],
+            "#": ["$AdvanceBtn"],
 
-            "$AdvanceLabel": {
-                "#element": "div",
-                "margin": "16px 0 8px 0",
-                "font-size": "var(--type-section-label-size)",
-                "font-weight": "var(--type-section-label-weight)",
-                "letter-spacing": "var(--type-section-label-track)",
-                "color": "var(--color-text-meta)",
-                "text-transform": "uppercase",
-                "#content": "Advance"
-            },
             "$AdvanceBtn": {
                 "#element": "button",
                 "@id": "room-/I/-advance-btn",
                 "width": "100%",
+                "margin-top": "16px",
                 "padding": "12px 14px",
                 "border": "1px solid var(--color-border-hairline)",
                 "border-radius": "12px",
@@ -555,42 +547,88 @@
             }
         },
 
-        "$EditBtn": {
-            "#element": "button",
-            "@id": "room-/I/-edit-schedule",
-            "width": "100%",
-            "margin-top": "14px",
-            "padding": "12px 14px",
-            "border": "1px solid var(--color-border-hairline)",
-            "border-radius": "12px",
-            "background": "var(--color-surface-card)",
-            "cursor": "pointer",
-            "font-family": "inherit",
-            "font-size": "13.5px",
-            "font-weight": "500",
-            "color": "var(--color-text-primary)",
-            "display": "flex",
-            "align-items": "center",
-            "gap": "8px",
-            "#": ["$Label", "$Spacer", "$Chev"],
+        "$SpecialBlock": {
+            "#doc": "The two per-room secondary actions, side by side to keep the expansion compact: the Special actions button (one-off schedule tweaks) and Edit schedule. Neither carries a section label — the button text names each one. The override row beneath appears only while something is armed and is the user's visible reminder; the override cancels itself once its morning has passed.",
+            "#element": "div",
+            "#": ["$ActionRow", "$OverrideRow"],
 
-            "$Label": {
-                "#element": "span",
-                "#content": "Edit schedule"
-            },
-            "$Spacer": {
+            "$ActionRow": {
                 "#element": "div",
-                "flex": "1"
+                "display": "flex",
+                "gap": "10px",
+                "margin-top": "18px",
+                "#": ["$SpecialBtn", "$EditScheduleBtn"],
+
+                "$SpecialBtn": {
+                    "#element": "button",
+                    "@id": "room-/I/-special-btn",
+                    "flex": "1",
+                    "min-width": "0",
+                    "padding": "12px 14px",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "12px",
+                    "background": "var(--color-surface-card)",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "13.5px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "text-align": "center",
+                    "#content": "Special actions…"
+                },
+                "$EditScheduleBtn": {
+                    "#element": "button",
+                    "@id": "room-/I/-edit-schedule",
+                    "flex": "1",
+                    "min-width": "0",
+                    "padding": "12px 14px",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "12px",
+                    "background": "var(--color-surface-card)",
+                    "cursor": "pointer",
+                    "font-family": "inherit",
+                    "font-size": "13.5px",
+                    "font-weight": "500",
+                    "color": "var(--color-text-primary)",
+                    "text-align": "center",
+                    "#content": "Edit schedule"
+                }
             },
-            "$Chev": {
+
+            "$OverrideRow": {
+                "#doc": "Armed-override status line. Hidden unless the room has a one-off override waiting for today or tomorrow's morning. Accent-coloured so it reads as an active state rather than a warning, with a Cancel button so the user can withdraw it without opening the sheet.",
                 "#element": "div",
-                "width": "14px",
-                "height": "14px",
-                "background-color": "var(--color-text-disabled)",
-                "mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
-                "-webkit-mask": "url(resources/icon/chevron.svg) center/contain no-repeat",
-                "transform": "rotate(-90deg)",
-                "flex-shrink": "0"
+                "@id": "room-/I/-override-row",
+                "display": "none",
+                "align-items": "center",
+                "gap": "8px",
+                "margin-top": "8px",
+                "#": ["$OverrideText", "$OverrideCancel"],
+
+                "$OverrideText": {
+                    "#element": "div",
+                    "@id": "room-/I/-override-text",
+                    "flex": "1",
+                    "min-width": "0",
+                    "font-size": "12.5px",
+                    "font-weight": "500",
+                    "color": "var(--color-accent)"
+                },
+                "$OverrideCancel": {
+                    "#element": "button",
+                    "@id": "room-/I/-override-cancel",
+                    "flex-shrink": "0",
+                    "padding": "6px 10px",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "9px",
+                    "background": "var(--color-surface-card)",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "12px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "Cancel"
+                }
             }
         }
     }

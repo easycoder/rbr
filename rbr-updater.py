@@ -70,6 +70,7 @@ TARBALL_FILES = [
     "diagnose.as",
     "zigbee-bridge.py",
     "zigbee-pair.py",
+    "zigbee-mesh.py",
     "rbr-dashboard.py",
     "heatlog.py",
     "dashboard.txt",

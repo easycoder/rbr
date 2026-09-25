@@ -4,9 +4,7 @@
 
 ## Conversation Overview
 
-**Date:** Friday, January 16, 2026
-**Location:** Leeds, England, GB
-**Topic:** Building standalone ESPHome system with seasonal profiles (Spring/Summer/Autumn/Winter), custom frontend, ESP-NOW, and IXHUB tablet integration - without Home Assistant.
+**Date:** Friday, January 16, 2026 **Location:** Leeds, England, GB **Topic:** Building standalone ESPHome system with seasonal profiles (Spring/Summer/Autumn/Winter), custom frontend, ESP-NOW, and IXHUB tablet integration - without Home Assistant.
 
 ***
 
@@ -18,8 +16,7 @@
 is it possible to build a multiple profiles such as Spring, Summer, Autumn and Winter containing different schedules to activate and deactivate devices using ESPHome?
 ```
 
-**Assistant Response Summary:**
-Yes, using `template select` for season profiles + `time` component with conditional `on_time` triggers. Provided complete YAML examples for season selector and time-based schedules per profile.
+**Assistant Response Summary:** Yes, using `template select` for season profiles + `time` component with conditional `on_time` triggers. Provided complete YAML examples for season selector and time-based schedules per profile.
 
 ***
 
@@ -31,8 +28,7 @@ Yes, using `template select` for season profiles + `time` component with conditi
 I don't want to use Home Assistant is this possible?
 ```
 
-**Assistant Response Summary:**
-Yes, fully standalone using `sntp` time platform instead of `homeassistant` time. Provided YAML replacing `platform: homeassistant` with `platform: sntp` + `timezone: Europe/London`.
+**Assistant Response Summary:** Yes, fully standalone using `sntp` time platform instead of `homeassistant` time. Provided YAML replacing `platform: homeassistant` with `platform: sntp` + `timezone: Europe/London`.
 
 ***
 
@@ -44,13 +40,11 @@ Yes, fully standalone using `sntp` time platform instead of `homeassistant` time
 Can a custom front end be built around the ESPHome system?
 ```
 
-**Assistant Response Summary:**
-Yes via three methods:
+**Assistant Response Summary:** Yes via three methods:
 
 1. ESPHome `web_server` with custom CSS/JS URLs
 2. External web app using ESPHome REST API
-3. Enhanced on-device UI via `web_server` customization
-Recommended ESPHome Web App (ESPWA) project for PWA frontend.
+3. Enhanced on-device UI via `web_server` customization Recommended ESPHome Web App (ESPWA) project for PWA frontend.
 
 ***
 
@@ -62,8 +56,7 @@ Recommended ESPHome Web App (ESPWA) project for PWA frontend.
 would ESPHome support the ESPNow networking protocol?
 ```
 
-**Assistant Response Summary:**
-Yes, native ESP32 support via `espnow` component and `packet_transport`. Ideal for battery sensors → hub topology. ESP32-only, requires channel coordination with Wi-Fi.
+**Assistant Response Summary:** Yes, native ESP32 support via `espnow` component and `packet_transport`. Ideal for battery sensors → hub topology. ESP32-only, requires channel coordination with Wi-Fi.
 
 ***
 
@@ -75,13 +68,11 @@ Yes, native ESP32 support via `espnow` component and `packet_transport`. Ideal f
 It seems possible to build such a system around an IXhub Smart HMI industrial tablet running Linaro Linux, is that right?
 ```
 
-**Assistant Response Summary:**
-Yes, IXHUB tablets (10.1"+, ARM, Ubuntu/Linaro) perfect as central hub:
+**Assistant Response Summary:** Yes, IXHUB tablets (10.1"+, ARM, Ubuntu/Linaro) perfect as central hub:
 
 - Run ESPHome CLI/Docker for OTA
 - Host custom web UI + MQTT broker
-- Touchscreen kiosk dashboard
-Architecture diagram included.
+- Touchscreen kiosk dashboard Architecture diagram included.
 
 ***
 

@@ -80,6 +80,18 @@
 	div InfoHumidityValue
 	div InfoBatteryValue
 	div InfoAgeValue
+	div SpecialSheetEl
+	button SpecialActionStart
+	div SpecialActionStartSub
+	button SpecialActionSkip
+	div SpecialActionSkipSub
+	button SpecialActionClear
+	button SpecialSheetCloseBtn
+	div SpecialTimeSheetEl
+	input SpecialTimeInput
+	div SpecialTimeHint
+	button SpecialTimeSaveBtn
+	button SpecialTimeCancelBtn
 
 !	Per-row interactive elements (indexed via `index X to RoomIndex` in the
 !	render loop so each click handler can recover its row via `the index of X`).
@@ -102,6 +114,10 @@
 	div AdvanceBlockEl
 	button AdvanceBtn
 	button EditScheduleBtn
+	button SpecialBtn
+	div OverrideRow
+	div OverrideTextEl
+	button OverrideCancelBtn
 
 	variable LayoutWebson
 	variable TopBarWebson
@@ -304,6 +320,29 @@
 	variable InfoHumidityVal
 	variable InfoRelayVal
 
+!	Special-actions (one-off override) state. The override lives in the
+!	controller map keyed by room name; map-to-rooms copies it onto each
+!	room entry as overrideKind / overrideTime / overrideDate, and the UI
+!	formats it via FormatOverrideText. SpecialRoomName / SpecialKind /
+!	SpecialTime carry the in-flight choice while the sheets are open.
+	variable SpecialSheetWebson
+	variable SpecialTimeSheetWebson
+	variable SpecialRoomName
+	variable SpecialMorningOn
+	variable SpecialTime
+	variable SpecialKind
+	variable OverrideKind
+	variable OverrideTime
+	variable OverrideDate
+	variable OverrideText
+	variable TodayKey
+	variable TKey
+	variable TKeyY
+	variable TKeyM
+	variable TKeyD
+	variable OverrideDay
+	variable SpecNowMin
+
 !	System sheet state. SystemType is "Boiler" or "Heat Pump"; stored on
 !	the map root so the controller can fan it out to fuel-aware logic.
 	variable SystemSheetWebson
@@ -348,7 +387,7 @@
 !	shared with the now-extracted device editor; it's used only by
 !	SaveOutsideSheet's fan-out loop).
 	variable DeviceProfileCount
-!! @hash 48c25f1b
+!! @hash 1c72a0c8
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -758,6 +797,10 @@ BuildHomeScreen:
 	set the elements of AdvanceBlockEl to RoomCount
 	set the elements of AdvanceBtn to RoomCount
 	set the elements of EditScheduleBtn to RoomCount
+	set the elements of SpecialBtn to RoomCount
+	set the elements of OverrideRow to RoomCount
+	set the elements of OverrideTextEl to RoomCount
+	set the elements of OverrideCancelBtn to RoomCount
 
 	put 0 into RoomIndex
 	while RoomIndex is less than RoomCount
@@ -770,7 +813,7 @@ BuildHomeScreen:
 		put element RoomIndex of RoomsList into Room
 		gosub to RenderRoom
 
-!		Sensor rows have no chevron, no expansion, no interactions.
+!		Sensor rows have no info button, no expansion, no interactions.
 		put property `sensor` of Room into Sensor
 		if Sensor is `no` gosub to WireRoomInteractions
 
@@ -934,6 +977,39 @@ BuildHomeScreen:
 	attach HouseMark to `top-bar-mark`
 	on click HouseMark gosub to OpenAboutSheet
 
+!	Special-actions sheet — opened from a room's expansion Special button.
+!	Lists the one-off schedule tweaks; picking "change the start time"
+!	opens the time popup below it.
+	rest get SpecialSheetWebson from `resources/webson/special-sheet.json?v=` cat now
+		or go to LoadFailed
+	render SpecialSheetWebson in SheetContent
+	attach SpecialSheetEl to `special-sheet`
+	set style `display` of SpecialSheetEl to `none`
+	attach SpecialActionStart to `special-action-start`
+	attach SpecialActionStartSub to `special-action-start-sub`
+	attach SpecialActionSkip to `special-action-skip`
+	attach SpecialActionSkipSub to `special-action-skip-sub`
+	attach SpecialActionClear to `special-action-clear`
+	attach SpecialSheetCloseBtn to `special-sheet-close-btn`
+	on click SpecialActionStart gosub to SpecialChooseStart
+	on click SpecialActionSkip gosub to SpecialChooseSkip
+	on click SpecialActionClear gosub to ClearSpecialOverride
+	on click SpecialSheetCloseBtn gosub to CloseSheet
+
+!	Special time popup — the absolute-time entry for the new morning
+!	start. Pre-filled per room (see PrefillSpecialTime).
+	rest get SpecialTimeSheetWebson from `resources/webson/special-time-sheet.json?v=` cat now
+		or go to LoadFailed
+	render SpecialTimeSheetWebson in SheetContent
+	attach SpecialTimeSheetEl to `special-time-sheet`
+	set style `display` of SpecialTimeSheetEl to `none`
+	attach SpecialTimeInput to `special-time-input`
+	attach SpecialTimeHint to `special-time-hint`
+	attach SpecialTimeSaveBtn to `special-time-save-btn`
+	attach SpecialTimeCancelBtn to `special-time-cancel-btn`
+	on click SpecialTimeSaveBtn gosub to SaveSpecialTime
+	on click SpecialTimeCancelBtn gosub to OpenSpecialSheet
+
 !	All sibling sheets are now attached — flag the world ready so
 !	HideAllSheets stops being a no-op when called from click handlers.
 	set SheetsReady
@@ -947,7 +1023,7 @@ BuildHomeScreen:
 	fork to BoostTick
 
 	return
-!! @hash efab0a4e
+!! @hash fcd8f223
 !!!
 !! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
 !!
@@ -1135,14 +1211,16 @@ HideAllSheets:
 	set style `display` of OutsideSheetEl to `none`
 	set style `display` of InfoSheetEl to `none`
 	set style `display` of AboutSheetEl to `none`
+	set style `display` of SpecialSheetEl to `none`
+	set style `display` of SpecialTimeSheetEl to `none`
 	return
-!! @hash 56513531
+!! @hash 8815e3ad
 !!!
 !! Wire every interactive element of a single room row. Called once per non-sensor row from the BuildHomeScreen render loop, with RoomIndex pre-set to the row being wired.
 !!
-!! Indexes each per-row element (RestRow, InfoBtn, ExpansionEl, the four mode buttons, target +/- , the four boost buttons, advance, edit-schedule) to its row, attaches each to the DOM id pattern `room-<i>-<element>`, and registers a click handler. Click handlers recover their firing row via `the index of X` and dispatch to the appropriate routine after capturing ClickIndex.
+!! Indexes each per-row element (RestRow, InfoBtn, ExpansionEl, the four mode buttons, target +/- , the four boost buttons, advance, edit-schedule, plus the special-actions button and its override row/cancel) to its row, attaches each to the DOM id pattern `room-<i>-<element>`, and registers a click handler. Click handlers recover their firing row via `the index of X` and dispatch to the appropriate routine after capturing ClickIndex.
 !!
-!! Sensor (outdoor) rows skip this entirely — they have no chevron, no expansion, no interactions.
+!! Sensor (outdoor) rows skip this entirely — they have no info button, no expansion, no interactions. Non-sensor rows carry no chevron either: the rest row is the whole tap target and nothing on it rotates, so expanding only changes the card's shadow.
 WireRoomInteractions:
 	index RestRow to RoomIndex
 	attach RestRow to `room-` cat RoomIndex cat `-rest`
@@ -1265,8 +1343,27 @@ WireRoomInteractions:
 		put the index of EditScheduleBtn into ClickIndex
 		gosub to OpenScheduleEditor
 	end
+
+	index SpecialBtn to RoomIndex
+	attach SpecialBtn to `room-` cat RoomIndex cat `-special-btn`
+	on click SpecialBtn
+	begin
+		put the index of SpecialBtn into ClickIndex
+		gosub to OpenSpecialSheet
+	end
+	index OverrideRow to RoomIndex
+	attach OverrideRow to `room-` cat RoomIndex cat `-override-row`
+	index OverrideTextEl to RoomIndex
+	attach OverrideTextEl to `room-` cat RoomIndex cat `-override-text`
+	index OverrideCancelBtn to RoomIndex
+	attach OverrideCancelBtn to `room-` cat RoomIndex cat `-override-cancel`
+	on click OverrideCancelBtn
+	begin
+		put the index of OverrideCancelBtn into ClickIndex
+		gosub to ClearSpecialOverride
+	end
 	return
-!! @hash 5c4af55e
+!! @hash f8bbbca5
 !!!
 !! Toggle the expansion panel for the row at ClickIndex. Only one expansion can be open at a time; if a different row's panel is already open, close it first. Also drops any in-flight Boost-configuring panel state from the previously-open row.
 ToggleExpansion:
@@ -1961,6 +2058,176 @@ PaintInfoSheet:
 	return
 !! @hash dcb3ec9a
 !!!
+!! Zero-padded YYYY-MM-DD for today, matching the controller's own date key so the UI can
+!! tell whether an armed override is for this morning or tomorrow's. Built from the browser
+!! date keywords rather than a format string, since the UI runtime has no `datime`.
+TodayDateKey:
+	put the year into TKeyY
+	put the month into TKeyM
+	increment TKeyM
+	put the day number into TKeyD
+	put `` cat TKeyY cat `-` into TKey
+	if TKeyM is less than 10 put TKey cat `0` into TKey
+	put TKey cat TKeyM cat `-` into TKey
+	if TKeyD is less than 10 put TKey cat `0` into TKey
+	put TKey cat TKeyD into TodayKey
+	return
+!! @hash 72df4020
+!!!
+!! Turn the room's raw override fields into the display string used by both the expansion's
+!! override row and the room subline. Reads OverrideKind / OverrideTime / OverrideDate,
+!! leaves OverrideText empty when nothing is armed.
+!!
+!! The controller resolves and stores the target date at arm time, so "Today" here means the
+!! override applies to this morning — which only happens when it was armed before the room's
+!! first period had begun.
+FormatOverrideText:
+	put empty into OverrideText
+	if OverrideKind is empty return
+	gosub to TodayDateKey
+	if OverrideDate is TodayKey put `Today` into OverrideDay
+	else put `Tomorrow` into OverrideDay
+	if OverrideKind is `skip` put OverrideDay cat ` morning skipped` into OverrideText
+	else put OverrideDay cat ` from ` cat OverrideTime into OverrideText
+	return
+!! @hash 8f51ac04
+!!!
+!! Open the special-actions sheet for the room at ClickIndex.
+OpenSpecialSheet:
+	put element ClickIndex of RoomsList into Room
+	put property `name` of Room into SpecialRoomName
+	put property `morningOn` of Room into SpecialMorningOn
+	gosub to PaintSpecialSheet
+	gosub to HideAllSheets
+	set style `display` of SpecialSheetEl to `block`
+	set the content of SheetTitleEl to `Special actions`
+	gosub to OpenSheet
+	return
+!! @hash 70dd4704
+!!!
+!! Fill the sheet's subtitles for the room at ClickIndex, and reveal the Cancel-the-override
+!! row only when something is actually armed.
+PaintSpecialSheet:
+	put property `overrideKind` of Room into OverrideKind
+	put property `overrideTime` of Room into OverrideTime
+	put property `overrideDate` of Room into OverrideDate
+	gosub to FormatOverrideText
+
+	set the content of SpecialActionSkipSub to `No heating that morning — the one day only`
+	if SpecialMorningOn is empty set the content of SpecialActionStartSub to `No scheduled morning start in view`
+	else set the content of SpecialActionStartSub to `Usually on at ` cat SpecialMorningOn
+	if OverrideText is not empty
+	begin
+		set the content of SpecialActionStartSub to OverrideText cat ` is already set`
+		set style `display` of SpecialActionClear to `flex`
+	end
+	else set style `display` of SpecialActionClear to `none`
+	return
+!! @hash 3b9952e5
+!!!
+!! Open the time popup, pre-filled from this room's last requested time.
+SpecialChooseStart:
+	gosub to PrefillSpecialTime
+	gosub to HideAllSheets
+	set style `display` of SpecialTimeSheetEl to `block`
+	set the content of SheetTitleEl to `Morning start time`
+	gosub to OpenSheet
+	return
+!! @hash c5fd4431
+!!!
+!! Pre-fill the time input with the last time the user requested for THIS room, falling back
+!! to the room's current scheduled morning start.
+!!
+!! Stored browser-local, per room: it is a convenience for a household's own phone, not
+!! system state, so it deliberately does not travel in the map.
+PrefillSpecialTime:
+	put property `name` of Room into SpecialRoomName
+	put property `morningOn` of Room into SpecialMorningOn
+	get SpecialTime from storage as `rbr-override-time-` cat SpecialRoomName
+	if SpecialTime is empty put SpecialMorningOn into SpecialTime
+	if SpecialTime is empty put `07:00` into SpecialTime
+	set the content of SpecialTimeInput to SpecialTime
+	set the content of SpecialTimeHint to `Used once, then the schedule resumes. A time at or after the scheduled off time skips the warm-up instead.`
+	return
+!! @hash 0f39ece2
+!!!
+!! Commit the time popup: remember the choice for next time, then arm a `start` override.
+SaveSpecialTime:
+	put the content of SpecialTimeInput into SpecialTime
+	if SpecialTime is empty
+	begin
+		alert `Please choose a time.`
+		return
+	end
+	! Normalise HH:MM:SS (some browsers hand back seconds) to HH:MM.
+	put left 5 of SpecialTime into SpecialTime
+	put SpecialTime into storage as `rbr-override-time-` cat SpecialRoomName
+	put `start` into SpecialKind
+	gosub to ArmSpecialOverride
+	return
+!! @hash e60a0942
+!!!
+!! Arm the `skip` override — the morning warm-up for the next occurrence is dropped entirely.
+SpecialChooseSkip:
+	put `skip` into SpecialKind
+	gosub to ArmSpecialOverride
+	return
+!! @hash d710ae52
+!!!
+!! Apply SpecialKind / SpecialTime as an optimistic local change, then ship the `Room Override`
+!! uirequest and let the next map push reconcile.
+!!
+!! The date is mirrored locally with the controller's "next occurrence" rule so the override
+!! row reads correctly straight away; the controller's own answer replaces it within a cycle.
+ArmSpecialOverride:
+	put element ClickIndex of RoomsList into Room
+	set property `overrideKind` of Room to SpecialKind
+	set property `overrideTime` of Room to SpecialTime
+	if SpecialKind is `skip` set property `overrideTime` of Room to empty
+	gosub to TodayDateKey
+	put empty into OverrideDate
+	if SpecialKind is `start`
+	begin
+		put SpecialTime into TempStr
+		gosub to ParseTimeMinutes
+		put the hour into SpecNowMin
+		multiply SpecNowMin by 60
+		add the minute to SpecNowMin
+		if TempTenths is greater than SpecNowMin put TodayKey into OverrideDate
+	end
+	set property `overrideDate` of Room to OverrideDate
+	gosub to AfterStateChange
+	gosub to CloseSheet
+
+	put property `name` of Room into RoomNameForServer
+	put `{}` into Result
+	set property `Action` of Result to `Room Override`
+	set property `Room` of Result to RoomNameForServer
+	set property `op` of Result to `set`
+	set property `kind` of Result to SpecialKind
+	if SpecialKind is `start` set property `time` of Result to SpecialTime
+	gosub to PostUiRequest
+	return
+!! @hash 6a1c3e33
+!!!
+!! Withdraw the room's override — from the expansion's Cancel button or the sheet's row.
+ClearSpecialOverride:
+	put element ClickIndex of RoomsList into Room
+	set property `overrideKind` of Room to empty
+	set property `overrideTime` of Room to empty
+	set property `overrideDate` of Room to empty
+	gosub to AfterStateChange
+	gosub to CloseSheet
+
+	put property `name` of Room into RoomNameForServer
+	put `{}` into Result
+	set property `Action` of Result to `Room Override`
+	set property `Room` of Result to RoomNameForServer
+	set property `op` of Result to `clear`
+	gosub to PostUiRequest
+	return
+!! @hash 01fe44e5
+!!!
 !! Open the system type & name sheet from the menu's "System" row.
 !!
 !! Snapshots SystemName and SystemType into the Editing* vars, paints the type-pill highlight, swaps the visible sheet. The controller's existing System Name handler picks up `name`; `systemType` is included as an additional map-root field that the controller currently just preserves, ready for future fuel-aware logic (Boiler vs Heat Pump scheduling differs in optimisation targets).
@@ -2502,6 +2769,8 @@ TenthsToString:
 !!
 !! Battery-low and warn-state messages are appended for online rooms.
 !!
+!! A one-off override (if armed for this room) is appended to the subline and shown on its own accent-coloured row inside the expansion, with a Cancel button. It is deliberately visible while the row is collapsed — the whole point of the feature is that nothing has to be remembered.
+!!
 !! Setpoint slot is left empty pending a more useful per-room secondary value. Element stays attached so the layout slot is reserved.
 RenderRoom:
 	put property `mode` of Room into Mode
@@ -2533,6 +2802,28 @@ RenderRoom:
 	attach OfflineTag to `room-` cat IndexStr cat `-offline-tag`
 	if Offline is `yes` set style `display` of OfflineTag to `inline-flex`
 	else set style `display` of OfflineTag to `none`
+
+!	One-off override. It lives outside the schedule, so it gets its own line
+!	in the expansion and a short suffix on the subline — visible even when
+!	the row is collapsed. That visibility (plus the automatic expiry) is the
+!	whole point: the user should never have to remember an override is armed.
+	put empty into OverrideText
+	attach OverrideRow to `room-` cat IndexStr cat `-override-row`
+	attach OverrideTextEl to `room-` cat IndexStr cat `-override-text`
+	if Sensor is `yes` set style `display` of OverrideRow to `none`
+	else
+	begin
+		put property `overrideKind` of Room into OverrideKind
+		put property `overrideTime` of Room into OverrideTime
+		put property `overrideDate` of Room into OverrideDate
+		gosub to FormatOverrideText
+		if OverrideText is empty set style `display` of OverrideRow to `none`
+		else
+		begin
+			set style `display` of OverrideRow to `flex`
+			set the content of OverrideTextEl to OverrideText
+		end
+	end
 
 	put empty into SublineText
 	if Sensor is `yes` put `Outdoor sensor` into SublineText
@@ -2584,6 +2875,7 @@ RenderRoom:
 		end
 	end
 
+	if OverrideText is not empty put SublineText cat ` · ` cat OverrideText into SublineText
 	attach Subline to `room-` cat IndexStr cat `-subline`
 	set the content of Subline to SublineText
 
@@ -2606,7 +2898,7 @@ RenderRoom:
 
 	gosub to ApplyChipStyle
 	return
-!! @hash 9c0503ff
+!! @hash 2f16bbc2
 !!!
 !! Decide the chip background / foreground / icon-url and apply them.
 !!

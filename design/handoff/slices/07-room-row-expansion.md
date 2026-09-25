@@ -7,7 +7,7 @@
 - `handoff/README.md §6` for flow semantics.
 
 ## Output
-Extend `RoomRow` so that, when `expandedId === room.id` and the room is not a sensor, a controls block renders inside the same card beneath the rest row. The rest row's chevron rotates 180° and the card gains the raised shadow.
+Extend `RoomRow` so that, when `expandedId === room.id` and the room is not a sensor, a controls block renders inside the same card beneath the rest row. The rest row carries no chevron and nothing rotates; the card gains the raised shadow.
 
 ## Container
 - Top border `color.border.dividerSoft`.
@@ -47,14 +47,13 @@ Extend `RoomRow` so that, when `expandedId === room.id` and the room is not a se
 ## 4. Edit schedule link
 Secondary full-width button:
 - Margin-top 14, padding `12 / 14`, border hairline, white bg, radius 12.
-- Edit icon (15 × 15, muted) + label `Edit schedule` (13.5 / 500, primary) + right chevron (14 × 14, disabled).
+- Centred label `Edit schedule` (13.5 / 500, primary). No leading icon and no chevron.
 - For now navigates to the legacy Periods panel. A later slice can replace it.
 
 ## Expand/collapse flow
 - Tapping a rest row toggles `expandedId`.
 - Only one row is expanded at a time. Opening a new row collapses the previous.
-- Expanded row has `shadow.cardRaised`; others keep `shadow.card`.
-- Chevron rotates 180° via `motion.chevronRotate`.
+- Expanded row has `shadow.cardRaised`; others keep `shadow.card`. Nothing rotates — the rest row has no chevron.
 
 ## Done when
 - Every mode / target / boost interaction from `handoff/README.md §6` works.

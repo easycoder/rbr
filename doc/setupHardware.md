@@ -14,17 +14,13 @@ The steps required are as follows:
 
 1. Connect the ESP32 module to a USB port on your computer. These instructions assume Linux.
 
-1. Erase the ESP32 by running this command:
-`esptool.py erase_flash`
-(This naturally assumes you have the `esptool` Python module installed. Also, it will only work if you have just one device connected to your PC.)
+1. Erase the ESP32 by running this command: `esptool.py erase_flash` (This naturally assumes you have the `esptool` Python module installed. Also, it will only work if you have just one device connected to your PC.)
 
-1. Flash Micropython onto the ESP32 using this command, replacing (PATH) with the full path to your downloaded binary file:
-`esptool.py --baud 460800 write_flash 0  (PATH)`
+1. Flash Micropython onto the ESP32 using this command, replacing (PATH) with the full path to your downloaded binary file: `esptool.py --baud 460800 write_flash 0  (PATH)`
 
 1. Run Thonny on your computer. In Run | Interpreter, select MicroPython (ESP32) and give the port number for the ESP32.
 
-1. In the Files panel, navigate to where you downloaded the RBR-Now files. Select all the files
- and upload them to the ESP32, overwriting anything that was already there.
+1. In the Files panel, navigate to where you downloaded the RBR-Now files. Select all the files and upload them to the ESP32, overwriting anything that was already there.
 
 To avoid most of the above, here's an AllSpeak script that will do the job for you without using Thonny at all. First you need to install `ampy` from AdaFruit:
 
@@ -113,8 +109,8 @@ And now give this command:
 ```
 allspeak flash-device.as
 ```
- 
+
 At this point you can install the ESP32 into your device and power it up. From here on, everything is done using the configurator.
- 
+
 [Return to the configurator](configurator.md)
 

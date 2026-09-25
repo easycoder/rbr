@@ -96,6 +96,13 @@
 	variable NextTempVal
 	variable NextTempStr
 
+!	One-off override + morning-start projection.
+	variable MapOverrides
+	variable MapOverride
+	variable PeriodOnMin
+	variable MorningOnMinutes
+	variable MorningPeriodCount
+
 	variable TempStr
 	variable TempTenths
 	variable Hundredths
@@ -586,6 +593,55 @@ BuildRoomEntry:
 				end
 			end
 		end
+	end
+
+!	One-off override plus the scheduled morning start. The override lives at the top
+!	level of the controller map, keyed by room name, so it applies whichever profile
+!	the calendar picks for the day; it is surfaced raw (kind / time / date) and the
+!	shell formats it, keeping one place responsible for the wording. The morning
+!	start is the earliest `on` among the room's periods — the same period the
+!	controller treats as the one-day override's target — and is used only to
+!	pre-fill the time popup on a first use.
+	set property `overrideKind` of NewRoom to empty
+	set property `overrideTime` of NewRoom to empty
+	set property `overrideDate` of NewRoom to empty
+	set property `morningOn` of NewRoom to empty
+
+	put property `overrides` of Map into MapOverrides
+	if MapOverrides is not empty
+	begin
+		put property LegacyName of MapOverrides into MapOverride
+		if MapOverride is not empty
+		begin
+			set property `overrideKind` of NewRoom to property `kind` of MapOverride
+			if property `kind` of MapOverride is `start` set property `overrideTime` of NewRoom to property `on` of MapOverride
+			set property `overrideDate` of NewRoom to property `date` of MapOverride
+		end
+	end
+
+	put 1500 into MorningOnMinutes
+	put 0 into MorningPeriodCount
+	if LegacyPeriods is not empty put the json count of LegacyPeriods into MorningPeriodCount
+	put 0 into LoopK
+	while LoopK is less than MorningPeriodCount
+	begin
+		put element LoopK of LegacyPeriods into LegacyPeriod
+		put property `on` of LegacyPeriod into TempStr
+		gosub to ParseTimeMinutes
+		put TempTenths into PeriodOnMin
+		put property `off` of LegacyPeriod into TempStr
+		gosub to ParseTimeMinutes
+		! Skip zero-length and wrap-around periods (on at or after off): neither
+		! is the morning warm-up the Special action can shift.
+		if PeriodOnMin is less than TempTenths
+		begin
+			if PeriodOnMin is less than MorningOnMinutes
+			begin
+				put PeriodOnMin into MorningOnMinutes
+				set property `morningOn` of NewRoom to property `on` of LegacyPeriod
+			end
+		end
+		increment LoopK
 	end
 
 	set property `calling` of NewRoom to `no`

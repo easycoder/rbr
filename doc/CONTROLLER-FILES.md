@@ -1,13 +1,8 @@
 # Files needed on the RBR controller #
 
-This is the definitive list of files a controller computer needs in order to run RBR.
-It was arrived at empirically by deleting everything from a working controller except
-the essential files and restoring whatever the running system complained about.
+This is the definitive list of files a controller computer needs in order to run RBR. It was arrived at empirically by deleting everything from a working controller except the essential files and restoring whatever the running system complained about.
 
-The controller directory does NOT need any of the repo's folders (`resources/`,
-`new-ui/`, `tests/`, `doc/`, `RBRNow/`, `rbrchat/`, `design/`, `AI/`, `conversation/`,
-`plugins/`, ...) — every runtime component is a plain file in the directory root.
-Extra files are harmless, but this list is the minimum.
+The controller directory does NOT need any of the repo's folders (`resources/`, `new-ui/`, `tests/`, `doc/`, `RBRNow/`, `rbrchat/`, `design/`, `AI/`, `conversation/`, `plugins/`, ...) — every runtime component is a plain file in the directory root. Extra files are harmless, but this list is the minimum.
 
 ## Essential — required for the controller to run ##
 
@@ -17,6 +12,7 @@ Extra files are harmless, but this list is the minimum.
 | `deviceControl.as` | Device module — Zigbee relays + RBR-Now devices | auto (CheckForUpdate) |
 | `zigbee-bridge.py` | HTTP↔MQTT bridge daemon (port 8889), writes `zigbee-temperatures.json` | manual |
 | `zigbee-pair.py` | Tool for pairing Zigbee devices | manual |
+| `zigbee-mesh.py` | Shows the Zigbee mesh as the coordinator sees it — each device's parent, link quality, weak links, and (with `--failures`) which relays are failing to acknowledge | manual |
 | `rbr-dashboard.py` | Terminal dashboard renderer (reads `/tmp/rbr-dashboard.json` written by the controller) | manual |
 | `dashboard.txt` | Dashboard column headers — read by `rbr-dashboard.py` | manual |
 | `rbr-updater.py` | Applies code updates pulled from rbrheating.com (installed as an hourly timer) | auto (CheckForUpdate) |
@@ -58,16 +54,6 @@ Extra files are harmless, but this list is the minimum.
 
 ## How updates work today ##
 
-1. **Auto-updated (the `.as` files):** the controller's `CheckForUpdate` routine runs
-   hourly from the main loop. It fetches `https://rbrheating.com/version`, compares it
-   with the local `.version`, and if the remote is newer downloads
-   `controller.as`, `deviceControl.as` and `simulator.as`, moves them into place,
-   records the new version, and relaunches itself.
-2. **Trigger:** on the dev machine, `./deploy.sh --release` uploads the `.as` files and
-   bumps the version stamp. `./deploy.sh` without `--release` uploads files without
-   publishing them (for smoke-testing).
-3. **Everything else** (Python daemons, `dashboard.txt`, `rbr-setup.sh`) used to
-   be manual — copy the file from the repo to the controller and restart the
-   affected service. As of the standalone updater (Option B+C), the Python
-   daemons and the `.as` files are all shipped in a versioned tarball and
-   applied automatically by `rbr-updater.py` — see [UPDATE-MECHANISM.md](UPDATE-MECHANISM.md).
+1. **Auto-updated (the `.as` files):** the controller's `CheckForUpdate` routine runs hourly from the main loop. It fetches `https://rbrheating.com/version`, compares it with the local `.version`, and if the remote is newer downloads `controller.as`, `deviceControl.as` and `simulator.as`, moves them into place, records the new version, and relaunches itself.
+2. **Trigger:** on the dev machine, `./deploy.sh --release` uploads the `.as` files and bumps the version stamp. `./deploy.sh` without `--release` uploads files without publishing them (for smoke-testing).
+3. **Everything else** (Python daemons, `dashboard.txt`, `rbr-setup.sh`) used to be manual — copy the file from the repo to the controller and restart the affected service. As of the standalone updater (Option B+C), the Python daemons and the `.as` files are all shipped in a versioned tarball and applied automatically by `rbr-updater.py` — see [UPDATE-MECHANISM.md](UPDATE-MECHANISM.md).

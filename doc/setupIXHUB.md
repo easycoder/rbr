@@ -1,5 +1,7 @@
 # Setting up an IXHUB controller #
 
+> **Superseded.** The IXHUB is no longer the recommended controller. It arrives running Android, which means there is no ordinary BIOS: the choice of Linux is limited to what the maker offers and is rarely kept up to date, and with no firmware setting for restoring after power loss the machine cannot be relied on to come back by itself. A small mini-PC now costs less than a Raspberry Pi and its equivalents once they are cased and given storage, and has none of those problems. This guide is kept for machines already in service.
+
 The IXHUB is an industrial computer with a touchscreen, that comes with Android installed. The first job is to convert this to Linux. The manufacturer supplies instructions that should be followed carefully; these can be found at https://docs.google.com/document/d/16iSiGHH2VvuXWdOkp5VizXUO-V9MsP6H/view and will require a Windows computer.
 
 Once this job is done, the computer will boot up in Linux. However, there are two problems, the first of which is that the system is all in Chinese. So here is what to do.
@@ -47,14 +49,11 @@ The other problem is the computer is in landscape orientation, but for our purpo
 
 ### Open Startup Applications: ###
 
-Go to the XFCE menu and navigate to Settings > Session and Startup.
-Click on the Application Autostart tab.
+Go to the XFCE menu and navigate to Settings > Session and Startup. Click on the Application Autostart tab.
 
 ### Add a New Startup Program: ###
 
-Click on the "Add" button.
-In the "Name" field, enter a descriptive name like "Rotate Screen".
-In the "Command" field, enter the `xrandr` command for the desired rotation:
+Click on the "Add" button. In the "Name" field, enter a descriptive name like "Rotate Screen". In the "Command" field, enter the `xrandr` command for the desired rotation:
 
 ```
 `xrandr --output DSI-1 --rotate left`

@@ -4,7 +4,7 @@
 
 Room By Room (RBR) is an open-source smart central heating control system with:
 
-- **Controller** — Python AllSpeak scripts running on a Linux PC (e.g. IXHUB) that manage heating per-room via Zigbee thermometers and relays, plus legacy RBR-Now ESP32 devices
+- **Controller** — Python AllSpeak scripts running on a Linux mini-PC that manage heating per-room via Zigbee thermometers and relays, plus legacy RBR-Now ESP32 devices
 - **UI** — A browser-based mobile webapp (PWA) written in JavaScript AllSpeak with Webson-rendered DOM
 - **REST server** — PHP on shared hosting (rbrheating.com, not in this repo)
 
@@ -31,7 +31,7 @@ Communication between controller and UI is via MQTT.
 - `new-ui/sw.js` — service worker with cache management
 
 ### Infrastructure
-- `deploy.sh` — rsyncs UI + controller files to rbrheating.com (`--release` bumps version for customer IXHUBs)
+- `deploy.sh` — rsyncs UI + controller files to rbrheating.com (`--release` bumps version for customer controllers)
 - `config.json` — RBR-Now device hardware configuration (pins, SSIDs, channels)
 - `devices.json` — room-to-relay mapping
 - `params.json` — controller runtime parameters

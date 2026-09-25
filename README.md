@@ -4,11 +4,11 @@ This is an Open Source project to build a smart central heating system with cont
 
 An important feature of the system is that it can be managed externally. The UI permits one of any number of systems to be selected at will, and each system can be designated as being controllable by any desired number of managers. So  for example, a housing association can assign a set of installations to be managed by one or more nominated persons. All this is done by the UI app - a mobile web page that will run on any smartphone.
 
-This project uses commercially-available BLE and WiFi-connected modules - a temperature sensor and a relay - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis. The cost of the system is typically about a fifth of the annual running cost of a domestic heating system, and since it can save 10% or more of the annual heating cost by making better use of heating it can pay for itself in the first couple of years.
+This project uses commercially-available BLE and WiFi-connected modules - a temperature sensor and a relay - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis. The parts are ordinary trade items and the system is fitted like any other controls work, so the outlay is a modest one-off. What it saves is not fixed, though: it depends on how the household already uses its heating rather than on the system, and it is largest where rooms are habitually left heated while nobody is in them. There is no single figure that applies to every home - see [docs/concept/05-costs-and-payback.md](docs/concept/05-costs-and-payback.md) for why.
 
 The repository software is in 3 parts:
 
-  1. A system controller designed to run on an Orange Pi Zero 2 computer (but others may serve equally well). This is coded in Python.
+  1. A system controller designed to run on a small, inexpensive mini-PC (any Linux machine will serve). This is coded in Python.
   1. A REST server on public shared hosting. This is coded in PHP.
   1. A user interface, built as a browser-based mobile webapp. This is coded in JavaScript.
 

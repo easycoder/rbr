@@ -16,10 +16,30 @@ map.json
 │       ├── mode        — timed | boost | advance | on | off
 │       ├── target      — fallback target temperature (°C)
 │       ├── events[]    — timed schedule: [{until: "HH:MM", temp: "N.N"}, ...]
+│       ├── periods[]   — current timed schedule: [{on: "HH:MM", off: "HH:MM", temp: "N.N"}, ...]
 │       ├── relayType   — "Shelly One" | "RBR-Now" etc.
 │       └── linked      — "yes" | "no"
-└── calendar (optional) — maps day names to profile names
+├── overrides (optional) — one-off schedule tweaks, keyed by room name
+└── calendar (optional)  — maps day names to profile names
 ```
+
+### `overrides` — one-off schedule tweaks
+
+A room's `overrides` entry is a single one-day change to its schedule, written by the controller when a UI sends a `Room Override` request (the PWA's Special actions). It sits **outside `profiles`** deliberately, on two counts: it must apply whichever profile the calendar picks for the target day, and it must survive `Update Profiles`/`Update Rooms`, which replace the whole `profiles` array.
+
+```json
+"overrides": {
+    "Kitchen": { "kind": "start", "date": "2026-09-23", "on": "08:30", "was": "06:30", "at": 1787353201098 }
+}
+```
+
+- `kind` is `start` (heating begins at `on` instead of the scheduled time) or `skip` (that morning's period is dropped entirely).
+- `date` is the calendar day the change applies to, resolved when the request was made: today if the room's first period had not yet begun, otherwise tomorrow.
+- `on` is the requested start time (absent for a `skip`).
+- `was` records the period's scheduled start at the time of the request, for display.
+- `at` is the arm timestamp.
+
+The controller applies the override when it reads the schedule: a `start` at or after that period's own `off` is treated as a `skip`. The stored `periods` are never modified, so the schedule reverts by itself once the date passes; the entry is pruned at the midnight roll-over.
 
 ### Edit rules
 - Keep MAC addresses and relay identifiers exactly as found

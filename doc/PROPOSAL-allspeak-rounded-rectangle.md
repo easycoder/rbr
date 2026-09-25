@@ -1,9 +1,6 @@
 # Proposal: a `roundedrect` type for the graphics domain
 
-**Status:** RESOLVED — superseded by the core `shape` type (landed in AllSpeak; see below). Kept as the record of the consultation.
-**Author:** RBR project (Graham)
-**Date:** 2026-08-23 (updated 2026-08-27)
-**Related:** `learn/reference/20-graphics.md` (Python graphics domain), `desktop/` (RBR desktop app that motivated this)
+**Status:** RESOLVED — superseded by the core `shape` type (landed in AllSpeak; see below). Kept as the record of the consultation. **Author:** RBR project (Graham) **Date:** 2026-08-23 (updated 2026-08-27) **Related:** `learn/reference/20-graphics.md` (Python graphics domain), `desktop/` (RBR desktop app that motivated this)
 
 ## Resolution (2026-08-27)
 
@@ -87,17 +84,10 @@ add More to Card
 
 ## Consultation request
 
-This is the first "promote a generally-useful RBR type to the core pack"
-request. Before submission to the AllSpeak project, the RBR maintainers
-would like:
+This is the first "promote a generally-useful RBR type to the core pack" request. Before submission to the AllSpeak project, the RBR maintainers would like:
 
-- confirmation that `roundedrect` (a rounded container) is the right
-  shape for the core pack, versus a bare decorative shape or a `shape`
-  base type with `roundedrect` as one variant;
-- agreement on the vocabulary (`roundedrect`, `radius`, `color`,
-  `border`, `width` — or `corner`/`fill`/`stroke` if those read better);
-- a decision on whether `roundedrect` should be a `panel`-like container
-  or a pure shape in v1.
+- confirmation that `roundedrect` (a rounded container) is the right shape for the core pack, versus a bare decorative shape or a `shape` base type with `roundedrect` as one variant;
+- agreement on the vocabulary (`roundedrect`, `radius`, `color`, `border`, `width` — or `corner`/`fill`/`stroke` if those read better);
+- a decision on whether `roundedrect` should be a `panel`-like container or a pure shape in v1.
 
-The RBR desktop app (`desktop/`) will keep using QSS `border-radius`
-until this is settled; nothing in the app depends on the proposal landing.
+The RBR desktop app (`desktop/`) will keep using QSS `border-radius` until this is settled; nothing in the app depends on the proposal landing.

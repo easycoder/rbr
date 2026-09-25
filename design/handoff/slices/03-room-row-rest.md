@@ -15,13 +15,13 @@ Hard-code `INITIAL_ROOMS` from `app.jsx` as the seed list for now. Don't worry a
 
 ## Layout (comfortable density)
 ```
-[ 38px mode chip ]  [ Name   (tags) ]   [ 22.5°C ]  [ v ]
+[ 38px mode chip ]  [ Name   (tags) ]   [ 22.5°C ]  [ i ]
                     [ sub-line     ]    [ set 20° ]
 ```
 - Row bg: white, radius 16, card shadow.
 - Row padding: `14 px vertical / 16 px horizontal`.
 - Gap between slots: 12 px.
-- Chevron: 16 × 16, colour `color.text.disabled`. Hidden for sensor rows.
+- Info button: 16 × 16 `info` glyph in `color.text.disabled`, inside a 28 px circular button. Hidden for sensor rows (an outdoor row has no room sheet). The rest row carries no chevron: the whole row is the tap target, and nothing on it rotates.
 
 ## Mode chip
 38 × 38, radius 12. Icon + fg/bg per the matrix in §5.3. Icons:
@@ -41,8 +41,7 @@ Hard-code `INITIAL_ROOMS` from `app.jsx` as the seed list for now. Don't worry a
   2. `room.offline` → `No signal since HH:MM` (the timestamp is illustrative; if unavailable, omit the time)
   3. `room.mode === 'Off'` → `Off — no schedule`
   4. `room.boost` → `Boost · {room.boost} left`
-  5. `room.nextChange` → `→ {target}° at {time}` (use the gradient-arrow glyph, not literal `->`)
-  Else → no sub-line.
+  5. `room.nextChange` → `→ {target}° at {time}` (use the gradient-arrow glyph, not literal `->`) Else → no sub-line.
 
 ## Temperature block (right-aligned)
 - Current temp: 22 / 500 / -0.8. `null` → em-dash. Offline colour is `color.text.disabled`.
@@ -54,6 +53,6 @@ Implement `callingForHeat(room)` per `handoff/README.md §4`:
 - `!sensor && !offline && mode !== 'Off' && temp != null && target != null && (target - temp) > 0.2`
 
 ## Done when
-- All eight seed rooms render correctly, including the Hall (offline), Office/Guest Bedroom (Off), Outside (sensor, no chevron).
+- All eight seed rooms render correctly, including the Hall (offline), Office/Guest Bedroom (Off), Outside (sensor, no info button).
 - Kitchen and Lounge show the `heating` tag.
 - Compact density is toggleable via a prop (smaller name + temp; tighter padding).

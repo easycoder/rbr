@@ -82,26 +82,30 @@ Every section of new `.as` code must be wrapped in a doc block:
 
 Rules:
 - Lead with the **why** or the design constraint, not a paraphrase of the code.
-- **One paragraph = one line.** Each paragraph of prose is a single `!! ...`
-line, however long. Bare `!!` separates paragraphs. Don't insert hard line
-breaks for visual wrapping — they render badly in Blocks mode (which
-word-wraps the doc pane) and they fight you when editing. The flat-mode
-editor will show very long source lines; that's accepted, since the prose
-is meant to be read in Blocks mode and AI tools don't care about line
-length.
-- Don't start a prose line with `@hash` or `@verified` — the parser treats
-those as metadata. Quote them ("@verified") if you must mention the names.
-- After any code change inside a block, refresh hashes with
-`python3 ./asdoc-check.py --write <file>`. Verifies that go stale show
-up as warnings — review the change and re-verify (asedit's Blocks mode has
-a one-click "Mark verified" button).
-- A file with no doc blocks at all is treated as opt-out (no errors, no
-warnings). Adopt the convention file-by-file as you touch them.
+- **One paragraph = one line.** Each paragraph of prose is a single `!! ...` line, however long. Bare `!!` separates paragraphs. Don't insert hard line breaks for visual wrapping — they render badly in Blocks mode (which word-wraps the doc pane) and they fight you when editing. The flat-mode editor will show very long source lines; that's accepted, since the prose is meant to be read in Blocks mode and AI tools don't care about line length.
+- Don't start a prose line with `@hash` or `@verified` — the parser treats those as metadata. Quote them ("@verified") if you must mention the names.
+- After any code change inside a block, refresh hashes with `python3 ./asdoc-check.py --write <file>`. Verifies that go stale show up as warnings — review the change and re-verify (asedit's Blocks mode has a one-click "Mark verified" button).
+- A file with no doc blocks at all is treated as opt-out (no errors, no warnings). Adopt the convention file-by-file as you touch them.
 
 Both implementations of the analyser validate the same convention:
 - `./asdoc-check.py` — Python CLI, recursive over a directory
 - `./asdoc-check-cli.as` — runs under the Python AllSpeak runtime
 - (browser-side parsing also lives inline in `asedit.as` for the editor)
+
+## Markdown documentation — one paragraph, one line
+
+Applies to every `.md` file in this repo, and especially to the `docs/` tree.
+
+The documentation is copied into a Doclet structure for easier (and remote) viewing, and the converter it uses renders each source line as its own HTML paragraph. A hard-wrapped paragraph therefore arrives as a column of one-line paragraphs instead of a single one.
+
+- **One paragraph, one line.** A prose paragraph is a single unbroken line, however long; a blank line separates paragraphs. Never hard-wrap prose at a fixed column width.
+- **One list item, one line.** Each bullet or numbered item is a single line, however long.
+- **Keep the line structure that carries meaning.** Headings, tables (one row per line, plus the header separator), blockquotes and fenced code blocks each stay on their own lines.
+- **The metadata blockquote is one line.** The `> **Audience:** … · **Status:** … · **Last verified:** …` line at the top of a document is a single blockquote line, not several hard-broken ones.
+
+This is the Markdown counterpart of the `.as` doc-block rule above ("One paragraph = one line"), and the reasoning is the same in both cases: the editor shows long lines, the reader sees real paragraphs, and the tools do not care about line length.
+
+Existing `.md` files predate this rule and are still hard-wrapped. Reflow them as you touch them, taking care with indented code blocks, nested lists and callouts, whose layout must be preserved.
 
 ## Code review while documenting
 

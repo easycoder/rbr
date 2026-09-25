@@ -103,7 +103,6 @@ System sans-serif stack: `-apple-system, BlinkMacSystemFont, "SF Pro Text", syst
 
 ### 2.5 Motion
 
-- Row chevron rotates 180° in 0.25 s when a row expands.
 - Bottom sheets slide up with `cubic-bezier(.2, .9, .3, 1)` over 0.28 s; scrim fades 0.24 s.
 - Button press: `transform: scale(0.98)` for 50 ms — purely a responsiveness cue, skip if Webson doesn't support transforms easily.
 - Heating dot pulses (box-shadow spreads 0 → 8 px transparent over 1.6 s, infinite). Decorative; omit on low-end.
@@ -137,7 +136,7 @@ One primary screen, two bottom sheets.
 │ └──────────────────────────────────┘ │
 │ ┌──[Sunroom row]───────────────────┐ │
 │ ...                                  │
-│ ┌──[Outside sensor]────────────────┐ │  sensor = no chevron, no expand
+│ ┌──[Outside sensor]────────────────┐ │  sensor = no info button, no expand
 │ │ 📶  Outside               11.6°  │ │
 │ │    Outdoor sensor                │ │
 │ └──────────────────────────────────┘ │
@@ -239,10 +238,10 @@ Each spec has: (a) what it is, (b) what it reads, (c) what it writes, (d) layout
 - **Writes**: toggles `expandedId` (to this `id`, or back to `null`) on tap. Sensor rows do not toggle.
 - **Layout** (comfortable):
   ```
-  [ 38px mode chip ]  [ Room name  heating-tag ]   [ Temp 22/500 ]  [ v ]
+  [ 38px mode chip ]  [ Room name  heating-tag ]   [ Temp 22/500 ]  [ i ]
                       [ next-change / sub-line ]   [ set 20.0°    ]
   ```
-  padding 14/16; gap between slots 12; chevron 16 px.
+  padding 14/16; gap between slots 12; info button 16 px inside a 28 px tap target. No chevron — the whole row is the tap target.
 - **Mode chip**: 38 × 38, radius 12. Icon + background/foreground by state (see table).
 - **Temperature block**: right-aligned. Current temp 22 px (20 compact), setpoint line 11 px muted.
 - **Sub-line copy** (by state):
@@ -277,10 +276,9 @@ Sections, top-to-bottom:
    - Plus button — mirror of minus.
    - Step size: **0.5**. Clamp 5 ≤ target ≤ 30.
 
-3. **Boost** (hidden when mode = Off) — label "BOOST" on the left, "Cancel" link on the right (accent, 12 px) if `boost != null`.
-   Three equal buttons: "30 min", "1 hr", "2 hr". Active boost = `accent/7` bg, `accent` border (1.5 px), `accent` text. Inactive = white, hairline border. Tapping a chip sets `mode = 'Boost'` and `boost = <duration>`.
+3. **Boost** (hidden when mode = Off) — label "BOOST" on the left, "Cancel" link on the right (accent, 12 px) if `boost != null`. Three equal buttons: "30 min", "1 hr", "2 hr". Active boost = `accent/7` bg, `accent` border (1.5 px), `accent` text. Inactive = white, hairline border. Tapping a chip sets `mode = 'Boost'` and `boost = <duration>`.
 
-4. **Edit schedule** — secondary full-width button (border hairline, white bg, radius 12, padding 12/14). Edit icon + label + right chevron. Tapping navigates to the schedule editor for this room (not mocked here, but maps to the existing "Periods" panel in the current app).
+4. **Edit schedule** — secondary button (border hairline, white bg, radius 12, padding 12/14). Centred label; no icon and no chevron. Tapping navigates to the schedule editor for this room (not mocked here, but maps to the existing "Periods" panel in the current app).
 
 ### 5.5 ProfileSheet (bottom sheet)
 
@@ -299,7 +297,7 @@ Writes: selecting a profile calls `setProfile(p)` and closes the sheet.
 
 Trigger: `≡` button in TopBar.
 
-Entries (label / sub): 
+Entries (label / sub):
 - Profiles & schedules / "3 profiles"
 - Rooms & thermostats / "8 devices"
 - Holiday mode / "Off"
@@ -307,8 +305,7 @@ Entries (label / sub):
 - Notifications
 - Help & support
 
-Single card with hairline dividers between rows. Each row is a full-width button, 14 px padding, label 15 px + sub 12 px muted + right chevron.
-Footer: "Room By Room · v4.2 · QED6 214", 11 px muted, centred.
+Single card with hairline dividers between rows. Each row is a full-width button, 14 px padding, label 15 px + sub 12 px muted + right chevron. Footer: "Room By Room · v4.2 · QED6 214", 11 px muted, centred.
 
 ### 5.7 Sheet (shared chrome)
 
@@ -391,7 +388,7 @@ Units: the prototype supports °C ↔ °F via a tweak. Production can default to
 
 - **Offline room**: greys the temperature (`#BBB`), shows `offline` tag and `No signal since HH:MM` sub-line. Row still expands — the user may want to change mode/target anyway; commands just queue.
 - **mode = Off, but temp reading exists** (e.g. Office at 25.2°): still display the measured temp, but suppress the setpoint line.
-- **Sensor row** (Outside): no chevron, no expansion, no setpoint, no heat call. Tap does nothing.
+- **Sensor row** (Outside): no info button, no expansion, no setpoint, no heat call. Tap does nothing.
 - **Empty summary**: if 0 rooms are calling for heat, title reads "Nothing calling for heat" and the sub-line reads "Boiler idle". Icon chip drops to neutral grey.
 - **Only one expanded row at a time**. Tapping a different row collapses the previous one.
 - **Boost cancellation**: switching mode or tapping "Cancel" clears `boost`.

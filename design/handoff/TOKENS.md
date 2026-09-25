@@ -102,7 +102,6 @@ shadow.houseMark    = 0 4px 12px rgba(232,106,51,0.25)
 ## Motion
 
 ```
-motion.chevronRotate   = 0.25s
 motion.sheetSlide      = 0.28s cubic-bezier(.2, .9, .3, 1)
 motion.scrimFade       = 0.24s
 motion.buttonPress     = scale(0.98) 50ms

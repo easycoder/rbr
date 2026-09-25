@@ -123,6 +123,21 @@
     variable NextAdvanceMin
     variable PI
     list PeriodList
+    list PeriodSource
+    list OverrideKeys
+    dictionary Overrides
+    dictionary OverrideEntry
+    variable TodayKey
+    variable OverrideKind
+    variable OverrideOn
+    variable OverrideDate
+    variable OverrideName
+    variable OverrideWas
+    variable MorningIdx
+    variable MorningMin
+    variable OB
+    variable MI
+    variable OI
 
     ! Reusable variables - but be careful!
     variable I
@@ -146,7 +161,7 @@
     variable HeatlogMode
     variable HeatlogName
     variable HeatlogDirty
-!! @hash e41603ee
+!! @hash 09ea8221
 !! @verified f7af243f
 !!!
 !! Basic initialisation.
@@ -336,6 +351,9 @@ MainLoop:
     if today is not TodayWas
     begin
         log `Day rollover detected; refreshing profile selection`
+        ! Retire any one-off override whose morning has now passed before
+        ! the profile is re-resolved, so the UI learns the badge has gone.
+        gosub to PruneOverrides
         gosub to ProcessAllRooms
     end
 
@@ -468,7 +486,7 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-!! @hash d99ec3a6
+!! @hash fbaf46c7
 !! @verified ce47a848
 !!!
 !! Drain the queue of messages received from the UI between MainLoop ticks.
@@ -1244,7 +1262,7 @@ ForceUpdate:
 !! Determine which scheduled period applies right now and set Target accordingly.
 !!
 !! Two phases.
-!! (1) Walk the room's `periods` list to identify NaturalPeriodActive — the index of the period containing `now` (wrap-aware via on > off), or -1 if `now` falls between every period. 
+!! (1) Walk the room's `periods` list to identify NaturalPeriodActive — the index of the period containing `now` (wrap-aware via on > off), or -1 if `now` falls between every period. The list walked is the *effective* one for today, built by GetEffectivePeriods, so a one-off override armed for the morning is already reflected in the period times (or in the period's absence).
 !!
 !! (2) Apply the room's `advance` flag via ApplyPeriodsAdvance, then save NaturalPeriodActive into PeriodWas for the next cycle's roll-over comparison.
 !!
@@ -1252,14 +1270,7 @@ ForceUpdate:
 FindCurrentPeriod:
     set PeriodActive to -1
     set NaturalPeriodActive to -1
-    if Room has entry `periods` put entry `periods` of Room into PeriodList
-    else
-    begin
-        gosub to ApplyPeriodsAdvance
-        set PeriodWas to NaturalPeriodActive
-        return
-    end
-    put the count of PeriodList into EventCount
+    gosub to GetEffectivePeriods
     if EventCount is 0
     begin
         gosub to ApplyPeriodsAdvance
@@ -1304,7 +1315,7 @@ FindCurrentPeriod:
     gosub to ApplyPeriodsAdvance
     set PeriodWas to NaturalPeriodActive
     return
-!! @hash bd73d6d4
+!! @hash 99c2b5b5
 !! @verified bd73d6d4
 !!!
 !! Decide PeriodActive and Target from NaturalPeriodActive and the room's `advance` flag.
@@ -1446,12 +1457,10 @@ PeriodsBackgroundTarget:
 !!!
 !! Side-effect-free version of FindCurrentPeriod's first phase, used solely by the boost period-boundary check.
 !!
-!! Returns the index of the period containing `now` in NaturalPeriod (-1 if none). Does not touch PeriodActive / Period / Target / advance — this is a reference value for ProcessRoom to compare against the boost-start latch (`boostperiod`) so a boost can auto-cancel when the natural period rolls.
+!! Returns the index of the period containing `now` in NaturalPeriod (-1 if none). Does not touch PeriodActive / Period / Target / advance — this is a reference value for ProcessRoom to compare against the boost-start latch (`boostperiod`) so a boost can auto-cancel when the natural period rolls. Uses the effective (override-aware) period list, so a boost latched on an overridden morning still cancels when that period rolls.
 GetNaturalPeriod:
     put -1 into NaturalPeriod
-    if Room has entry `periods` put entry `periods` of Room into PeriodList
-    else return
-    put the count of PeriodList into EventCount
+    gosub to GetEffectivePeriods
     if EventCount is 0 return
     put 0 into PI
     while PI is less than EventCount
@@ -1483,8 +1492,221 @@ GetNaturalPeriod:
         else increment PI
     end
     return
-!! @hash b55848a3
+!! @hash 1d458c3a
 !! @verified b55848a3
+!!!
+!! Load the room's own `periods` into PeriodList as a *copy*, leaving EventCount set to the count (0 when the room has no schedule).
+!!
+!! The copy matters: AllSpeak collections are held by reference, so handing the room's list straight to PeriodList lets an edit — applying an override, or dropping a skipped period — silently rewrite the stored schedule. `append` copies the entry, which is all the isolation a period (`on`/`off`/`temp`) needs.
+LoadRoomPeriods:
+    reset PeriodList
+    put 0 into EventCount
+    if Room has no entry `periods` return
+    put entry `periods` of Room into PeriodSource
+    put the count of PeriodSource into EventCount
+    if EventCount is 0 return
+    put 0 into OB
+    while OB is less than EventCount
+    begin
+        put item OB of PeriodSource into Period
+        append Period to PeriodList
+        increment OB
+    end
+    return
+!! @hash 6b264584
+!!!
+!! Look up the one-off override armed for this room and *today's* date.
+!!
+!! Overrides live at the top level of the map keyed by room name, so they apply whichever profile the calendar picks for the day, and they survive a wholesale `Update Profiles` (which replaces `profiles` only). Leaves OverrideKind (`start`/`skip`) and OverrideOn set, or both empty when nothing is armed for today.
+GetRoomOverride:
+    put empty into OverrideKind
+    put empty into OverrideOn
+    if Map has no entry `overrides` return
+    put entry `overrides` of Map into Overrides
+    put entry `name` of Room into OverrideName
+    if Overrides has no entry OverrideName return
+    put entry OverrideName of Overrides into OverrideEntry
+    put datime today format `%Y-%m-%d` into TodayKey
+    if entry `date` of OverrideEntry is not TodayKey return
+    put entry `kind` of OverrideEntry into OverrideKind
+    if OverrideKind is `start` put entry `on` of OverrideEntry into OverrideOn
+    return
+!! @hash 8e2a8fd4
+!!!
+!! Build PeriodList as the set of periods that apply to this room *today*, honouring any one-off override armed for it.
+!!
+!! Always a copy of the room's `periods` (see LoadRoomPeriods). The override either replaces the morning period's `on`, or drops that period altogether — a `skip`, or a requested start at or after the period's own `off`, which is the "entire period skipped" case. Sets PeriodList and EventCount; an empty list means no periods apply.
+GetEffectivePeriods:
+    gosub to LoadRoomPeriods
+    if EventCount is 0 return
+    gosub to GetRoomOverride
+    if OverrideKind is empty return
+    gosub to IdentifyMorningPeriod
+    if MorningIdx is less than 0 return
+    if OverrideKind is `start`
+    begin
+        put item MorningIdx of PeriodList into Period
+        put entry `off` of Period into Time
+        gosub to ConvertTimeToInt
+        put Time into OffTime
+        put OverrideOn into Time
+        gosub to ConvertTimeToInt
+        put Time into OnTime
+        if OnTime is less than OffTime
+        begin
+            put item MorningIdx of PeriodList into Period
+            set entry `on` of Period to OverrideOn
+            return
+        end
+    end
+    delete item MorningIdx of PeriodList
+    put the count of PeriodList into EventCount
+    return
+!! @hash 601273e8
+!!!
+!! Identify the day's morning period — the entry with the earliest `on` time — as the target of a one-off start-time override.
+!!
+!! Zero-length and wrap-around periods (`on` at or after `off`) are excluded: neither is a morning warm-up the user could sensibly shift, and for a wrap-around period "later than the off time" has no useful meaning. Leaves the index in MorningIdx (-1 if none). Reads PeriodList/EventCount, which the caller must have loaded.
+IdentifyMorningPeriod:
+    set MorningIdx to -1
+    put 999999999999999 into MorningMin
+    put 0 into MI
+    while MI is less than EventCount
+    begin
+        put item MI of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        put Time into OnTime
+        put entry `off` of Period into Time
+        gosub to ConvertTimeToInt
+        put Time into OffTime
+        if OnTime is less than OffTime
+        begin
+            if OnTime is less than MorningMin
+            begin
+                put OnTime into MorningMin
+                set MorningIdx to MI
+            end
+        end
+        increment MI
+    end
+    return
+!! @hash 31783f0e
+!!!
+!! Resolve which calendar date a newly-armed override applies to: "the next occurrence of the day's first period" — today if that period has not started yet, otherwise tomorrow.
+!!
+!! The date is frozen at arm time so the meaning cannot drift during the day. The period's `on` is compared against `now` through ConvertTimeToInt (today-anchored), and tomorrow is reached with a 36-hour offset so a daylight-saving step on the way cannot land on the wrong calendar day. Expects PeriodList/EventCount loaded and MorningIdx set by IdentifyMorningPeriod.
+ResolveOverrideDate:
+    put datime today format `%Y-%m-%d` into TodayKey
+    put item MorningIdx of PeriodList into Period
+    put entry `on` of Period into Time
+    gosub to ConvertTimeToInt
+    if now is less than Time
+    begin
+        put TodayKey into OverrideDate
+        return
+    end
+    put today into T
+    add 129600000 to T
+    put datime T format `%Y-%m-%d` into OverrideDate
+    return
+!! @hash 13f45682
+!!!
+!! Arm a one-off override on the room named in the current UI request.
+!!
+!! `kind` is `start` (with a `time` of HH:MM) or `skip`; anything else is rejected. The room must have a morning period to act on. Arming cancels any engaged Advance — one morning, one intent — and replaces whatever override the room already held.
+SetRoomOverride:
+    put entry `name` of Room into OverrideName
+    put `start` into OverrideKind
+    ! Clear the request time here: these are script-level globals, so a stale
+    ! value from a previous request would otherwise satisfy the "time
+    ! required" check below.
+    put empty into OverrideOn
+    if Message has entry `kind` put entry `kind` of Message into OverrideKind
+    else if Message has entry `Kind` put entry `Kind` of Message into OverrideKind
+    if OverrideKind is not `skip`
+    begin
+        if Message has entry `time` put entry `time` of Message into OverrideOn
+        else if Message has entry `Time` put entry `Time` of Message into OverrideOn
+        if OverrideOn is empty
+        begin
+            log `UIRequest rejected: Room Override needs a time`
+            return
+        end
+        put the index of `:` in OverrideOn into OI
+        if OI is less than 1
+        begin
+            log `UIRequest rejected: Room Override time must be HH:MM`
+            return
+        end
+        put `start` into OverrideKind
+    end
+    gosub to LoadRoomPeriods
+    gosub to IdentifyMorningPeriod
+    if MorningIdx is less than 0
+    begin
+        log `UIRequest rejected: Room Override needs a morning period`
+        return
+    end
+    put item MorningIdx of PeriodList into Period
+    put entry `on` of Period into OverrideWas
+    gosub to ResolveOverrideDate
+    if entry `advance` of Room is `A` set entry `advance` of Room to `-`
+    reset OverrideEntry
+    set entry `kind` of OverrideEntry to OverrideKind
+    set entry `date` of OverrideEntry to OverrideDate
+    set entry `was` of OverrideEntry to OverrideWas
+    set entry `at` of OverrideEntry to now
+    if OverrideKind is `start` set entry `on` of OverrideEntry to OverrideOn
+    if Map has no entry `overrides`
+    begin
+        reset Overrides
+    end
+    else put entry `overrides` of Map into Overrides
+    set entry OverrideName of Overrides to OverrideEntry
+    set entry `overrides` of Map to Overrides
+    log `Room override armed: ` cat OverrideName cat ` ` cat OverrideKind cat ` for ` cat OverrideDate
+    set MapHasChanged
+    return
+!! @hash 463ba962
+!!!
+!! Cancel any override held for the room named in the current UI request.
+ClearRoomOverride:
+    put entry `name` of Room into OverrideName
+    if Map has no entry `overrides` return
+    put entry `overrides` of Map into Overrides
+    if Overrides has entry OverrideName
+    begin
+        delete entry OverrideName of Overrides
+        log `Room override cleared: ` cat OverrideName
+        set MapHasChanged
+    end
+    return
+!! @hash b8bbeba7
+!!!
+!! Drop one-off overrides whose target date has passed; called on the midnight roll-over.
+!!
+!! An expired override is already inert — it only matches on its own date — so this is tidiness rather than correctness. It is also what clears the armed badge from every connected UI, since it marks the map changed.
+PruneOverrides:
+    if Map has no entry `overrides` return
+    put entry `overrides` of Map into Overrides
+    put the keys of Overrides into OverrideKeys
+    put datime today format `%Y-%m-%d` into TodayKey
+    put 0 into OI
+    while OI is less than the count of OverrideKeys
+    begin
+        put item OI of OverrideKeys into OverrideName
+        put entry OverrideName of Overrides into OverrideEntry
+        if entry `date` of OverrideEntry is less than TodayKey
+        begin
+            delete entry OverrideName of Overrides
+            log `Room override expired: ` cat OverrideName
+            set MapHasChanged
+        end
+        increment OI
+    end
+    return
+!! @hash 72da8206
 !!!
 !! Record temperature/humidity/battery readings for Mijia BLE thermometers seen by RBR-Now relays.
 !!
@@ -1624,9 +1846,11 @@ ResolveRoomFromMessage:
 !!
 !! Action names are normalised so the UI can be upgraded incrementally — `request`, `addroom`, `rooms`, `system name`, etc. all map to their canonical forms.
 !!
-!! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (full replacement array, used by delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites profiles list and optional calendar), `Operating Mode` (per-room mode change), and `Test`.
+!! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (full replacement array, used by delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites profiles list and optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), and `Test`.
 !!
 !! Operating Mode handles all four modes plus the `Advance` toggle and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
+!!
+!! Room Override carries `op` (`set`, the default, or `clear`) plus, for a set, `kind` (`start` with a `time` of HH:MM, or `skip`). It is a one-day schedule tweak stored outside `profiles` — see SetRoomOverride — and is not a mode change, so a room in `on`/`off`/`boost` keeps that mode and the override applies when the room returns to `timed`.
 ProcessUIRequest:
     ! Legacy UI modules may still send {request:`Update`, data:{...}}.
     ! Unwrap only when there is no direct Action/action field.
@@ -1680,6 +1904,8 @@ ProcessUIRequest:
     else if Value is `select profile` put `Select Profile` into Action
     else if Value is `update profiles` put `Update Profiles` into Action
     else if Value is `operating mode` put `Operating Mode` into Action
+    else if Value is `room override` put `Room Override` into Action
+    else if Value is `special action` put `Room Override` into Action
 
     if Action is `Test`
     begin
@@ -1905,8 +2131,26 @@ ProcessUIRequest:
         put item RoomIndex of Rooms into RoomSpec
         if Mode is not `timed` or Value is empty gosub to ForceUpdate
     end
+    else if Action is `Room Override`
+    begin
+        gosub to ResolveRoomFromMessage
+        if RoomIndex is less than 0
+        begin
+            log `UIRequest rejected: Room Override needs valid room reference`
+            return
+        end
+        if Message has entry `op` put entry `op` of Message into Value
+        else if Message has entry `Op` put entry `Op` of Message into Value
+        else put `set` into Value
+        if Value is `clear`
+        begin
+            gosub to ClearRoomOverride
+        end
+        else gosub to SetRoomOverride
+        gosub to ForceUpdate
+    end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 9ec5594e
+!! @hash eddda5ae
 !! @verified 4dd81a04
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).

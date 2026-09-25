@@ -1,8 +1,6 @@
 # Proposal: a testing vocabulary for AllSpeak
 
-**Status:** proposal for submission to the AllSpeak project
-**Author:** RBR project (Graham)
-**Date:** 2026-08-20
+**Status:** proposal for submission to the AllSpeak project **Author:** RBR project (Graham) **Date:** 2026-08-20
 
 ## Motivation
 
