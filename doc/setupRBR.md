@@ -35,7 +35,7 @@ sudo ./rbr-setup.sh
 cat .mac_override
 cat credentials
 ```
-7. In your mobile phone user interface (https://rbrheating.com/ui), tap the hamburger icon in the top right and select System Manager from the menu. If you're a new user you will have to register; just follow the instructions.
+7. In your mobile phone user interface (https://rbrheating.com/new-ui/), tap the hamburger icon in the top right and select System Manager from the menu. If you're a new user you will have to register; just follow the instructions.
 8. Click the Add button to add your new system and use the MAC and password you obtained in step 6. Select the system by its name and tap OK to return to the main user interface.
 9. Commission the Zigbee devices. The setup script (step 5) installed and enabled Zigbee2MQTT with the coordinator dongle auto-detected; make sure it is running, then pair the devices one by one:
 ```
@@ -75,3 +75,14 @@ sudo systemctl status zigbee2mqtt     # should show active (running)
 
 > **Legacy:** installations still running RBR-Now hardware keep using the RBR-Now configurator until they are rebuilt — see [Running the Configurator](configurator.md). New builds ignore it.
 
+## What a new system needs now
+
+The UI lives at <https://rbrheating.com/new-ui/>; the older page at the site root no longer runs.
+
+The broker now carries each system in two accounts: the bridge on the box, whose password never leaves that box, and the account the UI pages use, which is fenced to that system's MAC and is handed out only to a paired device.
+
+- **Pairing.** Open the UI and it shows the demo home until paired. "Set up my system" (in the About sheet) asks for the system's MAC and its password, then keeps a token in localStorage as `dev-token` and reloads connected.
+- **The system password** is the one shown when the system is registered in the UI. The endpoint checks it before issuing that token, so treat it as the system's secret rather than a note in a repo.
+- **The bridge's account** (`rbr-bridge`) is what mosquitto bridges with; its credentials belong only in `/etc/mosquitto/conf.d/rbr-local.conf` on the box, and nowhere else.
+- **A fresh controller with no local `credentials` file** fetches its mail settings from `credentials.php`, which now requires a token. Without one the fetch fails, and the install silently runs without mail settings.
+- **A second system needs its own fence.** `credentials.php` serves one account per host, and the ACL gives `#` only to the bridge account, so a new system's MAC has to be granted its own topics (or be given its own account and credentials block) before its UI will work.

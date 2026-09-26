@@ -42,9 +42,20 @@ case 'verify':
     }
 
     $users[$mac]['verified'] = true;
+
+    // The token is what credentials.php accepts. Issued once, on the first successful verify,
+    // and reused after: it lets a paired device fetch its broker credentials without sending the
+    // password again, and it can be rotated by clearing this field.
+    if (empty($users[$mac]['token'])) {
+        $users[$mac]['token'] = bin2hex(random_bytes(24));
+    }
     save_users($usersFile, $users);
 
-    print json_encode(['ok' => true, 'controller_paired' => true]);
+    print json_encode([
+        'ok' => true,
+        'controller_paired' => true,
+        'token' => $users[$mac]['token']
+    ]);
     break;
 
 case 'register':

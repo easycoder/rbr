@@ -940,19 +940,19 @@
   ],
   "calendar": "on",
   "message": "confirm",
-  "address": "6 Queen Elizabeth Drive WF6 1JH",
-  "ssid": "RBR-803f5da34f09",
-  "password": "r00m8Yr00m",
+  "address": "",
+  "ssid": "",
+  "password": "changeme00",
   "extenders": [
     {
-      "ssid": "RBR-ex-15A804",
-      "password": "test-system"
+      "ssid": "",
+      "password": "changeme00"
     }
   ],
-  "name": "QED6 214",
+  "name": "Sample home",
   "profile": 2,
-  "controller-ssid": "RBR-803f5da34f09",
-  "controller-password": "r00m8Yr00m",
-  "email": "gt@pobox.com",
-  "user-password": "767653"
+  "controller-ssid": "",
+  "controller-password": "changeme00",
+  "email": "",
+  "user-password": "000000"
 }

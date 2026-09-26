@@ -229,6 +229,8 @@
 	variable Port
 	variable Username
 	variable Password
+	variable Token
+	variable Response
 	variable MAC
 	variable MyID
 	topic ServerTopic
@@ -387,7 +389,7 @@
 !	shared with the now-extracted device editor; it's used only by
 !	SaveOutsideSheet's fan-out loop).
 	variable DeviceProfileCount
-!! @hash 1c72a0c8
+!! @hash 2804896a
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -505,12 +507,24 @@
 !	the shared endpoint — useful for offline / on-IXHUB testing where
 !	credentials.php isn't reachable.
 	no cache
+
+!	The system's identity and the token that proves we own it. Both are read before the
+!	fetch, because the endpoint answers only a request that carries them.
+	get MAC from storage as `dev-mac`
+	if MAC is `null` put empty into MAC
+	if MAC is `undefined` put empty into MAC
+	get Token from storage as `dev-token`
+	if Token is `null` put empty into Token
+	if Token is `undefined` put empty into Token
+
 	rest get Credentials from `credentials.json`
 		or go to TryServerCredentials
 	if Credentials is not empty go to ApplyCredentials
 TryServerCredentials:
-!	credentials.php lives at the site root, one level above new-ui/.
-	rest get Credentials from `../credentials.php`
+!	credentials.php lives at the site root, one level above new-ui/. It vends credentials only
+!	for a MAC and token it recognises, so a browser holding neither falls through to the demo
+!	map instead of being handed a password shared by every system.
+	rest get Credentials from `../credentials.php?mac=` cat MAC cat `&token=` cat Token
 		or go to NoCredentialsFile
 ApplyCredentials:
 	if Credentials is not empty
@@ -525,11 +539,8 @@ ApplyCredentials:
 		end
 	end
 NoCredentialsFile:
-!	MAC is per-system and never lives on the server. Read it from
-!	localStorage so the user only has to enter it once.
-	get MAC from storage as `dev-mac`
-	if MAC is `null` put empty into MAC
-	if MAC is `undefined` put empty into MAC
+!	MAC and Token were read above, before the fetch that needs them. A system with a MAC but
+!	no token lands in demo mode, and its About sheet offers "Set up my system" to pair it.
 
 !	No usable credentials → demo / marketing mode. We need a broker (either
 !	from credentials.json / credentials.php) and a MAC (from localStorage).
@@ -548,7 +559,7 @@ NoCredentialsFile:
 	end
 
 	if Port is empty put 443 into Port
-	put `RBR-` cat random 999999 into MyID
+	put MAC cat `/reply-` cat random 999999 into MyID
 
 	init ServerTopic
 		name MAC
@@ -576,7 +587,7 @@ NoCredentialsFile:
 		gosub to OnMapReceived
 	end
 	stop
-!! @hash 35bfa8e5
+!! @hash e157da3e
 !!!
 !! First-render path: fired by `on mqtt connect`. Sets the Prompt to `first` so the controller sends a full map (rather than the empty-payload heartbeat used for refreshes), then forks a watchdog and parks.
 !!
@@ -2420,9 +2431,10 @@ ResetCredentialsAndReload:
 	put empty into storage as `dev-username`
 	put empty into storage as `dev-password`
 	put empty into storage as `dev-mac`
+	put empty into storage as `dev-token`
 	location the location
 	return
-!! @hash 80980e08
+!! @hash 6ffee20f
 !!!
 !! Open the About sheet. Auto-opened in demo mode (no credentials yet) so first-time visitors see what RBR is; otherwise reachable via tap-on-the-house-mark in the topbar at any time.
 !!
@@ -2466,16 +2478,35 @@ ShowAboutTabManual:
 	return
 !! @hash c5aac8db
 !!!
-!! "Set up my system" CTA. Broker / username / password are now shared and fetched from credentials.php, so the only thing the user has to supply is the controller's MAC address. Stored in localStorage and picked up on the next page load via `location the location`.
+!! "Set up my system" CTA: pair this browser with a controller.
+!!
+!! The MAC says which system we are; the system password proves we own it. The password is not kept — it is exchanged once for a token, and the token is what the credentials endpoint accepts from then on. Both are stored in localStorage and picked up on the next page load via `location the location`.
 SetupMySystem:
 	put prompt `Enter your controller's MAC address` cat newline cat `(printed on the device, format aa:bb:cc:dd:ee:ff):` into MAC
 	if MAC is empty return
 	if MAC is `null` return
 	if MAC is `undefined` return
+	put prompt `Enter the system password` cat newline cat `(the one shown when the system was registered):` into Password
+	if Password is empty return
+	if Password is `null` return
+	if Password is `undefined` return
+
+	rest post `{"mac":"` cat MAC cat `","password":"` cat Password cat `"}` to `/verify` giving Response
+		or go to PairFailed
+	if Response is empty go to PairFailed
+	if property `ok` of Response is not true go to PairFailed
+	put property `token` of Response into Token
+	if Token is empty go to PairFailed
+
 	put MAC into storage as `dev-mac`
+	put Token into storage as `dev-token`
 	location the location
 	return
-!! @hash 9ea89fc1
+
+PairFailed:
+	alert `That MAC and password were not accepted. Check the system password that was shown when the controller was registered, and the MAC printed on the device.`
+	return
+!! @hash 6a01cdc4
 !!!
 !! Ship the Result JSON object to the controller as a `uirequest`.
 !!

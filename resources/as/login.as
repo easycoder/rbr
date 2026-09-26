@@ -44,6 +44,7 @@
     variable Response
     variable MAC
     variable Password
+    variable Token
     variable Value
     variable SendOK
     variable MyID
@@ -188,11 +189,15 @@ DoVerify:
         clear Password
         put `` into storage as `rbr-mac`
         put `` into storage as `rbr-password`
+        put `` into storage as `rbr-token`
         go to ShowLoginKeepMessage
     end
 !   Success - save credentials and proceed
     put MAC into storage as `rbr-mac`
     put Password into storage as `rbr-password`
+!   The endpoint vends broker credentials only to a paired device, and the token is what proves it.
+    put property `token` of Response into Token
+    put Token into storage as `rbr-token`
 
 !   Check if controller is paired
     if property `controller_paired` of Response is not true go to ShowPair

@@ -149,6 +149,7 @@
     variable Username
     variable Password
     variable MAC
+    variable Token
     
     no cache
 
@@ -207,8 +208,16 @@ DoLogin:
     variable LoginScript
     rest get LoginScript from `resources/as/login.as?v=` cat now
     run LoginScript
-!   User is now authenticated - get MQTT credentials from server
-    rest get Credentials from `credentials` or rest get Credentials from `credentials.php`
+!   User is now authenticated - get MQTT credentials from server. The endpoint answers only a
+!   paired device: the MAC says which system is asking and the token, just obtained by login.as,
+!   proves it is ours. Both come from the keys login.as writes.
+    get MAC from storage as `rbr-mac`
+    get Token from storage as `rbr-token`
+    if MAC is `null` put empty into MAC
+    if MAC is `undefined` put empty into MAC
+    if Token is `null` put empty into Token
+    if Token is `undefined` put empty into Token
+    rest get Credentials from `credentials` or rest get Credentials from `credentials.php?mac=` cat MAC cat `&token=` cat Token
         or go to AbandonShip
 !    log Credentials
     put property `broker` of Credentials into Broker

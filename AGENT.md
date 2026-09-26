@@ -16,7 +16,7 @@ Communication between controller and UI is via MQTT (broker: `rbrheating.duckdns
 
 - **AllSpeak**: A high-level scripting language with both Python and JavaScript dialects. Scripts use the `.as` extension. The Python runtime is in the AllSpeak repository. The JS runtime modules are loaded from `allspeak.js` via CDN. `ALLSPEAK.md` contains essential primer information for using the language.
 - **Webson**: JSON-based DOM rendering. Layout definitions are in `resources/webson/*.json`. Element IDs in Webson must stay in sync with `.as` scripts that attach to them.
-- **MQTT**: Used for all controller-UI communication. Broker is `rbrheating.duckdns.org` (port 8883 for Python/controller, port 443 for JS/UI websocket). Auth: username `rbr`, password from `~/.mqtt_password`. Controller ID from `~/.mqtt_userid` (must match target device MAC, currently `38:54:39:34:62:d7/request`).
+- **MQTT**: All controller-UI communication. Broker `rbrheating.duckdns.org` (port 8883 for Python/controller, port 443 for the JS/UI websocket). Two accounts per system: the bridge on the box, whose password lives only in `/etc/mosquitto/conf.d/rbr-local.conf`, and the account the UI pages use, fenced to that system's topics and vended by `credentials.php` only to a paired device (MAC + token). The system's identity is `~/.mac_override` (currently `00:e0:27:5b:31:40`), not the NIC's MAC, and it is the topic namespace as well as the registration key in `rbr-users.json`.
 - **Zigbee** and **RBR-Now** (legacy): Used for controller-to-device communication
 
 ## Running
