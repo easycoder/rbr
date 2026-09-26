@@ -80,6 +80,9 @@
 	variable LegacyPeriods
 	variable LegacyPeriodsCount
 	variable LegacyPeriod
+	variable PeriodDisabled
+	variable ActivePeriods
+	variable ActivePeriodsCount
 	variable LoopK
 	variable NowMinutes
 	variable OnMinutes
@@ -113,7 +116,7 @@
 	on message go to Translate
 	release parent
 	stop
-!! @hash d70757d5
+!! @hash 8fa8b567
 !!!
 !! Message handler. Unpacks the Map from the message, runs the translation, packs the output dict, ships it back. Boolean flags (CalendarOn, OutsideRoomFound) travel as "on"/"off" / "yes"/"no" strings because boolean state doesn't round-trip cleanly through JSON.
 Translate:
@@ -427,14 +430,15 @@ BuildRoomEntry:
 	add the minute to NowMinutes
 
 	put property `periods` of LegacyRoom into LegacyPeriods
+	gosub to BuildActivePeriods
 	clear PeriodFound
-	if LegacyPeriods is not empty
+	if ActivePeriods is not empty
 	begin
-		put the json count of LegacyPeriods into LegacyPeriodsCount
+		put the json count of ActivePeriods into ActivePeriodsCount
 		put 0 into LoopK
-		while LoopK is less than LegacyPeriodsCount
+		while LoopK is less than ActivePeriodsCount
 		begin
-			put element LoopK of LegacyPeriods into LegacyPeriod
+			put element LoopK of ActivePeriods into LegacyPeriod
 			put property `on` of LegacyPeriod into TempStr
 			gosub to ParseTimeMinutes
 			put TempTenths into OnMinutes
@@ -465,7 +469,7 @@ BuildRoomEntry:
 				if DotIdx is less than 0 put NextTempStr cat `.0` into NextTempStr
 				set property `nextTarget` of NewRoom to NextTempStr
 				set PeriodFound
-				put LegacyPeriodsCount into LoopK
+				put ActivePeriodsCount into LoopK
 			end
 			increment LoopK
 		end
@@ -481,14 +485,14 @@ BuildRoomEntry:
 		set property `nextTarget` of NewRoom to BgTempStr
 		set property `nextPrefix` of NewRoom to `BG `
 
-		if LegacyPeriods is not empty
+		if ActivePeriods is not empty
 		begin
 			put 1500 into NextOnMinutes
 			put empty into NextOnStr
 			put 0 into LoopK
-			while LoopK is less than LegacyPeriodsCount
+			while LoopK is less than ActivePeriodsCount
 			begin
-				put element LoopK of LegacyPeriods into LegacyPeriod
+				put element LoopK of ActivePeriods into LegacyPeriod
 				put property `on` of LegacyPeriod into TempStr
 				gosub to ParseTimeMinutes
 				if TempTenths is greater than NowMinutes
@@ -503,9 +507,9 @@ BuildRoomEntry:
 			begin
 				put 1500 into NextOnMinutes
 				put 0 into LoopK
-				while LoopK is less than LegacyPeriodsCount
+				while LoopK is less than ActivePeriodsCount
 				begin
-					put element LoopK of LegacyPeriods into LegacyPeriod
+					put element LoopK of ActivePeriods into LegacyPeriod
 					put property `on` of LegacyPeriod into TempStr
 					gosub to ParseTimeMinutes
 					if TempTenths is less than NextOnMinutes
@@ -522,7 +526,7 @@ BuildRoomEntry:
 
 	if Advance is `A`
 	begin
-		if LegacyPeriods is not empty
+		if ActivePeriods is not empty
 		begin
 			if PeriodFound
 			begin
@@ -535,9 +539,9 @@ BuildRoomEntry:
 			put 1500 into NextOnMinutes
 			put -1 into DisplayPeriodIdx
 			put 0 into LoopK
-			while LoopK is less than LegacyPeriodsCount
+			while LoopK is less than ActivePeriodsCount
 			begin
-				put element LoopK of LegacyPeriods into LegacyPeriod
+				put element LoopK of ActivePeriods into LegacyPeriod
 				put property `on` of LegacyPeriod into TempStr
 				gosub to ParseTimeMinutes
 				if TempTenths is greater than AfterMinutes
@@ -552,9 +556,9 @@ BuildRoomEntry:
 			begin
 				put 1500 into NextOnMinutes
 				put 0 into LoopK
-				while LoopK is less than LegacyPeriodsCount
+				while LoopK is less than ActivePeriodsCount
 				begin
-					put element LoopK of LegacyPeriods into LegacyPeriod
+					put element LoopK of ActivePeriods into LegacyPeriod
 					put property `on` of LegacyPeriod into TempStr
 					gosub to ParseTimeMinutes
 					if TempTenths is less than NextOnMinutes
@@ -567,7 +571,7 @@ BuildRoomEntry:
 			end
 			if DisplayPeriodIdx is not less than 0
 			begin
-				put element DisplayPeriodIdx of LegacyPeriods into LegacyPeriod
+				put element DisplayPeriodIdx of ActivePeriods into LegacyPeriod
 				if PeriodFound
 				begin
 					put property `on` of LegacyPeriod into NextTimeStr
@@ -621,11 +625,11 @@ BuildRoomEntry:
 
 	put 1500 into MorningOnMinutes
 	put 0 into MorningPeriodCount
-	if LegacyPeriods is not empty put the json count of LegacyPeriods into MorningPeriodCount
+	if ActivePeriods is not empty put the json count of ActivePeriods into MorningPeriodCount
 	put 0 into LoopK
 	while LoopK is less than MorningPeriodCount
 	begin
-		put element LoopK of LegacyPeriods into LegacyPeriod
+		put element LoopK of ActivePeriods into LegacyPeriod
 		put property `on` of LegacyPeriod into TempStr
 		gosub to ParseTimeMinutes
 		put TempTenths into PeriodOnMin
@@ -647,7 +651,7 @@ BuildRoomEntry:
 	set property `calling` of NewRoom to `no`
 	if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
 	return
-!! @hash 4582c5e2
+!! @hash 4f4e53dd
 !!!
 !! Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string (19.8). In-place via TempStr — caller passes the integer in, gets the string back out.
 FormatHundredths:
@@ -672,4 +676,37 @@ ParseTimeMinutes:
 	add DecPart to TempTenths
 	return
 !! @hash 3a38eab5
+!!!
+
+!! Filter the room's periods down to the ones switched on, matching the controller's schedule: a period whose `enabled` flag is present and false is ignored everywhere, and an absent flag means enabled so pre-existing maps pass through untouched. Outputs ActivePeriods/ActivePeriodsCount; the schedule projection and the morning-start lookup read these instead of the raw list.
+BuildActivePeriods:
+	put `[]` into ActivePeriods
+	put 0 into ActivePeriodsCount
+	if LegacyPeriods is empty return
+	put the json count of LegacyPeriods into LegacyPeriodsCount
+	put 0 into LoopK
+	while LoopK is less than LegacyPeriodsCount
+	begin
+		put element LoopK of LegacyPeriods into LegacyPeriod
+		gosub to PeriodIsDisabled
+		if not PeriodDisabled
+		begin
+			set element ActivePeriodsCount of ActivePeriods to LegacyPeriod
+			increment ActivePeriodsCount
+		end
+		increment LoopK
+	end
+	return
+!! @hash 2086cf90
+!!!
+!! Set PeriodDisabled when LegacyPeriod carries an explicit `enabled: false`. Tests presence with `has entry` (so absent means enabled) and the value by truthiness — a JSON false compares equal to an empty string in this runtime, so `is false` would also match an absent flag.
+PeriodIsDisabled:
+	clear PeriodDisabled
+	if LegacyPeriod has entry `enabled`
+	begin
+		if property `enabled` of LegacyPeriod clear PeriodDisabled
+		else set PeriodDisabled
+	end
+	return
+!! @hash b1661bfc
 !!!

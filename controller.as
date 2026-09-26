@@ -124,6 +124,8 @@
     variable PI
     list PeriodList
     list PeriodSource
+    variable PeriodSourceCount
+    variable PeriodIncluded
     list OverrideKeys
     dictionary Overrides
     dictionary OverrideEntry
@@ -161,7 +163,7 @@
     variable HeatlogMode
     variable HeatlogName
     variable HeatlogDirty
-!! @hash 09ea8221
+!! @hash af4de2be
 !! @verified f7af243f
 !!!
 !! Basic initialisation.
@@ -1495,25 +1497,33 @@ GetNaturalPeriod:
 !! @hash 1d458c3a
 !! @verified b55848a3
 !!!
-!! Load the room's own `periods` into PeriodList as a *copy*, leaving EventCount set to the count (0 when the room has no schedule).
+!! Load the room's own `periods` into PeriodList as a *copy*, leaving EventCount set to the count of periods that actually apply (0 when the room has no schedule, or no enabled period).
 !!
-!! The copy matters: AllSpeak collections are held by reference, so handing the room's list straight to PeriodList lets an edit — applying an override, or dropping a skipped period — silently rewrite the stored schedule. `append` copies the entry, which is all the isolation a period (`on`/`off`/`temp`) needs.
+!! A period whose `enabled` flag is present and false is skipped, so a switched-off period plays no part in scheduling. An absent flag means enabled: that keeps every pre-existing map working untouched, and lets the UI add flags only to periods it has actually written. Filtering here, rather than in each consumer, means every reader of PeriodList — period containment, the advance projection, the morning lookup and the one-off override — ignores a disabled period for free.
+!!
+!! The copy matters: AllSpeak collections are held by reference, so handing the room's list straight to PeriodList lets an edit — applying an override, or dropping a skipped period — silently rewrite the stored schedule. `append` copies the entry, which is all the isolation a period (`on`/`off`/`temp`/`enabled`) needs.
 LoadRoomPeriods:
     reset PeriodList
     put 0 into EventCount
     if Room has no entry `periods` return
     put entry `periods` of Room into PeriodSource
-    put the count of PeriodSource into EventCount
-    if EventCount is 0 return
+    put the count of PeriodSource into PeriodSourceCount
+    if PeriodSourceCount is 0 return
     put 0 into OB
-    while OB is less than EventCount
+    while OB is less than PeriodSourceCount
     begin
         put item OB of PeriodSource into Period
-        append Period to PeriodList
+        set PeriodIncluded
+        if Period has entry `enabled`
+        begin
+            if entry `enabled` of Period is false clear PeriodIncluded
+        end
+        if PeriodIncluded append Period to PeriodList
         increment OB
     end
+    put the count of PeriodList into EventCount
     return
-!! @hash 6b264584
+!! @hash 1f2da99c
 !!!
 !! Look up the one-off override armed for this room and *today's* date.
 !!
@@ -1535,7 +1545,7 @@ GetRoomOverride:
 !!!
 !! Build PeriodList as the set of periods that apply to this room *today*, honouring any one-off override armed for it.
 !!
-!! Always a copy of the room's `periods` (see LoadRoomPeriods). The override either replaces the morning period's `on`, or drops that period altogether — a `skip`, or a requested start at or after the period's own `off`, which is the "entire period skipped" case. Sets PeriodList and EventCount; an empty list means no periods apply.
+!! Always a copy of the room's `periods` (see LoadRoomPeriods, which also drops any period switched off with an `enabled: false` flag). The override either replaces the morning period's `on`, or drops that period altogether — a `skip`, or a requested start at or after the period's own `off`, which is the "entire period skipped" case. Sets PeriodList and EventCount; an empty list means no periods apply.
 GetEffectivePeriods:
     gosub to LoadRoomPeriods
     if EventCount is 0 return
@@ -2065,7 +2075,11 @@ ProcessUIRequest:
                 end
                 else
                 begin
-                    put entry `periods` of Room into PeriodList
+                    ! FindCurrentPeriod has just loaded PeriodList from the
+                    ! effective schedule, and PeriodActive indexes into that.
+                    ! Re-reading the room's raw `periods` here would misindex
+                    ! whenever a disabled or overridden period has shifted the
+                    ! list, so use the list FindCurrentPeriod left behind.
                     put item PeriodActive of PeriodList into Period
                     set entry `target` of Room to entry `temp` of Period
                 end
@@ -2150,7 +2164,7 @@ ProcessUIRequest:
         gosub to ForceUpdate
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash eddda5ae
+!! @hash 9aef47cd
 !! @verified 4dd81a04
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).

@@ -24,6 +24,8 @@
     list PeriodSource
     list OverrideKeys
     variable EventCount
+    variable PeriodSourceCount
+    variable PeriodIncluded
     variable PI
     variable MI
     variable OB
@@ -46,24 +48,30 @@
 
     go to RunTests
 
-!! Load the room's own `periods` into PeriodList as a copy, leaving EventCount set to the count (0 when the room has no schedule). Mirrors controller.as.
+!! Load the room's own `periods` into PeriodList as a copy, leaving EventCount set to the count of periods that apply (a period whose `enabled` flag is present and false is skipped; an absent flag means enabled). Mirrors controller.as.
 
 LoadRoomPeriods:
     reset PeriodList
     put 0 into EventCount
     if Room has no entry `periods` return
     put entry `periods` of Room into PeriodSource
-    put the count of PeriodSource into EventCount
-    if EventCount is 0 return
+    put the count of PeriodSource into PeriodSourceCount
+    if PeriodSourceCount is 0 return
     put 0 into OB
-    while OB is less than EventCount
+    while OB is less than PeriodSourceCount
     begin
         put item OB of PeriodSource into Period
-        append Period to PeriodList
+        set PeriodIncluded
+        if Period has entry `enabled`
+        begin
+            if entry `enabled` of Period is false clear PeriodIncluded
+        end
+        if PeriodIncluded append Period to PeriodList
         increment OB
     end
+    put the count of PeriodList into EventCount
     return
-!! @hash b9f8b52c
+!! @hash e42557f3
 !!!
 !! Look up the one-off override armed for this room and today's date. Mirrors controller.as.
 
@@ -566,7 +574,60 @@ RunTests:
         check that Overrides has no entry `Old`
         check that Overrides has entry `Fresh`
     end test
+!! @hash 40aeeae1
+!!!
+!! Case 14: a period switched off with `enabled: false` is dropped from the effective list, and an explicit `enabled: true` is kept (same as an absent flag).
+
+    reset Room
+    set entry `name` of Room to `Kitchen`
+    set entry `advance` of Room to `-`
+    reset Periods
+    reset Period
+    set entry `on` of Period to `06:30`
+    set entry `off` of Period to `08:00`
+    set entry `temp` of Period to `21.0`
+    set entry `enabled` of Period to `false`
+    append Period to Periods
+    reset Period
+    set entry `on` of Period to `17:30`
+    set entry `off` of Period to `22:00`
+    set entry `temp` of Period to `21.0`
+    set entry `enabled` of Period to `true`
+    append Period to Periods
+    set entry `periods` of Room to Periods
+    reset Map
+    reset Overrides
+
+    test `a disabled period is dropped from the schedule`
+        gosub to GetEffectivePeriods
+        check that EventCount is 1
+        put item 0 of PeriodList into Period
+        put entry `on` of Period into Value
+        check that Value is `17:30`
+    end test
+!! @hash 7368212b
+!!!
+!! Case 15: with every period switched off the room has no schedule at all — the effective list is empty.
+
+    reset Room
+    set entry `name` of Room to `Kitchen`
+    set entry `advance` of Room to `-`
+    reset Periods
+    reset Period
+    set entry `on` of Period to `06:30`
+    set entry `off` of Period to `08:00`
+    set entry `temp` of Period to `21.0`
+    set entry `enabled` of Period to `false`
+    append Period to Periods
+    set entry `periods` of Room to Periods
+    reset Map
+    reset Overrides
+
+    test `all periods disabled means no schedule`
+        gosub to GetEffectivePeriods
+        check that EventCount is 0
+    end test
 
     exit
-!! @hash 7cd7ac68
+!! @hash 86ba6a54
 !!!

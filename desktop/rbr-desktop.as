@@ -145,6 +145,7 @@
     variable ScheduleH
     variable ScheduleM
     variable PeriodIdx
+    variable PeriodEnabled
     variable PeriodTempTenths
     variable LoopE
     variable SortI
@@ -1259,6 +1260,12 @@ SchedSheetClicked:
             put entry `period` of SchedulePending into PeriodIdx
             gosub to DeleteSchedulePeriod
         end
+        else if ScheduleEvent is `toggle`
+        begin
+            put entry `period` of SchedulePending into PeriodIdx
+            put entry `enabled` of SchedulePending into PeriodEnabled
+            gosub to ToggleSchedulePeriod
+        end
         else if ScheduleEvent is `add` gosub to AddSchedulePeriod
         else if ScheduleEvent is `profile`
         begin
@@ -1271,8 +1278,10 @@ SchedSheetClicked:
     stop
 
 !! CloneSchedulePeriods: clone the edited room's periods (storage shape
-!! {on, off, temp}) into EditingPeriods (display shape {start, off, target})
-!! — a fresh dict per row so edits never bleed back through the snapshot.
+!! {on, off, temp, enabled}) into EditingPeriods (display shape
+!! {start, off, target, enabled}) — a fresh dict per row so edits never bleed
+!! back through the snapshot. An absent `enabled` key reads as enabled, so an
+!! older map with no flags shows every period switched on.
 
 !! @hash
 !! @verified
@@ -1294,6 +1303,9 @@ CloneSchedulePeriods:
             set entry `start` of ClonedPeriod to entry `on` of SourcePeriod
             set entry `off` of ClonedPeriod to entry `off` of SourcePeriod
             set entry `target` of ClonedPeriod to entry `temp` of SourcePeriod
+            set entry `enabled` of ClonedPeriod to true
+            if SourcePeriod has entry `enabled`
+                set entry `enabled` of ClonedPeriod to entry `enabled` of SourcePeriod
             append ClonedPeriod to EditingPeriods
             increment LoopE
         end
@@ -1364,6 +1376,7 @@ AddSchedulePeriod:
     set entry `start` of ClonedPeriod to `06:00`
     set entry `off` of ClonedPeriod to `08:00`
     set entry `target` of ClonedPeriod to `21.0`
+    set entry `enabled` of ClonedPeriod to true
     append ClonedPeriod to EditingPeriods
     increment EditingPeriodsCount
     set ScheduleDirty
@@ -1394,6 +1407,21 @@ DeleteSchedulePeriod:
     gosub to RenderSchedulePeriods
     return
 
+!! ToggleSchedulePeriod: record the Enabled checkbox's new state (PeriodEnabled)
+!! on the row at PeriodIdx and re-render so the model drives the card. Marks the
+!! schedule dirty so Cancel / profile switch still confirm before discarding.
+
+!! @hash
+!! @verified
+!!!
+ToggleSchedulePeriod:
+    put item PeriodIdx of EditingPeriods into EditingPeriodRow
+    set entry `enabled` of EditingPeriodRow to PeriodEnabled
+    set item PeriodIdx of EditingPeriods to EditingPeriodRow
+    set ScheduleDirty
+    gosub to RenderSchedulePeriods
+    return
+
 !! SwapEditingProfile: switch the editor to the profile at
 !! SchedProfilePillIdx. If the current edit buffer is dirty, confirm before
 !! discarding. Re-clones the new profile's periods and repaints.
@@ -1419,7 +1447,7 @@ SwapEditingProfile:
     return
 
 !! SaveSchedule: sort EditingPeriods by start time, convert each row back to
-!! the storage shape {on, off, temp}, splice the result into
+!! the storage shape {on, off, temp, enabled}, splice the result into
 !! EditingProfiles[EditingProfileIdx].rooms[EditingRoomIdx].periods, then
 !! ship an `Update Profiles` uirequest (profile + calendar unchanged) so the
 !! controller persists and re-pushes the map.
@@ -1444,6 +1472,7 @@ SaveSchedule:
         set entry `on` of ClonedPeriod to entry `start` of EditingPeriodRow
         set entry `off` of ClonedPeriod to entry `off` of EditingPeriodRow
         set entry `temp` of ClonedPeriod to entry `target` of EditingPeriodRow
+        set entry `enabled` of ClonedPeriod to entry `enabled` of EditingPeriodRow
         append ClonedPeriod to StoragePeriods
         increment LoopE
     end

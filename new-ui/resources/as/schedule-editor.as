@@ -27,7 +27,10 @@
 	button PeriodTempMinusBtn
 	button PeriodTempPlusBtn
 	button PeriodDeleteBtn
+	input PeriodEnableBox
+	div PeriodTimeRow
 	div PeriodOffRow
+	div PeriodTempRow
 	div PeriodOffValue
 	button PeriodOffMinusBtn
 	button PeriodOffPlusBtn
@@ -72,6 +75,9 @@
 	variable PeriodTemp
 	variable PeriodTempTenths
 	variable PeriodOff
+	variable PeriodEnabled
+	variable PeriodDim
+	variable PeriodBlock
 
 	variable ScheduleDirty
 	variable ScheduleProfilePickerOpen
@@ -132,7 +138,7 @@
 	release parent
 	log `ScheduleEditor module ready`
 	stop
-!! @hash 7d3e296c
+!! @hash b7b51849
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -174,7 +180,7 @@ HandleOpen:
 	stop
 !! @hash 37230515
 !!!
-!! Save click handler. Sorts EditingPeriods by start time, converts each row back to the storage shape `{on, off, temp}`, splices the result into LiveProfiles[EditingProfileIdx].rooms[EditingRoomLegacyIdx].periods, sets SavePending and DoneFlag so HandleOpen's wait loop exits and ships the reply.
+!! Save click handler. Sorts EditingPeriods by start time, converts each row back to the storage shape `{on, off, temp, enabled}`, splices the result into LiveProfiles[EditingProfileIdx].rooms[EditingRoomLegacyIdx].periods, sets SavePending and DoneFlag so HandleOpen's wait loop exits and ships the reply.
 OnSaveClick:
 	gosub to SortPeriods
 	put `[]` into SortedPeriods
@@ -186,6 +192,7 @@ OnSaveClick:
 		set property `on` of ClonedPeriod to property `start` of PeriodRow
 		set property `off` of ClonedPeriod to property `off` of PeriodRow
 		set property `temp` of ClonedPeriod to property `target` of PeriodRow
+		set property `enabled` of ClonedPeriod to property `enabled` of PeriodRow
 		set element LoopE of SortedPeriods to ClonedPeriod
 		increment LoopE
 	end
@@ -201,7 +208,7 @@ OnSaveClick:
 	set SavePending
 	set DoneFlag
 	return
-!! @hash d31a7fd5
+!! @hash 7bf45d78
 !!!
 !! Cancel click handler. Sets DoneFlag (but not SavePending) so HandleOpen ships a `{cancelled: yes}` reply.
 OnCancelClick:
@@ -296,7 +303,7 @@ SwapEditingProfile:
 !!!
 !! Clone the host room's `periods` (in the currently-editing profile) into EditingPeriods.
 !!
-!! Buffer shape is `{start, off, target}` rather than the storage shape `{on, off, temp}` — `start` is the ON time, renamed so PaintPeriodValues and StepPeriodTime work uniformly without per-field branches; the OFF stepper handles `off`. OnSaveClick maps everything back to the storage shape on commit.
+!! Buffer shape is `{start, off, target, enabled}` rather than the storage shape `{on, off, temp, enabled}` — `start` is the ON time, renamed so PaintPeriodValues and StepPeriodTime work uniformly without per-field branches; the OFF stepper handles `off`. `enabled` is carried straight across: an absent flag reads as enabled, so an older map with no flags shows every period switched on. OnSaveClick maps everything back to the storage shape on commit.
 !!
 !! Each display row is a fresh `{}` so edits don't bleed back through the snapshot.
 ClonePeriodsForEditing:
@@ -320,12 +327,19 @@ ClonePeriodsForEditing:
 		set property `start` of ClonedPeriod to property `on` of SourcePeriod
 		set property `off` of ClonedPeriod to property `off` of SourcePeriod
 		set property `target` of ClonedPeriod to property `temp` of SourcePeriod
+		set PeriodEnabled
+		if SourcePeriod has entry `enabled`
+		begin
+			if property `enabled` of SourcePeriod set PeriodEnabled
+			else clear PeriodEnabled
+		end
+		set property `enabled` of ClonedPeriod to PeriodEnabled
 		set element LoopE of EditingPeriods to ClonedPeriod
 		increment LoopE
 	end
 	put SourcePeriodsCount into EditingPeriodsCount
 	return
-!! @hash d52e4689
+!! @hash b3419282
 !!!
 !! Tear down and rebuild the period cards from EditingPeriods.
 !!
@@ -341,7 +355,10 @@ RenderSchedulePeriods:
 	set the elements of PeriodTempMinusBtn to EditingPeriodsCount
 	set the elements of PeriodTempPlusBtn to EditingPeriodsCount
 	set the elements of PeriodDeleteBtn to EditingPeriodsCount
+	set the elements of PeriodEnableBox to EditingPeriodsCount
+	set the elements of PeriodTimeRow to EditingPeriodsCount
 	set the elements of PeriodOffRow to EditingPeriodsCount
+	set the elements of PeriodTempRow to EditingPeriodsCount
 	set the elements of PeriodOffValue to EditingPeriodsCount
 	set the elements of PeriodOffMinusBtn to EditingPeriodsCount
 	set the elements of PeriodOffPlusBtn to EditingPeriodsCount
@@ -370,9 +387,15 @@ RenderSchedulePeriods:
 		attach PeriodTempPlusBtn to `schedule-period-` cat PeriodIdxStr cat `-temp-plus`
 		index PeriodDeleteBtn to PeriodIdx
 		attach PeriodDeleteBtn to `schedule-period-` cat PeriodIdxStr cat `-delete`
+		index PeriodEnableBox to PeriodIdx
+		attach PeriodEnableBox to `schedule-period-` cat PeriodIdxStr cat `-enable`
 
 		index PeriodOffRow to PeriodIdx
 		attach PeriodOffRow to `schedule-period-` cat PeriodIdxStr cat `-off-row`
+		index PeriodTimeRow to PeriodIdx
+		attach PeriodTimeRow to `schedule-period-` cat PeriodIdxStr cat `-time-row`
+		index PeriodTempRow to PeriodIdx
+		attach PeriodTempRow to `schedule-period-` cat PeriodIdxStr cat `-temp-row`
 		index PeriodOffValue to PeriodIdx
 		attach PeriodOffValue to `schedule-period-` cat PeriodIdxStr cat `-off-value`
 		index PeriodOffMinusBtn to PeriodIdx
@@ -381,6 +404,7 @@ RenderSchedulePeriods:
 		attach PeriodOffPlusBtn to `schedule-period-` cat PeriodIdxStr cat `-off-plus`
 
 		gosub to PaintPeriodValues
+		gosub to PaintPeriodEnabled
 
 		on click PeriodTimeMinusBtn
 		begin
@@ -412,6 +436,12 @@ RenderSchedulePeriods:
 			gosub to DeleteSchedulePeriod
 		end
 
+		on change PeriodEnableBox
+		begin
+			put the index of PeriodEnableBox into PeriodIdx
+			gosub to TogglePeriodEnabled
+		end
+
 		on click PeriodOffMinusBtn
 		begin
 			put the index of PeriodOffMinusBtn into PeriodIdx
@@ -428,7 +458,7 @@ RenderSchedulePeriods:
 		increment PeriodIdx
 	end
 	return
-!! @hash aac09754
+!! @hash 9415b520
 !!!
 !! Paint the on / off / target values for PeriodIdx into the existing card without a full re-render. Reads EditingPeriods[PeriodIdx] and writes the three text spans. Temperature gets a "°" suffix; times are already "HH:MM" strings.
 PaintPeriodValues:
@@ -446,6 +476,32 @@ PaintPeriodValues:
 	set the content of PeriodTempValue to PeriodTemp cat `°`
 	return
 !! @hash 8ee57fd7
+!!!
+!! Paint the Enabled state of the card at PeriodIdx: the checkbox, plus the three editable rows. Sets the DOM `checked` attribute for an enabled period and removes it for a disabled one (a boolean HTML attribute is on when present, so a false value must be removed, not set to "false"); a disabled period's rows are dimmed to 45% and given `pointer-events: none`, so its steppers are inert and it reads as switched off. Called once per card right after it is rendered — the elements are then fresh, so the attribute still governs the live checkedness — and again from TogglePeriodEnabled so the dimming tracks the checkbox.
+PaintPeriodEnabled:
+	index PeriodEnableBox to PeriodIdx
+	index PeriodTimeRow to PeriodIdx
+	index PeriodOffRow to PeriodIdx
+	index PeriodTempRow to PeriodIdx
+	put element PeriodIdx of EditingPeriods into PeriodRow
+	put `1` into PeriodDim
+	put `auto` into PeriodBlock
+	if property `enabled` of PeriodRow
+		set attribute `checked` of PeriodEnableBox to `checked`
+	else
+	begin
+		remove attribute `checked` of PeriodEnableBox
+		put `0.45` into PeriodDim
+		put `none` into PeriodBlock
+	end
+	set style `opacity` of PeriodTimeRow to PeriodDim
+	set style `opacity` of PeriodOffRow to PeriodDim
+	set style `opacity` of PeriodTempRow to PeriodDim
+	set style `pointer-events` of PeriodTimeRow to PeriodBlock
+	set style `pointer-events` of PeriodOffRow to PeriodBlock
+	set style `pointer-events` of PeriodTempRow to PeriodBlock
+	return
+!! @hash ff6ffcb6
 !!!
 !! StepPeriodTime / StepPeriodOff adjust the on/off time by ScheduleM (±15) minutes, wrapping at 24:00. StepPeriodTemp adjusts the target by PeriodTempTenths (±5 = ±0.5°), clamped to [5.0°, 30.0°].
 !!
@@ -499,12 +555,24 @@ AddSchedulePeriod:
 	set property `start` of ClonedPeriod to `06:00`
 	set property `off` of ClonedPeriod to `08:00`
 	set property `target` of ClonedPeriod to `21.0`
+	set property `enabled` of ClonedPeriod to true
 	set element EditingPeriodsCount of EditingPeriods to ClonedPeriod
 	increment EditingPeriodsCount
 	set ScheduleDirty
 	gosub to RenderSchedulePeriods
 	return
-!! @hash 2aabb663
+!! @hash ac100a7a
+!!!
+!! Record a tap on PeriodIdx's Enabled checkbox. Reads the box's own checked state (the checkbox already holds the new value) and writes it onto the editing row, then marks the schedule dirty so a Cancel or profile switch still confirms. No full re-render: the DOM already shows the new state, and PaintPeriodEnabled dims or undims the row's controls to match.
+TogglePeriodEnabled:
+	put element PeriodIdx of EditingPeriods into PeriodRow
+	put PeriodEnableBox into PeriodEnabled
+	set property `enabled` of PeriodRow to PeriodEnabled
+	set element PeriodIdx of EditingPeriods to PeriodRow
+	set ScheduleDirty
+	gosub to PaintPeriodEnabled
+	return
+!! @hash 1f88de45
 !!!
 !! Remove the period at PeriodIdx by rebuilding the array without it, then re-rendering the card list. Sets ScheduleDirty.
 DeleteSchedulePeriod:

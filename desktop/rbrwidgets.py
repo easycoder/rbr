@@ -14,8 +14,8 @@ import os
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QColor, QFont, QPainter, QPixmap
 from PySide6.QtWidgets import (
-    QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea,
-    QVBoxLayout, QWidget,
+    QCheckBox, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QLabel, QLineEdit,
+    QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 from allspeak.as_gclasses import ECWidget
@@ -809,7 +809,9 @@ class Sheet(QWidget):
 # Mirrors the web PWA's schedule editor (schedule-editor.json /
 # schedule-period.json): a profile pill with a picker to switch the profile
 # being edited, a scrollable list of period cards (On-at / Off-at / Target
-# steppers + delete), an Add-period button, and Save / Cancel rows.
+# steppers, an Enabled checkbox and delete), an Add-period button, and
+# Save / Cancel rows. A disabled period's steppers are switched off and its
+# body is faded; its checkbox and Delete button stay live.
 #
 # The widget is pure presentation — the app script owns the working copy of
 # the periods (rendered back via `set periods`) and the profiles snapshot.
@@ -817,6 +819,7 @@ class Sheet(QWidget):
 #
 #   {'event':'step',  'period':i, 'field':'start'|'off'|'target',
 #    'delta': ±15 min or ±5 tenths}
+#   {'event':'toggle','period':i, 'enabled': True|False}
 #   {'event':'delete','period':i}
 #   {'event':'add'}
 #   {'event':'profile','index':k}
@@ -1047,7 +1050,7 @@ class ScheduleSheet(Sheet):
     # ---- period cards ------------------------------------------------------
 
     def setPeriods(self, periods):
-        """Rebuild the period cards from a list of {start, off, target}."""
+        """Rebuild the period cards from a list of {start, off, target, enabled}."""
         while self._periodListLayout.count():
             item = self._periodListLayout.takeAt(0)
             w = item.widget()
@@ -1066,6 +1069,17 @@ class ScheduleSheet(Sheet):
         col.setContentsMargins(14, 12, 14, 12)
         col.setSpacing(10)
 
+        # The three editable rows live in their own container so a disabled
+        # period can be greyed out (opacity) and made inert as a group, while
+        # the Enabled checkbox and Delete button stay usable.
+        body = QWidget()
+        body.setStyleSheet('background: transparent;')
+        bodyCol = QVBoxLayout(body)
+        bodyCol.setContentsMargins(0, 0, 0, 0)
+        bodyCol.setSpacing(10)
+        col.addWidget(body)
+        body_buttons = []
+
         def stepper(text):
             b = QPushButton(text)
             b.setFixedSize(30, 30)
@@ -1078,6 +1092,7 @@ class ScheduleSheet(Sheet):
                 f'QPushButton {{ background: transparent; border: 1px solid {BORDER_HAIRLINE}; '
                 f'border-radius: 8px; color: {TEXT_PRIMARY}; }}'
                 f'QPushButton:hover {{ background-color: {CHIP_NEUTRAL_BG}; }}')
+            body_buttons.append(b)
             return b
 
         def value_label(text):
@@ -1118,9 +1133,18 @@ class ScheduleSheet(Sheet):
         on_label = value_label(str(period.get('start', '06:00')))
         off_label = value_label(str(period.get('off', '08:00')))
         temp_label = value_label(str(period.get('target', '21.0')) + '°')
-        col.addLayout(field_row('On at', on_label, 'start'))
-        col.addLayout(field_row('Off at', off_label, 'off'))
-        col.addLayout(field_row('Target', temp_label, 'target'))
+        bodyCol.addLayout(field_row('On at', on_label, 'start'))
+        bodyCol.addLayout(field_row('Off at', off_label, 'off'))
+        bodyCol.addLayout(field_row('Target', temp_label, 'target'))
+
+        # A disabled period is non-editable: dim the rows and switch the
+        # steppers off. The checkbox and Delete button stay live.
+        if not bool(period.get('enabled', True)):
+            fade = QGraphicsOpacityEffect(body)
+            fade.setOpacity(0.45)
+            body.setGraphicsEffect(fade)
+            for b in body_buttons:
+                b.setEnabled(False)
 
         delete = QPushButton('Delete period')
         delete.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -1133,10 +1157,26 @@ class ScheduleSheet(Sheet):
             f'QPushButton:hover {{ background-color: {CHIP_NEUTRAL_BG}; }}')
         delete.clicked.connect(lambda checked=False: self._emit(
             {'event': 'delete', 'period': index}))
-        delRow = QHBoxLayout()
-        delRow.addStretch(1)
-        delRow.addWidget(delete)
-        col.addLayout(delRow)
+
+        # Enabled checkbox, to the left of the Delete button. An absent
+        # `enabled` key means enabled, so default to checked.
+        enable = QCheckBox('Enabled')
+        enable.setChecked(bool(period.get('enabled', True)))
+        enable.setCursor(Qt.CursorShape.PointingHandCursor)
+        ef = enable.font()
+        ef.setPointSize(10)
+        ef.setWeight(QFont.Weight.DemiBold)
+        enable.setFont(ef)
+        enable.setStyleSheet(
+            f'QCheckBox {{ color: {TEXT_MUTED}; background: transparent; spacing: 6px; }}')
+        enable.clicked.connect(lambda checked=False: self._emit(
+            {'event': 'toggle', 'period': index, 'enabled': bool(checked)}))
+
+        footRow = QHBoxLayout()
+        footRow.addWidget(enable)
+        footRow.addStretch(1)
+        footRow.addWidget(delete)
+        col.addLayout(footRow)
         return card
 
 
