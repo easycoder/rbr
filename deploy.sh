@@ -5,9 +5,9 @@
 #   /                   <- legacy UI entry points (index.html, auth.php, ...)
 #   /resources/         <- legacy UI resources
 #   /new-ui/            <- new UI (PWA) — index.html, sw.js, resources/, icons/
-#   /controller.as      <- AllSpeak controller source (legacy pull)
-#   /deviceControl.as   <- ditto
-#   /simulator.as       <- ditto
+#   /controller.allspeak      <- AllSpeak controller source (legacy pull)
+#   /deviceControl.allspeak   <- ditto
+#   /simulator.allspeak       <- ditto
 #   /rbr-controller.tar.gz <- versioned bundle of ALL controller runtime
 #                          files, pulled by the standalone updater
 #                          (rbr-updater.py) — see doc/UPDATE-MECHANISM.md
@@ -20,14 +20,14 @@
 #                          --release) makes controllers apply the tarball
 #
 # Usage:
-#   ./deploy.sh             upload UI + .as files; do NOT bump the version.
+#   ./deploy.sh             upload UI + .allspeak files; do NOT bump the version.
 #                           Customers keep their current version until you
 #                           release. Safe to run during iteration; smoke-test
-#                           on your own IXHUB by scp'ing controller.as
+#                           on your own IXHUB by scp'ing controller.allspeak
 #                           directly before publishing.
 #
 #   ./deploy.sh --release   upload everything as above, then bump and push
-#                           the version stamp. IXHUBs pick up the new .as
+#                           the version stamp. IXHUBs pick up the new .allspeak
 #                           files on their next hourly CheckForUpdate.
 #
 # The version file is uploaded LAST so a controller mid-check never sees a
@@ -65,7 +65,7 @@ rsync -rvz --no-perms -e "$SSH_OPTS" \
     "$REMOTE/"
 
 # Resources subdirectories — --delete keeps remote in sync with local
-for dir in as css icon img json webson; do
+for dir in allspeak css icon img json webson; do
     echo "  resources/$dir"
     rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
         "$LOCAL/resources/$dir/" \
@@ -73,7 +73,7 @@ for dir in as css icon img json webson; do
 done
 
 # New UI tree (PWA). One rsync of the whole new-ui/ directory keeps it
-# in lock-step with the local copy, including shell.as, sw.js, webson
+# in lock-step with the local copy, including shell.allspeak, sw.js, webson
 # templates, icons and the manifest. --delete prunes anything removed
 # locally so stale files can't linger on the server.
 echo "Deploying new-ui/..."
@@ -85,16 +85,16 @@ rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
 # current, but customer IXHUBs won't pull them until the version bumps.
 echo "Deploying controller files..."
 rsync -vz --no-perms -e "$SSH_OPTS" \
-    "$LOCAL/controller.as" \
-    "$LOCAL/deviceControl.as" \
-    "$LOCAL/simulator.as" \
-    "$LOCAL/diagnose.as" \
+    "$LOCAL/controller.allspeak" \
+    "$LOCAL/deviceControl.allspeak" \
+    "$LOCAL/simulator.allspeak" \
+    "$LOCAL/diagnose.allspeak" \
     "$REMOTE/"
 
 # Controller runtime files shipped in BOTH the updater tarball and the
 # bootstrap zip. VERSION (the deploy stamp) is added separately.
-CONTROLLER_FILES=(controller.as deviceControl.as simulator.as \
-                  diagnose.as zigbee-bridge.py zigbee-pair.py zigbee-mesh.py \
+CONTROLLER_FILES=(controller.allspeak deviceControl.allspeak simulator.allspeak \
+                  diagnose.allspeak zigbee-bridge.py zigbee-pair.py zigbee-mesh.py \
                   rbr-dashboard.py heatlog.py dashboard.txt rbr-updater.py \
                   rbr-watchdog.sh rbr-mapbackup.py)
 
@@ -133,7 +133,7 @@ build_controller_zip() {
     done
     cp "$LOCAL/version" "$BUILD_DIR/VERSION"
     (cd "$BUILD_DIR" && zip -q "$LOCAL/rbr-controller.zip" \
-        controller.as deviceControl.as simulator.as diagnose.as zigbee-bridge.py \
+        controller.allspeak deviceControl.allspeak simulator.allspeak diagnose.allspeak zigbee-bridge.py \
         zigbee-pair.py zigbee-mesh.py rbr-dashboard.py heatlog.py dashboard.txt \
         rbr-updater.py rbr-watchdog.sh rbr-mapbackup.py rbr-setup.sh VERSION)
     rm -rf "$BUILD_DIR"
@@ -157,7 +157,7 @@ if [[ $RELEASE -eq 1 ]]; then
     echo "Releasing version $NEW_VERSION..."
     # The tarball/zip are built AFTER the bump so they embed the new
     # stamp; /version is uploaded last so mid-check controllers never see
-    # a new stamp paired with stale .as source.
+    # a new stamp paired with stale .allspeak source.
     upload_controller_tarball
     upload_controller_pack
     rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/version" "$REMOTE/"

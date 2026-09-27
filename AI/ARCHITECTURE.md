@@ -3,14 +3,14 @@
 ## Runtime layers
 
 1. **AllSpeak runtime** — JavaScript (browser UI) or Python (controller, on a Linux mini-PC)
-2. **AllSpeak scripts** (`.as`) — application logic in both environments
+2. **AllSpeak scripts** (`.allspeak`) — application logic in both environments
 3. **Webson JSON** (`resources/webson/`, `new-ui/resources/webson/`) — UI structure
 4. **MQTT** — controller↔UI communication
 
 ## Controller architecture
 
 ```
-controller.as → load map.json (self-times 6×10s cycles)
+controller.allspeak → load map.json (self-times 6×10s cycles)
                               │ re-launched every ~60s (cron or supervisor)
                               └─ 6×10s cycles:
                                  ProcessAllRooms()
@@ -27,7 +27,7 @@ controller.as → load map.json (self-times 6×10s cycles)
 
 ```
 new-ui/index.html → load AllSpeak runtime
-                  → load shell.as
+                  → load shell.allspeak
                      → MQTT WebSocket connect
                      → first map download
                      → render home screen from Webson JSON
@@ -61,7 +61,7 @@ new-ui/index.html → load AllSpeak runtime
 
 ```bash
 # 1. Is the controller running?
-pgrep -fa controller.as
+pgrep -fa controller.allspeak
 
 # 2. Recent log output
 journalctl -u rbr-controller --no-pager -n 50 2>/dev/null \
@@ -81,5 +81,5 @@ mosquitto_pub -h rbrheating.duckdns.org -p 8883 \
   -t rbr/ping -m test -q 1 2>&1 | head -5
 
 # Run the controller manually (exits if already running)
-allspeak controller.as
+allspeak controller.allspeak
 ```

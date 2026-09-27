@@ -1,7 +1,7 @@
 # AllSpeak + Webson Guide (for AI)
 
 ## AllSpeak style in this repo
-- Treat `.as` as the source of high-level behaviour
+- Treat `.allspeak` as the source of high-level behaviour
 - Make surgical changes; preserve command vocabulary and flow
 - Prefer existing labels/subroutines over introducing new structures
 
@@ -16,7 +16,7 @@
 - Legacy UI: `resources/webson/*.json` defines screen layouts with element IDs
 - New UI (PWA): `new-ui/resources/webson/*.json` defines the new app's layouts
 - AllSpeak attaches to elements by their `@id` values
-- Renaming IDs requires matching changes in `.as` files (all `attach` and `on click` references)
+- Renaming IDs requires matching changes in `.allspeak` files (all `attach` and `on click` references)
 - Renaming only Webson object keys (not `@id`) is safe if IDs stay stable
 
 ## RBR-specific Webson conventions

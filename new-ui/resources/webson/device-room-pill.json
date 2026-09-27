@@ -1,5 +1,5 @@
 {
-    "#doc": "One row in the device-editor's room list. Tapping the name selects the room and closes the picker. Up/Down reorder, Edit renames (prompt), Delete removes (confirm). All operations mutate the EditingProfilesForDevices working copy in shell.as. /I/ is replaced with the room index per render.",
+    "#doc": "One row in the device-editor's room list. Tapping the name selects the room and closes the picker. Up/Down reorder, Edit renames (prompt), Delete removes (confirm). All operations mutate the EditingProfilesForDevices working copy in shell.allspeak. /I/ is replaced with the room index per render.",
     "#element": "div",
     "@id": "device-room-edit-/I/",
     "padding": "6px 8px",

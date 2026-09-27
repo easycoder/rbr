@@ -1,5 +1,5 @@
 {
-    "#doc": "ProfileRow template — rendered once per profile in the combined ProfileSheet. /I/ replaced with the profile index. shell.as fills the label and wires three click targets: row body (select), pencil (rename), X (delete).",
+    "#doc": "ProfileRow template — rendered once per profile in the combined ProfileSheet. /I/ replaced with the profile index. shell.allspeak fills the label and wires three click targets: row body (select), pencil (rename), X (delete).",
     "#element": "div",
     "@id": "profile-row-/I/",
     "width": "100%",

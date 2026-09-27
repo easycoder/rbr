@@ -27,7 +27,7 @@ jobs:
 
       - name: Deploy resources
         run: |
-          for dir in as css icon img json webson; do
+          for dir in allspeak css icon img json webson; do
             rsync -avz --no-perms --delete \
               -e "ssh -i ~/.ssh/id_ed25519" \
               resources/$dir/ \

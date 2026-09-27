@@ -1,5 +1,5 @@
 {
-    "#doc": "Special actions sheet — the one-off schedule tweaks a room can be given for a single day. Static Webson rendered once into sheet-content alongside the other simple sheets; shell.as opens it from the expansion's Special button. The Cancel-the-override row is hidden unless something is armed.",
+    "#doc": "Special actions sheet — the one-off schedule tweaks a room can be given for a single day. Static Webson rendered once into sheet-content alongside the other simple sheets; shell.allspeak opens it from the expansion's Special button. The Cancel-the-override row is hidden unless something is armed.",
     "#element": "div",
     "@id": "special-sheet",
     "#": ["$Tagline", "$StartAction", "$SkipAction", "$ClearAction", "$Buttons"],

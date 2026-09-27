@@ -16,7 +16,7 @@ ssh $SERVER "mkdir -p $REMOTE_DIR/chat-data/topics"
 # Copy shared files from chat project
 echo "Copying shared files..."
 scp "$CHAT_DIR/chat-server.py" \
-    "$CHAT_DIR/chat-main.ecs" \
+    "$CHAT_DIR/chat-main.allspeak" \
     "$CHAT_DIR/chat.json" \
     "$CHAT_DIR/index.html" \
     "$SERVER:$REMOTE_DIR/"

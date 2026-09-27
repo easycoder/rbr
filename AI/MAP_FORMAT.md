@@ -54,7 +54,7 @@ An **absent flag means enabled**, so existing maps (and any period written by ha
 - Temperature values in `events[].temp` are strings (e.g. `"21.0"`), `target` is a number
 - `periods[].enabled` is a boolean; omit it to mean enabled, or set `false` to switch a period off
 - Do not remove runtime fields (`relay`, `advance`, `boost`, `status`, `timestamp`, etc.) — the controller writes these
-- `map.json` and `resources/as/map.json` may both need updating if both UI trees are active
+- `map.json` and `resources/allspeak/map.json` may both need updating if both UI trees are active
 
 ### After editing
 Validate JSON:

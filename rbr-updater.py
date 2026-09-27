@@ -2,7 +2,7 @@
 """
 rbr-updater.py — standalone updater for the RBR controller
 
-Replaces the old CheckForUpdate routine that lived inside controller.as.
+Replaces the old CheckForUpdate routine that lived inside controller.allspeak.
 Runs as a one-shot systemd service triggered by an hourly timer
 (rbr-updater.timer, installed by rbr-setup.sh), so code updates keep
 arriving even when the controller itself is down or misbehaving — and it
@@ -19,10 +19,10 @@ How it works
    into place (os.replace — same filesystem, no torn writes).
 4. Write the new version to .version.
 5. Restart the services affected by the change:
-     controller.as / deviceControl.as / simulator.as  ->  controller.service
+     controller.allspeak / deviceControl.allspeak / simulator.allspeak  ->  controller.service
      zigbee-bridge.py                                 ->  rbr-zigbee-bridge.service
    If a service isn't installed or isn't running (e.g. the controller is
-   run manually with `allspeak controller.as` in a terminal), the updater
+   run manually with `allspeak controller.allspeak` in a terminal), the updater
    logs a clear notice instead of killing anything.
 6. If rbr-updater.py itself changed, re-exec once so the new code
    finishes the job.
@@ -64,10 +64,10 @@ import urllib.request
 # VERSION is the release stamp; it is never copied into the RBR dir as a
 # file — it is recorded as .version instead.
 TARBALL_FILES = [
-    "controller.as",
-    "deviceControl.as",
-    "simulator.as",
-    "diagnose.as",
+    "controller.allspeak",
+    "deviceControl.allspeak",
+    "simulator.allspeak",
+    "diagnose.allspeak",
     "zigbee-bridge.py",
     "zigbee-pair.py",
     "zigbee-mesh.py",
@@ -85,7 +85,7 @@ DOWNLOAD_TIMEOUT = 60
 
 # Services restarted when the corresponding files change. (name, [files])
 SERVICE_RULES = [
-    ("controller.service", ["controller.as", "deviceControl.as", "simulator.as", "heatlog.py"]),
+    ("controller.service", ["controller.allspeak", "deviceControl.allspeak", "simulator.allspeak", "heatlog.py"]),
     ("rbr-zigbee-bridge.service", ["zigbee-bridge.py"]),
 ]
 
@@ -202,7 +202,7 @@ def restart_service(name):
 def ensure_restart_policy():
     """Make controller.service restart after ANY exit, not just failures.
 
-    controller.as exits cleanly (code 0) when a new release is applied, expecting
+    controller.allspeak exits cleanly (code 0) when a new release is applied, expecting
     the service to bring it straight back. Units written by an older
     rbr-setup.sh used Restart=on-failure, so that clean exit left the heating
     controller DOWN until the next hourly watchdog run. A drop-in is used so the
@@ -254,7 +254,7 @@ def _unit_state(unit):
 CHECK_FILES = [f for f in TARBALL_FILES if f != "VERSION"]
 
 # Units the update chain depends on. controller.service is optional — the
-# controller may legitimately be run manually (allspeak controller.as).
+# controller may legitimately be run manually (allspeak controller.allspeak).
 # A 4th field of "oneshot" marks units that are only active *while they run*
 # (Type=oneshot), so their active state is meaningless between runs: for those
 # only presence + enabled state are checked.
@@ -449,7 +449,7 @@ def main():
                         "restart the controller yourself to pick up new code"
                     )
 
-            # Make sure a *clean* controller exit also restarts it. controller.as
+            # Make sure a *clean* controller exit also restarts it. controller.allspeak
             # exits 0 when a new release lands (it expects to be restarted with
             # the new code), so Restart=on-failure would leave the heating
             # controller down until something else noticed. Idempotent.

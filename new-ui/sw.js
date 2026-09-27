@@ -24,7 +24,7 @@ const APP_SHELL = [
     './icons/icon-192.png',
     './icons/icon-512.png',
     './resources/css/tokens.css',
-    './resources/as/shell.as',
+    './resources/allspeak/shell.allspeak',
     './resources/json/seed-rooms.json',
     './resources/webson/layout.json',
     './resources/webson/top-bar.json',

@@ -5,21 +5,21 @@ Fix or implement requested behaviour with minimal collateral change.
 
 ## Repo-specific rules
 - Use Webson for UI structure updates in `resources/webson/*.json` or `new-ui/resources/webson/*.json`
-- Use AllSpeak scripts (`.as` files) for behaviour and flow updates
+- Use AllSpeak scripts (`.allspeak` files) for behaviour and flow updates
 - Keep element IDs stable unless all `attach`/`on click` references are updated
 - Prefer explicit state handling over hidden side effects
 - Controller changes: the 60-second cron cycle means changes take up to a minute to take effect on a live system
 
 ## Controller editing rules
-- `controller.as` uses the Python AllSpeak dialect; `use mqtt`, `use email` are available
+- `controller.allspeak` uses the Python AllSpeak dialect; `use mqtt`, `use email` are available
 - Mode values are strictly: `timed`, `boost`, `advance`, `on`, `off`
 - The map is represented as nested dictionaries; room state is mutated in place during `ProcessAllRooms`
 - Doc-block conventions apply — every section needs `!! prose ... !!!` (see `ALLSPEAK.md` and `asdoc-check.py`)
 - After editing, run `asdoc-check.py` to validate doc-block integrity
 
 ## UI editing rules
-- Two UI trees exist: legacy (`resources/as/` + `resources/webson/`) and new PWA (`new-ui/resources/as/` + `new-ui/resources/webson/`). Determine which one needs the change.
-- The new PWA shell (`new-ui/resources/as/shell.as`) is a long-running message loop. Sheets follow a consistent open→edit→Save/Cancel pattern.
+- Two UI trees exist: legacy (`resources/allspeak/` + `resources/webson/`) and new PWA (`new-ui/resources/allspeak/` + `new-ui/resources/webson/`). Determine which one needs the change.
+- The new PWA shell (`new-ui/resources/allspeak/shell.allspeak`) is a long-running message loop. Sheets follow a consistent open→edit→Save/Cancel pattern.
 - Webson JSON: every object needs `#element`, IDs use `@id`, children go in `#` key, child definitions prefixed with `$`
 - Serve with `python3 -m http.server <port>` in the repo root — UI needs HTTP not `file://`
 

@@ -4,7 +4,7 @@ A desktop version of the Room-By-Room UI, mirroring the **new-ui web PWA** desig
 
 ```
 desktop/
-├── rbr-desktop.as      AllSpeak app script (graphics + mqtt)
+├── rbr-desktop.allspeak      AllSpeak app script (graphics + mqtt)
 ├── rbr_ui.py           plugin: the RBR variable types (rbrwin, topbar,
 │                       profilesbar, room, sheet) and their commands
 ├── rbrwidgets.py       the PySide6 widgets (PWA-style presentation)
@@ -19,7 +19,7 @@ Run from this directory (the plugin files are resolved from the working director
 
 ```sh
 cd desktop
-allspeak rbr-desktop.as
+allspeak rbr-desktop.allspeak
 ```
 
 Connection settings come from `desktop/config.json` if present (`broker`, `port`, `mac`, `username`, `password` — copy `config.example.json` to `config.json` to make one); otherwise the app defaults to running **on the controller** (`localhost`). For another computer on the same LAN, set the broker to the controller's LAN IP — no internet needed, the router only carries LAN traffic.
@@ -45,7 +45,7 @@ pip install allspeak-ai pyside6
 git clone <rbr repo>  # or copy the desktop/ directory
 cd <repo>/desktop
 cp config.example.json config.json   # then edit the broker to the controller's LAN IP
-allspeak rbr-desktop.as
+allspeak rbr-desktop.allspeak
 ```
 
 The app needs the allspeak-py runtime fixes below — until they are upstream, run it with the patched runtime (this repo's `.scratch/` copy during development).
@@ -113,7 +113,7 @@ In CLI mode the main loop calls `flush()` only while `running=True` and breaks o
 
 ### 5. Direct-reply module messages (`allspeak/as_core.py`)
 
-The `send … to {module} and assign reply to {var}` path runs the child's on-message handler with `module.flush(module.onMessagePC)` — but a child module's main flow has usually ended (`stop` → `running=False`), and `flush()` only executes `while running`, so the handler never ran and the parent timed out with `No reply received from module "…"`. This is what kills `controller.as` at the first `send RoomSpec to DeviceModule` on current runtimes. Fix: wake the child before flushing:
+The `send … to {module} and assign reply to {var}` path runs the child's on-message handler with `module.flush(module.onMessagePC)` — but a child module's main flow has usually ended (`stop` → `running=False`), and `flush()` only executes `while running`, so the handler never ran and the parent timed out with `No reply received from module "…"`. This is what kills `controller.allspeak` at the first `send RoomSpec to DeviceModule` on current runtimes. Fix: wake the child before flushing:
 
 ```python
 module.running = True

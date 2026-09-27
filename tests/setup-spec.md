@@ -9,7 +9,7 @@ Run with: `./tests/run-setup-tests.sh`
 Verifies the basic infrastructure works:
 
 - Page loads with correct title ("RBR UI")
-- AllSpeak runtime loads and compiles rbr.as
+- AllSpeak runtime loads and compiles rbr.allspeak
 - MQTT connects to the local broker
 - Main screen renders (Webson DOM is built)
 - Banner shows "Room By Room"

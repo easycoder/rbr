@@ -13,20 +13,20 @@ Communication between controller and UI is via MQTT.
 ## Key files
 
 ### Controller
-- `controller.as` — main controller loop: loads map, processes rooms, manages MQTT, calls device control
-- `deviceControl.as` — device-level operations: Zigbee relay on/off, RBR-Now relay on/off, temperature reading
-- `simulator.as` — standalone simulator for testing controller logic without real hardware
+- `controller.allspeak` — main controller loop: loads map, processes rooms, manages MQTT, calls device control
+- `deviceControl.allspeak` — device-level operations: Zigbee relay on/off, RBR-Now relay on/off, temperature reading
+- `simulator.allspeak` — standalone simulator for testing controller logic without real hardware
 
 ### UI (legacy, served from root)
-- `index.html` — entry point, loads AllSpeak runtime and fetches `resources/as/rbr.as`
+- `index.html` — entry point, loads AllSpeak runtime and fetches `resources/allspeak/rbr.allspeak`
 - `resources/webson/*.json` — 40 Webson screen layouts
-- `resources/as/rbr.as` — main UI script
-- `resources/as/*.as` — supporting scripts (roomedit, profiles, statistics, etc.)
+- `resources/allspeak/rbr.allspeak` — main UI script
+- `resources/allspeak/*.allspeak` — supporting scripts (roomedit, profiles, statistics, etc.)
 
 ### UI (new PWA, served from `/new-ui/`)
 - `new-ui/index.html` — PWA entry point with service worker and manifest
-- `new-ui/resources/as/shell.as` — single ~2700-line shell script that boots the app, opens MQTT, renders the home screen, and routes all user gestures
-- `new-ui/resources/as/*.as` — supporting scripts (profile-sheet, schedule-editor, map-to-rooms, device-editor)
+- `new-ui/resources/allspeak/shell.allspeak` — single ~2700-line shell script that boots the app, opens MQTT, renders the home screen, and routes all user gestures
+- `new-ui/resources/allspeak/*.allspeak` — supporting scripts (profile-sheet, schedule-editor, map-to-rooms, device-editor)
 - `new-ui/resources/webson/*.json` — new UI Webson layouts
 - `new-ui/sw.js` — service worker with cache management
 
@@ -52,7 +52,7 @@ Communication between controller and UI is via MQTT.
 - AllSpeak Codex intro: https://easycoder.github.io/allspeak.ai/codex
 
 ## Practical workflow
-- Edit `.as` files directly; the human reviews that generated code reads sensibly
+- Edit `.allspeak` files directly; the human reviews that generated code reads sensibly
 - For JS runtime edits: update source in the allspeak repo, run `build-allspeak`, then `pin-allspeak.sh` to promote the dist file
 - For UI changes: update Webson JSON *and* matching AllSpeak `attach`/`on click` references together
 - Deploy with `./deploy.sh`; use `--release` to push the version stamp for customer controllers

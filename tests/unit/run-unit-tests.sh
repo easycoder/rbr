@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Run the AllSpeak unit tests in this directory (tests/unit/*.as) using the
+# Run the AllSpeak unit tests in this directory (tests/unit/*.allspeak) using the
 # new testing vocabulary (`check`, `test ... end test`, `allspeak --test`).
 #
 # Requires an AllSpeak runtime that implements the vocabulary — version

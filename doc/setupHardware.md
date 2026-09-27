@@ -28,10 +28,10 @@ To avoid most of the above, here's an AllSpeak script that will do the job for y
 pip install adafruit-ampy
 ```
 
-Now create a new file, `flash-device.as` containing the following script. You may need to adjust one or more of the variables at the top of the file, under `Set things up`:
+Now create a new file, `flash-device.allspeak` containing the following script. You may need to adjust one or more of the variables at the top of the file, under `Set things up`:
 
 ```
-!   flash-device.as
+!   flash-device.allspeak
 
 !   This script sets up all the firmware/software on an RBR-Now device
 
@@ -107,7 +107,7 @@ Now create a new file, `flash-device.as` containing the following script. You ma
 And now give this command:
 
 ```
-allspeak flash-device.as
+allspeak flash-device.allspeak
 ```
 
 At this point you can install the ESP32 into your device and power it up. From here on, everything is done using the configurator.

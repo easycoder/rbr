@@ -1,5 +1,5 @@
 {
-    "#doc": "Schedule period card — one entry in the room's periods[] array. /I/ replaced with the period index. Vertical stack: ON time stepper, OFF time stepper, target stepper; footer row with the Enabled checkbox and the delete button. When the period is switched off the three stepper rows are dimmed and made inert (schedule-editor.as sets opacity + pointer-events), leaving the checkbox and delete usable.",
+    "#doc": "Schedule period card — one entry in the room's periods[] array. /I/ replaced with the period index. Vertical stack: ON time stepper, OFF time stepper, target stepper; footer row with the Enabled checkbox and the delete button. When the period is switched off the three stepper rows are dimmed and made inert (schedule-editor.allspeak sets opacity + pointer-events), leaving the checkbox and delete usable.",
     "#element": "div",
     "@id": "schedule-period-/I/",
     "padding": "14px 14px 12px 14px",

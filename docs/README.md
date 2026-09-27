@@ -99,7 +99,7 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 |---|---|---|
 | 01-architecture.md | Components and message flow | `AI/ARCHITECTURE.md` |
 | 02-map-format.md | The map file | `AI/MAP_FORMAT.md` |
-| 03-device-control-and-bridge.md | Relays, thermometers, the Zigbee bridge | `deviceControl.as`, `zigbee-bridge.py` |
+| 03-device-control-and-bridge.md | Relays, thermometers, the Zigbee bridge | `deviceControl.allspeak`, `zigbee-bridge.py` |
 | 04-updates-and-deployment.md | How code reaches a controller | `doc/UPDATE-MECHANISM.md` |
 | 05-heating-data.md | The heating log format | `doc/HEATING-DATA.md` |
 | 06-controller-files.md | The file manifest | `doc/CONTROLLER-FILES.md` |

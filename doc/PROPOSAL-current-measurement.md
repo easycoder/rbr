@@ -9,7 +9,7 @@ The two present installations read temperatures and drive radiators, and know no
 Four constraints shape everything below.
 
 1. **A gas installation with no meters must be completely unaffected.** Not "degraded gracefully" — unaffected, with no new failure modes and no new startup cost. This is the reason for the `meters.json`-absent rule in §4.
-2. **The heating path must not become a power-monitoring program.** `controller.as` is already the largest file in the repo. Power flows are a separate concern with a separate failure mode, so they get their own module and their own config file, and `controller.as` gains four lines (§6).
+2. **The heating path must not become a power-monitoring program.** `controller.allspeak` is already the largest file in the repo. Power flows are a separate concern with a separate failure mode, so they get their own module and their own config file, and `controller.allspeak` gains four lines (§6).
 3. **Local only.** No cloud dependency, no vendor account, no reverse-engineered protocol. This is a product principle, not a preference — it is the difference between a "distributed appliance" and a smart-home gadget, and it settles the eddi question in §7.
 4. **Measure, don't infer.** A flow that is clamped is a measurement; a flow derived by subtraction is an assumption that silently absorbs every error. Where a flow matters, clamp it.
 
@@ -81,11 +81,11 @@ RBR builds Zigbee2MQTT from git master (`rbr-setup.sh`, `git clone --depth 1`), 
 ## 2. Data path
 
 ```
-zigbee2mqtt ──MQTT──▶ zigbee-bridge.py ──▶ zigbee-meters.json ──▶ meters.as ──┬──▶ powerlog.py        (history)
-                                                                (module)  ├──▶ message to controller.as ──▶ MQTT ──▶ UI
+zigbee2mqtt ──MQTT──▶ zigbee-bridge.py ──▶ zigbee-meters.json ──▶ meters.allspeak ──┬──▶ powerlog.py        (history)
+                                                                (module)  ├──▶ message to controller.allspeak ──▶ MQTT ──▶ UI
                                                                           └──▶ /tmp/rbr-flows.json ──▶ rbr-dashboard.py
 
-meters.json  (hand-maintained config)  ──────────────────────────────────▶ meters.as
+meters.json  (hand-maintained config)  ──────────────────────────────────▶ meters.allspeak
 ```
 
 The shape follows the existing thermometer path exactly — the bridge persists raw device state to a JSON file, and the controller-side code reads and merges it. Recognising that pattern is deliberate: `zigbee-temperatures.json` already proves it works, and it keeps the always-on observation in the daemon and the RBR-side reasoning in AllSpeak.
@@ -98,7 +98,7 @@ Three changes:
 
 1. **Passthrough.** Keep the meter-shaped keys for any device that publishes them, under a per-device `channels` dict.
 2. **`_update_meters_file()`**, mirroring `_update_temperatures_file()`: atomic write (`mkstemp` + `os.replace`) of `zigbee-meters.json`.
-3. **Surface on `/device/{name}`**, so `diagnose.as` can show meter readings without reading the file itself.
+3. **Surface on `/device/{name}`**, so `diagnose.allspeak` can show meter readings without reading the file itself.
 
 **No coupling to `meters.json`.** The bridge classifies a meter purely by the shape of its payload, so it never has to know which device is on which flow, and a smartplug's power reading lands in the same file for free.
 
@@ -132,15 +132,15 @@ Machine-specific, hand-maintained, never written by the controller: the `config.
 
 One flow cannot appear twice, and one meter name cannot appear twice: both are load-time errors rather than silent last-one-wins.
 
-## 5. `meters.as` — the module
+## 5. `meters.allspeak` — the module
 
-Started by `controller.as`, released to run concurrently, forked onto its own sampling loop. Read-only: it commands nothing.
+Started by `controller.allspeak`, released to run concurrently, forked onto its own sampling loop. Read-only: it commands nothing.
 
-**Lifecycle — the important design note.** An AllSpeak module is not a separate process. `run ... as MetersModule` plus `release parent` makes it a *cooperative thread in the controller's own interpreter*, and the controller exits after its six 10-second cycles. So `meters.as` lives at most ~60 seconds per controller run, and is re-started by the next cron invocation. Three consequences, all of which the design has to respect:
+**Lifecycle — the important design note.** An AllSpeak module is not a separate process. `run ... as MetersModule` plus `release parent` makes it a *cooperative thread in the controller's own interpreter*, and the controller exits after its six 10-second cycles. So `meters.allspeak` lives at most ~60 seconds per controller run, and is re-started by the next cron invocation. Three consequences, all of which the design has to respect:
 
 - **No long-lived connection and no in-memory continuity.** Anything that must survive belongs on disk. This is cheap here: the meters maintain their own cumulative `energy`/`produced_energy` counters in firmware, so RBR never needs to accumulate anything (§8).
 - **Sampling cadence is tied to the controller's 10-second cycle** — `fork` a loop that reads `zigbee-meters.json`, normalises, logs and then `wait 10 seconds`. The `wait` is not optional: a loop without one starves the controller's own threads and the UI, per `reference/11-cooperative-multitasking.md`.
-- **The bridge remains the only always-on observer.** It sees every 10-second report whether or not the controller is alive. `meters.as` is the reasoning and logging layer, not the observer. If continuous 24/7 sampling is ever needed, that is a bridge change, not a module change.
+- **The bridge remains the only always-on observer.** It sees every 10-second report whether or not the controller is alive. `meters.allspeak` is the reasoning and logging layer, not the observer. If continuous 24/7 sampling is ever needed, that is a bridge change, not a module change.
 
 **Cadence.** Five different rates are in play, and they are not the same thing. Conflating them is how a stale reading gets mistaken for a quiet house.
 
@@ -148,13 +148,13 @@ Started by `controller.as`, released to run concurrently, forked onto its own sa
 |---|---|---|---|
 | Report interval | the meter | `update_frequency: 10` | Mains-powered, so airtime is not precious; 10 s is the grid the rest of the system already runs on |
 | Ingestion | `zigbee-bridge.py` | event-driven, no rate of its own | Caches every report and stamps `last_seen`; the only process that is always running |
-| Sampling | `meters.as` | `wait 10 seconds` | Matches the meter's interval and the control cycle; sampling faster only re-reads the same value |
-| Control | `controller.as` | 6 × 10 s cycles, relaunched each minute | Unchanged by this proposal |
+| Sampling | `meters.allspeak` | `wait 10 seconds` | Matches the meter's interval and the control cycle; sampling faster only re-reads the same value |
+| Control | `controller.allspeak` | 6 × 10 s cycles, relaunched each minute | Unchanged by this proposal |
 | Logging | `powerlog.py` | On change, rounded to 10 W | Change-driven rows with forward-fill on read, the model [HEATING-DATA.md](HEATING-DATA.md) already documents for heating |
 
 10 s is chosen to match `heatlog`, whose rows are written on a change detected at the controller's own per-cycle cadence — so power and heating records land on the *same* time grid, and a join between them needs no resampling. Two further reasons favour it over 60 s: a heat pump's defrost cycles and short cycling are a few minutes long with distinctive power signatures, which a 60-second sample blurs but a 10-second sample resolves; and the PJ-1203A's late-flow-direction bug is bounded to one cycle, so a 10 s interval caps that artefact at 10 s rather than 60 s.
 
-The controller exits after its six cycles and is relaunched by cron, so there is a few seconds of startup gap each minute during which `meters.as` is not sampling. The bridge keeps observing throughout, so nothing is lost — the gap narrows the sampling resolution slightly, and it does not create a hole in the data.
+The controller exits after its six cycles and is relaunched by cron, so there is a few seconds of startup gap each minute during which `meters.allspeak` is not sampling. The bridge keeps observing throughout, so nothing is lost — the gap narrows the sampling resolution slightly, and it does not create a hole in the data.
 
 Two verification notes. First, these devices do not all honour `update_frequency` exactly, and `timestamp_a`/`timestamp_b` exist precisely to tell you when a value was *measured* as opposed to published — confirm the real period from those after a day rather than trusting the setting. Second, 10 s is the right default for a reference installation, not a universal law: on a congested mesh (the failure mode `setupRBR.md` describes, where relays intermittently fail to switch), relax it to 30–60 s, since the staleness threshold below scales with the interval.
 
@@ -175,20 +175,20 @@ with `state` one of `fresh` / `stale` / `unknown`, and `watts` already normalise
 | controller → module | `{ "request": "flows" }` | `{ grid: {...}, solar: {...}, ... }` |
 | module → parent | `Flows` on change | — |
 
-The module pushes on change so the controller can forward flows to the UI, and answers on demand so the dashboard and `diagnose.as` can ask. This is the only coupling between the two, and it is one message shape in each direction.
+The module pushes on change so the controller can forward flows to the UI, and answers on demand so the dashboard and `diagnose.allspeak` can ask. This is the only coupling between the two, and it is one message shape in each direction.
 
-## 6. `controller.as` — the four-line footprint
+## 6. `controller.allspeak` — the four-line footprint
 
 ```as
 module MetersModule                     ! declaration, beside DeviceModule
     ...
-if file `meters.json` exists run `meters.as` as MetersModule
+if file `meters.json` exists run `meters.allspeak` as MetersModule
 else log `No meters.json — power measurement disabled`
     ...
 send MeterRequest to MetersModule and assign reply to MeterReadings
 ```
 
-That is the whole footprint: a declaration, a guarded `run`, and a passthrough that hands flow data to the existing MAP publication unchanged. The guarded `run` follows the `sim` / `deviceControl.as` pattern already at `controller.as:159`, so the shape is not new. `controller.as` never learns what a flow means or how many there are. Anything beyond this belongs in `meters.as` — if a future change needs `controller.as` to understand a *flow*, that is the signal the boundary has been drawn in the wrong place.
+That is the whole footprint: a declaration, a guarded `run`, and a passthrough that hands flow data to the existing MAP publication unchanged. The guarded `run` follows the `sim` / `deviceControl.allspeak` pattern already at `controller.allspeak:159`, so the shape is not new. `controller.allspeak` never learns what a flow means or how many there are. Anything beyond this belongs in `meters.allspeak` — if a future change needs `controller.allspeak` to understand a *flow*, that is the signal the boundary has been drawn in the wrong place.
 
 ## 7. Why the eddi is not integrated
 
@@ -220,9 +220,9 @@ A twin of `heatlog.py`, on purpose — the same writer contract keeps one concep
 
 ## 10. Diagnosis and display
 
-- **`diagnose.as`:** a meters section listing each configured flow, its meter and channel, the last reading, its age and state, plus any meter seen in `zigbee-meters.json` that `meters.json` does not reference (and vice versa). This is where a friendly-name mismatch surfaces, exactly as it does for rooms — the single most likely installation error, and the one `setupRBR.md` already warns about.
+- **`diagnose.allspeak`:** a meters section listing each configured flow, its meter and channel, the last reading, its age and state, plus any meter seen in `zigbee-meters.json` that `meters.json` does not reference (and vice versa). This is where a friendly-name mismatch surfaces, exactly as it does for rooms — the single most likely installation error, and the one `setupRBR.md` already warns about.
 
-  It should also print each meter's `supported` flag and its fingerprint. Both are already available and both are currently dropped: `zigbee2mqtt/bridge/devices` carries `modelID` and `manufacturerName` per device, `_handle_bridge_devices` in `zigbee-bridge.py` keeps only `ieee`, `type`, `model`, `vendor` and `supported`, and `diagnose.as` prints only `type=` and `model=`. So the two fields that identify an unsupported white-label meter are exactly the two that go missing. `supported: false` *plus* the fingerprint is the message that says "this unit needs an external converter", and it belongs in RBR's own output rather than in a Zigbee2MQTT log the installer has to go digging for.
+  It should also print each meter's `supported` flag and its fingerprint. Both are already available and both are currently dropped: `zigbee2mqtt/bridge/devices` carries `modelID` and `manufacturerName` per device, `_handle_bridge_devices` in `zigbee-bridge.py` keeps only `ieee`, `type`, `model`, `vendor` and `supported`, and `diagnose.allspeak` prints only `type=` and `model=`. So the two fields that identify an unsupported white-label meter are exactly the two that go missing. `supported: false` *plus* the fingerprint is the message that says "this unit needs an external converter", and it belongs in RBR's own output rather than in a Zigbee2MQTT log the installer has to go digging for.
 - **`rbr-dashboard.py`:** meter data goes in the `/tmp/rbr-dashboard.json` payload the controller already writes, rendered as a separate flows panel. It is a fixed-column per-room renderer and should not grow flow columns.
 - **UI:** a flows view of its own, fed by the MQTT passthrough in §6. Flows are not rooms and should not be squeezed into the room list.
 
@@ -234,13 +234,13 @@ Each step is independently verifiable, and the order keeps a broken step from be
 |---|---|---|
 | 1 | Bridge passthrough + `zigbee-meters.json` + `manufacturerName`/`modelID` capture in `_handle_bridge_devices` | `curl localhost:8889/device/Mains-meter` shows per-channel fields while a load is switched, and `/devices` shows the fingerprint |
 | 2 | `powerlog.py` | `tests/unit/powerlog_test.py`, matching `heatlog_test.py` |
-| 3 | `meters.json` + `meters.as` skeleton: load, sample, normalise, log | a hand-written `zigbee-meters.json` and a `sim` file — no hardware needed, as `simulator.as` already demonstrates |
-| 4 | `controller.as` wiring (§6) | controller logs no new errors with `meters.json` absent, and flows appear when present |
-| 5 | `diagnose.as` | an unmatched meter name is reported, and each meter shows its `supported` flag and fingerprint |
+| 3 | `meters.json` + `meters.allspeak` skeleton: load, sample, normalise, log | a hand-written `zigbee-meters.json` and a `sim` file — no hardware needed, as `simulator.allspeak` already demonstrates |
+| 4 | `controller.allspeak` wiring (§6) | controller logs no new errors with `meters.json` absent, and flows appear when present |
+| 5 | `diagnose.allspeak` | an unmatched meter name is reported, and each meter shows its `supported` flag and fingerprint |
 | 6 | Dashboard panel, then the UI view | — |
-| 7 | Shipping: `meters.as` and `powerlog.py` into `TARBALL_FILES` in `rbr-updater.py` and both file lists in `deploy.sh`; `meters.as` and `powerlog.py` into the `controller.service` dependency tuple (the `heatlog.py` precedent); `powerlog-root` into `rbr-setup.sh`; `meters.as`, `powerlog.py`, `meters.json`, `powerlog-root`, `zigbee-meters.json` into `CONTROLLER-FILES.md` | a fresh install and an update both land the files |
+| 7 | Shipping: `meters.allspeak` and `powerlog.py` into `TARBALL_FILES` in `rbr-updater.py` and both file lists in `deploy.sh`; `meters.allspeak` and `powerlog.py` into the `controller.service` dependency tuple (the `heatlog.py` precedent); `powerlog-root` into `rbr-setup.sh`; `meters.allspeak`, `powerlog.py`, `meters.json`, `powerlog-root`, `zigbee-meters.json` into `CONTROLLER-FILES.md` | a fresh install and an update both land the files |
 
-Note that `meters.as` is **not** a new service — it is a module inside `controller.service` — so `rbr-watchdog.sh` needs no change.
+Note that `meters.allspeak` is **not** a new service — it is a module inside `controller.service` — so `rbr-watchdog.sh` needs no change.
 
 ## 12. Not in this phase
 

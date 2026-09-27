@@ -6,9 +6,9 @@ This is an **English** AllSpeak project. Communicate with the user in English. G
 
 ## What is AllSpeak
 
-AllSpeak is a scripting language designed to read like natural human language. Scripts use the `.as` file extension. AllSpeak runs in the browser (JavaScript version) or from the terminal (Python version) — or both together.
+AllSpeak is a scripting language designed to read like natural human language. Scripts use the `.allspeak` file extension. AllSpeak runs in the browser (JavaScript version) or from the terminal (Python version) — or both together.
 
-AllSpeak uses an **AI-writes, human-reviews** workflow. The AI generates `.as` code; the human checks that it reads sensibly and questions anything unclear. Use the full language — don't avoid a command because it might be unfamiliar. The human only needs to read it, not write it from memory.
+AllSpeak uses an **AI-writes, human-reviews** workflow. The AI generates `.allspeak` code; the human checks that it reads sensibly and questions anything unclear. Use the full language — don't avoid a command because it might be unfamiliar. The human only needs to read it, not write it from memory.
 
 ## Reference — read this when writing AllSpeak
 
@@ -120,31 +120,31 @@ When in doubt, consult `learn/` rather than guessing.
 
 4. **Create the project files** based on the answer:
 
-   - **Command-line**: Create `<project>.as` from the CLI template below.
-   - **GUI**: Create `<project>.html`, `<project>-main.as`, and `<project>.json` from the GUI templates below.
+   - **Command-line**: Create `<project>.allspeak` from the CLI template below.
+   - **GUI**: Create `<project>.html`, `<project>-main.allspeak`, and `<project>.json` from the GUI templates below.
    - **Both**: Create all files.
 
 5. **Create `.allspeak-init`** containing the project name and type (cli/gui/both) so this setup is not repeated.
 
 6. **Explain to the user how to run their project:**
 
-   - **CLI**: Run with `allspeak <project>.as`.
-   - **GUI**: Run with `allspeak server.as -t <project> [port]` (default port `8080`). `server.as` starts a local HTTP server, then opens the user's default browser to `http://localhost:<port>/<project>.html` automatically. The browser tab is the app's UI; closing the server (Ctrl+C) closes the app. This single command is what gets baked into Start-menu shortcuts. The AllSpeak runtime is still loaded from the CDN; `server.as` only serves project files.
+   - **CLI**: Run with `allspeak <project>.allspeak`.
+   - **GUI**: Run with `allspeak server.allspeak -t <project> [port]` (default port `8080`). `server.allspeak` starts a local HTTP server, then opens the user's default browser to `http://localhost:<port>/<project>.html` automatically. The browser tab is the app's UI; closing the server (Ctrl+C) closes the app. This single command is what gets baked into Start-menu shortcuts. The AllSpeak runtime is still loaded from the CDN; `server.allspeak` only serves project files.
 
 7. **Walk the user through how the files work together.** For GUI projects, explain:
 
-   - The HTML file is just a launcher — it loads the AllSpeak runtime and runs a tiny bootstrap script that fetches the main `.as` file.
-   - The `.as` file is the program logic. It creates a body element, fetches the `.json` layout, and uses `render` to turn the JSON into real page elements. It then `attach`es to those elements by their `@id` to interact with them.
+   - The HTML file is just a launcher — it loads the AllSpeak runtime and runs a tiny bootstrap script that fetches the main `.allspeak` file.
+   - The `.allspeak` file is the program logic. It creates a body element, fetches the `.json` layout, and uses `render` to turn the JSON into real page elements. It then `attach`es to those elements by their `@id` to interact with them.
    - The `.json` file defines the page layout using Webson — a JSON format where keys like `#element` create HTML elements, `@id` (and any `@<name>`) set attributes, `#content` sets text, `$Name` defines named components, `#` lists children, and any other key is a CSS style. Full details in `learn/reference/14-browser-and-webson.md`.
    - This separation means the layout can be changed without touching the code, and vice versa.
 
-   For CLI projects, explain that the `.as` file is a standalone script run from the terminal, and walk through what each line does.
+   For CLI projects, explain that the `.allspeak` file is a standalone script run from the terminal, and walk through what each line does.
 
-8. **Explain the included editor.** The project directory includes `edit.html`, `asedit.as`, and `asedit.json`, which provide a browser-based code editor with syntax highlighting. To work on the project with the editor open alongside it (a developer convenience), run:
+8. **Explain the included editor.** The project directory includes `edit.html`, `asedit.allspeak`, and `asedit.json`, which provide a browser-based code editor with syntax highlighting. To work on the project with the editor open alongside it (a developer convenience), run:
 
-   `allspeak server.as -t edit,<project> [port]`
+   `allspeak server.allspeak -t edit,<project> [port]`
 
-   This opens two browser tabs — `edit.html` and `<project>.html` — both served by the same `server.as` instance. The editor lets you open, edit, and save `.as`, `.json`, `.html` and other project files. End users only ever need `allspeak server.as -t <project> [port]`; the `edit,` prefix is a developer convenience.
+   This opens two browser tabs — `edit.html` and `<project>.html` — both served by the same `server.allspeak` instance. The editor lets you open, edit, and save `.allspeak`, `.json`, `.html` and other project files. End users only ever need `allspeak server.allspeak -t <project> [port]`; the `edit,` prefix is a developer convenience.
 
 9. **Ask what they'd like to build.** From here, just respond to what the user wants.
 
@@ -157,7 +157,7 @@ When in doubt, consult `learn/` rather than guessing.
 ## CLI template
 
 ```
-!   <project>.as
+!   <project>.allspeak
 
     script <Project>
 
@@ -176,7 +176,7 @@ When in doubt, consult `learn/` rather than guessing.
 A GUI project uses three files:
 
 - **`<project>.html`** — minimal HTML launcher
-- **`<project>-main.as`** — AllSpeak script (code)
+- **`<project>-main.allspeak`** — AllSpeak script (code)
 - **`<project>.json`** — Webson layout (UI definition as JSON)
 
 ### `<project>.html`
@@ -191,7 +191,7 @@ A GUI project uses three files:
 <body>
     <pre id="allspeak-script" style="display:none">
     variable Script
-    rest get Script from `<project>-main.as`
+    rest get Script from `<project>-main.allspeak`
     run Script
     </pre>
     <script>
@@ -207,10 +207,10 @@ A GUI project uses three files:
 </html>
 ```
 
-### `<project>-main.as`
+### `<project>-main.allspeak`
 
 ```
-!   <project>-main.as
+!   <project>-main.allspeak
 
     script <Project>
 

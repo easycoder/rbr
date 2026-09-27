@@ -59,18 +59,18 @@ sleep 1
 
 # 3. Start the controller (with simulator) from the tests directory
 # Kill any stray controller from a previous run
-pkill -f "allspeak controller.as" 2>/dev/null || true
+pkill -f "allspeak controller.allspeak" 2>/dev/null || true
 sleep 1
 # Copy controller scripts (symlinks don't work - AllSpeak resolves them)
-cp "$PROJECT_DIR/controller.as" "$SCRIPT_DIR/controller.as"
-cp "$PROJECT_DIR/simulator.as" "$SCRIPT_DIR/simulator.as"
-cp "$PROJECT_DIR/deviceControl.as" "$SCRIPT_DIR/deviceControl.as"
+cp "$PROJECT_DIR/controller.allspeak" "$SCRIPT_DIR/controller.allspeak"
+cp "$PROJECT_DIR/simulator.allspeak" "$SCRIPT_DIR/simulator.allspeak"
+cp "$PROJECT_DIR/deviceControl.allspeak" "$SCRIPT_DIR/deviceControl.allspeak"
 # Clean state before starting so the controller loads a fresh empty map
 rm -f "$SCRIPT_DIR/map-sim.json"
 rm -f "$SCRIPT_DIR/params.json" "$SCRIPT_DIR/thermometers.json"
 echo "Starting controller with simulator..."
 cd "$SCRIPT_DIR"
-allspeak controller.as &
+allspeak controller.allspeak &
 CONTROLLER_PID=$!
 cd "$PROJECT_DIR"
 

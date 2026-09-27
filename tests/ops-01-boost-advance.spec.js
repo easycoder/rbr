@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const { setSchedule } = require('./helpers/schedule');
-// NOTE: run-ops-tests.sh patches the test-copy of controller.as so the boost
+// NOTE: run-ops-tests.sh patches the test-copy of controller.allspeak so the boost
 // duration is interpreted in seconds rather than minutes. Clicking "1 hr"
 // therefore expires in 60 real seconds, which is what makes this test viable.
 
@@ -8,7 +8,7 @@ const LR_IDX = 1;
 const LR_NAME = 'Living Room';
 
 // Observing state via map-sim.json doesn't work: the controller only writes
-// that file every 60s (controller.as:363-370). Instead these tests observe
+// that file every 60s (controller.allspeak:363-370). Instead these tests observe
 // UI state through the DOM — the controller pushes MapHasChanged updates to
 // UIs over MQTT within ~1s of a change, so the mode button's text / info
 // reflect controller state quickly.

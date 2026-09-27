@@ -89,4 +89,4 @@ If you ever need to tell "room was off" from "room was satisfied at target", the
 ## Testing
 
 - `tests/unit/heatlog_test.py` — the writer (path/date derivation, symlink root, CLI). Runs via `tests/unit/run-unit-tests.sh` or directly.
-- `tests/unit/unit-09-heatlog.as` — the controller-side decision logic (rounding, mode letters/off-mode rule, change predicate), mirrored from `HeatlogRecord` in `controller.as`.
+- `tests/unit/unit-09-heatlog.allspeak` — the controller-side decision logic (rounding, mode letters/off-mode rule, change predicate), mirrored from `HeatlogRecord` in `controller.allspeak`.

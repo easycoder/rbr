@@ -415,7 +415,7 @@ echo "  Note: mail credentials are placeholders — update if you need email fea
 # ===========================================================================
 # STEP 5c — config.json placeholder (Zigbee-only systems)
 # ===========================================================================
-# deviceControl.as does an unguarded `load Config from config.json` to find
+# deviceControl.allspeak does an unguarded `load Config from config.json` to find
 # the IP of the RBR-Now master device, so the file must exist even on a
 # system with no RBR-Now hardware: without it the controller dies on startup
 # and controller.service crash-loops ("Unable to read from config.json").
@@ -680,8 +680,8 @@ WorkingDirectory=${RBR_DIR}
 Environment=PYTHONUNBUFFERED=1
 # --no-dashboard: the terminal dashboard repaints a console, and a service
 # has none — its output would only pile up in the journal. Run
-# 'allspeak controller.as' by hand (without the flag) to see the dashboard.
-ExecStart=${ALLSPEAK_BIN} controller.as --no-dashboard
+# 'allspeak controller.allspeak' by hand (without the flag) to see the dashboard.
+ExecStart=${ALLSPEAK_BIN} controller.allspeak --no-dashboard
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -728,7 +728,7 @@ Type=simple
 User=${RBR_USER}
 WorkingDirectory=${RBR_DIR}/desktop
 Environment=QT_QPA_PLATFORM=xcb
-ExecStart=${ALLSPEAK_BIN} rbr-desktop.as
+ExecStart=${ALLSPEAK_BIN} rbr-desktop.allspeak
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -799,7 +799,7 @@ echo "    sudo journalctl -u zigbee2mqtt -f"
 echo "    sudo journalctl -u rbr-zigbee-bridge -f"
 echo ""
 echo "  Run the controller:"
-echo "    cd $RBR_DIR && allspeak controller.as"
+echo "    cd $RBR_DIR && allspeak controller.allspeak"
 echo ""
 echo "  Re-run this script on another machine:"
 echo "    sudo ./rbr-setup.sh"

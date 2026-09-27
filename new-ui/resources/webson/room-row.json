@@ -1,5 +1,5 @@
 {
-    "#doc": "RoomRow card. Outer is a column flex; the rest-row is always visible, the expansion block is hidden until shell.as toggles it. /I/ is substituted with the room's list index per render.",
+    "#doc": "RoomRow card. Outer is a column flex; the rest-row is always visible, the expansion block is hidden until shell.allspeak toggles it. /I/ is substituted with the room's list index per render.",
     "#element": "div",
     "@id": "room-/I/-card",
     "background": "var(--color-surface-card)",
@@ -214,7 +214,7 @@
         },
 
         "$InfoBtn": {
-            "#doc": "Tap to open the room info sheet (relay state, last reading, battery, etc). The button's click handler in shell.as cancels event propagation, so a tap here opens the info sheet instead of toggling the row's expansion.",
+            "#doc": "Tap to open the room info sheet (relay state, last reading, battery, etc). The button's click handler in shell.allspeak cancels event propagation, so a tap here opens the info sheet instead of toggling the row's expansion.",
             "#element": "button",
             "@id": "room-/I/-info-btn",
             "@aria-label": "Room info",

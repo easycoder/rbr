@@ -57,21 +57,21 @@ python3 -m http.server 9000 --directory "$SCRIPT_DIR" 2>/dev/null &
 PIDS+=($!)
 sleep 1
 
-pkill -f "allspeak controller.as" 2>/dev/null || true
+pkill -f "allspeak controller.allspeak" 2>/dev/null || true
 sleep 1
-cp "$PROJECT_DIR/controller.as" "$SCRIPT_DIR/controller.as"
-cp "$PROJECT_DIR/simulator.as" "$SCRIPT_DIR/simulator.as"
-cp "$PROJECT_DIR/deviceControl.as" "$SCRIPT_DIR/deviceControl.as"
+cp "$PROJECT_DIR/controller.allspeak" "$SCRIPT_DIR/controller.allspeak"
+cp "$PROJECT_DIR/simulator.allspeak" "$SCRIPT_DIR/simulator.allspeak"
+cp "$PROJECT_DIR/deviceControl.allspeak" "$SCRIPT_DIR/deviceControl.allspeak"
 # Test-only patch: treat boost duration as seconds instead of minutes so a
 # click on "1 hr" expires in 60 real seconds. Matches the lone
-# `multiply T by 60000$` on the boost-request path (controller.as:1259);
+# `multiply T by 60000$` on the boost-request path (controller.allspeak:1259);
 # the other 60000 occurrences end with ` giving Time` so are unaffected.
-sed -i 's/multiply T by 60000$/multiply T by 1000/' "$SCRIPT_DIR/controller.as"
+sed -i 's/multiply T by 60000$/multiply T by 1000/' "$SCRIPT_DIR/controller.allspeak"
 # NOTE: do not delete map-sim.json — ops tests run against the setup map.
 rm -f "$SCRIPT_DIR/params.json" "$SCRIPT_DIR/thermometers.json"
 echo "Starting controller with simulator..."
 cd "$SCRIPT_DIR"
-allspeak controller.as &
+allspeak controller.allspeak &
 CONTROLLER_PID=$!
 cd "$PROJECT_DIR"
 

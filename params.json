@@ -47,7 +47,7 @@
         "ceiling": 23,
         "boost": 50
     },
-    "device_script": "roomController.ecs",
+    "device_script": "roomController.allspeak",
     "null": {
         "rate-up": 10,
         "rate-down": 10,

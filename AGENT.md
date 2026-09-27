@@ -14,8 +14,8 @@ Communication between controller and UI is via MQTT (broker: `rbrheating.duckdns
 
 ## Key Technologies
 
-- **AllSpeak**: A high-level scripting language with both Python and JavaScript dialects. Scripts use the `.as` extension. The Python runtime is in the AllSpeak repository. The JS runtime modules are loaded from `allspeak.js` via CDN. `ALLSPEAK.md` contains essential primer information for using the language.
-- **Webson**: JSON-based DOM rendering. Layout definitions are in `resources/webson/*.json`. Element IDs in Webson must stay in sync with `.as` scripts that attach to them.
+- **AllSpeak**: A high-level scripting language with both Python and JavaScript dialects. Scripts use the `.allspeak` extension. The Python runtime is in the AllSpeak repository. The JS runtime modules are loaded from `allspeak.js` via CDN. `ALLSPEAK.md` contains essential primer information for using the language.
+- **Webson**: JSON-based DOM rendering. Layout definitions are in `resources/webson/*.json`. Element IDs in Webson must stay in sync with `.allspeak` scripts that attach to them.
 - **MQTT**: All controller-UI communication. Broker `rbrheating.duckdns.org` (port 8883 for Python/controller, port 443 for the JS/UI websocket). Two accounts per system: the bridge on the box, whose password lives only in `/etc/mosquitto/conf.d/rbr-local.conf`, and the account the UI pages use, fenced to that system's topics and vended by `credentials.php` only to a paired device (MAC + token). The system's identity is `~/.mac_override` (currently `00:e0:27:5b:31:40`), not the NIC's MAC, and it is the topic namespace as well as the registration key in `rbr-users.json`.
 - **Zigbee** and **RBR-Now** (legacy): Used for controller-to-device communication
 
@@ -23,22 +23,22 @@ Communication between controller and UI is via MQTT (broker: `rbrheating.duckdns
 
 ```bash
 # Run the controller (checks for existing instance)
-allspeak controller.as
+allspeak controller.allspeak
 
 # The controller self-times 6 cycles of 10 seconds each, then exits.
 # It is normally re-launched every 60 seconds, either by cron or a
 # process supervisor — check which mechanism is in use on the target.
 ```
 
-The UI is a static webapp — must be served via HTTP (not `file://`) because it uses XHR to load scripts. Run `allspeak server.as <port>>` and open `http://localhost:><port></index.html`. The UI prompts for the MQTT password on first use and stores it in localStorage.
+The UI is a static webapp — must be served via HTTP (not `file://`) because it uses XHR to load scripts. Run `allspeak server.allspeak <port>>` and open `http://localhost:><port></index.html`. The UI prompts for the MQTT password on first use and stores it in localStorage.
 
 ## Repository Structure
 
-- `controller.as` — Main controller script (AllSpeak Python dialect)
-- `deviceControl.as` — Device control logic for RBR-Now relay/thermometer devices
-- `simulator.as` — Controller simulator for testing without hardware
+- `controller.allspeak` — Main controller script (AllSpeak Python dialect)
+- `deviceControl.allspeak` — Device control logic for RBR-Now relay/thermometer devices
+- `simulator.allspeak` — Controller simulator for testing without hardware
 - `resources/allspeak/` — JavaScript AllSpeak runtime modules (Core.js, Browser.js, Webson.js, etc.)
-- `resources/as/` — UI AllSpeak scripts (rbr.as is main, plus mode/calendar/statistics/etc.)
+- `resources/allspeak/` — UI AllSpeak scripts (rbr.allspeak is main, plus mode/calendar/statistics/etc.)
 - `resources/webson/` — Webson JSON UI layout definitions
 - `resources/css/`, `resources/icon/`, `resources/img/` — Static assets
 - `RBRNow/` — MicroPython firmware for ESP32 devices (master/slave networking via ESP-Now)
@@ -51,7 +51,7 @@ The UI is a static webapp — must be served via HTTP (not `file://`) because it
 ## Working Rules
 
 - **AllSpeak scripts are the source of truth for behavior** — make surgical changes, preserve command vocabulary and flow, prefer existing labels/subroutines
-- **Webson JSON defines UI structure** — renaming element IDs requires matching changes in `.as` scripts
+- **Webson JSON defines UI structure** — renaming element IDs requires matching changes in `.allspeak` scripts
 - **No build tools required** — the system runs directly from source files
 - If editing AllSpeak JS runtime modules, rebuild with `build-allspeak` in the allspeak repo
 - Symlinks to AllSpeak sources can be refreshed with `relink-allspeak.sh`
@@ -66,11 +66,11 @@ The UI is a static webapp — must be served via HTTP (not `file://`) because it
 
 ## AllSpeak Language Reference
 
-Use `/as-js` for JS dialect context and `/as-python` for Python dialect context. Use `/as-review` to check `.as` files for syntax correctness.
+Use `/as-js` for JS dialect context and `/as-python` for Python dialect context. Use `/as-review` to check `.allspeak` files for syntax correctness.
 
-## Doc blocks — required for new `.as` code
+## Doc blocks — required for new `.allspeak` code
 
-Every section of new `.as` code must be wrapped in a doc block:
+Every section of new `.allspeak` code must be wrapped in a doc block:
 
     !! Brief explanation of what this section does and why it exists.
     !! Use multiple lines as needed. A bare `!!` line is a paragraph break.
@@ -89,8 +89,8 @@ Rules:
 
 Both implementations of the analyser validate the same convention:
 - `./asdoc-check.py` — Python CLI, recursive over a directory
-- `./asdoc-check-cli.as` — runs under the Python AllSpeak runtime
-- (browser-side parsing also lives inline in `asedit.as` for the editor)
+- `./asdoc-check-cli.allspeak` — runs under the Python AllSpeak runtime
+- (browser-side parsing also lives inline in `asedit.allspeak` for the editor)
 
 ## Markdown documentation — one paragraph, one line
 
@@ -103,7 +103,7 @@ The documentation is copied into a Doclet structure for easier (and remote) view
 - **Keep the line structure that carries meaning.** Headings, tables (one row per line, plus the header separator), blockquotes and fenced code blocks each stay on their own lines.
 - **The metadata blockquote is one line.** The `> **Audience:** … · **Status:** … · **Last verified:** …` line at the top of a document is a single blockquote line, not several hard-broken ones.
 
-This is the Markdown counterpart of the `.as` doc-block rule above ("One paragraph = one line"), and the reasoning is the same in both cases: the editor shows long lines, the reader sees real paragraphs, and the tools do not care about line length.
+This is the Markdown counterpart of the `.allspeak` doc-block rule above ("One paragraph = one line"), and the reasoning is the same in both cases: the editor shows long lines, the reader sees real paragraphs, and the tools do not care about line length.
 
 Existing `.md` files predate this rule and are still hard-wrapped. Reflow them as you touch them, taking care with indented code blocks, nested lists and callouts, whose layout must be preserved.
 

@@ -22,8 +22,8 @@ package-lock.json
 tests/map-sim.json
 tests/params.json
 tests/thermometers.json
-tests/controller.as
-tests/simulator.as
-tests/deviceControl.as
+tests/controller.allspeak
+tests/simulator.allspeak
+tests/deviceControl.allspeak
 desktop/config.json
 test-results/

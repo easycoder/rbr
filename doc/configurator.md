@@ -53,7 +53,7 @@ where the `-U` option makes sure that any older version you may have will be upd
 ln -s ~/.local/bin/allspeak ec
 ```
 
-Next, create a text file `rbrconf.ecs` containing the following:
+Next, create a text file `rbrconf.allspeak` containing the following:
 
 ```
 !   RBR-Now configuration
@@ -63,10 +63,10 @@ Next, create a text file `rbrconf.ecs` containing the following:
    variable Script
    module RBRConfig
 
-   get Script from url `https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/rbrconf.ecs`
-   save Script to `.rbrconf.ecs`
-   run `.rbrconf.ecs` as RBRConfig
-   delete file `.rbrconf.ecs`
+   get Script from url `https://raw.githubusercontent.com/easycoder/rbr/refs/heads/main/rbrconf.allspeak`
+   save Script to `.rbrconf.allspeak`
+   run `.rbrconf.allspeak` as RBRConfig
+   delete file `.rbrconf.allspeak`
    exit
 ```
 
@@ -75,7 +75,7 @@ The line `get Script from url …` is a single line. It probably shows wrapped i
 Now issue this command:
 
 ```
-allspeak rbrconf.ecs
+allspeak rbrconf.allspeak
 ```
 
 When the script runs it pulls the latest configurator code from the repository and runs that. So you never need to update the configurator yourself.

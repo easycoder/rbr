@@ -1,5 +1,5 @@
 {
-    "#doc": "Reusable bottom-sheet chrome: scrim + container + header + empty content slot. shell.as toggles pointer-events + opacity + transform to open/close; CSS transitions do the animation.",
+    "#doc": "Reusable bottom-sheet chrome: scrim + container + header + empty content slot. shell.allspeak toggles pointer-events + opacity + transform to open/close; CSS transitions do the animation.",
     "#element": "div",
     "@id": "sheet-root",
     "position": "fixed",

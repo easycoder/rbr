@@ -3,7 +3,7 @@
 zigbee-bridge.py - HTTP/MQTT bridge for Zigbee2MQTT integration with RBR
 
 Connects to the MQTT broker, subscribes to zigbee2mqtt/# topics,
-and provides a local HTTP interface for deviceControl.ecs to send
+and provides a local HTTP interface for deviceControl.allspeak to send
 relay commands to Zigbee smartplugs.
 
 Also collects Zigbee thermometer data and writes it to
@@ -182,7 +182,7 @@ def on_message(client, userdata, msg):
     # "online"/"offline" (zigbee2mqtt configured with availability: true).
     # This is the reliable signal that a device — e.g. a powered-down relay —
     # has stopped responding: its state messages simply stop arriving, so the
-    # cached state alone can never reveal it. deviceControl.as is told the
+    # cached state alone can never reveal it. deviceControl.allspeak is told the
     # device is non-responsive via the HTTP handler below.
     parts = topic.split("/")
     if len(parts) == 3 and parts[2] == "availability":
@@ -379,7 +379,7 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
 
             # A device that zigbee2mqtt reports offline (or that hasn't been
             # seen for a long time) is non-responsive. Return a body with no
-            # `state` field so deviceControl.as counts the reply as a relay
+            # `state` field so deviceControl.allspeak counts the reply as a relay
             # failure and the controller can flag the room, instead of
             # trusting a stale cached state (e.g. an "off" from days ago).
             if not _device_responding(state, device_name):
@@ -404,7 +404,7 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
             # A commanded state the device never confirmed did not take
             # effect — report it as a failure rather than a silent success.
             # Note: the body must NOT carry a `state` key, or
-            # deviceControl.as would count it as a healthy reply.
+            # deviceControl.allspeak would count it as a healthy reply.
             if desired_state and relay_state.upper() != desired_state:
                 self._respond(200, {
                     "error": f"device {device_name} did not confirm "
@@ -413,7 +413,7 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
                 })
                 return
 
-            # Return response in a format deviceControl.ecs can parse
+            # Return response in a format deviceControl.allspeak can parse
             self._respond(200, {
                 "state": relay_state,
                 "uptime": 0,

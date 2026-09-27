@@ -1,5 +1,5 @@
 {
-    "#doc": "Profile pill rendered into the calendar day-picker. /I/ replaced with the profile index. shell.as fills the label (profile name) and wires the click.",
+    "#doc": "Profile pill rendered into the calendar day-picker. /I/ replaced with the profile index. shell.allspeak fills the label (profile name) and wires the click.",
     "#element": "button",
     "@id": "calendar-day-pill-/I/",
     "padding": "6px 12px",

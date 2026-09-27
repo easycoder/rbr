@@ -52,12 +52,12 @@ python3 -m http.server 9000 --directory "$SCRIPT_DIR" 2>/dev/null &
 PIDS+=($!)
 
 # Copy controller scripts (symlinks don't work - AllSpeak resolves them)
-cp "$PROJECT_DIR/controller.as" "$SCRIPT_DIR/controller.as"
-cp "$PROJECT_DIR/simulator.as" "$SCRIPT_DIR/simulator.as"
-cp "$PROJECT_DIR/deviceControl.as" "$SCRIPT_DIR/deviceControl.as"
+cp "$PROJECT_DIR/controller.allspeak" "$SCRIPT_DIR/controller.allspeak"
+cp "$PROJECT_DIR/simulator.allspeak" "$SCRIPT_DIR/simulator.allspeak"
+cp "$PROJECT_DIR/deviceControl.allspeak" "$SCRIPT_DIR/deviceControl.allspeak"
 echo "Starting controller..."
 cd "$SCRIPT_DIR"
-allspeak controller.as &
+allspeak controller.allspeak &
 CONTROLLER_PID=$!
 cd "$PROJECT_DIR"
 

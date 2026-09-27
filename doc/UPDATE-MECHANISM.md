@@ -4,7 +4,7 @@ This document describes how controller code gets from the development machine to
 
 ## History ##
 
-Originally the controller updated itself: `CheckForUpdate`, a routine inside `controller.as`, polled `https://rbrheating.com/version` hourly, compared it with a local `.version` file, and if newer downloaded the three `.as` source files (`controller.as`, `deviceControl.as`, `simulator.as`) and relaunched itself.
+Originally the controller updated itself: `CheckForUpdate`, a routine inside `controller.allspeak`, polled `https://rbrheating.com/version` hourly, compared it with a local `.version` file, and if newer downloaded the three `.allspeak` source files (`controller.allspeak`, `deviceControl.allspeak`, `simulator.allspeak`) and relaunched itself.
 
 That worked for the AllSpeak sources but left the Python daemons (`zigbee-bridge.py`, `rbr-dashboard.py`, ...) to be copied by hand — and it only ran while the controller was alive.
 
@@ -25,14 +25,14 @@ A standalone updater daemon, **`rbr-updater.py`**, replaces `CheckForUpdate`. It
 `deploy.sh` builds `rbr-controller.tar.gz` containing exactly these files:
 
 ```
-controller.as      deviceControl.as   simulator.as
-diagnose.as        zigbee-bridge.py   zigbee-pair.py
+controller.allspeak      deviceControl.allspeak   simulator.allspeak
+diagnose.allspeak        zigbee-bridge.py   zigbee-pair.py
 zigbee-mesh.py     rbr-dashboard.py   heatlog.py
 dashboard.txt      rbr-updater.py     rbr-watchdog.sh
 rbr-mapbackup.py   VERSION
 ```
 
-`VERSION` is a copy of the `version` stamp. On a `--release` run the stamp is bumped **before** the tarball is built, so the published tarball carries the new version. On a plain `./deploy.sh` (iteration) the tarball keeps the last release stamp — controllers that already have it skip it, exactly like the old `.as` behaviour.
+`VERSION` is a copy of the `version` stamp. On a `--release` run the stamp is bumped **before** the tarball is built, so the published tarball carries the new version. On a plain `./deploy.sh` (iteration) the tarball keeps the last release stamp — controllers that already have it skip it, exactly like the old `.allspeak` behaviour.
 
 Machine-specific data is deliberately **not** in the tarball and is never touched by the updater: `credentials`, `.mqtt_password`, `.mac_override`, `config.json`, `map.json`, `thermometers.json`, `zigbee-temperatures.json`, `.version`.
 
@@ -45,8 +45,8 @@ Machine-specific data is deliberately **not** in the tarball and is never touche
 5. Each staged file is sha256-compared with the live file; only changed files are swapped via `os.replace` (atomic, same filesystem).
 6. The new version is written to `.version`.
 7. Affected services are restarted:
-   - `controller.as` / `deviceControl.as` / `simulator.as` changed → restart `controller.service`
-   - `zigbee-bridge.py` changed → restart `rbr-zigbee-bridge.service` `rbr-setup.sh` Step 8 can install `controller.service` (optional) so the controller auto-restarts after updates; if no such service is running (e.g. the controller is run manually with `allspeak controller.as` in a terminal), the updater logs a notice instead of killing anything.
+   - `controller.allspeak` / `deviceControl.allspeak` / `simulator.allspeak` changed → restart `controller.service`
+   - `zigbee-bridge.py` changed → restart `rbr-zigbee-bridge.service` `rbr-setup.sh` Step 8 can install `controller.service` (optional) so the controller auto-restarts after updates; if no such service is running (e.g. the controller is run manually with `allspeak controller.allspeak` in a terminal), the updater logs a notice instead of killing anything.
 8. The controller also watches `.version` itself (in `MainLoop`, about once a minute): when it changes on disk, it logs `Update applied: vX -> vY` and exits. Under `controller.service` (Restart=always) systemd relaunches it; for a manual run the message tells the operator to restart — so even without the service, a manually-run controller picks up new code promptly.
 9. If `rbr-updater.py` itself changed it is replaced and the process re-execs once so the new code finishes the run.
 
@@ -86,13 +86,13 @@ The downloader fetches the zip, unpacks it over the current directory (existing 
 
 ## Transition from the old mechanism ##
 
-`CheckForUpdate` has been removed from `controller.as`. Existing controllers still running the old code will keep self-updating the `.as` files until they receive a release that contains the removal — at which point they have **no** updater unless the daemon was installed. So:
+`CheckForUpdate` has been removed from `controller.allspeak`. Existing controllers still running the old code will keep self-updating the `.allspeak` files until they receive a release that contains the removal — at which point they have **no** updater unless the daemon was installed. So:
 
 1. Install the daemon on every controller (`rbr-setup.sh`, or copy `rbr-updater.py` + the two unit files manually) **before** shipping the release that removes `CheckForUpdate`.
 2. The user's own RBR Server gets the daemon at rebuild time.
 
 ## Files that are still updated manually ##
 
-The AllSpeak editor tooling (`asedit.as`, `asedit.json`, `edit.html`, `server.as`) and `rbr-setup.sh` itself are not in the tarball — they are dev tools, not controller runtime. Copy them by hand when they change.
+The AllSpeak editor tooling (`asedit.allspeak`, `asedit.json`, `edit.html`, `server.allspeak`) and `rbr-setup.sh` itself are not in the tarball — they are dev tools, not controller runtime. Copy them by hand when they change.
 
 See also [CONTROLLER-FILES.md](CONTROLLER-FILES.md) for the full list of files a controller needs.

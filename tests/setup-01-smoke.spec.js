@@ -14,19 +14,19 @@ test.describe('RBR UI smoke tests', () => {
         await expect(page).toHaveTitle('RBR UI');
     });
 
-    test('rbr.as script is fetched and compiled', async ({ page }) => {
+    test('rbr.allspeak script is fetched and compiled', async ({ page }) => {
         let scriptStatus = 0;
         const errors = [];
 
         page.on('response', res => {
-            if (res.url().includes('resources/as/rbr.as')) {
+            if (res.url().includes('resources/allspeak/rbr.allspeak')) {
                 scriptStatus = res.status();
             }
         });
         page.on('pageerror', err => errors.push(err.message));
 
         await page.goto('/index.html');
-        // Wait for AllSpeak to fetch and compile rbr.as
+        // Wait for AllSpeak to fetch and compile rbr.allspeak
         await page.waitForTimeout(5000);
 
         expect(scriptStatus).toBe(200);
@@ -36,7 +36,7 @@ test.describe('RBR UI smoke tests', () => {
     test('MQTT connects successfully', async ({ page }) => {
         await page.goto('/index.html');
 
-        // Wait for the "MQTT Connected" log from rbr.as
+        // Wait for the "MQTT Connected" log from rbr.allspeak
         await page.waitForEvent('console', {
             predicate: msg => msg.text().includes('MQTT Connected'),
             timeout: 15000,

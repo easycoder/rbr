@@ -1,0 +1,20 @@
+    script Test
+
+    variable Value
+
+    get Value from url `https://eclecity.net/index.html`
+    on failure
+    begin
+        log `Failed`
+        set Value to `Failed`
+    end
+    log Value
+
+    download `https://rbrheating.com/controller.allspeak` to `controller.allspeak.new`
+        on failure
+        begin
+            log `Update aborted: download of controller.allspeak failed`
+            return
+        end
+    exit
+

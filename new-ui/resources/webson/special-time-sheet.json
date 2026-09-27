@@ -1,5 +1,5 @@
 {
-    "#doc": "Time popup for the 'change the morning start time' special action. A single native time input, pre-filled by shell.as with the last time requested for this room (or the room's current morning start on first use). Rendered once into sheet-content alongside the other simple sheets.",
+    "#doc": "Time popup for the 'change the morning start time' special action. A single native time input, pre-filled by shell.allspeak with the last time requested for this room (or the room's current morning start on first use). Rendered once into sheet-content alongside the other simple sheets.",
     "#element": "div",
     "@id": "special-time-sheet",
     "#": ["$Tagline", "$TimeBlock", "$Hint", "$Buttons"],

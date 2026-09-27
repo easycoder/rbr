@@ -59,7 +59,7 @@
     },
 
     "$RoomPicker": {
-        "#doc": "Container revealed when the user taps the room pill. Holds a vertical list of room rows (rendered by shell.as into $RoomList) plus an Add Room button as a fixed sibling that survives the clear-and-rebuild on each render.",
+        "#doc": "Container revealed when the user taps the room pill. Holds a vertical list of room rows (rendered by shell.allspeak into $RoomList) plus an Add Room button as a fixed sibling that survives the clear-and-rebuild on each render.",
         "#element": "div",
         "@id": "device-editor-room-picker",
         "margin-top": "8px",

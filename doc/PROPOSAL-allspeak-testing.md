@@ -4,7 +4,7 @@
 
 ## Motivation
 
-AllSpeak has no in-language way to assert, group, or report on test outcomes. The project's conformance suite tests the runtime *externally* (`.as` script + `.json` expectations of `logs`/`error`, driven by `run_conformance.py`), but a user writing an AllSpeak program has no facility to say "this must hold" and have it checked, counted, and reported — and none of the `spec/`, `opcodes.json`, or `learn/` references define any test-related command.
+AllSpeak has no in-language way to assert, group, or report on test outcomes. The project's conformance suite tests the runtime *externally* (`.allspeak` script + `.json` expectations of `logs`/`error`, driven by `run_conformance.py`), but a user writing an AllSpeak program has no facility to say "this must hold" and have it checked, counted, and reported — and none of the `spec/`, `opcodes.json`, or `learn/` references define any test-related command.
 
 The need is real and concrete: the RBR controller project (a substantial AllSpeak program with ~25 subroutines of decision logic — schedule-period lookup, boost expiry, relay-fail thresholds) currently has no way to unit-test its pure logic without standing up a broker, a browser, and simulated devices. A small, English-natural testing vocabulary would make the controller's decision rules directly testable.
 
@@ -51,7 +51,7 @@ end test
 
 Checks outside any `test` block belong to an implicit default case. `test`/`end test` are a statement pair in the same spirit as `begin`/`end`.
 
-### Runner: `allspeak --test <file.as | dir>`
+### Runner: `allspeak --test <file.allspeak | dir>`
 
 - Runs the script(s) in test mode. `check` statements accumulate results.
 - Any **unhandled runtime error** (including an `or` clause firing without a clause attached to a `check`) fails the current `test` block and the runner moves to the next block, rather than aborting the whole run — so one broken case doesn't hide the others.
@@ -59,11 +59,11 @@ Checks outside any `test` block belong to an implicit default case. `test`/`end 
   - `0` — all checks passed
   - `1` — at least one check failed or a test errored
   - `2` — the script itself could not be compiled/run (so CI can distinguish "tests failed" from "tests broke")
-- Passing a directory runs every `.as` file in it as its own suite, with an aggregated summary.
+- Passing a directory runs every `.allspeak` file in it as its own suite, with an aggregated summary.
 - Output shape:
 
 ```
-Test suite: schedule.as
+Test suite: schedule.allspeak
   ✓ Adding a room        (2 checks)
   ✗ Advance roll-over    (FAIL: the room count is 4 — line 12)
   ✓ Boost expiry         (3 checks)
@@ -72,7 +72,7 @@ Test suite: schedule.as
 exit code 1
 ```
 
-- `check` also works in **non-test mode** (a plain `allspeak file.as`): a failed check logs `FAIL` but the script continues, and no exit-code change applies — so `check` doubles as a lightweight defensive-assertion facility in production scripts. Only `--test` adds summary, isolation, and exit codes.
+- `check` also works in **non-test mode** (a plain `allspeak file.allspeak`): a failed check logs `FAIL` but the script continues, and no exit-code change applies — so `check` doubles as a lightweight defensive-assertion facility in production scripts. Only `--test` adds summary, isolation, and exit codes.
 
 ### Dialect parity
 
@@ -83,7 +83,7 @@ Both runtimes should implement the vocabulary (the conformance suite already run
 A controller-flavoured test of schedule-period selection, written against the vocabulary (illustrative only — the RBR controller's actual subroutines would be the subjects):
 
 ```as
-!   schedule-test.as
+!   schedule-test.allspeak
 
     script ScheduleTest
 
@@ -134,8 +134,8 @@ Three additions that would specifically unlock time-dependent and messaging logi
 ## Suggested docs and repo placement
 
 - New reference file `learn/reference/19-testing.md` alongside the existing 18, following the established per-keyword format used by `allspeak-py/doc/core/keywords/*`.
-- Conformance additions in the existing `conformance/tests/` style (e.g. `EC-0xxx-check-basic.as` + `.json`) so parity between the Python and JS runtimes is verified automatically.
-- A test-file naming convention of `<name>-test.as` or a `tests/` directory, documented in the reference.
+- Conformance additions in the existing `conformance/tests/` style (e.g. `EC-0xxx-check-basic.allspeak` + `.json`) so parity between the Python and JS runtimes is verified automatically.
+- A test-file naming convention of `<name>-test.allspeak` or a `tests/` directory, documented in the reference.
 
 ## Intended validation
 
