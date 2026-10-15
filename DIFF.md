@@ -1,43 +1,19 @@
 # What to do
 
-- **Regenerate the controller unit on every machine — this is the one that bites.** `rbr-setup.sh` now writes `ExecStart=… allspeak controller.allspeak` (and the desktop unit `rbr-desktop.allspeak`). An existing unit still says `controller.as`, and the updater only *adds* the renamed files — it never deletes the old ones — so without this the service carries on running the stale `controller.as` without a murmur. Re-run `rbr-setup.sh`, or edit `ExecStart` by hand, then `rm controller.as deviceControl.as simulator.as diagnose.as` so nothing stale is left behind.
-- **Re-deploy, then delete the old directory.** `./deploy.sh --release` now syncs `resources/allspeak/`; the old `resources/as/` tree on rbrheating.com is no longer in the loop's list, so remove it by hand.
-- **Reload the PWA** — `index.html`, `sw.js` and the shell all point at `resources/allspeak/…` now. A normal reload (or waiting for the service worker to update) is enough.
-- **Restart the desktop app** if you use it.
-- **The chat project needs the same sweep.** `rbrchat/deploy.sh` now copies `chat-main.allspeak`, but `~/dev/chat` still has `chat-main.as` — its scp will fail until that project is renamed too.
-- **In `asedit.allspeak`, two sections are now `verify-stale`** — re-check them in asedit. The rename changed a `!` comment and a URL inside their blocks, so their sign-off hash no longer matches. (The baseline already carried 25 stale verifies elsewhere; these two are new.)
-- **Restart the editor server.** `server.allspeak`'s file list now includes `.allspeak`, so the editor can open the scripts. A server already running (e.g. port 8080) is the old code — stop and re-run `allspeak server.allspeak`, then reload `edit.html`.
+- **Get the new controller onto the box and restart the service.** `controller.allspeak` is the fix; until the controller runs the new `ApplyPeriodsAdvance`, pressing Advance still switches the heat off instead of starting the next period. `./deploy.sh --release` publishes it and bumps the version stamp so a box picks it up on its next check; restart the service either way.
+- **Reload the PWA.** `new-ui/resources/allspeak/map-to-rooms.allspeak` changed too — the row's projection has to agree with the controller or the subline will contradict what the room is doing. A reload is enough; if the row still reads "Off until …", hard-reload to get past the service worker.
+- **Two sections in `controller.allspeak` now report `verify-stale`** (the `ApplyPeriodsAdvance` and `FindNextPeriodFromNow` doc blocks, whose prose changed with the code). Re-check them in asedit's Blocks mode. The baseline carried stale verifies elsewhere; these two are new.
+- Nothing else to do: the two changed `.allspeak` files are the whole change.
 
 # What changed
 
-The AllSpeak source extension is swept to `.allspeak`, in two steps: first the `.as` files, then the last legacy `.ecs` mentions. The lineage is documented in the AllSpeak repo itself (`AGENTS.md`): `.ecs` → `.as` → `.allspeak`.
+Advance did not know a period could start exactly where the running one ends — back-to-back periods such as the Sunroom's 18:00–20:00 21.5 °C then 20:00–23:00 23.0 °C. In that shape the "next change" after the period that is running *is* the next period beginning, but the controller treated every from-a-period Advance as "this period ends early, drop to background-temp", so at 19:30 pressing Advance switched the heating **off** for the half hour the user had just asked it to heat, and the row compounded it by reading "Off until 18:00" (the wrap-around to the day's first period) instead of naming the period that was about to start.
 
-The editor's file browser gained `.allspeak`, which it had been missing: `server.allspeak`'s `/list` route filters by extension, and the list began at `as,ecs,…`. It now reads `allspeak,as,ecs,md,txt,json,html,css,js,py` — matching the canonical AllSpeak repo's own `server.allspeak`, which had already been updated. Without it the browser showed no scripts at all once they were renamed. The legacy `as` and `ecs` entries are kept, as upstream keeps them, so a stray older file is still openable.
-
-## `.as` → `.allspeak`, and the directories with it
-
-Every `.as` file is now `.allspeak`, and the two UI script directories are renamed to match: `resources/as/` → `resources/allspeak/` and `new-ui/resources/as/` → `new-ui/resources/allspeak/`.
-
-- 50 files renamed with `git mv`, so history follows them: the controller, its modules, the UI scripts, the editor, the tools and the unit tests.
-- Every reference followed it: `run … as …` module paths, `rest get … from` fetches, the three unit files and the `rbr-setup.sh` heredocs, the resource lists in `deploy.sh` and `.github/workflows/deploy.yml` (`for dir in allspeak css …`), the updater's `TARBALL_FILES`/`SERVICE_RULES`, `.gitignore`, `sw.js`, both `index.html` loaders, `edit.html`, `asedit` (it now saves with a `.allspeak` suffix), the file server's MIME rule (`server.allspeak` treats `.allspeak` as `text/plain`), and `asdoc-check.py`'s default `--ext`.
-- Docs updated to match: `AGENT.md`, `ALLSPEAK.md`, `AI/*`, `docs/`, `doc/*`, `desktop/README.md`. The `conversation/*.md` logs are deliberately untouched — they are a record of past sessions, not current documentation.
-- Doc-block `@hash` lines were refreshed with `asdoc-check.py --write` for the seven files whose `!` comments held a `.as` name (`!` comments are inside the hash). `@verified` lines were not touched. `asdoc-check.py` reports 0 errors.
-
-## `.ecs` → `.allspeak`
-
-The remaining EasyCoder-era names are gone:
-
-- `zigbee-bridge.py` — two comments now say `deviceControl.allspeak`.
-- `doc/configurator.md` — `rbrconf.ecs` → `rbrconf.allspeak` (including the quoted GitHub URL and the hidden `.rbrconf.*` save/run/delete names).
-- `resources/allspeak/README.md` — `scripted-server.ecs` / `scripted.ecs` → `.allspeak`.
-- `params.json` — `"device_script": "roomController.ecs"` → `.allspeak`.
-- `rbrchat/deploy.sh` — `chat-main.ecs` → `chat-main.allspeak`.
+- **`controller.allspeak` — `ApplyPeriodsAdvance`.** The from-a-period branch now asks whether a period starts exactly at the running period's `off`; if it does, that period is brought forward and the room heats to its temp now, and only a genuine gap (no period at that boundary) still drops to background-temp. One meaning for Advance either way: shift the room to its schedule's next change, and when that change is a period starting, that is where the room goes. Behaviour is unchanged for a gap after the period, for the last period of the day, and for engaging Advance from background. The auto-cancel is untouched, so the room carries straight on when the period's natural start arrives.
+- **`new-ui/resources/allspeak/map-to-rooms.allspeak` — the schedule projection.** The advance projection had the same blind spot from the display side: it searched for the next `on` *strictly after* the running period's `off`, so a period starting at that exact minute was skipped and the wrap-around picked the day's first period instead ("Off until 18:00"). The search now includes the boundary, and the row shows "Off until <next on>" with the BG prefix only when the advance really does land in a gap; when the room joins the period found it shows that period's temp and off time, matching the controller.
+- **`tests/unit/unit-04-periods.allspeak`.** The mirrored `ApplyPeriodsAdvance` is kept in sync, and two advance cases were added: back-to-back (must join the next period) and a gap after the running period (must stay at background). Period times are built relative to `now`, so the cases hold at any time of day; both fail against the old logic.
 
 # Noticed while in there
 
-Stale references that predate this sweep. They are now internally consistent in name, but the things they point at are not in this repo — worth a look; none of them was otherwise touched:
-
-- `doc/configurator.md` documents a `rbrconf` configurator that does not exist in this repo, and the `raw.githubusercontent.com/easycoder/rbr/…/rbrconf.*` URL it quotes points at a file that is not here either.
-- `params.json`'s `device_script` key is read by nothing in the repo (the simulator reads the per-room keys, not this one).
-- `resources/allspeak/README.md` describes a `scripted` editor whose five files are not here — this repo uses `asedit.allspeak` and `server.allspeak` instead.
-- `rbrchat/deploy.sh` pulls from `~/dev/chat`, which still has `chat-main.as`.
+- **The Advance button's label reads "Advance to next schedule period (22:30)" for a period that ends there.** When the room is in its last period — the Hall's 18:00–22:30, say — the label names the time of the *next change*, which is the period's end rather than a period start, so the wording is off even though the action (end this period early, heat off until the next one starts) is the designed one. The same wording is what told you a period started at 20:00 in the Sunroom, where it was accurate. Worth rewording to "next schedule change"; not touched here.
+- **A wrap-around "Off until" line names no day.** With no period left today, both the controller and the row refer to tomorrow's first period as just "18:00". Correct, momentarily confusing.

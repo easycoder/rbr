@@ -95,6 +95,7 @@
 	variable BgTempStr
 	variable AfterMinutes
 	variable DisplayPeriodIdx
+	variable JoinsPeriod
 	variable NextTimeStr
 	variable NextTempVal
 	variable NextTempStr
@@ -116,7 +117,7 @@
 	on message go to Translate
 	release parent
 	stop
-!! @hash 8fa8b567
+!! @hash ea7367d4
 !!!
 !! Message handler. Unpacks the Map from the message, runs the translation, packs the output dict, ships it back. Boolean flags (CalendarOn, OutsideRoomFound) travel as "on"/"off" / "yes"/"no" strings because boolean state doesn't round-trip cleanly through JSON.
 Translate:
@@ -263,7 +264,7 @@ TranslateMap:
 !!
 !! Schedule projection — what's the controller heating to right now and when does it next change? Sets `nextTarget`, `nextTime`, and `nextPrefix` on NewRoom so the subline can flag background-temp gaps with "BG " prefix and an "Off until <next on>" form.
 !!
-!! Advance override: when Advance is `A`, project the schedule one slot forward. From a current period — Advance ends it early and the room joins the inter-period gap (displayed as "Off until <next on>" with BG prefix). From background — Advance jumps the next period forward (display that period's temp and off time, no BG prefix).
+!! Advance override: when Advance is `A`, project the schedule one slot forward, mirroring the decision the controller itself makes. From a current period the shift normally ends it early and the room joins the inter-period gap (displayed as "Off until <next on>" with BG prefix) — except when the next period starts exactly where this one ends (back-to-back periods such as 18:00-20:00 then 20:00-23:00), because then that period is brought forward and its temp and off time are displayed with no BG prefix. From background, Advance jumps the next period forward in the same way.
 !!
 !! `calling` (relay state for chip styling) is taken straight from the controller's `relay` field, not re-derived. The controller already accounts for unlinked relays, boost overlay, and hysteresis-free temp-vs-target comparison; re-deriving in the UI's threshold ends up wrong.
 BuildRoomEntry:
@@ -544,7 +545,7 @@ BuildRoomEntry:
 				put element LoopK of ActivePeriods into LegacyPeriod
 				put property `on` of LegacyPeriod into TempStr
 				gosub to ParseTimeMinutes
-				if TempTenths is greater than AfterMinutes
+				if TempTenths is not less than AfterMinutes
 					if TempTenths is less than NextOnMinutes
 					begin
 						put TempTenths into NextOnMinutes
@@ -572,7 +573,33 @@ BuildRoomEntry:
 			if DisplayPeriodIdx is not less than 0
 			begin
 				put element DisplayPeriodIdx of ActivePeriods into LegacyPeriod
+				! Does the running period end here with the period found still to
+				! come? Then the advance lands in the gap and the row shows the
+				! background target until that period starts. A period starting
+				! exactly at this one's end — back-to-back periods, which is what
+				! 18:00-20:00 then 20:00-23:00 is — is the room joining it now,
+				! as is a room that was already between periods, so the row shows
+				! that period's temp and off time instead of "Off until".
+				put property `on` of LegacyPeriod into TempStr
+				gosub to ParseTimeMinutes
+				clear JoinsPeriod
 				if PeriodFound
+				begin
+					if TempTenths is AfterMinutes set JoinsPeriod
+				end
+				else set JoinsPeriod
+				if JoinsPeriod
+				begin
+					put property `off` of LegacyPeriod into NextTimeStr
+					put property `temp` of LegacyPeriod into NextTempVal
+					set property `nextTime` of NewRoom to NextTimeStr
+					put `` cat NextTempVal into NextTempStr
+					put the index of `.` in NextTempStr into DotIdx
+					if DotIdx is less than 0 put NextTempStr cat `.0` into NextTempStr
+					set property `nextTarget` of NewRoom to NextTempStr
+					set property `nextPrefix` of NewRoom to empty
+				end
+				else
 				begin
 					put property `on` of LegacyPeriod into NextTimeStr
 					set property `nextTime` of NewRoom to NextTimeStr
@@ -583,17 +610,6 @@ BuildRoomEntry:
 					if DotIdx is less than 0 put BgTempStr cat `.0` into BgTempStr
 					set property `nextTarget` of NewRoom to BgTempStr
 					set property `nextPrefix` of NewRoom to `BG `
-				end
-				else
-				begin
-					put property `off` of LegacyPeriod into NextTimeStr
-					put property `temp` of LegacyPeriod into NextTempVal
-					set property `nextTime` of NewRoom to NextTimeStr
-					put `` cat NextTempVal into NextTempStr
-					put the index of `.` in NextTempStr into DotIdx
-					if DotIdx is less than 0 put NextTempStr cat `.0` into NextTempStr
-					set property `nextTarget` of NewRoom to NextTempStr
-					set property `nextPrefix` of NewRoom to empty
 				end
 			end
 		end
@@ -651,7 +667,7 @@ BuildRoomEntry:
 	set property `calling` of NewRoom to `no`
 	if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
 	return
-!! @hash 4f4e53dd
+!! @hash 87779901
 !!!
 !! Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string (19.8). In-place via TempStr — caller passes the integer in, gets the string back out.
 FormatHundredths:

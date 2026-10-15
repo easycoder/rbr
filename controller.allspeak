@@ -1324,7 +1324,7 @@ FindCurrentPeriod:
 !!
 !! PeriodList must be loaded by the caller (or left absent/empty for the no-periods edge case).
 !!
-!! Without advance, both simply mirror the natural state. With advance on (and no roll-over since it was engaged): from a natural period -> Target = background-temp (heat goes off until next natural on); from natural background -> Target = next period's temp (heat skips ahead and turns on now).
+!! Without advance, both simply mirror the natural state. With advance on (and no roll-over since it was engaged), the room shifts to its schedule's next *change*: from natural background that change is the next period starting, so Target = its temp (heat skips ahead and turns on now); from a natural period it is normally the end of that period, so Target = background-temp and the heat goes off until the next period starts naturally — except when a period starts exactly where the running one ends (back-to-back periods, e.g. 18:00-20:00 then 20:00-23:00), because then the change *is* that period beginning, so it is brought forward and the room heats to its temp now.
 !!
 !! Auto-cancels the moment the natural state would have rolled, so the user never has to remember to undo it.
 ApplyPeriodsAdvance:
@@ -1367,10 +1367,36 @@ ApplyPeriodsAdvance:
             end
             else
             begin
-                ! From a period: heat goes OFF (background-temp) until
-                ! the natural period would have ended.
+                ! From a period: the shift lands on this period's end, so the
+                ! heat goes OFF (background-temp) until the next period starts
+                ! naturally — unless a period starts exactly where this one
+                ! ends. Back-to-back periods (18:00-20:00 then 20:00-23:00) are
+                ! one schedule run, so that end is the next period beginning:
+                ! bring it forward and heat to its temp now. Missing this left
+                ! the room at background-temp — heat off — for the whole of the
+                ! period the user had just asked for, which is the opposite of
+                ! what pressing Advance means.
+                put item NaturalPeriodActive of PeriodList into Period
+                put entry `off` of Period into Time
+                gosub to ConvertTimeToInt
+                set OffTime to Time
+                gosub to FindNextPeriodFromNow
                 set PeriodActive to -1
-                gosub to PeriodsBackgroundTarget
+                if NextAdvanceIdx is not less than 0
+                begin
+                    put item NextAdvanceIdx of PeriodList into Period
+                    put entry `on` of Period into Time
+                    gosub to ConvertTimeToInt
+                    if Time is OffTime set PeriodActive to NextAdvanceIdx
+                end
+                if PeriodActive is less than 0 gosub to PeriodsBackgroundTarget
+                else
+                begin
+                    put item PeriodActive of PeriodList into Period
+                    put entry `temp` of Period into Temp
+                    gosub to ConvertTempToInt
+                    put Temp into Target
+                end
             end
             set entry `period` of Room to PeriodActive
             return
@@ -1388,14 +1414,14 @@ ApplyPeriodsAdvance:
         put Temp into Target
     end
     return
-!! @hash a311f7af
+!! @hash 2118f3e9
 !! @verified 46a58892
 !!!
 !! Find the next period chronologically: smallest `on` strictly after `now`, else (no on later today) wrap to the smallest `on` overall = tomorrow's first.
 !!
 !! Returns the period index in NextAdvanceIdx (-1 if PeriodList is empty).
 !!
-!! Used by ApplyPeriodsAdvance when an advance is engaged from background-time and we need to skip ahead to the next scheduled on-period.
+!! Used by ApplyPeriodsAdvance to find the period an engaged advance would bring forward: from background-time it is skipped to outright, and from a period it is only taken when it starts exactly where that period ends (back-to-back periods), where the same "next period" lookup doubles as the adjacency test.
 FindNextPeriodFromNow:
     set NextAdvanceIdx to -1
     if EventCount is 0 return

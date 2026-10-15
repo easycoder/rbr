@@ -37,8 +37,29 @@
     variable Target
     variable NextAdvanceIdx
     variable NextAdvanceMin
+    variable OnDelta
+    variable OffDelta
+    variable PeriodTemp
 
     go to RunTests
+
+!! Append a period to Periods whose `on` is OnDelta milliseconds from `now` and whose `off` is OffDelta away, with temperature string PeriodTemp. Lets the advance cases below exercise "back-to-back" scheduling — a period starting exactly where the previous one ends — without depending on the wall clock.
+
+AddPeriodFromNow:
+    reset Period
+    put now into T
+    add OnDelta to T
+    put datime T format `%H:%M` into Time
+    set entry `on` of Period to Time
+    put now into T
+    add OffDelta to T
+    put datime T format `%H:%M` into Time
+    set entry `off` of Period to Time
+    set entry `temp` of Period to PeriodTemp
+    append Period to Periods
+    return
+!! @hash 88ec2f59
+!!!
 
 !! Set Target to the system background temperature (default 12C when the map has no `background-temp`). Leaves PeriodActive untouched.
 
@@ -142,7 +163,7 @@ FindNextPeriodFromNow:
 !! @hash 15672e67
 !!!
 
-!! Decide PeriodActive and Target from the natural state and the room's `advance` flag. Advance is only exercised in its "off" (`-`) state here, so the UI-push branch (ForceUpdate in the live controller) is omitted — it is unreachable for the data in this suite.
+!! Decide PeriodActive and Target from the natural state and the room's `advance` flag. The UI-push branch (ForceUpdate in the live controller) is omitted — no push happens in this suite.
 
 ApplyPeriodsAdvance:
     if entry `advance` of Room is `A`
@@ -173,8 +194,27 @@ ApplyPeriodsAdvance:
             end
             else
             begin
+                put item NaturalPeriodActive of PeriodList into Period
+                put entry `off` of Period into Time
+                gosub to ConvertTimeToInt
+                set OffTime to Time
+                gosub to FindNextPeriodFromNow
                 set PeriodActive to -1
-                gosub to PeriodsBackgroundTarget
+                if NextAdvanceIdx is not less than 0
+                begin
+                    put item NextAdvanceIdx of PeriodList into Period
+                    put entry `on` of Period into Time
+                    gosub to ConvertTimeToInt
+                    if Time is OffTime set PeriodActive to NextAdvanceIdx
+                end
+                if PeriodActive is less than 0 gosub to PeriodsBackgroundTarget
+                else
+                begin
+                    put item PeriodActive of PeriodList into Period
+                    put entry `temp` of Period into Temp
+                    gosub to ConvertTempToInt
+                    put Temp into Target
+                end
             end
             set entry `period` of Room to PeriodActive
             return
@@ -190,7 +230,7 @@ ApplyPeriodsAdvance:
         put Temp into Target
     end
     return
-!! @hash d8653487
+!! @hash 4cb926c8
 !!!
 
 !! The natural-period phase of FindCurrentPeriod: scans the room's periods against `now` (phase 1) then resolves PeriodActive/Target via ApplyPeriodsAdvance (phase 2).
@@ -328,7 +368,59 @@ RunTests:
 !! @hash 0abce553
 !!!
 
-!! Case 4: FindNextPeriodFromNow with a single 00:00 period always resolves to index 0 (strictly-after-now fails, the wrap picks the smallest `on`), and with no periods returns -1.
+!! Case 4: Advance engaged inside the first of two back-to-back periods must bring the second period forward rather than dropping to background. Times are built relative to `now` (first period 90 min ago to 30 min ahead, second from that boundary to 3.5 h ahead), so the case holds at any time of day. PeriodWas is seeded from GetNaturalPeriod exactly as ProcessAllRooms does it.
+
+    reset Room
+    set entry `advance` of Room to `A`
+    reset Periods
+    put -5400000 into OnDelta
+    put 1800000 into OffDelta
+    put `21.5` into PeriodTemp
+    gosub to AddPeriodFromNow
+    put 1800000 into OnDelta
+    put 12600000 into OffDelta
+    put `23.0` into PeriodTemp
+    gosub to AddPeriodFromNow
+    set entry `periods` of Room to Periods
+
+    test `advance joins a back-to-back next period`
+        gosub to GetNaturalPeriod
+        check that NaturalPeriod is 0
+        set PeriodWas to NaturalPeriod
+        gosub to FindCurrentPeriod
+        check that PeriodActive is 1
+        check that Target is 2300
+    end test
+!! @hash 1e6d8aec
+!!!
+
+!! Case 5: the same schedule with a real gap after the running period — Advance lands in the gap, so the target is the background temperature.
+
+    reset Room
+    set entry `advance` of Room to `A`
+    reset Periods
+    put -5400000 into OnDelta
+    put 1800000 into OffDelta
+    put `21.5` into PeriodTemp
+    gosub to AddPeriodFromNow
+    put 10800000 into OnDelta
+    put 19800000 into OffDelta
+    put `23.0` into PeriodTemp
+    gosub to AddPeriodFromNow
+    set entry `periods` of Room to Periods
+
+    test `advance with a gap after stays at background`
+        gosub to GetNaturalPeriod
+        check that NaturalPeriod is 0
+        set PeriodWas to NaturalPeriod
+        gosub to FindCurrentPeriod
+        check that PeriodActive is -1
+        check that Target is 1800
+    end test
+!! @hash 24cec13b
+!!!
+
+!! Case 6: FindNextPeriodFromNow with a single 00:00 period always resolves to index 0 (strictly-after-now fails, the wrap picks the smallest `on`), and with no periods returns -1.
 
     reset PeriodList
     reset Period
