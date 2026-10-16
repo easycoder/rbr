@@ -91,6 +91,7 @@
     variable Ahead
     variable NextNo
 !! @hash 1508079f
+!! @verified 1508079f
 !!!
 !! Boot: render the layout, wire the controls, build the page list, and open the requested page.
 !!
@@ -140,6 +141,7 @@
     gosub to OpenAddress
     stop
 !! @hash dffac053
+!! @verified dffac053
 !!!
 !! Fetch one file from the repository, with a mirror behind it.
 !!
@@ -164,6 +166,7 @@ FetchMirror:
     put empty into Failure
     return
 !! @hash acdd54e3
+!! @verified acdd54e3
 !!!
 !! Build the page list from the documentation's own README.
 !!
@@ -176,6 +179,7 @@ BuildIndex:
     put the json count of Pages into PagesCount
     return
 !! @hash 7c0c5878
+!! @verified 7c0c5878
 !!!
 !! Publish the slugs this reader can open, so JavaScript can tell a page change from an anchor.
 !!
@@ -193,6 +197,7 @@ Published:
     set the content of KnownSlugs to KnownOut
     return
 !! @hash 37383d77
+!! @verified 37383d77
 !!!
 !! Walk the README for links, taking each `[Title](path.md)` in a list item or a table row.
 !!
@@ -239,6 +244,7 @@ NotAPage:
     put from Cut of Remains into Remains
     go to Scan
 !! @hash 2a6f199b
+!! @verified 2a6f199b
 !!!
 !! Add one link to the page list, unless it is not a page of this reader or is already listed.
 !!
@@ -256,6 +262,7 @@ AddPage:
     json add Page to Pages
     return
 !! @hash ed51efff
+!! @verified ed51efff
 !!!
 !! Turn a link's href into a page slug, or say why it is not one.
 !!
@@ -294,6 +301,7 @@ ResolveLink:
     else put Folder cat `/` cat Snippet into Slug
     return
 !! @hash e2fe34e8
+!! @verified e2fe34e8
 !!!
 !! Drop the last segment of `Folder`, for a `..` segment.
 !!
@@ -304,6 +312,7 @@ ParentFolder:
     else put left At of Folder into Folder
     return
 !! @hash f4953cc9
+!! @verified f4953cc9
 !!!
 !! Descend into `Piece`, which is a folder name rather than `..` or a lone `.`.
 ChildFolder:
@@ -311,6 +320,7 @@ ChildFolder:
     else put Folder cat `/` cat Piece into Folder
     return
 !! @hash fa466625
+!! @verified fa466625
 !!!
 !! Look up `Slug` in the page list, leaving its position in `Mention`, or -1 when it is not there.
 !!
@@ -329,6 +339,7 @@ Lookup:
     add 1 to PageNo
     go to Lookup
 !! @hash e63b78e8
+!! @verified e63b78e8
 !!!
 !! Open the page the address asks for, so that a shared link lands where it says.
 !!
@@ -346,6 +357,7 @@ OpenAddress:
     else gosub to ShowPage
     return
 !! @hash 9d64710d
+!! @verified 9d64710d
 !!!
 !! Show the contents page: the documentation's own README, which is what the page list was built from.
 !!
@@ -368,6 +380,7 @@ ShowContents:
     scroll to 0
     return
 !! @hash 8dc8683c
+!! @verified 8dc8683c
 !!!
 !! Open a page: fetch it, show it, and set the toolbar, the heading and the address to match.
 !!
@@ -393,6 +406,7 @@ ShowPage:
     scroll to 0
     return
 !! @hash a13815fc
+!! @verified a13815fc
 !!!
 !! Put a document into the reading pane: the text, its status band, and the notice out of the way.
 ShowText:
@@ -402,6 +416,7 @@ ShowText:
     set style `display` of Content to `block`
     return
 !! @hash 6f357ae6
+!! @verified 6f357ae6
 !!!
 !! Show the status line as a band above the text, or take the band away when there is none.
 !!
@@ -417,6 +432,7 @@ ShowStatus:
     set style `display` of MetaBar to `block`
     return
 !! @hash 00bb138a
+!! @verified 00bb138a
 !!!
 !! Lift the status line out of a document, leaving the body in `Doc` and the line in `Status`.
 !!
@@ -443,6 +459,7 @@ CheckLine:
     put from Mark of Rest into Rest
     go to CheckLine
 !! @hash 2af2080d
+!! @verified 2af2080d
 !!!
 !! Report a document that could not be shown, saying which of the two reasons it was.
 !!
@@ -465,6 +482,7 @@ ShowMissing:
     scroll to 0
     return
 !! @hash 96ba3bba
+!! @verified 96ba3bba
 !!!
 !! Report a link that is not a page of this reader.
 !!
@@ -480,6 +498,7 @@ ShowElsewhere:
     set style `display` of Notice to `block`
     return
 !! @hash 0bc296b7
+!! @verified 0bc296b7
 !!!
 !! Set the three toolbar buttons and the source link to the state the page on screen calls for.
 !!
@@ -503,6 +522,7 @@ SetToolbar:
     else disable NextButton
     return
 !! @hash fcde102c
+!! @verified fcde102c
 !!!
 !! Step back through the page list, and from the first page to the contents.
 !!
@@ -520,6 +540,7 @@ GoBack:
     gosub to ShowContents
     return
 !! @hash 553798a7
+!! @verified 553798a7
 !!!
 !! Step forward through the page list, and from the contents page to the first document.
 !!
@@ -533,6 +554,7 @@ GoOn:
     gosub to ShowPage
     return
 !! @hash ed28c4f2
+!! @verified ed28c4f2
 !!!
 !! Follow the link that was clicked, which index.html has put into `nav-target`.
 !!
@@ -555,4 +577,5 @@ FollowLink:
     gosub to ShowPage
     return
 !! @hash 4ae53152
+!! @verified 4ae53152
 !!!
