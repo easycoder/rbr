@@ -1,0 +1,558 @@
+!! Room By Room documentation reader — the page served at /docs.
+!!
+!! Nothing is copied to this site. The reader fetches the Markdown from the public repository at runtime, so the repository holds the only copy of the documentation, and the site shows whatever `main` holds within about five minutes of a commit. Rendering is done by this runtime's own markdown renderer — the one the `docs/` tree is written for, which is why a paragraph there is a single unbroken line.
+!!
+!! The page list comes out of `docs/README.md`. That file is the documentation's own map, so its `[Title](path.md)` links, in the order they appear, are the reading order, the titles and the Prev/Next sequence. A document added to the README appears here with nothing else to change.
+!!
+!! Two smaller decisions worth knowing. The status line — the `Audience / Status / Last verified` blockquote every document opens with — is lifted out of the Markdown and shown as a band above the text, because what is on this site is draft work and a reader is entitled to see that before reading it. And a document that is named in the README but not yet written is reported as exactly that, rather than as an error: the installation and operation layers are in that state today.
+!!
+!! This runtime has no JavaScript interop, and only JavaScript can see a click on a link the renderer produced, so the two halves talk through the DOM. index.html writes a click's raw href into `nav-target` and clicks `nav-trigger`; this script publishes the slug of the page now showing into `route-out`, which index.html mirrors into the address bar. The href travels unresolved because this side is the one that knows which document it came from — the path arithmetic lives here and nowhere else.
+    script DocsReader
+!! @hash a49051d1
+!! @verified a49051d1
+!!!
+!! Handles for the layout, the reading pane, and the three hidden elements that bridge to JavaScript.
+!!
+!! `NavTarget` and `NavTrigger` carry a click inwards and `RouteOut` carries the current page outwards; none of the three is ever visible, and index.html is the only thing that touches them from its side. The three toolbar buttons and the two links belong to this script alone.
+    div AppRoot
+    div MetaBar
+    div Notice
+    div NoticeText
+    a NoticeLink
+    a SourceLink
+    div Content
+    div NavTarget
+    button NavTrigger
+    div RouteOut
+    div KnownSlugs
+    button ContentsButton
+    button PrevButton
+    button NextButton
+!! @hash cbbecc24
+!! @verified cbbecc24
+!!!
+!! State: the page list, the page being shown, and the scratch each parser works in.
+!!
+!! `Pages` is a JSON array of `{slug, title}` in reading order and `PagesCount` its length, both built once at boot from the README; `Page` and `PageNo` read an entry out of it while looking a slug up. `NowSlug`, `NowFolder` and `NowNo` describe the page on screen — the folder is what its relative links resolve against, and `NowNo` is its position in the list, or -1 for the contents page. `Skip` and `Outside` are the two flags that say why a link is not a page of this reader.
+!!
+!! The scratch is grouped by the section that owns it, because AllSpeak has no locals and two sections sharing a name is a fault with no symptom until it bites. It has bitten here already: the link walker read the README in one pass and stopped after a single page, because it handed `Remains` to the path resolver and got back the resolver's leftovers. So each parser owns its names — `Remains`, `Head`, `Lead`, `Tail`, `Pos`, `Cut` belong to the link walker; `Path`, `Piece`, `At`, `Kept` to the path resolver, which is called from inside the walker and so may share nothing with it; `Rest`, `Row`, `Carried`, `Leftovers`, `Mark` to the status line; and `HashAt`, `SlashAt`, `Ahead` and `NextNo` are one position each, in the section that needs it — which is what keeps a toolbar handler from borrowing the walker's `Pos` the way this script first did, harmlessly but for no better reason than that the two never run at once. `Snippet` is the one name deliberately reused, for a single value passed across a section boundary, so nothing may be assumed to survive inside it.
+    variable Layout
+    variable Base
+    variable Mirror
+    variable Repo
+    variable Pages
+    variable PagesCount
+    variable Page
+    variable PageNo
+    variable Mention
+    variable Slug
+    variable Heading
+    variable NowSlug
+    variable NowFolder
+    variable NowNo
+    variable Raw
+    variable Failure
+    variable Source
+    variable Href
+    variable FromFolder
+    variable Doc
+    variable Status
+    variable Snippet
+    variable Address
+    variable KnownOut
+    variable Skip
+    variable Outside
+
+!	The link walker: one pass over the README, consuming it as it goes.
+    variable Remains
+    variable Head
+    variable Lead
+    variable Tail
+    variable Pos
+    variable Cut
+
+!	The path resolver and its two helpers, called from inside the walker.
+    variable Path
+    variable Piece
+    variable At
+    variable Kept
+    variable Folder
+
+!	The status-line reader: one pass over a document, line by line.
+    variable Rest
+    variable Row
+    variable Carried
+    variable Leftovers
+    variable Mark
+
+!	One position each, in a section of its own: HashAt in OpenAddress, SlashAt in ShowPage, Ahead in SetToolbar, NextNo in GoOn.
+    variable HashAt
+    variable SlashAt
+    variable Ahead
+    variable NextNo
+!! @hash 1508079f
+!!!
+!! Boot: render the layout, wire the controls, build the page list, and open the requested page.
+!!
+!! The two sources are set here and used everywhere afterwards. `Base` is the repository's own file service and `Mirror` the same files from a CDN; the mirror exists because GitHub's raw host is the one a corporate proxy is most likely to refuse, and a documentation site that goes blank on those networks is worse than one that is a few minutes stale. Neither carries a cache-buster: GitHub answers with a five-minute lifetime of its own, and asking for a fresh copy every time would spend the reader's patience to save at most that.
+!!
+!! The handlers are registered before the `stop`, because a handler registered after a script's linear flow has stopped is never registered at all.
+    attach AppRoot to `app` or begin
+        alert `Missing #app container in index.html`
+        stop
+    end
+
+    rest get Layout from `docs.json?v=` cat now
+        or begin
+            alert `Could not load docs.json`
+            stop
+        end
+    render Layout in AppRoot
+
+    attach Content to `content`
+    attach MetaBar to `meta-bar`
+    attach Notice to `notice`
+    attach NoticeText to `notice-text`
+    attach NoticeLink to `notice-link`
+    attach SourceLink to `source-link`
+    attach NavTarget to `nav-target`
+    attach NavTrigger to `nav-trigger`
+    attach RouteOut to `route-out`
+    attach KnownSlugs to `known-slugs`
+    attach ContentsButton to `contents-button`
+    attach PrevButton to `prev-button`
+    attach NextButton to `next-button`
+
+    set attribute `data-markdown` of Content to `1`
+    set attribute `data-markdown` of MetaBar to `1`
+
+    on click ContentsButton gosub to ShowContents
+    on click PrevButton gosub to GoBack
+    on click NextButton gosub to GoOn
+    on click NavTrigger gosub to FollowLink
+
+    put `https://raw.githubusercontent.com/easycoder/rbr/main/` into Base
+    put `https://cdn.jsdelivr.net/gh/easycoder/rbr@main/` into Mirror
+    put `https://github.com/easycoder/rbr` into Repo
+
+    gosub to BuildIndex
+    gosub to PublishSlugs
+    gosub to OpenAddress
+    stop
+!! @hash dffac053
+!!!
+!! Fetch one file from the repository, with a mirror behind it.
+!!
+!! `Source` is the path within the repository and `Raw` comes back holding the text, with `Failure` empty on success and the primary attempt's error on failure. `Failure` keeps that first error deliberately: it is what tells a 404 — the document is named but not written — from a host we could not reach, and the distinction is the whole difference between "this page is not ready yet" and "something is wrong". The mirror's own error is of no use to a reader, so it is discarded.
+!!
+!! The two attempts are written with `or` and a jump rather than `on failure`, and that is not a matter of taste. The AllSpeak build this site pins does not continue after an `on failure` clause — it stops the thread exactly as `or` does — so the documented "substitute and continue" form ends the fetch and leaves the reader with a blank page where the notice about an unwritten document belongs. Measured 2026-10-16: against the pinned bundle the statement after the clause never runs; against the current build at allspeak.ai it does. `or begin … go to … end` says the same thing and works on both, and it is the shape the controller scripts in this repository already use.
+!!
+!! An empty body is treated as a failure by the caller, since a document that arrives but is empty has not arrived.
+Fetch:
+    put empty into Raw
+    put empty into Failure
+    rest get Raw from Base cat Source or begin
+        put the error into Failure
+        go to FetchMirror
+    end
+    return
+FetchMirror:
+    rest get Raw from Mirror cat Source or begin
+        put empty into Raw
+        return
+    end
+    put empty into Failure
+    return
+!! @hash acdd54e3
+!!!
+!! Build the page list from the documentation's own README.
+!!
+!! Every `[Title](path.md)` in `docs/README.md` becomes one entry of `Pages`, in the order it first appears, so the README's role paths and its document tables both feed in and the reader never has to know which is which. A README that cannot be fetched leaves the list empty, which the contents page says out loud rather than presenting an empty list as though the documentation had no pages.
+BuildIndex:
+    set Pages to array
+    put `docs/README.md` into Source
+    gosub to Fetch
+    if Raw is not empty gosub to ScanLinks
+    put the json count of Pages into PagesCount
+    return
+!! @hash 7c0c5878
+!!!
+!! Publish the slugs this reader can open, so JavaScript can tell a page change from an anchor.
+!!
+!! The list is what keeps Back and Forward safe. A hash this reader recognises is a page and is followed; a hash it does not — a link into a section of a page, or a typo — is left alone rather than answered with a "not written yet" notice in place of the page the reader was already reading. Handing the list out is the same bargain as `route-out`: this side owns the page list, so JavaScript is told what it is rather than left to work it out.
+PublishSlugs:
+    put empty into KnownOut
+    put 0 into PageNo
+Publish:
+    if PageNo is not less than PagesCount go to Published
+    put element PageNo of Pages into Page
+    put KnownOut cat property `slug` of Page cat newline into KnownOut
+    add 1 to PageNo
+    go to Publish
+Published:
+    set the content of KnownSlugs to KnownOut
+    return
+!! @hash 37383d77
+!!!
+!! Walk the README for links, taking each `[Title](path.md)` in a list item or a table row.
+!!
+!! Only those are pages. The README's role paths and its document map are both lists, and they hold the reading order; a link inside a paragraph is a cross-reference, and the first in the file is the opening sentence's mention of the glossary, which taken literally would put the glossary at the head of the reading order and greet a reader pressing Next with it. The marker test is on the line's first character after trimming — `-`, `*`, `+`, `|`, or a digit — which is as much Markdown as the walker needs to know.
+!!
+!! A link is recognised from its closing `](` and then backwards to the `[` that opens it, so a table row and a list item need no separate handling. The text is consumed as it goes, so each link is examined once. `NotAPage` is the exit for a `](` that is not a page — no `[` in front of it, or a paragraph's cross-reference — and it would otherwise be scanned forever.
+ScanLinks:
+    put Raw into Remains
+    put empty into NowFolder
+Scan:
+    put the position of `](` in Remains into Pos
+    if Pos is less than 0 return
+    put left Pos of Remains into Head
+!	A page is a link in a list item or a table row — the README's role paths and its document map. A link inside a paragraph is a cross-reference, and the first one in the file is the opening sentence's mention of the glossary, which would otherwise head the reading order.
+    put the position of the last newline in Head into Cut
+    add 1 to Cut
+    put from Cut of Head into Lead
+    put trim Lead into Lead
+    put left 1 of Lead into Lead
+    if Lead is `-` go to TakeLink
+    if Lead is `*` go to TakeLink
+    if Lead is `+` go to TakeLink
+    if Lead is `|` go to TakeLink
+    if `0123456789` includes Lead go to TakeLink
+    go to NotAPage
+TakeLink:
+    put the position of the last `[` in Head into Cut
+    if Cut is less than 0 go to NotAPage
+    add 1 to Cut
+    put from Cut of Head into Heading
+    put Pos into Cut
+    add 2 to Cut
+    put from Cut of Remains into Tail
+    put the position of `)` in Tail into Cut
+    if Cut is less than 0 return
+    put left Cut of Tail into Href
+    add 1 to Cut
+    put from Cut of Tail into Remains
+    gosub to AddPage
+    go to Scan
+NotAPage:
+    put Pos into Cut
+    add 2 to Cut
+    put from Cut of Remains into Remains
+    go to Scan
+!! @hash 2a6f199b
+!!!
+!! Add one link to the page list, unless it is not a page of this reader or is already listed.
+!!
+!! The href is resolved against `NowFolder`, the folder of the file it came from, so `../appendix/glossary.md` in a concept document and `concept/00-…md` in the README arrive at the same page. A page already listed keeps its first position, which is what makes the README's role paths — which revisit documents — a reading order rather than a jumble.
+AddPage:
+    put NowFolder into FromFolder
+    gosub to ResolveLink
+    if Skip return
+    if Outside return
+    gosub to FindPage
+    if Mention is greater than -1 return
+    set Page to object
+    set property `slug` of Page to Slug
+    set property `title` of Page to Heading
+    json add Page to Pages
+    return
+!! @hash ed51efff
+!!!
+!! Turn a link's href into a page slug, or say why it is not one.
+!!
+!! `Href` is what the click carried and `FromFolder` the folder of the document it was in. `Skip` comes back set for anything that is not a Markdown document, and `Outside` for a link that climbs above the documentation tree — the engineering notes under `doc/` and `AI/`, which the product documents link to as their source of truth and which belong on GitHub rather than in a reader aimed at the people who will fit or run the system.
+!!
+!! The walk takes the path apart one segment at a time, dropping each consumed segment before the helpers run, because `ParentFolder` and `ChildFolder` both write `Pos` and the caller's own use of it has to be finished with first. A fragment is dropped whole: this reader shows pages, and a link into a section is answered with the page it is in.
+ResolveLink:
+    clear Skip
+    clear Outside
+    put FromFolder into Folder
+    put Href into Path
+    put the position of `#` in Path into At
+    if At is greater than -1 put left At of Path into Path
+    if right 3 of Path is not `.md` begin
+        set Skip
+        return
+    end
+    put the position of `/` in Path into At
+    while At is greater than -1
+    begin
+        put left At of Path into Piece
+        add 1 to At
+        put from At of Path into Path
+        if Piece is `..`
+        begin
+            if Folder is empty set Outside
+            else gosub to ParentFolder
+        end
+        else if Piece is not `.` and Piece is not empty gosub to ChildFolder
+        put the position of `/` in Path into At
+    end
+    put the length of Path into Kept
+    subtract 3 from Kept
+    put left Kept of Path into Snippet
+    if Folder is empty put Snippet into Slug
+    else put Folder cat `/` cat Snippet into Slug
+    return
+!! @hash e2fe34e8
+!!!
+!! Drop the last segment of `Folder`, for a `..` segment.
+!!
+!! There is always one to drop: an empty folder is the case that sets `Outside` instead of coming here.
+ParentFolder:
+    put the position of the last `/` in Folder into At
+    if At is less than 0 put empty into Folder
+    else put left At of Folder into Folder
+    return
+!! @hash f4953cc9
+!!!
+!! Descend into `Piece`, which is a folder name rather than `..` or a lone `.`.
+ChildFolder:
+    if Folder is empty put Piece into Folder
+    else put Folder cat `/` cat Piece into Folder
+    return
+!! @hash fa466625
+!!!
+!! Look up `Slug` in the page list, leaving its position in `Mention`, or -1 when it is not there.
+!!
+!! A page can be opened without being listed — an old link, a hand-typed address, a document in the tree that the README does not name — and it is still shown, with its slug standing in as the heading. This is what tells the two apart.
+FindPage:
+    put the json count of Pages into PagesCount
+    put -1 into Mention
+    put 0 into PageNo
+Lookup:
+    if PageNo is not less than PagesCount return
+    put element PageNo of Pages into Page
+    if property `slug` of Page is Slug begin
+        put PageNo into Mention
+        return
+    end
+    add 1 to PageNo
+    go to Lookup
+!! @hash e63b78e8
+!!!
+!! Open the page the address asks for, so that a shared link lands where it says.
+!!
+!! The fragment is taken out by hand rather than through a URL parser, because the page carries no query string of its own and the fragment is the only part of the address this reader uses. An address with no fragment is the contents page.
+OpenAddress:
+    put the location into Address
+    put the position of `#` in Address into HashAt
+    if HashAt is greater than -1
+    begin
+        add 1 to HashAt
+        put from HashAt of Address into Slug
+    end
+    else put empty into Slug
+    if Slug is empty gosub to ShowContents
+    else gosub to ShowPage
+    return
+!! @hash 9d64710d
+!!!
+!! Show the contents page: the documentation's own README, which is what the page list was built from.
+!!
+!! The address is emptied of its fragment here, so that `/docs/` is the contents page and `/docs/#something` always means a document. `NowNo` is -1, the marker that the toolbar reads as "no page is selected".
+ShowContents:
+    put empty into NowSlug
+    put empty into NowFolder
+    put -1 into NowNo
+    put `docs/README.md` into Source
+    gosub to Fetch
+    if Raw is empty
+    begin
+        gosub to ShowMissing
+        return
+    end
+    gosub to SplitStatus
+    gosub to ShowText
+    set the content of RouteOut to empty
+    gosub to SetToolbar
+    scroll to 0
+    return
+!! @hash 8dc8683c
+!!!
+!! Open a page: fetch it, show it, and set the toolbar, the heading and the address to match.
+!!
+!! Failure to fetch is not an error dialog. It is either a document named in the README but not yet written or a source that could not be reached, and ShowMissing says which. `NowFolder` is derived here from the slug itself, because it is what the links in the page just fetched will resolve against.
+ShowPage:
+    put `docs/` cat Slug cat `.md` into Source
+    gosub to Fetch
+    if Raw is empty
+    begin
+        gosub to ShowMissing
+        return
+    end
+    gosub to SplitStatus
+    gosub to ShowText
+    gosub to FindPage
+    put Mention into NowNo
+    put Slug into NowSlug
+    put the position of the last `/` in NowSlug into SlashAt
+    if SlashAt is greater than -1 put left SlashAt of NowSlug into NowFolder
+    else put empty into NowFolder
+    set the content of RouteOut to NowSlug
+    gosub to SetToolbar
+    scroll to 0
+    return
+!! @hash a13815fc
+!!!
+!! Put a document into the reading pane: the text, its status band, and the notice out of the way.
+ShowText:
+    set the content of Content to Doc
+    gosub to ShowStatus
+    set style `display` of Notice to `none`
+    set style `display` of Content to `block`
+    return
+!! @hash 6f357ae6
+!!!
+!! Show the status line as a band above the text, or take the band away when there is none.
+!!
+!! A document that carries no status line is shown as it stands, which is the right outcome for something that does not follow the convention.
+ShowStatus:
+    if Status is empty
+    begin
+        set the content of MetaBar to empty
+        set style `display` of MetaBar to `none`
+        return
+    end
+    set the content of MetaBar to Status
+    set style `display` of MetaBar to `block`
+    return
+!! @hash 00bb138a
+!!!
+!! Lift the status line out of a document, leaving the body in `Doc` and the line in `Status`.
+!!
+!! The line is found by its own words rather than by its line number — it sits third in most documents and fifth in the README — and by its words rather than by `>` alone, because warnings and traps are blockquotes too and one of them must not be mistaken for the status. `Raw` is left as fetched, so a document with no status line is simply shown whole.
+SplitStatus:
+    put Raw into Doc
+    put empty into Status
+    put empty into Carried
+    put Raw into Rest
+CheckLine:
+    put the position of newline in Rest into Mark
+    if Mark is less than 0 return
+    put left Mark of Rest into Row
+    if Row includes `Audience:`
+    begin
+        put from 1 of Row into Status
+        add 1 to Mark
+        put from Mark of Rest into Leftovers
+        put Carried cat Leftovers into Doc
+        return
+    end
+    put Carried cat Row cat newline into Carried
+    add 1 to Mark
+    put from Mark of Rest into Rest
+    go to CheckLine
+!! @hash 2af2080d
+!!!
+!! Report a document that could not be shown, saying which of the two reasons it was.
+!!
+!! A 404 from both sources means the README names a document that has not been written yet, which is the ordinary state of a tree being worked through; anything else means the source could not be reached. Both offer the file on GitHub, since the raw Markdown is the honest fallback. The address keeps the slug so the link can still be shared and will work once the document exists.
+ShowMissing:
+    set style `display` of Content to `none`
+    set the content of Content to empty
+    set the content of MetaBar to empty
+    set style `display` of MetaBar to `none`
+    if Failure includes `404`
+        put `This document is listed in the contents but has not been written yet.` into Snippet
+    else
+        put `The documentation could not be loaded just now. Every page is read from the repository as you open it, so this is a problem reaching it rather than a problem with the page.` into Snippet
+    set the content of NoticeText to Snippet
+    set the content of NoticeLink to `Open the file on GitHub`
+    set attribute `href` of NoticeLink to Repo cat `/blob/main/` cat Source
+    set style `display` of Notice to `block`
+    set the content of RouteOut to NowSlug
+    gosub to SetToolbar
+    scroll to 0
+    return
+!! @hash 96ba3bba
+!!!
+!! Report a link that is not a page of this reader.
+!!
+!! The case that matters is the link that climbs out of the documentation tree — most often to the engineering notes under `doc/` and `AI/`, which the product documents cite as their source of truth for the detail. Those are written for developers rather than for the readers this site is aimed at, so fetching one and presenting it as documentation would be a lie about who it is for. The message says only what is true of every case, and the repository is offered instead. The href itself is not echoed into the notice: `set the content of` writes markup, so a link carrying anything bracketed would arrive as something else.
+ShowElsewhere:
+    set style `display` of Content to `none`
+    set the content of Content to empty
+    set the content of MetaBar to empty
+    set style `display` of MetaBar to `none`
+    set the content of NoticeText to `That link is not one of these documents. It goes to a file in the project's repository, which GitHub holds.`
+    set the content of NoticeLink to `Open the repository on GitHub`
+    set attribute `href` of NoticeLink to Repo
+    set style `display` of Notice to `block`
+    return
+!! @hash 0bc296b7
+!!!
+!! Set the three toolbar buttons and the source link to the state the page on screen calls for.
+!!
+!! Prev and Next walk the page list, so both are disabled when the page is not in it, and Next is disabled on a contents page whose list is empty — which is what an unreachable README leaves behind. `NowNo` is -1 on the contents page, so Next from there is the first page, and Prev from the first page is the contents.
+SetToolbar:
+    set attribute `href` of SourceLink to Repo cat `/blob/main/` cat Source
+    if NowSlug is empty
+    begin
+        disable ContentsButton
+        disable PrevButton
+        if PagesCount is greater than 0 enable NextButton
+        else disable NextButton
+        return
+    end
+    enable ContentsButton
+    if NowNo is greater than 0 enable PrevButton
+    else disable PrevButton
+    put NowNo into Ahead
+    add 1 to Ahead
+    if Ahead is less than PagesCount enable NextButton
+    else disable NextButton
+    return
+!! @hash fcde102c
+!!!
+!! Step back through the page list, and from the first page to the contents.
+!!
+!! Back from a page that is not in the list returns to the contents, because there is no position to step back from.
+GoBack:
+    if NowSlug is empty return
+    if NowNo is greater than 0
+    begin
+        subtract 1 from NowNo
+        put element NowNo of Pages into Page
+        put property `slug` of Page into Slug
+        gosub to ShowPage
+        return
+    end
+    gosub to ShowContents
+    return
+!! @hash 553798a7
+!!!
+!! Step forward through the page list, and from the contents page to the first document.
+!!
+!! The page list is walked from the toolbar, so the only two ways in are the buttons and a link.
+GoOn:
+    put NowNo into NextNo
+    add 1 to NextNo
+    if NextNo is not less than PagesCount return
+    put element NextNo of Pages into Page
+    put property `slug` of Page into Slug
+    gosub to ShowPage
+    return
+!! @hash ed28c4f2
+!!!
+!! Follow the link that was clicked, which index.html has put into `nav-target`.
+!!
+!! The href arrives as the document wrote it — relative, and meaningless without knowing which document that was — so it is resolved here, against the folder of the page on screen. A link that resolves outside the tree, or that is not a Markdown document at all, is reported as such rather than fetched on the chance that something is there.
+FollowLink:
+    put the content of NavTarget into Href
+    replace `&amp;` with `&` in Href
+    put NowFolder into FromFolder
+    gosub to ResolveLink
+    if Skip
+    begin
+        gosub to ShowElsewhere
+        return
+    end
+    if Outside
+    begin
+        gosub to ShowElsewhere
+        return
+    end
+    gosub to ShowPage
+    return
+!! @hash 4ae53152
+!!!

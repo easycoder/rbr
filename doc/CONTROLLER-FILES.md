@@ -36,8 +36,7 @@ The controller directory does NOT need any of the repo's folders (`resources/`, 
 |---|---|
 | `simulator.allspeak` | Simulation mode — only if a file named `sim` exists (see `controller.allspeak` init) |
 | `zigbee-config.json` | Optional — the bridge works without it, falling back to `localhost:1883` / port 8889. `rbr-setup.sh` creates it with broker details. |
-| `asedit.allspeak`, `asedit.json`, `edit.html`, `server.allspeak` | Running the AllSpeak editor on the controller (`allspeak server.allspeak`) |
-| `.code-version` | Used by `server.allspeak` for the editor's own update check — keep it if you run the editor |
+| `asedit.allspeak`, `asedit.json`, `edit.html`, `server.allspeak` | Running the AllSpeak editor on the controller: `allspeak server.allspeak [port]`, or `allspeak viz [port]` to open the visualiser as well. `server.allspeak` must be kept current — a copy from before 2026-10-12 answers `503 Server handler not ready` to every request and reports nothing; refresh it with `curl -fsS https://allspeak.ai/code/server.allspeak -o server.allspeak` |
 | `index.html`, `favicon.ico` | Only if you serve the web UI locally from this directory (e.g. `python3 -m http.server`) |
 | `.htaccess` | Only if Apache serves this directory (ignored by `http.server`) |
 

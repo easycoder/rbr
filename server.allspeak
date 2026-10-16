@@ -1,11 +1,14 @@
 !   server.allspeak
 !   AllSpeak development server.
-!   Usage: allspeak server.allspeak [-t|--tabs page1,page2,...] [port]    (default port: 8080)
-!   Example: allspeak server.allspeak -t edit,test 8080
-!     opens edit.html and test.html in the default browser at localhost:8080
+!   Usage: allspeak viz [port]      starts this server if it is not already running, and opens the
+!                                   visualizer at localhost:<port>/viz.html in your browser
+!          allspeak server [port]   starts this server and opens nothing, so you can open as many
+!                                   pages as you like yourself
+!   Port defaults to 8080.
 !
 !   Serves two purposes:
-!     1. Hosts the AllSpeak editor at localhost:<port>/edit.html
+!     1. Hosts the AllSpeak visualizer at localhost:<port>/viz.html — and the name it had before
+!        2026-10-12, `edit.html`, still answers with the same page
 !     2. Serves project files at localhost:<port>/<project>.html
 !        (replaces the need for python3 -m http.server)
 !
@@ -14,9 +17,28 @@
 !     GET  /list          →  returns entries in the root directory
 !     GET  /read/<file>   →  returns contents of <file>
 !     POST /write/<file>  →  writes request body to <file>; returns OK
-!     GET  /version       →  checks for updates from the repo; returns OK or updated
-!     GET  /restart       →  restarts the server process
-!     GET  /<file>        →  serves static files (HTML, JS, CSS, JSON, ECS)
+!     GET  /record/<file> →  runs <file> under this Python runtime, records the run, and
+!                            returns the verdict. The script's own output goes to
+!                            <file>-stdout.txt beside it, and the trace to <file>.viz.json
+!     GET  /version       →  compares this process's script with the published one;
+!                            returns OK or updated. `updated` means a restart
+!                            would change what runs — a copy the project keeps
+!                            itself is `OK`, because a restart re-runs it as it is.
+!                            The page warns the reader rather than restarting
+!                            anything: a restart offered from the page left a
+!                            detached server a Ctrl+C in the reader's terminal
+!                            could not reach (Graham's call, 2026-10-12), so the
+!                            `/restart` route is gone and the advice is the
+!                            reader's own two steps
+!     GET  /restart       →  **removed 2026-10-12.** It re-ran the server in the background and exited,
+!                            which left a server the reader's Ctrl+C could not reach; the page now tells
+!                            the reader to stop this one and start it again, which is two steps in the
+!                            terminal they are already looking at. See `/version` below for the rest.
+!     GET  /<file>        →  serves static files (HTML, JS, CSS, JSON, ECS);
+!                            404 when there is no such file. `viz.html` is
+!                            served from the deploy when the project has none,
+!                            with the project's language filled in — and so is
+!                            `edit.html`, the name it had before 2026-10-12.
 
     script CodeServer
 
@@ -29,44 +51,69 @@
     variable FileList
     variable Port
     variable MimeType
+    variable FileLoaded
     variable RepoBase
-    variable RemoteVersion
-    variable LocalVersion
+    variable DistBase
+    variable RemoteServer
+    variable LocalServer
+    variable LocalServerPath
+    variable ProjectCopy
+    variable Lang
+    variable InitText
+    variable LangTag
+    variable LangDiv
+    variable HomeDiv
+    variable ScriptPath
+    variable TracePath
+    variable OutputPath
+    variable VerdictPath
+    variable RecordCommand
+    variable RecordVerdict
+    variable ProjectRuntime
+    variable RuntimeDiv
+    variable InitKey
+    variable InitValue
+    variable InitAt
+    variable GraphText
+    variable SideText
+    variable PanelText
+    variable GraphDiv
+    variable SideDiv
+    variable PanelDiv
+    variable Page
     server Files
 
     put `https://allspeak.ai/code/` into RepoBase
+    put `https://allspeak.ai/dist/` into DistBase
 
     put cwd into BaseDir
     variable ArgCount
     variable ArgIndex
     variable CurrentArg
-    variable TabList
-    variable TabName
-    variable TabIndex
-    variable TabUrl
+    variable OpenViz
+    variable VizUrl
     put argc into ArgCount
     put `8080` into Port
-    put empty into TabList
+    put `no` into OpenViz
     put 0 into ArgIndex
     while ArgIndex is less than ArgCount
     begin
         put arg ArgIndex into CurrentArg
-        if CurrentArg is `-t` or CurrentArg is `--tabs`
-        begin
-            increment ArgIndex
-            if ArgIndex is less than ArgCount
-                put arg ArgIndex into TabList
-        end
+        if CurrentArg is `--viz`
+            put `yes` into OpenViz
         else
             put CurrentArg into Port
         increment ArgIndex
     end
 
-    ! Ensure .code-version exists
-    if file BaseDir cat `/.code-version` does not exist
-    begin
-        save `0` to BaseDir cat `/.code-version`
-    end
+    ! **No `.code-version`, and no self-update.** This script used to keep itself current: it compared a
+    ! `code-version` number in the project with the published one and downloaded itself when they differed.
+    ! Every project therefore held a copy of the server, the number was a number nobody remembered to bump,
+    ! and — because *any* difference fetched — a copy ahead of the publish was dragged backwards (measured
+    ! 2026-10-04: `3` local against `2` published replaced the script and reset the file). None of that is
+    ! needed now: the CLI fetches this script when a project has none, so what a project runs is the
+    ! published one. A project that *does* keep a `server.allspeak` has asked for that copy, and it is not
+    ! this script's business to replace it.
 
     start Files on port Port
 
@@ -74,29 +121,14 @@
     print `Serving files from ` cat BaseDir
     print `Press Ctrl+C to stop`
 
-    ! Check for updates at startup
-    get RemoteVersion from url RepoBase cat `code-version` or begin
-        print `Warning: could not check for updates`
-    end
-    if RemoteVersion is not empty
-    begin
-        replace ` ` with `` in RemoteVersion
-        replace newline with `` in RemoteVersion
-        load LocalVersion from BaseDir cat `/.code-version` or begin
-            put `0` into LocalVersion
-        end
-        replace ` ` with `` in LocalVersion
-        replace newline with `` in LocalVersion
-        if RemoteVersion is not LocalVersion
-        begin
-            print `Updating from version ` cat LocalVersion cat ` to ` cat RemoteVersion
-            download RepoBase cat `server.allspeak` to BaseDir cat `/server.allspeak`
-            download RepoBase cat `asedit.json` to BaseDir cat `/asedit.json`
-            download RepoBase cat `asedit.allspeak` to BaseDir cat `/asedit.allspeak`
-            save RemoteVersion to BaseDir cat `/.code-version`
-            print `Update complete`
-        end
-    end
+    ! **There is nothing to check for updates, and this is why.** This script used to keep itself current:
+    ! it compared a `code-version` number in the project with the published one and downloaded itself when
+    ! they differed. Every project therefore held a copy of the server, the number was a number nobody
+    ! remembered to bump, and — because *any* difference fetched — a copy ahead of the publish was dragged
+    ! backwards (measured 2026-10-04: `3` local against `2` published replaced the script and reset the
+    ! file). None of that is needed any more: the CLI fetches this script when a project has none, so the
+    ! file a project runs is the published one and `.code-version` is gone. A project that *does* keep a
+    ! `server.allspeak` has asked for that copy, and it is not this script's business to replace it.
 
     on Files request
     begin
@@ -104,27 +136,47 @@
 
         if FullPath is `/version`
         begin
-            get RemoteVersion from url RepoBase cat `code-version` or begin
+            ! **Content, not a number.** The page asks this at startup and warns the reader when the answer is
+            ! `updated`. It used to compare a `code-version` number in the project with the published one,
+            ! which needed that number to be in the project and a hand to bump it. What it compares now is the
+            ! thing actually being asked: is the *published* server script the one this process is running?
+            ! The running copy is a project's own `server.allspeak` when there is one, and the CLI's fetched
+            ! copy otherwise. No number, nothing to remember to bump, and a true answer either way.
+            !
+            ! **`OK` means one thing to the caller: there is nothing to do about this process.** The caller is
+            ! the page, and its question is whether to tell the reader the server is out of date. So a copy a
+            ! restart would re-run *unchanged* must not be called `updated`, and the two running copies differ
+            ! exactly there: the CLI's fetched cache is *replaced* by a restart (the CLI fetches at every
+            ! start), while a file beside the project is the copy its owner asked for and a restart runs it
+            ! again, byte for byte. Both answer `OK` — the same script is published, or this process is running
+            ! the project's own copy. **Measured 2026-10-12, from Graham**: running the server out of a
+            ! checkout, where the local script is *ahead* of the published one, the page offered him "viz has
+            ! been updated. Restart to apply changes?" and a restart could not have changed anything.
+            !
+            ! **Two words, and no more, because the caller's vocabulary is a published one.** A third word
+            ! would be read by an `allspeak` older than it as "not a dev server" — the probe that opens the
+            ! visualizer accepts exactly this route's words — and the older one's advice is to try another
+            ! port, which starts a second server. Saying `OK` and meaning "nothing for you to do" costs
+            ! nothing and cannot break a client that was not upgraded.
+            get RemoteServer from url RepoBase cat `server.allspeak` or begin
                 return `error` to Files with status 500
             end
-            replace ` ` with `` in RemoteVersion
-            replace newline with `` in RemoteVersion
-            load LocalVersion from BaseDir cat `/.code-version` or begin
-                put `0` into LocalVersion
+            put BaseDir cat `/server.allspeak` into LocalServerPath
+            put `yes` into ProjectCopy
+            if file LocalServerPath does not exist
+            begin
+                put `no` into ProjectCopy
+                put `~/.cache/allspeak/server.allspeak` into LocalServerPath
             end
-            replace ` ` with `` in LocalVersion
-            replace newline with `` in LocalVersion
-            if RemoteVersion is LocalVersion
+            load LocalServer from LocalServerPath or begin
+                return `OK` to Files
+            end
+            if ProjectCopy is `yes`
+                return `OK` to Files
+            else if RemoteServer is LocalServer
                 return `OK` to Files
             else
                 return `updated` to Files
-        end
-        else if FullPath is `/restart`
-        begin
-            print `Restart requested`
-            system background `sleep 2 && allspeak server.allspeak ` cat Port
-            return `OK` to Files
-            exit
         end
         else if FullPath is `/list` or FullPath starts with `/list/`
         begin
@@ -133,7 +185,12 @@
             if left 1 of FilePath is `/` put from 1 of FilePath into FilePath
             if FilePath includes `..`
             begin
+                ! **`stop`, because a refusal that only sets a response does not refuse.** The lines
+                ! after this block ran and overwrote the 403 — measured 2026-10-04: in the static
+                ! branch, `curl --path-as-is /../secret-outside.txt` returned the file with `200`,
+                ! and the same fall-through defeated the guards on /list, /read and /write.
                 return `Forbidden` to Files with status 403
+                stop
             end
             if FilePath is empty
                 set FileList to entries in BaseDir type `allspeak,as,ecs,md,txt,json,html,css,js,py`
@@ -147,15 +204,82 @@
             replace `/read/` with `` in FilePath
             if FilePath includes `..`
             begin
+                ! **`stop`, because a refusal that only sets a response does not refuse.** The lines
+                ! after this block ran and overwrote the 403 — measured 2026-10-04: in the static
+                ! branch, `curl --path-as-is /../secret-outside.txt` returned the file with `200`,
+                ! and the same fall-through defeated the guards on /list, /read and /write.
                 return `Forbidden` to Files with status 403
+                stop
             end
             load Content from BaseDir cat `/` cat FilePath
             	on failure
             	begin
                 	log `Could not open ` cat BaseDir cat  `/` cat FilePath
-                    put empty into Content
+                    ! **A real 404, and `stop` because the response alone does not refuse.** This branch
+                    ! used to `put empty into Content` and fall through to the `return` below, so a file
+                    ! that is not there was answered `200` with an empty body — a caller could not tell
+                    ! "no file" from "empty file". The static branch was given its 404 on 2026-10-04 and
+                    ! this route was left alone; it is the same fault and the same fix.
+                    return `Not found` to Files with status 404
+                    stop
                 end
             return Content to Files
+        end
+        else if FullPath starts with `/record/`
+        begin
+            put FullPath into FilePath
+            replace `/record/` with `` in FilePath
+            if FilePath includes `..`
+            begin
+                ! The same guard, and for the same reason, as every other route — a refusal that only sets a
+                ! response does not refuse, because the lines after it still run.
+                return `Forbidden` to Files with status 403
+                stop
+            end
+            ! **Three names, each derived from the script, so a reader finds them beside it.** The trace goes
+            ! where the editor's Graph pane looks for it — `<script>.viz.json`, the name the editor computes
+            ! for the tab — the output where a person can read it, and the verdict into a scratch file that is
+            ! read and deleted, because it is what a status line needs and it is not worth keeping.
+            put BaseDir cat `/` cat FilePath into ScriptPath
+            put ScriptPath cat `.viz.json` into TracePath
+            put ScriptPath cat `-stdout.txt` into OutputPath
+            put BaseDir cat `/.record-verdict.txt` into VerdictPath
+
+            ! **`allspeak` is what runs it, so the run is the one a console would do.** The dev server does not
+            ! execute the script itself: the runtime owns that, the recorder's guard bounds it, and `--record`
+            ! writes the recording. `system` waits for the command, which is why this route answers only when
+            ! the run is over. The redirects are the point of doing it in a shell: a script's output is
+            ! unpredictable and would drown the console this server is also writing to, and the CLI's one line
+            ! about the recording goes to stderr so the two do not mix. Measured 2026-10-05 on
+            ! `examples/chemical/parser.allspeak`: 41 visits in 1 window, its four formula lines in the file.
+            if file ScriptPath exists
+            begin
+                put `allspeak --record="` cat TracePath cat `" "` cat ScriptPath cat `" > "` cat OutputPath cat `" 2> "` cat VerdictPath cat `"` into RecordCommand
+                system RecordCommand
+                put empty into RecordVerdict
+                if file VerdictPath exists
+                begin
+                    ! **Field 1 after the tag, not the whole file.** Anything else the CLI put on stderr sits
+                    ! before the verdict, and taking everything after `viz: ` is what drops it.
+                    load RecordVerdict from VerdictPath
+                    put field 1 of RecordVerdict delimited by `viz: ` into RecordVerdict
+                    replace newline with `` in RecordVerdict
+                    delete file VerdictPath
+                end
+                if RecordVerdict is empty
+                    put `ran, but no recording was written — see ` cat FilePath cat `-stdout.txt` into RecordVerdict
+                ! **`stop`, and not for decoration.** A `return … to Files` inside a block does not end the
+                ! section — the thread carries on to the lines after the block, and the *last* response wins.
+                ! This route returned `no such script` for a script it had just run and recorded, which is the
+                ! same fall-through the guards on /list, /read, /write and the static branch were given their
+                ! `stop`s for. Measured 2026-10-05, in this route's first draft.
+                ! The sentence is composed here rather than in the editor, so the verdict and the name of the
+                ! output file are written once, where both are known.
+                return RecordVerdict cat ` · output in ` cat FilePath cat `-stdout.txt` to Files
+                stop
+            end
+            return `no such script: ` cat FilePath to Files with status 404
+            stop
         end
         else if FullPath starts with `/write/`
         begin
@@ -163,7 +287,12 @@
             replace `/write/` with `` in FilePath
             if FilePath includes `..`
             begin
+                ! **`stop`, because a refusal that only sets a response does not refuse.** The lines
+                ! after this block ran and overwrote the 403 — measured 2026-10-04: in the static
+                ! branch, `curl --path-as-is /../secret-outside.txt` returned the file with `200`,
+                ! and the same fall-through defeated the guards on /list, /read and /write.
                 return `Forbidden` to Files with status 403
+                stop
             end
             get Content from Files
             save Content to BaseDir cat `/` cat FilePath
@@ -175,38 +304,217 @@
             put from 1 of FullPath into FilePath
             if FilePath includes `..`
             begin
+                ! **`stop`, because a refusal that only sets a response does not refuse.** The lines
+                ! after this block ran and overwrote the 403 — measured 2026-10-04: in the static
+                ! branch, `curl --path-as-is /../secret-outside.txt` returned the file with `200`,
+                ! and the same fall-through defeated the guards on /list, /read and /write.
                 return `Forbidden` to Files with status 403
+                stop
             end
             if FilePath ends with `.html` put `text/html` into MimeType
             else if FilePath ends with `.json` put `application/json` into MimeType
             else if FilePath ends with `.allspeak` put `text/plain` into MimeType
+            else if FilePath ends with `.as` put `text/plain` into MimeType
             else if FilePath ends with `.js` put `application/javascript` into MimeType
             else if FilePath ends with `.css` put `text/css` into MimeType
             else put `text/plain` into MimeType
-            load Content from BaseDir cat `/` cat FilePath or begin
-                return `Not found` to Files with status 404
+            ! **One response, decided once, and a real 404 when the file is not there.** This
+            ! used to be `load Content from ... or begin return 'Not found' ... 404 end` and then
+            ! `return Content to Files` — which read as "404 if the load fails", but an `or`
+            ! clause whose action is a `return` does not end the section, so the thread carried on
+            ! into the `return Content` below. `Content` still held whatever was read last, so a
+            ! request for a file that is not there was answered `200` with the previous response's
+            ! body and the MIME guessed from the name that was asked for — and a page then
+            ! executed that body as JavaScript. The flag is what makes exactly one answer.
+            put `yes` into FileLoaded
+            ! **Ask whether the file is there before trying to read it.** `load … on failure` prints a line for
+            ! every failure, and in a project a missing page is the *ordinary* case — a project has no
+            ! `viz.html`, and the branch below serves the deployed one — so every page load printed
+            ! `Exception "Unable to read from …/viz.html": Running the "or" clause` and read as a fault. A file
+            ! that exists and cannot be read is still caught, by the clause that remains.
+            if file BaseDir cat `/` cat FilePath does not exist
+                put `no` into FileLoaded
+            else
+            begin
+                load Content from BaseDir cat `/` cat FilePath
+                    on failure
+                    begin
+                        put `no` into FileLoaded
+                    end
             end
-            return Content to Files with type MimeType
+            if FileLoaded is `yes`
+                return Content to Files with type MimeType
+            ! **Two names, one page, and the second name is a window.** The visualizer's page was `edit.html`
+            ! until 2026-10-12, so a bookmark, a starter pack built earlier, or an agent following one still
+            ! asks for that name — and it is answered with the same page rather than a 404. A project that
+            ! keeps a local `edit.html` still wins, above: the two names are only interchangeable here, at
+            ! the fallback.
+            else if FilePath is `viz.html` or FilePath is `edit.html`
+            begin
+                ! **The page is served, not shipped.** A pack used to carry `viz.html`, generated per
+                ! language — which put a copy of the *tooling* in every project, and nothing in a project
+                ! knows when the repository's page has moved on. So the page is not in a project at all
+                ! unless somebody chose to put one there (a local `viz.html` still wins, above): the
+                ! server fetches the deployed page and fills in the two things a pack's page used to
+                ! get from the pack — the language, and where the editor's payload lives.
+                !
+                ! The language comes from the project's own `.allspeak-init` (`lang: fr`), the file the
+                ! starter AGENTS.md already has the agent create and complete; with no such line it is
+                ! English. Everything else in the page is already language-neutral.
+                put `en` into Lang
+                put `js` into ProjectRuntime
+                put empty into InitText
+                ! The same courtesy as the file above: a project with no manifest yet is an ordinary state — a
+                ! pack ships one, an older project has none — and the answer is English.
+                if file BaseDir cat `/.allspeak-init` exists
+                begin
+                    load InitText from BaseDir cat `/.allspeak-init`
+                        on failure
+                        begin
+                            put empty into InitText
+                        end
+                end
+                if InitText is not empty
+                begin
+                    ! **Two keys out of one file, read a line at a time** — `InitValue` is the reader, and
+                    ! the reason it is one is that this used to take everything after `lang:` and strip the
+                    ! newlines out of it. That was correct only while the file was one line, and the packs
+                    ! tell the agent to add a name and a type as the project is set up, so a set-up project's
+                    ! language arrived as `enname:Myapptype:cli` and the editor was served in English
+                    ! whatever the project's language. Measured 2026-10-05.
+                    put `lang:` into InitKey
+                    gosub to ReadInitKey
+                    if InitValue is not empty put InitValue into Lang
+                    put `runtime:` into InitKey
+                    gosub to ReadInitKey
+                    if InitValue is not empty put InitValue into ProjectRuntime
+                end
+                get Page from url RepoBase cat `viz.html`
+                    on failure
+                    begin
+                        ! **A real 404, and `stop` because the response alone does not refuse** — the same
+                        ! fault and the same fix as the `/read/` route above, and it took reaching this
+                        ! path to see it. `on failure` *carries on* where `or` ends the thread, so the
+                        ! `replace`s below ran with no page at all and the handler died with
+                        ! `Variable Page does not hold a value`: the caller got a dropped connection
+                        ! rather than the 404 this line sets. Measured 2026-10-12, the day the published
+                        ! page's name changed and a fetch of the new name was the first to fail.
+                        return `Not found` to Files with status 404
+                        stop
+                    end
+                if ProjectRuntime is not `js` and ProjectRuntime is not `py`
+                    put `js` into ProjectRuntime
+                put `<html lang="` cat Lang cat `">` into LangTag
+                put `id="editor-lang" style="display:none">` cat Lang cat `<` into LangDiv
+                put `id="editor-runtime" style="display:none">` cat ProjectRuntime cat `<` into RuntimeDiv
+                put `id="editor-home" style="display:none">` cat DistBase cat `</div>` into HomeDiv
+                replace `<html lang="en">` with LangTag in Page
+                replace `id="editor-lang" style="display:none">en<` with LangDiv in Page
+                replace `id="editor-runtime" style="display:none">js<` with RuntimeDiv in Page
+                replace `id="editor-home" style="display:none"></div>` with HomeDiv in Page
+                ! **The pane's two sources travel inside the page, and the server is what fetches them.**
+                !
+                ! The editor has a companion module for the Graph pane and a second for its sidebar, and a
+                ! project's own directory no longer carries them — a pack ships three files, not twelve. The
+                ! editor tries to fetch them from the site and cannot: the site answers
+                ! `access-control-allow-origin: *` for `.js` and `.css` and, measured again today, for `.json`
+                ! — which is how the editor's own payload and UI arrive — but *not* for `.allspeak`. The
+                ! browser refuses that read, the editor swallows the refusal, and the Graph pane comes up
+                ! empty with nothing drawn and no error to explain it. Measured 2026-10-04 against Graham's
+                ! own project: an empty Graph screen, a clean console, and this as the cause.
+                !
+                ! So the page hands them over in the two elements it already declares, exactly as it hands
+                ! over the language and the dist base. A server-side fetch is not the browser's, so the
+                ! missing header does not matter here. Empty on failure, which leaves the editor's own
+                ! fallback to try and fail as it did before — no worse than not trying.
+                get GraphText from url DistBase cat `viz-graph.allspeak`
+                    on failure
+                    begin
+                        put empty into GraphText
+                    end
+                get SideText from url DistBase cat `viz-side.allspeak`
+                    on failure
+                    begin
+                        put empty into SideText
+                    end
+                get PanelText from url DistBase cat `viz-alert.allspeak`
+                    on failure
+                    begin
+                        put empty into PanelText
+                    end
+                ! A `<textarea>` rather than a `<pre>`, because the text inside a textarea is text and cannot be
+                ! read as markup: the pane has 25 `<` in it, and markup-shaped content would be mangled here and
+                ! escaped on the way back out.
+                if GraphText is not empty
+                begin
+                    put `id="editor-graph" style="display:none">` cat GraphText cat `</textarea>` into GraphDiv
+                    replace `id="editor-graph" style="display:none"></textarea>` with GraphDiv in Page
+                end
+                if SideText is not empty
+                begin
+                    put `id="editor-side" style="display:none">` cat SideText cat `</textarea>` into SideDiv
+                    replace `id="editor-side" style="display:none"></textarea>` with SideDiv in Page
+                end
+                if PanelText is not empty
+                begin
+                    put `id="editor-alert" style="display:none">` cat PanelText cat `</textarea>` into PanelDiv
+                    replace `id="editor-alert" style="display:none"></textarea>` with PanelDiv in Page
+                end
+                return Page to Files with type `text/html`
+            end
+            else
+                return `Not found` to Files with status 404
         end
     end
 
-    ! Open requested browser tabs (-t/--tabs flag) — done AFTER the
-    ! request handler is registered so the tabs don't race the server
-    ! and hit a 503 'Server handler not ready'.
-    if TabList is not empty
+    ! **Open the visualizer, and only when `allspeak viz` asked for it.** `--viz` is how the CLI says so;
+    ! it is not a user option, and `allspeak server` passes nothing so that starting the server by itself
+    ! opens nothing and the reader opens as many pages as they like. Two reasons this belongs here and not
+    ! in the CLI: the opening has to happen *after* the request handler is registered — before that the page
+    ! gets a 503 'Server handler not ready' — and `browse` is a language command, so the behaviour stays in
+    ! the script.
+    if OpenViz is `yes`
     begin
-        split TabList on `,`
-        put 0 into TabIndex
-        while TabIndex is less than the elements of TabList
-        begin
-            index TabList to TabIndex
-            put TabList into TabName
-            if TabName is not empty
-            begin
-                put `http://localhost:` cat Port cat `/` cat TabName cat `.html` into TabUrl
-                print `Opening ` cat TabUrl
-                browse TabUrl
-            end
-            increment TabIndex
-        end
+        put `http://localhost:` cat Port cat `/viz.html` into VizUrl
+        print `Opening ` cat VizUrl
+        browse VizUrl
     end
+
+    ! The main flow ends here and the server keeps the process alive, so the subroutine below is never fallen
+    ! into — which is the whole reason this `stop` is written rather than implied by the end of the file.
+    stop
+
+!   One `key: value` out of a project's `.allspeak-init`.
+!
+!   **Line by line, and stopping at the end of the line.** The file is the project's own declaration: the pack
+!   writes `lang:` and `runtime:`, and the agent adds a project name and type as the project is set up. So a
+!   reader that took everything after the key would run into the next line and answer `enname:Myapp` — which is
+!   what the reader above did
+!   what this did until 2026-10-05, and it served every set-up project an editor in English whatever its
+!   language. A trailing `!` comment ends the value, as it does everywhere else in the language, because a
+!   person editing this file will try it.
+!
+!   `field 1 ... delimited by` is the text *after* the marker and `position of` counts from 0, so `left` of a
+!   found position is everything before it. Both measured rather than assumed.
+!
+!   InitText and InitKey in; InitValue out, empty when the key is absent or has no value. **The label is not
+!   called `InitValue`** — a label and a variable share one symbol table here, and naming both the same would be
+!   the sort of coincidence that keeps working until something reads the wrong one.
+ReadInitKey:
+    put empty into InitValue
+    if InitText is empty
+        return
+    put field 1 of InitText delimited by InitKey into InitValue
+    put position of newline in InitValue into InitAt
+    if InitAt is greater than -1
+    begin
+        put left InitAt of InitValue into InitValue
+    end
+    put position of `!` in InitValue into InitAt
+    if InitAt is greater than -1
+    begin
+        put left InitAt of InitValue into InitValue
+    end
+    replace ` ` with `` in InitValue
+    replace tab with `` in InitValue
+    return

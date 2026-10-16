@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Room By Room — documentation</title>
+  <meta name="description" content="Room By Room product documentation: what the system is, what it costs, how it is fitted and how it is run. Read directly from the project's own repository.">
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <script type="text/javascript" src="https://rbrheating.com/dist/allspeak.js?v=2610161200"></script>
+  <style>
+    /* The reader's own chrome is styled in docs.json, beside the elements it
+       belongs to. What is here is what Webson cannot express: the disabled
+       state of the toolbar buttons, and the shapes the markdown renderer
+       produces but does not style — headings, lists, tables, blockquotes. */
+    :root { --ink: #222; --rule: #e2e2e2; --link: #0b5cad; --panel: #f7f7f7; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #fff;
+      color: var(--ink);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    }
+    #top-bar button:disabled {
+      color: #9a9a9a;
+      background: #f4f4f4;
+      border-color: #e4e4e4;
+      cursor: default;
+    }
+    #top-bar button:not(:disabled):hover { background: #eef4fb; }
+    #content { overflow-wrap: break-word; }
+    #content h1 { font-size: 1.55em; font-weight: 600; margin: 0 0 0.6em; }
+    #content h2 {
+      font-size: 1.25em;
+      font-weight: 600;
+      margin: 1.9em 0 0.5em;
+      padding-bottom: 0.25em;
+      border-bottom: 1px solid var(--rule);
+    }
+    #content h3 { font-size: 1.08em; font-weight: 600; margin: 1.5em 0 0.4em; }
+    #content h4, #content h5, #content h6 { font-size: 1em; font-weight: 600; margin: 1.3em 0 0.35em; }
+    #content p { margin: 0.9em 0; }
+    #content ul, #content ol { margin: 0.9em 0; padding-left: 1.6em; }
+    #content li { margin: 0.3em 0; }
+    #content a { color: var(--link); text-decoration: none; }
+    #content a:hover { text-decoration: underline; }
+    #content code { background: #f0f0f0; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.92em; }
+    #content pre { margin: 1em 0; }
+    #content pre code { background: transparent; padding: 0; font-size: inherit; }
+    /* A wide table scrolls inside the pane rather than pushing the page sideways. */
+    #content table {
+      display: block;
+      width: 100%;
+      overflow-x: auto;
+      border-collapse: collapse;
+      margin: 1.1em 0;
+      font-size: 0.94em;
+    }
+    #content blockquote {
+      margin: 1em 0;
+      padding: 0.4em 1em;
+      border-left: 3px solid #dcdfe3;
+      background: var(--panel);
+      color: #444;
+    }
+    #content blockquote p { margin: 0.4em 0; }
+  </style>
+  <script>
+    // The reader is two halves. AllSpeak fetches and renders the pages; this half
+    // is only the part that has to be JavaScript — seeing a click on a link the
+    // markdown renderer produced, and changing the address bar. AllSpeak for the
+    // browser has no interop either way, so the DOM is the channel:
+    //
+    //   in   this half writes a clicked link's raw href into #nav-target and
+    //        clicks #nav-trigger; docs.allspeak reads it there
+    //   out  docs.allspeak writes the slug of the page on screen into
+    //        #route-out and the slugs it knows into #known-slugs; this half
+    //        reads both
+    //
+    // The href travels unresolved because only the AllSpeak side knows which
+    // document the link came from, and so only it can resolve a relative path.
+    // Nothing about the documentation's structure is decided here.
+    (function () {
+      'use strict';
+
+      function byId(id) { return document.getElementById(id); }
+
+      function slugFromHash() {
+        var hash = window.location.hash;
+        return hash.charAt(0) === '#' ? hash.slice(1) : hash;
+      }
+
+      // A slug the reader published as one of its own. Anything else in the
+      // address — an anchor into a page, a typo — is not a page change, and
+      // asking for it would replace the page with a "not written" notice.
+      function isKnown(slug) {
+        if (!slug) return true;
+        var out = byId('known-slugs');
+        if (!out) return false;
+        return ('\n' + out.textContent.trim() + '\n').indexOf('\n' + slug + '\n') !== -1;
+      }
+
+      function route(href) {
+        var target = byId('nav-target');
+        var trigger = byId('nav-trigger');
+        if (!target || !trigger) return;
+        target.textContent = href;
+        trigger.click();
+      }
+
+      // A relative link to a Markdown file is a page of this reader. An external
+      // URL, a bare fragment, or a link to anything else is left to the browser.
+      function isDocLink(a) {
+        var href = a.getAttribute('href');
+        if (!href) return false;
+        if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.charAt(0) === '#') return false;
+        return /\.md$/i.test(href.split('#')[0]);
+      }
+
+      document.addEventListener('click', function (e) {
+        var link = e.target.closest ? e.target.closest('a') : null;
+        // The status band carries the document's own "See also" links, so it is
+        // part of the reader's surface just as the pane is.
+        if (!link || !link.closest('#content, #meta-bar')) return;
+        if (!isDocLink(link)) return;
+        e.preventDefault();
+        route(link.getAttribute('href'));
+      });
+
+      // Back and forward walk the histories this code pushed. pushState does not
+      // fire hashchange, so our own changes to the address never come back here.
+      window.addEventListener('hashchange', function () {
+        var slug = slugFromHash();
+        if (isKnown(slug)) route(slug);
+      });
+
+      var lastRoute = null;
+
+      // The AllSpeak script publishes the page now showing into #route-out, and
+      // the address bar follows it so that every page can be linked to and
+      // bookmarked. The first publication is the page the visitor asked for, so
+      // it matches the hash already and no history entry is created for it.
+      // Scrolling is the script's business, not this half's: it is the half that
+      // knows which page — or which notice — it has just put on the screen.
+      function mirrorRoute() {
+        var out = byId('route-out');
+        if (!out) return;
+        var slug = out.textContent.trim();
+        if (slug === lastRoute) return;
+        lastRoute = slug;
+        if (slugFromHash() === slug) return;
+        var base = window.location.pathname + window.location.search;
+        window.history.pushState(null, '', slug ? base + '#' + slug : base);
+      }
+
+      function watchRoute() {
+        var out = byId('route-out');
+        if (!out) return false;
+        new MutationObserver(mirrorRoute).observe(out, { childList: true, characterData: true, subtree: true });
+        return true;
+      }
+
+      // The reading pane and the bridge elements do not exist yet at
+      // DOMContentLoaded: the AllSpeak runtime renders them from its own `load`
+      // handler, which runs after this event. So every lookup is made on use, and
+      // the one thing that needs an element up front — watching the route — waits
+      // for that element to appear rather than for a number of milliseconds.
+      function begin() {
+        if (watchRoute()) return;
+        var boot = new MutationObserver(function () {
+          if (watchRoute()) boot.disconnect();
+        });
+        boot.observe(document.body, { childList: true, subtree: true });
+      }
+
+      if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', begin);
+      else begin();
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <pre id="allspeak-script" style="display:none">
+    !	Room By Room — documentation reader bootstrap.
+
+        script Loader
+
+        variable Script
+        rest get Script from `docs.allspeak?v=` cat now
+        run Script
+  </pre>
+</body>
+</html>

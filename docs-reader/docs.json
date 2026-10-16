@@ -1,0 +1,179 @@
+{
+    "#doc": "Room By Room documentation reader — top-level layout. The toolbar and the status band are Webson; the reading pane is filled by docs.allspeak from the fetched Markdown.",
+    "#element": "div",
+    "@id": "docs-screen",
+    "font-family": "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif",
+    "max-width": "44em",
+    "margin": "0 auto",
+    "padding": "1.1em 1.2em 5em",
+    "color": "#222",
+    "line-height": "1.55",
+    "text-align": "left",
+    "#": ["$TopBar", "$MetaBar", "$Notice", "$Content", "$Bridge"],
+
+    "$TopBar": {
+        "#doc": "Brand, the three navigation buttons, and the link to the raw Markdown. The buttons are one group, so they wrap together rather than stranding Next on a line of its own under Previous. Disabled button styling lives in index.html, since :disabled cannot be written inline.",
+        "#element": "div",
+        "@id": "top-bar",
+        "display": "flex",
+        "flex-wrap": "wrap",
+        "align-items": "baseline",
+        "gap": "0.5em 0.6em",
+        "margin": "0 0 1.1em",
+        "padding": "0 0 0.6em",
+        "border-bottom": "1px solid #e2e2e2",
+        "#": ["$Brand", "$Spacer", "$Nav", "$SourceLink"],
+
+        "$Brand": {
+            "#element": "a",
+            "@href": "/",
+            "#content": "Room By Room",
+            "font-weight": "600",
+            "font-size": "1.05em",
+            "color": "#0b5cad",
+            "text-decoration": "none"
+        },
+
+        "$Spacer": {
+            "#element": "div",
+            "flex": "1 1 auto"
+        },
+
+        "$Nav": {
+            "#doc": "Contents, Previous and Next as one flex item: a phone gives them a line of their own, with the three still in the order a reader expects.",
+            "#element": "div",
+            "@id": "nav-buttons",
+            "display": "flex",
+            "flex-wrap": "nowrap",
+            "align-items": "baseline",
+            "gap": "0.4em",
+            "#": ["$ContentsButton", "$PrevButton", "$NextButton"]
+        },
+
+        "$ContentsButton": {
+            "#element": "button",
+            "@id": "contents-button",
+            "#content": "Contents",
+            "font": "inherit",
+            "font-size": "0.9em",
+            "padding": "0.3em 0.7em",
+            "border": "1px solid #ccc",
+            "border-radius": "4px",
+            "background": "#fff",
+            "color": "#0b5cad",
+            "cursor": "pointer"
+        },
+
+        "$PrevButton": {
+            "#element": "button",
+            "@id": "prev-button",
+            "#content": "← Previous",
+            "font": "inherit",
+            "font-size": "0.9em",
+            "padding": "0.3em 0.7em",
+            "border": "1px solid #ccc",
+            "border-radius": "4px",
+            "background": "#fff",
+            "color": "#0b5cad",
+            "cursor": "pointer"
+        },
+
+        "$NextButton": {
+            "#element": "button",
+            "@id": "next-button",
+            "#content": "Next →",
+            "font": "inherit",
+            "font-size": "0.9em",
+            "padding": "0.3em 0.7em",
+            "border": "1px solid #ccc",
+            "border-radius": "4px",
+            "background": "#fff",
+            "color": "#0b5cad",
+            "cursor": "pointer"
+        },
+
+        "$SourceLink": {
+            "#element": "a",
+            "@id": "source-link",
+            "@target": "_blank",
+            "@rel": "noopener noreferrer",
+            "#content": "View source",
+            "font-size": "0.85em",
+            "color": "#0b5cad"
+        }
+    },
+
+    "$MetaBar": {
+        "#doc": "The audience / status / last-verified band, filled from the document's own status line and hidden when it has none.",
+        "#element": "div",
+        "@id": "meta-bar",
+        "display": "none",
+        "font-size": "0.82em",
+        "color": "#6a4b00",
+        "background": "#fff8e6",
+        "border": "1px solid #f0dcae",
+        "border-radius": "4px",
+        "padding": "0.45em 0.7em",
+        "margin": "0 0 1.2em"
+    },
+
+    "$Notice": {
+        "#doc": "Shown in place of the reading pane when a document cannot be shown.",
+        "#element": "div",
+        "@id": "notice",
+        "display": "none",
+        "padding": "0.9em 1em",
+        "background": "#f6f6f6",
+        "border": "1px solid #ddd",
+        "border-radius": "4px",
+        "margin": "1em 0",
+        "#": ["$NoticeText", "$NoticeLink"],
+
+        "$NoticeText": {
+            "#element": "div",
+            "@id": "notice-text",
+            "margin": "0 0 0.6em"
+        },
+
+        "$NoticeLink": {
+            "#element": "a",
+            "@id": "notice-link",
+            "@target": "_blank",
+            "@rel": "noopener noreferrer",
+            "color": "#0b5cad"
+        }
+    },
+
+    "$Content": {
+        "#element": "div",
+        "@id": "content"
+    },
+
+    "$Bridge": {
+        "#doc": "The hidden elements index.html uses to talk to this script: a click travels in through nav-target and nav-trigger, and the page on screen and the slugs this reader can open travel out through route-out and known-slugs.",
+        "#element": "div",
+        "@id": "bridge",
+        "display": "none",
+        "#": ["$NavTarget", "$RouteOut", "$KnownSlugs", "$NavTrigger"],
+
+        "$NavTarget": {
+            "#element": "div",
+            "@id": "nav-target"
+        },
+
+        "$RouteOut": {
+            "#element": "div",
+            "@id": "route-out"
+        },
+
+        "$KnownSlugs": {
+            "#element": "div",
+            "@id": "known-slugs"
+        },
+
+        "$NavTrigger": {
+            "#element": "button",
+            "@id": "nav-trigger"
+        }
+    }
+}

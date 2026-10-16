@@ -5,6 +5,9 @@
 #   /                   <- legacy UI entry points (index.html, auth.php, ...)
 #   /resources/         <- legacy UI resources
 #   /new-ui/            <- new UI (PWA) — index.html, sw.js, resources/, icons/
+#   /docs/              <- documentation reader — the page, the script and the
+#                          layout. The documentation itself is fetched from the
+#                          public repository at runtime, never copied here.
 #   /controller.allspeak      <- AllSpeak controller source (legacy pull)
 #   /deviceControl.allspeak   <- ditto
 #   /simulator.allspeak       <- ditto
@@ -80,6 +83,15 @@ echo "Deploying new-ui/..."
 rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
     "$LOCAL/new-ui/" \
     "$REMOTE/new-ui/"
+
+# The documentation reader: the whole of /docs on the site — the page, the
+# script and the layout. The documentation itself is NOT here and is never
+# copied. The reader fetches the Markdown from the public repository at
+# runtime, so docs/ in this repository stays the only copy of it.
+echo "Deploying docs-reader/ to /docs/..."
+rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
+    "$LOCAL/docs-reader/" \
+    "$REMOTE/docs/"
 
 # Controller AllSpeak source files. Always pushed so the cloud copy is
 # current, but customer IXHUBs won't pull them until the version bumps.
@@ -169,3 +181,14 @@ else
     upload_controller_pack
     echo "Done. Files uploaded; version stamp unchanged. Run with --release to publish to customers."
 fi
+
+cat <<'EOF'
+
+Reminders:
+- The documentation reader at /docs follows the AllSpeak build pinned at
+  /dist/allspeak.js. After a pin, bump the ?v= in docs-reader/index.html as
+  well as the one in index.html, or a browser can hold the old runtime.
+- The reader's documentation pages are not deployed with it. They come from
+  https://raw.githubusercontent.com/easycoder/rbr/main/docs/ as they are read,
+  so a documentation change needs only a commit and a push — no deploy.
+EOF

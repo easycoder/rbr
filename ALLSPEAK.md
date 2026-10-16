@@ -16,7 +16,9 @@ The complete AllSpeak language reference and idioms live at:
 
   **https://allspeak.ai/learn/**
 
-The site has 16 reference files (`reference/`) and 12 idiom files (`idioms/`). When you need to look up syntax, runtime behaviour, or idiomatic patterns, consult it rather than relying on training data — AllSpeak's vocabulary doesn't always match what AI was trained on, and the curriculum corrects for that.
+The site has 20 reference files (`reference/`) and 15 idiom files (`idioms/`). When you need to look up syntax, runtime behaviour, or idiomatic patterns, consult it rather than relying on training data — AllSpeak's vocabulary doesn't always match what AI was trained on, and the curriculum corrects for that.
+
+**Note that the curriculum describes current AllSpeak while this repository runs a pinned build of it.** The browser here loads `resources/allspeak.js`, promoted deliberately by `pin-allspeak.sh`, so it lags upstream by design: if the curriculum shows a command the scripts here do not already use, check the pinned copy before reaching for it. (Measured 2026-10-16: `loop` exists upstream and not in this bundle.)
 
 **Read `learn/contents.md` first** — it is the canonical index of file paths. Use those exact paths when fetching specific files; do not guess slugs. (For example: the file is `learn/idioms/02-event-handlers-and-array-index.md`, not `02-event-handlers.md`.)
 
@@ -61,13 +63,16 @@ Example:
 
 Add doc blocks **as you write** — not after. The prose forces you to state intent in plain language, which surfaces mistakes (a doc block saying "creates 9 cells" while the code creates 1 makes the mismatch obvious before you ever run it). See `learn/reference/16-doc-blocks.md` for the full convention.
 
-After any code edit, run:
+Two further points of that convention, both of which trip up a first pass. **The opening sentence is the block's title** — what the editor's Blocks view lists down the left — so keep it under 100 characters and let the prose that follows carry the detail. And **a block contains its code**: the `@hash` lines and the `!!!` are the block's *tail*, so a terminator written before its code closes the section early and the code falls through the gap (`code-outside-section`). A file with no doc blocks is opt-out and fine; a file that has one must keep to it throughout.
+
+After any code edit, refresh the hashes:
 
 ```
-python3 asdoc-check.py --write <file>
+curl -fsS https://allspeak.ai/code/tools/asdoc-check.txt -o /tmp/asdoc-check.py
+python3 /tmp/asdoc-check.py --write <file>
 ```
 
-This refreshes the `@hash` lines in each block so that future edits can detect drift between prose and code.
+Upstream *publishes* that analyser rather than shipping it in the packs, so that no project holds a copy that has gone stale unnoticed (a `.py` travels as `.txt` because the site runs Python rather than serving it). This repo also keeps a pinned copy at `./asdoc-check.py`, refreshed from `~/dev/allspeak/tools/` — either will refresh the `@hash` lines so that future edits can detect drift between prose and code, but trust the published one when the two disagree.
 
 ### 2. Consult `learn/` before writing, not after
 
@@ -97,6 +102,10 @@ Even with the reference in front of you, AI tools reliably get these wrong on Al
 - **None of these exist:** `try`/`catch`, `break`, `continue`, `loop`, `return X` (value), `await`, `import` (other languages' meaning).
 
 - **Every variable must be declared before use.** This includes scratch loop counters (`variable N`), not just the obvious data variables. Forgetting to declare a loop counter is a common first-pass mistake. Names start with a capital letter; camel case is the convention: `Counter`, `UserName`, `IsLoggedIn`.
+
+- **All variables are global — no block-local scope.** Declaring a variable next to a label (`HandleClick:`) or inside an `if`/`while` body does not make it private to that block; it is shared across the whole script. The only way to get private state is a module (`learn/reference/12-modules.md`). A declaration must come before the statement that *writes* the variable — the compiler is single-pass — and a duplicate declaration is an error.
+
+- **A handler is registered by executing the line.** An `on click` or `on message` written after the `stop` that ends a script's linear flow is never registered. Register handlers before the `stop`.
 
 - **Strings are delimited by backticks.** No single or double quotes.
 
@@ -129,7 +138,7 @@ When in doubt, consult `learn/` rather than guessing.
 6. **Explain to the user how to run their project:**
 
    - **CLI**: Run with `allspeak <project>.allspeak`.
-   - **GUI**: Run with `allspeak server.allspeak -t <project> [port]` (default port `8080`). `server.allspeak` starts a local HTTP server, then opens the user's default browser to `http://localhost:<port>/<project>.html` automatically. The browser tab is the app's UI; closing the server (Ctrl+C) closes the app. This single command is what gets baked into Start-menu shortcuts. The AllSpeak runtime is still loaded from the CDN; `server.allspeak` only serves project files.
+   - **GUI**: Run with `allspeak viz [port]` (default port `8080`). It starts the AllSpeak dev server if one is not already up, and opens the visualiser at `http://localhost:<port>/viz.html`; the project's own page is at `http://localhost:<port>/<project>.html`, which you can open in a second tab. `allspeak server [port]` starts the same server and opens nothing, which is what you want when you are opening several pages yourself. Closing the server (Ctrl+C) closes the app. This single command is what gets baked into Start-menu shortcuts. The AllSpeak runtime is still loaded from the CDN; the server only serves project files.
 
 7. **Walk the user through how the files work together.** For GUI projects, explain:
 
@@ -140,11 +149,9 @@ When in doubt, consult `learn/` rather than guessing.
 
    For CLI projects, explain that the `.allspeak` file is a standalone script run from the terminal, and walk through what each line does.
 
-8. **Explain the included editor.** The project directory includes `edit.html`, `asedit.allspeak`, and `asedit.json`, which provide a browser-based code editor with syntax highlighting. To work on the project with the editor open alongside it (a developer convenience), run:
+8. **Explain the editor.** Nothing of it lives in the project: the dev server serves the visualiser page itself, with the project's language filled in, so `allspeak viz [port]` gives you the editor and your app side by side — `/viz.html` in one tab, `/<project>.html` in another. The page opens, edits and saves `.allspeak`, `.json`, `.html` and other project files (the dev server provides the read and write routes), and the runtime it runs is the published one.
 
-   `allspeak server.allspeak -t edit,<project> [port]`
-
-   This opens two browser tabs — `edit.html` and `<project>.html` — both served by the same `server.allspeak` instance. The editor lets you open, edit, and save `.allspeak`, `.json`, `.html` and other project files. End users only ever need `allspeak server.allspeak -t <project> [port]`; the `edit,` prefix is a developer convenience.
+   This repository is the exception, and knowingly so: it still carries the pre-2026-10-12 editor (`edit.html`, `asedit.json`, `asedit.allspeak`) because a controller can be given those files by hand when someone needs to debug on the box. A local `edit.html` wins over the served page, so `localhost:<port>/edit.html` gives that older editor while `/viz.html` gives the current visualiser. See `AGENT.md` for what a stale `server.allspeak` does to the dev server.
 
 9. **Ask what they'd like to build.** From here, just respond to what the user wants.
 

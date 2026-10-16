@@ -46,3 +46,12 @@ jobs:
             -e "ssh -i ~/.ssh/id_ed25519" \
             new-ui/ \
             rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/new-ui/
+
+      - name: Deploy documentation reader
+        run: |
+          # The reader only. The documentation itself is fetched from the
+          # public repository as it is read and is never copied to the site.
+          rsync -avz --no-perms --delete \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            docs-reader/ \
+            rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/docs/

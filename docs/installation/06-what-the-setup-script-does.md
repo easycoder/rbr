@@ -2,7 +2,7 @@
 
 `rbr-setup.sh` is the one-shot installer for a controller computer. Run it once on a freshly prepared Linux machine and it installs and configures the whole runtime — the local message broker, the Zigbee software and its coordinator, the bridge the controller talks to, and the timers that keep all of it updated and healthy — then tells you what it started.
 
-It is the step between "the machine has Linux on it and the RBR files on it" and "the machine is a working system". What it prepares is described in [Preparing the controller computer](docs/preparation/04-controller-computer.md); the human-facing sequence it fits into is [Setting up a new RBR system](doc/setupRBR.md).
+It is the step between "the machine has Linux on it and the RBR files on it" and "the machine is a working system". What it prepares is described in [Preparing the controller computer](../preparation/04-controller-computer.md); the human-facing sequence it fits into is the repository's own install guide, `doc/setupRBR.md`.
 
 > **Audience:** installer, commissioning technician, operator and maintainer · **Status:** draft · **Last verified:** 2026-10-15
 
@@ -105,7 +105,7 @@ The controller keeps each room's heating records under a data root, and that roo
 - If that path already exists — the preferred case, a partition of its own — it is used as-is.
 - If it does not, the script creates a folder in your home directory and makes `/data/rbr-heating` a symlink to it. Nothing else in the system changes when you later add a real partition; you move the folder and drop the symlink.
 
-Either way the chosen root is recorded in `heatlog-root`, and the reasoning is in [HEATING-DATA.md](doc/HEATING-DATA.md).
+Either way the chosen root is recorded in `heatlog-root`, and the reasoning is in `doc/HEATING-DATA.md`.
 
 ### Step 5c — A placeholder for the RBR-Now configuration
 
@@ -113,7 +113,7 @@ The device-control module reads `config.json` at start-up without checking wheth
 
 ### Step 6 — The updater
 
-Installs a one-shot service, `rbr-updater.service`, and an hourly timer, `rbr-updater.timer`. Each hour it checks `rbrheating.com` for a newer controller build; if there is one, it replaces the code files and restarts the services those files belong to. It runs as root precisely so it can restart them, and it touches **only** code files: machine-specific data — the credentials, the MAC, the map, the readings, the heating records — is never replaced, because those files are not part of the release at all. See [UPDATE-MECHANISM.md](doc/UPDATE-MECHANISM.md).
+Installs a one-shot service, `rbr-updater.service`, and an hourly timer, `rbr-updater.timer`. Each hour it checks `rbrheating.com` for a newer controller build; if there is one, it replaces the code files and restarts the services those files belong to. It runs as root precisely so it can restart them, and it touches **only** code files: machine-specific data — the credentials, the MAC, the map, the readings, the heating records — is never replaced, because those files are not part of the release at all. See `doc/UPDATE-MECHANISM.md`.
 
 If the updater is not present in the directory, the script says so and skips this step rather than failing.
 
@@ -142,7 +142,7 @@ Asked as `Run the controller as a service (auto-restart after updates)? (y/N)` a
 
 ### Step 8b — The desktop application as a service (optional)
 
-Asked as `Run the desktop UI (PySide6 app) as a service? (y/N)`, skipped unless you answer `y`, and skipped if AllSpeak is missing. It installs the graphics runtime (`PySide6`) for your user and `rbr-desktop.service`, running the desktop application from the `desktop/` directory. The desktop application is the secondary interface — see [`desktop/config.example.json`](desktop/config.example.json) to point it at a broker on the local network.
+Asked as `Run the desktop UI (PySide6 app) as a service? (y/N)`, skipped unless you answer `y`, and skipped if AllSpeak is missing. It installs the graphics runtime (`PySide6`) for your user and `rbr-desktop.service`, running the desktop application from the `desktop/` directory. The desktop application is the secondary interface — see `desktop/config.example.json` to point it at a broker on the local network.
 
 ### Starting the services
 
@@ -181,8 +181,8 @@ Re-running with `bash -x` prints every command as it runs, which shows which one
 
 ## Related reading
 
-- [Setting up a new RBR system](doc/setupRBR.md) — the full install sequence this script is a step in.
-- [Preparing the controller computer](docs/preparation/04-controller-computer.md) — what the machine should be before this runs.
-- [Files needed on the RBR controller](doc/CONTROLLER-FILES.md) — every file, and which of them this script creates.
-- [Update mechanism](doc/UPDATE-MECHANISM.md) — what the hourly updater does in detail.
-- [Heating data](doc/HEATING-DATA.md) — the records and the data root from Step 5b.
+- `doc/setupRBR.md` — the full install sequence this script is a step in, in the repository's engineering notes.
+- [Preparing the controller computer](../preparation/04-controller-computer.md) — what the machine should be before this runs.
+- `doc/CONTROLLER-FILES.md` — every file, and which of them this script creates.
+- `doc/UPDATE-MECHANISM.md` — what the hourly updater does in detail.
+- `doc/HEATING-DATA.md` — the records and the data root from Step 5b.
