@@ -362,3 +362,15 @@ Fixed both ways: `NameInUse` has its own variable, and the rename re-reads the r
 The repair taught the second lesson. Renaming back through the sheet restored the name and the state keys everywhere, but not the wiring — the sheet's Save writes the form into the *selected* room, and the damaged room was the selected one, so typing the right sensor and relays there achieved nothing visible. The wiring went back through an `Update Rooms` uirequest (the identity-replacement path, framed in the runtime's chunks), and the temperature re-derived itself from the Lounge sensor within a cycle. Snug is back with its own relays and thermometer, Outside is untouched, and the eight rooms and eight state keys are right in all three profiles.
 
 Graham was in the room for this one, watching a live system lose a room's wiring for two minutes — which is the argument for the deploy order rather than against it, and the argument for the PWA behaviour test I have been keeping in /tmp.
+
+## 22:55
+
+Decisions, so they are not findings
+
+**Assistant**
+
+Closed the two remaining items as decisions rather than fixes, because Graham had reasons the code could not have known. A deleted room's relay is left in its last state and that is fine — the hardware is recovered and reset when a room goes, and Zigbee2MQTT covers what the controller leaves behind. A rename splitting the heat-log history into a new folder is a property of the data, to be joined when records are processed rather than when they are written. Both went into DIFF.md under "Settled after the migration", which is the section that exists so the next session does not rediscover them as faults.
+
+He is clearing the legacy himself before closing: RBR-Now, Shelly, the ESP transport and the old UI tree can all go, backups of earlier work exist, and the live system that still uses some of it will shortly be replaced by a Zigbee installation on a new controller — so compatibility with it is not a constraint on any of this. That also settles the desktop app and the legacy UI in `tests/`: neither will be ported.
+
+The only things left open are the product documentation's silence about the JSON, which is deliberate, and the fact that the real test is a heating season rather than an afternoon in October.
