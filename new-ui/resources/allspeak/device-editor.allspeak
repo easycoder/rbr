@@ -65,6 +65,7 @@
 	variable NewRoomName
 	variable ProbeName
 	variable NameTaken
+	variable NameRoom
 	variable SwapTarget
 	variable RoomToInsert
 	variable RoomStateToInsert
@@ -124,7 +125,7 @@
 	release parent
 	log `DeviceEditor module ready`
 	stop
-!! @hash db91e75b
+!! @hash 85a4bcd5
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -472,6 +473,11 @@ RenameRoomInEditingRooms:
 		alert `There is already a room called "` cat NewRoomName cat `".`
 		return
 	end
+!	Re-read the room: the check above ran a loop, and any routine that leaves
+!	scratch in RoomEntry would otherwise have us rename the wrong one. (It did:
+!	the first version of NameInUse shared that variable and this wrote the last
+!	room in the list over the one being renamed.)
+	put element RoomEditIdxForOp of EditingRoomsForDevices into RoomEntry
 	set property `name` of RoomEntry to NewRoomName
 	set element RoomEditIdxForOp of EditingRoomsForDevices to RoomEntry
 
@@ -499,7 +505,7 @@ RenameRoomInEditingRooms:
 	end
 	gosub to RenderDeviceRoomPicker
 	return
-!! @hash 8a9ab8d4
+!! @hash eb6ed40f
 !!!
 !! Confirm and remove rooms[RoomEditIdxForOp] from the shared room list, and drop every profile's schedule state for it. If the deleted room was the currently-selected one, re-pick the first non-outside room and reload the device fields. Adjusts EditingDevicesRoomIdx for the shift when the deleted index was earlier than the selected.
 DeleteRoomInEditingRooms:
@@ -591,8 +597,10 @@ NameInUse:
 	put 0 into RoomEditCount
 	while RoomEditCount is less than the json count of EditingRoomsForDevices
 	begin
-		put element RoomEditCount of EditingRoomsForDevices into RoomEntry
-		if property `name` of RoomEntry is ProbeName
+!		Its own scratch, never RoomEntry: a caller holding a room in that variable
+!		would find it replaced by whichever room this loop reached last.
+		put element RoomEditCount of EditingRoomsForDevices into NameRoom
+		if property `name` of NameRoom is ProbeName
 		begin
 			set NameTaken
 			put the json count of EditingRoomsForDevices into RoomEditCount
@@ -600,7 +608,7 @@ NameInUse:
 		increment RoomEditCount
 	end
 	return
-!! @hash aa8897a0
+!! @hash c7ab87ce
 !!!
 !! Style the linked toggle button — On (accent border + accent text + bold) when EditingDevicesLinked is `yes`, Off (plain card background + hairline border) otherwise.
 PaintDeviceEditorLinked:

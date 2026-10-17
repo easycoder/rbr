@@ -344,3 +344,21 @@ The commit round-trip probe earned its place. It is now `tests/unit/commit_round
 Then I removed each half of the fix in turn to see if the test noticed: with the state commit disabled three of its four assertions fail, including the live symptom as `'off' != 'on'`; with the aliasing put back the fourth fails with `'name' leaked into the profile state`. A test that cannot fail is a story people tell themselves.
 
 `AGENT.md` gained the aliasing table under "Traps worth knowing before editing", because it is the second time this project has lost an afternoon to it, and the two commands that check this work without a browser now sit in "Running". The rest of the /tmp scaffolding — page drivers, the MQTT map fetcher, the card-tap script — stays out: it carries the live broker password and the system MAC, and the method is written up in DIFF.md instead.
+
+## 22:40
+
+A rename that rewrote the wrong room
+
+**Assistant**
+
+Graham asked whether a rename, an add or a remove actually propagates everywhere a room is referred to. Auditing it was straightforward — the name is the join, and the state keys, cards, sheets and requests all follow it — and then I did one in the live Devices sheet, which is where it stopped being straightforward: the rename renamed the right room and wrote **Outside's wiring over it**, duplicating the outside sensor into Snug's slot.
+
+The cause was a scratch-variable collision, and my own. `RenameRoomInEditingRooms` held the room in `RoomEntry`, the module's shared scratch, and then called `gosub to NameInUse` to refuse a duplicate name — whose loop ends with `RoomEntry` pointing at the last room it scanned. So the name went to the right record and the wiring came from the outside room. There is no block scope in this language; a variable held across a call is a variable borrowed.
+
+What made it worth writing down is that the harness had a rename test and it passed. It asserted the new name and that the state key had moved — the two facts a rename is "about" — and never looked at the rest of the record. It now compares the whole identity record and checks that no other room was rewritten. A test that checks only the field you changed proves only the field you changed.
+
+Fixed both ways: `NameInUse` has its own variable, and the rename re-reads the record after the check, so the next routine that loops between reading a record and writing it cannot repeat it. `AGENT.md` carries the trap.
+
+The repair taught the second lesson. Renaming back through the sheet restored the name and the state keys everywhere, but not the wiring — the sheet's Save writes the form into the *selected* room, and the damaged room was the selected one, so typing the right sensor and relays there achieved nothing visible. The wiring went back through an `Update Rooms` uirequest (the identity-replacement path, framed in the runtime's chunks), and the temperature re-derived itself from the Lounge sensor within a cycle. Snug is back with its own relays and thermometer, Outside is untouched, and the eight rooms and eight state keys are right in all three profiles.
+
+Graham was in the room for this one, watching a live system lose a room's wiring for two minutes — which is the argument for the deploy order rather than against it, and the argument for the PWA behaviour test I have been keeping in /tmp.

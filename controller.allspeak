@@ -83,6 +83,22 @@
     list MIRCurrent
     dictionary MIRByName
     dictionary MIRSeen
+    dictionary MIRAdded
+    dictionary OVSet
+    dictionary OVOld
+    dictionary OVNew
+    list OVNames
+    list OVInNames
+    list OVOldRelays
+    list OVNewRelays
+    variable OVI
+    variable OVJ
+    variable OVName
+    variable OVNewName
+    variable OVCandidate
+    variable OVOldRelaysText
+    variable OVNewRelaysText
+    variable OVSensor
     dictionary MIRRoom
     dictionary MIRIn
     dictionary MIRNew
@@ -246,7 +262,7 @@
     variable HeatlogStatePath
     variable DashboardPath
     variable ZigbeeTempsPath
-!! @hash 4220e2fe
+!! @hash 2edbf5e2
 !! @verified b913fc30
 !!!
 !! Basic initialisation.
@@ -1049,6 +1065,7 @@ MergeIdentityRooms:
     end
     reset MIRBuilt
     reset MIRSeen
+    reset MIRAdded
     set MIRI to 0
     while MIRI is less than the count of URList
     begin
@@ -1063,6 +1080,8 @@ MergeIdentityRooms:
         else
         begin
             set entry MIRName of MIRSeen to 1
+            if MIRByName does not have entry MIRName
+                set entry MIRName of MIRAdded to MIRIn
             reset MIRNew
             set entry `name` of MIRNew to MIRName
             if MIRByName has entry MIRName
@@ -1086,9 +1105,96 @@ MergeIdentityRooms:
         increment MIRI
     end
     set entry `rooms` of Map to MIRBuilt
+    gosub to MoveRoomOverrides
     log `Shared room list: ` cat the count of MIRBuilt cat ` room(s) from the UI`
     return
-!! @hash 9498f691
+!! @hash ca1e445c
+!!!
+!! Carry each room's one-off override across a rename, and drop it when the room has gone.
+!!
+!! `Map.overrides` is keyed by room name — deliberately, because an override has to apply whichever profile the calendar picks. That made it the one thing a rename would otherwise strand: the entry stays under a name that no longer exists, inert but armed, and it would apply to any later room that took the old name. The page's rename path changes the label and nothing else, so a name that disappeared and a name that appeared carrying the same relays and the same thermometer are one room; anything else that disappeared is a deletion and its override goes with it.
+!!
+!! Called at the end of MergeIdentityRooms, which is the only place that sees the room list either side of an update.
+MoveRoomOverrides:
+    if Map has no entry `overrides` return
+    put entry `overrides` of Map into OVSet
+    if OVSet is empty return
+    put the keys of OVSet into OVNames
+    set OVI to 0
+    while OVI is less than the count of OVNames
+    begin
+        put item OVI of OVNames into OVName
+        if MIRSeen does not have entry OVName
+        begin
+            ! The room that held this override is not in the incoming list. Is it
+            ! the same room under a new name, or is it gone?
+            put empty into OVNewName
+            put empty into OVSensor
+            put empty into OVOldRelaysText
+            reset OVOld
+            if MIRByName has entry OVName
+            begin
+                put entry OVName of MIRByName into OVOld
+                if OVOld has entry `sensor` put entry `sensor` of OVOld into OVSensor
+                if OVOld has entry `relays`
+                begin
+                    put entry `relays` of OVOld into OVOldRelays
+                    put prettify OVOldRelays into OVOldRelaysText
+                end
+            end
+            if MIRAdded is not empty
+            begin
+                put the keys of MIRAdded into OVInNames
+                set OVJ to 0
+                while OVJ is less than the count of OVInNames
+                begin
+                    put item OVJ of OVInNames into OVCandidate
+                    if OVNewName is empty
+                    begin
+                        put entry OVCandidate of MIRAdded into OVNew
+                        put empty into OVNewRelaysText
+                        if OVNew has entry `relays`
+                        begin
+                            put entry `relays` of OVNew into OVNewRelays
+                            put prettify OVNewRelays into OVNewRelaysText
+                        end
+                        ! Same thermometer *and* the same relays: the editor's
+                        ! rename changes the label and nothing else.
+                        if entry `sensor` of OVNew is OVSensor
+                        begin
+                            if OVNewRelaysText is OVOldRelaysText
+                                put OVCandidate into OVNewName
+                        end
+                    end
+                    increment OVJ
+                end
+            end
+            if OVNewName is empty
+            begin
+                delete entry OVName of OVSet
+                log `Room override dropped with the room ` cat OVName
+                set MapHasChanged
+            end
+            else
+            begin
+                ! A name cannot hold two overrides: the newer room keeps its own,
+                ! and this one is dropped rather than silently replacing it.
+                if OVSet has entry OVNewName
+                    delete entry OVName of OVSet
+                else
+                begin
+                    put entry OVName of OVSet into OVOld
+                    set entry OVNewName of OVSet to OVOld
+                    delete entry OVName of OVSet
+                    log `Room override moved to ` cat OVNewName cat ` (was ` cat OVName cat `)`
+                end
+                set MapHasChanged
+            end
+        end
+        increment OVI
+    end
+    return
+!! @hash d751ad23
 !!!
 !! Report per-profile state that names a room the shared list does not have, rather than dropping it in silence. A rename that arrived without its identity half, or a page holding a room list from before a delete, shows up in the log instead of leaving a room that quietly stops being heated.
 !!
