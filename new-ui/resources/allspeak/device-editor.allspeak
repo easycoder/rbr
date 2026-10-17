@@ -1,6 +1,6 @@
 !! Device-editor concurrent module. Owns the device-editor sheet's DOM, internal state, and event handlers. Hosts the room-and-device editing flow that the parent (shell.allspeak) opens via a single `send` and receives a Save / Cancel reply from.
 !!
-!! Loaded by shell.allspeak inside BuildHomeScreen via `run ... as DeviceEditorModule`, AFTER the sheet chrome has been rendered. Renders device-editor.json into SheetContent, attaches its DOM, wires its static click handlers (Save / Cancel / Add Room / room-pill / relay-type / linked), then `release parent` and parks on `on message`.
+!! Loaded by shell.allspeak inside BuildHomeScreen via `run ... as DeviceEditorModule`, AFTER the sheet chrome has been rendered. Renders device-editor.json into SheetContent, attaches its DOM, wires its static click handlers (Save / Cancel / Add Room / room-pill / linked), then `release parent` and parks on `on message`.
 !!
 !! Lifecycle of one editing session: parent ships `{profiles, currentProfile, requestRelay}` and blocks. Module clones the profiles tree (mutated in place by the room-list operations), picks the first non-outside room, populates the input fields, shows its sheet, polls on DoneFlag while the user clicks. Save commits the in-flight device-field edits across every profile and ships `{cancelled:`no`, profiles, requestRelay, requestRelayChanged}` back; Cancel ships `{cancelled:`yes`}`.
 !!
@@ -24,8 +24,6 @@
 	button DeviceRoomEditPencil
 	button DeviceRoomEditDelete
 	input DeviceEditorSensor
-	button DeviceEditorRtRBRNow
-	button DeviceEditorRtZigbee
 	button DeviceEditorLinkedBtn
 	textarea DeviceEditorRelays
 	input DeviceEditorRequest
@@ -49,7 +47,6 @@
 	variable EditingProfilesCountForDevices
 	variable EditingDevicesRoomLegacyIdx
 	variable EditingDevicesRoomName
-	variable EditingDevicesRelayType
 	variable EditingDevicesLinked
 	variable EditingDevicesSensor
 	variable EditingDevicesRelaysText
@@ -99,8 +96,6 @@
 	attach DeviceEditorRoomList to `device-editor-room-list`
 	attach DeviceEditorAddRoomBtn to `device-editor-add-room`
 	attach DeviceEditorSensor to `device-editor-sensor`
-	attach DeviceEditorRtRBRNow to `device-editor-rt-rbrnow`
-	attach DeviceEditorRtZigbee to `device-editor-rt-zigbee`
 	attach DeviceEditorLinkedBtn to `device-editor-linked-btn`
 	attach DeviceEditorRelays to `device-editor-relays`
 	attach DeviceEditorRequest to `device-editor-request`
@@ -109,16 +104,6 @@
 
 	on click DeviceEditorRoomPill gosub to ToggleDeviceRoomPicker
 	on click DeviceEditorAddRoomBtn gosub to AddRoomToEditingProfiles
-	on click DeviceEditorRtRBRNow
-	begin
-		put `RBR-Now` into EditingDevicesRelayType
-		gosub to PaintDeviceEditorRelayType
-	end
-	on click DeviceEditorRtZigbee
-	begin
-		put `Zigbee` into EditingDevicesRelayType
-		gosub to PaintDeviceEditorRelayType
-	end
 	on click DeviceEditorLinkedBtn
 	begin
 		if EditingDevicesLinked is `yes` put `no` into EditingDevicesLinked
@@ -132,7 +117,7 @@
 	release parent
 	log `DeviceEditor module ready`
 	stop
-!! @hash 822dd71e
+!! @hash aa3c012f
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -219,7 +204,6 @@ OnSaveClick:
 		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
 		put element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices into LiveRoomForDevices
 		set property `sensor` of LiveRoomForDevices to EditingDevicesSensor
-		set property `relayType` of LiveRoomForDevices to EditingDevicesRelayType
 		set property `linked` of LiveRoomForDevices to EditingDevicesLinked
 		set property `relays` of LiveRoomForDevices to RelayLinesArray
 		set element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices to LiveRoomForDevices
@@ -232,7 +216,7 @@ OnSaveClick:
 	set SavePending
 	set DoneFlag
 	return
-!! @hash 659742b9
+!! @hash 7129b994
 !!!
 !! Cancel click handler. Sets DoneFlag (but not SavePending) so HandleOpen ships a `{cancelled: yes}` reply.
 OnCancelClick:
@@ -263,7 +247,7 @@ PickFirstRoomForDevices:
 !!!
 !! Pull device fields for the currently-selected room out of EditingProfilesForDevices into the input controls.
 !!
-!! Reads sensor, relayType, linked, relays. Defaults relayType to "RBR-Now" and linked to "yes" on empty/missing fields. Joins the relays array onto separate textarea lines.
+!! Reads sensor, linked and relays. Defaults linked to "yes" on an empty or missing field. Joins the relays array onto separate textarea lines.
 !!
 !! The demand-relay value is NOT touched here — it's system-wide and was loaded in HandleOpen.
 LoadDeviceEditorRoom:
@@ -279,8 +263,6 @@ LoadDeviceEditorRoom:
 	put property `name` of LiveRoomForDevices into EditingDevicesRoomName
 
 	put property `sensor` of LiveRoomForDevices into EditingDevicesSensor
-	put property `relayType` of LiveRoomForDevices into EditingDevicesRelayType
-	if EditingDevicesRelayType is empty put `RBR-Now` into EditingDevicesRelayType
 	put property `linked` of LiveRoomForDevices into EditingDevicesLinked
 	if EditingDevicesLinked is empty put `yes` into EditingDevicesLinked
 
@@ -301,10 +283,9 @@ LoadDeviceEditorRoom:
 	set the content of DeviceEditorRoomValue to EditingDevicesRoomName
 	set the content of DeviceEditorSensor to EditingDevicesSensor
 	set the content of DeviceEditorRelays to EditingDevicesRelaysText
-	gosub to PaintDeviceEditorRelayType
 	gosub to PaintDeviceEditorLinked
 	return
-!! @hash 0e9279cb
+!! @hash 4eeb8305
 !!!
 !! Toggle the room picker open / closed. Rebuilds the list each open so adds, moves, deletes, and the current selection highlight all reflect the latest editing state.
 ToggleDeviceRoomPicker:
@@ -567,7 +548,6 @@ AddRoomToEditingProfiles:
 		set property `name` of RoomToInsert to `Unnamed`
 		set property `sensor` of RoomToInsert to empty
 		set property `relays` of RoomToInsert to `[]`
-		set property `relayType` of RoomToInsert to `Zigbee`
 		set property `linked` of RoomToInsert to `yes`
 		set property `mode` of RoomToInsert to `off`
 		set property `target` of RoomToInsert to 0
@@ -586,40 +566,7 @@ AddRoomToEditingProfiles:
 	end
 	gosub to RenderDeviceRoomPicker
 	return
-!! @hash d8ff5ecf
-!!!
-!! Style the RBR-Now / Zigbee relay-type pill. Reset blanks both pills; Activate<X> applies the lit look to the matching one.
-PaintDeviceEditorRelayType:
-	gosub to ResetDeviceEditorRtBtns
-	if EditingDevicesRelayType is `RBR-Now` gosub to ActivateRtRBRNow
-	else if EditingDevicesRelayType is `Zigbee` gosub to ActivateRtZigbee
-	return
-
-ResetDeviceEditorRtBtns:
-	set style `background` of DeviceEditorRtRBRNow to `transparent`
-	set style `color` of DeviceEditorRtRBRNow to `var(--color-text-muted)`
-	set style `font-weight` of DeviceEditorRtRBRNow to `500`
-	set style `box-shadow` of DeviceEditorRtRBRNow to `none`
-	set style `background` of DeviceEditorRtZigbee to `transparent`
-	set style `color` of DeviceEditorRtZigbee to `var(--color-text-muted)`
-	set style `font-weight` of DeviceEditorRtZigbee to `500`
-	set style `box-shadow` of DeviceEditorRtZigbee to `none`
-	return
-
-ActivateRtRBRNow:
-	set style `background` of DeviceEditorRtRBRNow to `var(--color-surface-card)`
-	set style `color` of DeviceEditorRtRBRNow to `var(--color-text-primary)`
-	set style `font-weight` of DeviceEditorRtRBRNow to `600`
-	set style `box-shadow` of DeviceEditorRtRBRNow to `0 1px 3px rgba(0,0,0,0.08)`
-	return
-
-ActivateRtZigbee:
-	set style `background` of DeviceEditorRtZigbee to `var(--color-surface-card)`
-	set style `color` of DeviceEditorRtZigbee to `var(--color-text-primary)`
-	set style `font-weight` of DeviceEditorRtZigbee to `600`
-	set style `box-shadow` of DeviceEditorRtZigbee to `0 1px 3px rgba(0,0,0,0.08)`
-	return
-!! @hash 19f3d6c2
+!! @hash 4c05ee07
 !!!
 !! Style the linked toggle button — On (accent border + accent text + bold) when EditingDevicesLinked is `yes`, Off (plain card background + hairline border) otherwise.
 PaintDeviceEditorLinked:

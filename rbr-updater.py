@@ -10,7 +10,7 @@ can restart the controller and bridge services itself.
 
 How it works
 ------------
-1. Download rbr-controller.tar.gz from rbrheating.com (a local file path
+1. Download rbr-controller.tar.gz from rbrheating.com/heat/ (a local file path
    or file:// URL is also accepted, mainly for testing).
 2. Read the VERSION stamp embedded in the tarball and compare it with the
    local .version file. If the remote version is not newer, do nothing.
@@ -28,10 +28,12 @@ How it works
    finishes the job.
 
 Only code files from the tarball are ever replaced. Machine-specific
-data (credentials, .mac_override, config.json, map.json,
-thermometers.json, zigbee-temperatures.json, .mqtt_password,
-heatlog-root, heatlog-state.json) is never touched — those files are not
-shipped in the tarball at all. Every plain file that IS shipped in the
+data (credentials, .mac_override, .mqtt_password, map.json, the map
+history, heatlog-root and volatile-root) is never touched — those files
+are not shipped in the tarball at all. Neither are the regenerable files
+that live in the volatile directory named by volatile-root (thermometers,
+zigbee-temperatures, heatlog-state, the dashboard JSON), which is a tmpfs
+and is emptied on every reboot anyway. Every plain file that IS shipped in the
 tarball is applied, so runtime files that are new in a release (e.g.
 heatlog.py) reach controllers with that same release; TARBALL_FILES below
 is the minimum required set that a valid upload must contain.
@@ -39,7 +41,7 @@ is the minimum required set that a valid upload must contain.
 Usage:
     python3 rbr-updater.py [--url URL_OR_PATH] [--dir RBR_DIR] [--force] [--check]
 
-    --url    tarball location; default https://rbrheating.com/rbr-controller.tar.gz
+    --url    tarball location; default https://rbrheating.com/heat/rbr-controller.tar.gz
     --dir    RBR directory; default = directory containing this script
     --force  apply even if the remote version is not newer
     --check  full self-check: update infrastructure (files, units, timer)
@@ -80,7 +82,7 @@ TARBALL_FILES = [
 
 VERSION_FILE = ".version"
 SELF = "rbr-updater.py"
-DEFAULT_URL = "https://rbrheating.com/rbr-controller.tar.gz"
+DEFAULT_URL = "https://rbrheating.com/heat/rbr-controller.tar.gz"
 DOWNLOAD_TIMEOUT = 60
 
 # Services restarted when the corresponding files change. (name, [files])

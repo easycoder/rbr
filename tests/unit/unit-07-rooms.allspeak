@@ -75,7 +75,6 @@ AddRoomToAllProfiles:
         set entry `mode` of NewSpec to `off`
         set entry `target` of NewSpec to 20
         set entry `events` of NewSpec to `[]`
-        set entry `relayType` of NewSpec to `Zigbee`
         set entry `protect` of NewSpec to `no`
         set entry `linked` of NewSpec to `yes`
         set entry `advance` of NewSpec to `-`

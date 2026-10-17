@@ -2,25 +2,46 @@
 # Deploy RBR web UI + controller files to rbrheating.com.
 #
 # Layout on the server:
-#   /                   <- legacy UI entry points (index.html, auth.php, ...)
-#   /resources/         <- legacy UI resources
-#   /new-ui/            <- new UI (PWA) — index.html, sw.js, resources/, icons/
+#   /                   <- legacy UI entry points (index.html, auth.php, ...).
+#                          Left running, unchanged, until it is deleted; the
+#                          root is to become a product-information home page.
+#   /resources/         <- legacy UI resources (as above)
+#   /new-ui/            <- the PWA's old home. Still published, byte-identical
+#                          to /heat/, until this folder is deleted.
 #   /docs/              <- documentation reader — the page, the script and the
 #                          layout. The documentation itself is fetched from the
 #                          public repository at runtime, never copied here.
-#   /controller.allspeak      <- AllSpeak controller source (legacy pull)
-#   /deviceControl.allspeak   <- ditto
-#   /simulator.allspeak       <- ditto
-#   /rbr-controller.tar.gz <- versioned bundle of ALL controller runtime
+#   /dist/              <- pinned AllSpeak runtime, written by pin-allspeak.sh
+#                          (not by this script)
+#
+#   /heat/              <- THE OPERATIONAL SET. Everything the controller and
+#                          the UI need from this site, and the product's home
+#                          from now on:
+#     /heat/index.html, sw.js, manifest.webmanifest, icons/, resources/
+#                          <- the PWA — the same files as new-ui/
+#     /heat/controller.allspeak, deviceControl.allspeak,
+#     /heat/simulator.allspeak, diagnose.allspeak
+#                          <- AllSpeak controller source
+#     /heat/rbr-controller.tar.gz
+#                          <- versioned bundle of ALL controller runtime
 #                          files, pulled by the standalone updater
 #                          (rbr-updater.py) — see doc/UPDATE-MECHANISM.md
-#   /rbr-controller.zip   <- same files + rbr-setup.sh + VERSION: the
+#     /heat/rbr-controller.zip
+#                          <- same files + rbr-setup.sh + VERSION: the
 #                          install pack fetched by get-controller.sh when
 #                          setting up a new controller
-#   /get-controller.sh    <- bootstrap downloader: wget it, run it, it
+#     /heat/get-controller.sh
+#                          <- bootstrap downloader: wget it, run it, it
 #                          fetches and unpacks rbr-controller.zip
-#   /version            <- single-line version stamp; bumping this (with
+#     /heat/version        <- single-line version stamp; bumping this (with
 #                          --release) makes controllers apply the tarball
+#
+# auth.php, credentials.php and .htaccess deliberately stay at the site root and
+# are NOT copied into /heat/. They read ../rbr-users.json, which is kept outside
+# the web root on purpose; one level deeper would put that file inside the tree
+# that is served. Both UIs reach them by the same paths from either location —
+# credentials.php is one level above the page, relative, and /verify, /register
+# and /recover are absolute.
 #
 # Usage:
 #   ./deploy.sh             upload UI + .allspeak files; do NOT bump the version.
@@ -38,6 +59,7 @@
 set -euo pipefail
 
 REMOTE="rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com"
+HEAT="$REMOTE/heat"
 LOCAL="$(cd "$(dirname "$0")" && pwd)"
 
 # SSH connection multiplexing — share a single SSH session across all the
@@ -93,15 +115,9 @@ rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
     "$LOCAL/docs-reader/" \
     "$REMOTE/docs/"
 
-# Controller AllSpeak source files. Always pushed so the cloud copy is
-# current, but customer IXHUBs won't pull them until the version bumps.
-echo "Deploying controller files..."
-rsync -vz --no-perms -e "$SSH_OPTS" \
-    "$LOCAL/controller.allspeak" \
-    "$LOCAL/deviceControl.allspeak" \
-    "$LOCAL/simulator.allspeak" \
-    "$LOCAL/diagnose.allspeak" \
-    "$REMOTE/"
+# Controller AllSpeak source files, the update tarball and the install pack all
+# go into /heat/ — see upload_heat() below. The old root copies are left on the
+# server as they are; nothing refreshes them.
 
 # Controller runtime files shipped in BOTH the updater tarball and the
 # bootstrap zip. VERSION (the deploy stamp) is added separately.
@@ -130,8 +146,41 @@ build_controller_tarball() {
 upload_controller_tarball() {
     echo "Building controller update tarball..."
     build_controller_tarball
-    echo "Uploading rbr-controller.tar.gz..."
-    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/rbr-controller.tar.gz" "$REMOTE/"
+}
+
+# Assemble /heat/ locally, then push it as one tree.
+#
+# The PWA and the controller files share the directory and the sync is
+# --delete, so the tree is built in a temp dir first: rsyncing new-ui/ straight
+# into /heat/ would delete the controller files already sitting there, and
+# rsyncing those back afterwards would then defeat the pruning.
+#
+# `version` is excluded from the tree sync and uploaded on its own afterwards,
+# so a controller mid-check never sees a fresh stamp paired with stale source —
+# the guarantee the old script got by uploading /version last.
+upload_heat() {
+    local BUILD_DIR
+    BUILD_DIR="$(mktemp -d)"
+    mkdir -p "$BUILD_DIR/heat"
+    # The PWA — byte-identical to what /new-ui/ gets.
+    rsync -a "$LOCAL/new-ui/" "$BUILD_DIR/heat/"
+    # Controller source and the artifacts fetched from this site.
+    cp "$LOCAL/controller.allspeak" \
+       "$LOCAL/deviceControl.allspeak" \
+       "$LOCAL/simulator.allspeak" \
+       "$LOCAL/diagnose.allspeak" \
+       "$LOCAL/rbr-controller.tar.gz" \
+       "$LOCAL/rbr-controller.zip" \
+       "$LOCAL/get-controller.sh" \
+       "$BUILD_DIR/heat/"
+    echo "Uploading /heat/ (PWA + controller files)..."
+    rsync -rz --no-perms --delete --exclude=version -e "$SSH_OPTS" \
+        "$BUILD_DIR/heat/" "$HEAT/"
+    rm -rf "$BUILD_DIR"
+}
+
+upload_heat_version() {
+    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/version" "$HEAT/"
 }
 
 # Bootstrap install pack: the same runtime files plus rbr-setup.sh (so a
@@ -155,9 +204,6 @@ build_controller_zip() {
 upload_controller_pack() {
     echo "Building controller install pack..."
     build_controller_zip
-    echo "Uploading rbr-controller.zip + get-controller.sh..."
-    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/rbr-controller.zip" "$REMOTE/"
-    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/get-controller.sh" "$REMOTE/"
 }
 
 if [[ $RELEASE -eq 1 ]]; then
@@ -167,18 +213,20 @@ if [[ $RELEASE -eq 1 ]]; then
     NEW_VERSION="$(date +%y%m%d%H%M)"
     echo "$NEW_VERSION" > "$LOCAL/version"
     echo "Releasing version $NEW_VERSION..."
-    # The tarball/zip are built AFTER the bump so they embed the new
-    # stamp; /version is uploaded last so mid-check controllers never see
-    # a new stamp paired with stale .allspeak source.
+    # The tarball/zip are built AFTER the bump so they embed the new stamp,
+    # and /heat/version is uploaded after the tree so mid-check controllers
+    # never see a new stamp paired with stale .allspeak source.
     upload_controller_tarball
     upload_controller_pack
-    rsync -vz --no-perms -e "$SSH_OPTS" "$LOCAL/version" "$REMOTE/"
+    upload_heat
+    upload_heat_version
     echo "Done. Controllers will pick up version $NEW_VERSION on their next hourly check."
 else
     # No version bump: the tarball keeps the last release stamp, so
     # controllers that already have it will skip it. Safe to iterate.
     upload_controller_tarball
     upload_controller_pack
+    upload_heat
     echo "Done. Files uploaded; version stamp unchanged. Run with --release to publish to customers."
 fi
 

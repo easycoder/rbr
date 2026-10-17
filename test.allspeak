@@ -10,7 +10,7 @@
     end
     log Value
 
-    download `https://rbrheating.com/controller.allspeak` to `controller.allspeak.new`
+    download `https://rbrheating.com/heat/controller.allspeak` to `controller.allspeak.new`
         on failure
         begin
             log `Update aborted: download of controller.allspeak failed`

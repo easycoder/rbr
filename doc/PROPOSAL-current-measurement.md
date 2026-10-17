@@ -108,11 +108,11 @@ Three changes:
 
 ## 4. `meters.json` — configuration
 
-Machine-specific, hand-maintained, never written by the controller: the `config.json` precedent, for the same reasons. Absent file means the whole feature is off, logged at startup and costing nothing — the `heatlog-root` precedent.
+Machine-specific, hand-maintained, never written by the controller — the `heatlog-root` precedent, for the same reasons. Absent file means the whole feature is off, logged at startup and costing nothing.
 
 ```json
 {
-  "_doc": "Meter/flow configuration — machine-specific, mirrors config.json",
+  "_doc": "Meter/flow configuration — machine-specific; mirrors heatlog-root",
   "meters": [
     { "name": "Mains-meter", "channels": { "a": "grid",     "b": "solar" } },
     { "name": "Loads-meter", "channels": { "a": "heatpump", "b": "store" } }

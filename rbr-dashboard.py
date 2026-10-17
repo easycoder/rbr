@@ -2,13 +2,14 @@
 """
 rbr-dashboard.py — coloured terminal dashboard for RBR controller
 
-Reads /tmp/rbr-dashboard.json (written by the AllSpeak controller each
-cycle) and renders a fixed-position table to the terminal.
+Reads the dashboard JSON written by the AllSpeak controller each cycle and
+renders a fixed-position table to the terminal. The controller passes the path
+it wrote; run by hand with no argument, this resolves the same volatile
+directory the controller uses (a one-line `volatile-root` file beside this
+script), and falls back to the old /tmp location when there is none.
 
 Usage:
     python3 rbr-dashboard.py [<state-file>]
-
-Defaults to /tmp/rbr-dashboard.json.
 """
 
 import json
@@ -17,9 +18,22 @@ import sys
 import shutil
 from datetime import datetime
 
-STATE_FILE = "/tmp/rbr-dashboard.json"
-
 RBR_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def default_state_file():
+    """Where the controller writes the dashboard JSON when it was not told where."""
+    try:
+        with open(os.path.join(RBR_DIR, "volatile-root")) as f:
+            root = f.read().strip()
+        if root:
+            return os.path.join(root, "rbr-dashboard.json")
+    except OSError:
+        pass
+    return "/tmp/rbr-dashboard.json"
+
+
+STATE_FILE = default_state_file()
 TEXT_FILE = os.path.join(RBR_DIR, "dashboard.txt")
 
 # ANSI codes

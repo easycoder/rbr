@@ -49,8 +49,7 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 4. [Updates and deployment](technical/04-updates-and-deployment.md)
 5. [Heating data](technical/05-heating-data.md)
 6. [Controller files](technical/06-controller-files.md)
-7. [Legacy RBR-Now hardware](technical/07-legacy-rbr-now.md)
-8. [Roadmap: current measurement](technical/08-roadmap-current-measurement.md)
+7. [Roadmap: current measurement](technical/08-roadmap-current-measurement.md)
 
 ## The document map
 

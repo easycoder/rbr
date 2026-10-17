@@ -413,30 +413,6 @@ echo "  → Created $RBR_DIR/credentials (broker: localhost, MAC: $MAC)"
 echo "  Note: mail credentials are placeholders — update if you need email features."
 
 # ===========================================================================
-# STEP 5c — config.json placeholder (Zigbee-only systems)
-# ===========================================================================
-# deviceControl.allspeak does an unguarded `load Config from config.json` to find
-# the IP of the RBR-Now master device, so the file must exist even on a
-# system with no RBR-Now hardware: without it the controller dies on startup
-# and controller.service crash-loops ("Unable to read from config.json").
-# An empty `devices` map is the correct content for a pure-Zigbee install —
-# deviceControl then leaves MasterIPAddr empty and MessageESPDevice
-# short-circuits silently, as its docstring describes.
-# config.json is machine-specific and deliberately NOT in the install pack,
-# so create one only when missing; never overwrite a real RBR-Now config.
-if [[ -f "$RBR_DIR/config.json" ]]; then
-    echo "  → config.json already present — left untouched"
-else
-    cat > "$RBR_DIR/config.json" << JSON
-{
-    "devices": {}
-}
-JSON
-    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/config.json"
-    echo "  → Created $RBR_DIR/config.json (no RBR-Now devices — Zigbee-only)"
-fi
-
-# ===========================================================================
 # STEP 5b — Heating-data log root (see doc/HEATING-DATA.md)
 # ===========================================================================
 # The controller writes room heating data (target/actual rows) under a root
@@ -465,6 +441,72 @@ else
     echo "  → Created symlink $HEATLOG_ROOT → $REAL_HEATLOG"
     echo "    (no data partition found; see doc/HEATING-DATA.md to move it later)"
 fi
+
+# ===========================================================================
+# STEP 5c — Volatile data directory (see docs/preparation/04-controller-computer.md)
+# ===========================================================================
+# The readings as they arrive, the heat-log change state and the terminal
+# dashboard's JSON are regenerated within minutes and are not worth writing to
+# disk — and the bridge rewrites its readings file on every temperature message,
+# which makes it the heaviest writer on the machine. They go in a RAM directory
+# instead.
+#
+# /run is a tmpfs on every systemd distribution, so /run/rbr is volatile by
+# construction: no fstab entry, no mount unit, no ordering to get wrong, and
+# nothing to size. Its contents are lost on every reboot, clean or not, which is
+# exactly the intended behaviour — the controller rebuilds them, treating a
+# missing file as "reset" exactly as it already did on a first run.
+#
+# A tmpfiles.d drop-in recreates the directory at each boot with the right
+# ownership, because /run itself starts empty.
+#
+# heatlog-root is the precedent for the pointer: a one-line file in the
+# controller directory naming the absolute path. Nothing is baked into the
+# scripts, so a dev machine with no volatile-root file keeps writing its
+# readings beside the code, as it always has.
+RBR_GROUP="$(id -gn "$RBR_USER" 2>/dev/null || echo "$RBR_USER")"
+VOLATILE_ROOT="${VOLATILE_ROOT:-/run/rbr}"
+if [[ -f "$RBR_DIR/volatile-root" ]]; then
+    VOLATILE_ROOT="$(cat "$RBR_DIR/volatile-root")"
+    echo "  → volatile-root already configured: $VOLATILE_ROOT"
+fi
+cat > /etc/tmpfiles.d/rbr-volatile.conf << TMPFILES
+# Recreate RBR's volatile data directory at boot. /run is a tmpfs, so the
+# contents are lost on every reboot by design — see rbr-setup.sh STEP 5c.
+d ${VOLATILE_ROOT} 0750 ${RBR_USER} ${RBR_GROUP} -
+TMPFILES
+systemd-tmpfiles --create /etc/tmpfiles.d/rbr-volatile.conf >/dev/null 2>&1 || true
+printf '%s\n' "$VOLATILE_ROOT" > "$RBR_DIR/volatile-root"
+chown "$RBR_USER:$RBR_GROUP" "$RBR_DIR/volatile-root"
+echo "  → Created $RBR_DIR/volatile-root → $VOLATILE_ROOT (RAM; empty after every reboot)"
+
+# ===========================================================================
+# STEP 5d — Volatile logs (journald)
+# ===========================================================================
+# The documentation sorts the logs with the readings: of no lasting value, and
+# not worth the writing. Storage=volatile keeps the journal in /run/log/journal,
+# a tmpfs, so nothing reaches the card or the disk and the journal is emptied on
+# every reboot along with the readings.
+#
+# The trade-off is real, which is why it is a drop-in of its own rather than
+# something buried in the unit files: a volatile journal vanishes in exactly the
+# incident where the last few lines are most wanted. What makes it acceptable is
+# that controller.service runs with PYTHONUNBUFFERED=1, so the controller's
+# lines reach the journal as they are written rather than in bursts, and
+# RuntimeMaxUse keeps a chatty component from filling RAM. Delete
+# /etc/systemd/journald.conf.d/rbr.conf and restart systemd-journald to put the
+# logs back on the disk.
+mkdir -p /etc/systemd/journald.conf.d
+cat > /etc/systemd/journald.conf.d/rbr.conf << JOURNALD
+# RBR: keep the journal in RAM — see rbr-setup.sh STEP 5d and
+# docs/preparation/04-controller-computer.md, "Storage: what must survive".
+[Journal]
+Storage=volatile
+RuntimeMaxUse=64M
+JOURNALD
+systemctl restart systemd-journald 2>/dev/null || true
+echo "  → Journal kept in RAM (/run/log/journal, capped at 64M)"
+echo "    (revert with: rm /etc/systemd/journald.conf.d/rbr.conf && systemctl restart systemd-journald)"
 
 # =========================================================================--
 # STEP 6 — RBR updater (automatic code updates)

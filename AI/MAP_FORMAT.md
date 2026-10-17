@@ -17,7 +17,6 @@ map.json
 │       ├── target      — fallback target temperature (°C)
 │       ├── events[]    — timed schedule: [{until: "HH:MM", temp: "N.N"}, ...]
 │       ├── periods[]   — current timed schedule: [{on: "HH:MM", off: "HH:MM", temp: "N.N", enabled: true|false}, ...]
-│       ├── relayType   — "Shelly One" | "RBR-Now" etc.
 │       └── linked      — "yes" | "no"
 ├── overrides (optional) — one-off schedule tweaks, keyed by room name
 └── calendar (optional)  — maps day names to profile names
@@ -62,11 +61,3 @@ Validate JSON:
 python3 -m json.tool map.json > /dev/null && echo OK
 ```
 The controller picks up changes on its next 60-second cron cycle.
-
-## `devices.json` — Room-to-relay mapping
-
-Maps room names to their relay hardware identifiers.
-
-## `config.json` — RBR-Now hardware configuration
-
-Describes each RBR-Now device: role (master/slave), SSID, channel, and pin mappings for LED and relay (including invert flags).

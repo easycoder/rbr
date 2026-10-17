@@ -20,7 +20,7 @@ There are two routes, and they differ only in where the files come from.
 **A customer system** uses the bootstrap pack. One command fetches a script, and the script fetches and unpacks the controller files:
 
 ```
-wget https://rbrheating.com/get-controller.sh
+wget https://rbrheating.com/heat/get-controller.sh
 sh get-controller.sh
 ```
 
@@ -52,9 +52,11 @@ The controller writes constantly, and most of what it writes is not worth keepin
 
 **What does not:** the readings as they arrive, the running summary the terminal dashboard draws from, and the logs. This data is regenerated within minutes or is of no lasting value, and it is the natural candidate for volatile storage.
 
-The compromise to aim for is the one that minimises writing without risking anything that matters: keep the volatile data in volatile storage while the system runs, and refresh it to persistent storage periodically — hourly is a workable assumption — so that a power cut loses at most the window since the last refresh. For the readings and the logs that window is unimportant. In practice it removes the great majority of the writes the machine would otherwise make, which is what the card or the disk would have been wearing out on.
+The setup script acts on that sorting. `/run` is a tmpfs on any systemd distribution, so a directory there costs nothing to create and needs no fstab entry, no mount unit and no ordering to get wrong: `rbr-setup.sh` makes `/run/rbr` with a `tmpfiles.d` drop-in, so it is recreated at each boot with the right ownership, and records the path in a one-line `volatile-root` file beside the controller. The readings as they arrive (`thermometers.json`, `zigbee-temperatures.json`), the heat-log change state and the terminal dashboard's JSON all live there, and a machine with no `volatile-root` file writes them beside the code — which is what a test machine wants. Nothing is lost by the directory being empty after a reboot: the controller reads a missing file as "reset", exactly as it did on a first run, and the readings rebuild from the bridge within minutes.
 
-The plan is the exception, and should be written the way it is now: deliberately, to persistent storage, with its history kept beside it. It is the one artefact that represents somebody's work, and it does not change often enough to be worth buffering.
+The logs are put in RAM the same way, by a journald drop-in (`Storage=volatile`, capped at 64M) rather than by anything the controller does. That one carries a real cost and is worth understanding before it matters: a volatile journal is emptied on every reboot, so an unexpected restart takes its own last few lines with it — which is usually the moment they are wanted. What makes it acceptable is that the controller runs unbuffered, so its lines reach the journal as they are written. To keep the logs on the disk instead, delete `/etc/systemd/journald.conf.d/rbr.conf` and restart systemd-journald.
+
+The plan is the exception, and is written deliberately to persistent storage with its history kept beside it. It is written **only when it changes**: the copy that reaches the disk has the readings removed from it first, so a cycle that brought in nothing but new temperatures writes nothing at all. Before this, the whole map was rewritten every 60 seconds whether or not anything had changed, which is writing done for nothing — and it is the kind of writing an SSD was chosen to survive rather than to be asked for.
 
 ## Coming back after a power cut
 

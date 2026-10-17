@@ -1,6 +1,6 @@
 # Proposal: volatile storage on a RAM disk
 
-**Status:** proposal for the RBR project **Author:** RBR project (Graham) **Date:** 2026-10-16 **Related:** [04-controller-computer.md](../docs/preparation/04-controller-computer.md) ("Storage: what must survive, and what need not"), [02-bill-of-materials.md](../docs/preparation/02-bill-of-materials.md), [CONTROLLER-FILES.md](CONTROLLER-FILES.md), `controller.allspeak`, `deviceControl.allspeak`, `zigbee-bridge.py`, `heatlog.py`, `rbr-mapbackup.py`, `rbr-setup.sh`
+**Status:** implemented 2026-10-16 — both halves. What was built, and the four things deliberately left open, are recorded in §10. **Author:** RBR project (Graham) **Date:** 2026-10-16 **Related:** [04-controller-computer.md](../docs/preparation/04-controller-computer.md) ("Storage: what must survive, and what need not"), [02-bill-of-materials.md](../docs/preparation/02-bill-of-materials.md), [CONTROLLER-FILES.md](CONTROLLER-FILES.md), `controller.allspeak`, `deviceControl.allspeak`, `zigbee-bridge.py`, `heatlog.py`, `rbr-mapbackup.py`, `rbr-setup.sh`
 
 ## Motivation
 
@@ -52,7 +52,7 @@ No tmpfs appears anywhere in the current tree outside the documentation. Every w
 
 Two consequences stand out.
 
-- **`map.json` became the single persistent carrier of live state.** A room entry now holds the plan (`periods`, `events`, `mode`, `target`, `advance`, `until`, `relayType`, `linked`, `protect`) *and* the readings and derived state (`temperature`, `humidity`, `battery`, `status`, `statusMessage`, `timestamp`, `sensorAge`, `relay`). Because `timestamp` is stamped from `now` on every pass, the 60-second save is effectively unconditional: about 1,440 whole-file rewrites a day onto the SSD, most of them carrying data the docs themselves call not worth keeping.
+- **`map.json` became the single persistent carrier of live state.** A room entry now holds the plan (`periods`, `events`, `mode`, `target`, `advance`, `until`, `relayType`, `linked`, `protect`) *and* the readings and derived state (`temperature`, `humidity`, `battery`, `status`, `statusMessage`, `relayMessage`, `relaysFailed`, `relaysTotal`, `timestamp`, `sensorAge`, `relay`). Because `timestamp` is stamped from `now` on every pass, the 60-second save is effectively unconditional: about 1,440 whole-file rewrites a day onto the SSD, most of them carrying data the docs themselves call not worth keeping.
 - **`zigbee-bridge.py` is the heaviest writer of all.** It rewrites `zigbee-temperatures.json` on every temperature message from every device. With a dozen thermometers that is the largest single consumer of write cycles in the system, for data that is pure ephemeral reading.
 
 The one part of the old idea that did survive is worth noting as an improvement already in hand: `advance` now lives on `Room` and so is persisted in `map.json`, where the old code kept it in RAM only.
@@ -106,12 +106,12 @@ Options (2) and (4) compose; (4) is the one that answers the question in the Mot
 
 ## 6. The obstacle: `map.json` conflates the plan with the readings
 
-Option (4) cannot be implemented without splitting `map.json`, and that split is the real work in this proposal. Today the minute-tick write is unconditional in practice because the saved `Map` carries `temperature`, `humidity`, `battery`, `status`, `statusMessage`, `timestamp`, `sensorAge` and `relay` beside the plan. A naive "save only when `MapHasChanged`" gate does not help: `timestamp` changes on every pass, so the flag would be set continuously anyway.
+Option (4) cannot be implemented without splitting `map.json`, and that split is the real work in this proposal. Today the minute-tick write is unconditional in practice because the saved `Map` carries eleven derived fields — `temperature`, `humidity`, `battery`, `status`, `statusMessage`, `relayMessage`, `relaysFailed`, `relaysTotal`, `timestamp`, `sensorAge` and `relay` — beside the plan. A naive "save only when `MapHasChanged`" gate does not help: `timestamp` changes on every pass, so the flag would be set continuously anyway.
 
 The split is by field, not by file:
 
 - **Plan and command fields** — `periods`, `events`, `mode`, `target`, `until`, `advance`, `prevmode`, `protect`, `linked`, `relays`, `sensor`, `name`, and the profile/room structure — remain in `map.json` on disk, written on change. (`relayType` is in this list too, but §9 retires it rather than carrying it through the split.) `MapHasChanged` already tracks the flips that matter (freshness flips and relay-state flips set it), so the gate is nearly in place.
-- **Reading and derived fields** — `temperature`, `humidity`, `battery`, `status`, `statusMessage`, `timestamp`, `sensorAge`, `relay` — become RAM-only, sourced from the RAM-disk copies of `thermometers.json` / `zigbee-temperatures.json` and the bridge, exactly as they are sourced today.
+- **Reading and derived fields** — `temperature`, `humidity`, `battery`, `status`, `statusMessage`, `relayMessage`, `relaysFailed`, `relaysTotal`, `timestamp`, `sensorAge`, `relay` — become RAM-only, sourced from the RAM-disk copies of `thermometers.json` / `zigbee-temperatures.json` and the bridge, exactly as they are sourced today.
 
 Done this way the disk sees a handful of `map.json` writes a day instead of 1,440, the readings never touch it at all, and nothing the system needs to resume is ever only in RAM. Simulation mode writes `map-sim.json` instead of `map.json` and must be kept coherent with the split.
 
@@ -178,10 +178,47 @@ One finding that is **not** part of this change and deserves its own look: the c
 - **Fixtures to regenerate:** `map-sim.json` still holds 24 RBR-Now rooms (and `events`), and `map-new.json`, `map-clean.json`, `new-ui/demo-map.json`, `resources/json/defaultmap.json` and `resources/json/newroomspec.json` all carry retired fields.
 - **The tooling already exists.** This is the same shape as `migrate-periods.allspeak` and `cleanup-map.allspeak` — read `map.json`, write a new file, inspect, diff, then move it into place — so the field sweep rides along with the plan/readings split of §6 rather than needing new machinery.
 
+## 10. What was implemented
+
+Both halves were built on 2026-10-16. Three decisions taken while implementing differ from what the sections above sketch, and each is recorded here rather than left to be rediscovered.
+
+**The volatile directory is `/run/rbr`, created by a `tmpfiles.d` drop-in — not a mount.** `/run` is already a tmpfs on any systemd distribution, so the directory is volatile by construction: no fstab entry, no mount unit, no ordering to get wrong, and nothing to size. `rbr-setup.sh` writes `/etc/tmpfiles.d/rbr-volatile.conf` and the one-line `volatile-root` file that names the path. Four files moved into it: `thermometers.json`, `heatlog-state.json`, `zigbee-temperatures.json` and `rbr-dashboard.json` — the last because the controller rewrites it on every loop cycle, which made it a heavier writer than the map.
+
+**The path is configurable, not hard-coded.** `volatile-root` is one line naming an absolute directory, the same pattern `heatlog-root` already uses. `controller.allspeak`, `diagnose.allspeak`, `zigbee-bridge.py` and `rbr-dashboard.py` all resolve it, and with no such file every one of them falls back to plain names beside the code — so a dev machine and the test suite keep behaving exactly as before.
+
+**The map keeps its readings in memory and drops them on the way to the disk.** §6 proposed splitting the plan and the readings by field, and the implementation does that at write time rather than by tracking which fields changed: `PrepareMapForDisk` builds a copy of the map with those eleven fields deleted, and the tick writes only when that text differs from the text it last wrote. `relayfails` is deliberately kept — it is stable while the relays are answering, and losing it to a restart would delay the next fault being noticed. This reaches the same end as the section's field split (the readings never reach the disk, and the file is written only when the plan changes) without needing to enumerate every mutation site, which is where the risk would have been.
+
+One AllSpeak trap was established in the process and is worth remembering: **assigning one json variable to another aliases them**, so `put Map into MapDisk` followed by `delete entry … of MapDisk` would delete the field from the live map. The copy idiom that does work is `put prettify X into T` and then `put json T into Y`. The behaviour was confirmed against the runtime before the code was written.
+
+### Verified by running it
+
+The full loop was run against a local MQTT broker and a stub stand-in for the Zigbee bridge — the first time this code has executed end to end, and it earned its keep twice.
+
+- **`LastMapDiskText` was not initialised, and the controller died at its first minute tick.** AllSpeak refuses to compare an unset variable with anything ("Both items must have a value for comparison"), and the guard in `HandleMessages` compares that variable on its first run. Under `controller.service` (`Restart=always`) this would have been a crash loop every sixty seconds — run for a minute, die, restart, die again, indefinitely. Fixed by initialising it to empty in the startup block, where empty is exactly right: no map text can equal it, so the first tick always writes.
+- **A pre-existing bug on the same path: with no `.version` file the controller stopped about a minute after every start.** The version watch loads `.version` and then `replace`s in it unguarded; on a machine with no `.version` — one installed by hand rather than through `get-controller.sh` — the load left the variable unset and the `replace` raised. The read is now guarded like everything else on that path. This was not part of this work; it was found by doing the work.
+
+With both fixed, a run of several minutes produced no errors at all, and the behaviour is what the design claims:
+
+- the controller logged `Volatile data in /tmp/e2e/ram/` and wrote **`thermometers.json` into the volatile directory**, having read `zigbee-temperatures.json` from it — both halves of the volatile path, in a real run;
+- `map.json` was written once, at the first tick, and **not rewritten at the second** — identical mtime and identical md5 — which is the write the whole change exists to remove;
+- the written map holds the plan and `relayfails`, and **none of the eleven derived fields**, checked field by field in the file that was actually produced;
+- the RBR-Now-free device module drove the stub bridge successfully, so the rewritten transport is exercised rather than merely compiled.
+
+What is still not verified is real hardware: no relay or thermometer has driven this, and no power cut has been staged.
+
+### Also done in the same pass
+
+- **The journal is volatile.** `rbr-setup.sh` STEP 5d writes `/etc/systemd/journald.conf.d/rbr.conf` with `Storage=volatile` and `RuntimeMaxUse=64M`, so the log lives in `/run/log/journal` and never reaches the card or the disk. The trade-off is stated in the script itself, with the one-line revert: a volatile journal disappears in exactly the incident where the last few lines are wanted, and what makes it acceptable is that `controller.service` runs unbuffered, so its lines reach the journal as they are written.
+- **The RBR-Now firmware and toolchain are gone**, not archived in place: `RBRNow/` (26 files of ESP32 MicroPython), the legacy configurator `resources/allspeak/config.allspeak` (orphaned — nothing loaded it), and `flash-device.allspeak`, which existed only to flash `RBRNow/` onto a device and could not work without it. All three are in git history. `doc/configurator.md` and `doc/setupHardware.md` are kept as the only description of how the hardware worked, with banners saying plainly that nothing in them can be run any more.
+- **The tracked map fixtures were swept**: `map.json`, `map-clean.json`, `map-new.json`, `map-sim.json`, `resources/allspeak/map.json` and `resources/json/newroomspec.json` no longer carry `relayType`, the room `ssid` or the nine legacy map-level fields.
+
+### Left open
+
+1. **The legacy UI's own RBR-Now screens.** `resources/allspeak/{roomedit,roomtools,rbr,mode}.allspeak`, `resources/webson/getdevices.json` and a stale copy of the device module at `resources/allspeak/deviceControl.allspeak` still offer a relay-type choice and carry the ESP transport. They are inert — the controller ignores the field, and nothing loads the stale device module — and `resources/` is the legacy UI, which is itself due to be deleted, so editing its screens now would be throwaway work.
+2. **Nothing is verified on real hardware.** The loop was run end to end against a local broker and a stub bridge (see below), but no real relay or thermometer has driven it, and no power cut has been staged.
+
 ## Open questions
 
-- Is `/tmp` a tmpfs on the target mini-PC? The dashboard's volatility depends on it, and it is not guaranteed. If it is, the dashboard can stay where it is; if not, it should move to the RAM disk with the rest.
 - Should the RAM disk survive a clean reboot? If continuity across an ordinary planned restart is wanted, the refresh step stops being optional — but the plan and the command state are already on disk, so what is recovered is only the UI's view.
-- Journals: volatile, or on disk with a size cap? Volatile matches the docs' intent and saves writes; on disk keeps the evidence of an incident.
-- Does the legacy UI in `resources/` and the `RBRNow/` firmware get deleted with the support, or archived? `deploy.sh` still ships `resources/`, so that decision is a deploy change, not just a repository one.
+- When `resources/` is deleted, does `doc/configurator.md` and `doc/setupHardware.md` go with it? They are the only description of the RBR-Now hardware, and they survive only for installations built before the retirement.
 - Frost protection: are `protect` / `ptemp` meant to be controller-side, or is the new UI's local computation the whole design? Nothing in this proposal depends on the answer, but the sweep turned it up.

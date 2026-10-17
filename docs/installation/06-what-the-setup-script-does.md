@@ -107,9 +107,20 @@ The controller keeps each room's heating records under a data root, and that roo
 
 Either way the chosen root is recorded in `heatlog-root`, and the reasoning is in `doc/HEATING-DATA.md`.
 
-### Step 5c — A placeholder for the RBR-Now configuration
+### Step 5c — Where the readings live
 
-The device-control module reads `config.json` at start-up without checking whether the file is there, so on a machine without one the controller would fail at start-up and the service would restart it in a loop. The script therefore creates a minimal `config.json` — an empty device map, which is correct for a Zigbee-only system — **but only if the file is missing**. An existing file, on a system that still has RBR-Now hardware, is never overwritten.
+The readings as they arrive, the heat-log change state and the terminal dashboard's JSON are regenerated within minutes and are not worth writing to the card or the disk — the bridge alone rewrites its readings file on every temperature message. They live in RAM instead: the script creates `/run/rbr` with a `tmpfiles.d` drop-in, so it is recreated at each boot with the right ownership, and records the path in a one-line `volatile-root` file beside the controller. `/run` is a tmpfs, so those files are gone after every reboot by design; the controller treats a missing file as "reset" and rebuilds within minutes. The reasoning is in [Preparing the controller computer](../preparation/04-controller-computer.md), "Storage: what must survive, and what need not".
+
+### Step 5d — Where the logs live
+
+The controller's logs go to the system journal, and the same reasoning puts them in RAM: the script writes `/etc/systemd/journald.conf.d/rbr.conf` with `Storage=volatile`, so the journal lives in `/run/log/journal` and never reaches the disk. It also caps it at 64M so a chatty component cannot fill memory.
+
+**This one is a real trade-off, and it is worth knowing about.** A volatile journal is emptied on every reboot, and a reboot you did not ask for is exactly when its last few lines are most wanted. What makes it acceptable is that the controller runs unbuffered, so its lines reach the journal as they are written rather than in bursts. If you would rather keep the evidence, delete that file and restart journald:
+
+```
+sudo rm /etc/systemd/journald.conf.d/rbr.conf
+sudo systemctl restart systemd-journald
+```
 
 ### Step 6 — The updater
 
@@ -129,7 +140,7 @@ Installs `rbr-mapbackup.service` and `rbr-mapbackup.timer`, which runs shortly a
 
 Asked as `Install a local web server for the UI? (y/N)` and skipped unless you answer `y`. If you do, the script installs `rbr-ui.service`, serving the controller directory on port 8082 of all interfaces, and writes the browser interface's own credentials file — pointing at the WebSocket port, 9001, with the MAC you gave — both in the controller directory and in the `new-ui/` subdirectory, where the interface looks for it.
 
-This is the interface served on the machine itself. The hosted interface at `rbrheating.com/new-ui/` needs no local server.
+This is the interface served on the machine itself. The hosted interface at `rbrheating.com/heat/` needs no local server.
 
 ### Step 8 — The controller as a service (optional)
 
@@ -165,7 +176,7 @@ The script is written to be re-run, and re-running it is the normal way to repai
 - The saved password is reused rather than re-asked; you are still prompted for the username and MAC (both with the previous values as defaults).
 - Zigbee2MQTT is updated in place rather than cloned again.
 - The broker configuration and every service file are rewritten from scratch, so any hand-editing of those files is lost.
-- An existing `config.json` and an existing `heatlog-root` are left alone.
+- An existing `heatlog-root` is left alone.
 - `credentials.json` and the desktop service are only rewritten if you answer `y` again.
 
 ## If it stops part-way

@@ -253,20 +253,6 @@
         }
     ],
     "calendar": "off",
-    "message": "confirm",
-    "address": "",
-    "ssid": "",
-    "password": "",
-    "extenders": [
-        {
-            "ssid": "",
-            "password": "changeme00"
-        }
-    ],
     "name": "Sample home",
-    "profile": "0",
-    "controller-ssid": "",
-    "controller-password": "",
-    "email": "",
-    "user-password": ""
+    "profile": "0"
 }

@@ -16,7 +16,7 @@ controller.allspeak → load map.json (self-times 6×10s cycles)
                                  ProcessAllRooms()
                                  ├─ ResolveCalendarProfile()
                                  ├─ For each room:
-                                 │  ├─ Read temperature (Zigbee / RBR-Now)
+                                 │  ├─ Read temperature (Zigbee)
                                  │  ├─ Evaluate mode (timed/boost/advance/on/off)
                                  │  └─ Set relay on/off
                                  ├─ Publish status via MQTT
@@ -72,7 +72,7 @@ journalctl -u rbr-controller --no-pager -n 50 2>/dev/null \
 crontab -l 2>/dev/null | grep -i rbr
 
 # 4. Runtime file freshness
-ls -la map.json devices.json thermometers.json params.json
+ls -la map.json thermometers.json params.json environment.csv
 
 # 5. MQTT connectivity check
 mosquitto_pub -h rbrheating.duckdns.org -p 8883 \

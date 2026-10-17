@@ -1,5 +1,7 @@
 # Setting up RBR-Now hardware #
 
+> **Removed — historical description only.** RBR-Now has been retired. The device firmware (`RBRNow/`), the flashing tool (`flash-device.allspeak`) and the configurator (`resources/allspeak/config.allspeak`) have all been removed from this repository, so the procedures below refer to files that are no longer here. It is kept as a description of the hardware, for installations built before the retirement. New systems are Zigbee-only.
+
 Every RBR-Now device has the same Python code driving it. The behaviour of the device is determined by the contents of a small JSON configuration file, which is set up and managed by the [configurator](configurator.md).
 
 The devices themselves are all powered by some variant of the ESP32 microcontroller. At the time of writing, these will be mainly ESP32-C3. Each variant has a different Micropython binary; they are all held  at the [MicroPython download site](https://micropython.org/download/).

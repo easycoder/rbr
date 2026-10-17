@@ -17,7 +17,7 @@ Communication between controller and UI is via MQTT (broker: `rbrheating.duckdns
 - **AllSpeak**: A high-level scripting language with both Python and JavaScript dialects. Scripts use the `.allspeak` extension. The Python runtime is in the AllSpeak repository. The JS runtime is loaded by the browser from this site's own `/dist/allspeak.js`, which is a **pinned build**: `resources/allspeak.js` is byte-identical to what `pin-allspeak.sh` has promoted, and the browser therefore runs that one, not the rolling CDN. Upstream AllSpeak moves ahead of it deliberately and only when someone promotes a build, so **a command that exists in the AllSpeak curriculum may not exist here yet** — check the pinned copy before reaching for a new one (measured 2026-10-16: `loop` is upstream but absent from the pinned bundle, and upstream's "does not exist" list has been trimmed to match). `ALLSPEAK.md` contains essential primer information for using the language.
 - **Webson**: JSON-based DOM rendering. Layout definitions are in `resources/webson/*.json`. Element IDs in Webson must stay in sync with `.allspeak` scripts that attach to them.
 - **MQTT**: All controller-UI communication. Broker `rbrheating.duckdns.org` (port 8883 for Python/controller, port 443 for the JS/UI websocket). Two accounts per system: the bridge on the box, whose password lives only in `/etc/mosquitto/conf.d/rbr-local.conf`, and the account the UI pages use, fenced to that system's topics and vended by `credentials.php` only to a paired device (MAC + token). The system's identity is `~/.mac_override` (currently `00:e0:27:5b:31:40`), not the NIC's MAC, and it is the topic namespace as well as the registration key in `rbr-users.json`.
-- **Zigbee** and **RBR-Now** (legacy): Used for controller-to-device communication
+- **Zigbee**: Used for controller-to-device communication
 
 ## Running
 
@@ -35,7 +35,7 @@ The UI is a static webapp — it has to be served over HTTP (not `file://`) beca
 ## Repository Structure
 
 - `controller.allspeak` — Main controller script (AllSpeak Python dialect)
-- `deviceControl.allspeak` — Device control logic for RBR-Now relay/thermometer devices
+- `deviceControl.allspeak` — Device control logic: turns the controller's per-room decisions into HTTP calls on the local Zigbee bridge
 - `simulator.allspeak` — Controller simulator for testing without hardware
 - `resources/allspeak/` — JavaScript AllSpeak runtime modules (Core.js, Browser.js, Webson.js, etc.)
 - `resources/allspeak/` — UI AllSpeak scripts (rbr.allspeak is main, plus mode/calendar/statistics/etc.)
@@ -43,11 +43,9 @@ The UI is a static webapp — it has to be served over HTTP (not `file://`) beca
 - `docs-reader/` — the documentation reader served at `/docs`. It is a page, an AllSpeak script and a Webson layout, and it holds no documentation: it fetches the Markdown from the public repository as it is read and renders it with this runtime's markdown renderer. See `tests/docs-reader-check.js`.
 - `resources/webson/` — Webson JSON UI layout definitions
 - `resources/css/`, `resources/icon/`, `resources/img/` — Static assets
-- `RBRNow/` — MicroPython firmware for ESP32 devices (master/slave networking via ESP-Now)
-- `rbr_ui/`, `rbrconf/` — Python GUI tools for configuration
-- `config.json` — RBR-Now device network configuration (SSIDs, MACs, pin mappings)
 - `map.json` — System map: rooms, thermometer MACs, device types, modes, timing schedules
-- `params.json`, `devices.json`, `thermometers.json` — Simulator configuration files
+- `params.json`, `environment.csv` — Simulator configuration (per-room thermal parameters and the outdoor-conditions envelope)
+- `thermometers.json` — Live temperature readings, written by the controller and read by the simulator and dashboard
 - `AI/` — Architecture and working rules documentation for AI contributors
 
 ## Working Rules
@@ -63,7 +61,6 @@ The UI is a static webapp — it has to be served over HTTP (not `file://`) beca
 ## Configuration Data
 
 - `map.json` — Physical system layout: room names, thermometer MACs, device types, operating modes (timed/boost/advance/on/off), temperature schedules per profile
-- `config.json` — RBR-Now network: device roles (master/slave), SSIDs, pin assignments, relay/LED config
 - Multiple profiles (e.g., Weekday, Weekend) with an optional calendar mapping days to profiles
 
 ## AllSpeak Language Reference

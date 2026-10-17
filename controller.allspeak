@@ -1,4 +1,4 @@
-!! RBR is a heating control system based on Zigbee relays and thermometers, with support for RBR-Now legacy devices.
+!! RBR is a heating control system based on Zigbee relays and thermometers.
 !!
 !! The script starts by declaring all the variables that it uses.
 !   controller.allspeak - the main program script
@@ -46,7 +46,6 @@
     variable PeriodActive
     variable Sensor
     variable Relays
-    variable RelayType
     variable RelayState
     variable RelayStateWas
     variable SensorFresh
@@ -57,6 +56,15 @@
     variable EventCount
     variable LastMapSave
     variable MapHasChanged
+    dictionary MapDisk
+    list DiskProfiles
+    dictionary DiskProfile
+    list DiskRooms
+    dictionary DiskRoom
+    variable MapDiskText
+    variable LastMapDiskText
+    variable DPIdx
+    variable DRIdx
     variable HeatingRequested
     variable Simulate
     variable Time
@@ -69,7 +77,6 @@
     variable SenderName
     variable SenderQoS
     variable SenderKey
-    variable Reply
     variable Broker
     variable Username
     variable Password
@@ -163,8 +170,14 @@
     variable HeatlogMode
     variable HeatlogName
     variable HeatlogDirty
-!! @hash 54ab8c9a
-!! @verified f7af243f
+    variable VolatileRoot
+    variable VolatilePrefix
+    variable ThermometersPath
+    variable HeatlogStatePath
+    variable DashboardPath
+    variable ZigbeeTempsPath
+!! @hash b913fc30
+!! @verified b913fc30
 !!!
 !! Basic initialisation.
 !! The system can run either with real hardware or wth a simulator. The latter is chosen if a file 'sim' exists.
@@ -183,6 +196,12 @@
 
 !	Some variables need to be inialised at the start
     set LastMapSave to now
+    ! The disk copy's text from last time. It must hold a value before the first
+    ! comparison: AllSpeak refuses to compare an unset variable with anything
+    ! ("Both items must have a value"), and the guard in HandleMessages compares
+    ! this on its first run. Empty is the right starting value — no map text can
+    ! equal it, so the first tick always writes.
+    set LastMapDiskText to empty
     clear MapHasChanged
     clear ThermometerUpdate
     clear HeatingRequested
@@ -209,8 +228,8 @@
     begin
         if arg 0 is `--no-dashboard` clear DashboardEnabled
     end
-!! @hash 469f4109
-!! @verified ccb83ebf
+!! @hash 4c0b0e93
+!! @verified 4c0b0e93
 !!!
 !! Load credentials and set up MQTT. Credentials come from the server unless a local 'credentials' file exists.
 !!
@@ -290,9 +309,34 @@ NoCredentials:
 !! Check if a new version is available, then process the room list.
 Start:
     gosub to LoadMap
+    ! Volatile data lives in RAM. The readings as they arrive, the heat-log
+    ! change state and the terminal dashboard's JSON are all regenerated within
+    ! minutes, and writing them to the card or the disk is the great majority of
+    ! what the machine would otherwise wear out. A `volatile-root` file in the
+    ! working directory names the directory to use (one line, absolute — on a
+    ! controller /run/rbr, which is a tmpfs and is emptied on every boot).
+    ! Without that file the paths stay plain names in the working directory,
+    ! which is what a dev machine gets.
+    !
+    ! Nothing is lost by the directory being empty after a reboot: a missing
+    ! file is read as "reset", exactly as it was on a first run, and the
+    ! readings rebuild from the bridge within minutes.
+    set VolatilePrefix to empty
+    if file `volatile-root` exists
+    begin
+        load VolatileRoot from `volatile-root`
+        replace newline with `` in VolatileRoot
+        if VolatileRoot is not empty set VolatilePrefix to VolatileRoot cat `/`
+        log `Volatile data in ` cat VolatilePrefix
+    end
+    put VolatilePrefix cat `thermometers.json` into ThermometersPath
+    put VolatilePrefix cat `heatlog-state.json` into HeatlogStatePath
+    put VolatilePrefix cat `rbr-dashboard.json` into DashboardPath
+    put VolatilePrefix cat `zigbee-temperatures.json` into ZigbeeTempsPath
+
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into SelectedProfile
-    if file `thermometers.json` exists load Thermometers from `thermometers.json`
+    if file ThermometersPath exists load Thermometers from ThermometersPath
     else reset Thermometers
 
     ! Heat logging. Enabled when a `heatlog-root` file in the working
@@ -317,7 +361,7 @@ Start:
         end
     end
     else log `Heat logging disabled (no heatlog-root file)`
-    if file `heatlog-state.json` exists load HeatlogLast from `heatlog-state.json`
+    if file HeatlogStatePath exists load HeatlogLast from HeatlogStatePath
     else reset HeatlogLast
     clear HeatlogDirty
 
@@ -328,7 +372,7 @@ Start:
 
 !   Walk the list of rooms and process the needs of each one
     gosub to ProcessAllRooms
-!! @hash 61f2c635
+!! @hash 6f6ba3f7
 !! @verified 2e5e5cad
 !!!
 !! This is the head of each loop.
@@ -367,14 +411,22 @@ MainLoop:
     if VersionCheckCounter is greater than 12
     begin
         set VersionCheckCounter to 0
-        if file `.version` exists load CurrentVersion from `.version`
-        replace ` ` with `` in CurrentVersion
-        replace newline with `` in CurrentVersion
-        if CurrentVersion is not StartedVersion
+        ! Only meaningful when there is a stamp to compare. `.version` is written
+        ! by get-controller.sh and maintained by rbr-updater.py, so a machine that
+        ! installed by hand has none — and reading it unguarded left CurrentVersion
+        ! unset, which made the `replace` below raise and stop the controller about
+        ! a minute after every start.
+        if file `.version` exists
         begin
-            log `Update applied: version ` cat StartedVersion cat ` -> ` cat CurrentVersion
-            log `Restarting to load the new code`
-            exit
+            load CurrentVersion from `.version`
+            replace ` ` with `` in CurrentVersion
+            replace newline with `` in CurrentVersion
+            if CurrentVersion is not StartedVersion
+            begin
+                log `Update applied: version ` cat StartedVersion cat ` -> ` cat CurrentVersion
+                log `Restarting to load the new code`
+                exit
+            end
         end
     end
 
@@ -469,7 +521,7 @@ MainLoop:
         set entry `timestamp` of DashboardData to now
         if DashboardEnabled
         begin
-            save prettify DashboardData to `/tmp/rbr-dashboard.json`
+            save prettify DashboardData to DashboardPath
             ! Relative on purpose: the renderer ships next to this script and the
             ! controller is always started from the install directory (the
             ! systemd unit sets WorkingDirectory; manual runs are 'cd ~/rbr &&
@@ -478,7 +530,7 @@ MainLoop:
             ! install logged 'can't open file' on each dashboard refresh. The
             ! service unit passes --no-dashboard: a headless service has no
             ! terminal to paint, so the JSON is all that matters there.
-            system background `python3 rbr-dashboard.py`
+            system background `python3 rbr-dashboard.py "` cat DashboardPath cat `"`
         end
     end
 
@@ -488,14 +540,14 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-!! @hash ac92b222
-!! @verified ce47a848
+!! @hash 41ce1852
+!! @verified 41ce1852
 !!!
 !! Drain the queue of messages received from the UI between MainLoop ticks.
 !!
 !! Four action types: `first` (one-shot at UI startup, triggers a full map push), `refresh` (10-second heartbeat from each connected UI — any reply doubles as a round-trip alive signal feeding the UI's heartbeat dot and stall-detection watchdog), `uirequest` (a user action handed off to ProcessUIRequest), and `sendemail` (registration/recovery email relay).
 !!
-!! Once a minute we also pull the latest Zigbee thermometer readings from the bridge's zigbee-temperatures.json before flushing Thermometers back to disk. The merge lives here rather than in MainLoop's body so it isn't starved when a busy UI keeps short-circuiting the 5-second wait via `go to HandleMessages`. Without RBR-Now devices in play, this is the only path that updates Thermometers — RBR-Now installs get a parallel update from RecordThermometer during room processing.
+!! Once a minute we also pull the latest Zigbee thermometer readings from the bridge's zigbee-temperatures.json, in the volatile directory, before flushing Thermometers back there. The merge lives here rather than in MainLoop's body so it isn't starved when a busy UI keeps short-circuiting the 5-second wait via `go to HandleMessages`. This is the only path that updates Thermometers.
 !!
 !! Map and thermometer files are flushed to disk at most once a minute. Senders silent for more than 100 seconds are dropped from the recipient list so we stop pushing updates to disconnected UIs.
 HandleMessages:
@@ -570,9 +622,9 @@ HandleMessages:
         ! guarantees Thermometers is refreshed at the same cadence as
         ! thermometers.json is flushed, even when the wait loop in
         ! MainLoop keeps short-circuiting before reaching its body.
-        if file `zigbee-temperatures.json` exists
+        if file ZigbeeTempsPath exists
         begin
-            load ZigbeeTemps from `zigbee-temperatures.json`
+            load ZigbeeTemps from ZigbeeTempsPath
             put the keys of ZigbeeTemps into ZigbeeTempKeys
             set ZK to 0
             while ZK is less than the count of ZigbeeTempKeys
@@ -585,14 +637,24 @@ HandleMessages:
             set ThermometerUpdate
         end
 !        log `Save the map`
-        if Simulate save prettify Map to `map-sim.json` else save prettify Map to `map.json`
+        ! The map reaches the disk only when its plan content changes. The
+        ! readings are stripped out first (PrepareMapForDisk), so a cycle that
+        ! only brought in new temperatures leaves the text identical and writes
+        ! nothing — which is what stops the once-a-minute rewrite the map used
+        ! to make regardless of whether anything had changed.
+        gosub to PrepareMapForDisk
+        if MapDiskText is not LastMapDiskText
+        begin
+            if Simulate save MapDiskText to `map-sim.json` else save MapDiskText to `map.json`
+            put MapDiskText into LastMapDiskText
+        end
         put now into LastMapSave
-        if ThermometerUpdate save prettify Thermometers to `thermometers.json`
+        if ThermometerUpdate save prettify Thermometers to ThermometersPath
         ! Persist heat-log change state once a minute (single writer) so a
         ! restart resumes change detection without re-logging current state.
         if HeatlogDirty
         begin
-            save prettify HeatlogLast to `heatlog-state.json`
+            save prettify HeatlogLast to HeatlogStatePath
             clear HeatlogDirty
         end
     end
@@ -614,8 +676,8 @@ HandleMessages:
         increment S
     end
     go to MainLoop
-!! @hash c3d77012
-!! @verified b8cec348
+!! @hash 420ed150
+!! @verified 420ed150
 !!!
 !! Load the system map from disk, or build a fresh default map if the file is absent.
 !!
@@ -824,7 +886,6 @@ ProcessRoom:
         end
     end
     put entry `relays` of Room into Relays
-    put entry `relayType` of Room into RelayType
     put entry `relay` of Room into RelayState
     put entry `mode` of Room into Mode
 
@@ -917,19 +978,18 @@ BoostDone:
     set entry `room name` of RoomSpec to RoomName
     set entry `temperature` of RoomSpec to TempNow
     set entry `relays` of RoomSpec to Relays
-    set entry `relay type` of RoomSpec to RelayType
     set entry `relay state` of RoomSpec
     to RelayState
 !    log RoomName cat ` ` cat RelayState
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash a6c6d222
-!! @verified 5b7749f8
+!! @hash b0eb9c7f
+!! @verified b0eb9c7f
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
 !!
-!! The reply is a list with one entry per slot: an integer is a fresh temperature reading from the relay's own sensor, an empty value indicates a relay failure, and any other string is a BLE thermometer announcement we hand to RecordThermometer. Failures are counted per relay into `relayfails` (a list parallel to the room's `relays`); each relay's count is reset only by that relay answering, so a dead relay cannot be masked by a healthy sibling in the same room. RoomStatus turns the counts into warn/fail (all relays down) or `partial` (some down).
+!! The reply is a list with one entry per relay slot. An empty value indicates a relay failure. A number is a temperature for the room, which is how the simulator replies. Any other value is the device's own report — the Zigbee bridge returns a `{state, uptime}` dictionary — and is treated as an acknowledgement. Failures are counted per relay into `relayfails` (a list parallel to the room's `relays`); each relay's count is reset only by that relay answering, so a dead relay cannot be masked by a healthy sibling in the same room. RoomStatus turns the counts into warn/fail (all relays down) or `partial` (some down).
 !!
 !! After folding, SetRelay runs again so any updated temperature is reflected in the relay decision.
 !!
@@ -966,12 +1026,11 @@ ProcessReply:
             else
             begin
                 set RelayFailsThis to 0
+!               A numeric entry is a temperature for the room — the simulator
+!               replies that way. The Zigbee bridge replies with its Values
+!               dictionary instead, which is an acknowledgement and nothing
+!               more, so only a number is folded back as a reading.
                 if Value is numeric put Value into TempNow
-                else
-                begin
-                    put Value into Reply
-                    if Reply is not empty gosub to RecordThermometer
-                end
             end
             append RelayFailsThis to NewRelayFails
             increment I
@@ -981,8 +1040,8 @@ ProcessReply:
         gosub to SetRelay
     end
     go to RoomStatus
-!! @hash 931c8b52
-!! @verified 63064a79
+!! @hash c37a026a
+!! @verified c37a026a
 !!!
 !! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
 !!
@@ -1014,7 +1073,7 @@ ProcessRequestRelay:
 !!!
 !! Decide whether this room's relay should be on or off this cycle, based on mode, target, current temperature, and prior status.
 !!
-!! Read the previous cycle's status as a safety override. If the room was already classified as `warn` (stale sensor or repeated relay failures) or `fail`, we leave the relay off regardless of mode or current temperature reading. This belt-and-braces protects against paths that could keep TempNow populated past the staleness gate (e.g. an RBR-Now relay reporting its own temperature when the configured thermometer is dead).
+!! Read the previous cycle's status as a safety override. If the room was already classified as `warn` (stale sensor or repeated relay failures) or `fail`, we leave the relay off regardless of mode or current temperature reading. This belt-and-braces protects against any path that could leave TempNow populated past the staleness gate.
 !!
 !! Boost is the one mode that bypasses the staleness lockout: it's a user-initiated, time-bounded override (the `until` timestamp is the safety bound). For linked boost rooms we still honour the target where we have any temperature data — last known reading on the room itself if TempNow has been emptied by the staleness gate. With no temperature data at all, default the relay to ON so a boost on a never-reported sensor still produces heat for its bounded duration.
 !!
@@ -1249,6 +1308,50 @@ UpdateMap:
     return
 !! @hash b14a1967
 !! @verified 19bec5d0
+!!!
+!! Build the disk copy of the map: the same map with the readings and derived fields removed, left in MapDisk as text in MapDiskText.
+!!
+!! The plan is the one artefact that represents somebody's work, so it goes to disk deliberately. The readings do not: temperature, humidity, battery, status, statusMessage, relayMessage, relaysFailed, relaysTotal, timestamp, sensorAge and relay are all re-derived within a cycle or two of a restart, and they change on nearly every pass. Leaving them in the file would make every 60-second write differ, which is what would otherwise keep the card or the disk busy for nothing. They are kept in memory on Map for the UI's benefit and only dropped from this copy.
+!!
+!! `relayfails` is deliberately NOT dropped: it is the per-relay failure count that drives warn/fail, it is stable while every relay is answering, and a restart losing it would delay the next fault being noticed.
+!!
+!! `put prettify X into T` then `put json T into Y` is the only way to copy a json variable — assigning one json variable to another aliases them, and deleting a field from the copy would then delete it from the live map. The probe that established this is recorded in DIFF.md.
+PrepareMapForDisk:
+    put prettify Map into MapDiskText
+    put json MapDiskText into MapDisk
+    put entry `profiles` of MapDisk into DiskProfiles
+    set DPIdx to 0
+    while DPIdx is less than the count of DiskProfiles
+    begin
+        put item DPIdx of DiskProfiles into DiskProfile
+        put entry `rooms` of DiskProfile into DiskRooms
+        set DRIdx to 0
+        while DRIdx is less than the count of DiskRooms
+        begin
+            put item DRIdx of DiskRooms into DiskRoom
+            if DiskRoom has entry `temperature` delete entry `temperature` of DiskRoom
+            if DiskRoom has entry `humidity` delete entry `humidity` of DiskRoom
+            if DiskRoom has entry `battery` delete entry `battery` of DiskRoom
+            if DiskRoom has entry `status` delete entry `status` of DiskRoom
+            if DiskRoom has entry `statusMessage` delete entry `statusMessage` of DiskRoom
+            if DiskRoom has entry `relayMessage` delete entry `relayMessage` of DiskRoom
+            if DiskRoom has entry `relaysFailed` delete entry `relaysFailed` of DiskRoom
+            if DiskRoom has entry `relaysTotal` delete entry `relaysTotal` of DiskRoom
+            if DiskRoom has entry `timestamp` delete entry `timestamp` of DiskRoom
+            if DiskRoom has entry `sensorAge` delete entry `sensorAge` of DiskRoom
+            if DiskRoom has entry `relay` delete entry `relay` of DiskRoom
+            set item DRIdx of DiskRooms to DiskRoom
+            increment DRIdx
+        end
+        set entry `rooms` of DiskProfile to DiskRooms
+        set item DPIdx of DiskProfiles to DiskProfile
+        increment DPIdx
+    end
+    set entry `profiles` of MapDisk to DiskProfiles
+    put prettify MapDisk into MapDiskText
+    return
+!! @hash 593badbb
+!! @verified 593badbb
 !!!
 !! Trigger an immediate UI update by setting both ImmediateUpdate (which short-circuits MainLoop's 5-second wait) and MapHasChanged (which makes SendMapToUI actually push). 
 !!
@@ -1743,47 +1846,6 @@ PruneOverrides:
     end
     return
 !! @hash 72da8206
-!!!
-!! Record temperature/humidity/battery readings for Mijia BLE thermometers seen by RBR-Now relays.
-!!
-!! RBR-Now devices forward BLE announcements as a string in their reply payload; we parse the trailing `+`-delimited segment, split its semicolon fields (rssi;temp;hum;batt;mac-suffix), and stash a Thermometer record under `a4:c1:38:<suffix>` in the Thermometers dictionary. ThermometerUpdate is set so HandleMessages flushes thermometers.json on the next minute.
-RecordThermometer:
-    if Reply is empty return
-!    log Reply
-    put Reply into Value
-    split Value on ` `
-    if the elements of Value is 1 return
-    index Value to 2
-    put Value into Value2
-    split Value2 on `+`
-    if the elements of Value2 is 1 return
-    index Value2 to 1
-    if Value2 is not empty
-    begin
-        split Value2 on `;`
-        if the elements of Value2 is not less than 5
-        begin
-            reset Thermometer
-            set entry `ts` of Thermometer to now
-            index Value2 to 1
-            set entry `rssi` of Thermometer to Value2
-            index Value2 to 2
-            multiply Value2 by 10
-            set entry `temp` of Thermometer to Value2
-            index Value2 to 3
-            set entry `hum` of Thermometer to Value2
-            index Value2 to 4
-            set entry `batt` of Thermometer to Value2
-            index Value2 to 0
-            set entry `a4:c1:38:` cat Value2 of Thermometers to Thermometer
-            set ThermometerUpdate
-!            log RoomName cat ` thermometer: ` cat Thermometer
-        end
-        set the elements of Value to 1
-    end
-    return
-!! @hash 533978e4
-!! @verified 533978e4
 !!!
 !! Convert an HH:MM time string into an integer milliseconds-since-epoch value for today (Time variable in/out).
 !!

@@ -4,7 +4,7 @@
 
 Room By Room (RBR) is an open-source smart central heating control system with:
 
-- **Controller** — Python AllSpeak scripts running on a Linux mini-PC that manage heating per-room via Zigbee thermometers and relays, plus legacy RBR-Now ESP32 devices
+- **Controller** — Python AllSpeak scripts running on a Linux mini-PC that manage heating per-room via Zigbee thermometers and relays
 - **UI** — A browser-based mobile webapp (PWA) written in JavaScript AllSpeak with Webson-rendered DOM
 - **REST server** — PHP on shared hosting (rbrheating.com, not in this repo)
 
@@ -14,7 +14,7 @@ Communication between controller and UI is via MQTT.
 
 ### Controller
 - `controller.allspeak` — main controller loop: loads map, processes rooms, manages MQTT, calls device control
-- `deviceControl.allspeak` — device-level operations: Zigbee relay on/off, RBR-Now relay on/off, temperature reading
+- `deviceControl.allspeak` — device-level operations: Zigbee relay on/off through the local bridge
 - `simulator.allspeak` — standalone simulator for testing controller logic without real hardware
 
 ### UI (legacy, served from root)
@@ -23,7 +23,7 @@ Communication between controller and UI is via MQTT.
 - `resources/allspeak/rbr.allspeak` — main UI script
 - `resources/allspeak/*.allspeak` — supporting scripts (roomedit, profiles, statistics, etc.)
 
-### UI (new PWA, served from `/new-ui/`)
+### UI (new PWA, served from `/heat/` on the site — deployed from `new-ui/`)
 - `new-ui/index.html` — PWA entry point with service worker and manifest
 - `new-ui/resources/allspeak/shell.allspeak` — single ~2700-line shell script that boots the app, opens MQTT, renders the home screen, and routes all user gestures
 - `new-ui/resources/allspeak/*.allspeak` — supporting scripts (profile-sheet, schedule-editor, map-to-rooms, device-editor)
@@ -31,11 +31,8 @@ Communication between controller and UI is via MQTT.
 - `new-ui/sw.js` — service worker with cache management
 
 ### Infrastructure
-- `deploy.sh` — rsyncs UI + controller files to rbrheating.com (`--release` bumps version for customer controllers)
-- `config.json` — RBR-Now device hardware configuration (pins, SSIDs, channels)
-- `devices.json` — room-to-relay mapping
+- `deploy.sh` — rsyncs the UI and the controller files to `rbrheating.com/heat/` (`--release` bumps the version for customer controllers)
 - `params.json` — controller runtime parameters
-- `RBRNow/` — MicroPython firmware source for RBR-Now ESP32 devices
 - `credentials.example.json` — MQTT/mail credential format for production deployment
 
 ## Main design choices

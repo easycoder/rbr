@@ -1,5 +1,7 @@
 # RBR-Now Configurator #
 
+> **Removed — historical description only.** RBR-Now has been retired: the controller's ESP-Now transport, the `config.json` master lookup and the Mijia-thermometer parsing are gone, and so are the configurator itself (`resources/allspeak/config.allspeak`), the device firmware (`RBRNow/`) and the flashing tool (`flash-device.allspeak`). Nothing below can be run from this repository any more. It is kept as the only description of how the RBR-Now hardware worked, for installations built before the retirement. New systems are Zigbee-only.
+
 RBR-Now is a collection of local devices, all powered by ESP32, that implement the ESP-Now networking protocol to accept commands from a central controller. (For setting up hardware, [see here](setupHardware.md)). Configuration is a fairly complex procedure, so a special tool has been built to automate the process.
 
 ## Overview

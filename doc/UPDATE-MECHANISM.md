@@ -8,6 +8,20 @@ Originally the controller updated itself: `CheckForUpdate`, a routine inside `co
 
 That worked for the AllSpeak sources but left the Python daemons (`zigbee-bridge.py`, `rbr-dashboard.py`, ...) to be copied by hand — and it only ran while the controller was alive.
 
+## Where the files live on the site ##
+
+Everything this document fetches — the update tarball, the install pack, the downloader, the version stamp, and on the controller's side the `.allspeak` sources — lives in **`/heat/`** on `rbrheating.com`. The PWA is served from the same directory, so `/heat/` is the operational set: what a controller and a UI need from the site, in one place.
+
+The move from the site root to `/heat/` was a deliberate hard cutover. Controllers installed before it look for `https://rbrheating.com/rbr-controller.tar.gz` and will not find a newer release at that path any more; reinstalling with the new `get-controller.sh` picks up the new location. `rbr-updater.py`'s default URL and `get-controller.sh`'s base are both `/heat/` now, and `RBR_BASE`/`--url` override them for testing.
+
+Three things deliberately did **not** move into `/heat/`:
+
+- **`auth.php` and `credentials.php`** stay at the site root. They read `../rbr-users.json`, which is kept outside the web root on purpose; one level deeper — inside `/heat/` — that path would resolve to a file inside the served tree. Both the legacy UI and the PWA reach them from either location, because the PWA asks for `../credentials.php` (one level above the page, which is the site root from `/heat/` as it was from `/new-ui/`) and `/verify`, `/register` and `/recover` are absolute.
+- **The legacy UI** at the root (`index.html`, `resources/`) is left running and still deployed, unchanged, until it is deleted. The root is to become a product-information home page.
+- **The documentation reader** at `/docs` and the pinned AllSpeak runtime at `/dist/` are not part of the operational set and are left where they are.
+
+`deploy.sh` assembles `/heat/` in a temporary directory and syncs it as one tree, because the PWA and the controller files share the directory and the sync prunes deletions — syncing `new-ui/` straight into `/heat/` would delete the controller files already there. `version` is excluded from the tree sync and uploaded on its own afterwards, so a controller mid-check never sees a new stamp paired with stale source.
+
 ## Current design (Option B+C) ##
 
 A standalone updater daemon, **`rbr-updater.py`**, replaces `CheckForUpdate`. It is a one-shot script driven by an hourly systemd timer, installed by `rbr-setup.sh` (Step 6). Being a separate service it keeps delivering updates even when the controller is down, and it can restart the controller and bridge services itself.
@@ -17,7 +31,7 @@ A standalone updater daemon, **`rbr-updater.py`**, replaces `CheckForUpdate`. It
 | Component | Role |
 |---|---|
 | `rbr-updater.py` (repo root, controller) | One-shot updater; driven by systemd `rbr-updater.service` + `rbr-updater.timer` (versioned copies of both units live in the repo root; `rbr-setup.sh` Step 6 also generates them with the RBR dir baked in) |
-| `rbr-controller.tar.gz` (built by `deploy.sh`) | Versioned bundle of all controller runtime files, served from rbrheating.com |
+| `rbr-controller.tar.gz` (built by `deploy.sh`) | Versioned bundle of all controller runtime files, served from `rbrheating.com/heat/` |
 | `version` (repo, dev machine) | Release stamp `YYMMDDHHMM`, bumped by `deploy.sh --release` |
 
 ### The tarball ###
@@ -71,7 +85,7 @@ python3 rbr-updater.py --force                 # re-apply current version
 
 ```sh
 mkdir rbr && cd rbr
-wget https://rbrheating.com/get-controller.sh
+wget https://rbrheating.com/heat/get-controller.sh
 sh get-controller.sh
 ```
 

@@ -15,7 +15,7 @@ Here are the steps to be taken to set up a new RBR system.
 3. Get a copy of the controller files onto the machine — either clone/copy the repo, or use the bootstrap pack (this is what a customer system uses):
 ```
 mkdir rbr && cd rbr
-wget https://rbrheating.com/get-controller.sh
+wget https://rbrheating.com/heat/get-controller.sh
 sh get-controller.sh        # fetches and unpacks rbr-controller.zip over this dir
 ```
 4. Install AllSpeak (the controller runtime) — this is deliberately not done by the setup script, because pip usually needs `--break-system-packages` on modern distros:
@@ -35,7 +35,7 @@ sudo ./rbr-setup.sh
 cat .mac_override
 cat credentials
 ```
-7. In your mobile phone user interface (https://rbrheating.com/new-ui/), tap the hamburger icon in the top right and select System Manager from the menu. If you're a new user you will have to register; just follow the instructions.
+7. In your mobile phone user interface (https://rbrheating.com/heat/), tap the hamburger icon in the top right and select System Manager from the menu. If you're a new user you will have to register; just follow the instructions.
 8. Click the Add button to add your new system and use the MAC and password you obtained in step 6. Select the system by its name and tap OK to return to the main user interface.
 9. Commission the Zigbee devices. The setup script (step 5) installed and enabled Zigbee2MQTT with the coordinator dongle auto-detected; make sure it is running, then pair the devices one by one:
 ```
@@ -73,11 +73,11 @@ sudo systemctl status zigbee2mqtt     # should show active (running)
 
     > **For unattended operation, check the firmware.** Set the BIOS/UEFI "Restore AC Power Loss" (also "AC Back" / "After Power Failure") to **Power On**, and disable **ErP/EuP Ready**, which can block automatic power-on. Nothing in the OS can read or set this, so test it by cutting mains, restoring it and watching the machine come up by itself. The OS half is already handled: every service is enabled, so the whole stack returns without a login. After any outage, confirm `map.json` survived — `allspeak diagnose.allspeak` says whether it is present and lists the rooms; the map keeper repairs a truncated one within a couple of minutes of boot.
 
-> **Legacy:** installations still running RBR-Now hardware keep using the RBR-Now configurator until they are rebuilt — see [Running the Configurator](configurator.md). New builds ignore it.
+> **Legacy:** RBR-Now support has been removed from the controller — `deviceControl.allspeak` no longer has an ESP-Now transport, and `config.json` is gone. An installation still running RBR-Now relays must finish its rebuild before it can take an update. The old configurator is documented in [configurator.md](configurator.md) for reference only.
 
 ## What a new system needs now
 
-The UI lives at <https://rbrheating.com/new-ui/>; the older page at the site root no longer runs.
+The UI lives at <https://rbrheating.com/heat/>; the older page at the site root no longer runs.
 
 The broker now carries each system in two accounts: the bridge on the box, whose password never leaves that box, and the account the UI pages use, which is fenced to that system's MAC and is handed out only to a paired device.
 

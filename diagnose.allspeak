@@ -14,6 +14,9 @@
     dictionary Room
     dictionary Thermometers
     dictionary Thermometer
+    variable VolatileRoot
+    variable VolatilePrefix
+    variable ThermometersPath
     dictionary Response
     dictionary DeviceMap
     dictionary Device
@@ -42,7 +45,7 @@
     ! Entry point — top-level statements run first; dispatch to Main then exit.
     gosub to Main
     exit
-!! @hash 96f2a473
+!! @hash 618987f1
 !!!
 !! Main routine — run the diagnostic sections in order.
 !!
@@ -181,7 +184,18 @@ Bridge:
 RoomsSection:
     gosub to Section
     ulog `Rooms from map.json (selected profile)`
-    if file `thermometers.json` exists load Thermometers from `thermometers.json`
+    ! The readings live in the volatile directory the controller uses (a tmpfs
+    ! on a controller), named by a `volatile-root` file beside the scripts; on a
+    ! dev machine with no such file they are plain names in the working dir.
+    set VolatilePrefix to empty
+    if file `volatile-root` exists
+    begin
+        load VolatileRoot from `volatile-root`
+        replace newline with `` in VolatileRoot
+        if VolatileRoot is not empty set VolatilePrefix to VolatileRoot cat `/`
+    end
+    put VolatilePrefix cat `thermometers.json` into ThermometersPath
+    if file ThermometersPath exists load Thermometers from ThermometersPath
     else reset Thermometers
     set R to 0
     while R is less than RoomCount
@@ -191,7 +205,6 @@ RoomsSection:
         ulog `--- ` cat RoomName cat ` ---`
         if Room has entry `mode` ulog `  mode=` cat entry `mode` of Room
         if Room has entry `target` ulog `  target=` cat entry `target` of Room
-        if Room has entry `relayType` ulog `  relayType=` cat entry `relayType` of Room
         if Room has entry `relay` ulog `  relay (controller decision)=` cat entry `relay` of Room
         if Room has entry `status` ulog `  status=` cat entry `status` of Room
         if Room has entry `statusMessage` ulog `  statusMessage=` cat entry `statusMessage` of Room
@@ -219,7 +232,7 @@ RoomsSection:
         increment R
     end
     return
-!! @hash 4081637d
+!! @hash 80cfc128
 !!!
 !! Section 4 — read-only state query for every relay the map names, straight from the bridge.
 !!

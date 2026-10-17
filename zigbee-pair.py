@@ -256,7 +256,7 @@ def pair_mode():
                 nd["friendly_name"] = new_name
 
         print("\nTo use these devices in RBR, add them to map.json:")
-        print('  For a smartplug relay:  "relays": ["<device_name>"], "relayType": "Zigbee"')
+        print('  For a smartplug relay:  "relays": ["<device_name>"]')
         print('  For a thermometer sensor:  "sensor": "<device_name>", "sensorType": "Zigbee"')
     else:
         print("\nNo new devices joined.")

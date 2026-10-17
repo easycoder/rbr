@@ -6,7 +6,7 @@
 # controller files should live:
 #
 #     mkdir rbr && cd rbr
-#     wget https://rbrheating.com/get-controller.sh
+#     wget https://rbrheating.com/heat/get-controller.sh
 #     sh get-controller.sh
 #
 # It downloads rbr-controller.zip (built by deploy.sh), unpacks it over
@@ -21,7 +21,7 @@
 #
 set -eu
 
-BASE="${RBR_BASE:-https://rbrheating.com}"
+BASE="${RBR_BASE:-https://rbrheating.com/heat}"
 ZIP="rbr-controller.zip"
 
 echo "Fetching ${BASE}/${ZIP} ..."

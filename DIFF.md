@@ -1,54 +1,83 @@
 # What to do
 
-- **Commit all of it, and push the docs.** Two reasons and they are separate: `docs-reader/` is **untracked** while being live on the site, so a `git clean` would empty `/docs`; and the reader reads the documentation from `main`, so the new installation page appears on the site only once it is pushed. Nothing needs deploying — `deploy.sh` ships the reader, and the reader has not changed since it went up.
-- **Then glance at <https://rbrheating.com/docs>.** It is running the current build already (all three files byte-identical to the working tree), but the page count goes from 29 to 30 when the docs reach `main`, and `.scratch/docs-reader-shots/` holds the screenshots this was checked from.
-- **Copy the refreshed `server.allspeak` to any controller that carries one.** It is not in the update tarball — that file is copied by hand — so a box used for on-box editing still has the copy that serves nothing. Same trap in `AGENT.md`, and in `doc/CONTROLLER-FILES.md`.
-- **Nothing else.** The controller runtime, the PWA and the map are untouched. `/docs` is still deliberately unlinked anywhere on the site, the AllSpeak pin is left as it is, and the local `asdoc-check.py` is left as it is — all three recorded below rather than waiting on you.
-- **For the next session:** [TODO-docs.md](TODO-docs.md) is the documentation programme's working state — the order of work, what is waiting on the world, and the conventions the work has settled on.
+- **Nobody takes this release by accident, and every controller needs one deliberate step.** The update URL moved from the site root to `/heat/`, so a controller installed before this release keeps polling a path that will never change again: it will not update itself, and it will not break either. Fetch the pack **in the controller's own directory** — it overwrites the runtime files and touches nothing machine-specific (credentials, `.mac_override`, `map.json`, `volatile-root`, `heatlog-root` are not in the pack), and it writes the `.version` stamp that the updater and the installer both rely on:
+  ```
+  cd ~/rbr                                    # the controller's install directory
+  wget https://rbrheating.com/heat/get-controller.sh
+  sh get-controller.sh
+  rm -f get-controller.sh rbr-controller.zip   # the pack does not clean up after itself
+  ```
+  Then `sudo ./rbr-setup.sh` (below) and restart the services. Do the deploy first: until `/heat/` exists, that `wget` has nothing to fetch.
+- **Re-run `sudo ./rbr-setup.sh` on each controller.** That creates `/run/rbr` (the volatile directory, via `/etc/tmpfiles.d/rbr-volatile.conf`), writes the one-line `volatile-root` file pointing at it, and adds the journald drop-in. Without it everything still works — the readings and the logs simply keep being written where they were — so this is not urgent, but it is where the wear saving lives.
+- **Decide about the journal.** The installer now keeps it in RAM (`/etc/systemd/journald.conf.d/rbr.conf`, `Storage=volatile`, capped at 64M). That is the docs' own classification of the logs, but it means a reboot you did not ask for takes its own last few lines with it — usually the moment they are wanted. If you would rather keep the evidence:
+  ```
+  sudo rm /etc/systemd/journald.conf.d/rbr.conf
+  sudo systemctl restart systemd-journald
+  ```
+- **Run `retire-rbr-now.allspeak` against any map that predates this release.**
+  ```
+  allspeak retire-rbr-now.allspeak     # writes map-retired.json
+  diff map.json map-retired.json       # inspect
+  mv map-retired.json map.json         # only then replace
+  ```
+  It strips `relayType` and `ssid` from every room and nine legacy fields from the top of the map. The controller ignores all of them now, so leaving them is harmless — tidiness, not repair. **Your own map is already clean**, and the six tracked fixtures have been swept for you.
+- **Nothing is deployed.** `./deploy.sh` and the workflow both populate `/heat/`; the first `--release` publishes this. It will also prune the deleted configurator from `/resources/allspeak/` on the site, since that rsync carries `--delete`.
+- **A controller with no `.version` file was broken, and is now fixed.** The version watch read `.version` unguarded, so on a machine installed by hand rather than through `get-controller.sh` it raised about a minute after every start — a crash loop under `Restart=always`. If any of your boxes were installed that way, this release is the fix. Nothing to do beyond taking it.
+- **What has been checked, and what has not.** The full loop was run against a local broker and a stub bridge, and it works: the volatile directory resolves both ways, `map.json` is written once and **not** rewritten on the next tick (identical md5), the file holds the plan and none of the eleven derived fields, and the rewritten device module drives the bridge. What is still untested is real hardware — no relay or thermometer has driven this, and no power cut has been staged. That is worth a look on a box.
 
 # What changed
 
-## The documentation programme was refreshed, and its one new document moved into the tree
+Three pieces of work, done together because two of them edit the same `map.json` schema: the RAM disk, the retirement of RBR-Now, and the move of the deployment to `/heat/`.
 
-`RBR-SETUP.md` was written and committed on 15 October at the repository root — 188 lines of audience-facing documentation, carrying the docs convention's status line, and **linked from nothing**. It is now `docs/installation/06-what-the-setup-script-does.md`, listed in the map and therefore on the site.
+## Volatile data now lives in RAM
 
-- **Its links were rewritten for its new home.** The one in-tree reference became `../preparation/04-controller-computer.md`; the five that pointed out of the tree — `doc/setupRBR.md`, `doc/HEATING-DATA.md`, `doc/UPDATE-MECHANISM.md`, `doc/CONTROLLER-FILES.md` and `desktop/config.example.json` — are now **named in backticks rather than linked**. That is the convention this settles: the reader refuses to render a link that leaves the docs tree (it says so, rather than fetching something that is not product documentation), and a reader who does not live in a repository should not be sent to one. It matters most for the technical layer, where every document harvests from `doc/` or `AI/`.
-- **`docs/README.md`** gained the page in the installer's role path, a row in the installation table, and a line in the Status paragraph. Nothing else in the map moved: the eighteen documents it lists as missing are exactly the eighteen that are missing, and the numbering of the five promised installation pages is untouched, because two written preparation documents link to `installation/01-installing-the-controller.md` by name.
-- **`TODO-docs.md` is new** — the programme's working state: the order of work, the two items waiting on the world, and the conventions. It points at `docs/README.md` for per-page status rather than repeating it, and `AGENT.md` now points at it.
-- **`tests/docs-reader-check.js` no longer asserts a page count.** It was asserting 29, and it reads the *published* documentation rather than the working tree — so it would have failed the moment the docs were pushed, and it passed all the while the new page was invisible. It now checks the shape: the first page, the last page, uniqueness, and a floor. The header says plainly that it tests `main`, not the working tree.
+`/run` is a tmpfs on any systemd distribution, so `rbr-setup.sh` creates `/run/rbr` with a `tmpfiles.d` drop-in — no fstab entry, no mount unit, no ordering, nothing to size — and writes a one-line `volatile-root` file naming it. Four files moved in: `thermometers.json`, `heatlog-state.json`, `zigbee-temperatures.json` and `rbr-dashboard.json`. Three of those are the machine's heaviest writers: the bridge rewrites its file in full on every temperature message, and the controller rewrote the dashboard JSON on every loop cycle.
 
-## The `docs/` tree is on the site at `/docs`, read live from the repository
+**The logs went with them (STEP 5d).** A journald drop-in sets `Storage=volatile` and `RuntimeMaxUse=64M`, so the journal lives in `/run/log/journal` and never reaches the card or the disk. The trade-off is in the script and in the product documentation rather than buried: a volatile journal vanishes in exactly the incident where its last lines are wanted, and what makes it acceptable is that `controller.service` runs unbuffered, so its lines reach the journal as they are written.
 
-Three files in `docs-reader/` — `index.html` (the page, its CSS, and the JavaScript half of the bridge), `docs.allspeak` (the reader) and `docs.json` (the Webson layout) — deployed to `/docs/` by one step in `deploy.sh` and in the deploy workflow, and **currently live**. No documentation is copied to the site; there is one copy of it, in the repository.
+- **The path is configurable, not hard-coded.** `volatile-root` is the same pattern `heatlog-root` already used. `controller.allspeak`, `diagnose.allspeak`, `zigbee-bridge.py` and `rbr-dashboard.py` all resolve it, and with no such file each falls back to plain names beside the code — so a dev machine and the test suite behave exactly as before.
+- **Losing the directory costs nothing.** The controller already read a missing file as "reset", as on a first run, so a reboot gives fresh readings within minutes and re-decides every relay from the plan.
 
-- **Rendering is this runtime's own markdown renderer** — the one the `docs/` tree's "one paragraph, one line" rule was written for.
-- **The page list, the titles and the Prev/Next order come out of `docs/README.md`.** Its lists and tables hold the reading order, so a document added to the README appears on the site and nothing lists the pages a second time.
-- **The status line is lifted out of each document** into a band above the text, and an unwritten document says it is unwritten rather than showing an error. A link that leaves the tree is reported rather than fetched.
-- **The address bar follows the reader** — `/docs/#concept/02-what-rbr-is` — and Back and Forward work. The two halves are joined through the DOM, because AllSpeak for the browser has no JavaScript interop.
-- **`tests/docs-reader-check.js`** drives the real reader in a DOM against the real runtime and the real documentation: page list, toolbar, deep links, and the three failure paths. It needs `jsdom`, which was installed but undeclared, so `package.json` now declares it.
+## `map.json` is written when it changes, not every minute
 
-## The dev server in this directory works again
+It was rewritten in full every 60 seconds whether or not anything had changed. Now the copy that reaches the disk has the readings removed from it — `temperature`, `humidity`, `battery`, `status`, `statusMessage`, `timestamp`, `sensorAge`, `relay` — and the write is skipped when that text is identical to last time. The readings stay in memory for the UI's benefit; only the copy going to disk is stripped.
 
-`allspeak viz` here answered `503 Server handler not ready` to every request, because the CLI runs a project's own `server.allspeak` when it finds one and the copy here was from 27 September: its start-up update check fetched a URL that no longer exists, the `or` clause that caught the failure stopped the script before `on Files request` registered the handler, and nothing was ever served or reported. `server.allspeak` is now the published copy (byte-identical to `https://allspeak.ai/code/server.allspeak`), `.code-version` is gone with the check that needed it, and the trap is in `AGENT.md` along with a second one — a local `viz.html`/`edit.html` wins over the page the dev server serves.
+`relayfails` is deliberately kept: it is stable while the relays are answering, and losing it to a restart would delay the next fault being noticed.
 
-# Noticed while in there
+## RBR-Now has been retired
 
-- **The Advance change of 11 October did not invalidate anything written.** The glossary's definition of Advance survives the settled semantics, and the settled rule still has to be *stated* in `operation/02`, which is unwritten: a note for that work, not a defect.
-- **Two items are waiting on the world, not on us** — the battery TRV trial (five written documents to revisit, and two knock-ons for documents not yet written) and the current-measurement phase (settled design and install facts, for `technical/08`). Both are in `TODO-docs.md` with the detail, rather than in this file.
-- **The local `edit.html` still shadows the served editor page, and its Restart button has nowhere to go** — `/restart` was removed from the server on 12 October. In practice the prompt never appears, because a process running the project's own copy always answers `OK`. `asedit.allspeak`, `asedit.json` and `edit.html` cannot be refreshed the way `server.allspeak` was: upstream no longer publishes them.
-- **`resources/allspeak/README.md` documents a tool that is not here.** It names five `scripted*` files and a command to run one; not one of those files exists anywhere in the repository.
-- **The AllSpeak build pinned at `/dist/allspeak.js` does not continue after an `on failure`.** It runs the clause and then stops the thread, exactly as `or` does, and reports nothing. Measured both ways on 2026-10-16: the same six-line script prints the statement after the clause only on the current build at `allspeak.ai`. Every `on failure` in this repository is therefore a silent stopping point, and promoting a newer build would make each one carry on where it used to stop — worth a look at what those clauses are followed by before you pin.
-- **The local `./asdoc-check.py` is behind the published one**, which warns when a doc block's title runs past 100 characters and treats `code-outside-section` as an error. The checks are now published rather than shipped, so the choice is to refresh the copy here or drop it in favour of `https://allspeak.ai/code/tools/asdoc-check.txt`.
-- **The repository is public and has live credentials committed to it** — `credentials.json`, `new-ui/credentials.json` (MQTT) and `rbrchat/credentials.json` (SMTP, not covered by `.gitignore`), all readable from `raw.githubusercontent.com`. Nothing about the reader made this worse, but the reader now depends on the repository staying public, so the two are connected.
-- **`conversation/` is committed here and upstream's starter guidance says it should not be.** Left as it is — your record, your call — but the two documents disagree.
-- **Bare URLs in the documentation are not linkified** by the renderer. The one URL in the tree sits inside a code fence, so nothing is broken; worth using `[text](url)` if a URL is ever written in prose.
+- **`deviceControl.allspeak`** lost `MessageESPDevice`, the `config.json` master lookup and the relay-type dispatch; it is now one transport, the local Zigbee bridge. 209 lines to 116.
+- **`controller.allspeak`** lost `RecordThermometer` (the Mijia BLE parsing), the BLE branch of `ProcessReply`, `relayType` in the `RoomSpec` packet, and the `Reply`/`RelayType` variables. **The simulator still works**: `ProcessReply` keeps its numeric-temperature branch, because that is how `simulator.allspeak` answers — removing it along with the BLE branch would have broken simulation mode. The doc block now says which reply shape is which.
+- **Deleted, not archived in place:** `config.json`, `devices.json`, the 26 files of ESP32 firmware under `RBRNow/`, the legacy configurator `resources/allspeak/config.allspeak` (orphaned — nothing loaded it), and `flash-device.allspeak`, which existed only to flash `RBRNow/` and could not work without it. `rbr-setup.sh` STEP 5c went with them; it existed only to create a config.json placeholder. **All of it is in git history** if any of it is wanted back.
+- **`devices.json` turned out to be a second copy of the same RBR-Now hardware config that nothing read** — `AGENT.md` and `AI/PROJECT_OVERVIEW.md` called it a simulator file, and neither the simulator nor anything else ever opened it.
+- **The new UI's relay-type pill is gone** from `device-editor.allspeak` and from its Webson layout, and the load default that read an empty field as `RBR-Now` went with it.
+- **`retire-rbr-now.allspeak`** is new: a one-shot migration in the shape of `cleanup-map.allspeak`, run and verified against the dev map (51 fields removed, nothing else touched).
+- **The tracked fixtures are swept**: `map.json`, `map-clean.json`, `map-new.json`, `map-sim.json`, `resources/allspeak/map.json` and `resources/json/newroomspec.json` no longer carry the retired fields — 257 lines removed between them, deletions only, every file still valid JSON and byte-identical in everything else.
+- **Docs:** `configurator.md` and `setupHardware.md` carry a "Removed — historical description only" banner, since the tools they describe are gone; `docs/README.md` lost its reading-map entry for `technical/07-legacy-rbr-now.md`, a page that was never written; `README.md`, `AGENT.md`, `AI/{ARCHITECTURE,MAP_FORMAT,PROJECT_OVERVIEW}.md`, `doc/CONTROLLER-FILES.md`, `doc/setupRBR.md` and the two product pages under `docs/` were corrected.
 
-# Verified, and not
+## The deployment moved to `/heat/`
 
-**The reader: 48 checks, and the visual layer from screenshots.** `node tests/docs-reader-check.js` covers the page list, the toolbar, both halves of the bridge, deep links and the three failure paths — against the *published* documentation, since that is what the reader reads. The visual layer was checked from screenshots of headless Brave at 390×844 and 1280×900: the status band reads as a band, the reading measure is comfortable, prose arrives as real paragraphs, and no page scrolls sideways at either width. One fault came out of it and is fixed — the navigation buttons were separate flex items, so a phone stranded `Next →` below `← Previous`.
+`deploy.sh` assembles `/heat/` locally and syncs it as one tree — the PWA and the controller files share that directory and the sync prunes deletions, so syncing `new-ui/` straight into it would delete the controller files already there. `version` is uploaded separately and last, preserving the guarantee that a controller mid-check never sees a new stamp with stale source.
 
-**The new installation page was rendered locally, under the pinned runtime**, because the reader cannot show an unpushed document: 1 `h1`, 7 `h2`, 14 `h3`, 3 code blocks, 2 blockquotes, 31 list items, a table, and two links that both stay inside the tree. Its screenshot is in `.scratch/docs-reader-shots/setup-script-page.png`.
+- **URLs that moved:** `rbr-updater.py`'s default, `get-controller.sh`'s base, `test.allspeak`'s download.
+- **URLs that deliberately did not:** `auth.php` and `credentials.php` stay at the site root, because both read `../rbr-users.json`, which is kept outside the web root on purpose — a level deeper would put that file inside the served tree. Both UIs reach them by the same paths from either location. `/docs` and `/dist` also stay, being product rather than controller.
+- **The legacy root and `/new-ui/` keep being deployed**, unchanged, until you delete them. The workflow publishes the PWA to both `/new-ui/` and `/heat/`, and uses no `--delete` on `/heat/` for the reason above.
 
-**The dev server** was verified by asking it, not by reading it: `/viz.html` 200, the project's files 200, `/version` → `OK`, against the same file run on a free port answering 503 to everything.
+## Two defects the end-to-end run found, and fixed
 
-**Still unchecked:** a real touch device, iOS Safari, how the reader *feels* on a phone, and whether the legacy editor at `/edit.html` does anything useful — nobody has opened it. One cosmetic nit is left alone: a long status line breaks inside the date on a narrow screen, because Chrome fills the line greedily and the hyphen is a break opportunity.
+The controller's loop had never been run against a broker in this environment. Standing one up (a local MQTT broker and a stub for the Zigbee bridge) found two crashes on the same code path:
+
+- **My own guard died at the first minute tick.** `LastMapDiskText` was compared before it had ever been assigned, and AllSpeak refuses to compare an unset variable with anything. Under `Restart=always` that is a controller that runs for a minute, dies, and does it again forever. It is now initialised to empty in the startup block — no map text can equal empty, so the first tick always writes, which is what is wanted.
+- **A pre-existing crash, not mine.** The version watch loaded `.version` and then `replace`d in it without checking the file was there, so a machine with no `.version` — installed by hand rather than through `get-controller.sh` — stopped about a minute after every start. Now guarded like the rest of that path.
+
+Both are on the minute-long path, which is why neither had shown up: the controller was previously only ever observed starting.
+
+## Two findings recorded rather than acted on
+
+- **`protect` and `ptemp` are controller-ignored.** The frost-protection fields are written by the new UI's frost sheet and read by the legacy room editor, but `controller.allspeak` never reads either — zero references. As far as the controller is concerned frost protection has no effect. Not part of this work, and not obviously a bug (the UI computes its own indicator), but it deserves its own look.
+- **`map.json` aliasing in AllSpeak.** Assigning one json variable to another aliases them, so `put Map into MapDisk` followed by `delete entry … of MapDisk` deletes the field from the live map. The idiom that copies is `put prettify X into T` then `put json T into Y`. Established against the runtime before any of this code was written.
+
+## Still open
+
+1. **The legacy UI's own RBR-Now screens.** `resources/allspeak/{roomedit,roomtools,rbr,mode}.allspeak`, `resources/webson/getdevices.json` and a stale copy of the device module at `resources/allspeak/deviceControl.allspeak` still offer a relay-type choice and carry the ESP transport. They are inert — the controller ignores the field and nothing loads the stale module — and `resources/` is itself due to be deleted, so editing them now would be throwaway work.
+2. **Not verified on real hardware**, as above. Everything the environment allows has been checked: the loop runs against a broker, both systemd drop-ins were validated against the real systemd, `asdoc-check` is clean on every changed script, and the unit suite passes.

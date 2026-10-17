@@ -47,6 +47,20 @@ jobs:
             new-ui/ \
             rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/new-ui/
 
+      - name: Deploy new UI (PWA) to /heat/
+        run: |
+          # /heat/ is the product's new home: the PWA and the controller's files
+          # share the directory. --delete is deliberately NOT used for the /heat/
+          # copy — the controller .allspeak files, the update tarball, the install
+          # pack and the version stamp that live alongside the PWA are published
+          # by deploy.sh, and pruning this directory against new-ui/ alone would
+          # wipe them. The service worker was bumped above, so both copies of
+          # sw.js go out with the same version.
+          rsync -avz --no-perms \
+            -e "ssh -i ~/.ssh/id_ed25519" \
+            new-ui/ \
+            rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/heat/
+
       - name: Deploy documentation reader
         run: |
           # The reader only. The documentation itself is fetched from the

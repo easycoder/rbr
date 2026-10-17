@@ -6,8 +6,8 @@ Connects to the MQTT broker, subscribes to zigbee2mqtt/# topics,
 and provides a local HTTP interface for deviceControl.allspeak to send
 relay commands to Zigbee smartplugs.
 
-Also collects Zigbee thermometer data and writes it to
-zigbee-temperatures.json for the controller to read.
+Also collects Zigbee thermometer data and writes it to the volatile data
+directory (see below) as zigbee-temperatures.json, for the controller to read.
 
 Usage:
     python3 zigbee-bridge.py [--port 8889] [--config zigbee-config.json]
@@ -41,7 +41,28 @@ device_states_lock = threading.Lock()
 bridge_devices = {}      # {friendly_name: {ieee, type, model, ...}} from zigbee2mqtt/bridge/devices
 mqtt_client = None
 script_dir = os.path.dirname(os.path.abspath(__file__))
-temperatures_path = os.path.join(script_dir, "zigbee-temperatures.json")
+
+
+def volatile_dir(base):
+    """Directory for regenerable data — the readings file, which this process
+    rewrites in full on every temperature message.
+
+    A one-line `volatile-root` file beside the script names it (rbr-setup.sh
+    writes `/run/rbr`, a tmpfs, so the file never touches the card or the disk).
+    Without that file the readings stay beside the script, which is what a dev
+    machine gets. heatlog-root in the controller is the same pattern.
+    """
+    try:
+        with open(os.path.join(base, "volatile-root")) as f:
+            root = f.read().strip()
+        if root:
+            return root
+    except OSError:
+        pass
+    return base
+
+
+temperatures_path = os.path.join(volatile_dir(script_dir), "zigbee-temperatures.json")
 
 # A relay that hasn't been seen by zigbee2mqtt for this long (seconds) is
 # treated as non-responsive. The controller polls every ~5s, so a healthy
