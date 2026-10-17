@@ -306,9 +306,14 @@ def _update_temperatures_file():
                 "rssi": 0,
             }
 
-    # Atomic write
+    # Atomic write. The temp file has to live in the TARGET's directory, not the
+    # script's: os.replace() is only atomic within one filesystem and raises
+    # EXDEV across two. With temperatures_path on a tmpfs (/run/rbr) and the
+    # script on the root filesystem, creating the temp beside the script meant
+    # every write failed and the readings file was never produced at all.
+    target_dir = os.path.dirname(temperatures_path) or "."
     try:
-        fd, tmp_path = tempfile.mkstemp(dir=script_dir, suffix=".tmp")
+        fd, tmp_path = tempfile.mkstemp(dir=target_dir, suffix=".tmp")
         with os.fdopen(fd, "w") as f:
             json.dump(temps, f, indent=2)
         os.replace(tmp_path, temperatures_path)

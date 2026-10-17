@@ -8,6 +8,13 @@
   rm -f get-controller.sh rbr-controller.zip   # the pack does not clean up after itself
   ```
   Then `sudo ./rbr-setup.sh` (below) and restart the services. Do the deploy first: until `/heat/` exists, that `wget` has nothing to fetch.
+- **If you re-ran the installer on a box that already had Zigbee devices, check its network key before it restarts.** The old `rbr-setup.sh` wrote `/opt/zigbee2mqtt/data/configuration.yaml` from scratch with `network_key: GENERATE`, which is the identity of the whole Zigbee network — Zigbee2MQTT only notices at its next start, when it invents a new network and every paired device drops off. That is fixed in this release, but any box re-run before the fix may be carrying `GENERATE`. `restore-z2m-network-key.py` (new, in the repo root) puts it back from Zigbee2MQTT's own `coordinator_backup.json`, which predates the damage:
+  ```
+  sudo python3 ~/rbr/restore-z2m-network-key.py --dry-run   # show what it found
+  sudo python3 ~/rbr/restore-z2m-network-key.py             # backs up first, then writes
+  sudo systemctl restart zigbee2mqtt
+  ```
+  It refuses to write if it cannot find a key, and backs up `configuration.yaml` before touching it.
 - **Re-run `sudo ./rbr-setup.sh` on each controller.** That creates `/run/rbr` (the volatile directory, via `/etc/tmpfiles.d/rbr-volatile.conf`), writes the one-line `volatile-root` file pointing at it, and adds the journald drop-in. Without it everything still works — the readings and the logs simply keep being written where they were — so this is not urgent, but it is where the wear saving lives.
 - **Decide about the journal.** The installer now keeps it in RAM (`/etc/systemd/journald.conf.d/rbr.conf`, `Storage=volatile`, capped at 64M). That is the docs' own classification of the logs, but it means a reboot you did not ask for takes its own last few lines with it — usually the moment they are wanted. If you would rather keep the evidence:
   ```
@@ -62,6 +69,33 @@ It was rewritten in full every 60 seconds whether or not anything had changed. N
 - **URLs that moved:** `rbr-updater.py`'s default, `get-controller.sh`'s base, `test.allspeak`'s download.
 - **URLs that deliberately did not:** `auth.php` and `credentials.php` stay at the site root, because both read `../rbr-users.json`, which is kept outside the web root on purpose — a level deeper would put that file inside the served tree. Both UIs reach them by the same paths from either location. `/docs` and `/dist` also stay, being product rather than controller.
 - **The legacy root and `/new-ui/` keep being deployed**, unchanged, until you delete them. The workflow publishes the PWA to both `/new-ui/` and `/heat/`, and uses no `--delete` on `/heat/` for the reason above.
+
+## The installer could destroy a Zigbee network, and no longer can
+
+Found the hard way, on a live box. STEP 3 wrote `/opt/zigbee2mqtt/data/configuration.yaml` **unconditionally**, with `network_key: GENERATE` and `pan_id: GENERATE`. Re-running the installer therefore reset the identity of a working Zigbee network — silently, and only visible at the next Zigbee2MQTT start, when every paired relay and thermometer would fail to rejoin. Since the documentation presents re-running the installer as the normal repair path, that was a trap rather than an edge case.
+
+- **An existing `configuration.yaml` is now kept**, and the only thing the script corrects in it is `serial.port`, in place and inside the `serial:` block only — the `frontend:` block has a `port:` of its own that a blunt edit would have clobbered.
+- **`restore-z2m-network-key.py` is new**, for the boxes that were already caught: it recovers the key and PAN ID from Zigbee2MQTT's own `coordinator_backup.json`, accepts every shape that file has used (a list of ints, a hex string, hex strings, nested objects), refuses to write if it cannot find a key, backs the file up first, and rewrites in place so the ownership stays with the `zigbee2mqtt` user. Tested against all four shapes, both failure paths, `--dry-run`, and repeat runs.
+
+## Urgent: deploy before any other controller updates
+
+The build currently on `/heat/` (`2610171118`) has **two of the bugs below in it** and will crash-loop any controller that takes it. The fixes are only in the working tree and on one box. So:
+
+```
+./deploy.sh --release
+```
+
+must go out **before** any controller is updated from `/heat/`. The controller this was found on has already been corrected by hand and is running fine; it is every other one, and any future re-install, that this protects.
+
+## Three defects the live install found, and fixed
+
+None of these were reachable from the test scaffolding, and each was found by putting the code on a real controller with a real map, real sensors and a real filesystem split.
+
+- **The stripped map could not be reloaded, so the controller crash-looped.** `map.json` is now written without its readings — but `ProcessRoom` read `entry temperature of Room` unguarded, and four such reads (three of `temperature`, one of `relay`) threw on the first room of the first cycle after any restart. `Restart=always` turned that into a restart every few seconds, and a dead controller answers no map request — which is exactly how it presented: the PWA connecting fine and then reporting "first map didn't arrive in 30s". All four reads now default when the key is absent. The test scaffolding missed it because it never **restarted** the controller after it had written a stripped map.
+- **The bridge wrote its readings file across two filesystems, so it never wrote at all.** The atomic write created its temp file beside the script (`~/rbr`) and then `os.replace`d it into the volatile directory (`/run/rbr`) — different filesystems, `EXDEV`, caught by a broad `except OSError` and only printed. With no readings the controller forces every relay off, so this was silently "the heating does not come on". The temp file now goes in the target's own directory. The proposal said this had to be so; the code did not do it.
+- **A malformed MQTT message crashed the controller.** `action` and `message` were read unguarded, in the MQTT callback and again in the queue drain, so a message missing either stopped the controller — and a publisher that kept doing it was a crash loop. Two hand-built probes did exactly that during this repair. Both reads are now optional, which is what the `first`/`refresh`/`uirequest` handling already assumed.
+
+Verified on the box afterwards: the controller answers a `first` request with the full map (13 KB, three profiles, eight rooms); `thermometers.json`, `zigbee-temperatures.json` and `heatlog-state.json` all appear in `/run/rbr`; `map.json` is 18632 bytes with **zero** `temperature` keys and stops being rewritten every minute; the bridge reports **no** relay set-failures.
 
 ## Two defects the end-to-end run found, and fixed
 

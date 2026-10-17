@@ -289,12 +289,18 @@
     on mqtt message
     begin
         put the mqtt message into ReceivedMessage
-        if entry `action` of ReceivedMessage is `uirequest` set UIRequestPending
+        ! `action` is optional on the wire — see the guard in HandleMessages —
+        ! so it must not be read unguarded here either: this callback runs
+        ! before the queue, and a raise here stops the controller.
+        if ReceivedMessage has entry `action`
+        begin
+            if entry `action` of ReceivedMessage is `uirequest` set UIRequestPending
+        end
         append ReceivedMessage to MessageQueue
     end
     stop
-!! @hash dec90b28
-!! @verified 39624871
+!! @hash a05b2a14
+!! @verified a05b2a14
 !!!
 !! Missing credentials signifies a non-recoverable error
 !   The main start point.
@@ -582,8 +588,17 @@ HandleMessages:
         set entry `last` of Sender to now
         ! Build a dictionary of senders
         set entry SenderName of Senders to Sender
-        put entry `action` of ReceivedMessage into Action
-        put entry `message` of ReceivedMessage into Message
+        ! `action` and `message` are optional on the wire: a hand-rolled
+        ! publisher (a probe, or anything not using an AllSpeak client) can send
+        ! a framed message carrying only some of the fields. Reading them
+        ! unguarded raised "Key 'message' not found" and took the whole
+        ! controller down — once per malformed message, so a stray publisher was
+        ! a crash loop. Absent action means nothing to do; absent message means
+        ! no payload.
+        set Action to empty
+        if ReceivedMessage has entry `action` put entry `action` of ReceivedMessage into Action
+        set Message to empty
+        if ReceivedMessage has entry `message` put entry `message` of ReceivedMessage into Message
         if Action is `first`
         begin
             set MapHasChanged
@@ -676,8 +691,8 @@ HandleMessages:
         increment S
     end
     go to MainLoop
-!! @hash 420ed150
-!! @verified 420ed150
+!! @hash 86f1875f
+!! @verified 86f1875f
 !!!
 !! Load the system map from disk, or build a fresh default map if the file is absent.
 !!
@@ -821,12 +836,19 @@ ProcessRoom:
     ! Get the current temperature
     if Simulate
     begin
-        put entry `temperature` of Room into TempNow
-        if TempNow is not numeric
+        ! A stripped map has no `temperature` on the room — the file carries the
+        ! plan only — so treat an absent reading as no reading rather than
+        ! reading a key that may not be there.
+        put empty into TempNow
+        if Room has entry `temperature`
         begin
-            put TempNow into Temp
-            gosub to ConvertTempToInt
-            put Temp into TempNow
+            put entry `temperature` of Room into TempNow
+            if TempNow is not numeric
+            begin
+                put TempNow into Temp
+                gosub to ConvertTempToInt
+                put Temp into TempNow
+            end
         end
     end
     else
@@ -871,7 +893,8 @@ ProcessRoom:
         put SensorFresh into SensorFreshWas
     end
 
-    put entry `temperature` of Room into TempWas
+    put empty into TempWas
+    if Room has entry `temperature` put entry `temperature` of Room into TempWas
     ! Preserve the last known reading when TempNow is empty (sensor stale).
     ! Status moves to `warn` on its own which both forces the relay off in
     ! SetRelay and lets the UI show a soft "no recent change" warning over
@@ -886,7 +909,11 @@ ProcessRoom:
         end
     end
     put entry `relays` of Room into Relays
-    put entry `relay` of Room into RelayState
+    ! `relay` is a decision, not part of the plan, so a stripped map has none.
+    ! With no previous decision the safe starting point is off — SetRelay
+    ! decides it again this cycle anyway.
+    put `off` into RelayState
+    if Room has entry `relay` put entry `relay` of Room into RelayState
     put entry `mode` of Room into Mode
 
     ! Deal with the various operating modes
@@ -984,8 +1011,8 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash b0eb9c7f
-!! @verified b0eb9c7f
+!! @hash e0219ef1
+!! @verified e0219ef1
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
 !!
@@ -1093,7 +1120,10 @@ SetRelay:
         else
         begin
             put TempNow into BoostTemp
-            if BoostTemp is empty put entry `temperature` of Room into BoostTemp
+            if BoostTemp is empty
+            begin
+                if Room has entry `temperature` put entry `temperature` of Room into BoostTemp
+            end
             ! Normalise to integer hundredths if the source provided
             ! a "X.Y" string (the simulator path can leave Room.temperature
             ! in that form).
@@ -1136,8 +1166,8 @@ SetRelay:
     if TempNow is not empty set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodActive
-!! @hash d2926dac
-!! @verified d2926dac
+!! @hash f95ee503
+!! @verified f95ee503
 !!!
 !! Compute the room's health status (`good` / `warn` / `fail` / `partial`) and a human-readable status message for the UI.
 !!

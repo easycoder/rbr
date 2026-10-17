@@ -92,3 +92,45 @@ Both systemd drop-ins were then checked against the real systemd rather than ass
 The second run also exposed that the written map still carried `relayMessage`, `relaysFailed` and `relaysTotal` — three derived fields my sweep had missed because I took the field list from the proposal rather than from the code. I enumerated every field the controller writes to a Room (twenty-three) and reclassified, so the strip is now eleven fields.
 
 With all of it fixed, a run of several minutes is clean and behaves as designed: the volatile directory resolves both ways (`thermometers.json` written into it, `zigbee-temperatures.json` read from it), `map.json` is written once and **not** rewritten at the second tick with an identical md5, the file holds the plan and `relayfails` and none of the eleven derived fields, and the rewritten device module drives the stub bridge. What remains unverified is real hardware, which no amount of local scaffolding can substitute for.
+
+## 11:47
+
+_(install session)_ After deploying, the user worked through `sudo ./rbr-setup.sh` on the controller. `pnpm install` appeared to hang at Step 3c; Ctrl-C did not stop the script, and it ran on to Step 7. Then: "Is this OK?" with the network_key check showing GENERATE.
+
+**Assistant**
+
+Two problems, one of them mine.
+
+The Ctrl-C was harmless to `pnpm` but useless as a way to stop the script: the line is `pnpm install 2>&1 | tail -5 || echo "⚠ pnpm install failed"`, so the `||` swallows the failure and the script carries straight on. I had told the user Ctrl-C was a safe abort — wrong about the mechanism.
+
+That mattered because the continuation reached STEP 3's config write, which was unconditional with `network_key: GENERATE` and `pan_id: GENERATE`. On a re-run that resets the identity of the Zigbee network, and Zigbee2MQTT only notices at its next start — so the damage would have surfaced days later looking like a hardware fault. Nothing was broken yet: the service was still running on its in-memory config, and the file still said GENERATE, which proved it had not restarted since.
+
+The recovery came from `coordinator_backup.json`, written by Zigbee2MQTT at 11:25, seven minutes before the 11:32 overwrite. The first repair attempt failed because a multi-line heredoc got scrambled by the terminal — the pasted text showed the script's tail interleaved into its middle — so a garbled script ran and reported no key. Delivery then became the problem rather than the logic: first a single base64-encoded line (verified to decode byte-identically to the tested script), and then, once the user said they could copy files across by hand, a proper tool in the repo.
+
+`restore-z2m-network-key.py` is new. It searches `coordinator_backup.json` for the key in any of the four shapes Zigbee2MQTT has used (list of ints, hex string, list of hex strings, nested objects), refuses to write when it cannot find one, backs the file up first, and rewrites in place so the ownership stays with the `zigbee2mqtt` user. Tested against all four shapes, both failure paths, `--dry-run`, and a repeat run.
+
+The installer defect is fixed too: an existing `configuration.yaml` is now kept, and the only thing corrected is `serial.port`, in place and inside the `serial:` block only — the `frontend:` block has a `port:` of its own that a blunt edit would have clobbered. Verified by test: key and pan_id survive, `serial.port` changes, `frontend.port: 8080` does not.
+
+Also answered along the way: Step 7 is `python3 -m http.server` over the whole controller directory — so it would publish `credentials` and `.mqtt_password` on all interfaces — hence N; Step 8 is y, since it both rewrites the unit and starts the controller that had been stopped.
+
+## 12:56
+
+_(install session)_ "Bridge restarted" — after I found and fixed three defects on the live controller by working on it over SSH.
+
+**Assistant**
+
+Took the offer of direct access. Found the controller at 192.168.1.20 from the MAC in AGENT.md and the ARP table, and key auth worked, so the whole repair could be done without copy/paste — with the limit that says so out loud: sudo needs a password I do not have. That turned out to matter less than expected, because `~/.local/bin/allspeak`, `/run`, and an anonymous local MQTT broker gave me read access to everything and write access to the controller's own directory.
+
+The relay names had to come from the user — relay payloads carry nothing that identifies a room — but the *thermometers* did not: `thermometers.json` still held the old name-keyed entries alongside the new IEEE-keyed ones, and (temperature, humidity, battery) paired all eight uniquely. The heating records then confirmed every pairing independently.
+
+Then three bugs, in order of discovery:
+
+- the stripped map could not be reloaded — four unguarded reads of fields I had deliberately removed from the file — so the controller crash-looped, which is what the PWA's "first map didn't arrive in 30s" actually meant;
+- the bridge's atomic write put its temp file beside the script and renamed across filesystems into /run/rbr, so readings were never written at all, and with no readings the controller forces every relay off;
+- malformed MQTT messages crashed the controller, twice, while I was probing it.
+
+All three are fixed and verified on the box rather than argued about: the map request returns 13 KB, /run/rbr fills with all three files, map.json is plan-only and stops being rewritten, and the bridge reports no set-failures. I also corrected two device names that did not match the map (`Lounge-radiator` → plural, `Request-relay` → `Demand`), which is the sort of thing only the real map can tell you.
+
+The lesson worth keeping: none of this was reachable from the scaffolding. The end-to-end test restarted nothing and crossed no filesystem. Both classes of bug live exactly in those gaps.
+
+Urgent consequence recorded in DIFF.md: /heat/ still serves the build with the first two bugs, so `./deploy.sh --release` has to go out before any other controller updates.
