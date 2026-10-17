@@ -103,10 +103,10 @@ done
 # locally so stale files can't linger on the server.
 echo "Deploying new-ui/..."
 # -p with --chmod, not --no-perms: --chmod has no effect on a file that
-# already exists on the receiver unless permissions are being set, so an
-# existing 0640 credentials.json would stay unreadable (403) forever. The
-# chmod makes the result deterministic — files 0644, directories 0755 —
-# whatever the sending side happens to hold.
+# already exists on the receiver unless permissions are being set. The chmod
+# makes the result deterministic — files 0644, directories 0755 — whatever the
+# sending side happens to hold, so a stray 0640 file cannot leave a page
+# unreadable behind a 403.
 rsync -rvz -p --delete --chmod=F644,D755 -e "$SSH_OPTS" \
     "$LOCAL/new-ui/" \
     "$REMOTE/new-ui/"

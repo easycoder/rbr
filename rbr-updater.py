@@ -10,22 +10,46 @@ can restart the controller and bridge services itself.
 
 How it works
 ------------
-1. Download rbr-controller.tar.gz from rbrheating.com/heat/ (a local file path
+1. Check the mosquitto cloud bridge's password against the one the cloud
+   currently expects, and correct it if it has drifted — see "The cloud bridge"
+   below. This is independent of any release, and while it is wrong the web
+   interface cannot reach the controller at all.
+2. Download rbr-controller.tar.gz from rbrheating.com/heat/ (a local file path
    or file:// URL is also accepted, mainly for testing).
-2. Read the VERSION stamp embedded in the tarball and compare it with the
+3. Read the VERSION stamp embedded in the tarball and compare it with the
    local .version file. If the remote version is not newer, do nothing.
-3. Extract to a staging directory under the RBR dir, verify the tarball
+4. Extract to a staging directory under the RBR dir, verify the tarball
    contains the complete runtime file set, then atomically swap each file
    into place (os.replace — same filesystem, no torn writes).
-4. Write the new version to .version.
-5. Restart the services affected by the change:
+5. Write the new version to .version.
+6. Restart the services affected by the change:
      controller.allspeak / deviceControl.allspeak / simulator.allspeak  ->  controller.service
      zigbee-bridge.py                                 ->  rbr-zigbee-bridge.service
    If a service isn't installed or isn't running (e.g. the controller is
    run manually with `allspeak controller.allspeak` in a terminal), the updater
    logs a clear notice instead of killing anything.
-6. If rbr-updater.py itself changed, re-exec once so the new code
+7. If rbr-updater.py itself changed, re-exec once so the new code
    finishes the job.
+
+The cloud bridge
+----------------
+The local mosquitto bridges every topic to rbrheating.duckdns.org, and the web
+UI reaches the controller over that bridge — so when the bridge is refused, the
+interface silently stops working on every device while the controller itself
+looks perfectly healthy. The bridge authenticates with `remote_password` in
+/etc/mosquitto/conf.d/rbr-local.conf, which is a *copy* of an account the cloud
+owns; when the cloud side changes, the copy goes stale.
+
+So every run compares the two. The current value comes from credentials.php
+when a token is present in .mqtt_token (the same endpoint and token a paired
+browser uses), and otherwise from the local `credentials` file that
+rbr-setup.sh writes. Only when they differ is the config rewritten — with a
+timestamped backup — and mosquitto and the controller restarted, because
+mosquitto rereads its config only on restart and the controller would otherwise
+stay on a dead socket.
+
+`--check` reports whether they match and changes nothing, but a mismatch counts
+as a problem, so the exit code reflects it.
 
 Only code files from the tarball are ever replaced. Machine-specific
 data (credentials, .mac_override, .mqtt_password, map.json, the map
@@ -50,12 +74,16 @@ Usage:
 
 import argparse
 import hashlib
+import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+import time
+import urllib.parse
 import urllib.request
 
 # The minimum required runtime file set: every file here must be present in
@@ -90,6 +118,184 @@ SERVICE_RULES = [
     ("controller.service", ["controller.allspeak", "deviceControl.allspeak", "simulator.allspeak", "heatlog.py"]),
     ("rbr-zigbee-bridge.service", ["zigbee-bridge.py"]),
 ]
+
+# --- the cloud bridge's credentials -----------------------------------------
+#
+# The local mosquitto bridges every topic to the cloud broker, and the web UI
+# reaches the controller over that bridge. No bridge, no map — on every device,
+# with nothing in the browser and nothing in the controller to say why. The
+# bridge authenticates with `remote_username` / `remote_password` in the file
+# below, and that password is a copy of an account the *cloud* owns. When the
+# cloud side changes, the copy goes stale and the bridge is refused with "not
+# authorised": silently, until someone notices the interface has stopped.
+#
+# So every hourly run re-checks it. Fetch the credentials the cloud currently
+# expects, compare with the config, and only if they differ rewrite the file
+# and restart the broker and controller. The value never has to be typed in by
+# hand again, and the failure cannot be silent.
+#
+# Where the current value comes from, in order:
+#   1. credentials.php, when a token is available in .mqtt_token — the same
+#      endpoint and token a paired browser uses, so the box asks the cloud the
+#      same question the UI does;
+#   2. otherwise the local `credentials` file, which rbr-setup.sh writes and an
+#      operator can correct by hand.
+BRIDGE_CONF = "/etc/mosquitto/conf.d/rbr-local.conf"
+CREDENTIALS_URL = "https://rbrheating.com/credentials.php"
+TOKEN_FILE = ".mqtt_token"
+
+
+def _conf_get(text, key):
+    """Value of a `key value` line in the mosquitto config, or None."""
+    found = re.search(r"^" + re.escape(key) + r"\s+(\S+)\s*$", text, re.MULTILINE)
+    return found.group(1) if found else None
+
+
+def _conf_set(text, key, value):
+    """Replace a `key value` line. Returns (text, matched)."""
+    pattern = re.compile(r"^" + re.escape(key) + r"\s+.*$", re.MULTILINE)
+    if not pattern.search(text):
+        return text, False
+    return pattern.sub(key + " " + value, text, count=1), True
+
+
+def current_broker_credentials(rbr_dir):
+    """(username, password, source) the cloud currently expects, or (None, None, None)."""
+    mac = token = ""
+    for name, target in ((".mac_override", "mac"), (TOKEN_FILE, "token")):
+        try:
+            with open(os.path.join(rbr_dir, name), encoding="utf-8") as fh:
+                value = fh.read().strip()
+        except OSError:
+            value = ""
+        if target == "mac":
+            mac = value
+        else:
+            token = value
+
+    if mac and token:
+        url = "%s?mac=%s&token=%s" % (CREDENTIALS_URL,
+                                      urllib.parse.quote(mac), urllib.parse.quote(token))
+        try:
+            with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT) as resp:
+                data = json.load(resp)
+            if data.get("username") and data.get("password"):
+                return data["username"], data["password"], "credentials.php"
+        except Exception as e:
+            log(f"Bridge credentials: could not fetch from credentials.php "
+                f"(falling back to the local copy): {e}")
+
+    try:
+        with open(os.path.join(rbr_dir, "credentials"), encoding="utf-8") as fh:
+            data = json.load(fh)
+        if data.get("username") and data.get("password"):
+            return data["username"], data["password"], "local credentials"
+    except (OSError, ValueError):
+        pass
+    return None, None, None
+
+
+def bridge_state():
+    """True if the cloud bridge is connected, False if not, None if unknown.
+
+    mosquitto publishes a retained `$SYS/broker/connection/<id>/state` for each
+    configured bridge: 1 connected, 0 not. Reading the broker's own view is the
+    only way to know — the bridge failing does not make anything else fail.
+    """
+    try:
+        result = subprocess.run(
+            ["mosquitto_sub", "-h", "localhost", "-t", "$SYS/broker/connection/#", "-v", "-W", "3"],
+            capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    states = [line.rsplit(" ", 1)[-1].strip()
+              for line in result.stdout.splitlines() if line.strip()]
+    if not states:
+        return None
+    return "0" not in states
+
+
+def _report_bridge_state():
+    state = bridge_state()
+    if state is True:
+        log("Bridge to the cloud: connected")
+    elif state is False:
+        log("Bridge to the cloud: NOT CONNECTED — the web UI cannot reach this "
+            "controller until it is")
+    else:
+        log("Bridge to the cloud: state unknown (mosquitto_sub unavailable?)")
+    return state
+
+
+def ensure_bridge_credentials(rbr_dir, conf_path=BRIDGE_CONF, apply_changes=True):
+    """Bring the bridge password in step with the cloud. Returns True if stale."""
+    if not os.path.isfile(conf_path):
+        log(f"Bridge credentials: no {conf_path} — not a bridged install, skipping")
+        return False
+    try:
+        with open(conf_path, encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError as e:
+        log(f"Bridge credentials: cannot read {conf_path}: {e}")
+        return False
+
+    username, password, source = current_broker_credentials(rbr_dir)
+    if not password:
+        log("Bridge credentials: cannot establish the current password "
+            "(no .mqtt_token and no usable credentials file)")
+        _report_bridge_state()
+        return False
+
+    have_user = _conf_get(text, "remote_username")
+    have_pw = _conf_get(text, "remote_password")
+    want_user = username or have_user
+
+    if have_pw == password and have_user == want_user:
+        log(f"Bridge credentials: up to date (from {source})")
+        _report_bridge_state()
+        return False
+
+    log(f"Bridge credentials: STALE — config has {len(have_pw or '')} characters, "
+        f"the cloud expects {len(password)} (from {source})")
+    if not apply_changes:
+        log("Bridge credentials: check only — nothing changed")
+        _report_bridge_state()
+        return True
+
+    new_text, matched = _conf_set(text, "remote_username", want_user)
+    if matched:
+        new_text, matched = _conf_set(new_text, "remote_password", password)
+    if not matched:
+        log(f"Bridge credentials: no remote_username/remote_password lines in "
+            f"{conf_path} — nothing changed")
+        return False
+
+    backup = "%s.bak-%s" % (conf_path, time.strftime("%Y%m%d-%H%M%S"))
+    try:
+        shutil.copy2(conf_path, backup)
+        with open(conf_path, "w", encoding="utf-8") as fh:
+            fh.write(new_text)
+    except OSError as e:
+        log(f"Bridge credentials: could not write {conf_path}: {e} (running as root?)")
+        return False
+    log(f"Bridge credentials: updated (backup {os.path.basename(backup)})")
+
+    # Keep the operator's own record in step, so a future rbr-setup.sh reuses
+    # this value instead of prompting with a stale one.
+    try:
+        with open(os.path.join(rbr_dir, ".mqtt_password"), "w", encoding="utf-8") as fh:
+            fh.write(password + "\n")
+    except OSError as e:
+        log(f"Bridge credentials: could not update .mqtt_password: {e}")
+
+    # mosquitto rereads the file only on restart; the controller then needs its
+    # own MQTT connection re-established rather than left on a dead socket.
+    restart_service("mosquitto.service")
+    time.sleep(3)
+    restart_service("controller.service")
+    time.sleep(3)
+    _report_bridge_state()
+    return True
 
 
 def log(msg):
@@ -346,6 +552,8 @@ def main():
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--check", action="store_true",
                     help="self-check infrastructure + versions, change nothing")
+    ap.add_argument("--bridge-conf", default=BRIDGE_CONF,
+                    help="mosquitto config holding the cloud bridge (default %s)" % BRIDGE_CONF)
     args = ap.parse_args()
 
     rbr_dir = os.path.abspath(args.dir)
@@ -353,6 +561,18 @@ def main():
         log(f"Error: {rbr_dir} is not a directory")
         return 2
     log(f"RBR dir: {rbr_dir}")
+
+    # --- the cloud bridge's password --------------------------------------
+    # Before anything release-shaped: this drifts independently of any release,
+    # and while it is stale the interface cannot reach this controller at all,
+    # so it is the first thing worth knowing about. In --check mode it reports
+    # and changes nothing, but a stale password counts as a problem.
+    try:
+        credentials_stale = ensure_bridge_credentials(rbr_dir, args.bridge_conf,
+                                                      apply_changes=not args.check)
+    except Exception as e:
+        log(f"Bridge credentials: unexpected error, continuing: {e}")
+        credentials_stale = False
 
     # --- download to a temp file -----------------------------------------
     tmp = tempfile.NamedTemporaryFile(prefix="rbr-update-", suffix=".tar.gz", delete=False)
@@ -390,7 +610,7 @@ def main():
             else:
                 log(f"Local version {local_version} (remote unreachable)")
             log("Check only — no changes made")
-            return 1 if problems else 0
+            return 1 if (problems or credentials_stale) else 0
 
         local_version = read_local_version(rbr_dir)
         log(f"Remote version {remote_version}, local version {local_version}")

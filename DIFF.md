@@ -102,19 +102,36 @@ The controller's loop had never been run against a broker in this environment. S
 
 Both are on the minute-long path, which is why neither had shown up: the controller was previously only ever observed starting.
 
-## The PWA's 403, and a credentials file that should never have been public
+## The PWA's 403 — and the mistake I made trying to silence it
 
-The browser console has been showing `GET /heat/credentials.json 403 (Forbidden)` on every load. Two things were wrong at once:
+The browser console showed `GET /heat/credentials.json 403 (Forbidden)` on every load. Fixing it was not as simple as it looked, and the first attempt broke pairing, so this is worth writing down.
 
-- **The file was never readable.** `new-ui/credentials.json` is mode 0640 in the repository, and `deploy.sh` copied it with `--no-perms`, so the file created on the server inherited that 0640 and Apache could not read it. The PWA falls through to `credentials.php` on any failure, which is why nothing appeared broken — but the console error was real, and the same was true of `/new-ui/` all along.
-- **It should not have been shipped at all.** What the file holds is real broker credentials — broker, username, password, MAC. For a *local* install that is correct and useful: `rbr-setup.sh` writes it beside the controller and into `new-ui/` so the interface can pick it up when it is served from the box. On the public site it is both a secret in a public directory and useless (`broker: localhost` cannot be reached from a browser).
+**Why it 403'd.** `new-ui/credentials.json` was mode 0640 and `deploy.sh` copied it with `--no-perms`, so the server's copy was 0640 too and Apache could not read it.
 
-So the shipped file is now `{}`, which the PWA treats as "no local credentials" and falls through to `credentials.php` — the token-gated endpoint that is the right path for a hosted UI. And the deploy forces the mode so the request succeeds instead of being refused:
+**What that file was.** Real broker credentials — broker, username, password, MAC. For a *local* install that is correct and useful: `rbr-setup.sh` STEP 7 writes it beside the controller and into `new-ui/` so an interface served from the box can use it. On the public site it is a secret in a public directory that is also useless (`broker: localhost` cannot be reached from a browser).
 
-- `deploy.sh` and the workflow now use `-p --chmod=F644,D755` on the PWA tree and the `/heat/` tree, in place of `--no-perms`. `--chmod` has **no effect on a file that already exists on the receiver** unless permissions are being set, so without `-p` the existing 0640 file would have stayed unreadable forever. `--no-perms` after `-a` in the workflow cancelled `-p` in the same way.
-- Local installs are unaffected: `rbr-setup.sh` STEP 7 still writes the real file on the box, and nothing in the repository now carries credentials.
+**The mistake.** I replaced it with `{}` and forced the mode to 0644, so the request returned 200 with no error. That broke pairing completely: the PWA fetches `credentials.json` and **falls back to `credentials.php` only when the fetch FAILS**. A successful, empty response takes the "I have credentials" path, finds no broker in it, and lands in demo mode — which looks exactly like "the password was rejected", because pairing had in fact succeeded and the token was stored. The 403 was load-bearing.
 
-Verified locally: an existing 0640 `credentials.json` becomes 0644 with the new contents after the rsync, and an empty object is treated as empty by the runtime (`is empty` is true), so the fall-through happens rather than a landing in demo mode.
+**The fix.** The file is not deployed at all — deleted from the repository, so the rsync's `--delete` prunes it and the request 404s. That is the signal the app's `or` clause keys off, and the fall-back to `credentials.php` works. No broker credentials are published, and the local case is unaffected because `rbr-setup.sh` creates the file on the box.
+
+The console will still show a 404 for `credentials.json`. That is the app's own fall-back mechanism and cannot be removed without changing how the fallback is decided — which would mean testing the *contents* of the response rather than the success of the fetch, and is not worth doing for a console line. **Decided 2026-10-17: leave it.** The alternative considered was to ask the server first and fall back to the local file, which would clear the line on the hosted site but move it to local/offline installs, and would change the order of the pairing path — the path the mistake above broke. Not worth it for a 404 on an optional file.
+
+Verified end to end in a headless browser against the live site: `credentials.json` 404 → `credentials.php` 200 with the stored token → **MQTT connected**, demo mode cleared.
+
+## The cloud bridge password now looks after itself
+
+The outage earlier was a stale password in mosquitto's bridge config: the box held a 24-character one, the cloud wanted 48, so the bridge was refused, and **the interface silently stopped working on every device while the controller looked perfectly healthy**. Nothing pointed at it — the browser connected, subscribed and asked for the map; the request simply had nowhere to go.
+
+`rbr-updater.py` now checks it on every hourly run, before anything release-shaped:
+
+- the current value comes from `credentials.php` when a token is present in `.mqtt_token` (the same endpoint and token a paired browser uses), and otherwise from the local `credentials` file;
+- if it matches, nothing happens; if it differs, the config is rewritten with a timestamped `.bak`, `.mqtt_password` is brought into line (so a later `rbr-setup.sh` prompts with the current value), and `mosquitto` then the controller are restarted — mosquitto rereads its config only on restart, and the controller would otherwise sit on a dead socket;
+- **the bridge's own state is logged every run**, from `$SYS/broker/connection/…/state` on the local broker, so this can never fail silently again;
+- `--check` reports a mismatch as a problem and changes nothing, so the watchdog/cron exit code reflects it.
+
+`.mqtt_token` is the one thing that makes it self-healing rather than merely diagnostic: without it the box can only bring the config into line with whatever its local `credentials` copy says, which still needs the right password to reach it once.
+
+Deployed to the box and into `.mqtt_token`; the self-check there reports `up to date (from credentials.php)` and `Bridge to the cloud: connected`. Tested against five cases before shipping: missing config, up to date, stale-in-check-mode, stale-and-applied, and no credentials at all — plus the live `credentials.php` path, which fetched the 48-character value and corrected a stale config.
 
 ## Two findings recorded rather than acted on
 

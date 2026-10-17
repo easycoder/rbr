@@ -134,3 +134,19 @@ All three are fixed and verified on the box rather than argued about: the map re
 The lesson worth keeping: none of this was reachable from the scaffolding. The end-to-end test restarted nothing and crossed no filesystem. Both classes of bug live exactly in those gaps.
 
 Urgent consequence recorded in DIFF.md: /heat/ still serves the build with the first two bugs, so `./deploy.sh --release` has to go out before any other controller updates.
+
+## 14:18
+
+Do the bridge password updater
+
+**Assistant**
+
+Built it into `rbr-updater.py`, which was the right host: it already runs hourly as root and already restarts services, so the check costs nothing extra and the fix lands where the restart can happen.
+
+The design turned on one question — where does the *current* password come from, since the controller has no token of its own? Two sources, in order: `credentials.php` when a token is present in a new `.mqtt_token` file (the same endpoint and token a paired browser uses), otherwise the local `credentials` file that `rbr-setup.sh` writes. With the token the box heals itself; without it the config still gets brought into line with the local copy, but the right password has to reach the box once. So the token is the difference between self-healing and merely diagnostic, and it is stored at 0600 beside the credentials it belongs with.
+
+Only when the two differ is anything written: a timestamped backup, the config rewritten, `.mqtt_password` brought into line so a later `rbr-setup.sh` prompts with the current value rather than a stale one, then mosquitto and the controller restarted — mosquitto rereads its config only on restart, and the controller would otherwise sit on a dead socket.
+
+The part that matters as much as the fix: it logs the bridge's own `$SYS/broker/connection/…/state` every run. The whole reason today's outage cost an afternoon is that a refused bridge makes nothing else fail — the browser connects, subscribes, asks for the map, and the request goes nowhere.
+
+Tested against five cases before shipping (missing config, up to date, stale in check mode, stale and applied, no credentials at all) and then against the live `credentials.php`, which fetched the 48-character value and corrected a stale config. `--check` now counts a mismatch as a problem so the exit code reflects it. Deployed to the box with the token: the self-check there reports `up to date (from credentials.php)` and `Bridge to the cloud: connected`.

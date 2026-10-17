@@ -66,6 +66,19 @@ Machine-specific data is deliberately **not** in the tarball and is never touche
 
 `.version` is recorded **after** the service restarts are attempted. A failed restart leaves the old version in place; the next hourly run re-extracts, finds the files identical, and re-attempts the restarts before recording the version — so a transient restart failure self-heals on the next run.
 
+### The cloud bridge password ###
+
+The local mosquitto bridges every topic to `rbrheating.duckdns.org`, and the web UI reaches the controller over that bridge. When the bridge is refused the interface silently stops working on every device, while the controller itself looks perfectly healthy — which is exactly how it failed on 17 October: the config carried a 24-character password while the cloud expected a 48-character one.
+
+The bridge authenticates with `remote_password` in `/etc/mosquitto/conf.d/rbr-local.conf`, which is a **copy** of an account the cloud owns. Every updater run now compares that copy with the current value and corrects it if it has drifted:
+
+- the current value comes from `credentials.php` when a token is present in `.mqtt_token` — the same endpoint and token a paired browser uses — and otherwise from the local `credentials` file that `rbr-setup.sh` writes;
+- only when the two differ is the config rewritten, with a timestamped `.bak` beside it, and `mosquitto` then the controller restarted, because mosquitto rereads its configuration only on restart and the controller would otherwise sit on a dead socket;
+- `.mqtt_password` is updated to match, so a later `rbr-setup.sh` reuses the current value rather than prompting with a stale one;
+- the bridge's own state is logged every run (`$SYS/broker/connection/…/state` on the local broker: 1 connected, 0 not), so this can no longer fail silently.
+
+`.mqtt_token` is optional. With it the box can heal itself; without it the local `credentials` copy is used, which means the password still has to reach the box once by running the setup script.
+
 ### Manual use ###
 
 ```sh
@@ -77,7 +90,7 @@ python3 rbr-updater.py --url ./rbr-controller.tar.gz   # test with a local file
 python3 rbr-updater.py --force                 # re-apply current version
 ```
 
-`--check` exits 0 when the update chain is healthy, 1 when anything required is missing/inactive — so it can be run from cron or a watchdog, not just by hand.
+`--check` exits 0 when the update chain is healthy, 1 when anything required is missing/inactive or when the bridge password no longer matches the cloud's — so it can be run from cron or a watchdog, not just by hand.
 
 ## Bootstrap pack (new installations) ###
 

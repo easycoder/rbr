@@ -29,12 +29,23 @@ sudo ./rbr-setup.sh
 
    > **Plug the Zigbee dongle in before running this, and keep it clear of metal.** The script detects the dongle as it starts and derives both the udev symlink rule and Zigbee2MQTT's `port:` from what it finds, so attaching it afterwards leaves you with a placeholder port and no stable symlink. Fit it on a USB extension cable: a dongle pressed against the case or against metalwork (a bracket, a shelf) can degrade every link in the mesh at once, which shows up as relays that intermittently fail to switch. On a real install, moving the dongle off a steel bracket doubled the coordinator's link quality to every device and took failed relay commands from thousands a day to virtually none.
 
-6. Make a note of the system MAC address and password (and save them somewhere safe, such as in the address book on your phone, as you may need them again in the future). They can be found at the command prompt by typing
+6. Make a note of the system's MAC address and its **system password**, and save them somewhere safe — the address book on your phone will do. The MAC is on the box:
 
 ```
 cat .mac_override
-cat credentials
 ```
+
+The system password is not on the box. It is a six-digit code generated when the system is first registered in the UI (step 7) and shown once at that moment, so write it down then. `~/rbr/credentials` looks like it should hold it and does not: that is the MQTT password, a different and longer secret, and it will be rejected here.
+
+If it is lost there are two ways back. The site's `recover` endpoint issues a fresh one for the MAC plus the email address the system was registered with:
+
+```
+curl -s -X POST https://rbrheating.com/recover \
+     -H 'Content-Type: application/json' \
+     -d '{"mac":"<MAC>","email":"<the address you registered with>"}'
+```
+
+and the plaintext is also in `rbr-users.json` on the hosting server, one level above the web root, where it can be read directly.
 7. In your mobile phone user interface (https://rbrheating.com/heat/), tap the hamburger icon in the top right and select System Manager from the menu. If you're a new user you will have to register; just follow the instructions.
 8. Click the Add button to add your new system and use the MAC and password you obtained in step 6. Select the system by its name and tap OK to return to the main user interface.
 9. Commission the Zigbee devices. The setup script (step 5) installed and enabled Zigbee2MQTT with the coordinator dongle auto-detected; make sure it is running, then pair the devices one by one:
@@ -82,7 +93,7 @@ The UI lives at <https://rbrheating.com/heat/>; the older page at the site root 
 The broker now carries each system in two accounts: the bridge on the box, whose password never leaves that box, and the account the UI pages use, which is fenced to that system's MAC and is handed out only to a paired device.
 
 - **Pairing.** Open the UI and it shows the demo home until paired. "Set up my system" (in the About sheet) asks for the system's MAC and its password, then keeps a token in localStorage as `dev-token` and reloads connected.
-- **The system password** is the one shown when the system is registered in the UI. The endpoint checks it before issuing that token, so treat it as the system's secret rather than a note in a repo.
+- **The system password** is the six-digit code shown once when the system is registered in the UI — not the MQTT password in `~/rbr/credentials`, which is a common and costly confusion. The endpoint checks it before issuing that token, so treat it as the system's secret rather than a note in a repo. Lost ones can be reissued by the `recover` endpoint given the MAC and the registration email, or read from `rbr-users.json` on the hosting server.
 - **The bridge's account** (`rbr-bridge`) is what mosquitto bridges with; its credentials belong only in `/etc/mosquitto/conf.d/rbr-local.conf` on the box, and nowhere else.
 - **A fresh controller with no local `credentials` file** fetches its mail settings from `credentials.php`, which now requires a token. Without one the fetch fails, and the install silently runs without mail settings.
 - **A second system needs its own fence.** `credentials.php` serves one account per host, and the ACL gives `#` only to the bridge account, so a new system's MAC has to be granted its own topics (or be given its own account and credentials block) before its UI will work.
