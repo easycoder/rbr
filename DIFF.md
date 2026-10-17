@@ -77,15 +77,11 @@ Found the hard way, on a live box. STEP 3 wrote `/opt/zigbee2mqtt/data/configura
 - **An existing `configuration.yaml` is now kept**, and the only thing the script corrects in it is `serial.port`, in place and inside the `serial:` block only — the `frontend:` block has a `port:` of its own that a blunt edit would have clobbered.
 - **`restore-z2m-network-key.py` is new**, for the boxes that were already caught: it recovers the key and PAN ID from Zigbee2MQTT's own `coordinator_backup.json`, accepts every shape that file has used (a list of ints, a hex string, hex strings, nested objects), refuses to write if it cannot find a key, backs the file up first, and rewrites in place so the ownership stays with the `zigbee2mqtt` user. Tested against all four shapes, both failure paths, `--dry-run`, and repeat runs.
 
-## Urgent: deploy before any other controller updates
+## What is already published, and what still needs a deploy
 
-The build currently on `/heat/` (`2610171118`) has **two of the bugs below in it** and will crash-loop any controller that takes it. The fixes are only in the working tree and on one box. So:
+Release `2610171257` went out at 12:57 and **already carries the controller and bridge fixes** — verified on the server: the `controller.allspeak` in `/heat/` has the `action`/`message` guards and `PrepareMapForDisk`, and the `zigbee-bridge.py` inside the tarball has the cross-filesystem write fix. So no controller is exposed to the crash loop or the missing-readings bug any more.
 
-```
-./deploy.sh --release
-```
-
-must go out **before** any controller is updated from `/heat/`. The controller this was found on has already been corrected by hand and is running fine; it is every other one, and any future re-install, that this protects.
+One thing is **not** published yet, because it came after that release: the `credentials.json` change below, which is what still leaves the browser console showing `403`. One more `./deploy.sh --release` clears it, and it does not need to be urgent.
 
 ## Three defects the live install found, and fixed
 
@@ -105,6 +101,20 @@ The controller's loop had never been run against a broker in this environment. S
 - **A pre-existing crash, not mine.** The version watch loaded `.version` and then `replace`d in it without checking the file was there, so a machine with no `.version` — installed by hand rather than through `get-controller.sh` — stopped about a minute after every start. Now guarded like the rest of that path.
 
 Both are on the minute-long path, which is why neither had shown up: the controller was previously only ever observed starting.
+
+## The PWA's 403, and a credentials file that should never have been public
+
+The browser console has been showing `GET /heat/credentials.json 403 (Forbidden)` on every load. Two things were wrong at once:
+
+- **The file was never readable.** `new-ui/credentials.json` is mode 0640 in the repository, and `deploy.sh` copied it with `--no-perms`, so the file created on the server inherited that 0640 and Apache could not read it. The PWA falls through to `credentials.php` on any failure, which is why nothing appeared broken — but the console error was real, and the same was true of `/new-ui/` all along.
+- **It should not have been shipped at all.** What the file holds is real broker credentials — broker, username, password, MAC. For a *local* install that is correct and useful: `rbr-setup.sh` writes it beside the controller and into `new-ui/` so the interface can pick it up when it is served from the box. On the public site it is both a secret in a public directory and useless (`broker: localhost` cannot be reached from a browser).
+
+So the shipped file is now `{}`, which the PWA treats as "no local credentials" and falls through to `credentials.php` — the token-gated endpoint that is the right path for a hosted UI. And the deploy forces the mode so the request succeeds instead of being refused:
+
+- `deploy.sh` and the workflow now use `-p --chmod=F644,D755` on the PWA tree and the `/heat/` tree, in place of `--no-perms`. `--chmod` has **no effect on a file that already exists on the receiver** unless permissions are being set, so without `-p` the existing 0640 file would have stayed unreadable forever. `--no-perms` after `-a` in the workflow cancelled `-p` in the same way.
+- Local installs are unaffected: `rbr-setup.sh` STEP 7 still writes the real file on the box, and nothing in the repository now carries credentials.
+
+Verified locally: an existing 0640 `credentials.json` becomes 0644 with the new contents after the rsync, and an empty object is treated as empty by the runtime (`is empty` is true), so the fall-through happens rather than a landing in demo mode.
 
 ## Two findings recorded rather than acted on
 

@@ -42,7 +42,7 @@ jobs:
 
       - name: Deploy new UI (PWA)
         run: |
-          rsync -avz --no-perms --delete \
+          rsync -avz --delete --chmod=F644,D755 \
             -e "ssh -i ~/.ssh/id_ed25519" \
             new-ui/ \
             rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/new-ui/
@@ -56,7 +56,7 @@ jobs:
           # by deploy.sh, and pruning this directory against new-ui/ alone would
           # wipe them. The service worker was bumped above, so both copies of
           # sw.js go out with the same version.
-          rsync -avz --no-perms \
+          rsync -avz --chmod=F644,D755 \
             -e "ssh -i ~/.ssh/id_ed25519" \
             new-ui/ \
             rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/heat/

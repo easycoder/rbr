@@ -102,7 +102,12 @@ done
 # templates, icons and the manifest. --delete prunes anything removed
 # locally so stale files can't linger on the server.
 echo "Deploying new-ui/..."
-rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
+# -p with --chmod, not --no-perms: --chmod has no effect on a file that
+# already exists on the receiver unless permissions are being set, so an
+# existing 0640 credentials.json would stay unreadable (403) forever. The
+# chmod makes the result deterministic — files 0644, directories 0755 —
+# whatever the sending side happens to hold.
+rsync -rvz -p --delete --chmod=F644,D755 -e "$SSH_OPTS" \
     "$LOCAL/new-ui/" \
     "$REMOTE/new-ui/"
 
@@ -174,7 +179,7 @@ upload_heat() {
        "$LOCAL/get-controller.sh" \
        "$BUILD_DIR/heat/"
     echo "Uploading /heat/ (PWA + controller files)..."
-    rsync -rz --no-perms --delete --exclude=version -e "$SSH_OPTS" \
+    rsync -rz -p --delete --exclude=version --chmod=F644,D755 -e "$SSH_OPTS" \
         "$BUILD_DIR/heat/" "$HEAT/"
     rm -rf "$BUILD_DIR"
 }
