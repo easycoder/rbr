@@ -2,7 +2,7 @@
 
 This is the definitive list of files a controller computer needs in order to run RBR. It was arrived at empirically by deleting everything from a working controller except the essential files and restoring whatever the running system complained about.
 
-The controller directory does NOT need any of the repo's folders (`resources/`, `new-ui/`, `tests/`, `doc/`, `rbrchat/`, `design/`, `AI/`, `conversation/`, `plugins/`, ...) — every runtime component is a plain file in the directory root. Extra files are harmless, but this list is the minimum.
+The controller directory does NOT need any of the repo's folders (`new-ui/`, `desktop/`, `tests/`, `doc/`, `docs/`, `design/`, `AI/`, `conversation/`, ...) — every runtime component is a plain file in the directory root. Extra files are harmless, but this list is the minimum.
 
 ## Essential — required for the controller to run ##
 
@@ -39,8 +39,7 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 |---|---|
 | `simulator.allspeak` | Simulation mode — only if a file named `sim` exists (see `controller.allspeak` init) |
 | `zigbee-config.json` | Optional — the bridge works without it, falling back to `localhost:1883` / port 8889. `rbr-setup.sh` creates it with broker details. |
-| `asedit.allspeak`, `asedit.json`, `edit.html`, `server.allspeak` | Running the AllSpeak editor on the controller: `allspeak server.allspeak [port]`, or `allspeak viz [port]` to open the visualiser as well. `server.allspeak` must be kept current — a copy from before 2026-10-12 answers `503 Server handler not ready` to every request and reports nothing; refresh it with `curl -fsS https://allspeak.ai/code/server.allspeak -o server.allspeak` |
-| `index.html`, `favicon.ico` | Only if you serve the web UI locally from this directory (e.g. `python3 -m http.server`) |
+| `server.allspeak` | Running the AllSpeak dev server on the controller: `allspeak server.allspeak [port]`, or `allspeak viz [port]` to open the visualiser as well. `server.allspeak` must be kept current — a copy from before 2026-10-12 answers `503 Server handler not ready` to every request and reports nothing; refresh it with `curl -fsS https://allspeak.ai/code/server.allspeak -o server.allspeak` |
 | `.htaccess` | Only if Apache serves this directory (ignored by `http.server`) |
 
 ## NOT needed on the controller ##
@@ -51,9 +50,8 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 | `.chat-version` | Chat is a server-side web app |
 | `.gitignore`, `.stignore` | Repo hygiene for the dev machine |
 | `.venv/` | Services use the system `python3`; not required |
-| `migrate-periods.allspeak`, `cleanup-map.allspeak`, `retire-rbr-now.allspeak` | One-shot map migrations — run on the dev machine, or copied over for a single run when an existing map needs rewriting |
-| `deploy.sh`, `resources/`, `new-ui/`, `.htaccess`, `auth.php`, `credentials.php` | Cloud server (pushed by `deploy.sh`) |
-| `tests/`, `doc/`, `design/`, `AI/`, `conversation/`, `RBRNow/`, `rbrchat/`, `plugins/`, `node_modules/` | Dev machine / firmware / other projects |
+| `deploy.sh`, `index.html`, `new-ui/`, `.htaccess`, `auth.php`, `credentials.php` | Cloud server (pushed by `deploy.sh`) |
+| `tests/`, `doc/`, `docs/`, `desktop/`, `design/`, `AI/`, `conversation/`, `node_modules/` | Dev machine |
 
 ## How updates work today ##
 

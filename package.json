@@ -8,7 +8,8 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "./tests/run-setup-tests.sh"
+    "test": "tests/unit/run-unit-tests.sh",
+    "check": "node tests/pwa-compile-check.js && node tests/pwa-device-editor-check.js"
   },
   "keywords": [],
   "author": "",

@@ -1,7 +1,0 @@
-{
-    "#doc": "The event information component",
-    "#element": "div",
-    "@id": "event-info-/INDEX/",
-    "padding": "1em",
-    "cursor": "pointer"
-}

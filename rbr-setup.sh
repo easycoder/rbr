@@ -674,59 +674,9 @@ TIMER
 fi
 
 # =========================================================================--
-# STEP 7 — (optional) Local UI web server
+# STEP 7 — (optional) Run the controller as a systemd service
 # ===========================================================================
-confirm "Step 7 — Local UI web server (optional)"
-
-INSTALL_UI=""
-read -r -p "  Install a local web server for the UI? (y/N): " INSTALL_UI
-if [[ "${INSTALL_UI,,}" == "y" ]]; then
-    UI_PORT="$(prompt_value "  Web server port" "ui_port" "8082")"
-
-    cat > /etc/systemd/system/rbr-ui.service << SERVICE
-[Unit]
-Description=RBR Local UI Web Server
-After=network.target mosquitto.service
-
-[Service]
-Type=simple
-User=${RBR_USER}
-WorkingDirectory=${RBR_DIR}
-ExecStart=/usr/bin/python3 -m http.server ${UI_PORT}
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-SERVICE
-
-    systemctl daemon-reload
-    systemctl enable rbr-ui.service
-    systemctl restart rbr-ui.service
-    echo "  → rbr-ui.service on port $UI_PORT — http://localhost:$UI_PORT/index.html"
-
-    # Create credentials.json for the UI (same structure the UI expects)
-    cat > "$RBR_DIR/credentials.json" << JSON
-{
-    "broker": "localhost",
-    "port": ${WS_PORT},
-    "username": "${MQTT_USERNAME}",
-    "password": "${MQTT_PASSWORD}",
-    "mac": "${MAC}"
-}
-JSON
-    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/credentials.json"
-    chmod 640 "$RBR_DIR/credentials.json"
-    # Also copy into new-ui/ so the relative URL /new-ui/credentials.json resolves
-    cp "$RBR_DIR/credentials.json" "$RBR_DIR/new-ui/credentials.json"
-    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/new-ui/credentials.json"
-    echo "  → Created $RBR_DIR/credentials.json for the UI (WebSocket on port $WS_PORT)"
-fi
-
-# =========================================================================--
-# STEP 8 — (optional) Run the controller as a systemd service
-# ===========================================================================
-confirm "Step 8 — Controller systemd service (optional)"
+confirm "Step 7 — Controller systemd service (optional)"
 
 INSTALL_CTRL=""
 read -r -p "  Run the controller as a service (auto-restart after updates)? (y/N): " INSTALL_CTRL
@@ -769,9 +719,9 @@ SERVICE
 fi
 
 # ===========================================================================
-# STEP 8b — (optional) Run the RBR desktop UI as a systemd service
+# STEP 7b — (optional) Run the RBR desktop UI as a systemd service
 # ===========================================================================
-confirm "Step 8b — RBR desktop UI service (optional)"
+confirm "Step 7b — RBR desktop UI service (optional)"
 
 INSTALL_UI=""
 read -r -p "  Run the desktop UI (PySide6 app) as a service? (y/N): " INSTALL_UI
@@ -839,9 +789,6 @@ echo "  Services:"
 echo "    mosquitto          $(systemctl is-active mosquitto)"
 echo "    zigbee2mqtt        $(systemctl is-active zigbee2mqtt)"
 echo "    rbr-zigbee-bridge  $(systemctl is-active rbr-zigbee-bridge)"
-if [[ -f /etc/systemd/system/rbr-ui.service ]]; then
-    echo "    rbr-ui             $(systemctl is-active rbr-ui)"
-fi
 if [[ -f /etc/systemd/system/rbr-updater.timer ]]; then
     echo "    rbr-updater.timer  $(systemctl is-active rbr-updater.timer)"
 fi

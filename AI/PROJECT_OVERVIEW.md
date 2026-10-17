@@ -17,12 +17,6 @@ Communication between controller and UI is via MQTT.
 - `deviceControl.allspeak` — device-level operations: Zigbee relay on/off through the local bridge
 - `simulator.allspeak` — standalone simulator for testing controller logic without real hardware
 
-### UI (legacy, served from root)
-- `index.html` — entry point, loads AllSpeak runtime and fetches `resources/allspeak/rbr.allspeak`
-- `resources/webson/*.json` — 40 Webson screen layouts
-- `resources/allspeak/rbr.allspeak` — main UI script
-- `resources/allspeak/*.allspeak` — supporting scripts (roomedit, profiles, statistics, etc.)
-
 ### UI (new PWA, served from `/heat/` on the site — deployed from `new-ui/`)
 - `new-ui/index.html` — PWA entry point with service worker and manifest
 - `new-ui/resources/allspeak/shell.allspeak` — single ~2700-line shell script that boots the app, opens MQTT, renders the home screen, and routes all user gestures

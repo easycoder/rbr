@@ -2,12 +2,12 @@
 # Deploy RBR web UI + controller files to rbrheating.com.
 #
 # Layout on the server:
-#   /                   <- legacy UI entry points (index.html, auth.php, ...).
-#                          Left running, unchanged, until it is deleted; the
-#                          root is to become a product-information home page.
-#   /resources/         <- legacy UI resources (as above)
-#   /new-ui/            <- the PWA's old home. Still published, byte-identical
-#                          to /heat/, until this folder is deleted.
+#   /                   <- the site's own page (a holding page that names the
+#                          product and links to the app), plus the PHP endpoints
+#                          the app needs: credentials.php and auth.php, with
+#                          .htaccess. The legacy UI that used to live here, and
+#                          its /resources/ tree and /new-ui/ copy, are gone —
+#                          removed 2026-10-17 with the rest of the retirement.
 #   /docs/              <- documentation reader — the page, the script and the
 #                          layout. The documentation itself is fetched from the
 #                          public repository at runtime, never copied here.
@@ -18,7 +18,7 @@
 #                          the UI need from this site, and the product's home
 #                          from now on:
 #     /heat/index.html, sw.js, manifest.webmanifest, icons/, resources/
-#                          <- the PWA — the same files as new-ui/
+#                          <- the PWA — built from new-ui/ in this repository
 #     /heat/controller.allspeak, deviceControl.allspeak,
 #     /heat/simulator.allspeak, diagnose.allspeak
 #                          <- AllSpeak controller source
@@ -80,7 +80,10 @@ done
 
 echo "Deploying RBR to ${REMOTE}..."
 
-# Root-level web files (legacy UI)
+# Root-level web files: the site's own page and the endpoints the app calls.
+# Note what is NOT here any more: the legacy UI's index.html and its
+# resources/ tree. The root page is now the product's own — see index.html —
+# and the app is served from /heat/ alone.
 rsync -rvz --no-perms -e "$SSH_OPTS" \
     "$LOCAL/index.html" \
     "$LOCAL/favicon.ico" \
@@ -88,28 +91,6 @@ rsync -rvz --no-perms -e "$SSH_OPTS" \
     "$LOCAL/credentials.php" \
     "$LOCAL/.htaccess" \
     "$REMOTE/"
-
-# Resources subdirectories — --delete keeps remote in sync with local
-for dir in allspeak css icon img json webson; do
-    echo "  resources/$dir"
-    rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
-        "$LOCAL/resources/$dir/" \
-        "$REMOTE/resources/$dir/"
-done
-
-# New UI tree (PWA). One rsync of the whole new-ui/ directory keeps it
-# in lock-step with the local copy, including shell.allspeak, sw.js, webson
-# templates, icons and the manifest. --delete prunes anything removed
-# locally so stale files can't linger on the server.
-echo "Deploying new-ui/..."
-# -p with --chmod, not --no-perms: --chmod has no effect on a file that
-# already exists on the receiver unless permissions are being set. The chmod
-# makes the result deterministic — files 0644, directories 0755 — whatever the
-# sending side happens to hold, so a stray 0640 file cannot leave a page
-# unreadable behind a 403.
-rsync -rvz -p --delete --chmod=F644,D755 -e "$SSH_OPTS" \
-    "$LOCAL/new-ui/" \
-    "$REMOTE/new-ui/"
 
 # The documentation reader: the whole of /docs on the site — the page, the
 # script and the layout. The documentation itself is NOT here and is never
@@ -167,7 +148,7 @@ upload_heat() {
     local BUILD_DIR
     BUILD_DIR="$(mktemp -d)"
     mkdir -p "$BUILD_DIR/heat"
-    # The PWA — byte-identical to what /new-ui/ gets.
+    # The PWA — the only copy on the site now.
     rsync -a "$LOCAL/new-ui/" "$BUILD_DIR/heat/"
     # Controller source and the artifacts fetched from this site.
     cp "$LOCAL/controller.allspeak" \
@@ -179,6 +160,11 @@ upload_heat() {
        "$LOCAL/get-controller.sh" \
        "$BUILD_DIR/heat/"
     echo "Uploading /heat/ (PWA + controller files)..."
+    # -p with --chmod, not --no-perms: --chmod has no effect on a file that
+    # already exists on the receiver unless permissions are being set. The chmod
+    # makes the result deterministic — files 0644, directories 0755 — whatever
+    # the sending side happens to hold, so a stray 0640 file cannot leave a page
+    # unreadable behind a 403.
     rsync -rz -p --delete --exclude=version --chmod=F644,D755 -e "$SSH_OPTS" \
         "$BUILD_DIR/heat/" "$HEAT/"
     rm -rf "$BUILD_DIR"

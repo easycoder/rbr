@@ -104,7 +104,6 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 | 04-updates-and-deployment.md | How code reaches a controller | `doc/UPDATE-MECHANISM.md` |
 | 05-heating-data.md | The heating log format | `doc/HEATING-DATA.md` |
 | 06-controller-files.md | The file manifest | `doc/CONTROLLER-FILES.md` |
-| 07-legacy-rbr-now.md | Retired ESP32 hardware | `doc/setupHardware.md`, `doc/configurator.md` |
 | 08-roadmap-current-measurement.md | Power-flow monitoring, the next phase | `doc/current-measurement.md` |
 
 **Appendix**

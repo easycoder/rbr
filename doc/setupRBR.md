@@ -90,8 +90,6 @@ sudo systemctl status zigbee2mqtt     # should show active (running)
 
     > **For unattended operation, check the firmware.** Set the BIOS/UEFI "Restore AC Power Loss" (also "AC Back" / "After Power Failure") to **Power On**, and disable **ErP/EuP Ready**, which can block automatic power-on. Nothing in the OS can read or set this, so test it by cutting mains, restoring it and watching the machine come up by itself. The OS half is already handled: every service is enabled, so the whole stack returns without a login. After any outage, confirm `map.json` survived — `allspeak diagnose.allspeak` says whether it is present and lists the rooms; the map keeper repairs a truncated one within a couple of minutes of boot.
 
-> **Legacy:** RBR-Now support has been removed from the controller — `deviceControl.allspeak` no longer has an ESP-Now transport, and `config.json` is gone. An installation still running RBR-Now relays must finish its rebuild before it can take an update. The old configurator is documented in [configurator.md](configurator.md) for reference only.
-
 ## What a new system needs now
 
 The UI lives at <https://rbrheating.com/heat/>; the older page at the site root no longer runs.

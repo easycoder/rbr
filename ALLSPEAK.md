@@ -151,7 +151,7 @@ When in doubt, consult `learn/` rather than guessing.
 
 8. **Explain the editor.** Nothing of it lives in the project: the dev server serves the visualiser page itself, with the project's language filled in, so `allspeak viz [port]` gives you the editor and your app side by side — `/viz.html` in one tab, `/<project>.html` in another. The page opens, edits and saves `.allspeak`, `.json`, `.html` and other project files (the dev server provides the read and write routes), and the runtime it runs is the published one.
 
-   This repository is the exception, and knowingly so: it still carries the pre-2026-10-12 editor (`edit.html`, `asedit.json`, `asedit.allspeak`) because a controller can be given those files by hand when someone needs to debug on the box. A local `edit.html` wins over the served page, so `localhost:<port>/edit.html` gives that older editor while `/viz.html` gives the current visualiser. See `AGENT.md` for what a stale `server.allspeak` does to the dev server.
+   This repository used to be the exception, and knowingly so: it carried the pre-2026-10-12 editor (`edit.html`, `asedit.json`, `asedit.allspeak`) so a controller could be given those files by hand. They went with the legacy retirement of 2026-10-17; a controller that wants an editor now carries `server.allspeak` and gets the current visualiser from the deploy when someone needs to debug on the box. A local `edit.html` wins over the served page, so `localhost:<port>/edit.html` gives that older editor while `/viz.html` gives the current visualiser. See `AGENT.md` for what a stale `server.allspeak` does to the dev server.
 
 9. **Ask what they'd like to build.** From here, just respond to what the user wants.
 

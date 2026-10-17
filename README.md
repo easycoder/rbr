@@ -1,54 +1,40 @@
-# Room By Room Control
+# Room By Room
 
-This is an Open Source project to build a smart central heating system with control over the Internet. Although it might be considered to be just another "Smart Home" product, this one has one important difference. It's designed to be a "distributed appliance"; that is, something that can be set up before delivery and just plugged in, with none of the usual messing about with IP addresses that plagues the smart home world. No techncal knowledge on the part of the end user is required; just the ability (and willingness) to program a central heating controller.
+Room By Room is an open-source control system for central heating that works room by room. Each room has its own thermometer and its own radiator control, and the system decides when each room should be heated — so the house is warm where it is being used, and the rest of it is not.
 
-An important feature of the system is that it can be managed externally. The UI permits one of any number of systems to be selected at will, and each system can be designated as being controllable by any desired number of managers. So  for example, a housing association can assign a set of installations to be managed by one or more nominated persons. All this is done by the UI app - a mobile web page that will run on any smartphone.
+The interface is a web app, so a phone is the only device anyone has to install. The system can be seen and adjusted from anywhere, and the controller in the house carries on working regardless.
 
-This project uses commercially-available BLE and WiFi-connected modules - a temperature sensor and a relay - and electrically-powered radiator valves, to automate domestic (or other) central heating on a room-by-room basis. The parts are ordinary trade items and the system is fitted like any other controls work, so the outlay is a modest one-off. What it saves is not fixed, though: it depends on how the household already uses its heating rather than on the system, and it is largest where rooms are habitually left heated while nobody is in them. There is no single figure that applies to every home - see [docs/concept/05-costs-and-payback.md](docs/concept/05-costs-and-payback.md) for why.
+## What runs where
 
-The repository software is in 3 parts:
+Three parts, plus the hardware between them:
 
-  1. A system controller designed to run on a small, inexpensive mini-PC (any Linux machine will serve). This is coded in Python.
-  1. A REST server on public shared hosting. This is coded in PHP.
-  1. A user interface, built as a browser-based mobile webapp. This is coded in JavaScript.
+1. **The controller** — a small Linux mini-PC in the house, running `controller.allspeak` under the AllSpeak runtime. It holds the plan (rooms, schedules, profiles), reads the thermometers, and switches each room's heating. Everything a controller needs is a plain file; see `doc/CONTROLLER-FILES.md`.
+2. **The site** — `rbrheating.com`, which serves the web app at `/heat/`, the PHP endpoints it calls (`credentials.php`, `auth.php`), the controller update bundle, and the documentation reader at `/docs`. `deploy.sh` is what publishes it.
+3. **The web app** — `new-ui/`, a browser PWA written in AllSpeak's JavaScript dialect. It is the only user interface: it renders the map it is given, and hands every gesture back to the controller over MQTT.
 
-Third-party tools are kept to a minimum. The project relies mainly on other products in the AllSpeak repository:
+Between the controller and the radiators sit Zigbee thermometers and relays, with Zigbee2MQTT and a small HTTP bridge (`zigbee-bridge.py`) in between. A relay at the boiler asks it to fire only when some room actually wants heat.
 
-  - A high level scripting language coded in Python for the system controller
-  - A similar high-level scripting language coded in JavaScript for the user interface
-  - A Python engine for rendering graphics expressed as JSON
-  - A JavaScript engine for rendering DOM structures expressed as JSON
-  - An extended MarkDown processor for documentation, based on the third-party _Showdown_ markdown library
+## The plan
 
-The system requires no software framework, nor any build tools beyond a text editor. This improves maintainability and offers ease of access to programmers of all levels of experience.
+The map — `map.json` on the controller — is the whole configuration: **one shared room list**, carrying each room's identity (which relays it has, which thermometer serves it, whether it is frost-protected, its readings), and then, per profile, only that room's schedule state, keyed by room name. A name is the join, so a room's wiring and its schedule cannot drift into another room. `AI/MAP_FORMAT.md` is the format of record.
 
-The webapp is designed to work on a smartphone but can also be viewed in a PC browser. It can be found at
+## Working on it
 
-[https://rbrheating.com/ui](https://rbrheating.com/ui)
+```bash
+# controller, by hand (it normally runs as a service)
+allspeak controller.allspeak --no-dashboard
 
-## How it works
+# the web app, served statically
+python3 -m http.server 9000      # then open http://localhost:9000/new-ui/index.html
 
-### Configuration
-The system is described by a JSON file, the "map", which describes the physical configuration of the system, such as:
+# the checks that need no broker, browser or controller
+tests/unit/run-unit-tests.sh
+node tests/pwa-compile-check.js
+node tests/pwa-device-editor-check.js
+```
 
- - the name of each room
- - the MAC address of its thermometer
- - the type of device controlling the radiator(s) in the room
- - the operating mode (timed, boost, advance, on or off)
- - a list of times and temperatures for each room
+`AGENT.md` is the working guide — how the code is laid out, the conventions the documentation blocks follow, and the traps this language and this runtime have already cost time on. `DIFF.md` records why the system looks the way it does, change by change. Most of `doc/` and all of `docs/` are written for people rather than for agents; `docs/README.md` is the index.
 
-Additionally there can be multiple profiles that each have their own set of room information. Such as Weekday, Weekend and so on. There is an optional calendar that informs which profile applies to each day of the week.
+## Credits
 
-### Operation
-The controller is triggered once every 60 seconds by a cron task. It starts by loading the map, and runs a set of operations every 10 seconds, repeating them 6 times so it finishes before the next call by cron.
-
-For each room, the controller uses the current operating mode to decide if a room needs to be controlled. If not, it calls an OFF function to shut the radiator valve. If the room is to be heated and its current temperature is below that desired, the valve is turned ON. This requires a number of steps, depending on the operating mode. Timed mode is the most complex; it requires an examination of the map to get the target temperature for the current time, then a check to see if the current temperature is below or above it. This determines if ON or OFF should be called. Other logic applies to Advance, which causes it to use the next timing period rather than the current one (and cancels when the current one ends) and Boost, which ignores the timing entries and just aims for a fixed target temperature for a specified length of time.
-
-This is a very basic description; the code is somewhat more complex.
-
-### The code
-All the controller code is written in AllSpeak, a high-level programming language that is well suited to the needs of this application. AllSpeak is itself written in Python and provides general language features in a more accessible form. It is described in its own repository.
-
-## Call for collaborators
-
-This project has been developed by one person - me. It controls my central heating and that of a friend, but we'd like to spread the knowledge. I'm getting on in years so I won't be able to support it for very much longer. Anyone who is interested in joining will be most welcome. No strings are attached and I'll give as much help as I can to get you up the learning curve. The project uses some unusual programming techniques designed to help casual programmers get familiar with the product, but underneath it's all pure JavaScript, Python and a small amount of PHP.
+The system is built on [AllSpeak](https://allspeak.ai) — a scripting language with Python and JavaScript runtimes — and otherwise on ordinary parts: a mini-PC, Zigbee thermometers and radiator valves, and a phone. Third-party dependencies are kept to a minimum and there are no build tools: every file here is read as it stands.

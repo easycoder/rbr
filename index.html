@@ -1,22 +1,71 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RBR UI</title>
-    <link rel="icon" href="favicon.ico" type="image/x-icon">
-    <script type='text/javascript' src='https://rbrheating.com/dist/allspeak.js'></script>
-    <script type='text/javascript' src='https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js'></script>
+    <title>Room By Room — smart heating, room by room</title>
+    <meta name="description" content="Room By Room is a smart central-heating control system: independent control of the heating in every room, from a small computer in the house and a phone anywhere.">
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+    <meta name="theme-color" content="#FFFFFF">
+    <style>
+      :root {
+        --ink: #1c1a17;
+        --muted: #6b6259;
+        --hairline: #e6ded5;
+        --accent: #c2410c;
+        --paper: #fbf7f2;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--paper);
+        color: var(--ink);
+        font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      main { max-width: 42rem; margin: 0 auto; padding: 9vh 1.5rem 4rem; }
+      .house { font-size: 2.5rem; line-height: 1; color: var(--accent); }
+      h1 { font-size: 1.9rem; line-height: 1.2; margin: 1rem 0 0.25rem; letter-spacing: -0.01em; }
+      .tagline { color: var(--muted); margin: 0 0 2.5rem; }
+      p { margin: 0 0 1.25rem; }
+      .rule { height: 1px; background: var(--hairline); border: 0; margin: 2.5rem 0; }
+      .links { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+      a.button {
+        display: inline-block;
+        padding: 0.7rem 1.15rem;
+        border-radius: 12px;
+        border: 1px solid var(--accent);
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.95rem;
+      }
+      a.button.primary { background: var(--accent); color: #fff; }
+      a { color: var(--accent); }
+      footer { color: var(--muted); font-size: 0.85rem; margin-top: 2.5rem; }
+      footer code { font-size: 0.85rem; }
+    </style>
   </head>
+  <body>
+    <main>
+      <div class="house" aria-hidden="true">&#8962;</div>
+      <h1>Room By Room</h1>
+      <p class="tagline">Smart heating, room by room.</p>
 
-<body>
-    <pre id="allspeak-script" style="display:none">
-    !	Room By Room
+      <p>Room By Room controls the heating in each room of a house independently: every room has its own thermometer, its own radiator control and its own schedule, rather than one thermostat standing in for the whole building.</p>
 
-        script Loader
+      <p>A small computer in the house does the thinking — it holds the plan and decides, room by room, when the heating should be on. A relay at the boiler asks it to fire only when some room actually wants heat. The interface is a web app on a phone, so the system can be seen and adjusted from anywhere, and a phone is the only device anyone has to install.</p>
 
-        variable Script
-        rest get Script from `resources/allspeak/rbr.allspeak?v=` cat now
-        run Script
-    </pre>
-</body>
+      <hr class="rule">
+
+      <div class="links">
+        <a class="button primary" href="/heat/">Open the app</a>
+        <a class="button" href="https://github.com/easycoder/rbr">Source and documentation</a>
+      </div>
+
+      <footer>
+        <p>Written as open source. Room By Room runs on ordinary parts: a mini-PC as the controller, Zigbee thermometers and radiator valves, and a phone for the interface.</p>
+      </footer>
+    </main>
+  </body>
 </html>

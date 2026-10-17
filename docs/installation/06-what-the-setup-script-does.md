@@ -136,13 +136,7 @@ Installs `rbr-watchdog.service` and an hourly `rbr-watchdog.timer`. It checks th
 
 Installs `rbr-mapbackup.service` and `rbr-mapbackup.timer`, which runs shortly after boot and every two minutes. The controller saves its map with a non-atomic write, so a power cut in the middle of one can leave the file truncated — and a truncated map is worse than a missing one, because the controller's fallback covers only a missing file. The keeper checks the map, keeps the last ten distinct good revisions in `map-history/` beside the live file, and restores the newest good one if the live file cannot be read. It also runs shortly after boot, so a machine coming back from an outage repairs itself within a couple of minutes.
 
-### Step 7 — A local web server for the interface (optional)
-
-Asked as `Install a local web server for the UI? (y/N)` and skipped unless you answer `y`. If you do, the script installs `rbr-ui.service`, serving the controller directory on port 8082 of all interfaces, and writes the browser interface's own credentials file — pointing at the WebSocket port, 9001, with the MAC you gave — both in the controller directory and in the `new-ui/` subdirectory, where the interface looks for it.
-
-This is the interface served on the machine itself. The hosted interface at `rbrheating.com/heat/` needs no local server.
-
-### Step 8 — The controller as a service (optional)
+### Step 7 — The controller as a service (optional)
 
 Asked as `Run the controller as a service (auto-restart after updates)? (y/N)` and skipped unless you answer `y`. If you do, the script installs `controller.service`, running the controller as your user with restart-on-failure, so it survives reboots, crashes and updates. Two details in that service are worth knowing:
 
@@ -151,7 +145,7 @@ Asked as `Run the controller as a service (auto-restart after updates)? (y/N)` a
 
 **If AllSpeak is not installed, this step reports that and skips**, rather than installing a service that cannot start. Answering `n` is a valid choice: the controller then runs only when you start it yourself.
 
-### Step 8b — The desktop application as a service (optional)
+### Step 7b — The desktop application as a service (optional)
 
 Asked as `Run the desktop UI (PySide6 app) as a service? (y/N)`, skipped unless you answer `y`, and skipped if AllSpeak is missing. It installs the graphics runtime (`PySide6`) for your user and `rbr-desktop.service`, running the desktop application from the `desktop/` directory. The desktop application is the secondary interface — see `desktop/config.example.json` to point it at a broker on the local network.
 
