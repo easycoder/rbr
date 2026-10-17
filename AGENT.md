@@ -69,7 +69,7 @@ The UI is a static webapp — it has to be served over HTTP (not `file://`) beca
 
 ## Configuration Data
 
-- `map.json` — Physical system layout: room names, thermometer MACs, device types, operating modes (timed/boost/advance/on/off), temperature schedules per profile
+- `map.json` — One shared room list in `rooms[]` (room names, thermometer MACs, relays, `linked`, frost protection, and the readings), plus each profile's schedule state for that room, keyed by room name. Identity is stored once; a name is the join. `AI/MAP_FORMAT.md` is the format of record.
 - Multiple profiles (e.g., Weekday, Weekend) with an optional calendar mapping days to profiles
 
 ## AllSpeak Language Reference
