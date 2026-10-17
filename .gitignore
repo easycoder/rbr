@@ -13,17 +13,15 @@ heatlog-root
 heatlog-state.json
 rbr-controller.tar.gz
 rbr-controller.zip
-chat/chat-data
-chat/chat-config.json
-chat/chat-users.json
 __pycache__/
 node_modules/
 package-lock.json
-tests/map-sim.json
-tests/params.json
-tests/thermometers.json
-tests/controller.allspeak
-tests/simulator.allspeak
-tests/deviceControl.allspeak
 desktop/config.json
-test-results/
+
+# Local machine credentials — never commit these. Both are generated per
+# machine (`rbr-setup.sh` writes `credentials` and `zigbee-config.json`), and
+# `credentials.example.json` documents their shape.
+credentials
+zigbee-config.json
+.mqtt_password
+.mqtt_token

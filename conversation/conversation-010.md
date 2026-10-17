@@ -8,7 +8,7 @@ On Sunday evening at 7:30pm the Sunroom felt a little cool, so I pressed Advance
 
 **(mid-turn correction)** It didn't advance to 18::00 - it just said Off until 18:00
 
-**(mid-turn steer)** If you need access to the cotroller itself, it's at 192.168.1.20, password r00m8Yr00m — **Username qed6**
+**(mid-turn steer)** If you need access to the cotroller itself, it's at 192.168.1.20, password <redacted> — **Username qed6**
 
 **Assistant**
 
