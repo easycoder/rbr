@@ -150,3 +150,197 @@ Only when the two differ is anything written: a timestamped backup, the config r
 The part that matters as much as the fix: it logs the bridge's own `$SYS/broker/connection/…/state` every run. The whole reason today's outage cost an afternoon is that a refused bridge makes nothing else fail — the browser connects, subscribes, asks for the map, and the request goes nowhere.
 
 Tested against five cases before shipping (missing config, up to date, stale in check mode, stale and applied, no credentials at all) and then against the live `credentials.php`, which fetched the 48-character value and corrected a stale config. `--check` now counts a mismatch as a problem so the exit code reflects it. Deployed to the box with the token: the self-check there reports `up to date (from credentials.php)` and `Bridge to the cloud: connected`.
+
+## 14:29
+
+Anything I've missed, and a pre-flight check
+
+**Assistant**
+
+Answered the handover question from what today actually cost: passwordless sudo (every root action was blocked today), the IP rather than the hostname (QED6 never resolved — I found the box by matching the MAC against ARP), the coordinator attached before the setup runs, and the discipline of writing down the six-digit system password when it appears.
+
+Then found one more bug in the thing I had just built: the updater wrote a password straight into a line-oriented config file, so a value carrying a newline would have appended a directive to mosquitto's configuration, and one carrying a space would have corrupted the line. Unlikely — the cloud generates hex — but the local credentials file is hand-editable and the write happens as root. Now validated as a single token with `fullmatch`, not `match`, because `match` anchors only at the start and would let `abc\nevil` through. Tested with a newline injection, a space, and a space in the username: all three refused, config untouched.
+
+Wrote `rbr-preflight.py` for the next install. Testing it against the working controller rather than the dev machine was the point: it caught three bugs in itself. Port 8883 was checked as a local port when the bridge only dials out to it. `mosquitto` and `zigbee2mqtt` came back "not installed" on a controller running both, because they were looked up in PATH — mosquitto is in `/usr/sbin` and zigbee2mqtt is a directory. And the port check called RBR's own listeners a problem, when on a working machine those are exactly what is listening.
+
+Also flagged the two gaps that a new system will meet: nothing creates `.mqtt_token`, so a fresh controller will not self-heal the bridge password; and isolation between two systems rests on MAC-as-topic rather than an ACL, with the broker on a host I cannot inspect.
+
+## 14:49
+
+Power-cut test
+
+**Assistant**
+
+The user pulled the plug for two minutes. Verified rather than trusted, and the design held: `/run/rbr` was recreated by the tmpfiles drop-in, no fallback to disk, all 18 Zigbee devices back with state and all 8 thermometers reporting, the udev symlink recreated, the cloud bridge back at `state 1`, `map.json` valid and written once rather than churning, and the heat log resuming with a gap of about four minutes in the three heated rooms.
+
+One finding worth acting on: z2m republishes cached device state at startup and the bridge stamps `last_seen` with *arrival* time, so a sensor that has been dead for hours reads as fresh for the whole 45-minute window immediately after a reboot — exactly when the staleness gate matters. The Outside thermometer is the live example: its value is cached, it logged nothing all day until the post-boot line, and its file for today was created at 14:35.
+
+Also noted: the retired RBR-Now fields are still in the live map.json, so `retire-rbr-now.allspeak` has never been run on this box; three pre-fix files are still sitting beside the code from 12:0x; and the volatile journal means a crash now leaves no evidence, which is the trade we chose but worth stating plainly.
+
+## 17:24
+
+Remove the pre-fix files, retire the map fields, and where rbr-users.json comes from
+
+**Assistant**
+
+Deleted the three pre-fix files beside the code and an orphaned `config.json` in the retired format — nothing reads any of them now, but a fallback would have picked them up and presented hours-old state as current. `config.json` has not come back, so nothing recreates it.
+
+Ran `retire-rbr-now.allspeak` on the live map and verified it structurally rather than by eye: 51 fields removed, 3 profiles × 8 rooms preserved with identical names, only `relayType` and `ssid` gone, every kept field byte-identical.
+
+Wrote `apply-retired-map.sh` because the swap cannot be a plain copy: the controller holds the map in memory and writes it back when it changes, so swapping under a running controller is silently undone. The script validates before stopping anything, keeps a backup, fixes ownership, restarts and verifies; `--dry-run` needs no root. Tested against four refusals and a dry run of the real replacement.
+
+Then read the server code to answer where rbr-users.json entries come from — and found that registering is not the whole story. `auth.php` creates the entry (with a server-generated six-digit password) at `/register` and marks it verified at `/verify`, minting the token. But the `credentials` block that `credentials.php` demands is written by nothing: a freshly registered system gets a 401 until someone adds it by hand, and the UI's fallback then lands in demo mode without explanation — the same class of trap as today's `credentials.json: {}`.
+
+## 17:39
+
+A provisioning tool, for now and later
+
+**Assistant**
+
+Built `provision-system.py` because the gap is structural rather than a one-off: register and verify were the whole of the visible story, and the `credentials` block that `credentials.php` demands had no writer at all.
+
+The design keeps the danger loud. It tests the broker login before writing anything, using a hand-built MQTT CONNECT over TLS so the host needs no packages — and that probe taught me two things only a live test could: the CONNECT payload must begin with the client identifier or the broker simply drops the connection, which is indistinguishable from a wrong password; and the test has to use the MQTT port, because 443 answers a websocket listener and a raw CONNECT dies there.
+
+Writes are atomic and ownership-preserving with a backup, since a half-written rbr-users.json would lock everyone out and read as wrong passwords. It defaults to a dry run and prints no secret except a new system password.
+
+Nine cases tested, including the two that matter most: a broker refusal that wrote nothing, and a repair of a verified entry that was missing its credentials — the exact state a UI-only registration produces.
+
+## 18:04
+
+Rooms above profiles
+
+**Assistant**
+
+Graham raised as an aside that the PWA assumes a common room set while the map keeps rooms inside each profile. Checking it in the code, the disagreement is real and worse than stylistic: the controller sizes its arrays from the selected profile, while the PWA edits rooms by index across every profile, and nothing checks that an index means the same room everywhere. It is safe only because all three profiles on the live map happen to agree.
+
+He chose the proper fix rather than a guard, on the grounds that a running system rarely needs profiles with different room sets and the controller should match what the PWA presents.
+
+Wrote doc/PROPOSAL-shared-room-list.md: the decision, the field-by-field split (identity gains relays, sensor, linked, relayfails and the readings; state keeps mode/target/periods/events/advance and the frost pair), the three boundaries that change, the two aliasing hazards, the migration, and the staged rollout. No code changed — the controller and the PWA have to move together, and a half-applied format change is worse than the status quo.
+
+## 18:19
+
+Two field placements corrected
+
+**Assistant**
+
+Graham corrected two placements in the proposed split: relay failure counts have little to do with profiles, and frost protection is not profile-specific. He is right on both — the second is the better reading, since frost protection protects the room's fabric whatever the plan says, and putting it in identity also removes another per-profile loop from the PWA.
+
+Checked the remaining per-profile fields rather than assuming they belonged there, and found the code states the intent explicitly: `Select Profile` re-materialises operating state from the profile selected — which is what makes `All Off` actually turn things off — and the operating-mode code clears `until`, `prevmode` and `boostperiod` on a mode change "so the map doesn't carry zombie state across profile views". So `mode`/`target`/`until`/`prevmode`/`boostperiod` stay per profile on purpose, and the proposal now says why.
+
+Also verified the map swap he ran at 14:47: retired fields gone, 3 profiles and 24 rooms intact, controller restarted with zero restarts, and map.json stable over 20 seconds.
+
+## 19:14
+
+Stage 1, the controller
+
+**Assistant**
+
+Implemented the shared room list in the controller: EnsureSharedRooms (old-shape conversion on load, names unioned across profiles, selected profile first), MaterialiseRooms (identity merged into each room's state for the working array), CommitRooms (identity copied outward by name), plus the call sites — ProcessAllRooms, SendMapToUI, PrepareMapForDisk, Add Room, Update Rooms, and a guard that refuses an Update Profiles payload whose profile rooms are not name-keyed rather than emptying the room set.
+
+Two corrections to things I had asserted earlier. asdoc-check is a *documentation* linter, not a parser: "0 errors" from it meant nothing about syntax, and the real parser then found five genuine errors (undeclared variables, parenthesised expressions, `not X has entry`, `the count of` on a dictionary). And an aliasing probe showed `index X to 0` does not make an indexed dictionary and its list entry the same object, which matters because the per-room code mutates through `index`. I restored the explicit write-back the old code had, rather than trusting a comment about aliasing.
+
+The controller now compiles (2734 lines) and starts; it stops where it always would without credentials. A throwaway harness against a synthetic old-shape map confirmed the conversion and the disk copy. The PWA is untouched, so the two halves are inconsistent and nothing may be deployed yet.
+
+## 19:34
+
+Stage 2 sized, and stopped at the boundary
+
+**Assistant**
+
+Looked at the PWA before editing it, and the size answer is what decided to stop. The read path is contained: map-to-rooms can iterate identity and merge the profile's state by name, and legacyIdx simply becomes an index into identity.
+
+The write paths are not contained. Around forty-five sites treat a profile's rooms as an index-addressable list — fifteen in device-editor alone — and three of the operations are index-mutating: swap, delete and reorder. Those have no meaning in a name-keyed dictionary; ordering belongs to the identity list, so each needs redesigning rather than translating. That is the simplification the change buys, but it is a genuine rewrite of the device editor's data handling, not a mechanical rename, and it cannot be done blind or half-done.
+
+So I stopped at a clean boundary instead of starting a rewrite I could not finish or verify. The PWA is untouched, the controller compiles, and nothing is deployed.
+
+## 19:44
+
+The PWA has no compiler here
+
+**Assistant**
+
+Checked whether the browser dialect supports computed property names before writing any of stage 2, and found something more fundamental: `allspeak` cannot parse these files at all. It fails on `put property 'profiles' of Map into Profiles`, the first data statement in map-to-rooms. The `property` keyword simply is not in the CLI's grammar, so `new-ui/resources/allspeak/*.allspeak` are a different dialect compiled in the browser at runtime.
+
+The consequence: there is no local way to syntax-check a PWA change. The only verification is loading the page and watching the console, which needs the whole stack up - broker, controller, served UI, headless browser. Editing forty-five call sites, three of which need redesigning, in a dialect with no compiler and no test path in this session is precisely the blind rewrite that breaks things quietly.
+
+So stage 2 needs its own session with the stack running and one file changed at a time, starting with the shell's sync path. Also worth noting for that session: the computed-property question is still open for this dialect, and everything now keys rooms by name, so it has to be settled first.
+
+## 20:30
+
+The PWA can be checked after all
+
+**Assistant**
+
+Resumed stage 2, which had stopped on the belief that nothing here can compile the PWA's dialect. That was true of the tool I had tried and false as a conclusion: the browser runtime is a different implementation from the `allspeak` CLI, and it is reachable — the same `https://allspeak.ai/dist/allspeak.js` that `new-ui/index.html` loads. Driving it under jsdom, against a virtual page that mimics the PWA's own `rest get` + `run` bootstrap, compiles every module and reports what the compiler says.
+
+Writing that as `tests/pwa-compile-check.js` turned up a second thing worth knowing: `tests/resources/allspeak.js` is a May build and is *older* than what production loads, so the vendored copy the Playwright suite uses is not the dialect the site runs. The check therefore takes the runtime URL from `index.html` rather than carrying its own copy, so it cannot drift from the pin.
+
+Nothing about the PWA's own size changed, but the ground under it did: I could now see a compile error in seconds, and — with a stub MQTT client and a converted copy of the live map — drive the real page. Graham's call was to go through the whole of stage 2 in this session, one file at a time, and to keep the compile check in the repository.
+
+## 20:55
+
+Stage 2, and what the split bought
+
+**Assistant**
+
+Worked through the PWA in the order the data flows: map-to-rooms, device editor, schedule editor, profile sheet, shell. The read path merged identity and state back into one record per room, and the translated output turned out identical — field by field, room by room — to what the old shape had produced from the old map, which is the check worth having before touching anything that writes.
+
+The write paths were where the proposal expected a rewrite and instead got a deletion. Editing a room's relays, thermometer and linked flag was the same three fields written into every profile through a loop; it is now one write to one record. Moving a room was `SwapRoomsAcrossProfiles` — the same two-element swap repeated in every profile, trusting that index 3 meant the same room everywhere — and is now a swap in one list. Rename and delete are the only operations left that touch every profile, and only because a name is the key.
+
+Two constraints fell out that the old array allowed by accident: room names have to be unique, so rename refuses a duplicate and add numbers its default ("Unnamed", "Unnamed 2"); and the card's `legacyIdx` could go entirely, since requests were already addressed by name and the index existed only to reach into per-profile arrays. `outsideRoomLegacyIdx` became `outsideRoomName` for the same reason.
+
+The controller needed one addition the proposal had not spelled out: the payload had no way to carry identity. `Update Profiles` now accepts `rooms` alongside `profiles`, and takes only the six fields a UI owns from it — a page reports what it saw a few seconds ago, and its temperatures must not win over the controller's. Names it has not seen are added, names absent from the list are deletions, and per-profile state naming a room that no longer exists is reported rather than left as a schedule nothing can run. `Update Rooms`, which nothing sends, was also wrong under the new shape — it overwrote the selected profile's schedules with the incoming identity records — and now replaces identity and re-materialises.
+
+The verification is worth recording because it is unusual for this repository: the device editor's edit, rename, duplicate refusal, add, move and delete each checked against a converted live map in a real page; the schedule editor's write-by-name, creation of missing state and in-sheet profile switch likewise; the page rendered from the shared list; and the payloads it published, reassembled from their `!part!` chunks, carried identity and name-keyed state with the user's edits and no identity field leaked into any state. `MergeIdentityRooms` was checked separately, including that a stale temperature from the page is refused while a real edit is taken.
+
+What it breaks, it breaks loudly and on purpose. The desktop app renders rooms from the old shape and will show none, and its saves are now rejected with a log line; the legacy UI in `tests/` reads the same shape, so that suite no longer matches the controller. No migration script is needed — the controller converts an old map when it loads it and writes the new shape back on the next save, which is why the proposal's `propose-shared-rooms.allspeak` was not written. `new-ui/demo-map.json` did have to be converted, and its second profile, which carried one room, now carries all seven with the rest set to Off: a shared room list cannot express a short profile.
+
+## 21:20
+
+The migration, on the live system
+
+**Assistant**
+
+Graham's call was to run it now, accepting hours of trouble if it came to that, and to treat `/heat` as the only UI that matters. So the migration went in, in the order that fails safely rather than the order that reads better: controller first, page second. A new controller with an old page shows no rooms and refuses that page's saves; an old controller with a new page accepts name-keyed profiles it cannot read, which is how a working map gets overwritten.
+
+The box was found at 192.168.1.20 rather than the address in the old scratch script — the DHCP lease had moved, and the first two attempts were aimed at a phone holding the old address. Backed up `map.json`, `controller.allspeak` and `.version`, compile-checked the new controller **on the box** with its own runtime before installing it (2610071115, a week older than this laptop's — the only opinion that counts), then let the unit's `Restart=always` bring it back, since sudo would not take a password over a non-interactive ssh. The conversion ran on load: 17100 bytes to 13372, eight identity records, three profiles of eight name-keyed states, schedules intact.
+
+Then the bug, which is the part worth keeping. Asking the live controller for its own map over MQTT showed every room with no status and no relay: `CommitRooms` copied the readings outward but not the derived fields, and before the split those had lived inside each profile's room record, which is where the page read them. The page was reporting a house that was entirely online, entirely calm and calling for nothing. No test in this repository could have found it — the fixture came from the old map in the repo, which carried those fields inside the profiles, so the merge had something to read. A fixture derived from the old format proves the translation, not the source.
+
+Fixed, redeployed, and this time verified against reality: the controller's map over MQTT (identity, readings, status, relay, name-keyed state), the deployed `/heat` page in headless Brave joined to the cloud broker with the system's own MAC and token (seven rooms, temperatures, "Off until" projections from the live schedules), and a real `Update Profiles` round-trip from the Devices sheet — plan identical before and after across all three profiles, identity unchanged, readings still live.
+
+The site took the five PWA modules, `demo-map.json` and the controller at both `/heat` and `/new-ui`. The first attempt put the modules at the root of each directory instead of `resources/allspeak/`; corrected and the strays removed. The version stamp was deliberately left alone so nothing self-updates, and `deploy.sh` without `--release` rebuilt the tarball and install pack afterwards — which matters for the next install rather than this one, since `get-controller.sh` would otherwise have handed a fresh machine the pre-migration controller to go with the post-migration page.
+
+Still old-shape, as recorded before the deploy: the desktop app, the legacy UI in `tests/`, and the product docs. The outside thermometer had been silent for two hours by the time the page was checked, which is pre-existing and shows on the card as "—".
+
+## 21:50
+
+A change that did not stick
+
+**Assistant**
+
+Graham found what my verification had missed: tapping Advance on Sunroom cancelled itself after about a second, and so did On and Off. It was the most useful kind of report, because the page was telling the truth about the system and I had only checked that the page could read.
+
+The cause was an aliasing assumption the split invalidated. `MaterialiseRooms` builds the working array with `append`, and `append` copies — while `put A into B`, `put entry K of D into V` and `put item I of L into V` all alias. Measured on the box's own runtime, because the project has been wrong about this twice now. Before the split the working record *was* the stored record, so `set entry 'mode' of Room` reached the map; afterwards it reached a copy, and `CommitRooms` pushed identity outward and nothing else. The relay followed the copy — the room really heated — while the card, reading the profile, kept the old state, and the next processing cycle would have thrown the change away.
+
+Interesting wrinkle in the diagnosis: `index X to N` is not a list read at all. It is the indexed-collection form (`set the elements of Room to RoomCount` then `index Room to N`), and on an ordinary list it yields an empty dictionary — which is how my first probe managed to destroy the fixture's first room and then report the controller's commit as broken. The real code reads rooms with `put item I of Rooms into Room`.
+
+Two changes, both needed. `CommitRooms` now writes the nine schedule fields back into `profiles[MaterialisedProfile].rooms[name]`, replacing the entry so a deletion by a handler stays deleted, and using a whitelist so per-cycle scratch never lands in somebody's plan. `MaterialiseRooms` now copies the stored state through `prettify`/`json` instead of aliasing it — without that, the merge was writing relays, sensors and readings *into* every profile's state, and the page was shipping them back. `MaterialisedProfile` keeps a commit that happens between a profile switch and the next materialise pointing at the right profile, and `Update Profiles` now re-materialises before anything can push the map.
+
+Verified the way it failed: a probe on the box's runtime that materialises, changes mode and advance, commits, materialises again and demands the change still be there with no identity fields; then the live page — Advance 1.2 s, 13 s, still held, card showing `21.5° → 20:00`, and cancelling it returning "Off until 18:00" and staying. Sunroom is back exactly as it was found. The fixed controller is on the box, in `/heat`, and in the tarball and install pack, with the version stamp still untouched.
+
+The lesson I would keep from today: the first live test proved the page could read the new map, and that is all it proved. A map-format change has to be exercised by *doing something* to a room, and the only place that shows is the system itself.
+
+## 22:15
+
+What stays behind
+
+**Assistant**
+
+Graham asked whether everything was in the repository, having seen /tmp paths go past. It was — but only the product code. The harnesses and probes I had used to verify the migration lived in /tmp and would be gone by morning, and he asked which of them were worth keeping.
+
+The commit round-trip probe earned its place. It is now `tests/unit/commit_roundtrip_test.py`, wired into `tests/unit/run-unit-tests.sh` beside the heatlog tests: it extracts `MaterialiseRooms`, `CommitRooms` and `UpdateRooms` **from `controller.allspeak` at run time** rather than mirroring them — the mistake the desktop unit tests warn about in their own header — builds a two-room map, changes `mode` and `advance` on a working room, commits, materialises again, and asserts the change survived, the profile has it, the plan absorbed no identity, and a deleted field stayed deleted. No broker, no browser, no controller box.
+
+Then I removed each half of the fix in turn to see if the test noticed: with the state commit disabled three of its four assertions fail, including the live symptom as `'off' != 'on'`; with the aliasing put back the fourth fails with `'name' leaked into the profile state`. A test that cannot fail is a story people tell themselves.
+
+`AGENT.md` gained the aliasing table under "Traps worth knowing before editing", because it is the second time this project has lost an afternoon to it, and the two commands that check this work without a browser now sit in "Running". The rest of the /tmp scaffolding — page drivers, the MQTT map fetcher, the card-tap script — stays out: it carries the live broker password and the system MAC, and the method is written up in DIFF.md instead.

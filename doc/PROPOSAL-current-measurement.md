@@ -59,7 +59,7 @@ Two two-channel bidirectional meters, not four single-clamp devices:
 
 An 80 A clamp on the HP circuit and the cooker's 29 A are in the same range, so a single model works everywhere. Verify the `manufacturerName` fingerprint before ordering — the family covers `_TZE204_81yrt3lo`, `_TZE284_81yrt3lo` and `_TZE200_rks0sgb7`, and near-identical Tuya devices exist that report only unsigned consumption. Avoid `TS0601_3_phase_clamp_meter` for `grid`: Zigbee2MQTT exposes consumed `energy` only, with no `produced_energy`, so export would be invisible.
 
-Both units need a 13 A socket within CT-lead reach of the board, and both should sit **outside** the enclosure. `setupRBR.md` step 5 records that a dongle against metalwork degraded every link in the mesh; a mains-powered meter inside a steel consumer unit is the same hazard with the same symptom.
+Both units need a 13 A socket within CT-lead reach of the board, and both should sit **outside** the enclosure. `setupRBR.md` step 6 records that a dongle against metalwork degraded every link in the mesh; a mains-powered meter inside a steel consumer unit is the same hazard with the same symptom.
 
 ### Fingerprints, and the one flow that needs them all
 

@@ -140,6 +140,10 @@ SERVICE_RULES = [
 #      same question the UI does;
 #   2. otherwise the local `credentials` file, which rbr-setup.sh writes and an
 #      operator can correct by hand.
+# A broker credential written into mosquitto's config must be one token: no
+# whitespace, nothing that could start a new line and become a directive.
+_SAFE_TOKEN = re.compile(r"[A-Za-z0-9._~+/=:@-]{1,256}")
+
 BRIDGE_CONF = "/etc/mosquitto/conf.d/rbr-local.conf"
 CREDENTIALS_URL = "https://rbrheating.com/credentials.php"
 TOKEN_FILE = ".mqtt_token"
@@ -240,15 +244,27 @@ def ensure_bridge_credentials(rbr_dir, conf_path=BRIDGE_CONF, apply_changes=True
         return False
 
     username, password, source = current_broker_credentials(rbr_dir)
+    want_user = username or _conf_get(text, "remote_username")
     if not password:
         log("Bridge credentials: cannot establish the current password "
             "(no .mqtt_token and no usable credentials file)")
         _report_bridge_state()
         return False
 
+    # The value is written into a line-oriented config file, so it has to be a
+    # single token. A password carrying a newline would append a directive to
+    # mosquitto's configuration, and one carrying a space would corrupt the
+    # line. Both are unlikely — the cloud generates hex — but the local
+    # `credentials` file is hand-editable, and this writes as root.
+    if not _SAFE_TOKEN.fullmatch(password) or (want_user and not _SAFE_TOKEN.fullmatch(want_user)):
+        log(f"Bridge credentials: refusing to use the value from {source} — it is "
+            "not a single token (whitespace or control characters in it), and it "
+            "would corrupt or add to mosquitto's configuration")
+        _report_bridge_state()
+        return False
+
     have_user = _conf_get(text, "remote_username")
     have_pw = _conf_get(text, "remote_password")
-    want_user = username or have_user
 
     if have_pw == password and have_user == want_user:
         log(f"Bridge credentials: up to date (from {source})")
@@ -283,8 +299,13 @@ def ensure_bridge_credentials(rbr_dir, conf_path=BRIDGE_CONF, apply_changes=True
     # Keep the operator's own record in step, so a future rbr-setup.sh reuses
     # this value instead of prompting with a stale one.
     try:
-        with open(os.path.join(rbr_dir, ".mqtt_password"), "w", encoding="utf-8") as fh:
+        path = os.path.join(rbr_dir, ".mqtt_password")
+        with open(path, "w", encoding="utf-8") as fh:
             fh.write(password + "\n")
+        # This runs as root; leave the file readable by whoever owns the RBR
+        # directory, so an operator can still read it.
+        os.chmod(path, 0o600)
+        os.chown(path, os.stat(rbr_dir).st_uid, os.stat(rbr_dir).st_gid)
     except OSError as e:
         log(f"Bridge credentials: could not update .mqtt_password: {e}")
 

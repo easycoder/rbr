@@ -8,19 +8,49 @@ This is the primary configuration file that drives the controller's behaviour.
 
 ```
 map.json
-├── profiles[]          — named profiles (e.g. "Monday-Friday", "Weekend")
-│   └── rooms[]         — one entry per room
-│       ├── name        — room label
-│       ├── sensor      — BLE/Zigbee thermometer MAC address
-│       ├── relays[]    — relay identifiers
+├── name                — system name
+├── request             — demand-relay name
+├── profile             — index of the selected profile
+├── calendar, calendar-data
+├── rooms[]             — the shared room list: identity, once for the system
+│   ├── name            — room label, and the key that joins it to every profile
+│   ├── relays[]        — relay identifiers
+│   ├── sensor          — BLE/Zigbee thermometer MAC address
+│   ├── linked          — "yes" | "no": relay driven by target/temperature, or directly by mode
+│   ├── relayfails[]    — per-relay failure counts, parallel to relays
+│   ├── protect, ptemp  — frost protection, and its trigger temperature
+│   └── temperature, humidity, battery, sensorAge, timestamp, status, statusMessage,
+│       relayMessage, relaysFailed, relaysTotal, relay   — the readings and what is derived from them
+├── profiles[]          — named plans (e.g. "Monday-Friday", "Weekend")
+│   └── rooms{}         — per-room schedule state, keyed by room name
 │       ├── mode        — timed | boost | advance | on | off
 │       ├── target      — fallback target temperature (°C)
 │       ├── events[]    — timed schedule: [{until: "HH:MM", temp: "N.N"}, ...]
 │       ├── periods[]   — current timed schedule: [{on: "HH:MM", off: "HH:MM", temp: "N.N", enabled: true|false}, ...]
-│       └── linked      — "yes" | "no"
+│       ├── advance, period, prevmode, until, boostperiod — scheduling state the controller maintains
+│       └── (no identity fields: those live in `rooms`)
 ├── overrides (optional) — one-off schedule tweaks, keyed by room name
 └── calendar (optional)  — maps day names to profile names
 ```
+
+### Rooms above profiles, joined by name
+
+There is **one room list for the system**. A room's identity — which relays it has, which thermometer serves it, whether the relay is driven by target or by mode, whether it is frost-protected, and its readings — is a property of the installation, so it is stored once in `rooms[]`. A profile holds only what it is asked to do: `profiles[].rooms["Kitchen"]` is that room's schedule state under that plan.
+
+The join is the room **name**. It used to be an array index, which meant that two profiles with differently ordered room lists silently wrote into each other's rooms; by name that cannot happen. Two consequences worth knowing:
+
+- **Room names must be unique**, because a name is now a key in every profile. The Devices sheet refuses a duplicate name and gives a new room a numbered default ("Unnamed", "Unnamed 2").
+- **A room with no state in a profile** is still part of the system's room set: the UI lists it as Off with no schedule, and the controller does not control it under that profile. The UI writes state for every room when it saves, so this is a transient state rather than a permanent one.
+
+The controller merges the two halves into one flat record per room for its processing cycle, and splits them again before writing the map or sending it to a UI. Every routine in between sees exactly what it saw before the split.
+
+### What a UI sends
+
+An `Update Profiles` request carries both halves — `rooms[]` (identity) and `profiles[]` (schedule state) — plus the selected `profile` and the calendar fields. The controller takes only the six identity fields a UI owns (`relays`, `sensor`, `linked`, `relayfails`, `protect`, `ptemp`) from `rooms`, keeping its own readings and derived status for every room it already knew: a page is reporting state from a few seconds ago, and its temperatures must not win. Names absent from the incoming list are deleted; names not seen before are added.
+
+`Update Rooms` replaces the identity list on its own, for a client that edits wiring without touching schedules.
+
+`profiles[].rooms` must be an object keyed by room name. A list means the sender is a UI that predates the split, and the controller **rejects the request and leaves the running map alone** rather than emptying the room set and stopping the heating. The log says so.
 
 ### `overrides` — one-off schedule tweaks
 
@@ -53,7 +83,9 @@ An **absent flag means enabled**, so existing maps (and any period written by ha
 - Temperature values in `events[].temp` are strings (e.g. `"21.0"`), `target` is a number
 - `periods[].enabled` is a boolean; omit it to mean enabled, or set `false` to switch a period off
 - Do not remove runtime fields (`relay`, `advance`, `boost`, `status`, `timestamp`, etc.) — the controller writes these
-- `map.json` and `resources/allspeak/map.json` may both need updating if both UI trees are active
+- A room appears once in `rooms[]`, and every profile carries a state entry under that exact name
+- Readings and derived status belong in `rooms[]`, never inside a profile — and a file written by the controller will not have them at all: `PrepareMapForDisk` strips them and they are re-derived within a cycle of a restart, so a hand-written map may leave them out
+- An existing map in the older shape (rooms inside each profile) is converted by the controller when it loads, and the converted shape is what gets written back on the next save — no migration tool is needed
 
 ### After editing
 Validate JSON:

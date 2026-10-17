@@ -201,8 +201,8 @@
 	variable SyncProfiles
 	variable SyncProfile
 	variable SyncRooms
-	variable SyncLegacyRoom
-	variable SyncLegacyIdx
+	variable SyncStateRoom
+	variable SyncRoomName
 	variable SyncUiMode
 	variable SyncBaseMode
 	variable SyncBoostUntil
@@ -373,23 +373,19 @@
 	variable OutsideTempTenths
 	variable FrostTriggerTenths
 	variable NegativeFlag
-	variable OutsideRoomLegacyIdx
+	variable OutsideRoomName
 	variable OutsideRoomFound
-	variable LiveProfileForOutside
-	variable LiveRoomsForOutside
+	variable LiveIdentityRooms
 	variable LiveRoomForOutside
-	variable OutsideProfileLoopI
+	variable OutsideIdentityCount
+	variable OutsideIdentityIdx
 
 !	Device editor reply-state. The editor itself lives in device-editor.allspeak;
 !	we ship an open-message and park on the reply (cancelled / profiles /
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!	OutsideSheet profile-count scratch (the var name is historic — was
-!	shared with the now-extracted device editor; it's used only by
-!	SaveOutsideSheet's fan-out loop).
-	variable DeviceProfileCount
-!! @hash cf0637b4
+!! @hash 347df9a6
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -687,7 +683,7 @@ OnMapReceived:
 !	log ReceivedMessage
 	put ReceivedMessage into Map
 	put empty into ReceivedMessage
-!	Ship the legacy map to the translation module and unpack the reply into our globals.
+!	Ship the map to the translation module and unpack the reply into our globals.
 	send Map to MapToRoomsModule and assign reply to MapResult
 	put property `rooms` of MapResult into RoomsList
 	put property `roomCount` of MapResult into RoomCount
@@ -696,7 +692,7 @@ OnMapReceived:
 	put property `frostTrigger` of MapResult into FrostTrigger
 	clear OutsideRoomFound
 	if property `outsideRoomFound` of MapResult is `yes` set OutsideRoomFound
-	put property `outsideRoomLegacyIdx` of MapResult into OutsideRoomLegacyIdx
+	put property `outsideRoomName` of MapResult into OutsideRoomName
 	put property `profiles` of MapResult into Profiles
 	put property `currentProfile` of MapResult into CurrentProfile
 	put property `activeProfile` of MapResult into ActiveProfile
@@ -719,7 +715,7 @@ OnMapReceived:
 		gosub to RefreshHomeScreen
 	end
 	return
-!! @hash 2dd4d4b4
+!! @hash 80b070ff
 !!!
 !! 10-second poll loop forked once OnMapReceived has built the home screen. Each cycle: wait 10 seconds, request a fresh map, then check how long it's been since the last reply.
 !!
@@ -1864,7 +1860,9 @@ ToggleAdvance:
 	return
 !! @hash e3009772
 !!!
-!! Mirror the locally-mutated Room (RoomsList[ClickIndex]) back into Map.profiles[CurrentProfile].rooms[legacyIdx], translating new-UI fields (Title-case mode, Boost-as-peer-mode overlay) into the legacy controller form.
+!! Mirror the locally-mutated Room (RoomsList[ClickIndex]) back into Map.profiles[CurrentProfile].rooms[room name], translating new-UI fields (Title-case mode, Boost-as-peer-mode overlay) into the controller's form.
+!!
+!! The lookup is by name, not by array position: a profile's rooms are keyed by name, so a reorder or a rename in the Devices sheet can never make this write land on a different room.
 !!
 !! Called after every per-room state change so any subsequent Save that ships `Update Profiles` (Outside, System, Profile, Schedule, Devices) carries fresh data and doesn't accidentally revert the per-room toggle the user just made.
 !!
@@ -1872,14 +1870,16 @@ ToggleAdvance:
 !!
 !! Boost-specific `until` is handled separately by SyncCurrentRoomBoostUntil so the timestamp can be cleared on cancel without going through the mode-mapping logic.
 SyncCurrentRoomToMap:
-	put property `legacyIdx` of Room into SyncLegacyIdx
+	put property `name` of Room into SyncRoomName
 	put property `profiles` of Map into SyncProfiles
 	put element CurrentProfile of SyncProfiles into SyncProfile
 	put property `rooms` of SyncProfile into SyncRooms
-	put element SyncLegacyIdx of SyncRooms into SyncLegacyRoom
+	put `{}` into SyncStateRoom
+	if SyncRooms has entry SyncRoomName
+		put property SyncRoomName of SyncRooms into SyncStateRoom
 
-	set property `advance` of SyncLegacyRoom to property `advance` of Room
-	set property `target` of SyncLegacyRoom to property `target` of Room
+	set property `advance` of SyncStateRoom to property `advance` of Room
+	set property `target` of SyncStateRoom to property `target` of Room
 
 !	Mode: title-case → lowercase. When the new-UI mode is "Boost", the
 !	legacy mode is `boost` and `prevmode` carries the lowercase underlying
@@ -1888,44 +1888,46 @@ SyncCurrentRoomToMap:
 	put property `mode` of Room into SyncUiMode
 	if SyncUiMode is `Boost`
 	begin
-		set property `mode` of SyncLegacyRoom to `boost`
+		set property `mode` of SyncStateRoom to `boost`
 		put property `prevMode` of Room into SyncBaseMode
 		put `off` into SyncPrevModeLegacy
 		if SyncBaseMode is `Timed` put `timed` into SyncPrevModeLegacy
 		else if SyncBaseMode is `On` put `on` into SyncPrevModeLegacy
-		set property `prevmode` of SyncLegacyRoom to SyncPrevModeLegacy
+		set property `prevmode` of SyncStateRoom to SyncPrevModeLegacy
 	end
 	else
 	begin
 		put `off` into SyncBaseMode
 		if SyncUiMode is `Timed` put `timed` into SyncBaseMode
 		else if SyncUiMode is `On` put `on` into SyncBaseMode
-		set property `mode` of SyncLegacyRoom to SyncBaseMode
+		set property `mode` of SyncStateRoom to SyncBaseMode
 	end
 
-	set element SyncLegacyIdx of SyncRooms to SyncLegacyRoom
+	set property SyncRoomName of SyncRooms to SyncStateRoom
 	set property `rooms` of SyncProfile to SyncRooms
 	set element CurrentProfile of SyncProfiles to SyncProfile
 	set property `profiles` of Map to SyncProfiles
 	return
-!! @hash d089d1f6
+!! @hash a6a15edb
 !!!
-!! Write SyncBoostUntil (the boost-expiry timestamp, or 0 on cancel) onto the current room's legacy slot in Map.profiles. Called by ApplyBoost (with a future timestamp), ChangeMode and BoostOffTapped (with 0 to clear).
+!! Write SyncBoostUntil (the boost-expiry timestamp, or 0 on cancel) onto the current room's state in the selected profile. Called by ApplyBoost (with a future timestamp), ChangeMode and BoostOffTapped (with 0 to clear).
 !!
 !! Mirrors the controller's own boost setup: timestamp = now + minutes × 60000.
 SyncCurrentRoomBoostUntil:
-	put property `legacyIdx` of Room into SyncLegacyIdx
+	put property `name` of Room into SyncRoomName
 	put property `profiles` of Map into SyncProfiles
 	put element CurrentProfile of SyncProfiles into SyncProfile
 	put property `rooms` of SyncProfile into SyncRooms
-	put element SyncLegacyIdx of SyncRooms into SyncLegacyRoom
-	set property `until` of SyncLegacyRoom to SyncBoostUntil
-	set element SyncLegacyIdx of SyncRooms to SyncLegacyRoom
+	put `{}` into SyncStateRoom
+	if SyncRooms has entry SyncRoomName
+		put property SyncRoomName of SyncRooms into SyncStateRoom
+	set property `until` of SyncStateRoom to SyncBoostUntil
+	set property SyncRoomName of SyncRooms to SyncStateRoom
 	set property `rooms` of SyncProfile to SyncRooms
 	set element CurrentProfile of SyncProfiles to SyncProfile
 	set property `profiles` of Map to SyncProfiles
 	return
-!! @hash 0991d205
+!! @hash 8c0581fa
 !!!
 !! Style the Advance button for the current Advance value. Active state ("Cancel the advance") gets the accent-tinted treatment; inactive state ("Advance to next schedule period (HH:MM)") gets the plain card surface. Reads the Advance and AdvanceNextTime globals; caller must `index AdvanceBtn to ClickIndex` first.
 !!
@@ -1995,7 +1997,6 @@ OpenScheduleEditor:
 	put element ClickIndex of RoomsList into Room
 	put `{}` into OpenMsg
 	set property `roomName` of OpenMsg to property `name` of Room
-	set property `roomLegacyIdx` of OpenMsg to property `legacyIdx` of Room
 	set property `profileIdx` of OpenMsg to CurrentProfile
 	set property `profiles` of OpenMsg to property `profiles` of Map
 	gosub to HideAllSheets
@@ -2012,7 +2013,7 @@ OpenScheduleEditor:
 		gosub to SendUpdateProfiles
 	end
 	return
-!! @hash 9fdc73c7
+!! @hash 84276594
 !!!
 !! Open the read-only room-info sheet for the room at ClickIndex. Shows the current readings (relay, temperature, humidity, battery, last-report age) and stays open across map refreshes — RefreshHomeScreen detects InfoSheetOpen and calls PaintInfoSheet to update the values in place.
 OpenInfoSheet:
@@ -2308,7 +2309,7 @@ SaveSystemSheet:
 !!!
 !! Open the Outside thermometer + frost protection sheet from the menu's Outside row.
 !!
-!! The outside thermometer lives in the legacy "room with empty relays" slot of every profile. Its `sensor` and `ptemp` fields are fanned out across every profile on save so the controller sees the same outdoor config regardless of which profile is active. FrostActive (used by the summary card) is derived per refresh from the controller's `frostActive` flag if present, else computed locally (outside temp ≤ trigger AND no rooms calling).
+!! The outside thermometer is the room in the shared room list with empty relays — one identity record, not a slot in every profile. Its `sensor`, `protect` and `ptemp` are written once, by name, when the sheet is saved. FrostActive (used by the summary card) is derived per refresh from the controller's `frostActive` flag if present, else computed locally (outside temp ≤ trigger AND no rooms calling).
 !!
 !! Snapshots the current OutsideSensor / FrostTrigger into the Editing* vars, sets the input contents, swaps the visible sheet.
 OpenOutsideSheet:
@@ -2323,7 +2324,7 @@ OpenOutsideSheet:
 	return
 !! @hash 49a64a64
 !!!
-!! Save the outside-sensor edits. Read the inputs, fan the sensor name + ptemp/protect fields across every profile's outside-room slot in the local Map, ship a full `Update Profiles` uirequest, then update the local OutsideSensor / FrostTrigger mirrors.
+!! Save the outside-sensor edits. The outside room is one room with one sensor and one frost trigger — identity, not schedule — so the edit is written once, by name, into Map.rooms. It used to be fanned across a slot in every profile, which is the duplication the shared room list removes.
 !!
 !! If no outside room exists in the map yet (controller never registered one) the save is aborted with an alert — the controller would need to add the slot first, which isn't a UI flow yet.
 !!
@@ -2337,32 +2338,33 @@ SaveOutsideSheet:
 	put the content of OutsideSheetSensor into EditingOutsideSensor
 	put the content of OutsideSheetFrost into EditingFrostTrigger
 
-	put property `profiles` of Map into LiveProfiles
-	put the json count of LiveProfiles into DeviceProfileCount
-	put 0 into OutsideProfileLoopI
-	while OutsideProfileLoopI is less than DeviceProfileCount
+	put property `rooms` of Map into LiveIdentityRooms
+	put the json count of LiveIdentityRooms into OutsideIdentityCount
+	put 0 into OutsideIdentityIdx
+	while OutsideIdentityIdx is less than OutsideIdentityCount
 	begin
-		put element OutsideProfileLoopI of LiveProfiles into LiveProfileForOutside
-		put property `rooms` of LiveProfileForOutside into LiveRoomsForOutside
-		put element OutsideRoomLegacyIdx of LiveRoomsForOutside into LiveRoomForOutside
-		set property `sensor` of LiveRoomForOutside to EditingOutsideSensor
-		if EditingFrostTrigger is empty
+		put element OutsideIdentityIdx of LiveIdentityRooms into LiveRoomForOutside
+		if property `name` of LiveRoomForOutside is OutsideRoomName
 		begin
-			set property `protect` of LiveRoomForOutside to `no`
-			set property `ptemp` of LiveRoomForOutside to empty
+			set property `sensor` of LiveRoomForOutside to EditingOutsideSensor
+			if EditingFrostTrigger is empty
+			begin
+				set property `protect` of LiveRoomForOutside to `no`
+				set property `ptemp` of LiveRoomForOutside to empty
+			end
+			else
+			begin
+				set property `protect` of LiveRoomForOutside to `yes`
+				set property `ptemp` of LiveRoomForOutside to EditingFrostTrigger
+			end
+			set element OutsideIdentityIdx of LiveIdentityRooms to LiveRoomForOutside
+			put OutsideIdentityCount into OutsideIdentityIdx
 		end
-		else
-		begin
-			set property `protect` of LiveRoomForOutside to `yes`
-			set property `ptemp` of LiveRoomForOutside to EditingFrostTrigger
-		end
-		set element OutsideRoomLegacyIdx of LiveRoomsForOutside to LiveRoomForOutside
-		set property `rooms` of LiveProfileForOutside to LiveRoomsForOutside
-		set element OutsideProfileLoopI of LiveProfiles to LiveProfileForOutside
-		increment OutsideProfileLoopI
+		increment OutsideIdentityIdx
 	end
+	set property `rooms` of Map to LiveIdentityRooms
 
-	put LiveProfiles into PayloadProfiles
+	put property `profiles` of Map into PayloadProfiles
 	put CurrentProfile into PayloadActiveProfileIdx
 	if CalendarOn set PayloadCalendarOnFlag else clear PayloadCalendarOnFlag
 	put property `calendar-data` of Map into PayloadCalendarData
@@ -2372,11 +2374,11 @@ SaveOutsideSheet:
 	put EditingFrostTrigger into FrostTrigger
 	gosub to CloseSheet
 	return
-!! @hash 4dda8018
+!! @hash dfa75679
 !!!
 !! Open the device editor for room + device configuration. The device-editor.allspeak module owns the sheet's DOM and logic; we just ship the open-payload and park on the reply.
 !!
-!! Two outbound payloads on a non-cancelled save: Update Profiles for the room-list and per-room device-field changes, plus Request Relay (only when the demand-relay value actually changed). Module signals the latter via `requestRelayChanged: yes` in the reply.
+!! The open payload carries the shared room list (`Map.rooms`, the identity the editor edits) and `profiles` (the per-profile schedule state, which the editor only touches to add, rename or delete a room). Two outbound payloads on a non-cancelled save: Update Profiles for the room-list and per-room device-field changes, plus Request Relay (only when the demand-relay value actually changed). Module signals the latter via `requestRelayChanged: yes` in the reply.
 !!
 !! Aborts early with an alert if there are no rooms yet, or if Map.profiles is empty (shouldn't happen post-bootstrap, defensive check).
 OpenDeviceEditor:
@@ -2392,8 +2394,8 @@ OpenDeviceEditor:
 		return
 	end
 	put `{}` into OpenMsg
+	set property `rooms` of OpenMsg to property `rooms` of Map
 	set property `profiles` of OpenMsg to property `profiles` of Map
-	set property `currentProfile` of OpenMsg to CurrentProfile
 	set property `requestRelay` of OpenMsg to RequestRelay
 	gosub to HideAllSheets
 	set the content of SheetTitleEl to `Rooms and Devices`
@@ -2402,6 +2404,7 @@ OpenDeviceEditor:
 	gosub to CloseSheet
 	if property `cancelled` of DeviceResult is `no`
 	begin
+		set property `rooms` of Map to property `rooms` of DeviceResult
 		put property `profiles` of DeviceResult into PayloadProfiles
 		put CurrentProfile into PayloadActiveProfileIdx
 		if CalendarOn set PayloadCalendarOnFlag else clear PayloadCalendarOnFlag
@@ -2418,7 +2421,7 @@ OpenDeviceEditor:
 		end
 	end
 	return
-!! @hash 1f636809
+!! @hash 4d20793b
 !!!
 !! Panic-button handler for stranded credentials. Wipes the stored MAC and reloads — useful when a typo has stranded the page on connect.
 !!
@@ -2543,18 +2546,22 @@ PostUiRequest:
 !!!
 !! Build and ship an `Update Profiles` uirequest. Callers set the four Payload* inputs first: PayloadProfiles (the profiles array), PayloadActiveProfileIdx (the active profile index), PayloadCalendarOnFlag (set/cleared), and PayloadCalendarData (the calendar-data array, or empty to omit).
 !!
+!! The payload carries the shared room list as well, from Map.rooms: every save is the page handing back the state it has, and a room's identity belongs to that state. A caller that edits identity writes it into Map.rooms before calling — the Outside and Devices sheets do — so there is one source for what is sent.
+!!
 !! Folds the four lines of skeleton + the calendar-on/off if + the calendar-data conditional into one gosub, avoiding the same payload-construction sequence in SaveScheduleEditor / SaveOutsideSheet / SaveDeviceEditor / SaveEditingProfiles.
 SendUpdateProfiles:
 	put `{}` into Result
 	set property `Action` of Result to `Update Profiles`
+	set property `profiles` of Map to PayloadProfiles
 	set property `profiles` of Result to PayloadProfiles
+	set property `rooms` of Result to property `rooms` of Map
 	set property `profile` of Result to PayloadActiveProfileIdx
 	if PayloadCalendarOnFlag set property `calendar` of Result to `on`
 	else set property `calendar` of Result to `off`
 	if PayloadCalendarData is not empty set property `calendar-data` of Result to PayloadCalendarData
 	gosub to PostUiRequest
 	return
-!! @hash 85af1368
+!! @hash 19fd8d43
 !!!
 !! Per-room post-change repaint. Called from every interactive change handler (ChangeMode, WriteTargetTenths, ApplyBoost, BoostOffTapped, ToggleAdvance) after the local Room dict has been mutated.
 !!

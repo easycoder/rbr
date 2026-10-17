@@ -263,7 +263,7 @@ OnCancelClick:
 	return
 !! @hash 070995d9
 !!!
-!! Shallow-clone the input Profiles snapshot into EditingProfiles. Each profile is rebuilt as a fresh {} so name edits don't bleed back to the snapshot; the rooms array is aliased — per-room editing happens in the schedule and device editors which work on their own clones.
+!! Clone the input Profiles snapshot into EditingProfiles. Each profile is rebuilt as a fresh {} so name edits don't bleed back to the snapshot; a profile's `rooms` — its per-room schedule state, keyed by room name — is carried across untouched, because nothing on this sheet edits a schedule. The schedule and device editors edit their own copies.
 CloneProfilesForEditing:
 	put `[]` into EditingProfiles
 	put the json count of Profiles into LegacyProfileCount
@@ -585,7 +585,7 @@ DeleteEditProfile:
 	return
 !! @hash ec66653d
 !!!
-!! Add a new profile by cloning the active one (so the new profile inherits the same rooms + schedules — much easier than starting from scratch). Prompt for a name and append.
+!! Add a new profile by cloning the active one, so the new profile inherits the same per-room schedules — much easier than starting from scratch, and safe because rooms are keyed by name rather than by position. Prompt for a name and append.
 !!
 !! Falls back to profile 0 if the active profile can't be found (shouldn't happen, defensive).
 AddEditProfile:

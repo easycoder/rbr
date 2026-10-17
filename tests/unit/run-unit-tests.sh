@@ -40,10 +40,12 @@ else
     exit 2
 fi
 
-# Python unit tests for the heating-data CSV writer (heatlog.py).
+# Python unit tests: the heating-data CSV writer (heatlog.py), and the split
+# between the controller's working room array and the profile state — the two
+# aliasing traps that bit the shared room list on the live system (DIFF.md).
 echo ""
-echo "Running writer tests (tests/unit/heatlog_test.py)..."
-PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test 2>&1)"
+echo "Running Python tests (tests/unit/heatlog_test.py, commit_roundtrip_test.py)..."
+PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test commit_roundtrip_test 2>&1)"
 PY_STATUS=$?
 echo "$PY_OUT"
 

@@ -29,6 +29,76 @@
     queue MessageQueue
     list Profiles
     list Rooms
+!	Shared room list: identity above profiles, per-profile state keyed by name.
+    list ESRProfiles
+    dictionary RoomStates
+    list ESRIdentity
+    list ESRList
+    dictionary ESRNames
+    dictionary ESRStates
+    dictionary ESRProfile
+    dictionary ESRRoom
+    dictionary ESREntry
+    dictionary ESRCopy
+    dictionary MRStates
+    list MRIdentity
+    variable MaterialisedProfile
+    dictionary MRTemp
+    variable MRText
+    dictionary CRProfile
+    dictionary CRStates
+    dictionary CRState
+    variable CRStateIdx
+    dictionary MRRoom
+    dictionary MRState
+    list CRIdentity
+    dictionary CRIndex
+    dictionary CRRoom
+    dictionary CRTarget
+    dictionary CRCopy
+    variable ESRSel
+    variable ESRP
+    variable ESRI
+    variable ESRName
+    variable ESRCopyText
+    variable MRIdx
+    variable MRName
+    variable CRIdx
+    variable CRId
+    variable CRName
+    variable CRName0
+    variable AddName
+    variable CRCopyText
+    list DiskRoomNames
+    variable DRName
+    list DiskIdentity
+    dictionary DiskIdRoom
+    variable DIIdx
+    list URList
+    dictionary AddStates
+    dictionary InProfile
+    dictionary InRooms
+    list InKeys
+    list InProfiles
+    list MIRCurrent
+    dictionary MIRByName
+    dictionary MIRSeen
+    dictionary MIRRoom
+    dictionary MIRIn
+    dictionary MIRNew
+    dictionary MIRCopy
+    list MIRBuilt
+    list MIRStateKeys
+    variable MIRI
+    variable MIRName
+    variable MIRCopyText
+    dictionary RUSNames
+    dictionary RUSRoom
+    list RUSRoomList
+    variable RUSI
+    variable RUSName
+    variable InProfileCount
+    variable InP
     list SenderKeys
     list Replies
     list CalendarData
@@ -59,7 +129,7 @@
     dictionary MapDisk
     list DiskProfiles
     dictionary DiskProfile
-    list DiskRooms
+    dictionary DiskRooms
     dictionary DiskRoom
     variable MapDiskText
     variable LastMapDiskText
@@ -176,7 +246,7 @@
     variable HeatlogStatePath
     variable DashboardPath
     variable ZigbeeTempsPath
-!! @hash b913fc30
+!! @hash 4220e2fe
 !! @verified b913fc30
 !!!
 !! Basic initialisation.
@@ -704,11 +774,13 @@ LoadMap:
     else
     begin
         reset Map
+        reset Rooms
+        set entry `rooms` of Map to Rooms
         reset Profiles
         reset Profile
         set entry `name` of Profile to `Default`
-        reset Rooms
-        set entry `rooms` of Profile to Rooms
+        reset RoomStates
+        set entry `rooms` of Profile to RoomStates
         append Profile to Profiles
         set entry `profiles` of Map to Profiles
         set entry `profile` of Map to 0
@@ -716,10 +788,341 @@ LoadMap:
         set entry `calendar-data` of Map to `[]`
         set entry `name` of Map to `New System`
     end
+    gosub to EnsureSharedRooms
     set MapHasChanged
     return
-!! @hash e3869999
+!! @hash ad046dc3
 !! @verified e3869999
+!!!
+!! Rooms live above profiles. Identity — name, relays, sensor, linked, relayfails, protect, ptemp — is a property of the installation and lives once in Map.rooms. Schedule state — mode, target, periods, events, advance and the rest — lives in profiles[].rooms keyed by room name, because it is meaningless outside a plan. These three routines are the only places that cross that boundary; every other routine keeps working on one flat Room per iteration, exactly as it did when a profile simply owned a room list.
+!!
+!! Why it changed: the PWA edits rooms across every profile by array index, and nothing checked that an index meant the same room everywhere, so a profile with a shorter or differently ordered list corrupted its neighbours silently. Joined by name, that cannot happen.
+!!
+!! EnsureSharedRooms converts an old-shape map in memory on load, so a controller that is updated ahead of its map still runs, and the next disk write persists the new shape. Room names are unioned across profiles, selected profile first, so nothing is lost even if the old profiles had already drifted apart.
+EnsureSharedRooms:
+    if Map has entry `rooms` return
+    log `Map has rooms inside profiles: converting to a shared room list`
+    put entry `profiles` of Map into ESRProfiles
+    reset ESRIdentity
+    reset ESRNames
+    if the count of ESRProfiles is greater than 0
+    begin
+        put entry `profile` of Map into ESRSel
+        if ESRSel is less than 0 set ESRSel to 0
+        if ESRSel is not less than the count of ESRProfiles set ESRSel to 0
+        ! the selected profile first, so identity order matches what the live map showed
+        put item ESRSel of ESRProfiles into ESRProfile
+        gosub to CollectIdentityNames
+        set ESRP to 0
+        while ESRP is less than the count of ESRProfiles
+        begin
+            if ESRP is not ESRSel
+            begin
+                put item ESRP of ESRProfiles into ESRProfile
+                gosub to CollectIdentityNames
+            end
+            increment ESRP
+        end
+    end
+    set entry `rooms` of Map to ESRIdentity
+    ! Each profile's room list becomes a name-keyed state dictionary.
+    set ESRP to 0
+    while ESRP is less than the count of ESRProfiles
+    begin
+        put item ESRP of ESRProfiles into ESRProfile
+        put entry `rooms` of ESRProfile into ESRList
+        reset ESRStates
+        set ESRI to 0
+        while ESRI is less than the count of ESRList
+        begin
+            put item ESRI of ESRList into ESRRoom
+            put entry `name` of ESRRoom into ESRName
+            if ESRRoom has entry `name` delete entry `name` of ESRRoom
+            if ESRRoom has entry `relays` delete entry `relays` of ESRRoom
+            if ESRRoom has entry `sensor` delete entry `sensor` of ESRRoom
+            if ESRRoom has entry `linked` delete entry `linked` of ESRRoom
+            if ESRRoom has entry `relayfails` delete entry `relayfails` of ESRRoom
+            if ESRRoom has entry `protect` delete entry `protect` of ESRRoom
+            if ESRRoom has entry `ptemp` delete entry `ptemp` of ESRRoom
+            set entry ESRName of ESRStates to ESRRoom
+            increment ESRI
+        end
+        set entry `rooms` of ESRProfile to ESRStates
+        set item ESRP of ESRProfiles to ESRProfile
+        increment ESRP
+    end
+    set entry `profiles` of Map to ESRProfiles
+    log `Shared room list: ` cat the count of ESRIdentity cat ` room(s)`
+    return
+!!
+!! Helper for EnsureSharedRooms: append any room name in ESRProfile that identity does not already carry, taking its identity fields from that profile's copy.
+CollectIdentityNames:
+    put entry `rooms` of ESRProfile into ESRList
+    set ESRI to 0
+    while ESRI is less than the count of ESRList
+    begin
+        put item ESRI of ESRList into ESRRoom
+        put entry `name` of ESRRoom into ESRName
+        if ESRNames does not have entry ESRName
+        begin
+            set entry ESRName of ESRNames to 1
+            reset ESREntry
+            set entry `name` of ESREntry to ESRName
+            if ESRRoom has entry `relays` set entry `relays` of ESREntry to entry `relays` of ESRRoom
+            if ESRRoom has entry `sensor` set entry `sensor` of ESREntry to entry `sensor` of ESRRoom
+            if ESRRoom has entry `linked` set entry `linked` of ESREntry to entry `linked` of ESRRoom
+            if ESRRoom has entry `relayfails` set entry `relayfails` of ESREntry to entry `relayfails` of ESRRoom
+            if ESRRoom has entry `protect` set entry `protect` of ESREntry to entry `protect` of ESRRoom
+            if ESRRoom has entry `ptemp` set entry `ptemp` of ESREntry to entry `ptemp` of ESRRoom
+            put prettify ESREntry into ESRCopyText
+            put json ESRCopyText into ESRCopy
+            append ESRCopy to ESRIdentity
+        end
+        increment ESRI
+    end
+    return
+!!
+!! Build the working Rooms array for the selected profile: identity merged into a *copy* of each room's state, so the per-room routines see one complete record per iteration without writing identity into somebody's plan. `put entry … of … into …` aliases in this runtime, so the state record is copied through JSON first; CommitRooms then writes the state half back, which is what carries a mode change or an Advance to the profile.
+MaterialiseRooms:
+    ! Which profile the working array belongs to. CommitRooms needs it: the
+    ! array is rebuilt for a different profile on a profile switch, and a commit
+    ! that happened in between must still land in the profile it came from.
+    put SelectedProfile into MaterialisedProfile
+    put item SelectedProfile of Profiles into Profile
+    put entry `rooms` of Profile into MRStates
+    put entry `rooms` of Map into MRIdentity
+    reset Rooms
+    set MRIdx to 0
+    while MRIdx is less than the count of MRIdentity
+    begin
+        put item MRIdx of MRIdentity into MRRoom
+        put entry `name` of MRRoom into MRName
+        if MRStates has entry MRName
+        begin
+            ! A copy, not the stored record: `put entry … of … into …` aliases in
+            ! this runtime, so merging identity into the stored one would write
+            ! relays, sensors and readings into every profile's state — the
+            ! duplication the shared room list exists to remove — and the page
+            ! would ship them back on its next save.
+            put entry MRName of MRStates into MRTemp
+            put prettify MRTemp into MRText
+            put json MRText into MRState
+            set entry `name` of MRState to MRName
+            if MRRoom has entry `relays` set entry `relays` of MRState to entry `relays` of MRRoom
+            if MRRoom has entry `sensor` set entry `sensor` of MRState to entry `sensor` of MRRoom
+            if MRRoom has entry `linked` set entry `linked` of MRState to entry `linked` of MRRoom
+            if MRRoom has entry `relayfails` set entry `relayfails` of MRState to entry `relayfails` of MRRoom
+            if MRRoom has entry `protect` set entry `protect` of MRState to entry `protect` of MRRoom
+            if MRRoom has entry `ptemp` set entry `ptemp` of MRState to entry `ptemp` of MRRoom
+            append MRState to Rooms
+        end
+        else
+            log `Room ` cat MRName cat ` has no state in this profile: not controlled`
+        increment MRIdx
+    end
+    put the count of Rooms into RoomCount
+    return
+!!
+!! Copy identity outward from the working rooms into Map.rooms, matched by name and never by index. A read, not a mutation: the working records keep their fields, because ProcessRoom owns them until the cycle ends and the disk copy is what strips them.
+!!
+!! The readings and the derived fields (status, statusMessage, relayMessage, relaysFailed, relaysTotal, relay) belong to the working record, so they are copied outward here too — the UI reads all of them from the room, and the working array is the only place they exist. Missing this leaves the page showing every room online, calm and idle.
+CommitRooms:
+    put entry `rooms` of Map into CRIdentity
+    reset CRIndex
+    set CRIdx to 0
+    while CRIdx is less than the count of CRIdentity
+    begin
+        put item CRIdx of CRIdentity into CRRoom
+        put entry `name` of CRRoom into CRName0
+        set entry CRName0 of CRIndex to CRIdx
+        increment CRIdx
+    end
+    set CRIdx to 0
+    while CRIdx is less than the count of Rooms
+    begin
+        put item CRIdx of Rooms into CRRoom
+        put entry `name` of CRRoom into CRName
+        if CRIndex has entry CRName
+        begin
+            put entry CRName of CRIndex into CRId
+            put item CRId of CRIdentity into CRTarget
+        end
+        else
+        begin
+            reset CRTarget
+            set entry `name` of CRTarget to CRName
+            put prettify CRTarget into CRCopyText
+            put json CRCopyText into CRCopy
+            append CRCopy to CRIdentity
+            put the count of CRIdentity into CRId
+            decrement CRId
+            set entry CRName of CRIndex to CRId
+        end
+        if CRRoom has entry `relays` set entry `relays` of CRTarget to entry `relays` of CRRoom
+        if CRRoom has entry `sensor` set entry `sensor` of CRTarget to entry `sensor` of CRRoom
+        if CRRoom has entry `linked` set entry `linked` of CRTarget to entry `linked` of CRRoom
+        if CRRoom has entry `relayfails` set entry `relayfails` of CRTarget to entry `relayfails` of CRRoom
+        if CRRoom has entry `protect` set entry `protect` of CRTarget to entry `protect` of CRRoom
+        if CRRoom has entry `ptemp` set entry `ptemp` of CRTarget to entry `ptemp` of CRRoom
+        if CRRoom has entry `temperature` set entry `temperature` of CRTarget to entry `temperature` of CRRoom
+        if CRRoom has entry `humidity` set entry `humidity` of CRTarget to entry `humidity` of CRRoom
+        if CRRoom has entry `battery` set entry `battery` of CRTarget to entry `battery` of CRRoom
+        if CRRoom has entry `sensorAge` set entry `sensorAge` of CRTarget to entry `sensorAge` of CRRoom
+        if CRRoom has entry `timestamp` set entry `timestamp` of CRTarget to entry `timestamp` of CRRoom
+        ! The derived fields too: the UI reads the room's status, its message and
+        ! whether the relay is calling from this record, and the working array is
+        ! where they are computed. PrepareMapForDisk strips them from the disk
+        ! copy, so keeping them here costs nothing but the round trip to the page.
+        if CRRoom has entry `status` set entry `status` of CRTarget to entry `status` of CRRoom
+        if CRRoom has entry `statusMessage` set entry `statusMessage` of CRTarget to entry `statusMessage` of CRRoom
+        if CRRoom has entry `relayMessage` set entry `relayMessage` of CRTarget to entry `relayMessage` of CRRoom
+        if CRRoom has entry `relaysFailed` set entry `relaysFailed` of CRTarget to entry `relaysFailed` of CRRoom
+        if CRRoom has entry `relaysTotal` set entry `relaysTotal` of CRTarget to entry `relaysTotal` of CRRoom
+        if CRRoom has entry `relay` set entry `relay` of CRTarget to entry `relay` of CRRoom
+        increment CRIdx
+    end
+    set entry `rooms` of Map to CRIdentity
+
+    ! The other half: the working record carries the *schedule* state as well, and
+    ! that belongs in the profile the array was materialised for. This is not
+    ! belt and braces — MaterialiseRooms builds the array with `append`, and
+    ! append copies (measured: `put A into B` aliases, `append` does not), so a
+    ! mode change, a boost or an Advance applied to a working record was reaching
+    ! the relay and then dying at the next materialise. The page reads the
+    ! profile, so it showed the change for a second and then put the old state
+    ! back.
+    !
+    ! The six state fields are copied by name, and the entry is *replaced*, so a
+    ! field a handler deleted (the boost pair on leaving boost, say) stays
+    ! deleted. A whitelist rather than "everything that is not identity": the
+    ! working record also carries per-cycle scratch (`advance-rq`, `responses`),
+    ! and none of that belongs in somebody's plan.
+    if the count of Profiles is greater than 0
+    begin
+        put MaterialisedProfile into CRStateIdx
+        if CRStateIdx is less than 0 set CRStateIdx to 0
+        if CRStateIdx is not less than the count of Profiles set CRStateIdx to 0
+        put item CRStateIdx of Profiles into CRProfile
+        put entry `rooms` of CRProfile into CRStates
+        set CRIdx to 0
+        while CRIdx is less than the count of Rooms
+        begin
+            put item CRIdx of Rooms into CRRoom
+            put entry `name` of CRRoom into CRName
+            reset CRState
+            if CRRoom has entry `mode` set entry `mode` of CRState to entry `mode` of CRRoom
+            if CRRoom has entry `target` set entry `target` of CRState to entry `target` of CRRoom
+            if CRRoom has entry `periods` set entry `periods` of CRState to entry `periods` of CRRoom
+            if CRRoom has entry `events` set entry `events` of CRState to entry `events` of CRRoom
+            if CRRoom has entry `period` set entry `period` of CRState to entry `period` of CRRoom
+            if CRRoom has entry `advance` set entry `advance` of CRState to entry `advance` of CRRoom
+            if CRRoom has entry `prevmode` set entry `prevmode` of CRState to entry `prevmode` of CRRoom
+            if CRRoom has entry `until` set entry `until` of CRState to entry `until` of CRRoom
+            if CRRoom has entry `boostperiod` set entry `boostperiod` of CRState to entry `boostperiod` of CRRoom
+            set entry CRName of CRStates to CRState
+            increment CRIdx
+        end
+        set entry `rooms` of CRProfile to CRStates
+        set item CRStateIdx of Profiles to CRProfile
+        set entry `profiles` of Map to Profiles
+    end
+    return
+!! @hash f49cf4b0
+!!!
+!! Merge an identity list sent by the UI into Map.rooms.
+!!
+!! The UI owns six fields of a room's identity — relays, sensor, linked, relayfails, protect, ptemp — and nothing else. The readings (temperature, humidity, battery, sensorAge, timestamp) and the derived status fields belong to the controller, and a page sending back a map it received a few seconds ago carries stale copies of them; taking those would make the interface flicker backwards. So the list is rebuilt from the incoming names and order, keeping each surviving room's live record and overwriting only the fields the UI is entitled to set.
+!!
+!! Names in the old list but not in the new one are gone: deletion is the UI dropping them. A room with no name, or a repeated name, is dropped and logged: a name is the key that joins a room to its schedule in every profile, so neither can be stored.
+!!
+!! Input: URList. Output: Map.rooms.
+MergeIdentityRooms:
+    put entry `rooms` of Map into MIRCurrent
+    reset MIRByName
+    set MIRI to 0
+    while MIRI is less than the count of MIRCurrent
+    begin
+        put item MIRI of MIRCurrent into MIRRoom
+        put entry `name` of MIRRoom into MIRName
+        set entry MIRName of MIRByName to MIRRoom
+        increment MIRI
+    end
+    reset MIRBuilt
+    reset MIRSeen
+    set MIRI to 0
+    while MIRI is less than the count of URList
+    begin
+        put item MIRI of URList into MIRIn
+        put entry `name` of MIRIn into MIRName
+        if MIRName is empty
+            log `Identity update: dropped a room with no name`
+        else if MIRSeen has entry MIRName
+            ! A name is the key to every profile's state, so a duplicate in the
+            ! list would make two rooms share one schedule. Keep the first.
+            log `Identity update: dropped a duplicate room ` cat MIRName
+        else
+        begin
+            set entry MIRName of MIRSeen to 1
+            reset MIRNew
+            set entry `name` of MIRNew to MIRName
+            if MIRByName has entry MIRName
+            begin
+                ! Keep the controller's own readings and status: copy the live
+                ! record, then overwrite the fields the UI owns.
+                put entry MIRName of MIRByName into MIRCopy
+                put prettify MIRCopy into MIRCopyText
+                put json MIRCopyText into MIRNew
+            end
+            if MIRIn has entry `relays` set entry `relays` of MIRNew to entry `relays` of MIRIn
+            if MIRIn has entry `sensor` set entry `sensor` of MIRNew to entry `sensor` of MIRIn
+            if MIRIn has entry `linked` set entry `linked` of MIRNew to entry `linked` of MIRIn
+            if MIRIn has entry `relayfails` set entry `relayfails` of MIRNew to entry `relayfails` of MIRIn
+            if MIRIn has entry `protect` set entry `protect` of MIRNew to entry `protect` of MIRIn
+            if MIRIn has entry `ptemp` set entry `ptemp` of MIRNew to entry `ptemp` of MIRIn
+            put prettify MIRNew into MIRCopyText
+            put json MIRCopyText into MIRCopy
+            append MIRCopy to MIRBuilt
+        end
+        increment MIRI
+    end
+    set entry `rooms` of Map to MIRBuilt
+    log `Shared room list: ` cat the count of MIRBuilt cat ` room(s) from the UI`
+    return
+!! @hash 9498f691
+!!!
+!! Report per-profile state that names a room the shared list does not have, rather than dropping it in silence. A rename that arrived without its identity half, or a page holding a room list from before a delete, shows up in the log instead of leaving a room that quietly stops being heated.
+!!
+!! Worse than a warning would be to accept it: a state entry with no identity is a schedule nothing can run.
+ReportUnknownStates:
+    put entry `rooms` of Map into RUSRoomList
+    reset RUSNames
+    set RUSI to 0
+    while RUSI is less than the count of RUSRoomList
+    begin
+        put item RUSI of RUSRoomList into RUSRoom
+        put entry `name` of RUSRoom into RUSName
+        set entry RUSName of RUSNames to 1
+        increment RUSI
+    end
+    put the count of Profiles into InProfileCount
+    set InP to 0
+    while InP is less than InProfileCount
+    begin
+        put item InP of Profiles into InProfile
+        put entry `rooms` of InProfile into InRooms
+        put the keys of InRooms into MIRStateKeys
+        set RUSI to 0
+        while RUSI is less than the count of MIRStateKeys
+        begin
+            put item RUSI of MIRStateKeys into RUSName
+            if RUSNames does not have entry RUSName
+                log `Profile ` cat entry `name` of InProfile cat ` has state for unknown room ` cat RUSName
+            increment RUSI
+        end
+        increment InP
+    end
+    return
+!! @hash b172ebfb
 !!!
 !! When the calendar feature is on, override SelectedProfile with the profile assigned to today's weekday.
 !!
@@ -761,8 +1164,7 @@ ResolveCalendarProfile:
 ProcessAllRooms:
     gosub to ResolveCalendarProfile
     put item SelectedProfile of Profiles into Profile
-    put entry `rooms` of Profile into Rooms
-    put the count of Rooms into RoomCount
+    gosub to MaterialiseRooms
     set the elements of Room to RoomCount
     set the elements of TargetWas to RoomCount
     set the elements of PeriodWas to RoomCount
@@ -808,7 +1210,7 @@ ProcessAllRooms:
     end
     set TodayWas to today
     return
-!! @hash 83aef399
+!! @hash 9b57c018
 !! @verified 09455c73
 !!!
 !! Run one control cycle for a single room: read its current temperature, apply the active mode to derive a target, send a relay command to the device controller, and store the outcome on the Room dictionary for the UI.
@@ -1328,15 +1730,20 @@ RoomStatus:
 !! UpdateRooms writes a single Room back into the Rooms list; UpdateProfile rewrites the profile's rooms list; UpdateProfiles writes the profile back into the profiles list; UpdateMap puts the profiles list back on the Map. Each level is a valid entry point.
 UpdateRooms:
 !    log `Update ` cat RoomName cat ` (` cat RoomIndex cat ` )`
+!	Write the working record back into the array first — the runtime does not
+!	guarantee that an indexed dictionary and its list entry are the same object
+!	— then commit identity outward from the committed array.
     set item RoomIndex of Rooms to Room
+    gosub to CommitRooms
 UpdateProfile:
-    set entry `rooms` of Profile to Rooms
+    gosub to CommitRooms
 UpdateProfiles:
+    gosub to CommitRooms
     set item SelectedProfile of Profiles to Profile
 UpdateMap:
     set entry `profiles` of Map to Profiles
     return
-!! @hash b14a1967
+!! @hash 0f2d0ef8
 !! @verified 19bec5d0
 !!!
 !! Build the disk copy of the map: the same map with the readings and derived fields removed, left in MapDisk as text in MapDiskText.
@@ -1347,6 +1754,7 @@ UpdateMap:
 !!
 !! `put prettify X into T` then `put json T into Y` is the only way to copy a json variable — assigning one json variable to another aliases them, and deleting a field from the copy would then delete it from the live map. The probe that established this is recorded in DIFF.md.
 PrepareMapForDisk:
+    gosub to CommitRooms
     put prettify Map into MapDiskText
     put json MapDiskText into MapDisk
     put entry `profiles` of MapDisk into DiskProfiles
@@ -1355,10 +1763,20 @@ PrepareMapForDisk:
     begin
         put item DPIdx of DiskProfiles into DiskProfile
         put entry `rooms` of DiskProfile into DiskRooms
+        put the keys of DiskRooms into DiskRoomNames
         set DRIdx to 0
-        while DRIdx is less than the count of DiskRooms
+        while DRIdx is less than the count of DiskRoomNames
         begin
-            put item DRIdx of DiskRooms into DiskRoom
+            put item DRIdx of DiskRoomNames into DRName
+            put entry DRName of DiskRooms into DiskRoom
+            ! The plan keeps only what a plan needs: identity lives once, in Map.rooms.
+            if DiskRoom has entry `name` delete entry `name` of DiskRoom
+            if DiskRoom has entry `relays` delete entry `relays` of DiskRoom
+            if DiskRoom has entry `sensor` delete entry `sensor` of DiskRoom
+            if DiskRoom has entry `linked` delete entry `linked` of DiskRoom
+            if DiskRoom has entry `relayfails` delete entry `relayfails` of DiskRoom
+            if DiskRoom has entry `protect` delete entry `protect` of DiskRoom
+            if DiskRoom has entry `ptemp` delete entry `ptemp` of DiskRoom
             if DiskRoom has entry `temperature` delete entry `temperature` of DiskRoom
             if DiskRoom has entry `humidity` delete entry `humidity` of DiskRoom
             if DiskRoom has entry `battery` delete entry `battery` of DiskRoom
@@ -1370,7 +1788,7 @@ PrepareMapForDisk:
             if DiskRoom has entry `timestamp` delete entry `timestamp` of DiskRoom
             if DiskRoom has entry `sensorAge` delete entry `sensorAge` of DiskRoom
             if DiskRoom has entry `relay` delete entry `relay` of DiskRoom
-            set item DRIdx of DiskRooms to DiskRoom
+            set entry DRName of DiskRooms to DiskRoom
             increment DRIdx
         end
         set entry `rooms` of DiskProfile to DiskRooms
@@ -1378,9 +1796,30 @@ PrepareMapForDisk:
         increment DPIdx
     end
     set entry `profiles` of MapDisk to DiskProfiles
+    ! Identity keeps the wiring and the counters; the readings are re-derived.
+    put entry `rooms` of MapDisk into DiskIdentity
+    set DIIdx to 0
+    while DIIdx is less than the count of DiskIdentity
+    begin
+        put item DIIdx of DiskIdentity into DiskIdRoom
+        if DiskIdRoom has entry `temperature` delete entry `temperature` of DiskIdRoom
+        if DiskIdRoom has entry `humidity` delete entry `humidity` of DiskIdRoom
+        if DiskIdRoom has entry `battery` delete entry `battery` of DiskIdRoom
+        if DiskIdRoom has entry `status` delete entry `status` of DiskIdRoom
+        if DiskIdRoom has entry `statusMessage` delete entry `statusMessage` of DiskIdRoom
+        if DiskIdRoom has entry `relayMessage` delete entry `relayMessage` of DiskIdRoom
+        if DiskIdRoom has entry `relaysFailed` delete entry `relaysFailed` of DiskIdRoom
+        if DiskIdRoom has entry `relaysTotal` delete entry `relaysTotal` of DiskIdRoom
+        if DiskIdRoom has entry `timestamp` delete entry `timestamp` of DiskIdRoom
+        if DiskIdRoom has entry `sensorAge` delete entry `sensorAge` of DiskIdRoom
+        if DiskIdRoom has entry `relay` delete entry `relay` of DiskIdRoom
+        set item DIIdx of DiskIdentity to DiskIdRoom
+        increment DIIdx
+    end
+    set entry `rooms` of MapDisk to DiskIdentity
     put prettify MapDisk into MapDiskText
     return
-!! @hash 593badbb
+!! @hash a9af2f05
 !! @verified 593badbb
 !!!
 !! Trigger an immediate UI update by setting both ImmediateUpdate (which short-circuits MainLoop's 5-second wait) and MapHasChanged (which makes SendMapToUI actually push). 
@@ -1974,7 +2413,7 @@ ResolveRoomFromMessage:
 !!
 !! Action names are normalised so the UI can be upgraded incrementally — `request`, `addroom`, `rooms`, `system name`, etc. all map to their canonical forms.
 !!
-!! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (full replacement array, used by delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites profiles list and optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), and `Test`.
+!! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (replaces the shared room identity list, used by add/delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites the shared room list, the profiles list and the optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), and `Test`.
 !!
 !! Operating Mode handles all four modes plus the `Advance` toggle and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
 !!
@@ -2085,22 +2524,31 @@ ProcessUIRequest:
         end
         log `Add room ` cat entry `name` of RoomSpec
         append RoomSpec to Rooms
-        gosub to UpdateProfile
+        gosub to CommitRooms
+        ! The identity entry now exists; give the selected profile its state, or the
+        ! next materialise would drop the room again.
+        put item SelectedProfile of Profiles into Profile
+        put entry `rooms` of Profile into AddStates
+        put entry `name` of RoomSpec into AddName
+        if AddStates does not have entry AddName set entry AddName of AddStates to RoomSpec
+        gosub to ProcessAllRooms
         gosub to ForceUpdate
     end
     else if Action is `Update Rooms`
     begin
-        if Message has entry `rooms` put entry `rooms` of Message into Rooms
+        if Message has entry `rooms` put entry `rooms` of Message into URList
         else
         begin
             log `UIRequest rejected: Update Rooms needs rooms`
             return
         end
-        log `Update rooms list (` cat the count of Rooms cat ` rooms)`
-        gosub to UpdateProfile
+        log `Update identity rooms (` cat the count of URList cat ` rooms)`
+        gosub to MergeIdentityRooms
+        ! The room set changed; the working array and its parallel arrays are
+        ! rebuilt for the selected profile, and each profile keeps its own state.
+        gosub to ProcessAllRooms
         log `Force an update (Update Rooms)`
         gosub to ForceUpdate
-        gosub to ProcessAllRooms
     end
     else if Action is `Select Profile`
     begin
@@ -2120,10 +2568,37 @@ ProcessUIRequest:
     end
     else if Action is `Update Profiles`
     begin
+        ! Identity first: the payload carries the shared room list as well as the
+        ! per-profile state, and the state validation below is against that list.
+        if Message has entry `rooms`
+        begin
+            put entry `rooms` of Message into URList
+            gosub to MergeIdentityRooms
+        end
         if Message has entry `profiles`
         begin
+            ! Each profile's rooms must be a name-keyed dictionary (the shared room
+            ! list). A list means the page is an old UI that predates the split;
+            ! storing it would empty the room set and stop the heating, so refuse,
+            ! say so, and leave the running map alone.
+            put entry `profiles` of Message into InProfiles
+            put the count of InProfiles into InProfileCount
+            set InP to 0
+            while InP is less than InProfileCount
+            begin
+                put item InP of InProfiles into InProfile
+                put entry `rooms` of InProfile into InRooms
+                put the keys of InRooms into InKeys
+                if the count of InKeys is 0
+                begin
+                    log `Update Profiles rejected: profile ` cat InP cat ` rooms are not name-keyed — reload the UI`
+                    return
+                end
+                increment InP
+            end
             set entry `profiles` of Map to entry `profiles` of Message
             put entry `profiles` of Map into Profiles
+            gosub to ReportUnknownStates
             log `Updated profiles list`
         end
         if Message has entry `profile`
@@ -2136,9 +2611,12 @@ ProcessUIRequest:
             set entry `calendar` of Map to entry `calendar` of Message
         if Message has entry `calendar-data`
             set entry `calendar-data` of Map to entry `calendar-data` of Message
+        ! Re-materialise before the map goes out: the working array still holds
+        ! the state from before this save, and a commit in between would put it
+        ! back over what was just stored.
+        gosub to ProcessAllRooms
         log `Force an update (profile change)`
         gosub to ForceUpdate
-        gosub to ProcessAllRooms
     end
     else if Action is `Operating Mode`
     begin
@@ -2258,9 +2736,6 @@ ProcessUIRequest:
             else if Message has entry `Target` set entry `target` of Room to entry `Target` of Message
         end
         gosub to UpdateRooms
-        put item SelectedProfile of Profiles into Profile
-        put entry `rooms` of Profile into Rooms
-        put item RoomIndex of Rooms into RoomSpec
         if Mode is not `timed` or Value is empty gosub to ForceUpdate
     end
     else if Action is `Room Override`
@@ -2282,13 +2757,14 @@ ProcessUIRequest:
         gosub to ForceUpdate
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 9aef47cd
+!! @hash 87ddbf1a
 !! @verified 4dd81a04
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).
 !!
 !! Iterates the Senders dictionary, which HandleMessages prunes of any sender silent for over 100 seconds. Clears MapHasChanged after the push so subsequent calls in the same tick cycle don't re-send the same map.
 SendMapToUI:
+    gosub to CommitRooms
     if MapHasChanged set MessageText to Map else set MessageText to empty
     clear MapHasChanged
     put the keys of Senders into SenderKeys
@@ -2305,7 +2781,7 @@ SendMapToUI:
     end
     increment UpdateCount
     return
-!! @hash a4fc17e8
+!! @hash 38036373
 !! @verified a4fc17e8
 !!!
 !! Send a single MessageText payload to one Sender over MQTT.

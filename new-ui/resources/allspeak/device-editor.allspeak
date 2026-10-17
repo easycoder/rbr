@@ -2,9 +2,11 @@
 !!
 !! Loaded by shell.allspeak inside BuildHomeScreen via `run ... as DeviceEditorModule`, AFTER the sheet chrome has been rendered. Renders device-editor.json into SheetContent, attaches its DOM, wires its static click handlers (Save / Cancel / Add Room / room-pill / linked), then `release parent` and parks on `on message`.
 !!
-!! Lifecycle of one editing session: parent ships `{profiles, currentProfile, requestRelay}` and blocks. Module clones the profiles tree (mutated in place by the room-list operations), picks the first non-outside room, populates the input fields, shows its sheet, polls on DoneFlag while the user clicks. Save commits the in-flight device-field edits across every profile and ships `{cancelled:`no`, profiles, requestRelay, requestRelayChanged}` back; Cancel ships `{cancelled:`yes`}`.
+!! Lifecycle of one editing session: parent ships `{rooms, profiles, currentProfile, requestRelay}` and blocks. `rooms` is the shared room identity list — relays, thermometer, linked, frost — and `profiles` carries only per-profile schedule state, keyed by room name. The module copies both, picks the first non-outside room, populates the input fields, shows its sheet, polls on DoneFlag while the user clicks. Save ships `{cancelled:`no`, rooms, profiles, requestRelay, requestRelayChanged}` back; Cancel ships `{cancelled:`yes`}`.
 !!
-!! Two outbound payloads from a save: the parent ships Update Profiles for the room-list/device-field changes, and a separate Request Relay only if requestRelay actually changed.
+!! Only three operations touch `profiles`, and all three are about the state dictionary keyed by name: adding a room gives every profile a starter state for it, renaming moves the state from the old key to the new, deleting drops it. Everything else — the device fields, moving a room up or down — touches identity alone, which is the simplification this split buys. The old code wrote the same sensor and relay list into every profile and swapped the same two array positions in every profile, trusting that index 3 meant the same room everywhere.
+!!
+!! Two outbound payloads from a save: the parent ships Update Profiles carrying both `rooms` and `profiles`, and a separate Request Relay only if requestRelay actually changed.
 !!
 !! Sheet-chrome ownership: parent owns SheetRoot / SheetScrim / SheetContainer / SheetTitleEl (HideAllSheets + OpenSheet before send, CloseSheet after reply). Module only owns DeviceEditorSheetEl and its children.
 
@@ -40,12 +42,12 @@
 	variable SavePending
 	variable ConfirmFlag
 
-	variable CurrentProfile
 	variable OriginalRequestRelay
 
 	variable EditingProfilesForDevices
 	variable EditingProfilesCountForDevices
-	variable EditingDevicesRoomLegacyIdx
+	variable EditingRoomsForDevices
+	variable EditingDevicesRoomIdx
 	variable EditingDevicesRoomName
 	variable EditingDevicesLinked
 	variable EditingDevicesSensor
@@ -58,11 +60,16 @@
 	variable RoomEntry
 	variable RoomEditCount
 	variable RoomEditIdxForOp
-	variable PrevLegacyIdx
-	variable NextLegacyIdx
+	variable PrevRoomIdx
+	variable NextRoomIdx
 	variable NewRoomName
+	variable ProbeName
+	variable NameTaken
 	variable SwapTarget
 	variable RoomToInsert
+	variable RoomStateToInsert
+	variable AddRoomName
+	variable SuffixIdx
 
 	variable RelayLinesArray
 	variable RelayLine
@@ -103,7 +110,7 @@
 	attach DeviceEditorCancelBtn to `device-editor-cancel-btn`
 
 	on click DeviceEditorRoomPill gosub to ToggleDeviceRoomPicker
-	on click DeviceEditorAddRoomBtn gosub to AddRoomToEditingProfiles
+	on click DeviceEditorAddRoomBtn gosub to AddRoomToEditingRooms
 	on click DeviceEditorLinkedBtn
 	begin
 		if EditingDevicesLinked is `yes` put `no` into EditingDevicesLinked
@@ -117,16 +124,16 @@
 	release parent
 	log `DeviceEditor module ready`
 	stop
-!! @hash aa3c012f
+!! @hash db91e75b
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
-!! Snapshots the open-message's profiles + currentProfile + requestRelay into the working copies, picks the first non-outside room, populates the device-field inputs, shows the sheet, polls on DoneFlag. The demand-relay value is captured both as a baseline (OriginalRequestRelay) and as the editable EditingRequestRelay so the Save path can detect whether the user changed it.
+!! Snapshots the open-message's rooms + profiles + requestRelay into the working copies, picks the first non-outside room, populates the device-field inputs, shows the sheet, polls on DoneFlag. The demand-relay value is captured both as a baseline (OriginalRequestRelay) and as the editable EditingRequestRelay so the Save path can detect whether the user changed it.
 HandleOpen:
 	put the message into OpenMsg
+	put property `rooms` of OpenMsg into EditingRoomsForDevices
 	put property `profiles` of OpenMsg into EditingProfilesForDevices
 	put the json count of EditingProfilesForDevices into EditingProfilesCountForDevices
-	put property `currentProfile` of OpenMsg into CurrentProfile
 	put property `requestRelay` of OpenMsg into OriginalRequestRelay
 	put OriginalRequestRelay into EditingRequestRelay
 	set the content of DeviceEditorRequest to EditingRequestRelay
@@ -149,6 +156,7 @@ HandleOpen:
 	if SavePending
 	begin
 		set property `cancelled` of Result to `no`
+		set property `rooms` of Result to EditingRoomsForDevices
 		set property `profiles` of Result to EditingProfilesForDevices
 		set property `requestRelay` of Result to EditingRequestRelay
 		if EditingRequestRelay is not OriginalRequestRelay
@@ -162,11 +170,11 @@ HandleOpen:
 	end
 	send Result to sender
 	stop
-!! @hash fd23e8b0
+!! @hash a420e8d7
 !!!
-!! Save click handler. Reads the input fields, splits the relays textarea on newlines (strips empties) into an array, commits the device-field edits for the currently-selected room across every profile in the working copy, captures the demand-relay value, sets SavePending and DoneFlag so HandleOpen ships the reply.
+!! Save click handler. Reads the input fields, splits the relays textarea on newlines (strips empties) into an array, writes the device fields onto the room's identity record, captures the demand-relay value, sets SavePending and DoneFlag so HandleOpen ships the reply.
 OnSaveClick:
-	if EditingProfilesForDevices is empty
+	if EditingRoomsForDevices is empty
 	begin
 		log `OnSaveClick: editing copy empty — aborting`
 		alert `Map data not loaded — please reload the page.`
@@ -194,29 +202,20 @@ OnSaveClick:
 		end
 	end
 
-!	Apply the device-field edits for the currently-selected room across every
-!	profile. The room-list edits (move / add / rename / delete) have already
-!	been applied to EditingProfilesForDevices by their handlers.
-	put 0 into DeviceProfileLoopI
-	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
-	begin
-		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
-		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		put element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices into LiveRoomForDevices
-		set property `sensor` of LiveRoomForDevices to EditingDevicesSensor
-		set property `linked` of LiveRoomForDevices to EditingDevicesLinked
-		set property `relays` of LiveRoomForDevices to RelayLinesArray
-		set element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices to LiveRoomForDevices
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
-		increment DeviceProfileLoopI
-	end
+!	Write the device fields onto the room's identity record. Wiring is a property
+!	of the installation, not of a plan, so there is one place to write it: the
+!	loop over every profile is gone.
+	put element EditingDevicesRoomIdx of EditingRoomsForDevices into LiveRoomForDevices
+	set property `sensor` of LiveRoomForDevices to EditingDevicesSensor
+	set property `linked` of LiveRoomForDevices to EditingDevicesLinked
+	set property `relays` of LiveRoomForDevices to RelayLinesArray
+	set element EditingDevicesRoomIdx of EditingRoomsForDevices to LiveRoomForDevices
 
 	put the content of DeviceEditorRequest into EditingRequestRelay
 	set SavePending
 	set DoneFlag
 	return
-!! @hash 7129b994
+!! @hash 48235a34
 !!!
 !! Cancel click handler. Sets DoneFlag (but not SavePending) so HandleOpen ships a `{cancelled: yes}` reply.
 OnCancelClick:
@@ -224,42 +223,38 @@ OnCancelClick:
 	return
 !! @hash 070995d9
 !!!
-!! Set EditingDevicesRoomLegacyIdx to the first non-outside room (rooms with a non-empty `relays` array) in the current profile's rooms. Used on initial open and again after a delete that wiped the previously-selected room.
+!! Set EditingDevicesRoomIdx to the first non-outside room (rooms with a non-empty `relays` array) in the shared room list. Used on initial open and again after a delete that wiped the previously-selected room.
 !!
 !! Uses the same counter (RoomEditCount) as both loop index and early-exit sentinel — sets it past the array length once a match is found.
 PickFirstRoomForDevices:
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put 0 into EditingDevicesRoomLegacyIdx
+	put 0 into EditingDevicesRoomIdx
 	put 0 into RoomEditCount
-	while RoomEditCount is less than the json count of LiveRoomsForDevices
+	while RoomEditCount is less than the json count of EditingRoomsForDevices
 	begin
-		put element RoomEditCount of LiveRoomsForDevices into RoomEntry
+		put element RoomEditCount of EditingRoomsForDevices into RoomEntry
 		if property `relays` of RoomEntry is not empty
 		begin
-			put RoomEditCount into EditingDevicesRoomLegacyIdx
-			put the json count of LiveRoomsForDevices into RoomEditCount
+			put RoomEditCount into EditingDevicesRoomIdx
+			put the json count of EditingRoomsForDevices into RoomEditCount
 		end
 		increment RoomEditCount
 	end
 	return
-!! @hash 9f06947d
+!! @hash d3cb764c
 !!!
-!! Pull device fields for the currently-selected room out of EditingProfilesForDevices into the input controls.
+!! Pull device fields for the currently-selected room out of EditingRoomsForDevices into the input controls.
 !!
 !! Reads sensor, linked and relays. Defaults linked to "yes" on an empty or missing field. Joins the relays array onto separate textarea lines.
 !!
 !! The demand-relay value is NOT touched here — it's system-wide and was loaded in HandleOpen.
 LoadDeviceEditorRoom:
-	if EditingProfilesForDevices is empty
+	if EditingRoomsForDevices is empty
 	begin
 		log `LoadDeviceEditorRoom: editing copy empty — aborting`
 		alert `Map data not loaded — please reload the page.`
 		return
 	end
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put element EditingDevicesRoomLegacyIdx of LiveRoomsForDevices into LiveRoomForDevices
+	put element EditingDevicesRoomIdx of EditingRoomsForDevices into LiveRoomForDevices
 	put property `name` of LiveRoomForDevices into EditingDevicesRoomName
 
 	put property `sensor` of LiveRoomForDevices into EditingDevicesSensor
@@ -285,7 +280,7 @@ LoadDeviceEditorRoom:
 	set the content of DeviceEditorRelays to EditingDevicesRelaysText
 	gosub to PaintDeviceEditorLinked
 	return
-!! @hash 4eeb8305
+!! @hash aef70258
 !!!
 !! Toggle the room picker open / closed. Rebuilds the list each open so adds, moves, deletes, and the current selection highlight all reflect the latest editing state.
 ToggleDeviceRoomPicker:
@@ -303,17 +298,15 @@ ToggleDeviceRoomPicker:
 	return
 !! @hash c7e869d2
 !!!
-!! Render one row per non-outside room in the current profile's rooms array. All profiles share the same rooms (device wiring is physical) — CurrentProfile is just the convenient picker.
+!! Render one row per non-outside room in the shared room list, in its order. There is one room set for the whole system, so the picker no longer depends on which profile is selected.
 !!
-!! Each row carries its own legacy index in the indexed-button slots (DeviceRoomEditName / Up / Down / Pencil / Delete). The outside-sensor entry (empty relays) is rendered nowhere and never moved / deleted / renamed.
+!! Each row carries its own position in the shared list in the indexed-button slots (DeviceRoomEditName / Up / Down / Pencil / Delete). The outside-sensor entry (empty relays) is rendered nowhere and never moved / deleted / renamed.
 !!
 !! Up arrow hidden on the first non-outside row; Down arrow on the last. Selected row's name gets the accent colour.
 RenderDeviceRoomPicker:
 	clear DeviceEditorRoomList
-	if EditingProfilesForDevices is empty return
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put the json count of LiveRoomsForDevices into RoomEditCount
+	if EditingRoomsForDevices is empty return
+	put the json count of EditingRoomsForDevices into RoomEditCount
 	if RoomEditCount is 0 return
 	set the elements of DeviceRoomEditName to RoomEditCount
 	set the elements of DeviceRoomEditUp to RoomEditCount
@@ -326,7 +319,7 @@ RenderDeviceRoomPicker:
 	put 0 into DeviceRoomPillIdx
 	while DeviceRoomPillIdx is less than RoomEditCount
 	begin
-		put element DeviceRoomPillIdx of LiveRoomsForDevices into RoomEntry
+		put element DeviceRoomPillIdx of EditingRoomsForDevices into RoomEntry
 		if property `relays` of RoomEntry is empty
 		begin
 !			Skip the outside-sensor entry — not edited from this list.
@@ -342,16 +335,16 @@ RenderDeviceRoomPicker:
 			index DeviceRoomEditName to DeviceRoomPillIdx
 			attach DeviceRoomEditName to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-name`
 			set the content of DeviceRoomEditName to property `name` of RoomEntry
-			if DeviceRoomPillIdx is EditingDevicesRoomLegacyIdx
+			if DeviceRoomPillIdx is EditingDevicesRoomIdx
 				set style `color` of DeviceRoomEditName to `var(--color-accent)`
 
 			index DeviceRoomEditUp to DeviceRoomPillIdx
 			attach DeviceRoomEditUp to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-up`
-			if DeviceRoomPillIdx is PrevLegacyIdx set style `visibility` of DeviceRoomEditUp to `hidden`
+			if DeviceRoomPillIdx is PrevRoomIdx set style `visibility` of DeviceRoomEditUp to `hidden`
 
 			index DeviceRoomEditDown to DeviceRoomPillIdx
 			attach DeviceRoomEditDown to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-down`
-			if DeviceRoomPillIdx is NextLegacyIdx set style `visibility` of DeviceRoomEditDown to `hidden`
+			if DeviceRoomPillIdx is NextRoomIdx set style `visibility` of DeviceRoomEditDown to `hidden`
 
 			index DeviceRoomEditPencil to DeviceRoomPillIdx
 			attach DeviceRoomEditPencil to `device-room-edit-` cat DeviceRoomPillIdxStr cat `-edit`
@@ -361,7 +354,7 @@ RenderDeviceRoomPicker:
 
 			on click DeviceRoomEditName
 			begin
-				put the index of DeviceRoomEditName into EditingDevicesRoomLegacyIdx
+				put the index of DeviceRoomEditName into EditingDevicesRoomIdx
 				gosub to LoadDeviceEditorRoom
 				clear DeviceRoomPickerOpen
 				set style `display` of DeviceEditorRoomPicker to `none`
@@ -370,62 +363,60 @@ RenderDeviceRoomPicker:
 			on click DeviceRoomEditUp
 			begin
 				put the index of DeviceRoomEditUp into RoomEditIdxForOp
-				gosub to MoveRoomUpInEditingProfiles
+				gosub to MoveRoomUpInEditingRooms
 			end
 			on click DeviceRoomEditDown
 			begin
 				put the index of DeviceRoomEditDown into RoomEditIdxForOp
-				gosub to MoveRoomDownInEditingProfiles
+				gosub to MoveRoomDownInEditingRooms
 			end
 			on click DeviceRoomEditPencil
 			begin
 				put the index of DeviceRoomEditPencil into RoomEditIdxForOp
-				gosub to RenameRoomInEditingProfiles
+				gosub to RenameRoomInEditingRooms
 			end
 			on click DeviceRoomEditDelete
 			begin
 				put the index of DeviceRoomEditDelete into RoomEditIdxForOp
-				gosub to DeleteRoomInEditingProfiles
+				gosub to DeleteRoomInEditingRooms
 			end
 
 			increment DeviceRoomPillIdx
 		end
 	end
 	return
-!! @hash 3e9d2b4a
+!! @hash a91def29
 !!!
-!! Walk the current profile's rooms; capture the lowest and highest legacy indices that hold non-outside rooms into PrevLegacyIdx and NextLegacyIdx. Used by the render loop to hide the up arrow on the first non-outside row and the down arrow on the last.
+!! Walk the shared room list; capture the lowest and highest indices that hold non-outside rooms into PrevRoomIdx and NextRoomIdx. Used by the render loop to hide the up arrow on the first non-outside row and the down arrow on the last.
 FindRoomListEnds:
-	put -1 into PrevLegacyIdx
-	put -1 into NextLegacyIdx
+	put -1 into PrevRoomIdx
+	put -1 into NextRoomIdx
 	put 0 into DeviceProfileLoopI
 	while DeviceProfileLoopI is less than RoomEditCount
 	begin
-		put element DeviceProfileLoopI of LiveRoomsForDevices into RoomEntry
+		put element DeviceProfileLoopI of EditingRoomsForDevices into RoomEntry
 		if property `relays` of RoomEntry is not empty
 		begin
-			if PrevLegacyIdx is -1 put DeviceProfileLoopI into PrevLegacyIdx
-			put DeviceProfileLoopI into NextLegacyIdx
+			if PrevRoomIdx is -1 put DeviceProfileLoopI into PrevRoomIdx
+			put DeviceProfileLoopI into NextRoomIdx
 		end
 		increment DeviceProfileLoopI
 	end
 	return
-!! @hash 8743bc31
+!! @hash 3a611526
 !!!
-!! Room-list mutation routines for the editing working copy. Each operates on EditingProfilesForDevices, applies the same change across every profile, and re-renders the room picker.
+!! Room-list mutation routines for the editing working copy. Order is a property of the shared room list, so moving a room is a swap in one array — no longer the same swap repeated in every profile, which is what used to make a move in one profile silently reorder the others.
 !!
-!! MoveRoomUp / MoveRoomDown find the previous / next non-outside room (skipping the outside-sensor slot if it sits between the two rooms being swapped) and call SwapRoomsAcrossProfiles. SwapRoomsAcrossProfiles also updates EditingDevicesRoomLegacyIdx so the currently-displayed room follows the swap.
-MoveRoomUpInEditingProfiles:
+!! MoveRoomUp / MoveRoomDown find the previous / next non-outside room (skipping the outside-sensor slot if it sits between the two rooms being swapped) and call SwapRoomsInEditingRooms, which also updates EditingDevicesRoomIdx so the currently-displayed room follows the swap.
+MoveRoomUpInEditingRooms:
 	put RoomEditIdxForOp into SwapTarget
 	decrement SwapTarget
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
 	while SwapTarget is not less than 0
 	begin
-		put element SwapTarget of LiveRoomsForDevices into RoomEntry
+		put element SwapTarget of EditingRoomsForDevices into RoomEntry
 		if property `relays` of RoomEntry is not empty
 		begin
-			gosub to SwapRoomsAcrossProfiles
+			gosub to SwapRoomsInEditingRooms
 			gosub to RenderDeviceRoomPicker
 			return
 		end
@@ -433,18 +424,16 @@ MoveRoomUpInEditingProfiles:
 	end
 	return
 
-MoveRoomDownInEditingProfiles:
+MoveRoomDownInEditingRooms:
 	put RoomEditIdxForOp into SwapTarget
 	increment SwapTarget
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put the json count of LiveRoomsForDevices into RoomEditCount
+	put the json count of EditingRoomsForDevices into RoomEditCount
 	while SwapTarget is less than RoomEditCount
 	begin
-		put element SwapTarget of LiveRoomsForDevices into RoomEntry
+		put element SwapTarget of EditingRoomsForDevices into RoomEntry
 		if property `relays` of RoomEntry is not empty
 		begin
-			gosub to SwapRoomsAcrossProfiles
+			gosub to SwapRoomsInEditingRooms
 			gosub to RenderDeviceRoomPicker
 			return
 		end
@@ -452,121 +441,166 @@ MoveRoomDownInEditingProfiles:
 	end
 	return
 
-!	Swap rooms[RoomEditIdxForOp] and rooms[SwapTarget] in every profile.
+!	Swap rooms[RoomEditIdxForOp] and rooms[SwapTarget] in the shared room list.
 !	If the swap involves the currently-selected room, follow it so the
 !	device-fields panel keeps showing the same room.
-SwapRoomsAcrossProfiles:
-	put 0 into DeviceProfileLoopI
-	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
-	begin
-		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
-		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		put element RoomEditIdxForOp of LiveRoomsForDevices into LiveRoomForDevices
-		put element SwapTarget of LiveRoomsForDevices into RoomEntry
-		set element RoomEditIdxForOp of LiveRoomsForDevices to RoomEntry
-		set element SwapTarget of LiveRoomsForDevices to LiveRoomForDevices
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
-		increment DeviceProfileLoopI
-	end
-	if EditingDevicesRoomLegacyIdx is RoomEditIdxForOp put SwapTarget into EditingDevicesRoomLegacyIdx
-	else if EditingDevicesRoomLegacyIdx is SwapTarget put RoomEditIdxForOp into EditingDevicesRoomLegacyIdx
+SwapRoomsInEditingRooms:
+	put element RoomEditIdxForOp of EditingRoomsForDevices into LiveRoomForDevices
+	put element SwapTarget of EditingRoomsForDevices into RoomEntry
+	set element RoomEditIdxForOp of EditingRoomsForDevices to RoomEntry
+	set element SwapTarget of EditingRoomsForDevices to LiveRoomForDevices
+	if EditingDevicesRoomIdx is RoomEditIdxForOp put SwapTarget into EditingDevicesRoomIdx
+	else if EditingDevicesRoomIdx is SwapTarget put RoomEditIdxForOp into EditingDevicesRoomIdx
 	return
-!! @hash 2118d67c
+!! @hash 147c2e39
 !!!
-!! Prompt for a new name and apply to rooms[RoomEditIdxForOp].name in every profile. Cancel / blank input = no-op. If the renamed room is the currently-selected one, update the panel's displayed name too.
-RenameRoomInEditingProfiles:
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put element RoomEditIdxForOp of LiveRoomsForDevices into RoomEntry
+!! Prompt for a new name and apply it to rooms[RoomEditIdxForOp].name in the shared room list, moving every profile's schedule state from the old key to the new one. Cancel / blank input = no-op.
+!!
+!! The name is now a key in two places — the identity list and every profile's state dictionary — so a duplicate is refused rather than allowed, as the old room array allowed it. Renaming a room to the name it already has is a no-op, not a duplicate.
+RenameRoomInEditingRooms:
+	put element RoomEditIdxForOp of EditingRoomsForDevices into RoomEntry
 	put property `name` of RoomEntry into TempStr
 	put prompt `Rename room:` cat newline cat TempStr into NewRoomName
 	if NewRoomName is empty return
 	if NewRoomName is `null` return
 	if NewRoomName is `undefined` return
+	if NewRoomName is TempStr return
+	put NewRoomName into ProbeName
+	gosub to NameInUse
+	if NameTaken
+	begin
+		alert `There is already a room called "` cat NewRoomName cat `".`
+		return
+	end
+	set property `name` of RoomEntry to NewRoomName
+	set element RoomEditIdxForOp of EditingRoomsForDevices to RoomEntry
+
+!	Carry the room's schedule across in each profile that has one. A profile with
+!	no state for this room is left alone: nothing here invents a schedule.
 	put 0 into DeviceProfileLoopI
 	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
 	begin
 		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
 		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		put element RoomEditIdxForOp of LiveRoomsForDevices into LiveRoomForDevices
-		set property `name` of LiveRoomForDevices to NewRoomName
-		set element RoomEditIdxForOp of LiveRoomsForDevices to LiveRoomForDevices
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
+		if LiveRoomsForDevices has entry TempStr
+		begin
+			put property TempStr of LiveRoomsForDevices into RoomStateToInsert
+			json delete property TempStr of LiveRoomsForDevices
+			set property NewRoomName of LiveRoomsForDevices to RoomStateToInsert
+			set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
+			set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
+		end
 		increment DeviceProfileLoopI
 	end
-	if RoomEditIdxForOp is EditingDevicesRoomLegacyIdx
+	if RoomEditIdxForOp is EditingDevicesRoomIdx
 	begin
 		put NewRoomName into EditingDevicesRoomName
 		set the content of DeviceEditorRoomValue to EditingDevicesRoomName
 	end
 	gosub to RenderDeviceRoomPicker
 	return
-!! @hash 49ba6836
+!! @hash 8a9ab8d4
 !!!
-!! Confirm and remove rooms[RoomEditIdxForOp] from every profile. If the deleted room was the currently-selected one, re-pick the first non-outside room and reload the device fields. Adjusts EditingDevicesRoomLegacyIdx for the shift when the deleted index was earlier than the selected.
-DeleteRoomInEditingProfiles:
-	put element CurrentProfile of EditingProfilesForDevices into LiveProfileForDevices
-	put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-	put element RoomEditIdxForOp of LiveRoomsForDevices into RoomEntry
+!! Confirm and remove rooms[RoomEditIdxForOp] from the shared room list, and drop every profile's schedule state for it. If the deleted room was the currently-selected one, re-pick the first non-outside room and reload the device fields. Adjusts EditingDevicesRoomIdx for the shift when the deleted index was earlier than the selected.
+DeleteRoomInEditingRooms:
+	put element RoomEditIdxForOp of EditingRoomsForDevices into RoomEntry
 	put property `name` of RoomEntry into TempStr
 	clear ConfirmFlag
 	if confirm `Delete room "` cat TempStr cat `"?` set ConfirmFlag
 	if not ConfirmFlag return
 
+	json delete element RoomEditIdxForOp of EditingRoomsForDevices
+
+!	Drop the room's schedule from every profile that carries one.
 	put 0 into DeviceProfileLoopI
 	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
 	begin
 		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
 		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		json delete element RoomEditIdxForOp of LiveRoomsForDevices
-		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
-		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
+		if LiveRoomsForDevices has entry TempStr
+		begin
+			json delete property TempStr of LiveRoomsForDevices
+			set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
+			set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
+		end
 		increment DeviceProfileLoopI
 	end
 
-	if RoomEditIdxForOp is EditingDevicesRoomLegacyIdx
+	if RoomEditIdxForOp is EditingDevicesRoomIdx
 	begin
 		gosub to PickFirstRoomForDevices
 		gosub to LoadDeviceEditorRoom
 	end
-	else if RoomEditIdxForOp is less than EditingDevicesRoomLegacyIdx
+	else if RoomEditIdxForOp is less than EditingDevicesRoomIdx
 	begin
-		decrement EditingDevicesRoomLegacyIdx
+		decrement EditingDevicesRoomIdx
 	end
 	gosub to RenderDeviceRoomPicker
 	return
-!! @hash 4a571eb9
+!! @hash aac8e470
 !!!
-!! Append a fresh "Unnamed" room to every profile's rooms array. Each profile's new room starts with an empty periods array (no schedule yet) and default device fields the user will fill in via the inputs below. prevmode is omitted — the controller writes it on first boost.
-AddRoomToEditingProfiles:
+!! Append a fresh room to the shared room list, and give every profile a starter state for it: Off, no schedule, no target, nothing to inherit. The device fields are blank for the user to fill in below, and prevmode is omitted — the controller writes it on the first boost.
+!!
+!! The name is made unique here rather than left to chance. A room's name is its key in every profile's state dictionary, so two rooms called "Unnamed" would collide — the old room array allowed duplicates, this cannot.
+AddRoomToEditingRooms:
+	put `Unnamed` into AddRoomName
+	put 1 into SuffixIdx
+	put AddRoomName into ProbeName
+	gosub to NameInUse
+	while NameTaken
+	begin
+		increment SuffixIdx
+		put `Unnamed ` cat SuffixIdx into AddRoomName
+		put AddRoomName into ProbeName
+		gosub to NameInUse
+	end
+
+	put `{}` into RoomToInsert
+	set property `name` of RoomToInsert to AddRoomName
+	set property `sensor` of RoomToInsert to empty
+	set property `relays` of RoomToInsert to `[]`
+	set property `linked` of RoomToInsert to `yes`
+	set property `protect` of RoomToInsert to `no`
+	put the json count of EditingRoomsForDevices into RoomEditCount
+	set element RoomEditCount of EditingRoomsForDevices to RoomToInsert
+
 	put 0 into DeviceProfileLoopI
 	while DeviceProfileLoopI is less than EditingProfilesCountForDevices
 	begin
-		put `{}` into RoomToInsert
-		set property `name` of RoomToInsert to `Unnamed`
-		set property `sensor` of RoomToInsert to empty
-		set property `relays` of RoomToInsert to `[]`
-		set property `linked` of RoomToInsert to `yes`
-		set property `mode` of RoomToInsert to `off`
-		set property `target` of RoomToInsert to 0
-		set property `periods` of RoomToInsert to `[]`
-		set property `relay` of RoomToInsert to `off`
-		set property `advance` of RoomToInsert to `-`
-		set property `protect` of RoomToInsert to `no`
+		put `{}` into RoomStateToInsert
+		set property `mode` of RoomStateToInsert to `off`
+		set property `target` of RoomStateToInsert to 0
+		set property `periods` of RoomStateToInsert to `[]`
+		set property `events` of RoomStateToInsert to `[]`
+		set property `advance` of RoomStateToInsert to `-`
 
 		put element DeviceProfileLoopI of EditingProfilesForDevices into LiveProfileForDevices
 		put property `rooms` of LiveProfileForDevices into LiveRoomsForDevices
-		put the json count of LiveRoomsForDevices into RoomEditCount
-		set element RoomEditCount of LiveRoomsForDevices to RoomToInsert
+		set property AddRoomName of LiveRoomsForDevices to RoomStateToInsert
 		set property `rooms` of LiveProfileForDevices to LiveRoomsForDevices
 		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
 		increment DeviceProfileLoopI
 	end
 	gosub to RenderDeviceRoomPicker
 	return
-!! @hash 4c05ee07
+!! @hash bdd187db
+!!!
+!! Is ProbeName already the name of a room in the shared list? Sets NameTaken. Used to keep room names unique, because a name is the key that joins a room's identity to its schedule in every profile.
+NameInUse:
+	clear NameTaken
+	put 0 into RoomEditCount
+	while RoomEditCount is less than the json count of EditingRoomsForDevices
+	begin
+		put element RoomEditCount of EditingRoomsForDevices into RoomEntry
+		if property `name` of RoomEntry is ProbeName
+		begin
+			set NameTaken
+			put the json count of EditingRoomsForDevices into RoomEditCount
+		end
+		increment RoomEditCount
+	end
+	return
+!! @hash aa8897a0
 !!!
 !! Style the linked toggle button — On (accent border + accent text + bold) when EditingDevicesLinked is `yes`, Off (plain card background + hairline border) otherwise.
 PaintDeviceEditorLinked:

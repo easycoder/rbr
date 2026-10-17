@@ -2,16 +2,17 @@
   "profiles": [
     {
       "name": "Monday-Friday",
-      "rooms": [
-        {
-          "name": "Kitchen",
-          "sensor": "Kitchen-thermometer",
-          "relays": [
-            "Kitchen-plinth",
-            "Kitchen-radiator"
-          ],
+      "rooms": {
+        "Kitchen": {
           "mode": "timed",
           "target": 21,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "20:00",
+              "temp": "22.0"
+            }
+          ],
           "events": [
             {
               "until": "17:30",
@@ -22,37 +23,21 @@
               "temp": "21.0"
             }
           ],
-          "relay": "off",
-          "protect": "no",
+          "period": -1,
           "advance": "-",
           "prevmode": "timed",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787353201098,
-          "temperature": 2150,
-          "battery": 90,
-          "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 36 min",
-          "humidity": 53,
-          "sensorAge": 2195995,
-          "until": 1778144217019,
+          "until": 1778144217019
+        },
+        "Sunroom": {
+          "mode": "timed",
+          "target": 23,
           "periods": [
             {
               "on": "18:00",
-              "off": "20:00",
-              "temp": "22.0"
+              "off": "23:00",
+              "temp": "23.0"
             }
-          ]
-        },
-        {
-          "name": "Sunroom",
-          "sensor": "Sunroom-thermometer",
-          "relays": [
-            "Sunroom-radiator"
           ],
-          "mode": "timed",
-          "target": 23,
           "events": [
             {
               "until": "17:30",
@@ -63,37 +48,21 @@
               "temp": "23.5"
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "prevmode": "timed",
-          "advance": "-",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787353201427,
-          "temperature": 2130,
-          "battery": 100,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 50.7,
-          "sensorAge": 70865,
-          "until": 1778144344746,
+          "advance": "-",
+          "prevmode": "timed",
+          "until": 1778144344746
+        },
+        "Lounge": {
+          "mode": "off",
+          "target": 15,
           "periods": [
             {
               "on": "18:00",
               "off": "23:00",
-              "temp": "23.0"
+              "temp": "21.0"
             }
-          ]
-        },
-        {
-          "name": "Lounge",
-          "sensor": "Lounge-thermometer",
-          "relays": [
-            "Lounge-radiators"
           ],
-          "mode": "off",
-          "target": 15,
           "events": [
             {
               "until": "09:00",
@@ -108,36 +77,25 @@
               "temp": "24.0"
             }
           ],
-          "protect": "no",
-          "advance": "-",
-          "prevmode": "timed",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787353201747,
-          "temperature": 2230,
-          "battery": 100,
-          "relay": "off",
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 50.4,
-          "sensorAge": 135566,
-          "periods": [
-            {
-              "on": "18:00",
-              "off": "23:00",
-              "temp": "21.0"
-            }
-          ]
+          "advance": "-",
+          "prevmode": "timed"
         },
-        {
-          "name": "Bedroom 1",
-          "sensor": "Bedroom-1-thermometer",
-          "relays": [
-            "Bedroom-1-radiator"
-          ],
+        "Bedroom 1": {
           "mode": "timed",
           "target": 22,
+          "periods": [
+            {
+              "on": "07:00",
+              "off": "08:00",
+              "temp": "22.5"
+            },
+            {
+              "on": "22:30",
+              "off": "23:30",
+              "temp": "22.5"
+            }
+          ],
           "events": [
             {
               "until": "07:00",
@@ -156,20 +114,13 @@
               "temp": 21
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "advance": "-",
-          "prevmode": "timed",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787353202078,
-          "temperature": 2260,
-          "battery": 90,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 31 min",
-          "humidity": 50,
-          "sensorAge": 1867989,
+          "advance": "-",
+          "prevmode": "timed"
+        },
+        "Bedroom 2": {
+          "mode": "timed",
+          "target": 23,
           "periods": [
             {
               "on": "07:00",
@@ -181,16 +132,7 @@
               "off": "23:30",
               "temp": "22.5"
             }
-          ]
-        },
-        {
-          "name": "Bedroom 2",
-          "sensor": "Bedroom-2-thermometer",
-          "relays": [
-            "Bedroom-2-radiator"
           ],
-          "mode": "timed",
-          "target": 23,
           "events": [
             {
               "until": "07:00",
@@ -209,40 +151,19 @@
               "temp": "22.0"
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "advance": "-",
-          "linked": "yes",
-          "status": "fail",
-          "timestamp": 1787353202397,
-          "temperature": 2240,
-          "battery": -1,
           "period": -1,
-          "relayfails": 65699,
-          "statusMessage": "Relay: 65699 failures. Sensor: no report for 22 min",
-          "humidity": 52,
-          "sensorAge": 1366477,
-          "periods": [
-            {
-              "on": "07:00",
-              "off": "08:00",
-              "temp": "22.5"
-            },
-            {
-              "on": "22:30",
-              "off": "23:30",
-              "temp": "22.5"
-            }
-          ]
+          "advance": "-"
         },
-        {
-          "name": "Hall",
-          "sensor": "Hall-thermometer",
-          "relays": [
-            "Hall-radiator"
-          ],
+        "Hall": {
           "mode": "timed",
           "target": 13,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "22:30",
+              "temp": "21.0"
+            }
+          ],
           "events": [
             {
               "until": "07:00",
@@ -261,34 +182,11 @@
               "temp": "17.0"
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "prevmode": "timed",
-          "advance": "-",
-          "linked": "yes",
-          "status": "warn",
-          "timestamp": 1787353202726,
-          "temperature": 2220,
-          "battery": 90,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 52 min",
-          "sensorAge": 3175814,
-          "humidity": 52,
-          "periods": [
-            {
-              "on": "18:00",
-              "off": "22:30",
-              "temp": "21.0"
-            }
-          ]
+          "advance": "-",
+          "prevmode": "timed"
         },
-        {
-          "name": "Office",
-          "sensor": "Office-thermometer",
-          "relays": [
-            "Office-heater"
-          ],
+        "Office": {
           "mode": "off",
           "target": 22,
           "events": [
@@ -297,276 +195,91 @@
               "temp": 15
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787353203044,
-          "temperature": 1454,
-          "battery": 24,
-          "advance": "-",
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 42.98,
-          "sensorAge": 519849
+          "advance": "-"
         },
-        {
-          "name": "Outside",
-          "sensor": "Outside-thermometer",
-          "relays": [],
+        "Outside": {
           "mode": "off",
           "target": 0,
           "events": [],
-          "relay": "off",
-          "protect": "yes",
-          "ptemp": "-0.5",
-          "advance": "-",
-          "prevmode": "off",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787353203375,
-          "temperature": 1460,
-          "battery": 90,
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 25 min",
-          "sensorAge": 1529575,
-          "humidity": 74
+          "advance": "-",
+          "prevmode": "off"
         }
-      ]
+      }
     },
     {
       "name": "All Off",
-      "rooms": [
-        {
-          "name": "Kitchen",
-          "sensor": "Kitchen-thermometer",
-          "relays": [
-            "Kitchen-plinth",
-            "Kitchen-radiator"
-          ],
+      "rooms": {
+        "Kitchen": {
           "mode": "off",
           "target": 15,
           "events": [],
-          "relay": "off",
-          "protect": "no",
-          "advance": "-",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1784207356472,
-          "temperature": 2360,
-          "battery": -1,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 19 min",
-          "humidity": 51,
-          "sensorAge": 1151599
+          "advance": "-"
         },
-        {
-          "name": "Sunroom",
-          "sensor": "Sunroom-thermometer",
-          "relays": [
-            "Sunroom-radiator"
-          ],
+        "Sunroom": {
           "mode": "off",
           "target": 12,
           "events": [],
-          "relay": "off",
-          "protect": "no",
-          "prevmode": "timed",
-          "advance": "-",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1784207356802,
-          "temperature": 2810,
-          "battery": 100,
-          "ptemp": "",
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 19 min",
-          "humidity": 37.4,
-          "sensorAge": 1182980
+          "advance": "-",
+          "prevmode": "timed"
         },
-        {
-          "name": "Lounge",
-          "sensor": "Lounge-thermometer",
-          "relays": [
-            "Lounge-radiators"
-          ],
+        "Lounge": {
           "mode": "off",
           "target": 15,
           "events": [],
-          "protect": "no",
-          "advance": "-",
-          "prevmode": "timed",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1784207357130,
-          "temperature": 2450,
-          "battery": 100,
-          "relay": "off",
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 46.2,
-          "sensorAge": 537599
+          "advance": "-",
+          "prevmode": "timed"
         },
-        {
-          "name": "Bedroom 1",
-          "sensor": "Bedroom-1-thermometer",
-          "relays": [
-            "Bedroom-1-radiator"
-          ],
+        "Bedroom 1": {
           "mode": "off",
           "target": 22,
           "events": [],
-          "relay": "off",
-          "protect": "no",
-          "advance": "-",
-          "prevmode": "timed",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1784207357463,
-          "temperature": 2560,
-          "battery": 90,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 46,
-          "sensorAge": 278620
+          "advance": "-",
+          "prevmode": "timed"
         },
-        {
-          "name": "Bedroom 2",
-          "sensor": "Bedroom-2-thermometer",
-          "relays": [
-            "Bedroom-2-radiator"
-          ],
+        "Bedroom 2": {
           "mode": "off",
           "target": 23,
           "events": [],
-          "relay": "off",
-          "protect": "no",
-          "advance": "-",
-          "linked": "yes",
-          "status": "warn",
-          "timestamp": 1784207357791,
-          "temperature": 2230,
-          "battery": 51,
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 54 min",
-          "sensorAge": 3265085
+          "advance": "-"
         },
-        {
-          "name": "Hall",
-          "sensor": "Hall-thermometer",
-          "relays": [
-            "Hall-radiator"
-          ],
+        "Hall": {
           "mode": "off",
           "target": 13,
           "events": [],
-          "relay": "off",
-          "protect": "no",
-          "prevmode": "timed",
-          "advance": "-",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1784207355847,
-          "temperature": 2470,
-          "battery": 90,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 47,
-          "sensorAge": 483606
+          "advance": "-",
+          "prevmode": "timed"
         },
-        {
-          "name": "Office",
-          "sensor": "Office-thermometer",
-          "relays": [
-            "Office-heater"
-          ],
+        "Office": {
           "mode": "off",
           "target": 22.5,
           "events": [],
-          "relay": "off",
-          "protect": "no",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1784207358120,
-          "temperature": 3409,
-          "battery": 33,
-          "advance": "-",
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 30.22,
-          "sensorAge": 309064
+          "advance": "-"
         },
-        {
-          "name": "Outside",
-          "sensor": "Outside-thermometer",
-          "relays": [],
+        "Outside": {
           "mode": "off",
           "target": 0,
           "events": [],
-          "relay": "off",
-          "protect": "yes",
-          "ptemp": "-0.5",
-          "advance": "-",
-          "prevmode": "off",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1784207358449,
-          "temperature": 2039,
-          "battery": 90,
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 29 min",
-          "humidity": 64,
-          "sensorAge": 1778216
+          "advance": "-",
+          "prevmode": "off"
         }
-      ]
+      }
     },
     {
       "name": "Weekend",
-      "rooms": [
-        {
-          "name": "Kitchen",
-          "sensor": "Kitchen-thermometer",
-          "relays": [
-            "Kitchen-plinth",
-            "Kitchen-radiator"
-          ],
+      "rooms": {
+        "Kitchen": {
           "mode": "timed",
           "target": 21,
-          "events": [
-            {
-              "until": "17:30",
-              "temp": "15.0"
-            },
-            {
-              "until": "19:30",
-              "temp": "21.0"
-            }
-          ],
-          "relay": "off",
-          "protect": "no",
-          "advance": "-",
-          "prevmode": "timed",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787437923678,
-          "temperature": 2220,
-          "battery": 90,
-          "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 17 min",
-          "humidity": 58,
-          "sensorAge": 1051204,
-          "until": 1778144217019,
           "periods": [
             {
               "on": "12:15",
@@ -578,16 +291,32 @@
               "off": "20:00",
               "temp": "22.0"
             }
-          ]
-        },
-        {
-          "name": "Sunroom",
-          "sensor": "Sunroom-thermometer",
-          "relays": [
-            "Sunroom-radiator"
           ],
+          "events": [
+            {
+              "until": "17:30",
+              "temp": "15.0"
+            },
+            {
+              "until": "19:30",
+              "temp": "21.0"
+            }
+          ],
+          "period": -1,
+          "advance": "-",
+          "prevmode": "timed",
+          "until": 1778144217019
+        },
+        "Sunroom": {
           "mode": "timed",
           "target": 23,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "23:00",
+              "temp": "23.0"
+            }
+          ],
           "events": [
             {
               "until": "17:30",
@@ -598,37 +327,21 @@
               "temp": "23.5"
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "prevmode": "timed",
-          "advance": "-",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787437923998,
-          "temperature": 2210,
-          "battery": 100,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 26 min",
-          "humidity": 51.8,
-          "sensorAge": 1616642,
-          "until": 1778144344746,
+          "advance": "-",
+          "prevmode": "timed",
+          "until": 1778144344746
+        },
+        "Lounge": {
+          "mode": "timed",
+          "target": 15,
           "periods": [
             {
               "on": "18:00",
               "off": "23:00",
               "temp": "23.0"
             }
-          ]
-        },
-        {
-          "name": "Lounge",
-          "sensor": "Lounge-thermometer",
-          "relays": [
-            "Lounge-radiators"
           ],
-          "mode": "timed",
-          "target": 15,
           "events": [
             {
               "until": "09:00",
@@ -643,36 +356,25 @@
               "temp": "24.0"
             }
           ],
-          "protect": "no",
-          "advance": "-",
-          "prevmode": "timed",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787437924326,
-          "temperature": 2270,
-          "battery": 100,
-          "relay": "off",
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 50.7,
-          "sensorAge": 364062,
-          "periods": [
-            {
-              "on": "18:00",
-              "off": "23:00",
-              "temp": "23.0"
-            }
-          ]
+          "advance": "-",
+          "prevmode": "timed"
         },
-        {
-          "name": "Bedroom 1",
-          "sensor": "Bedroom-1-thermometer",
-          "relays": [
-            "Bedroom-1-radiator"
-          ],
+        "Bedroom 1": {
           "mode": "timed",
           "target": 22,
+          "periods": [
+            {
+              "on": "07:00",
+              "off": "08:00",
+              "temp": "22.5"
+            },
+            {
+              "on": "22:30",
+              "off": "23:30",
+              "temp": "22.5"
+            }
+          ],
           "events": [
             {
               "until": "07:00",
@@ -691,20 +393,13 @@
               "temp": 21
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "advance": "-",
-          "prevmode": "timed",
-          "linked": "yes",
-          "status": "warn",
-          "timestamp": 1787437924646,
-          "temperature": 2260,
-          "battery": 90,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 59 min",
-          "humidity": 49,
-          "sensorAge": 3566574,
+          "advance": "-",
+          "prevmode": "timed"
+        },
+        "Bedroom 2": {
+          "mode": "off",
+          "target": 23,
           "periods": [
             {
               "on": "07:00",
@@ -716,16 +411,7 @@
               "off": "23:30",
               "temp": "22.5"
             }
-          ]
-        },
-        {
-          "name": "Bedroom 2",
-          "sensor": "Bedroom-2-thermometer",
-          "relays": [
-            "Bedroom-2-radiator"
           ],
-          "mode": "off",
-          "target": 23,
           "events": [
             {
               "until": "07:00",
@@ -744,40 +430,19 @@
               "temp": "22.0"
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "advance": "-",
-          "linked": "yes",
-          "status": "fail",
-          "timestamp": 1787437924971,
-          "temperature": 2120,
-          "battery": -1,
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 676 min",
-          "humidity": 54,
-          "sensorAge": 40596419,
-          "periods": [
-            {
-              "on": "07:00",
-              "off": "08:00",
-              "temp": "22.5"
-            },
-            {
-              "on": "22:30",
-              "off": "23:30",
-              "temp": "22.5"
-            }
-          ]
+          "advance": "-"
         },
-        {
-          "name": "Hall",
-          "sensor": "Hall-thermometer",
-          "relays": [
-            "Hall-radiator"
-          ],
+        "Hall": {
           "mode": "timed",
           "target": 13,
+          "periods": [
+            {
+              "on": "18:00",
+              "off": "22:30",
+              "temp": "21.0"
+            }
+          ],
           "events": [
             {
               "until": "07:00",
@@ -796,34 +461,11 @@
               "temp": "17.0"
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "prevmode": "timed",
-          "advance": "-",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787437925292,
-          "temperature": 2250,
-          "battery": 90,
           "period": -1,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 15 min",
-          "sensorAge": 916623,
-          "humidity": 53,
-          "periods": [
-            {
-              "on": "18:00",
-              "off": "22:30",
-              "temp": "21.0"
-            }
-          ]
+          "advance": "-",
+          "prevmode": "timed"
         },
-        {
-          "name": "Office",
-          "sensor": "Office-thermometer",
-          "relays": [
-            "Office-heater"
-          ],
+        "Office": {
           "mode": "off",
           "target": 22,
           "events": [
@@ -832,44 +474,18 @@
               "temp": 15
             }
           ],
-          "relay": "off",
-          "protect": "no",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787437925617,
-          "temperature": 1778,
-          "battery": 24,
-          "advance": "-",
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "",
-          "humidity": 39.8,
-          "sensorAge": 208684
+          "advance": "-"
         },
-        {
-          "name": "Outside",
-          "sensor": "Outside-thermometer",
-          "relays": [],
+        "Outside": {
           "mode": "off",
           "target": 0,
           "events": [],
-          "relay": "off",
-          "protect": "yes",
-          "ptemp": "-0.5",
-          "advance": "-",
-          "prevmode": "off",
-          "linked": "yes",
-          "status": "good",
-          "timestamp": 1787437925936,
-          "temperature": 1610,
-          "battery": 90,
           "period": 0,
-          "relayfails": 0,
-          "statusMessage": "Sensor: no report for 13 min",
-          "sensorAge": 829738,
-          "humidity": 75
+          "advance": "-",
+          "prevmode": "off"
         }
-      ]
+      }
     }
   ],
   "request": "Request-relay",
@@ -898,5 +514,151 @@
   ],
   "calendar": "on",
   "name": "Sample home",
-  "profile": 2
+  "profile": 2,
+  "rooms": [
+    {
+      "name": "Kitchen",
+      "sensor": "Kitchen-thermometer",
+      "relays": [
+        "Kitchen-plinth",
+        "Kitchen-radiator"
+      ],
+      "relay": "off",
+      "protect": "no",
+      "linked": "yes",
+      "status": "good",
+      "timestamp": 1787437923678,
+      "temperature": 2220,
+      "battery": 90,
+      "relayfails": 0,
+      "statusMessage": "Sensor: no report for 17 min",
+      "humidity": 58,
+      "sensorAge": 1051204
+    },
+    {
+      "name": "Sunroom",
+      "sensor": "Sunroom-thermometer",
+      "relays": [
+        "Sunroom-radiator"
+      ],
+      "relay": "off",
+      "protect": "no",
+      "linked": "yes",
+      "status": "good",
+      "timestamp": 1787437923998,
+      "temperature": 2210,
+      "battery": 100,
+      "relayfails": 0,
+      "statusMessage": "Sensor: no report for 26 min",
+      "humidity": 51.8,
+      "sensorAge": 1616642
+    },
+    {
+      "name": "Lounge",
+      "sensor": "Lounge-thermometer",
+      "relays": [
+        "Lounge-radiators"
+      ],
+      "protect": "no",
+      "linked": "yes",
+      "status": "good",
+      "timestamp": 1787437924326,
+      "temperature": 2270,
+      "battery": 100,
+      "relay": "off",
+      "relayfails": 0,
+      "statusMessage": "",
+      "humidity": 50.7,
+      "sensorAge": 364062
+    },
+    {
+      "name": "Bedroom 1",
+      "sensor": "Bedroom-1-thermometer",
+      "relays": [
+        "Bedroom-1-radiator"
+      ],
+      "relay": "off",
+      "protect": "no",
+      "linked": "yes",
+      "status": "warn",
+      "timestamp": 1787437924646,
+      "temperature": 2260,
+      "battery": 90,
+      "relayfails": 0,
+      "statusMessage": "Sensor: no report for 59 min",
+      "humidity": 49,
+      "sensorAge": 3566574
+    },
+    {
+      "name": "Bedroom 2",
+      "sensor": "Bedroom-2-thermometer",
+      "relays": [
+        "Bedroom-2-radiator"
+      ],
+      "relay": "off",
+      "protect": "no",
+      "linked": "yes",
+      "status": "fail",
+      "timestamp": 1787437924971,
+      "temperature": 2120,
+      "battery": -1,
+      "relayfails": 0,
+      "statusMessage": "Sensor: no report for 676 min",
+      "humidity": 54,
+      "sensorAge": 40596419
+    },
+    {
+      "name": "Hall",
+      "sensor": "Hall-thermometer",
+      "relays": [
+        "Hall-radiator"
+      ],
+      "relay": "off",
+      "protect": "no",
+      "linked": "yes",
+      "status": "good",
+      "timestamp": 1787437925292,
+      "temperature": 2250,
+      "battery": 90,
+      "relayfails": 0,
+      "statusMessage": "Sensor: no report for 15 min",
+      "sensorAge": 916623,
+      "humidity": 53
+    },
+    {
+      "name": "Office",
+      "sensor": "Office-thermometer",
+      "relays": [
+        "Office-heater"
+      ],
+      "relay": "off",
+      "protect": "no",
+      "linked": "yes",
+      "status": "good",
+      "timestamp": 1787437925617,
+      "temperature": 1778,
+      "battery": 24,
+      "relayfails": 0,
+      "statusMessage": "",
+      "humidity": 39.8,
+      "sensorAge": 208684
+    },
+    {
+      "name": "Outside",
+      "sensor": "Outside-thermometer",
+      "relays": [],
+      "relay": "off",
+      "protect": "yes",
+      "ptemp": "-0.5",
+      "linked": "yes",
+      "status": "good",
+      "timestamp": 1787437925936,
+      "temperature": 1610,
+      "battery": 90,
+      "relayfails": 0,
+      "statusMessage": "Sensor: no report for 13 min",
+      "sensorAge": 829738,
+      "humidity": 75
+    }
+  ]
 }

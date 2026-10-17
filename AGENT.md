@@ -30,6 +30,15 @@ allspeak controller.allspeak
 # process supervisor — check which mechanism is in use on the target.
 ```
 
+Two checks run without a browser, a broker or the controller box, and both are cheap enough to run after any edit:
+
+```bash
+tests/unit/run-unit-tests.sh        # AllSpeak unit tests + Python tests (heatlog, commit round-trip)
+node tests/pwa-compile-check.js     # compiles all five new-ui modules in the browser runtime
+```
+
+`tests/pwa-compile-check.js` is the only compiler that understands the PWA's dialect: the `allspeak` CLI is a different implementation of the language, so pointing it at `new-ui/resources/allspeak/*.allspeak` reports dialect differences, not mistakes. It fetches the runtime from the URL `new-ui/index.html` names, so it follows the pin rather than carrying its own copy. `tests/unit/commit_roundtrip_test.py` extracts `MaterialiseRooms`, `CommitRooms` and `UpdateRooms` from `controller.allspeak` at run time and proves that a change made to a working room survives the next materialise and lands in the profile — the failure that made Advance, On and Off revert on the live system.
+
 The UI is a static webapp — it has to be served over HTTP (not `file://`) because it fetches its scripts and Webson layouts by XHR, and it needs nothing else from a server. `allspeak viz [port]` starts the AllSpeak dev server (default port `8080`) if one is not already up, and opens the visualiser at `http://localhost:<port>/viz.html`; `allspeak server [port]` starts the same server and opens nothing, which is what you want when you are opening several pages yourself. Open `http://localhost:<port>/new-ui/index.html` for the new UI, or `http://localhost:<port>/index.html` for the legacy one; either prompts for the MQTT password on first use and stores it in localStorage. A plain `python3 -m http.server <port>` serves the same files when all you want is to look at a page, since nothing here needs anything but static hosting.
 
 ## Repository Structure
@@ -167,6 +176,7 @@ Standing knowledge rather than next steps. Every one of these has cost real time
 - **All variables are global — there is no block-local scope.** A variable declared next to a label, or inside an `if`/`while` body, is still shared across the whole script.
 - **`cat`'s right-hand side is the whole rest of the expression.** `left 4 of X cat newline` parses as `left 4 of (X cat newline)` — the newline is inside the value that `left 4 of` then truncates. Build a concatenation in steps when a value-producing keyword comes first.
 - **A number that arrived as text stays text, and text compares lexically** — `9` is not less than `10`. Convert with `the value of`, or `add 0 to` when it is already in a variable. This bites hardest on values that came from a map, a form field or a URL.
+- **Whether an assignment copies or aliases depends on the *form*, not on the language.** Measured on the controller's own runtime, 2026-10-17: `put A into B`, `put entry K of D into V` and `put item I of L into V` all **alias**; `append A to L` and `set … to …` **copy**. Both halves of the shared room list were broken by assuming otherwise — a per-room change made to a working record that `append` had copied never reached the profile (so Advance, On and Off reverted a second after the tap), and building that working record straight from the stored one wrote relays, sensors and readings *into* every profile's plan. The copy idiom is `put prettify X into T`, then `put json T into Y`. `tests/unit/commit_roundtrip_test.py` holds the contract.
 - **`index X to N` selects a *slot*; `item N of X` and `element N of X` read from inside a JSON array.** `put V into item N of X` is not a valid target, and the two never overlap.
 - **`element N of X` parses the whole array, and stringifies what it returns.** A json variable is held as *text*, so each indexed read is `JSON.parse(<the whole array>)[N]` plus a `JSON.stringify` when the element is an object: measured 2026-10-06 in the AllSpeak repo at **~15 ms per access on a 435 KB recording**, which makes **any loop over a json array quadratic in what it walks**. A map of this size is nowhere near that, but the shape to remember is *read it once, and cache a filtered copy rather than re-walking the original*.
 - **A status code does not mean the file arrived.** A dev server can answer an unknown path with `200` and its own HTML page, so a fetch that matters should check its body for a leading `<` rather than trusting the response alone.

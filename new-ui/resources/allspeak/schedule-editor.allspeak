@@ -2,7 +2,7 @@
 !!
 !! Loaded by shell.allspeak inside BuildHomeScreen via `run ... as ScheduleEditorModule`, AFTER the sheet chrome has been rendered (so SheetContent exists to attach into). The module renders schedule-editor.json into SheetContent, attaches its DOM, wires its static click handlers (Save / Cancel / Add / profile-pill), then `release parent` and parks on `on message`.
 !!
-!! Lifecycle of one editing session: parent ships `{roomName, roomLegacyIdx, profileIdx, profiles}` and blocks on the reply. Module unpacks, clones the host room's periods into EditingPeriods (display shape {start, off, target}), renders period cards, shows its sheet, then waits in a poll loop (`while not DoneFlag wait 10 ticks`) for the Save or Cancel click handlers to fire. Save commits the edits back into the LiveProfiles snapshot the parent sent; Cancel discards. The handler hides the sheet, ships either `{cancelled:`no`, profiles}` or `{cancelled:`yes`}` back, and stops.
+!! Lifecycle of one editing session: parent ships `{roomName, profileIdx, profiles}` and blocks on the reply. The room is addressed by name, because that is what keys a profile's schedule state — there is no array position to go stale under a rename or a reorder. Module unpacks, clones the room's periods into EditingPeriods (display shape {start, off, target}), renders period cards, shows its sheet, then waits in a poll loop (`while not DoneFlag wait 10 ticks`) for the Save or Cancel click handlers to fire. Save commits the edits back into the LiveProfiles snapshot the parent sent; Cancel discards. The handler hides the sheet, ships either `{cancelled:`no`, profiles}` or `{cancelled:`yes`}` back, and stops.
 !!
 !! Sheet-chrome ownership: the parent owns SheetRoot / SheetScrim / SheetContainer / SheetTitleEl. The module only owns ScheduleSheetEl and its children. The parent calls HideAllSheets + OpenSheet before send and CloseSheet after the reply, so the chrome animation brackets the whole editing session.
 
@@ -57,7 +57,6 @@
 
 	variable EditingPeriods
 	variable EditingPeriodsCount
-	variable EditingRoomLegacyIdx
 	variable EditingRoomName
 	variable EditingProfileIdx
 	variable EditingProfileName
@@ -138,7 +137,7 @@
 	release parent
 	log `ScheduleEditor module ready`
 	stop
-!! @hash b7b51849
+!! @hash 1f7f8d62
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -146,7 +145,6 @@
 HandleOpen:
 	put the message into OpenMsg
 	put property `roomName` of OpenMsg into EditingRoomName
-	put property `roomLegacyIdx` of OpenMsg into EditingRoomLegacyIdx
 	put property `profileIdx` of OpenMsg into EditingProfileIdx
 	put property `profiles` of OpenMsg into LiveProfiles
 	put LiveProfiles into Profiles
@@ -178,9 +176,9 @@ HandleOpen:
 	end
 	send Result to sender
 	stop
-!! @hash 37230515
+!! @hash e604eef0
 !!!
-!! Save click handler. Sorts EditingPeriods by start time, converts each row back to the storage shape `{on, off, temp, enabled}`, splices the result into LiveProfiles[EditingProfileIdx].rooms[EditingRoomLegacyIdx].periods, sets SavePending and DoneFlag so HandleOpen's wait loop exits and ships the reply.
+!! Save click handler. Sorts EditingPeriods by start time, converts each row back to the storage shape `{on, off, temp, enabled}`, writes the result into LiveProfiles[EditingProfileIdx].rooms[EditingRoomName].periods, sets SavePending and DoneFlag so HandleOpen's wait loop exits and ships the reply.
 OnSaveClick:
 	gosub to SortPeriods
 	put `[]` into SortedPeriods
@@ -199,16 +197,18 @@ OnSaveClick:
 
 	put element EditingProfileIdx of LiveProfiles into LiveProfileForRoom
 	put property `rooms` of LiveProfileForRoom into LiveRoomsForRoom
-	put element EditingRoomLegacyIdx of LiveRoomsForRoom into LiveRoomForSchedule
+	put `{}` into LiveRoomForSchedule
+	if LiveRoomsForRoom has entry EditingRoomName
+		put property EditingRoomName of LiveRoomsForRoom into LiveRoomForSchedule
 	set property `periods` of LiveRoomForSchedule to SortedPeriods
-	set element EditingRoomLegacyIdx of LiveRoomsForRoom to LiveRoomForSchedule
+	set property EditingRoomName of LiveRoomsForRoom to LiveRoomForSchedule
 	set property `rooms` of LiveProfileForRoom to LiveRoomsForRoom
 	set element EditingProfileIdx of LiveProfiles to LiveProfileForRoom
 
 	set SavePending
 	set DoneFlag
 	return
-!! @hash 7bf45d78
+!! @hash 652aa35c
 !!!
 !! Cancel click handler. Sets DoneFlag (but not SavePending) so HandleOpen ships a `{cancelled: yes}` reply.
 OnCancelClick:
@@ -310,7 +310,9 @@ ClonePeriodsForEditing:
 	put `[]` into EditingPeriods
 	put element EditingProfileIdx of LiveProfiles into LiveProfileForRoom
 	put property `rooms` of LiveProfileForRoom into LiveRoomsForRoom
-	put element EditingRoomLegacyIdx of LiveRoomsForRoom into LiveRoomForSchedule
+	put `{}` into LiveRoomForSchedule
+	if LiveRoomsForRoom has entry EditingRoomName
+		put property EditingRoomName of LiveRoomsForRoom into LiveRoomForSchedule
 
 	put property `periods` of LiveRoomForSchedule into SourcePeriods
 	if SourcePeriods is empty
@@ -339,7 +341,7 @@ ClonePeriodsForEditing:
 	end
 	put SourcePeriodsCount into EditingPeriodsCount
 	return
-!! @hash b3419282
+!! @hash 97170dd3
 !!!
 !! Tear down and rebuild the period cards from EditingPeriods.
 !!

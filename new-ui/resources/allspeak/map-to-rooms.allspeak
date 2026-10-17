@@ -1,6 +1,10 @@
-!! Map-to-rooms translation module. Receives the controller's legacy map JSON from shell.allspeak and translates it into the new-UI shape (Title-case modes, "X.Y" temperature strings, schedule projection, offline classification, etc).
+!! Map-to-rooms translation module. Receives the controller's map JSON from shell.allspeak and translates it into the new-UI shape (Title-case modes, "X.Y" temperature strings, schedule projection, offline classification, etc).
 !!
 !! Loaded once by shell.allspeak via `run ... as MapToRoomsModule`. On every controller map push, shell.allspeak sends the Map dict here and gets back a Result dict with all the translated state. The module is otherwise stateless — each Translate call is a self-contained transformation.
+!!
+!! The map has one shared room list. `Map.rooms` holds room identity — the relays, the thermometer, whether the relay is driven by target or by mode, frost protection, and the readings — once for the whole system. Each profile holds only its own schedule state for a room, keyed by room name: `Map.profiles[].rooms["Kitchen"] = {mode, target, periods, ...}`. Nothing is keyed by array position, so a room's identity and its schedule cannot drift into another room.
+!!
+!! This module merges the two back into one record per room for the display path (MergeSharedRooms), because everything downstream — the card, the schedule projection, the offline classification — works best on one flat record per room. That merge is read-only: nothing here writes to Map.
 !!
 !! Reply payload (keys on Result):
 !!   `rooms`               — filtered new-UI RoomsList (outdoor sensor stripped)
@@ -9,8 +13,8 @@
 !!   `outsideSensor`       — outdoor sensor name, or empty
 !!   `frostTrigger`        — frost-protection trigger, or empty
 !!   `outsideRoomFound`    — `yes` / `no` (outdoor-sensor slot was present)
-!!   `outsideRoomLegacyIdx`— legacy index of the outdoor slot (for the Devices editor)
-!!   `profiles`            — full profiles array (passed through for sheet editors)
+!!   `outsideRoomName`     — name of the outdoor room, for the Devices and Outside sheets to write identity by name
+!!   `profiles`            — full profiles array, per-profile state keyed by room name (for sheet editors)
 !!   `currentProfile`      — active profile index (calendar-resolved)
 !!   `activeProfile`       — the active profile dict
 !!   `activeProfileName`   — its name
@@ -47,12 +51,21 @@
 	variable OutsideSensor
 	variable FrostTrigger
 	variable OutsideRoomFound
-	variable OutsideRoomLegacyIdx
+	variable OutsideRoomName
 
 	variable LegacyRooms
 	variable LegacyRoomCount
 	variable LegacyIdx
 	variable LegacyRoom
+
+!	Shared room list: identity above profiles, per-profile state keyed by name.
+	variable SharedRooms
+	variable ActiveStates
+	variable MergeIdx
+	variable IdentityRoom
+	variable MergeName
+	variable MergedRoom
+	variable StateRoom
 	variable LegacyRelays
 	variable LegacyRelayCount
 
@@ -117,7 +130,7 @@
 	on message go to Translate
 	release parent
 	stop
-!! @hash ea7367d4
+!! @hash b1caf384
 !!!
 !! Message handler. Unpacks the Map from the message, runs the translation, packs the output dict, ships it back. Boolean flags (CalendarOn, OutsideRoomFound) travel as "on"/"off" / "yes"/"no" strings because boolean state doesn't round-trip cleanly through JSON.
 Translate:
@@ -132,7 +145,7 @@ Translate:
 	set property `frostTrigger` of Result to FrostTrigger
 	if OutsideRoomFound set property `outsideRoomFound` of Result to `yes`
 	else set property `outsideRoomFound` of Result to `no`
-	set property `outsideRoomLegacyIdx` of Result to OutsideRoomLegacyIdx
+	set property `outsideRoomName` of Result to OutsideRoomName
 	set property `profiles` of Result to Profiles
 	set property `currentProfile` of Result to CurrentProfile
 	set property `activeProfile` of Result to ActiveProfile
@@ -145,11 +158,11 @@ Translate:
 
 	send Result to sender
 	stop
-!! @hash 2571dbc6
+!! @hash 71eacfef
 !!!
 !! Walk the controller's map, build the new-UI RoomsList from scratch. Resolves the active profile via the calendar (when on) or Map.profile (when off), captures system-wide fields, and filters out the outdoor sensor entry into separate OutsideTemp / OutsideSensor / FrostTrigger state.
 !!
-!! The outdoor sensor entry is the "room with empty relays" slot — pinned by legacy index for the Devices editor to write back to, with its temperature feeding OutsideTemp.
+!! The outdoor sensor entry is the "room with empty relays" slot. Its name travels back in OutsideRoomName so the Outside and Devices sheets can write its identity (sensor, frost trigger) without carrying an array index around; its temperature feeds OutsideTemp.
 TranslateMap:
 	put property `profiles` of Map into Profiles
 	put property `profile` of Map into CurrentProfile
@@ -195,8 +208,9 @@ TranslateMap:
 	put property `systemType` of Map into SystemType
 	if SystemType is empty put `Boiler` into SystemType
 	put property `request` of Map into RequestRelay
-	put property `rooms` of ActiveProfile into LegacyRooms
-	put the json count of LegacyRooms into LegacyRoomCount
+	put property `rooms` of ActiveProfile into ActiveStates
+	put property `rooms` of Map into SharedRooms
+	gosub to MergeSharedRooms
 
 	put `[]` into RoomsList
 	put 0 into RoomsListIdx
@@ -204,7 +218,7 @@ TranslateMap:
 	put empty into OutsideSensor
 	put empty into FrostTrigger
 	clear OutsideRoomFound
-	put 0 into OutsideRoomLegacyIdx
+	put empty into OutsideRoomName
 
 	put 0 into LegacyIdx
 	while LegacyIdx is less than LegacyRoomCount
@@ -214,11 +228,11 @@ TranslateMap:
 		put the json count of LegacyRelays into LegacyRelayCount
 		if LegacyRelayCount is 0
 		begin
-!			Outdoor sensor entry: pin its slot index for the device editor,
-!			capture its sensor name + frost trigger, take its temperature.
+!			Outdoor sensor entry: capture its name (the sheets write identity
+!			by name), its sensor, its frost trigger, and its temperature.
 !			Skip the room (no card).
 			set OutsideRoomFound
-			put LegacyIdx into OutsideRoomLegacyIdx
+			put property `name` of LegacyRoom into OutsideRoomName
 			put property `sensor` of LegacyRoom into OutsideSensor
 			put property `ptemp` of LegacyRoom into FrostTrigger
 			put property `temperature` of LegacyRoom into LegacyTemp
@@ -242,7 +256,42 @@ TranslateMap:
 	end
 	put RoomsListIdx into RoomCount
 	return
-!! @hash 245f82f6
+!! @hash e80023c6
+!!!
+!! Build one flat record per room from the shared room list and the selected profile's schedule state, which is what everything below this point expects to read.
+!!
+!! Identity comes from `Map.rooms` and state from `profiles[selected].rooms[name]`; a room the selected profile carries no state for is still listed — it is part of the system's room set — and reads as Off with no schedule until a save gives it state. That is the honest display: the controller is not heating a room it has no plan for, and the room must not vanish from the page either.
+!!
+!! `put` copies the record (AllSpeak assigns by value), so the merge writes to a throwaway object and never into Map. Mutating Map here would feed identity fields back into every profile's state on the next save, which is exactly the duplication the shared room list exists to remove.
+MergeSharedRooms:
+	put `[]` into LegacyRooms
+	put the json count of SharedRooms into LegacyRoomCount
+	if LegacyRoomCount is 0
+		log `Map has no shared room list: the controller is older than this page`
+	put 0 into MergeIdx
+	while MergeIdx is less than LegacyRoomCount
+	begin
+		put element MergeIdx of SharedRooms into IdentityRoom
+		put property `name` of IdentityRoom into MergeName
+		put IdentityRoom into MergedRoom
+		if ActiveStates has entry MergeName
+		begin
+			put property MergeName of ActiveStates into StateRoom
+			if StateRoom has entry `mode` set property `mode` of MergedRoom to property `mode` of StateRoom
+			if StateRoom has entry `target` set property `target` of MergedRoom to property `target` of StateRoom
+			if StateRoom has entry `periods` set property `periods` of MergedRoom to property `periods` of StateRoom
+			if StateRoom has entry `events` set property `events` of MergedRoom to property `events` of StateRoom
+			if StateRoom has entry `period` set property `period` of MergedRoom to property `period` of StateRoom
+			if StateRoom has entry `advance` set property `advance` of MergedRoom to property `advance` of StateRoom
+			if StateRoom has entry `prevmode` set property `prevmode` of MergedRoom to property `prevmode` of StateRoom
+			if StateRoom has entry `until` set property `until` of MergedRoom to property `until` of StateRoom
+			if StateRoom has entry `boostperiod` set property `boostperiod` of MergedRoom to property `boostperiod` of StateRoom
+		end
+		set element MergeIdx of LegacyRooms to MergedRoom
+		increment MergeIdx
+	end
+	return
+!! @hash 05fb2d82
 !!!
 !! Translate one legacy controller-map room into a new-UI room entry. Inputs: LegacyRoom (the controller-format slot), RoomsListIdx (the position in the filtered RoomsList). Output: NewRoom, a fresh JSON object stored back into RoomsList by the caller.
 !!
@@ -272,7 +321,6 @@ BuildRoomEntry:
 	put property `name` of LegacyRoom into LegacyName
 	set property `name` of NewRoom to LegacyName
 	set property `id` of NewRoom to `room-` cat RoomsListIdx
-	set property `legacyIdx` of NewRoom to LegacyIdx
 	set property `sensor` of NewRoom to `no`
 
 	put property `mode` of LegacyRoom into LegacyMode
@@ -667,7 +715,7 @@ BuildRoomEntry:
 	set property `calling` of NewRoom to `no`
 	if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
 	return
-!! @hash 87779901
+!! @hash 8ad7a317
 !!!
 !! Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string (19.8). In-place via TempStr — caller passes the integer in, gets the string back out.
 FormatHundredths:
