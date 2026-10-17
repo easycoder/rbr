@@ -27,7 +27,7 @@ sh get-controller.sh        # fetches and unpacks rbr-controller.zip over this d
 ```
 pip install allspeak-ai         # add --break-system-packages if pip refuses
 ```
-6. Run the setup script as root. It prompts for the MQTT password and MAC address, then installs and configures everything: mosquitto (local broker + websocket + cloud bridge), Zigbee2MQTT (dongle auto-detected; web frontend on port 8080), the zigbee bridge service, the automatic updater and the component watchdog (both hourly), the map history keeper (every 2 minutes), and optionally the local UI and a controller service.
+6. Run the setup script as root. It prompts for the MQTT password and MAC address, then installs and configures everything: mosquitto (local broker + cloud bridge), Zigbee2MQTT (dongle auto-detected; web frontend on port 8080), the zigbee bridge service, the automatic updater and the component watchdog (both hourly), the map history keeper (every 2 minutes), and optionally the local UI and a controller service.
 ```
 sudo ./rbr-setup.sh
 ```

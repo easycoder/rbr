@@ -41,7 +41,7 @@ BROKER_HOST = "rbrheating.duckdns.org"
 BROKER_PORT = 8883
 # Ports RBR binds *locally*. 8883 is deliberately absent: the bridge dials out to
 # the cloud broker on that port, so a listener there is not a conflict.
-NEEDED_PORTS = [1883, 9001, 8080, 8889]
+NEEDED_PORTS = [1883, 8080, 8889]
 MIN_FREE_GB = 1.0
 MIN_RAM_MB = 480
 

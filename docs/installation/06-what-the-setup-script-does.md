@@ -62,15 +62,16 @@ It also checks Node.js, which Zigbee2MQTT needs at version 22 or newer — 22 be
 
 ### Step 2 — The local message broker
 
-Writes a Mosquitto configuration to `/etc/mosquitto/conf.d/rbr-local.conf` and restarts the broker. That file does three things:
+Writes a Mosquitto configuration to `/etc/mosquitto/conf.d/rbr-local.conf` and restarts the broker. That file does two things:
 
 - Opens plain MQTT on port 1883 for the controller, the Zigbee software and the bridge to talk to each other locally.
-- Opens a WebSocket listener on port 9001, which is how the browser interface reaches the broker.
 - Opens a **bridge to the RBR cloud broker** at `rbrheating.duckdns.org:8883`, authenticated with the credentials you supplied, mirroring every topic in both directions. This bridge is what lets the phone app see this controller at all.
 
-Both local listeners are configured to accept connections without a password, because they are the machine's own private channel between its own components. The cloud bridge is TLS-encrypted, using the system certificate store.
+The local listener is configured to accept connections without a password, because it is the machine's own private channel between its own components. The cloud bridge is TLS-encrypted, using the system certificate store.
 
-> **The broker listens on all of the machine's network interfaces.** Ports 1883 and 9001 are open to the local network, unauthenticated, by design — the browser interface needs the WebSocket one. If the machine sits on a network you do not trust, that is a thing to firewall rather than to fix in the script.
+There is deliberately **no WebSocket listener**. The interface is served from the site and reaches the broker in the cloud, so a local WebSocket port was only ever used by the local web server that went with the retired interface.
+
+> **The broker listens on all of the machine's network interfaces.** Port 1883 is open to the local network, unauthenticated, by design. If the machine sits on a network you do not trust, that is a thing to firewall rather than to fix in the script.
 
 The step finishes by reporting whether the broker came up, and the command to use if it did not.
 
