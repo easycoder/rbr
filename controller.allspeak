@@ -2521,7 +2521,7 @@ ResolveRoomFromMessage:
 !!
 !! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (replaces the shared room identity list, used by add/delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites the shared room list, the profiles list and the optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), and `Test`.
 !!
-!! Operating Mode handles all four modes plus the `Advance` toggle and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
+!! Operating Mode handles all four modes plus advance and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). `advance` is a desired state: the PWA sends `A` or `-` and it is applied as-is, so a retried or duplicated request cannot flip the wrong way; older clients sending `yes` still toggle. Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
 !!
 !! Room Override carries `op` (`set`, the default, or `clear`) plus, for a set, `kind` (`start` with a `time` of HH:MM, or `skip`). It is a one-day schedule tweak stored outside `profiles` — see SetRoomOverride — and is not a mode change, so a room in `on`/`off`/`boost` keeps that mode and the override applies when the room returns to `timed`.
 ProcessUIRequest:
@@ -2789,24 +2789,18 @@ ProcessUIRequest:
         end
         if Mode is `timed`
         begin
-            if Message has entry `Advance` put `Advance` into Value
-            else if Message has entry `advance` put `advance` into Value
+            if Message has entry `Advance` put entry `Advance` of Message into Value
+            else if Message has entry `advance` put entry `advance` of Message into Value
             else put empty into Value
             if Value is not empty
             begin
-                ! Toggle the advance
-                if entry `advance` of Room is `-`
-                begin
-                    ! Not already advanced, so set it up
-                    ! log RoomName cat ` set Advance`
-                    set entry `advance` of Room to `A`
-                end
-                else
-                begin
-                    ! Already advanced so cancel it
-                    ! log RoomName cat ` cancel Advance`
-                    set entry `advance` of Room to `-`
-                end
+                ! `A` and `-` are the PWA's desired state, applied as-is so
+                ! a duplicate or retried request cannot flip the wrong way.
+                ! Older clients send `yes` and still get the toggle.
+                if Value is `A` set entry `advance` of Room to `A`
+                else if Value is `-` set entry `advance` of Room to `-`
+                else if entry `advance` of Room is `-` set entry `advance` of Room to `A`
+                else set entry `advance` of Room to `-`
                 ! log `Force an update (timed mode)`
                 gosub to ForceUpdate
             end
@@ -2863,8 +2857,8 @@ ProcessUIRequest:
         gosub to ForceUpdate
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 87ddbf1a
-!! @verified 4dd81a04
+!! @hash 671aea6e
+!! @verified 671aea6e
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).
 !!

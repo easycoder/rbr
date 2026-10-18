@@ -207,6 +207,28 @@
 	variable SyncBaseMode
 	variable SyncBoostUntil
 	variable SyncPrevModeLegacy
+!	ToggleAdvance reprojection scratch. The pre-projection room list is kept
+!	so only the tapped room takes the projected record; every other room
+!	keeps the optimistic state earlier taps put on it.
+	variable PreviousRooms
+	variable ProjectedRoom
+!	Pending per-room commands. Every interactive change records the state
+!	it wants; incoming maps keep that state (including `calling`) until the
+!	controller's map agrees or the entry times out. The relay follows a
+!	command one cycle later, and a map can arrive late, so without this the
+!	card flickers back and a good request looks ignored.
+	variable PendingRooms
+	variable PendingNames
+	variable PendingI
+	variable PendingJ
+	variable PendingName
+	variable PendingEntry
+	variable PendingState
+	variable PendingRoom
+	variable PendingRoomIndex
+	variable PendingUntil
+	variable PendingMatches
+	variable PendingRemoved
 	variable TempStr
 	variable TempTenths
 	variable TempT
@@ -385,7 +407,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash 347df9a6
+!! @hash 4ce0a894
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -657,6 +679,7 @@ OnMapReceived:
 	if ReceivedMessage is empty
 	begin
 		increment HeartbeatCount
+		gosub to ExpirePendingRooms
 		return
 	end
 !	Validate BEFORE clobbering Map. A ping or malformed payload that
@@ -683,7 +706,28 @@ OnMapReceived:
 !	log ReceivedMessage
 	put ReceivedMessage into Map
 	put empty into ReceivedMessage
-!	Ship the map to the translation module and unpack the reply into our globals.
+	gosub to ApplyMapToRooms
+	if not FirstMapDone
+	begin
+		set FirstMapDone
+		put 0 into storage as `first-map-attempts`
+		gosub to BuildHomeScreen
+		put `refresh` into Prompt
+		if not DemoMode fork to MapPollTask
+	end
+	else
+	begin
+		gosub to RefreshHomeScreen
+	end
+	return
+!! @hash 54df9a84
+!!!
+!! Project Map into the UI's room list and module-level state.
+!!
+!! The projection lives in map-to-rooms.allspeak, and there is deliberately only one caller-visible way to run it. OnMapReceived uses it for every controller push; ToggleAdvance uses it immediately after its optimistic flip, so the card's schedule text (next period, background gap, target) is reprojected from the Advance the user just set instead of staying on last push's projection until the next map arrives.
+!!
+!! Callers own the render afterwards. This routine only replaces the model — it does not touch the DOM.
+ApplyMapToRooms:
 	send Map to MapToRoomsModule and assign reply to MapResult
 	put property `rooms` of MapResult into RoomsList
 	put property `roomCount` of MapResult into RoomCount
@@ -702,20 +746,123 @@ OnMapReceived:
 	put property `requestRelay` of MapResult into RequestRelay
 	clear CalendarOn
 	if property `calendarOn` of MapResult is `on` set CalendarOn
-	if not FirstMapDone
+	gosub to ApplyPendingRooms
+	return
+!! @hash 168faf69
+!!!
+!! Keep a just-commanded room's optimistic state on the cards until the controller's map agrees.
+!!
+!! A command and the relay decision that follows it land in two different maps: the schedule change comes back in about a third of a second, the relay one controller cycle later (and the bridge can spend up to two seconds confirming a device). The UI's optimistic flip is right immediately, but the first map used to put the controller's older `relay`/`calling` back on the card, so a cancelled advance flashed "calling for heat" again and a started one lost its orange for several seconds. This holds the commanded state — mode, advance, target, the projected schedule fields and `calling` — over incoming maps until the controller reports the same state, or the entry expires.
+!!
+!! The timeout is a grace period, not a retry: the command has already been sent, and if the controller never agrees the card must eventually tell the truth. The map keeps its own readings and warnings throughout; only the fields the command owns are overlaid.
+ApplyPendingRooms:
+	if PendingRooms is empty return
+	put the json keys of PendingRooms into PendingNames
+	put 0 into PendingI
+	while PendingI is less than the json count of PendingNames
 	begin
-		set FirstMapDone
-		put 0 into storage as `first-map-attempts`
-		gosub to BuildHomeScreen
-		put `refresh` into Prompt
-		if not DemoMode fork to MapPollTask
+		put element PendingI of PendingNames into PendingName
+		put property PendingName of PendingRooms into PendingEntry
+		put property `until` of PendingEntry into PendingUntil
+		if now is greater than PendingUntil
+			json delete property PendingName of PendingRooms
+		else
+		begin
+			put property `state` of PendingEntry into PendingState
+			put -1 into PendingRoomIndex
+			put 0 into PendingJ
+			while PendingJ is less than RoomCount
+			begin
+				put element PendingJ of RoomsList into PendingRoom
+				if property `name` of PendingRoom is PendingName
+				begin
+					put PendingJ into PendingRoomIndex
+					put RoomCount into PendingJ
+				end
+				increment PendingJ
+			end
+			if PendingRoomIndex is less than 0
+				json delete property PendingName of PendingRooms
+			else
+			begin
+				gosub to PendingRoomMatches
+				if PendingMatches json delete property PendingName of PendingRooms
+				else
+				begin
+					gosub to OverlayPendingState
+					set element PendingRoomIndex of RoomsList to PendingRoom
+				end
+			end
+		end
+		increment PendingI
 	end
-	else
+	return
+!! @hash 188d5b82
+!!!
+!! Drop pending commands that have outlived their grace period, then put the last known map back on screen.
+!!
+!! Called for heartbeat replies as well as maps: if a command was lost and the controller never sends a full map, the optimistic state must not stay forever. Re-projecting the last Map restores the controller's truth (and keeps any younger pending entries overlaid).
+ExpirePendingRooms:
+	if PendingRooms is empty return
+	if Map is empty return
+	put the json keys of PendingRooms into PendingNames
+	put 0 into PendingRemoved
+	put 0 into PendingI
+	while PendingI is less than the json count of PendingNames
 	begin
+		put element PendingI of PendingNames into PendingName
+		put property PendingName of PendingRooms into PendingEntry
+		put property `until` of PendingEntry into PendingUntil
+		if now is greater than PendingUntil
+		begin
+			json delete property PendingName of PendingRooms
+			increment PendingRemoved
+		end
+		increment PendingI
+	end
+	if PendingRemoved is greater than 0
+	begin
+		gosub to ApplyMapToRooms
 		gosub to RefreshHomeScreen
 	end
 	return
-!! @hash 80b070ff
+!! @hash 5634cc4b
+!!!
+!! Has the controller's map caught up with the commanded state? Compares the fields the command owns; `calling` is included deliberately, because the schedule half of the change can be in the map while the relay half is still a cycle behind.
+PendingRoomMatches:
+	clear PendingMatches
+	if property `mode` of PendingRoom is not property `mode` of PendingState return
+	if property `advance` of PendingRoom is not property `advance` of PendingState return
+	if property `target` of PendingRoom is not property `target` of PendingState return
+	if property `calling` of PendingRoom is not property `calling` of PendingState return
+	set PendingMatches
+	return
+!! @hash ad678168
+!!!
+!! Put the commanded state's fields back on the mapped room, leaving the map's readings, status and warnings alone.
+OverlayPendingState:
+	set property `mode` of PendingRoom to property `mode` of PendingState
+	set property `prevMode` of PendingRoom to property `prevMode` of PendingState
+	set property `advance` of PendingRoom to property `advance` of PendingState
+	set property `target` of PendingRoom to property `target` of PendingState
+	set property `nextTime` of PendingRoom to property `nextTime` of PendingState
+	set property `nextTarget` of PendingRoom to property `nextTarget` of PendingState
+	set property `nextPrefix` of PendingRoom to property `nextPrefix` of PendingState
+	set property `calling` of PendingRoom to property `calling` of PendingState
+	if property `mode` of PendingState is `Boost`
+	begin
+		set property `boost` of PendingRoom to property `boost` of PendingState
+		set property `boostRemaining` of PendingRoom to property `boostRemaining` of PendingState
+		set property `boostUntilMs` of PendingRoom to property `boostUntilMs` of PendingState
+	end
+	else
+	begin
+		set property `boost` of PendingRoom to empty
+		set property `boostRemaining` of PendingRoom to 0
+		set property `boostUntilMs` of PendingRoom to 0
+	end
+	return
+!! @hash b9bd8cd6
 !!!
 !! 10-second poll loop forked once OnMapReceived has built the home screen. Each cycle: wait 10 seconds, request a fresh map, then check how long it's been since the last reply.
 !!
@@ -1833,9 +1980,11 @@ BoostOffTapped:
 	return
 !! @hash 6518b52f
 !!!
-!! Toggle the Advance state for the current room. Optimistic local flip, then ship the new desired state in an "Operating Mode" uirequest.
+!! Toggle the Advance state for the current room. Optimistic local flip, reproject from the local map, then ship the new desired state in an "Operating Mode" uirequest.
 !!
-!! The controller treats any non-empty `advance` field on a `timed` mode command as a toggle, so sending the new state value moves it to that state regardless of how the controller currently sees it. The next map refresh reconciles.
+!! The controller applies `A` and `-` as the desired state rather than toggling, so a repeated or retried request cannot flip it the wrong way. The next map refresh reconciles.
+!!
+!! Reprojection is what makes the card respond now rather than on the next map push: Advance changes which schedule slot the room is projected into (period end, background gap, or a back-to-back period brought forward), and those fields live in the projection rather than in the room record the toggle touched. SyncCurrentRoomToMap first, so the projection sees the new `advance`, then ApplyMapToRooms, then re-read the room by index because the projection replaced the list.
 !!
 !! AdvanceBtn must already be indexed to ClickIndex (the click handler in WireRoomInteractions ensures this).
 ToggleAdvance:
@@ -1846,11 +1995,32 @@ ToggleAdvance:
 	else put `A` into Advance
 	set property `advance` of Room to Advance
 	set element ClickIndex of RoomsList to Room
-	gosub to AfterStateChange
+
+!	A new command supersedes any state still being held for this room.
+!	Without this, ApplyPendingRooms would put the old state back over the
+!	reprojection below, and a second tap would be undone before it was sent.
+	if PendingRooms is not empty
+	begin
+		put property `name` of Room into PendingName
+		if PendingRooms has entry PendingName json delete property PendingName of PendingRooms
+	end
 
 	gosub to SyncCurrentRoomToMap
+!	Reprojection rebuilds every room from the controller's relay state, so
+!	keep the list we already have and take only this room's projected
+!	record. Everything else keeps whatever optimistic state the user's
+!	earlier taps put there, and only this room's schedule changed.
+	put RoomsList into PreviousRooms
+	gosub to ApplyMapToRooms
+	put element ClickIndex of RoomsList into ProjectedRoom
+	put PreviousRooms into RoomsList
+	set element ClickIndex of RoomsList to ProjectedRoom
+	put element ClickIndex of RoomsList into Room
+
+	gosub to AfterStateChange
 
 	put property `name` of Room into RoomNameForServer
+	put property `advance` of Room into Advance
 	put `{}` into Result
 	set property `Action` of Result to `Operating Mode`
 	set property `Room` of Result to RoomNameForServer
@@ -1858,7 +2028,7 @@ ToggleAdvance:
 	set property `advance` of Result to Advance
 	gosub to PostUiRequest
 	return
-!! @hash e3009772
+!! @hash 7fe8a33e
 !!!
 !! Mirror the locally-mutated Room (RoomsList[ClickIndex]) back into Map.profiles[CurrentProfile].rooms[room name], translating new-UI fields (Title-case mode, Boost-as-peer-mode overlay) into the controller's form.
 !!
@@ -2575,8 +2745,24 @@ AfterStateChange:
 	gosub to PaintExpansion
 	gosub to ComputeSummaryStats
 	gosub to PaintSummary
+	gosub to RememberPending
 	return
-!! @hash eb6faa04
+!! @hash 4fbee3ba
+!!!
+!! Record the state a user change wants, so incoming maps cannot put the old state back before the controller has caught up.
+!!
+!! Called from AfterStateChange, which every interactive per-room change already goes through — mode, target, boost and advance. The entry lives for a grace period rather than until a particular map, because the command's two halves arrive separately: the schedule in the next map, the relay a cycle later. ApplyPendingRooms consumes it.
+RememberPending:
+	if PendingRooms is empty put `{}` into PendingRooms
+	put `{}` into PendingEntry
+	set property `state` of PendingEntry to Room
+	put now into PendingUntil
+	add 12000 to PendingUntil
+	set property `until` of PendingEntry to PendingUntil
+	put property `name` of Room into PendingName
+	set property PendingName of PendingRooms to PendingEntry
+	return
+!! @hash b2540b9d
 !!!
 !! Recompute `calling` (the "this room wants heat right now" flag) for the current Room. Optimistic local update — the controller's authoritative answer follows on the next map push.
 !!

@@ -209,7 +209,10 @@ address rbrheating.duckdns.org:8883
 remote_username ${MQTT_USERNAME}
 remote_password ${MQTT_PASSWORD}
 bridge_capath /etc/ssl/certs
-topic # both 0
+# QoS 1 end-to-end. The PWA's map is sent as ~1 KB chunks, and at QoS 0 a
+# single lost chunk drops the whole map — the page then sits on stale state
+# until a later map happens to arrive intact. Commands get the same guarantee.
+topic # both 1
 bridge_protocol_version mqttv311
 CONF
 
