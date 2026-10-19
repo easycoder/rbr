@@ -260,6 +260,7 @@
 	variable ReceivedMessage
 	variable Prompt
 	variable FirstMapDone
+	variable BuildingHome
 	variable SheetsReady
 	variable LastReceivedAt
 	variable ResumeAge
@@ -699,6 +700,15 @@ OnMapReceived:
 		log `OnMapReceived: ` cat HeartbeatCount cat ` heartbeats since last map`
 		put 0 into HeartbeatCount
 	end
+!	A map can arrive while BuildHomeScreen is still awaiting its templates.
+!	It has already set FirstMapDone, so without this guard the refresh path
+!	runs against a partly-built room list and fails on a missing room-N-name.
+	if BuildingHome
+	begin
+		log `OnMapReceived: map arrived during build; ignored`
+		put empty into ReceivedMessage
+		return
+	end
 !	Diagnostic: dump the full payload so it can be pasted into JSON Lint
 !	to verify structure if anything downstream complains. Comment out
 !	once the bug is hunted down — these payloads are large.
@@ -896,6 +906,7 @@ MapPollTask:
 !!
 !! Forks BackgroundTick and BoostTick at the end so the gradient and per-room boost countdowns keep ticking independently of map pushes.
 BuildHomeScreen:
+	set BuildingHome
 !	First-pass summary stats from the freshly-built RoomsList.
 	gosub to ComputeSummaryStats
 
@@ -1176,6 +1187,7 @@ BuildHomeScreen:
 !	pushes so a quiet room's countdown doesn't appear frozen.
 	fork to BoostTick
 
+	clear BuildingHome
 	return
 !! @hash e0aceb9b
 !!!

@@ -226,7 +226,8 @@ TranslateMap:
 		put element LegacyIdx of LegacyRooms into LegacyRoom
 		put property `relays` of LegacyRoom into LegacyRelays
 		put the json count of LegacyRelays into LegacyRelayCount
-		if LegacyRelayCount is 0
+		put property `name` of LegacyRoom into LegacyName
+		if LegacyRelayCount is 0 and LegacyName is `Outside`
 		begin
 !			Outdoor sensor entry: capture its name (the sheets write identity
 !			by name), its sensor, its frost trigger, and its temperature.
