@@ -127,6 +127,7 @@
 	variable RoomRowText
 	variable RoomsList
 	variable Room
+	variable RoomHasTrvSetpoint
 	variable RoomIndex
 	variable RoomCount
 	variable RowText
@@ -3130,7 +3131,14 @@ RenderRoom:
 !	Setpoint slot left empty pending a more useful per-room secondary value.
 !	Element kept attached so the layout slot is reserved.
 	attach Setpoint to `room-` cat IndexStr cat `-setpoint`
-	set the content of Setpoint to empty
+	clear RoomHasTrvSetpoint
+	if Room has entry `trvsetpoint`
+	begin
+		if Room has entry `trvmode`
+			if property `trvmode` of Room is `heat` set RoomHasTrvSetpoint
+	end
+	if RoomHasTrvSetpoint set the content of Setpoint to `set ` cat property `trvsetpoint` of Room cat `°`
+	else set the content of Setpoint to empty
 
 	gosub to ApplyChipStyle
 	return

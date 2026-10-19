@@ -262,6 +262,30 @@
     variable HeatlogStatePath
     variable DashboardPath
     variable ZigbeeTempsPath
+    dictionary ZigbeeTrvs
+    dictionary TrvState
+    dictionary TrvPeriod
+    list TrvPeriods
+    variable ZigbeeTrvsPath
+    variable TrvName
+    variable TrvReported
+    variable TrvReportedText
+    variable TrvStateMode
+    variable TrvPeriodIdx
+    variable TrvSetpointInt
+    variable TrvSetpointWasInt
+    variable TrvReportedInt
+    variable TrvWasInt
+    variable TrvSetpoint
+    variable TrvSetpointWas
+    variable TrvMode
+    variable TrvModeWas
+    variable TrvCommandAt
+    variable TrvDue
+    variable TrvNeedsCommand
+    variable TrvFails
+    dictionary TrvReplyValue
+    variable TrvDelta
 !! @hash 2edbf5e2
 !! @verified b913fc30
 !!!
@@ -425,6 +449,7 @@ Start:
     put VolatilePrefix cat `heatlog-state.json` into HeatlogStatePath
     put VolatilePrefix cat `rbr-dashboard.json` into DashboardPath
     put VolatilePrefix cat `zigbee-temperatures.json` into ZigbeeTempsPath
+    put VolatilePrefix cat `zigbee-trv.json` into ZigbeeTrvsPath
 
     put entry `profiles` of Map into Profiles
     put entry `profile` of Map into SelectedProfile
@@ -737,6 +762,8 @@ HandleMessages:
             end
             set ThermometerUpdate
         end
+        reset ZigbeeTrvs
+        if file ZigbeeTrvsPath exists load ZigbeeTrvs from ZigbeeTrvsPath
 !        log `Save the map`
         ! The map reaches the disk only when its plan content changes. The
         ! readings are stripped out first (PrepareMapForDisk), so a cycle that
@@ -857,6 +884,7 @@ EnsureSharedRooms:
             if ESRRoom has entry `relays` delete entry `relays` of ESRRoom
             if ESRRoom has entry `sensor` delete entry `sensor` of ESRRoom
             if ESRRoom has entry `linked` delete entry `linked` of ESRRoom
+            if ESRRoom has entry `trv` delete entry `trv` of ESRRoom
             if ESRRoom has entry `relayfails` delete entry `relayfails` of ESRRoom
             if ESRRoom has entry `protect` delete entry `protect` of ESRRoom
             if ESRRoom has entry `ptemp` delete entry `ptemp` of ESRRoom
@@ -886,6 +914,7 @@ CollectIdentityNames:
             set entry `name` of ESREntry to ESRName
             if ESRRoom has entry `relays` set entry `relays` of ESREntry to entry `relays` of ESRRoom
             if ESRRoom has entry `sensor` set entry `sensor` of ESREntry to entry `sensor` of ESRRoom
+            if ESRRoom has entry `trv` set entry `trv` of ESREntry to entry `trv` of ESRRoom
             if ESRRoom has entry `linked` set entry `linked` of ESREntry to entry `linked` of ESRRoom
             if ESRRoom has entry `relayfails` set entry `relayfails` of ESREntry to entry `relayfails` of ESRRoom
             if ESRRoom has entry `protect` set entry `protect` of ESREntry to entry `protect` of ESRRoom
@@ -926,6 +955,11 @@ MaterialiseRooms:
             set entry `name` of MRState to MRName
             if MRRoom has entry `relays` set entry `relays` of MRState to entry `relays` of MRRoom
             if MRRoom has entry `sensor` set entry `sensor` of MRState to entry `sensor` of MRRoom
+            if MRRoom has entry `trv` set entry `trv` of MRState to entry `trv` of MRRoom
+            if MRRoom has entry `trvsetpoint` set entry `trvsetpoint` of MRState to entry `trvsetpoint` of MRRoom
+            if MRRoom has entry `trvmode` set entry `trvmode` of MRState to entry `trvmode` of MRRoom
+            if MRRoom has entry `trvcommandat` set entry `trvcommandat` of MRState to entry `trvcommandat` of MRRoom
+            if MRRoom has entry `trvfails` set entry `trvfails` of MRState to entry `trvfails` of MRRoom
             if MRRoom has entry `linked` set entry `linked` of MRState to entry `linked` of MRRoom
             if MRRoom has entry `relayfails` set entry `relayfails` of MRState to entry `relayfails` of MRRoom
             if MRRoom has entry `protect` set entry `protect` of MRState to entry `protect` of MRRoom
@@ -976,6 +1010,11 @@ CommitRooms:
         end
         if CRRoom has entry `relays` set entry `relays` of CRTarget to entry `relays` of CRRoom
         if CRRoom has entry `sensor` set entry `sensor` of CRTarget to entry `sensor` of CRRoom
+        if CRRoom has entry `trv` set entry `trv` of CRTarget to entry `trv` of CRRoom
+        if CRRoom has entry `trvsetpoint` set entry `trvsetpoint` of CRTarget to entry `trvsetpoint` of CRRoom
+        if CRRoom has entry `trvmode` set entry `trvmode` of CRTarget to entry `trvmode` of CRRoom
+        if CRRoom has entry `trvcommandat` set entry `trvcommandat` of CRTarget to entry `trvcommandat` of CRRoom
+        if CRRoom has entry `trvfails` set entry `trvfails` of CRTarget to entry `trvfails` of CRRoom
         if CRRoom has entry `linked` set entry `linked` of CRTarget to entry `linked` of CRRoom
         if CRRoom has entry `relayfails` set entry `relayfails` of CRTarget to entry `relayfails` of CRRoom
         if CRRoom has entry `protect` set entry `protect` of CRTarget to entry `protect` of CRRoom
@@ -1047,7 +1086,7 @@ CommitRooms:
 !!!
 !! Merge an identity list sent by the UI into Map.rooms.
 !!
-!! The UI owns six fields of a room's identity — relays, sensor, linked, relayfails, protect, ptemp — and nothing else. The readings (temperature, humidity, battery, sensorAge, timestamp) and the derived status fields belong to the controller, and a page sending back a map it received a few seconds ago carries stale copies of them; taking those would make the interface flicker backwards. So the list is rebuilt from the incoming names and order, keeping each surviving room's live record and overwriting only the fields the UI is entitled to set.
+!! The UI owns seven fields of a room's identity — relays, sensor, trv, linked, relayfails, protect, ptemp — and nothing else. The readings (temperature, humidity, battery, sensorAge, timestamp) and the derived status fields belong to the controller, and a page sending back a map it received a few seconds ago carries stale copies of them; taking those would make the interface flicker backwards. So the list is rebuilt from the incoming names and order, keeping each surviving room's live record and overwriting only the fields the UI is entitled to set.
 !!
 !! Names in the old list but not in the new one are gone: deletion is the UI dropping them. A room with no name, or a repeated name, is dropped and logged: a name is the key that joins a room to its schedule in every profile, so neither can be stored.
 !!
@@ -1094,6 +1133,14 @@ MergeIdentityRooms:
             end
             if MIRIn has entry `relays` set entry `relays` of MIRNew to entry `relays` of MIRIn
             if MIRIn has entry `sensor` set entry `sensor` of MIRNew to entry `sensor` of MIRIn
+            if MIRIn has entry `trv`
+            begin
+                set entry `trv` of MIRNew to entry `trv` of MIRIn
+            end
+            else
+            begin
+                if MIRNew has entry `trv` delete entry `trv` of MIRNew
+            end
             if MIRIn has entry `linked` set entry `linked` of MIRNew to entry `linked` of MIRIn
             if MIRIn has entry `relayfails` set entry `relayfails` of MIRNew to entry `relayfails` of MIRIn
             if MIRIn has entry `protect` set entry `protect` of MIRNew to entry `protect` of MIRIn
@@ -1508,6 +1555,15 @@ BoostDone:
     ! Record heating data on any change to target, actual, or mode.
     if HeatlogRoot is not empty gosub to HeatlogRecord
 
+    ! A self-contained valve takes a setpoint and mode instead of an on/off
+    ! relay command. ProcessTrv sends on change (or a 10-minute keepalive for
+    ! a battery valve) and folds the accepted/queued reply into the room.
+    if Room has entry `trv`
+    begin
+        gosub to ProcessTrv
+        go to RoomStatus
+    end
+
     ! Build a pack of data and send it to the device controller or the simulator
     ! It will open/close the relay and return the current temperature of the room
     set entry `room name` of RoomSpec to RoomName
@@ -1577,6 +1633,176 @@ ProcessReply:
     go to RoomStatus
 !! @hash c37a026a
 !! @verified c37a026a
+!!!
+!! Fold a setpoint changed on the valve's own dial back into the schedule.
+!!
+!! `zigbee-trv.json` carries the valve's last reported state. A setpoint that
+!! differs from the last commanded value while the valve is in `heat` is a
+!! local change: adopt it into the current period's temp and the room target,
+!! so the plan and the UI remember it. `off` reports the valve's frost setpoint,
+!! and `auto` is the valve's own schedule; neither is a dial change. A dial
+!! change from a room RBR had switched off turns the room on rather than being
+!! immediately overridden by an off command.
+SyncTrvLocalSetpoint:
+    put entry `trv` of Room into TrvName
+    if ZigbeeTrvs has no entry TrvName return
+    put entry TrvName of ZigbeeTrvs into TrvState
+    put entry `setpoint` of TrvState into TrvReported
+    if TrvReported is empty return
+    put entry `system_mode` of TrvState into TrvStateMode
+    if TrvStateMode is not `heat` return
+
+    if Room has no entry `trvsetpoint` put 100 into TrvDelta
+    else
+    begin
+        put entry `trvsetpoint` of Room into TrvSetpointWas
+        put TrvReported into Temp
+        gosub to ConvertTempToInt
+        put Temp into TrvReportedInt
+        put TrvSetpointWas into Temp
+        gosub to ConvertTempToInt
+        put Temp into TrvWasInt
+        if TrvReportedInt is greater than TrvWasInt
+        begin
+            put TrvReportedInt into TrvDelta
+            take TrvWasInt from TrvDelta
+        end
+        else
+        begin
+            put TrvWasInt into TrvDelta
+            take TrvReportedInt from TrvDelta
+        end
+        if TrvDelta is less than 10 return
+    end
+
+    set entry `trvsetpoint` of Room to TrvReported
+    set entry `trvcommandat` of Room to now
+    set entry `target` of Room to TrvReported
+    put `` cat TrvReported into TrvReportedText
+
+    put -1 into TrvPeriodIdx
+    if Room has entry `period` put entry `period` of Room into TrvPeriodIdx
+    if Room has entry `periods` and TrvPeriodIdx is not less than 0
+    begin
+        put entry `periods` of Room into TrvPeriods
+        if TrvPeriodIdx is less than the count of TrvPeriods
+        begin
+            put item TrvPeriodIdx of TrvPeriods into TrvPeriod
+            set entry `temp` of TrvPeriod to TrvReportedText
+            set item TrvPeriodIdx of TrvPeriods to TrvPeriod
+            set entry `periods` of Room to TrvPeriods
+        end
+    end
+
+    if Mode is `off`
+    begin
+        set entry `mode` of Room to `on`
+        put `on` into Mode
+    end
+    set MapHasChanged
+    log `TRV ` cat TrvName cat ` dial setpoint adopted: ` cat TrvReportedText
+    gosub to ForceUpdate
+    return
+!! Drive a room whose actuator is a self-contained TRV.
+!!
+!! The valve is sent its target as `occupied_heating_setpoint` and `heat` while
+!! the room is being controlled, `off` when the mode is off, the sensor is
+!! stale, or the room is already in warn/fail. Unlike a relay, the valve does
+!! its own modulation, so the command is sent only when the target/mode
+!! changes, plus a 10-minute keepalive for a battery device. The bridge replies
+!! `accepted`/`queued` immediately; a queued command is a success, and only a
+!! missing/bridge-error reply increments `trvfails`.
+ProcessTrv:
+    gosub to SyncTrvLocalSetpoint
+    put empty into TrvSetpoint
+    put -1 into TrvPeriodIdx
+    if Room has entry `period` put entry `period` of Room into TrvPeriodIdx
+    if Mode is `timed` and Room has entry `periods` and TrvPeriodIdx is not less than 0
+    begin
+        put entry `periods` of Room into TrvPeriods
+        if TrvPeriodIdx is less than the count of TrvPeriods
+        begin
+            put item TrvPeriodIdx of TrvPeriods into TrvPeriod
+            put entry `temp` of TrvPeriod into TrvSetpoint
+        end
+    end
+    if TrvSetpoint is empty and Room has entry `target`
+        put entry `target` of Room into TrvSetpoint
+    if TrvSetpoint is empty put 20 into TrvSetpoint
+
+    if Mode is `off` put `off` into TrvMode
+    else if PriorStatus is `warn` put `off` into TrvMode
+    else if PriorStatus is `fail` put `off` into TrvMode
+    else if TempNow is empty put `off` into TrvMode
+    else put `heat` into TrvMode
+
+    put empty into TrvSetpointWas
+    if Room has entry `trvsetpoint` put entry `trvsetpoint` of Room into TrvSetpointWas
+    put empty into TrvModeWas
+    if Room has entry `trvmode` put entry `trvmode` of Room into TrvModeWas
+    put 0 into TrvCommandAt
+    if Room has entry `trvcommandat` put entry `trvcommandat` of Room into TrvCommandAt
+
+    clear TrvNeedsCommand
+    if TrvSetpointWas is empty set TrvNeedsCommand
+    else
+    begin
+        put TrvSetpoint into Temp
+        gosub to ConvertTempToInt
+        put Temp into TrvSetpointInt
+        put TrvSetpointWas into Temp
+        gosub to ConvertTempToInt
+        put Temp into TrvSetpointWasInt
+        if TrvSetpointInt is greater than TrvSetpointWasInt
+        begin
+            put TrvSetpointInt into TrvDelta
+            take TrvSetpointWasInt from TrvDelta
+        end
+        else
+        begin
+            put TrvSetpointWasInt into TrvDelta
+            take TrvSetpointInt from TrvDelta
+        end
+        if TrvDelta is greater than 25 set TrvNeedsCommand
+    end
+    if TrvModeWas is not TrvMode set TrvNeedsCommand
+    if TrvCommandAt is 0 set TrvNeedsCommand
+    else
+    begin
+        put TrvCommandAt into TrvDue
+        add 600000 to TrvDue
+        if now is greater than TrvDue set TrvNeedsCommand
+    end
+    if not TrvNeedsCommand return
+
+    reset RoomSpec
+    set entry `trv` of RoomSpec to entry `trv` of Room
+    set entry `setpoint` of RoomSpec to TrvSetpoint
+    set entry `mode` of RoomSpec to TrvMode
+    send RoomSpec to DeviceModule and assign reply to Replies
+
+    put 0 into TrvFails
+    if Room has entry `trvfails` put entry `trvfails` of Room into TrvFails
+    if Replies is empty
+    begin
+        increment TrvFails
+        set entry `trvfails` of Room to TrvFails
+        return
+    end
+    put item 0 of Replies into TrvReplyValue
+    if TrvReplyValue is empty
+    begin
+        increment TrvFails
+        set entry `trvfails` of Room to TrvFails
+        return
+    end
+    set entry `trvfails` of Room to 0
+    set entry `trvcommandat` of Room to now
+    set entry `trvsetpoint` of Room to TrvSetpoint
+    set entry `trvmode` of Room to TrvMode
+    if TrvReplyValue has entry `setpoint` set entry `trvsetpoint` of Room to entry `setpoint` of TrvReplyValue
+    return
+!! @hash trvcommand
 !!!
 !! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
 !!
@@ -1781,6 +2007,16 @@ RoomStatus:
         else put `fail` into RoomStatus
     end
 
+    if Room has entry `trv` and Room has entry `trvfails`
+    begin
+        put entry `trvfails` of Room into TrvFails
+        if TrvFails is greater than 5
+        begin
+            if RoomStatus is not `fail` put `warn` into RoomStatus
+            if TrvFails is greater than 20 put `fail` into RoomStatus
+        end
+    end
+
     set entry `status` of Room to RoomStatus
     set entry `timestamp` of Room to now
 
@@ -1794,6 +2030,11 @@ RoomStatus:
 !   Build a status message for the UI
     put empty into Value
     put empty into RelayMsg
+    if Room has entry `trv` and Room has entry `trvfails`
+    begin
+        put entry `trvfails` of Room into TrvFails
+        if TrvFails is greater than 5 put `Valve not responding` into Value
+    end
     if FailedRelays is greater than 0
     begin
 !       Partial failure: name the relay that is not answering so the room
@@ -2733,6 +2974,9 @@ ProcessUIRequest:
             return
         end
         set PriorityRoomIndex to RoomIndex
+        ! A hand-written/stripped map may have no advance state; the UI's
+        ! older `yes` form toggles it, so give it the default first.
+        if Room has no entry `advance` set entry `advance` of Room to `-`
         if Message has entry `Mode` put entry `Mode` of Message into Mode
         else if Message has entry `mode` put entry `mode` of Message into Mode
         else

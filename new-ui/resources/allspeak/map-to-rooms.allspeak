@@ -323,6 +323,10 @@ BuildRoomEntry:
 	set property `name` of NewRoom to LegacyName
 	set property `id` of NewRoom to `room-` cat RoomsListIdx
 	set property `sensor` of NewRoom to `no`
+	if LegacyRoom has entry `trv` set property `trv` of NewRoom to property `trv` of LegacyRoom
+	if LegacyRoom has entry `trvsetpoint` set property `trvsetpoint` of NewRoom to property `trvsetpoint` of LegacyRoom
+	if LegacyRoom has entry `trvmode` set property `trvmode` of NewRoom to property `trvmode` of LegacyRoom
+	if LegacyRoom has entry `trvfails` set property `trvfails` of NewRoom to property `trvfails` of LegacyRoom
 
 	put property `mode` of LegacyRoom into LegacyMode
 	put `Off` into Mode
@@ -382,14 +386,19 @@ BuildRoomEntry:
 		end
 	end
 
-	if LegacyStatus is `fail`
-	begin
-		if the index of `Relay` in LegacyStatusMessage is greater than -1
-		begin
-			set property `offline` of NewRoom to `yes`
-			put `Relay not responding` into OfflineReason
-		end
-	end
+    if LegacyStatus is `fail`
+    begin
+        if the index of `Relay` in LegacyStatusMessage is greater than -1
+        begin
+            set property `offline` of NewRoom to `yes`
+            put `Relay not responding` into OfflineReason
+        end
+        if the index of `Valve` in LegacyStatusMessage is greater than -1
+        begin
+            set property `offline` of NewRoom to `yes`
+            put `Valve not responding` into OfflineReason
+        end
+    end
 
 	set property `offlineReason` of NewRoom to OfflineReason
 

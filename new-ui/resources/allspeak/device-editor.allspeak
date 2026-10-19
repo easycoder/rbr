@@ -26,6 +26,7 @@
 	button DeviceRoomEditPencil
 	button DeviceRoomEditDelete
 	input DeviceEditorSensor
+	input DeviceEditorTrv
 	button DeviceEditorLinkedBtn
 	textarea DeviceEditorRelays
 	input DeviceEditorRequest
@@ -51,6 +52,7 @@
 	variable EditingDevicesRoomName
 	variable EditingDevicesLinked
 	variable EditingDevicesSensor
+	variable EditingDevicesTrv
 	variable EditingDevicesRelaysText
 	variable EditingRequestRelay
 
@@ -104,6 +106,7 @@
 	attach DeviceEditorRoomList to `device-editor-room-list`
 	attach DeviceEditorAddRoomBtn to `device-editor-add-room`
 	attach DeviceEditorSensor to `device-editor-sensor`
+	attach DeviceEditorTrv to `device-editor-trv`
 	attach DeviceEditorLinkedBtn to `device-editor-linked-btn`
 	attach DeviceEditorRelays to `device-editor-relays`
 	attach DeviceEditorRequest to `device-editor-request`
@@ -182,6 +185,7 @@ OnSaveClick:
 		return
 	end
 	put the content of DeviceEditorSensor into EditingDevicesSensor
+	put the content of DeviceEditorTrv into EditingDevicesTrv
 	put the content of DeviceEditorRelays into EditingDevicesRelaysText
 
 !	Split the textarea content on newlines, strip empties, into an array.
@@ -208,6 +212,8 @@ OnSaveClick:
 !	loop over every profile is gone.
 	put element EditingDevicesRoomIdx of EditingRoomsForDevices into LiveRoomForDevices
 	set property `sensor` of LiveRoomForDevices to EditingDevicesSensor
+	if EditingDevicesTrv is empty json delete property `trv` of LiveRoomForDevices
+	else set property `trv` of LiveRoomForDevices to EditingDevicesTrv
 	set property `linked` of LiveRoomForDevices to EditingDevicesLinked
 	set property `relays` of LiveRoomForDevices to RelayLinesArray
 	set element EditingDevicesRoomIdx of EditingRoomsForDevices to LiveRoomForDevices
@@ -224,7 +230,7 @@ OnCancelClick:
 	return
 !! @hash 070995d9
 !!!
-!! Set EditingDevicesRoomIdx to the first non-outside room (rooms with a non-empty `relays` array) in the shared room list. Used on initial open and again after a delete that wiped the previously-selected room.
+!! Set EditingDevicesRoomIdx to the first room not named `Outside` in the shared room list. Used on initial open and again after a delete that wiped the previously-selected room.
 !!
 !! Uses the same counter (RoomEditCount) as both loop index and early-exit sentinel — sets it past the array length once a match is found.
 PickFirstRoomForDevices:
@@ -233,7 +239,7 @@ PickFirstRoomForDevices:
 	while RoomEditCount is less than the json count of EditingRoomsForDevices
 	begin
 		put element RoomEditCount of EditingRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is not empty
+		if property `name` of RoomEntry is not `Outside`
 		begin
 			put RoomEditCount into EditingDevicesRoomIdx
 			put the json count of EditingRoomsForDevices into RoomEditCount
@@ -259,6 +265,8 @@ LoadDeviceEditorRoom:
 	put property `name` of LiveRoomForDevices into EditingDevicesRoomName
 
 	put property `sensor` of LiveRoomForDevices into EditingDevicesSensor
+	put empty into EditingDevicesTrv
+	if LiveRoomForDevices has entry `trv` put property `trv` of LiveRoomForDevices into EditingDevicesTrv
 	put property `linked` of LiveRoomForDevices into EditingDevicesLinked
 	if EditingDevicesLinked is empty put `yes` into EditingDevicesLinked
 
@@ -278,6 +286,7 @@ LoadDeviceEditorRoom:
 
 	set the content of DeviceEditorRoomValue to EditingDevicesRoomName
 	set the content of DeviceEditorSensor to EditingDevicesSensor
+	set the content of DeviceEditorTrv to EditingDevicesTrv
 	set the content of DeviceEditorRelays to EditingDevicesRelaysText
 	gosub to PaintDeviceEditorLinked
 	return
@@ -301,7 +310,7 @@ ToggleDeviceRoomPicker:
 !!!
 !! Render one row per non-outside room in the shared room list, in its order. There is one room set for the whole system, so the picker no longer depends on which profile is selected.
 !!
-!! Each row carries its own position in the shared list in the indexed-button slots (DeviceRoomEditName / Up / Down / Pencil / Delete). The outside-sensor entry (empty relays) is rendered nowhere and never moved / deleted / renamed.
+!! Each row carries its own position in the shared list in the indexed-button slots (DeviceRoomEditName / Up / Down / Pencil / Delete). The outdoor-sensor entry (named `Outside`) is rendered nowhere and never moved / deleted / renamed.
 !!
 !! Up arrow hidden on the first non-outside row; Down arrow on the last. Selected row's name gets the accent colour.
 RenderDeviceRoomPicker:
@@ -321,7 +330,7 @@ RenderDeviceRoomPicker:
 	while DeviceRoomPillIdx is less than RoomEditCount
 	begin
 		put element DeviceRoomPillIdx of EditingRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is empty
+		if property `name` of RoomEntry is `Outside`
 		begin
 !			Skip the outside-sensor entry — not edited from this list.
 			increment DeviceRoomPillIdx
@@ -396,7 +405,7 @@ FindRoomListEnds:
 	while DeviceProfileLoopI is less than RoomEditCount
 	begin
 		put element DeviceProfileLoopI of EditingRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is not empty
+		if property `name` of RoomEntry is not `Outside`
 		begin
 			if PrevRoomIdx is -1 put DeviceProfileLoopI into PrevRoomIdx
 			put DeviceProfileLoopI into NextRoomIdx
@@ -415,7 +424,7 @@ MoveRoomUpInEditingRooms:
 	while SwapTarget is not less than 0
 	begin
 		put element SwapTarget of EditingRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is not empty
+		if property `name` of RoomEntry is not `Outside`
 		begin
 			gosub to SwapRoomsInEditingRooms
 			gosub to RenderDeviceRoomPicker
@@ -432,7 +441,7 @@ MoveRoomDownInEditingRooms:
 	while SwapTarget is less than RoomEditCount
 	begin
 		put element SwapTarget of EditingRoomsForDevices into RoomEntry
-		if property `relays` of RoomEntry is not empty
+		if property `name` of RoomEntry is not `Outside`
 		begin
 			gosub to SwapRoomsInEditingRooms
 			gosub to RenderDeviceRoomPicker

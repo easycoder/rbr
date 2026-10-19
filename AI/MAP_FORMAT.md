@@ -14,8 +14,9 @@ map.json
 ├── calendar, calendar-data
 ├── rooms[]             — the shared room list: identity, once for the system
 │   ├── name            — room label, and the key that joins it to every profile
-│   ├── relays[]        — relay identifiers
+│   ├── relays[]        — relay identifiers (empty for a TRV room)
 │   ├── sensor          — BLE/Zigbee thermometer MAC address
+│   ├── trv             — optional self-contained valve friendly name; the room has no relays
 │   ├── linked          — "yes" | "no": relay driven by target/temperature, or directly by mode
 │   ├── relayfails[]    — per-relay failure counts, parallel to relays
 │   ├── protect, ptemp  — frost protection, and its trigger temperature
@@ -46,7 +47,9 @@ The controller merges the two halves into one flat record per room for its proce
 
 ### What a UI sends
 
-An `Update Profiles` request carries both halves — `rooms[]` (identity) and `profiles[]` (schedule state) — plus the selected `profile` and the calendar fields. The controller takes only the six identity fields a UI owns (`relays`, `sensor`, `linked`, `relayfails`, `protect`, `ptemp`) from `rooms`, keeping its own readings and derived status for every room it already knew: a page is reporting state from a few seconds ago, and its temperatures must not win. Names absent from the incoming list are deleted; names not seen before are added.
+An `Update Profiles` request carries both halves — `rooms[]` (identity) and `profiles[]` (schedule state) — plus the selected `profile` and the calendar fields. The controller takes only the seven identity fields a UI owns (`relays`, `sensor`, `trv`, `linked`, `relayfails`, `protect`, `ptemp`) from `rooms`, keeping its own readings and derived status for every room it already knew: a page is reporting state from a few seconds ago, and its temperatures must not win. Names absent from the incoming list are deleted; names not seen before are added.
+
+A room with a `trv` has no relays. The controller commands the valve's `system_mode` (`heat`/`off`) and `occupied_heating_setpoint` instead of switching a relay; a setpoint changed on the valve's own dial is written back into the current period's `temp` so the schedule and the interface show it.
 
 `Update Rooms` replaces the identity list on its own, for a client that edits wiring without touching schedules.
 

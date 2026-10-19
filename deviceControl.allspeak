@@ -20,6 +20,9 @@
     variable URL
     variable Reply
     variable R
+    variable TrvName
+    variable TrvSetpoint
+    variable TrvMode
 
 !    debug step
     
@@ -48,6 +51,21 @@
 RunController:
 !    log `RunController:` cat the message
     put the message into RoomSpec
+
+    ! A room with a self-contained valve sends the setpoint and mode instead
+    ! of an on/off relay command. The bridge queues it; a battery valve may
+    ! take until its next wake to apply it.
+    if RoomSpec has entry `trv`
+    begin
+        put entry `trv` of RoomSpec into TrvName
+        put entry `setpoint` of RoomSpec into TrvSetpoint
+        put entry `mode` of RoomSpec into TrvMode
+        gosub to MessageTrv
+        reset Replies
+        append Reply to Replies
+        send Replies to sender
+        stop
+    end
 
     ! See if this room is the request relay. The request/demand relay drives
     ! the boiler and so lives on the same bridge as the room relays.
@@ -114,3 +132,32 @@ MessageZigbeeDevice:
 !! @hash 1f26f342
 !! @verified 1f26f342
 !!!
+!! Send a setpoint/mode command to a self-contained TRV through the bridge.
+!!
+!! The bridge publishes to zigbee2mqtt and returns immediately with
+!! `accepted`/`queued`; a battery valve is asleep and may apply the command
+!! only when it next checks in, so there is no synchronous state confirmation
+!! to wait for. A missing `accepted` is a failure.
+MessageTrv:
+    put `http://127.0.0.1:8889/trv/` cat TrvName cat `?setpoint=` cat TrvSetpoint cat `&mode=` cat TrvMode into URL
+    get Response from url URL
+    or begin
+        log `Zigbee TRV call failed for ` cat TrvName
+        set Reply to empty
+        return
+    end
+    reset Values
+    if Response has entry `accepted`
+    begin
+        set entry `accepted` of Values to entry `accepted` of Response
+        if Response has entry `queued` set entry `queued` of Values to entry `queued` of Response
+        if Response has entry `setpoint` set entry `setpoint` of Values to entry `setpoint` of Response
+        if Response has entry `mode` set entry `mode` of Values to entry `mode` of Response
+        put Values into Reply
+    end
+    else
+    begin
+        log `TRV ` cat TrvName cat ` not accepted`
+        set Reply to empty
+    end
+    return

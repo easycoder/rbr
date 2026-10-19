@@ -63,6 +63,9 @@ def volatile_dir(base):
 
 
 temperatures_path = os.path.join(volatile_dir(script_dir), "zigbee-temperatures.json")
+trv_path = os.path.join(volatile_dir(script_dir), "zigbee-trv.json")
+trv_commands = {}             # {friendly_name: {setpoint, mode, ts}} — last setpoint sent
+trv_commands_lock = threading.Lock()
 
 # A relay that hasn't been seen by zigbee2mqtt for this long (seconds) is
 # treated as non-responsive. The controller polls every ~5s, so a healthy
@@ -261,6 +264,7 @@ def _handle_bridge_logging(event):
 
 def _handle_device_update(device_name, payload):
     """Process a state update from a Zigbee device."""
+    is_trv = False
     with device_states_lock:
         if device_name not in device_states:
             device_states[device_name] = {}
@@ -273,6 +277,21 @@ def _handle_device_update(device_name, payload):
         # Temperature (thermometers and some plugs with energy monitoring)
         if "temperature" in payload:
             state["temperature"] = payload["temperature"]
+        # TRV: local_temperature is the valve's room reading and can serve as
+        # the room sensor when no separate thermometer exists.
+        if "local_temperature" in payload:
+            state["local_temperature"] = payload["local_temperature"]
+            state["temperature"] = payload["local_temperature"]
+            is_trv = True
+        if "occupied_heating_setpoint" in payload:
+            state["setpoint"] = payload["occupied_heating_setpoint"]
+            is_trv = True
+        if "system_mode" in payload:
+            state["system_mode"] = payload["system_mode"]
+            is_trv = True
+        if "running_state" in payload:
+            state["running_state"] = payload["running_state"]
+            is_trv = True
         if "humidity" in payload:
             state["humidity"] = payload["humidity"]
         if "battery" in payload:
@@ -287,8 +306,10 @@ def _handle_device_update(device_name, payload):
         state["last_seen"] = time.time()
 
     # If this device reports temperature, update the temperatures file
-    if "temperature" in payload:
+    if "temperature" in payload or "local_temperature" in payload:
         _update_temperatures_file()
+    if is_trv:
+        _update_trv_file()
 
 def _update_temperatures_file():
     """Write Zigbee thermometer data in the same format as thermometers.json."""
@@ -320,6 +341,46 @@ def _update_temperatures_file():
     except OSError as e:
         print(f"Error writing temperatures: {e}")
 
+
+def _round_setpoint(value):
+    """Clamp to the TRVZB's 4-35 C range and round to its 0.5 C step."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    value = max(4.0, min(35.0, value))
+    return round(value * 2) / 2
+
+
+def _update_trv_file():
+    """Write TRV setpoint/mode state for the controller's dial-change sync."""
+    trvs = {}
+    with device_states_lock:
+        for name, state in device_states.items():
+            if "setpoint" not in state and "system_mode" not in state:
+                continue
+            with trv_commands_lock:
+                command = trv_commands.get(name)
+            trvs[name] = {
+                "setpoint": state.get("setpoint"),
+                "system_mode": state.get("system_mode"),
+                "running_state": state.get("running_state"),
+                "local_temperature": state.get("local_temperature"),
+                "battery": state.get("battery"),
+                "last_seen": state.get("last_seen", 0),
+                "last_command": command,
+            }
+
+    target_dir = os.path.dirname(trv_path) or "."
+    try:
+        fd, tmp_path = tempfile.mkstemp(dir=target_dir, suffix=".tmp")
+        with os.fdopen(fd, "w") as f:
+            json.dump(trvs, f, indent=2)
+        os.replace(tmp_path, trv_path)
+    except OSError as e:
+        print(f"Error writing TRV state: {e}")
+
+
 # ---------------------------------------------------------------------------
 # HTTP request handler
 # ---------------------------------------------------------------------------
@@ -335,6 +396,8 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
     Endpoints:
         GET /device/{name}?state=on|off   — send relay command, return state
         GET /device/{name}                 — return current state (no command)
+        GET /trv/{name}?setpoint=N&mode=heat|off — send TRV setpoint/mode
+        GET /trv/{name}                    — return cached TRV state
         GET /devices                       — list all known devices
         GET /health                        — health check (+ diagnostic setFailures)
 
@@ -374,6 +437,66 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
             self._respond(200, {
                 "devices": bridge_devices,
                 "states": states_snapshot,
+            })
+            return
+
+        if path_parts[0] == "trv" and len(path_parts) >= 2:
+            device_name = "/".join(path_parts[1:])
+            if device_name not in bridge_devices:
+                self._respond(404, {"error": f"unknown device {device_name}"})
+                return
+
+            setpoint_raw = params.get("setpoint", [None])[0]
+            if setpoint_raw is not None:
+                setpoint = _round_setpoint(setpoint_raw)
+                if setpoint is None:
+                    self._respond(400, {"error": "setpoint must be a number"})
+                    return
+                mode = (params.get("mode", [None])[0] or "").lower()
+                if mode not in ("heat", "off"):
+                    self._respond(400, {"error": "mode must be heat or off"})
+                    return
+                payload = {"system_mode": mode,
+                           "occupied_heating_setpoint": setpoint}
+                topic = f"zigbee2mqtt/{device_name}/set"
+                if mqtt_client:
+                    mqtt_client.publish(topic, json.dumps(payload), qos=1)
+                    print(f"Published {payload} to {topic}")
+                with trv_commands_lock:
+                    trv_commands[device_name] = {
+                        "setpoint": setpoint,
+                        "mode": mode,
+                        "ts": time.time(),
+                    }
+                state = _read_device_state(device_name)
+                meta = bridge_devices.get(device_name, {})
+                queued = (meta.get("type") == "EndDevice"
+                          or meta.get("power_source") == "Battery")
+                # A battery valve is asleep; zigbee2mqtt queues the command
+                # until it next checks in. Never wait for a confirmation here.
+                self._respond(200, {
+                    "accepted": True,
+                    "queued": queued,
+                    "device": device_name,
+                    "setpoint": setpoint,
+                    "mode": mode,
+                    "last_seen": state.get("last_seen", 0),
+                })
+                return
+
+            state = _read_device_state(device_name)
+            with trv_commands_lock:
+                command = trv_commands.get(device_name)
+            self._respond(200, {
+                "device": device_name,
+                "setpoint": state.get("setpoint"),
+                "system_mode": state.get("system_mode"),
+                "running_state": state.get("running_state"),
+                "local_temperature": state.get("local_temperature"),
+                "battery": state.get("battery"),
+                "last_seen": state.get("last_seen", 0),
+                "last_command": command,
+                "responding": _device_responding(state, device_name),
             })
             return
 
@@ -516,6 +639,7 @@ def main():
     server = ZigbeeBridgeServer(("127.0.0.1", http_port), ZigbeeBridgeHandler)
     print(f"Zigbee bridge HTTP server listening on http://127.0.0.1:{http_port}")
     print(f"Thermometer data will be written to {temperatures_path}")
+    print(f"TRV state will be written to {trv_path}")
 
     try:
         server.serve_forever()
