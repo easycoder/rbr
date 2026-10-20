@@ -19,6 +19,12 @@ Communication between controller and UI is via MQTT (broker: `rbrheating.duckdns
 - **MQTT**: All controller-UI communication. Broker `rbrheating.duckdns.org` (port 8883 for Python/controller, port 443 for the JS/UI websocket). Two accounts per system: the bridge on the box, whose password lives only in `/etc/mosquitto/conf.d/rbr-local.conf`, and the account the UI pages use, fenced to that system's topics and vended by `credentials.php` only to a paired device (MAC + token). The system's identity is `~/.mac_override` (currently `00:e0:27:5b:31:40`), not the NIC's MAC, and it is the topic namespace as well as the registration key in `rbr-users.json`.
 - **Zigbee**: Used for controller-to-device communication
 
+## Feature requests (REQUESTS.md)
+
+When a task needs a feature that the AllSpeak dialect or the pinned JS runtime does not provide, do not only work around it. Append an entry to `REQUESTS.md` as soon as the workaround is chosen — date, area, request, workaround, status — and mention it in the end-of-session summary. The list is the hand-off for arranging the feature; a wished-for feature must not live only in the conversation.
+
+The AllSpeak repository's own `AGENTS.md` is the primary home for language and runtime requests; this list is the RBR-side record. Carry upstream requests there in an AllSpeak-anchored session rather than editing a mirrored copy.
+
 ## Running
 
 ```bash

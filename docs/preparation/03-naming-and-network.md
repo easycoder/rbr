@@ -37,7 +37,7 @@ Because the name is the link, a rename has to happen in both places or the room 
 
 A self-contained valve does two jobs — it senses the room and it closes the radiator — so it takes a single name rather than two, and `<room>-trv` extends the convention in the obvious way.
 
-How such a device is bound to its room when the system is commissioned is not yet settled, because none has been fitted in a live installation. The convention above is safe to follow in the meantime: it names the device once, and the binding is the part that gets decided when the first one goes in.
+The binding is the plan's `sensor` field. If the room has a separate thermometer, name that thermometer in `sensor` and the valve in `trv`; RBR then tells the valve to use the separate reading rather than its own sensor. If the valve is the only sensor in the room, put the valve's own name in `sensor`; the valve keeps its internal sensor. The convention above still holds: one device, one name, and the plan says which reading governs the room.
 
 ## The network
 

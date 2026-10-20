@@ -93,38 +93,14 @@
     "$Stats": {
         "#element": "div",
         "display": "grid",
-        "grid-template-columns": "1fr 1fr 1fr",
-        "#": ["$AvgCol", "$OutCol", "$TodayCol"],
-
-        "$AvgCol": {
-            "#element": "div",
-            "padding": "0 4px",
-            "#": ["$Label", "$Value"],
-
-            "$Label": {
-                "#element": "div",
-                "font-size": "var(--type-section-label-size)",
-                "font-weight": "var(--type-section-label-weight)",
-                "letter-spacing": "var(--type-section-label-track)",
-                "text-transform": "uppercase",
-                "color": "var(--color-text-muted)",
-                "margin-bottom": "4px",
-                "#content": "AVG INDOOR"
-            },
-
-            "$Value": {
-                "#element": "div",
-                "@id": "summary-avg",
-                "font-size": "var(--type-stat-value-size)",
-                "font-weight": "var(--type-stat-value-weight)",
-                "letter-spacing": "var(--type-stat-value-track)",
-                "color": "var(--color-text-primary)"
-            }
-        },
+        "grid-template-columns": "1fr 1fr",
+        "#": ["$TodayCol", "$OutCol"],
 
         "$OutCol": {
+            "#doc": "Right-aligned so its temperature sits in the same column as the room temperatures below. The 38px right inset clears the room rows' info button (28px) and gap (12px), less this card's own 18px padding, so the reading's right edge lands on the room temperature block's.",
             "#element": "div",
-            "padding": "0 4px",
+            "padding": "0 38px 0 4px",
+            "text-align": "right",
             "#": ["$Label", "$ValueRow"],
 
             "$Label": {
@@ -142,8 +118,9 @@
                 "#element": "div",
                 "display": "flex",
                 "align-items": "center",
+                "justify-content": "flex-end",
                 "gap": "5px",
-                "#": ["$Value", "$Snowflake"],
+                "#": ["$Snowflake", "$Value"],
 
                 "$Value": {
                     "#element": "div",

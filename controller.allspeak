@@ -228,6 +228,9 @@
     variable OverrideDate
     variable OverrideName
     variable OverrideWas
+    variable OverrideNow
+    variable OverrideSpent
+    variable MorningEnded
     variable MorningIdx
     variable MorningMin
     variable OB
@@ -286,7 +289,15 @@
     variable TrvFails
     dictionary TrvReplyValue
     variable TrvDelta
-!! @hash 2edbf5e2
+    variable TrvSensorMode
+    variable TrvExternal
+    variable TrvExternalWas
+    variable TrvExternalAt
+    variable TrvExternalDue
+    variable TrvNeedsExternal
+    variable TrvSendingControl
+    variable TrvSend
+!! @hash 9b6c4366
 !! @verified b913fc30
 !!!
 !! Basic initialisation.
@@ -489,7 +500,7 @@ Start:
 
 !   Walk the list of rooms and process the needs of each one
     gosub to ProcessAllRooms
-!! @hash 6f6ba3f7
+!! @hash a0f42257
 !! @verified 2e5e5cad
 !!!
 !! This is the head of each loop.
@@ -514,11 +525,15 @@ MainLoop:
     if today is not TodayWas
     begin
         log `Day rollover detected; refreshing profile selection`
-        ! Retire any one-off override whose morning has now passed before
-        ! the profile is re-resolved, so the UI learns the badge has gone.
-        gosub to PruneOverrides
         gosub to ProcessAllRooms
     end
+
+    ! Retire one-off overrides that have done their work. This runs every
+    ! cycle, not just at the rollover: an override armed for this morning
+    ! is spent when its period ends, and the armed badge on every UI has
+    ! to go with it. It runs after the rollover's ProcessAllRooms so a
+    ! fresh override is judged against today's profile.
+    gosub to PruneOverrides
 
     ! If the updater (rbr-updater.py) has applied a new release, .version
     ! changes on disk. We are still running the old in-memory code, so log
@@ -657,7 +672,7 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-!! @hash 41ce1852
+!! @hash 48b8ebe4
 !! @verified 41ce1852
 !!!
 !! Drain the queue of messages received from the UI between MainLoop ticks.
@@ -804,7 +819,7 @@ HandleMessages:
         increment S
     end
     go to MainLoop
-!! @hash 86f1875f
+!! @hash 36ffbbab
 !! @verified 86f1875f
 !!!
 !! Load the system map from disk, or build a fresh default map if the file is absent.
@@ -960,6 +975,8 @@ MaterialiseRooms:
             if MRRoom has entry `trvmode` set entry `trvmode` of MRState to entry `trvmode` of MRRoom
             if MRRoom has entry `trvcommandat` set entry `trvcommandat` of MRState to entry `trvcommandat` of MRRoom
             if MRRoom has entry `trvfails` set entry `trvfails` of MRState to entry `trvfails` of MRRoom
+            if MRRoom has entry `trvext` set entry `trvext` of MRState to entry `trvext` of MRRoom
+            if MRRoom has entry `trvextat` set entry `trvextat` of MRState to entry `trvextat` of MRRoom
             if MRRoom has entry `linked` set entry `linked` of MRState to entry `linked` of MRRoom
             if MRRoom has entry `relayfails` set entry `relayfails` of MRState to entry `relayfails` of MRRoom
             if MRRoom has entry `protect` set entry `protect` of MRState to entry `protect` of MRRoom
@@ -1015,6 +1032,8 @@ CommitRooms:
         if CRRoom has entry `trvmode` set entry `trvmode` of CRTarget to entry `trvmode` of CRRoom
         if CRRoom has entry `trvcommandat` set entry `trvcommandat` of CRTarget to entry `trvcommandat` of CRRoom
         if CRRoom has entry `trvfails` set entry `trvfails` of CRTarget to entry `trvfails` of CRRoom
+        if CRRoom has entry `trvext` set entry `trvext` of CRTarget to entry `trvext` of CRRoom
+        if CRRoom has entry `trvextat` set entry `trvextat` of CRTarget to entry `trvextat` of CRRoom
         if CRRoom has entry `linked` set entry `linked` of CRTarget to entry `linked` of CRRoom
         if CRRoom has entry `relayfails` set entry `relayfails` of CRTarget to entry `relayfails` of CRRoom
         if CRRoom has entry `protect` set entry `protect` of CRTarget to entry `protect` of CRRoom
@@ -1082,7 +1101,7 @@ CommitRooms:
         set entry `profiles` of Map to Profiles
     end
     return
-!! @hash f49cf4b0
+!! @hash ab5bd53b
 !!!
 !! Merge an identity list sent by the UI into Map.rooms.
 !!
@@ -1155,7 +1174,7 @@ MergeIdentityRooms:
     gosub to MoveRoomOverrides
     log `Shared room list: ` cat the count of MIRBuilt cat ` room(s) from the UI`
     return
-!! @hash ca1e445c
+!! @hash 12971c6e
 !!!
 !! Carry each room's one-off override across a rename, and drop it when the room has gone.
 !!
@@ -1575,7 +1594,7 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash e0219ef1
+!! @hash 1c2dc34c
 !! @verified e0219ef1
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
@@ -1712,6 +1731,13 @@ SyncTrvLocalSetpoint:
 !! changes, plus a 10-minute keepalive for a battery device. The bridge replies
 !! `accepted`/`queued` immediately; a queued command is a success, and only a
 !! missing/bridge-error reply increments `trvfails`.
+!!
+!! A room whose `sensor` is a separate thermometer does not have to let the
+!! valve trust its own sensor: the controller tells the valve to use the room
+!! sensor (`trvsensor` = `remote`) and sends that thermometer's reading as
+!! `external` in °C. The reading is sent when it changes, at most every five
+!! minutes, and travels with any setpoint/mode command. A room whose `sensor`
+!! is the valve itself is told `local`, so the valve keeps its internal sensor.
 ProcessTrv:
     gosub to SyncTrvLocalSetpoint
     put empty into TrvSetpoint
@@ -1735,6 +1761,20 @@ ProcessTrv:
     else if PriorStatus is `fail` put `off` into TrvMode
     else if TempNow is empty put `off` into TrvMode
     else put `heat` into TrvMode
+
+    ! Choose the valve's temperature source. A separate thermometer is the
+    ! room's sensor; an absent or self-named sensor leaves the valve local.
+    put `local` into TrvSensorMode
+    put empty into TrvExternal
+    if TempNow is not empty and Room has entry `sensor`
+    begin
+        if entry `sensor` of Room is not entry `trv` of Room
+        begin
+            put `remote` into TrvSensorMode
+            put TempNow into TrvExternal
+            divide TrvExternal by 100
+        end
+    end
 
     put empty into TrvSetpointWas
     if Room has entry `trvsetpoint` put entry `trvsetpoint` of Room into TrvSetpointWas
@@ -1773,12 +1813,47 @@ ProcessTrv:
         add 600000 to TrvDue
         if now is greater than TrvDue set TrvNeedsCommand
     end
-    if not TrvNeedsCommand return
+
+    clear TrvSendingControl
+    if TrvNeedsCommand set TrvSendingControl
+
+    ! The external reading is only useful while the valve is heating. Send it
+    ! when it changes, throttled to one update every five minutes; a control
+    ! command carries the current reading regardless of that throttle.
+    clear TrvNeedsExternal
+    if TrvExternal is not empty and TrvMode is `heat`
+    begin
+        put empty into TrvExternalWas
+        if Room has entry `trvext` put entry `trvext` of Room into TrvExternalWas
+        if TrvExternalWas is empty set TrvNeedsExternal
+        else if TempNow is not TrvExternalWas set TrvNeedsExternal
+        if TrvNeedsExternal
+        begin
+            put 0 into TrvExternalAt
+            if Room has entry `trvextat` put entry `trvextat` of Room into TrvExternalAt
+            if TrvExternalAt is not 0
+            begin
+                put TrvExternalAt into TrvExternalDue
+                add 300000 to TrvExternalDue
+                if now is less than TrvExternalDue clear TrvNeedsExternal
+            end
+        end
+    end
+
+    clear TrvSend
+    if TrvSendingControl set TrvSend
+    if TrvNeedsExternal set TrvSend
+    if not TrvSend return
 
     reset RoomSpec
     set entry `trv` of RoomSpec to entry `trv` of Room
-    set entry `setpoint` of RoomSpec to TrvSetpoint
-    set entry `mode` of RoomSpec to TrvMode
+    set entry `trvsensor` of RoomSpec to TrvSensorMode
+    if TrvSendingControl
+    begin
+        set entry `setpoint` of RoomSpec to TrvSetpoint
+        set entry `mode` of RoomSpec to TrvMode
+    end
+    if TrvExternal is not empty set entry `external` of RoomSpec to TrvExternal
     send RoomSpec to DeviceModule and assign reply to Replies
 
     put 0 into TrvFails
@@ -1797,12 +1872,20 @@ ProcessTrv:
         return
     end
     set entry `trvfails` of Room to 0
-    set entry `trvcommandat` of Room to now
-    set entry `trvsetpoint` of Room to TrvSetpoint
-    set entry `trvmode` of Room to TrvMode
-    if TrvReplyValue has entry `setpoint` set entry `trvsetpoint` of Room to entry `setpoint` of TrvReplyValue
+    if TrvSendingControl
+    begin
+        set entry `trvcommandat` of Room to now
+        set entry `trvsetpoint` of Room to TrvSetpoint
+        set entry `trvmode` of Room to TrvMode
+        if TrvReplyValue has entry `setpoint` set entry `trvsetpoint` of Room to entry `setpoint` of TrvReplyValue
+    end
+    if TrvExternal is not empty
+    begin
+        set entry `trvext` of Room to TempNow
+        set entry `trvextat` of Room to now
+    end
     return
-!! @hash trvcommand
+!! @hash 96ed3b0e
 !!!
 !! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
 !!
@@ -2069,7 +2152,7 @@ RoomStatus:
     end
     set entry `statusMessage` of Room to Value
     set entry `relayMessage` of Room to RelayMsg
-!! @hash 07a1a758
+!! @hash 311c1342
 !! @verified e101ab9c
 !!!
 !! Cascading writers for the system map: callers gosub to whichever level they need, then control falls through up to UpdateMap and returns.
@@ -2639,10 +2722,21 @@ ClearRoomOverride:
     return
 !! @hash b8bbeba7
 !!!
-!! Drop one-off overrides whose target date has passed; called on the midnight roll-over.
+!! Drop one-off overrides that have done their work: one whose target date has passed, and one for today whose morning period has ended.
 !!
-!! An expired override is already inert — it only matches on its own date — so this is tidiness rather than correctness. It is also what clears the armed badge from every connected UI, since it marks the map changed.
+!! A past-dated override is already inert — it only matches on its own date — so dropping it is tidiness. Today's is the case that matters: the override changes this morning's period, and once that period's `off` has passed there is nothing left for it to do, so keeping it leaves every connected UI showing "Today from …" for the rest of the day. Expiry is therefore the morning period's own end, taken from the room's stored schedule; an override can move a period's `start` but never its `end`, and a `skip` has the same end as the period it drops.
+!!
+!! The clock is read once into OverrideNow so every entry in a pass is judged against the same instant. Only an actual deletion marks the map changed; that is what clears the armed badge from connected UIs.
 PruneOverrides:
+    put now into OverrideNow
+    gosub to PruneOverridesAt
+    return
+!! @hash 019db71f
+!!!
+!! Walk the overrides and drop the spent ones, judged against the OverrideNow instant that PruneOverrides captured.
+!!
+!! This is the half that a test can drive with a chosen instant; PruneOverrides exists only to bind it to the wall clock.
+PruneOverridesAt:
     if Map has no entry `overrides` return
     put entry `overrides` of Map into Overrides
     put the keys of Overrides into OverrideKeys
@@ -2652,7 +2746,14 @@ PruneOverrides:
     begin
         put item OI of OverrideKeys into OverrideName
         put entry OverrideName of Overrides into OverrideEntry
-        if entry `date` of OverrideEntry is less than TodayKey
+        clear OverrideSpent
+        if entry `date` of OverrideEntry is less than TodayKey set OverrideSpent
+        else if entry `date` of OverrideEntry is TodayKey
+        begin
+            gosub to OverrideMorningEnded
+            if MorningEnded set OverrideSpent
+        end
+        if OverrideSpent
         begin
             delete entry OverrideName of Overrides
             log `Room override expired: ` cat OverrideName
@@ -2661,7 +2762,25 @@ PruneOverrides:
         increment OI
     end
     return
-!! @hash 72da8206
+!! @hash 8e8d8eed
+!!!
+!! Decide whether the morning period that the named room's one-off override targets has already ended at OverrideNow. Leaves MorningEnded set when it has.
+!!
+!! Reads OverrideName and OverrideNow; resolves the room through the working room list, so it sees today's profile. An unknown room, or one with no usable morning period (including a wrap-around period, which IdentifyMorningPeriod excludes), leaves MorningEnded clear: the caller then keeps the entry, and the date check retires it at the next rollover.
+OverrideMorningEnded:
+    clear MorningEnded
+    put OverrideName into RoomName
+    gosub to GetRoomByName
+    if RoomIndex is less than 0 return
+    gosub to LoadRoomPeriods
+    gosub to IdentifyMorningPeriod
+    if MorningIdx is less than 0 return
+    put item MorningIdx of PeriodList into Period
+    put entry `off` of Period into Time
+    gosub to ConvertTimeToInt
+    if OverrideNow is not less than Time set MorningEnded
+    return
+!! @hash d937237f
 !!!
 !! Convert an HH:MM time string into an integer milliseconds-since-epoch value for today (Time variable in/out).
 !!
@@ -3101,7 +3220,7 @@ ProcessUIRequest:
         gosub to ForceUpdate
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 671aea6e
+!! @hash 6a740fc3
 !! @verified 671aea6e
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).

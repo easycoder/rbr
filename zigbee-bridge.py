@@ -292,6 +292,12 @@ def _handle_device_update(device_name, payload):
         if "running_state" in payload:
             state["running_state"] = payload["running_state"]
             is_trv = True
+        if "external_temperature_input" in payload:
+            state["external_temperature"] = payload["external_temperature_input"]
+            is_trv = True
+        if "temperature_sensor_select" in payload:
+            state["temperature_sensor_select"] = payload["temperature_sensor_select"]
+            is_trv = True
         if "humidity" in payload:
             state["humidity"] = payload["humidity"]
         if "battery" in payload:
@@ -352,6 +358,74 @@ def _round_setpoint(value):
     return round(value * 2) / 2
 
 
+def _round_external_temperature(value):
+    """Clamp to the TRVZB's external-input range and round to 0.1 C."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    value = max(0.0, min(99.9, value))
+    return round(value, 1)
+
+
+def _parse_trv_command(params):
+    """Build a zigbee2mqtt payload from /trv query parameters.
+
+    Returns ``(payload, fields, error)``. ``payload`` is None for a read
+    (no command parameters), ``fields`` carries the values to echo in the
+    response and in ``last_command``, and ``error`` is a 400 message or None.
+
+    ``setpoint`` and ``mode`` form a control command. ``external`` is a
+    thermometer reading in Celsius and ``sensor`` is ``remote`` or ``local``;
+    when an external reading is supplied without an explicit choice, the
+    valve is switched to its remote sensor so the value is actually used.
+    Any subset of these may be sent, which lets the controller refresh the
+    external reading without re-sending the setpoint.
+    """
+    setpoint_raw = params.get("setpoint", [None])[0]
+    external_raw = params.get("external", [None])[0]
+    sensor = (params.get("sensor", [None])[0] or "").lower()
+    mode = (params.get("mode", [None])[0] or "").lower()
+
+    if sensor and sensor not in ("local", "remote"):
+        return None, {}, "sensor must be local or remote"
+
+    setpoint = None
+    if setpoint_raw is not None:
+        setpoint = _round_setpoint(setpoint_raw)
+        if setpoint is None:
+            return None, {}, "setpoint must be a number"
+        if mode not in ("heat", "off"):
+            return None, {}, "mode must be heat or off"
+
+    external = None
+    if external_raw is not None:
+        external = _round_external_temperature(external_raw)
+        if external is None:
+            return None, {}, "external must be a number"
+
+    payload = {}
+    fields = {}
+    if setpoint is not None:
+        payload["system_mode"] = mode
+        payload["occupied_heating_setpoint"] = setpoint
+        fields["setpoint"] = setpoint
+        fields["mode"] = mode
+    if external is not None:
+        payload["external_temperature_input"] = external
+        fields["external"] = external
+        if not sensor:
+            sensor = "remote"
+    if sensor:
+        payload["temperature_sensor_select"] = (
+            "remote_temperature" if sensor == "remote" else "local_temperature")
+        fields["sensor"] = sensor
+
+    if not payload:
+        return None, {}, None
+    return payload, fields, None
+
+
 def _update_trv_file():
     """Write TRV setpoint/mode state for the controller's dial-change sync."""
     trvs = {}
@@ -366,6 +440,8 @@ def _update_trv_file():
                 "system_mode": state.get("system_mode"),
                 "running_state": state.get("running_state"),
                 "local_temperature": state.get("local_temperature"),
+                "external_temperature": state.get("external_temperature"),
+                "temperature_sensor_select": state.get("temperature_sensor_select"),
                 "battery": state.get("battery"),
                 "last_seen": state.get("last_seen", 0),
                 "last_command": command,
@@ -446,42 +522,31 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
                 self._respond(404, {"error": f"unknown device {device_name}"})
                 return
 
-            setpoint_raw = params.get("setpoint", [None])[0]
-            if setpoint_raw is not None:
-                setpoint = _round_setpoint(setpoint_raw)
-                if setpoint is None:
-                    self._respond(400, {"error": "setpoint must be a number"})
-                    return
-                mode = (params.get("mode", [None])[0] or "").lower()
-                if mode not in ("heat", "off"):
-                    self._respond(400, {"error": "mode must be heat or off"})
-                    return
-                payload = {"system_mode": mode,
-                           "occupied_heating_setpoint": setpoint}
+            payload, fields, error = _parse_trv_command(params)
+            if error:
+                self._respond(400, {"error": error})
+                return
+            if payload is not None:
                 topic = f"zigbee2mqtt/{device_name}/set"
                 if mqtt_client:
                     mqtt_client.publish(topic, json.dumps(payload), qos=1)
                     print(f"Published {payload} to {topic}")
                 with trv_commands_lock:
-                    trv_commands[device_name] = {
-                        "setpoint": setpoint,
-                        "mode": mode,
-                        "ts": time.time(),
-                    }
+                    trv_commands[device_name] = dict(fields, ts=time.time())
                 state = _read_device_state(device_name)
                 meta = bridge_devices.get(device_name, {})
                 queued = (meta.get("type") == "EndDevice"
                           or meta.get("power_source") == "Battery")
                 # A battery valve is asleep; zigbee2mqtt queues the command
                 # until it next checks in. Never wait for a confirmation here.
-                self._respond(200, {
+                response = {
                     "accepted": True,
                     "queued": queued,
                     "device": device_name,
-                    "setpoint": setpoint,
-                    "mode": mode,
                     "last_seen": state.get("last_seen", 0),
-                })
+                }
+                response.update(fields)
+                self._respond(200, response)
                 return
 
             state = _read_device_state(device_name)

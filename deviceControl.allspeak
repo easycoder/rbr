@@ -23,6 +23,8 @@
     variable TrvName
     variable TrvSetpoint
     variable TrvMode
+    variable TrvSensor
+    variable TrvExternal
 
 !    debug step
     
@@ -32,7 +34,7 @@
     release parent
     log `Device controller is ready`
     stop
-!! @hash 5a913289
+!! @hash b174bf17
 !! @verified 5a913289
 !!!
 !! Top-level message handler — routes a RoomSpec to the Zigbee bridge.
@@ -58,8 +60,14 @@ RunController:
     if RoomSpec has entry `trv`
     begin
         put entry `trv` of RoomSpec into TrvName
-        put entry `setpoint` of RoomSpec into TrvSetpoint
-        put entry `mode` of RoomSpec into TrvMode
+        put `local` into TrvSensor
+        if RoomSpec has entry `trvsensor` put entry `trvsensor` of RoomSpec into TrvSensor
+        put empty into TrvSetpoint
+        if RoomSpec has entry `setpoint` put entry `setpoint` of RoomSpec into TrvSetpoint
+        put empty into TrvMode
+        if RoomSpec has entry `mode` put entry `mode` of RoomSpec into TrvMode
+        put empty into TrvExternal
+        if RoomSpec has entry `external` put entry `external` of RoomSpec into TrvExternal
         gosub to MessageTrv
         reset Replies
         append Reply to Replies
@@ -100,7 +108,7 @@ RunController:
     end
     send Replies to sender
     stop
-!! @hash 75d56619
+!! @hash a6c3a8f7
 !! @verified 75d56619
 !!!
 !! Send a relay command to a Zigbee device via the local zigbee-bridge.
@@ -132,14 +140,22 @@ MessageZigbeeDevice:
 !! @hash 1f26f342
 !! @verified 1f26f342
 !!!
-!! Send a setpoint/mode command to a self-contained TRV through the bridge.
+!! Send a setpoint/mode command, or an external-temperature update, to a self-contained TRV through the bridge.
 !!
-!! The bridge publishes to zigbee2mqtt and returns immediately with
-!! `accepted`/`queued`; a battery valve is asleep and may apply the command
-!! only when it next checks in, so there is no synchronous state confirmation
-!! to wait for. A missing `accepted` is a failure.
+!! `setpoint` and `mode` are present only when the controller has a control
+!! change to send. `external` is the room thermometer's reading in °C and
+!! `TrvSensor` is `remote` or `local`; the bridge publishes whichever fields
+!! are present, so a temperature update can travel on its own. The bridge
+!! returns immediately with `accepted`/`queued`; a battery valve is asleep and
+!! may apply the command only when it next checks in, so there is no
+!! synchronous state confirmation to wait for. A missing `accepted` is a
+!! failure.
 MessageTrv:
-    put `http://127.0.0.1:8889/trv/` cat TrvName cat `?setpoint=` cat TrvSetpoint cat `&mode=` cat TrvMode into URL
+    put `http://127.0.0.1:8889/trv/` cat TrvName cat `?sensor=` cat TrvSensor into URL
+    if TrvSetpoint is not empty
+        put URL cat `&setpoint=` cat TrvSetpoint cat `&mode=` cat TrvMode into URL
+    if TrvExternal is not empty
+        put URL cat `&external=` cat TrvExternal into URL
     get Response from url URL
     or begin
         log `Zigbee TRV call failed for ` cat TrvName
@@ -153,6 +169,8 @@ MessageTrv:
         if Response has entry `queued` set entry `queued` of Values to entry `queued` of Response
         if Response has entry `setpoint` set entry `setpoint` of Values to entry `setpoint` of Response
         if Response has entry `mode` set entry `mode` of Values to entry `mode` of Response
+        if Response has entry `external` set entry `external` of Values to entry `external` of Response
+        if Response has entry `sensor` set entry `sensor` of Values to entry `sensor` of Response
         put Values into Reply
     end
     else
@@ -161,3 +179,5 @@ MessageTrv:
         set Reply to empty
     end
     return
+!! @hash 8fea3b62
+!!!

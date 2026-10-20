@@ -28,6 +28,7 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `volatile-root` | One line: the directory holding the regenerable files below. `rbr-setup.sh` writes `/run/rbr`, which is a tmpfs and is emptied on every reboot. With no such file the paths stay plain names in this directory (what a test machine gets) | generated |
 | `thermometers.json` | Temperature readings — created on first run. In the volatile directory | volatile |
 | `zigbee-temperatures.json` | Zigbee readings written by the bridge, merged by the controller. In the volatile directory | volatile |
+| `zigbee-trv.json` | TRV setpoint/mode, reported local and external temperatures, and the selected temperature source, written by the bridge for the controller's dial-change sync. In the volatile directory | volatile |
 | `heatlog-state.json` | Per-room last-logged target/actual/mode, so a restart does not re-log the current state. In the volatile directory | volatile |
 | `rbr-setup.sh` | The installer itself — keep it so setup can be re-run | manual |
 

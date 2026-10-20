@@ -51,6 +51,8 @@ An `Update Profiles` request carries both halves — `rooms[]` (identity) and `p
 
 A room with a `trv` has no relays. The controller commands the valve's `system_mode` (`heat`/`off`) and `occupied_heating_setpoint` instead of switching a relay; a setpoint changed on the valve's own dial is written back into the current period's `temp` so the schedule and the interface show it.
 
+A TRV room's `sensor` is also the temperature the valve is told to use. When `sensor` names a separate thermometer (`"sensor": "LR-HT"`, `"trv": "LR-Rad"`), the controller selects the valve's remote temperature input and feeds it that thermometer's reading, so the valve modulates on the room sensor rather than on the temperature at the radiator. When `sensor` is the valve's own friendly name, the valve keeps its internal sensor. A separate thermometer is refreshed when its reading changes, at most once every five minutes, and always accompanies a setpoint or mode command.
+
 `Update Rooms` replaces the identity list on its own, for a client that edits wiring without touching schedules.
 
 `profiles[].rooms` must be an object keyed by room name. A list means the sender is a UI that predates the split, and the controller **rejects the request and leaves the running map alone** rather than emptying the room set and stopping the heating. The log says so.
@@ -71,7 +73,7 @@ A room's `overrides` entry is a single one-day change to its schedule, written b
 - `was` records the period's scheduled start at the time of the request, for display.
 - `at` is the arm timestamp.
 
-The controller applies the override when it reads the schedule: a `start` at or after that period's own `off` is treated as a `skip`. The stored `periods` are never modified, so the schedule reverts by itself once the date passes; the entry is pruned at the midnight roll-over.
+The controller applies the override when it reads the schedule: a `start` at or after that period's own `off` is treated as a `skip`. The stored `periods` are never modified, so the schedule reverts by itself once the date passes; the entry is pruned when the morning period it targets ends — an override moves a period's `start` but never its `off` — and any past-dated entry is pruned at the midnight roll-over.
 
 ### `periods[].enabled` — switching a period off
 

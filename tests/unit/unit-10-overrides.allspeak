@@ -23,6 +23,10 @@
     list PeriodList
     list PeriodSource
     list OverrideKeys
+    list Rooms
+    variable RoomCount
+    variable RoomName
+    variable RoomIndex
     variable EventCount
     variable PeriodSourceCount
     variable PeriodIncluded
@@ -42,6 +46,9 @@
     variable OverrideDate
     variable OverrideName
     variable OverrideWas
+    variable OverrideNow
+    variable OverrideSpent
+    variable MorningEnded
     variable MorningIdx
     variable MorningMin
     variable Value
@@ -186,6 +193,15 @@ BuildRoom:
     return
 !! @hash 1a06869b
 !!!
+!! Put the built room into the working room list, which the prune path resolves an override's name through. Mimics the controller's materialised array; append copies.
+
+BuildWorkingRoom:
+    reset Rooms
+    append Room to Rooms
+    put 1 into RoomCount
+    return
+!! @hash 70d1139e
+!!!
 !! Arm the override described by OverrideKind / OverrideDate / OverrideOn on the Kitchen room.
 
 ArmOverride:
@@ -273,9 +289,17 @@ ClearRoomOverride:
     return
 !! @hash e15c8f3c
 !!!
-!! Drop overrides whose date has passed. Mirrors controller.allspeak.
+!! Drop overrides that have done their work. Mirrors controller.allspeak: a past date is stale, and today's is stale once its morning period has ended. The clock is read once so a pass judges every entry against the same instant.
 
 PruneOverrides:
+    put now into OverrideNow
+    gosub to PruneOverridesAt
+    return
+!! @hash 0e6a39f7
+!!!
+!! Walk the overrides and drop the spent ones, against the OverrideNow instant. Mirrors controller.allspeak.
+
+PruneOverridesAt:
     if Map has no entry `overrides` return
     put entry `overrides` of Map into Overrides
     put the keys of Overrides into OverrideKeys
@@ -285,12 +309,49 @@ PruneOverrides:
     begin
         put item OI of OverrideKeys into OverrideName
         put entry OverrideName of Overrides into OverrideEntry
-        if entry `date` of OverrideEntry is less than TodayKey
-            delete entry OverrideName of Overrides
+        clear OverrideSpent
+        if entry `date` of OverrideEntry is less than TodayKey set OverrideSpent
+        else if entry `date` of OverrideEntry is TodayKey
+        begin
+            gosub to OverrideMorningEnded
+            if MorningEnded set OverrideSpent
+        end
+        if OverrideSpent delete entry OverrideName of Overrides
         increment OI
     end
     return
-!! @hash 130a448a
+!! @hash e342ec02
+!!!
+!! Decide whether the named room's morning period has already ended at OverrideNow. Mirrors controller.allspeak.
+
+OverrideMorningEnded:
+    clear MorningEnded
+    put OverrideName into RoomName
+    gosub to GetRoomByName
+    if RoomIndex is less than 0 return
+    gosub to LoadRoomPeriods
+    gosub to IdentifyMorningPeriod
+    if MorningIdx is less than 0 return
+    put item MorningIdx of PeriodList into Period
+    put entry `off` of Period into Time
+    gosub to ConvertTimeToInt
+    if OverrideNow is not less than Time set MorningEnded
+    return
+!! @hash 1a4fe106
+!!!
+!! Find a room by name in the working room list. Mirrors controller.allspeak.
+
+GetRoomByName:
+    set RoomIndex to 0
+    while RoomIndex is less than RoomCount
+    begin
+        index Room to RoomIndex
+        if entry `name` of Room is RoomName return
+        increment RoomIndex
+    end
+    set RoomIndex to -1
+    return
+!! @hash 1c179aad
 !!!
 
 RunTests:
@@ -559,6 +620,8 @@ RunTests:
 !! Case 13: pruning drops a stale date and keeps a live one.
 
     gosub to BuildRoom
+    reset Rooms
+    put 0 into RoomCount
     reset Overrides
     reset OverrideEntry
     set entry `date` of OverrideEntry to `1900-01-01`
@@ -574,7 +637,93 @@ RunTests:
         check that Overrides has no entry `Old`
         check that Overrides has entry `Fresh`
     end test
-!! @hash 40aeeae1
+!! @hash 9b0b86ad
+!!!
+!! Case 13b: today's override is spent when the morning period it changed ends — the bug an
+!! override armed for this morning left the "Today from …" badge up for the rest of the day.
+
+    gosub to BuildRoom
+    gosub to BuildWorkingRoom
+    put datime today format `%Y-%m-%d` into TodayKey
+    put `start` into OverrideKind
+    put TodayKey into OverrideDate
+    put `07:15` into OverrideOn
+    gosub to ArmOverride
+    put `07:59` into Time
+    gosub to ConvertTimeToInt
+    put Time into OverrideNow
+    gosub to PruneOverridesAt
+    put entry `overrides` of Map into Overrides
+
+    test `today's override survives until its morning period ends`
+        check that Overrides has entry `Kitchen`
+    end test
+
+    put `08:00` into Time
+    gosub to ConvertTimeToInt
+    put Time into OverrideNow
+    gosub to PruneOverridesAt
+    put entry `overrides` of Map into Overrides
+
+    test `today's override is pruned when the morning period ends`
+        check that Overrides has no entry `Kitchen`
+    end test
+!! @hash e2cbc48e
+!!!
+!! Case 13c: a skip is spent at the same instant — the end of the period it drops. A start
+!! that is later than that end (the whole period skipped) is spent there too.
+
+    gosub to BuildRoom
+    gosub to BuildWorkingRoom
+    put datime today format `%Y-%m-%d` into TodayKey
+    put `skip` into OverrideKind
+    put TodayKey into OverrideDate
+    gosub to ArmOverride
+    put `08:00` into Time
+    gosub to ConvertTimeToInt
+    put Time into OverrideNow
+    gosub to PruneOverridesAt
+    put entry `overrides` of Map into Overrides
+
+    test `a skip is pruned when the dropped period would have ended`
+        check that Overrides has no entry `Kitchen`
+    end test
+
+    gosub to BuildRoom
+    gosub to BuildWorkingRoom
+    put `start` into OverrideKind
+    put TodayKey into OverrideDate
+    put `09:30` into OverrideOn
+    gosub to ArmOverride
+    gosub to PruneOverridesAt
+    put entry `overrides` of Map into Overrides
+
+    test `a start past the off time is pruned at that off time`
+        check that Overrides has no entry `Kitchen`
+    end test
+!! @hash 09379115
+!!!
+!! Case 13d: tomorrow's override is untouched by today's clock, however late it is.
+
+    gosub to BuildRoom
+    gosub to BuildWorkingRoom
+    put datime today format `%Y-%m-%d` into TodayKey
+    put `start` into OverrideKind
+    put today into T
+    add 129600000 to T
+    put datime T format `%Y-%m-%d` into OverrideDate
+    put `07:15` into OverrideOn
+    gosub to ArmOverride
+    put `23:59` into Time
+    gosub to ConvertTimeToInt
+    put Time into OverrideNow
+    gosub to PruneOverridesAt
+    put entry `overrides` of Map into Overrides
+
+    test `tomorrow's override is not pruned today`
+        check that Overrides has entry `Kitchen`
+    end test
+!! @hash 3f40db4a
 !!!
 !! Case 14: a period switched off with `enabled: false` is dropped from the effective list, and an explicit `enabled: true` is kept (same as an absent flag).
 

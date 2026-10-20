@@ -40,12 +40,13 @@ else
     exit 2
 fi
 
-# Python unit tests: the heating-data CSV writer (heatlog.py), and the split
+# Python unit tests: the heating-data CSV writer (heatlog.py), the split
 # between the controller's working room array and the profile state — the two
-# aliasing traps that bit the shared room list on the live system (DIFF.md).
+# aliasing traps that bit the shared room list on the live system (DIFF.md) —
+# and the bridge's TRV external-sensor command.
 echo ""
-echo "Running Python tests (heatlog_test, commit_roundtrip_test, identity_override_test)..."
-PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test commit_roundtrip_test identity_override_test 2>&1)"
+echo "Running Python tests (heatlog_test, commit_roundtrip_test, identity_override_test, trv_external_test)..."
+PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test commit_roundtrip_test identity_override_test trv_external_test 2>&1)"
 PY_STATUS=$?
 echo "$PY_OUT"
 

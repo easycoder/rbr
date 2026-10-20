@@ -51,12 +51,16 @@ FIXTURE = {
          "temperature": 2000, "status": "good", "relay": "off"},
         {"name": "Sunroom", "relays": ["s1"], "sensor": "st", "linked": "yes",
          "temperature": 2100, "status": "good", "relay": "off"},
+        {"name": "Living Room", "relays": [], "sensor": "LR-HT", "trv": "LR-Rad",
+         "trvext": 1980, "trvextat": 1234567890, "linked": "yes",
+         "temperature": 1980, "status": "good", "relay": "off"},
     ],
     "profiles": [
         {"name": "Weekend", "rooms": {
             "Kitchen": {"mode": "off", "target": 12, "periods": [], "advance": "-"},
             "Sunroom": {"mode": "timed", "target": 23, "advance": "-", "until": 123,
                         "periods": [{"on": "18:00", "off": "23:00", "temp": "23.0"}]},
+            "Living Room": {"mode": "on", "target": 20, "advance": "-"},
         }},
     ],
     "profile": 0,
@@ -107,6 +111,30 @@ put entry `profile` of Map into SelectedProfile
 ! Materialise as ProcessAllRooms does, then do what a UI handler does: change
 ! the working record and write it back through UpdateRooms.
 gosub to MaterialiseRooms
+
+! The TRV external-sensor throttle state is identity, not schedule state: it
+! must be materialised into the working room and committed back after a change.
+put 2 into RoomIndex
+put item RoomIndex of Rooms into Room
+put entry `trvext` of Room into S
+log `PROBE working-trvext=` cat S
+put entry `trvextat` of Room into S
+log `PROBE working-trvextat=` cat S
+set entry `trvext` of Room to 1990
+set entry `trvextat` of Room to 1234567999
+gosub to UpdateRooms
+gosub to MaterialiseRooms
+put item 2 of Rooms into Room
+put entry `trvext` of Room into S
+log `PROBE working-trvext-after=` cat S
+put entry `trvextat` of Room into S
+log `PROBE working-trvextat-after=` cat S
+put item SelectedProfile of Profiles into Profile
+put entry `rooms` of Profile into MRStates
+put entry `Living Room` of MRStates into MRState
+if MRState has entry `trvext` put `yes` into S else put `no` into S
+log `PROBE state-has-trvext=` cat S
+
 put 0 into RoomIndex
 put item RoomIndex of Rooms into Room
 set entry `mode` of Room to `on`
@@ -255,6 +283,17 @@ class CommitRoundTrip(unittest.TestCase):
                          "'until' came back from the store after being deleted")
         self.assertEqual(self.v["state-sunroom-mode"], "timed",
                          "the untouched room's state changed")
+
+    def test_trv_external_state_survives_the_round_trip(self):
+        # The throttle state is kept on the identity record. If it is dropped
+        # at materialise, every cycle looks like a fresh external reading and
+        # the valve is re-commanded far more often than the five-minute gate.
+        self.assertAlmostEqual(float(self.v["working-trvext"]), 1980.0)
+        self.assertAlmostEqual(float(self.v["working-trvextat"]), 1234567890.0)
+        self.assertAlmostEqual(float(self.v["working-trvext-after"]), 1990.0)
+        self.assertAlmostEqual(float(self.v["working-trvextat-after"]), 1234567999.0)
+        self.assertEqual(self.v["state-has-trvext"], "no",
+                         "TRV throttle state leaked into the profile schedule")
 
 
 if __name__ == "__main__":

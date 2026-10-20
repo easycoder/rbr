@@ -36,7 +36,6 @@
 	div SummaryChip
 	div SummaryChipIcon
 	div SummaryDot
-	div SummaryAvg
 	div SummaryOutside
 	div SummaryToday
 	div SummaryProfileName
@@ -160,13 +159,9 @@
 	variable Tcalling
 	variable HeatingCount
 	variable HeatingNames
-	variable SumTenths
-	variable AvgCount
-	variable TenthsOne
 	variable DotIdx
 	variable DecPart
 	variable OutsideTemp
-	variable AvgText
 	variable AvgInt
 	variable AvgDec
 	variable OutsideText
@@ -290,6 +285,9 @@
 	variable DateD
 	variable DateDN
 	variable DateM
+	variable DateH
+	variable DateN
+	variable DateClock
 
 !	Outbound (uirequest) payload state.
 	variable Result
@@ -409,7 +407,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash 4ce0a894
+!! @hash ca0c267d
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -905,7 +903,7 @@ MapPollTask:
 !!
 !! Every indexed per-row variable (RestRow, InfoBtn, ExpansionEl, ModeTimedBtn, etc.) MUST be pre-sized with `set the elements of X to RoomCount` before any `index X to N` for N > 0 — the array has to be allocated first, otherwise the index call raises "out of range".
 !!
-!! Forks BackgroundTick and BoostTick at the end so the gradient and per-room boost countdowns keep ticking independently of map pushes.
+!! Forks BackgroundTick, BoostTick and ClockTick at the end so the gradient, per-room boost countdowns and the summary clock keep ticking independently of map pushes.
 BuildHomeScreen:
 	set BuildingHome
 !	First-pass summary stats from the freshly-built RoomsList.
@@ -919,7 +917,6 @@ BuildHomeScreen:
 
 	attach SummaryTitle to `summary-title`
 	attach SummarySubtitle to `summary-subtitle`
-	attach SummaryAvg to `summary-avg`
 	attach SummaryOutside to `summary-outside`
 	attach SummaryOutsideFrost to `summary-outside-frost`
 	attach SummaryToday to `summary-today`
@@ -1188,9 +1185,12 @@ BuildHomeScreen:
 !	pushes so a quiet room's countdown doesn't appear frozen.
 	fork to BoostTick
 
+!	Clock tick — keep the summary card's time current between map pushes.
+	fork to ClockTick
+
 	clear BuildingHome
 	return
-!! @hash e0aceb9b
+!! @hash 12e7e20b
 !!!
 !! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
 !!
@@ -1350,6 +1350,18 @@ BoostTick:
 		end
 	end
 !! @hash 15347efe
+!!!
+!! Forked once on first build. Refreshes the summary card's date/time every 30 seconds so the clock stays current between map pushes.
+!!
+!! The controller only pushes a full map when state changes, so without this the displayed time would freeze until the next temperature or relay change. Only the date cell is repainted, which keeps the tick cheap and leaves the rest of the summary alone.
+ClockTick:
+	while true
+	begin
+		wait 30 seconds
+		gosub to FormatTodayString
+		set the content of SummaryToday to TempStr
+	end
+!! @hash 611d60f2
 !!!
 !! Open / close the bottom sheet. CSS transitions handle the motion; the code just flips opacity, transform, and the root's pointer-events. CloseSheet is the mirror image.
 OpenSheet:
@@ -2818,9 +2830,9 @@ ComputeCallingDiff:
 	return
 !! @hash d04ce3fd
 !!!
-!! Walk RoomsList and recompute the SummaryCard aggregates. Sets HeatingCount, HeatingNames, AvgText, OutsideText, TitleText, SubtitleText — all consumed by PaintSummary.
+!! Walk RoomsList and recompute the SummaryCard aggregates. Sets HeatingCount, HeatingNames, OutsideText, TitleText, SubtitleText — all consumed by PaintSummary.
 !!
-!! Average temperature is the mean of online rooms' temperatures, in tenths-of-a-degree internally to keep the integer arithmetic clean, then formatted as "X.Y°". OutsideTemp is owned by MapToRooms (extracted from the outdoor sensor entry which is filtered out of RoomsList) — we don't reset it here.
+!! OutsideTemp is owned by MapToRooms (extracted from the outdoor sensor entry which is filtered out of RoomsList) — we don't reset it here.
 !!
 !! Frost protection: trust the controller's `frostActive` flag if it sets one (the controller knows things the UI doesn't, like demand-relay state). Otherwise compute locally: active when a trigger is set, the outdoor temperature is at-or-below it, AND no rooms are calling.
 !!
@@ -2828,8 +2840,6 @@ ComputeCallingDiff:
 ComputeSummaryStats:
 	put 0 into HeatingCount
 	put empty into HeatingNames
-	put 0 into SumTenths
-	put 0 into AvgCount
 !	OutsideTemp is owned by MapToRooms (extracted from the outdoor sensor
 !	entry, which is filtered out of RoomsList). Don't reset it here.
 
@@ -2838,8 +2848,6 @@ ComputeSummaryStats:
 	begin
 		put element LoopI of RoomsList into CurRoom
 		put property `name` of CurRoom into RName
-		put property `temp` of CurRoom into Ttemp
-		put property `offline` of CurRoom into Toffline
 		put property `calling` of CurRoom into Tcalling
 
 		if Tcalling is `yes`
@@ -2849,31 +2857,11 @@ ComputeSummaryStats:
 			else put HeatingNames cat `, ` cat RName into HeatingNames
 		end
 
-		if Toffline is `no`
-		begin
-			if Ttemp is not empty
-			begin
-				put Ttemp scale 10 into TenthsOne
-				add TenthsOne to SumTenths
-				increment AvgCount
-			end
-		end
-
 		increment LoopI
 	end
 
-	put `—` into AvgText
-	if AvgCount is greater than 0
-	begin
-		divide SumTenths by AvgCount
-		put SumTenths modulo 10 into AvgDec
-		put SumTenths into AvgInt
-		divide AvgInt by 10
-		put AvgInt cat `.` cat AvgDec cat `°` into AvgText
-	end
-
 	put `—` into OutsideText
-	if OutsideTemp is not empty put OutsideTemp cat `°` into OutsideText
+	if OutsideTemp is not empty put OutsideTemp cat `°C` into OutsideText
 
 !	Frost protection: trust the controller's `frostActive` flag if it sets
 !	one, otherwise compute locally — active when a trigger is set, the
@@ -2921,15 +2909,14 @@ ComputeSummaryStats:
 		put HeatingNames into SubtitleText
 	end
 	return
-!! @hash ea876316
+!! @hash e3b38fee
 !!!
 !! Push the aggregates from ComputeSummaryStats into the SummaryCard DOM. Element vars must already be attached (BuildHomeScreen does this once at startup).
 !!
-!! Also refreshes today's date string, the active profile name, and the system ID — all of which depend on live data and so can't be set during synchronous startup. The frost-active badge in the outside row toggles inline-block vs none. The summary chip background/icon swap heat vs neutral based on HeatingCount.
+!! Also refreshes today's date and time, the active profile name, and the system ID — all of which depend on live data and so can't be set during synchronous startup. The frost-active badge in the outside row toggles inline-block vs none. The summary chip background/icon swap heat vs neutral based on HeatingCount.
 PaintSummary:
 	set the content of SummaryTitle to TitleText
 	set the content of SummarySubtitle to SubtitleText
-	set the content of SummaryAvg to AvgText
 	set the content of SummaryOutside to OutsideText
 
 	gosub to FormatTodayString
@@ -2958,18 +2945,24 @@ PaintSummary:
 		set style `display` of SummaryDot to `block`
 	end
 	return
-!! @hash b874b78c
+!! @hash c95d0de6
 !!!
-!! Build today's date as "Mon 23 Apr" into TempStr. Uses DayNames / MonthNames lookup tables built once during synchronous startup.
+!! Build today's date and the current time as "Tue 20 Oct 09:19" into TempStr. Uses DayNames / MonthNames lookup tables built once during synchronous startup, and the browser's own date keywords — this runtime has no `datime` — so ClockTick can refresh it between map pushes. Both time fields are zero-padded.
 FormatTodayString:
 	put the day into DateD
 	put the day number into DateDN
 	put the month into DateM
 	put element DateD of DayNames into DayName
 	put element DateM of MonthNames into MonthName
-	put DayName cat ` ` cat DateDN cat ` ` cat MonthName into TempStr
+	put the hour into DateH
+	put the minute into DateN
+	if DateH is less than 10 put `0` cat DateH into DateClock
+	else put `` cat DateH into DateClock
+	if DateN is less than 10 put DateClock cat `:0` cat DateN into DateClock
+	else put DateClock cat `:` cat DateN into DateClock
+	put DayName cat ` ` cat DateDN cat ` ` cat MonthName cat ` ` cat DateClock into TempStr
 	return
-!! @hash 6a52d8f9
+!! @hash a1bf4340
 !!!
 !! Convert a temperature string "X.Y" into integer tenths (e.g. "20.5" → 205, "-1.7" → -17). Uses TempStr in, TempTenths out.
 !!
