@@ -47,6 +47,7 @@
 	variable DoneFlag
 	variable SavePending
 	variable ConfirmFlag
+	variable ProfileDirty
 
 	variable Profiles
 	variable EditingProfiles
@@ -179,6 +180,7 @@
 	on click CalendarToggleBtn
 	begin
 		if EditingCalendarOn clear EditingCalendarOn else set EditingCalendarOn
+		set ProfileDirty
 		gosub to ApplyCalendarHeaderState
 		gosub to ApplyActiveProfile
 	end
@@ -190,7 +192,7 @@
 	release parent
 	log `ProfileSheet module ready`
 	stop
-!! @hash 4cf53c6b
+!! @hash 8071b0a3
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -218,6 +220,7 @@ HandleOpen:
 
 	clear DoneFlag
 	clear SavePending
+	clear ProfileDirty
 	set style `display` of ProfileSheetEl to `block`
 
 	while not DoneFlag wait 10 ticks
@@ -239,7 +242,7 @@ HandleOpen:
 	end
 	send Result to sender
 	stop
-!! @hash 41f935d7
+!! @hash fca222ad
 !!!
 !! Save click handler. Validates first (no-op if invalid), re-derives the new active-idx from EditingActiveName, sets SavePending and DoneFlag so HandleOpen ships the reply.
 OnSaveClick:
@@ -259,9 +262,15 @@ OnSaveClick:
 !!!
 !! Cancel click handler. Sets DoneFlag (but not SavePending) so HandleOpen ships a `{cancelled: yes}` reply.
 OnCancelClick:
+	if ProfileDirty
+	begin
+		clear ConfirmFlag
+		if confirm `Discard unsaved changes to profiles?` set ConfirmFlag
+		if not ConfirmFlag return
+	end
 	set DoneFlag
 	return
-!! @hash 070995d9
+!! @hash 7d8b8323
 !!!
 !! Clone the input Profiles snapshot into EditingProfiles. Each profile is rebuilt as a fresh {} so name edits don't bleed back to the snapshot; a profile's `rooms` — its per-room schedule state, keyed by room name — is carried across untouched, because nothing on this sheet edits a schedule. The schedule and device editors edit their own copies.
 CloneProfilesForEditing:
@@ -443,6 +452,7 @@ OpenDayPicker:
 				if DayEntry is empty put `{}` into DayEntry
 				set property PropName of DayEntry to ProfileName
 				set element DayEditTargetIdx of EditingCalendarData to DayEntry
+				set ProfileDirty
 				gosub to ApplyDayProfiles
 				gosub to HideAllDayPickers
 			end
@@ -453,7 +463,7 @@ OpenDayPicker:
 	index DayPickerEl to DayEditTargetIdx
 	set style `display` of DayPickerEl to `block`
 	return
-!! @hash 43e6be75
+!! @hash 5a979092
 !!!
 !! Close one specific day's picker (used by its ✕ button). DayEditTargetIdx identifies which day.
 CloseDayPicker:
@@ -519,6 +529,7 @@ RenderProfileRows:
 			end
 			put the index of ProfileBody into EditClickIdx
 			put element EditClickIdx of EditingProfiles into EditProfileN
+			if property `name` of EditProfileN is not EditingActiveName set ProfileDirty
 			put property `name` of EditProfileN into EditingActiveName
 			gosub to ApplyActiveProfile
 			gosub to ValidateEditingProfiles
@@ -537,7 +548,7 @@ RenderProfileRows:
 		increment ProfileIdx
 	end
 	return
-!! @hash 6af4f489
+!! @hash 6aee800a
 !!!
 !! Rename the profile at EditClickIdx. Prompt for a new name, write it back. If the renamed profile was the active one, update EditingActiveName to track the new name.
 RenameEditProfile:
@@ -549,12 +560,13 @@ RenameEditProfile:
 	if NewProfileName is `undefined` return
 	set property `name` of EditProfileN to NewProfileName
 	set element EditClickIdx of EditingProfiles to EditProfileN
+	set ProfileDirty
 	if ProfileName is EditingActiveName put NewProfileName into EditingActiveName
 	gosub to RenderProfileRows
 	gosub to ApplyActiveProfile
 	gosub to ValidateEditingProfiles
 	return
-!! @hash 8ba58de6
+!! @hash 39b4e9f0
 !!!
 !! Delete the profile at EditClickIdx after a confirm. Rebuilds EditingProfiles without the entry, re-renders rows. If the active was deleted, ValidateEditingProfiles disables Save until the user picks another.
 DeleteEditProfile:
@@ -579,11 +591,12 @@ DeleteEditProfile:
 	end
 	put NewProfilesArray into EditingProfiles
 	put NewIdx into EditingProfilesCount
+	set ProfileDirty
 	gosub to RenderProfileRows
 	gosub to ApplyActiveProfile
 	gosub to ValidateEditingProfiles
 	return
-!! @hash ec66653d
+!! @hash e71e3a3f
 !!!
 !! Add a new profile by cloning the active one, so the new profile inherits the same per-room schedules — much easier than starting from scratch, and safe because rooms are keyed by name rather than by position. Prompt for a name and append.
 !!
@@ -610,11 +623,12 @@ AddEditProfile:
 	set property `rooms` of ClonedProfile to property `rooms` of EditProfileN
 	set element EditingProfilesCount of EditingProfiles to ClonedProfile
 	increment EditingProfilesCount
+	set ProfileDirty
 	gosub to RenderProfileRows
 	gosub to ApplyActiveProfile
 	gosub to ValidateEditingProfiles
 	return
-!! @hash 3228305a
+!! @hash 300000d4
 !!!
 !! Validate the editing state. Save is disabled if EditingActiveName isn't present in EditingProfiles (the user has deleted the previously-active profile without picking another).
 !!

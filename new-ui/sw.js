@@ -5,16 +5,19 @@
 //     cached for offline fallback. On network failure (offline / DNS / 5xx)
 //     the cached copy is served instead.
 //   - This keeps active development friction-free: edits land within one
-//     refresh, no need to bump CACHE_VERSION or clear site data when a
-//     source file changes. The PWA still works offline because the cache
-//     fills up as the user browses online.
+//     refresh, so CACHE_VERSION does not need bumping for every source edit.
+//     Bump it when the *shape* of the shell changes — an old cached script
+//     paired with a new layout raises errors such as a missing element. A
+//     bump forces install to precache the current shell and activate to drop
+//     the old cache. The PWA still works offline because the cache fills up
+//     as the user browses online.
 //   - APP_SHELL is precached on install so the very first offline visit
 //     after install has something to serve. Subsequent online visits keep
 //     it fresh.
 //   - Cross-origin requests (the AllSpeak runtime CDN, MQTT broker WS) are
 //     pass-through — no caching, no interception.
 
-const CACHE_VERSION = 'rbr-v1-2609101315';
+const CACHE_VERSION = 'rbr-v1-2610201745';
 const CACHE_NAME = `rbr-cache-${CACHE_VERSION}`;
 
 const APP_SHELL = [
@@ -59,7 +62,9 @@ const APP_SHELL = [
     './resources/icon/sensor.svg',
     './resources/icon/snowflake.svg',
     './resources/icon/info.svg',
-    './resources/icon/edit.svg'
+    './resources/icon/edit.svg',
+    './resources/icon/edit-text.png',
+    './resources/icon/advance.svg'
 ];
 
 // Install: fetch every app-shell asset with cache: 'reload' so we bypass the

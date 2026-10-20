@@ -54,14 +54,23 @@
         "background": "transparent",
         "border": "1px solid var(--color-border-hairline)",
         "cursor": "pointer",
-        "font-family": "inherit",
-        "font-size": "15px",
-        "color": "var(--color-text-secondary)",
         "flex-shrink": "0",
         "display": "flex",
         "align-items": "center",
         "justify-content": "center",
-        "#content": "✎"
+        "@aria-label": "Rename profile",
+        "@title": "Rename profile",
+        "#": ["$RenameIcon"],
+
+        "$RenameIcon": {
+            "#element": "div",
+            "width": "16px",
+            "height": "16px",
+            "background-color": "var(--color-text-secondary)",
+            "mask": "url(resources/icon/edit-text.png) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/edit-text.png) center/contain no-repeat",
+            "pointer-events": "none"
+        }
     },
 
     "$DeleteBtn": {

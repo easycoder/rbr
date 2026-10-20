@@ -173,14 +173,23 @@
                     "background": "transparent",
                     "border": "1px solid var(--color-border-hairline)",
                     "cursor": "pointer",
-                    "font-family": "inherit",
-                    "font-size": "13px",
-                    "color": "var(--color-text-secondary)",
                     "flex-shrink": "0",
                     "display": "flex",
                     "align-items": "center",
                     "justify-content": "center",
-                    "#content": "✎"
+                    "@aria-label": "Edit day",
+                    "@title": "Edit day",
+                    "#": ["$EditIcon"],
+
+                    "$EditIcon": {
+                        "#element": "div",
+                        "width": "16px",
+                        "height": "16px",
+                        "background-color": "var(--color-text-secondary)",
+                        "mask": "url(resources/icon/edit-text.png) center/contain no-repeat",
+                        "-webkit-mask": "url(resources/icon/edit-text.png) center/contain no-repeat",
+                        "pointer-events": "none"
+                    }
                 }
             },
 

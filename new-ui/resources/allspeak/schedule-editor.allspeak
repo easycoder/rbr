@@ -210,11 +210,17 @@ OnSaveClick:
 	return
 !! @hash 652aa35c
 !!!
-!! Cancel click handler. Sets DoneFlag (but not SavePending) so HandleOpen ships a `{cancelled: yes}` reply.
+!! Cancel click handler. Confirms first when the edit buffer is dirty, then sets DoneFlag (but not SavePending) so HandleOpen ships a `{cancelled: yes}` reply.
 OnCancelClick:
+	if ScheduleDirty
+	begin
+		clear ConfirmFlag
+		if confirm `Discard unsaved changes to this schedule?` set ConfirmFlag
+		if not ConfirmFlag return
+	end
 	set DoneFlag
 	return
-!! @hash 070995d9
+!! @hash 164feb08
 !!!
 !! Update the profile-pill's value text from EditingProfileIdx.
 PaintSchedProfilePill:

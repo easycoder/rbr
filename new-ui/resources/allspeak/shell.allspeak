@@ -167,6 +167,7 @@
 	variable OutsideText
 	variable TitleText
 	variable SubtitleText
+	variable SummaryTitleHeat
 	variable ProfileName
 
 !	Expansion / interaction state.
@@ -313,6 +314,7 @@
 !	Cross-routine scratch for confirm-dialog responses (still used by
 !	ResetCredentialsAndReload).
 	variable ConfirmFlag
+	variable SheetDirty
 
 !	Schedule editor reply-state. The editor itself lives in schedule-editor.allspeak;
 !	we ship an open-message and park on the reply (cancelled / profiles).
@@ -407,7 +409,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash ca0c267d
+!! @hash 3bcd1e27
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -729,7 +731,7 @@ OnMapReceived:
 		gosub to RefreshHomeScreen
 	end
 	return
-!! @hash 54df9a84
+!! @hash 7776c148
 !!!
 !! Project Map into the UI's room list and module-level state.
 !!
@@ -1006,8 +1008,8 @@ BuildHomeScreen:
 	attach SheetCloseBtn to `sheet-close-btn`
 	attach SheetTitleEl to `sheet-title`
 
-	on click SheetCloseBtn gosub to CloseSheet
-	on click SheetScrim gosub to CloseSheet
+	on click SheetCloseBtn gosub to RequestCloseSheet
+	on click SheetScrim gosub to RequestCloseSheet
 
 !	Menu row click handlers. System / Devices / Outside each open their
 !	own sheet.
@@ -1081,16 +1083,19 @@ BuildHomeScreen:
 
 	on click SystemSheetTypeBoiler
 	begin
+		if EditingSystemType is not `Boiler` set SheetDirty
 		put `Boiler` into EditingSystemType
 		gosub to PaintSystemSheetType
 	end
 	on click SystemSheetTypeHeatPump
 	begin
+		if EditingSystemType is not `Heat Pump` set SheetDirty
 		put `Heat Pump` into EditingSystemType
 		gosub to PaintSystemSheetType
 	end
+	on change SystemSheetName set SheetDirty
 	on click SystemSheetSaveBtn gosub to SaveSystemSheet
-	on click SystemSheetCancelBtn gosub to CloseSheet
+	on click SystemSheetCancelBtn gosub to RequestCloseSheet
 
 !	Outside thermometer + frost protection sheet — opened from the menu's
 !	"Outside thermometer" row. Edits the sensor and ptemp on the legacy
@@ -1104,8 +1109,10 @@ BuildHomeScreen:
 	attach OutsideSheetFrost to `outside-sheet-frost`
 	attach OutsideSheetSaveBtn to `outside-sheet-save-btn`
 	attach OutsideSheetCancelBtn to `outside-sheet-cancel-btn`
+	on change OutsideSheetSensor set SheetDirty
+	on change OutsideSheetFrost set SheetDirty
 	on click OutsideSheetSaveBtn gosub to SaveOutsideSheet
-	on click OutsideSheetCancelBtn gosub to CloseSheet
+	on click OutsideSheetCancelBtn gosub to RequestCloseSheet
 
 !	Info sheet — opened from each room row's info button.
 	rest get InfoSheetWebson from `resources/webson/info-sheet.json?v=` cat now
@@ -1157,7 +1164,7 @@ BuildHomeScreen:
 	on click SpecialActionStart gosub to SpecialChooseStart
 	on click SpecialActionSkip gosub to SpecialChooseSkip
 	on click SpecialActionClear gosub to ClearSpecialOverride
-	on click SpecialSheetCloseBtn gosub to CloseSheet
+	on click SpecialSheetCloseBtn gosub to RequestCloseSheet
 
 !	Special time popup — the absolute-time entry for the new morning
 !	start. Pre-filled per room (see PrefillSpecialTime).
@@ -1170,8 +1177,9 @@ BuildHomeScreen:
 	attach SpecialTimeHint to `special-time-hint`
 	attach SpecialTimeSaveBtn to `special-time-save-btn`
 	attach SpecialTimeCancelBtn to `special-time-cancel-btn`
+	on change SpecialTimeInput set SheetDirty
 	on click SpecialTimeSaveBtn gosub to SaveSpecialTime
-	on click SpecialTimeCancelBtn gosub to OpenSpecialSheet
+	on click SpecialTimeCancelBtn gosub to RequestCloseSpecialTime
 
 !	All sibling sheets are now attached — flag the world ready so
 !	HideAllSheets stops being a no-op when called from click handlers.
@@ -1190,7 +1198,7 @@ BuildHomeScreen:
 
 	clear BuildingHome
 	return
-!! @hash 12e7e20b
+!! @hash d337b58a
 !!!
 !! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
 !!
@@ -1371,17 +1379,33 @@ OpenSheet:
 	return
 
 CloseSheet:
+	clear SheetDirty
 	set style `opacity` of SheetScrim to `0`
 	set style `transform` of SheetContainer to `translateY(100%)`
 	set style `pointer-events` of SheetRoot to `none`
 	return
-!! @hash 5de73def
+!! @hash 940eb1b5
+!!!
+!! Close a sheet from a user action, confirming first when the sheet has unsaved edits.
+!!
+!! The X and the scrim both use this; the parent-owned System, Outside and Special sheets also use it for Cancel. Module sheets (schedule, devices, profiles) run while the parent is blocked on their reply, so their own Cancel handlers own the confirmation. CloseSheet itself stays unconditional for Save paths.
+RequestCloseSheet:
+	if SheetDirty
+	begin
+		clear ConfirmFlag
+		if confirm `Discard unsaved changes?` set ConfirmFlag
+		if not ConfirmFlag return
+	end
+	gosub to CloseSheet
+	return
+!! @hash eba15f92
 !!!
 !! Hide every sibling sheet under sheet-content. Each Open<X> routine must call this before flipping a single sheet's display:block — the single chokepoint that prevents one sheet bleeding through another.
 !!
 !! The SheetsReady gate prevents a tap during BuildHomeScreen — when the menu button has been wired but later sheets aren't attached yet — from runtime-erroring on an unattached element.
 HideAllSheets:
 	if not SheetsReady return
+	clear SheetDirty
 	set style `display` of MenuSheetEl to `none`
 	set style `display` of ProfileSheetEl to `none`
 	set style `display` of ScheduleSheetEl to `none`
@@ -1393,7 +1417,7 @@ HideAllSheets:
 	set style `display` of SpecialSheetEl to `none`
 	set style `display` of SpecialTimeSheetEl to `none`
 	return
-!! @hash 8815e3ad
+!! @hash 84e1a712
 !!!
 !! Wire every interactive element of a single room row. Called once per non-sensor row from the BuildHomeScreen render loop, with RoomIndex pre-set to the row being wired.
 !!
@@ -2366,13 +2390,26 @@ SaveSpecialTime:
 		alert `Please choose a time.`
 		return
 	end
+	clear SheetDirty
 	! Normalise HH:MM:SS (some browsers hand back seconds) to HH:MM.
 	put left 5 of SpecialTime into SpecialTime
 	put SpecialTime into storage as `rbr-override-time-` cat SpecialRoomName
 	put `start` into SpecialKind
 	gosub to ArmSpecialOverride
 	return
-!! @hash e60a0942
+!! @hash 5900a872
+!!!
+!! Leave the special-time popup for the Special sheet, confirming first if the entered time was changed. Unlike the other Cancel buttons this does not close the chrome — it returns to the special-actions sheet.
+RequestCloseSpecialTime:
+	if SheetDirty
+	begin
+		clear ConfirmFlag
+		if confirm `Discard the time you entered?` set ConfirmFlag
+		if not ConfirmFlag return
+	end
+	gosub to OpenSpecialSheet
+	return
+!! @hash e34fec06
 !!!
 !! Arm the `skip` override — the morning warm-up for the next occurrence is dropped entirely.
 SpecialChooseSkip:
@@ -2919,6 +2956,14 @@ PaintSummary:
 	set the content of SummarySubtitle to SubtitleText
 	set the content of SummaryOutside to OutsideText
 
+!	Match the room card: a heat call-out takes the same accent colour as
+!	the room name. Frost protection is its own state, not a heat call-out.
+	clear SummaryTitleHeat
+	if HeatingCount is greater than 0 set SummaryTitleHeat
+	if FrostActive clear SummaryTitleHeat
+	if SummaryTitleHeat set style `color` of SummaryTitle to `var(--color-accent)`
+	else set style `color` of SummaryTitle to `var(--color-text-primary)`
+
 	gosub to FormatTodayString
 	set the content of SummaryToday to TempStr
 
@@ -2945,7 +2990,7 @@ PaintSummary:
 		set style `display` of SummaryDot to `block`
 	end
 	return
-!! @hash c95d0de6
+!! @hash 08ff7a9b
 !!!
 !! Build today's date and the current time as "Tue 20 Oct 09:19" into TempStr. Uses DayNames / MonthNames lookup tables built once during synchronous startup, and the browser's own date keywords — this runtime has no `datime` — so ClockTick can refresh it between map pushes. Both time fields are zero-padded.
 FormatTodayString:
@@ -3135,7 +3180,7 @@ RenderRoom:
 
 	gosub to ApplyChipStyle
 	return
-!! @hash 2f16bbc2
+!! @hash 76bb4252
 !!!
 !! Decide the chip background / foreground / icon-url and apply them.
 !!
@@ -3186,6 +3231,14 @@ ApplyChipStyle:
 		put `var(--color-chip-heat-fg)` into ChipFg
 		put `resources/icon/on.svg` into ChipIconUrl
 	end
+	else if Mode is `Timed` and Advance is `A`
+	begin
+!		Advance is a Timed-mode override, not a separate mode. The chip
+!		carries an A so the override is visible without opening the card.
+		put `var(--color-chip-heat-bg)` into ChipBg
+		put `var(--color-chip-heat-fg)` into ChipFg
+		put `resources/icon/advance.svg` into ChipIconUrl
+	end
 	else if CallingForHeat
 	begin
 		put `var(--color-chip-heat-bg)` into ChipBg
@@ -3201,7 +3254,7 @@ ApplyChipStyle:
 	set style `mask` of ChipIcon to MaskCss
 	set style `-webkit-mask` of ChipIcon to MaskCss
 	return
-!! @hash f513976c
+!! @hash 982a249d
 !!!
 !! Terminal failure handler. Reached via `or go to LoadFailed` from every `rest get` template fetch in the bootstrap region — a missing or malformed Webson template means the UI can't render, so we alert and stop rather than limping on with broken state.
 LoadFailed:

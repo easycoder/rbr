@@ -42,6 +42,7 @@
 	variable DoneFlag
 	variable SavePending
 	variable ConfirmFlag
+	variable DeviceDirty
 
 	variable OriginalRequestRelay
 
@@ -49,6 +50,7 @@
 	variable EditingProfilesCountForDevices
 	variable EditingRoomsForDevices
 	variable EditingDevicesRoomIdx
+	variable DeviceRoomClickIdx
 	variable EditingDevicesRoomName
 	variable EditingDevicesLinked
 	variable EditingDevicesSensor
@@ -119,8 +121,13 @@
 	begin
 		if EditingDevicesLinked is `yes` put `no` into EditingDevicesLinked
 		else put `yes` into EditingDevicesLinked
+		set DeviceDirty
 		gosub to PaintDeviceEditorLinked
 	end
+	on change DeviceEditorSensor set DeviceDirty
+	on change DeviceEditorTrv set DeviceDirty
+	on change DeviceEditorRelays set DeviceDirty
+	on change DeviceEditorRequest set DeviceDirty
 	on click DeviceEditorSaveBtn gosub to OnSaveClick
 	on click DeviceEditorCancelBtn gosub to OnCancelClick
 
@@ -128,7 +135,7 @@
 	release parent
 	log `DeviceEditor module ready`
 	stop
-!! @hash 85a4bcd5
+!! @hash 0f70d081
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -151,6 +158,7 @@ HandleOpen:
 
 	clear DoneFlag
 	clear SavePending
+	clear DeviceDirty
 	set style `display` of DeviceEditorSheetEl to `block`
 
 	while not DoneFlag wait 10 ticks
@@ -174,7 +182,7 @@ HandleOpen:
 	end
 	send Result to sender
 	stop
-!! @hash a420e8d7
+!! @hash af57fc1c
 !!!
 !! Save click handler. Reads the input fields, splits the relays textarea on newlines (strips empties) into an array, writes the device fields onto the room's identity record, captures the demand-relay value, sets SavePending and DoneFlag so HandleOpen ships the reply.
 OnSaveClick:
@@ -222,13 +230,19 @@ OnSaveClick:
 	set SavePending
 	set DoneFlag
 	return
-!! @hash 48235a34
+!! @hash 721b4d4f
 !!!
 !! Cancel click handler. Sets DoneFlag (but not SavePending) so HandleOpen ships a `{cancelled: yes}` reply.
 OnCancelClick:
+	if DeviceDirty
+	begin
+		clear ConfirmFlag
+		if confirm `Discard unsaved changes to this room?` set ConfirmFlag
+		if not ConfirmFlag return
+	end
 	set DoneFlag
 	return
-!! @hash 070995d9
+!! @hash 1cbcc846
 !!!
 !! Set EditingDevicesRoomIdx to the first room not named `Outside` in the shared room list. Used on initial open and again after a delete that wiped the previously-selected room.
 !!
@@ -247,7 +261,7 @@ PickFirstRoomForDevices:
 		increment RoomEditCount
 	end
 	return
-!! @hash d3cb764c
+!! @hash 3256ffa4
 !!!
 !! Pull device fields for the currently-selected room out of EditingRoomsForDevices into the input controls.
 !!
@@ -290,7 +304,7 @@ LoadDeviceEditorRoom:
 	set the content of DeviceEditorRelays to EditingDevicesRelaysText
 	gosub to PaintDeviceEditorLinked
 	return
-!! @hash aef70258
+!! @hash 7cc3dee7
 !!!
 !! Toggle the room picker open / closed. Rebuilds the list each open so adds, moves, deletes, and the current selection highlight all reflect the latest editing state.
 ToggleDeviceRoomPicker:
@@ -364,8 +378,19 @@ RenderDeviceRoomPicker:
 
 			on click DeviceRoomEditName
 			begin
-				put the index of DeviceRoomEditName into EditingDevicesRoomIdx
-				gosub to LoadDeviceEditorRoom
+				put the index of DeviceRoomEditName into DeviceRoomClickIdx
+				if DeviceRoomClickIdx is not EditingDevicesRoomIdx
+				begin
+					if DeviceDirty
+					begin
+						clear ConfirmFlag
+						if confirm `Discard unsaved changes to this room?` set ConfirmFlag
+						if not ConfirmFlag return
+						clear DeviceDirty
+					end
+					put DeviceRoomClickIdx into EditingDevicesRoomIdx
+					gosub to LoadDeviceEditorRoom
+				end
 				clear DeviceRoomPickerOpen
 				set style `display` of DeviceEditorRoomPicker to `none`
 				set style `transform` of DeviceEditorRoomChev to `rotate(0deg)`
@@ -395,7 +420,7 @@ RenderDeviceRoomPicker:
 		end
 	end
 	return
-!! @hash a91def29
+!! @hash b810ed97
 !!!
 !! Walk the shared room list; capture the lowest and highest indices that hold non-outside rooms into PrevRoomIdx and NextRoomIdx. Used by the render loop to hide the up arrow on the first non-outside row and the down arrow on the last.
 FindRoomListEnds:
@@ -413,7 +438,7 @@ FindRoomListEnds:
 		increment DeviceProfileLoopI
 	end
 	return
-!! @hash 3a611526
+!! @hash 0a7bb866
 !!!
 !! Room-list mutation routines for the editing working copy. Order is a property of the shared room list, so moving a room is a swap in one array — no longer the same swap repeated in every profile, which is what used to make a move in one profile silently reorder the others.
 !!
@@ -455,6 +480,7 @@ MoveRoomDownInEditingRooms:
 !	If the swap involves the currently-selected room, follow it so the
 !	device-fields panel keeps showing the same room.
 SwapRoomsInEditingRooms:
+	set DeviceDirty
 	put element RoomEditIdxForOp of EditingRoomsForDevices into LiveRoomForDevices
 	put element SwapTarget of EditingRoomsForDevices into RoomEntry
 	set element RoomEditIdxForOp of EditingRoomsForDevices to RoomEntry
@@ -462,7 +488,7 @@ SwapRoomsInEditingRooms:
 	if EditingDevicesRoomIdx is RoomEditIdxForOp put SwapTarget into EditingDevicesRoomIdx
 	else if EditingDevicesRoomIdx is SwapTarget put RoomEditIdxForOp into EditingDevicesRoomIdx
 	return
-!! @hash 147c2e39
+!! @hash 72e61d1c
 !!!
 !! Prompt for a new name and apply it to rooms[RoomEditIdxForOp].name in the shared room list, moving every profile's schedule state from the old key to the new one. Cancel / blank input = no-op.
 !!
@@ -512,9 +538,10 @@ RenameRoomInEditingRooms:
 		put NewRoomName into EditingDevicesRoomName
 		set the content of DeviceEditorRoomValue to EditingDevicesRoomName
 	end
+	set DeviceDirty
 	gosub to RenderDeviceRoomPicker
 	return
-!! @hash eb6ed40f
+!! @hash e0048b04
 !!!
 !! Confirm and remove rooms[RoomEditIdxForOp] from the shared room list, and drop every profile's schedule state for it. If the deleted room was the currently-selected one, re-pick the first non-outside room and reload the device fields. Adjusts EditingDevicesRoomIdx for the shift when the deleted index was earlier than the selected.
 DeleteRoomInEditingRooms:
@@ -525,6 +552,7 @@ DeleteRoomInEditingRooms:
 	if not ConfirmFlag return
 
 	json delete element RoomEditIdxForOp of EditingRoomsForDevices
+	set DeviceDirty
 
 !	Drop the room's schedule from every profile that carries one.
 	put 0 into DeviceProfileLoopI
@@ -552,7 +580,7 @@ DeleteRoomInEditingRooms:
 	end
 	gosub to RenderDeviceRoomPicker
 	return
-!! @hash aac8e470
+!! @hash a158e4e2
 !!!
 !! Append a fresh room to the shared room list, and give every profile a starter state for it: Off, no schedule, no target, nothing to inherit. The device fields are blank for the user to fill in below, and prevmode is omitted — the controller writes it on the first boost.
 !!
@@ -596,9 +624,10 @@ AddRoomToEditingRooms:
 		set element DeviceProfileLoopI of EditingProfilesForDevices to LiveProfileForDevices
 		increment DeviceProfileLoopI
 	end
+	set DeviceDirty
 	gosub to RenderDeviceRoomPicker
 	return
-!! @hash bdd187db
+!! @hash 03d98708
 !!!
 !! Is ProbeName already the name of a room in the shared list? Sets NameTaken. Used to keep room names unique, because a name is the key that joins a room's identity to its schedule in every profile.
 NameInUse:

@@ -6,7 +6,7 @@
     "border-radius": "var(--radius-summary)",
     "box-shadow": "var(--shadow-card)",
     "padding": "18px",
-    "#": ["$HeatRow", "$Divider", "$Stats", "$Pill"],
+    "#": ["$HeatRow", "$Divider", "$Stats", "$Pill", "$LegacyAvg"],
 
     "$HeatRow": {
         "#element": "div",
@@ -241,5 +241,12 @@
             "transform": "rotate(-90deg)",
             "flex-shrink": "0"
         }
+    },
+
+    "$LegacyAvg": {
+        "#doc": "Legacy anchor: shells from before 2610201218 still attach SummaryAvg to this id. The current shell never uses it, and it is hidden so the old average cannot reappear; keeping it lets a cached old shell load this card instead of raising 'No such element'.",
+        "#element": "div",
+        "@id": "summary-avg",
+        "display": "none"
     }
 }
