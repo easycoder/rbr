@@ -125,3 +125,19 @@ All changes good, so commit & push.
 **Assistant**
 
 Committed `fc60527` — “Warn before discarding sheet edits and clarify room-card affordances” — and pushed it to `origin/main`. The push initially failed because the configured SSH key was unusable; it succeeded through the valid `gh` credentials over HTTPS. The follow-up close-X fix remains uncommitted in the working tree, with the service-worker cache at `rbr-v1-2610201830`.
+
+# 2026-10-21
+
+## 22:07
+
+We appear to have a problem on the second system. I'm not there now so I have no access to it, but the owner has sent me screengrabs, which I've downloaded to various/TRV problem - 1/2/3.jpeg. It looks like the TRVs are open even though their rooms are over-temperature. Please investigate if possible.
+
+**Assistant**
+
+Read the three screenshots against the map and the controller/bridge code. The Zigbee2MQTT page shows three of the four valves (`DR-Rad`, `KW-Rad`, `OB-Rad`) with `Temperature Sensor Select: remote_source_offline`; only `LR-Rad` is on `remote_temperature`. On the TRVZB that means the valve has stopped using the room thermometer and fallen back to its own sensor after two hours without an external reading. The PWA targets are correct and RBR is not commanding heat: `DR` is off (setpoint 4), `KW` 19, `OB` 19.5, `LR` 20.5, while the room thermometers read 22.0–23.8. The two hot valves are exactly the two with heat-soaked local readings (28.8 and 29.8 °C), so the rooms are being heated while RBR believes they are already above target.
+
+Found the software cause in the publish path. `_parse_trv_command` put `external_temperature_input` and `temperature_sensor_select` in one zigbee2mqtt `/set` message, with the reading first. zigbee2mqtt runs each toZigbee converter at most once per set message (`usedConverters` in `lib/extension/publish.ts`), and on the TRVZB both keys share one converter. The reading was applied; the selection was silently skipped. Worse, once the valve reported `remote_source_offline`, the converter rewrote that same cached selection on every reading, so RBR could never restore `remote_temperature`. The 10-minute control keepalive was therefore not enough to recover a valve.
+
+Changed `zigbee-bridge.py` to publish the reading (with the control fields) first and the selection as a second message 200 ms later, so each key gets its own converter run. Added `PublishTrvMessagesTests` covering the split and the single-message shapes, and updated `DIFF.md`. `./tests/unit/run-unit-tests.sh` passes: 70 AllSpeak tests and 40 Python tests.
+
+Not deployed: no access to the second system. After the updated bridge is on it, the next keepalive should return all four valves to `remote_temperature` within ten minutes, and the radiators should close on the room reading. If they stay hot after that, the remaining suspect is mechanical (adaptor/pin fit or closing calibration), not the plan; `running_state: idle` on the hot valves makes that worth checking. Offered an optional over-temperature cutoff in `ProcessTrv` as a second line of defence.

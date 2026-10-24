@@ -36,15 +36,21 @@ allspeak controller.allspeak
 # process supervisor — check which mechanism is in use on the target.
 ```
 
-Two checks run without a browser, a broker or the controller box, and both are cheap enough to run after any edit:
+These checks run without a browser, a broker or the controller box, and all are cheap enough to run after any edit:
 
 ```bash
 tests/unit/run-unit-tests.sh          # AllSpeak unit tests + Python tests (heatlog, commit round-trip, overrides)
 node tests/pwa-compile-check.js       # compiles all five new-ui modules in the browser runtime
 node tests/pwa-device-editor-check.js # drives the Devices sheet: a rename keeps its room's own wiring
+node tests/pwa-schedule-editor-check.js # drives the schedule's time dropdowns: how a stop follows its start
+node tests/pwa-schedule-save-check.js # a map push while a sheet editor is open must not swallow its reply
 ```
 
 `tests/pwa-device-editor-check.js` is there because the Devices sheet's rename failed in a way nothing else could see: it renamed the right room and wrote another room's wiring over it. It loads the real module in the real runtime against a small map built in the test, opens the sheet the way the shell does, taps the picker and the keyboard, and compares the **whole** identity record and the whole list — not just the field that was meant to change.
+
+`tests/pwa-schedule-editor-check.js` covers the schedule's two time dropdowns and the rule between them: a period added in the session stops an hour after its start until its stop is picked, while a loaded period keeps its duration when the start moves (including across midnight). It also pins where **+ Add period** starts a new period — the end of a running period, otherwise the quarter hour nearest the clock — and reads the Save reply to prove the editing-only `offAuto` flag never reaches the stored `periods[]`.
+
+`tests/pwa-schedule-save-check.js` exists because a sheet editor is opened with a blocking `send … and assign reply`, and the runtime keeps only one reply slot per program. A controller map push is handled by the same program, and applying it is another blocking send — so a map landing while the Schedule, Profiles or Devices sheet is open used to take the slot, drop the editor's reply, and leave the chrome up over hidden content with every tap going to a scrim nobody would answer (the 2026-10-24 report). The test runs the whole shell in the real runtime with a fake MQTT client in place of the broker, pushes a map mid-edit, and checks that the map is held, that Save still closes the sheet and ships `Update Profiles`, and that the held map is applied afterwards.
 
 `tests/pwa-compile-check.js` is the only compiler that understands the PWA's dialect: the `allspeak` CLI is a different implementation of the language, so pointing it at `new-ui/resources/allspeak/*.allspeak` reports dialect differences, not mistakes. It fetches the runtime from the URL `new-ui/index.html` names, so it follows the pin rather than carrying its own copy. `tests/unit/commit_roundtrip_test.py` extracts `MaterialiseRooms`, `CommitRooms` and `UpdateRooms` from `controller.allspeak` at run time and proves that a change made to a working room survives the next materialise and lands in the profile — the failure that made Advance, On and Off revert on the live system.
 

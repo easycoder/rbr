@@ -48,6 +48,7 @@
 	variable SavePending
 	variable ConfirmFlag
 	variable ProfileDirty
+	variable ModuleCloseRequest
 
 	variable Profiles
 	variable EditingProfiles
@@ -192,7 +193,7 @@
 	release parent
 	log `ProfileSheet module ready`
 	stop
-!! @hash 8071b0a3
+!! @hash a30f25a6
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -223,7 +224,20 @@ HandleOpen:
 	clear ProfileDirty
 	set style `display` of ProfileSheetEl to `block`
 
-	while not DoneFlag wait 10 ticks
+!	The parent owns the chrome X and scrim, so it cannot read this module's
+!	dirty flag. It leaves a close request in shared storage instead; the
+!	editor consumes it and routes it through Cancel, confirmation included.
+	put empty into storage as `rbr-module-close`
+	while not DoneFlag
+	begin
+		wait 10 ticks
+		get ModuleCloseRequest from storage as `rbr-module-close`
+		if ModuleCloseRequest is `yes`
+		begin
+			put empty into storage as `rbr-module-close`
+			gosub to OnCancelClick
+		end
+	end
 
 	set style `display` of ProfileSheetEl to `none`
 	put `{}` into Result
@@ -242,7 +256,7 @@ HandleOpen:
 	end
 	send Result to sender
 	stop
-!! @hash fca222ad
+!! @hash 67173f5d
 !!!
 !! Save click handler. Validates first (no-op if invalid), re-derives the new active-idx from EditingActiveName, sets SavePending and DoneFlag so HandleOpen ships the reply.
 OnSaveClick:

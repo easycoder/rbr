@@ -381,6 +381,9 @@ def _parse_trv_command(params):
     valve is switched to its remote sensor so the value is actually used.
     Any subset of these may be sent, which lets the controller refresh the
     external reading without re-sending the setpoint.
+
+    The returned payload can carry both remote-temperature keys, but it must
+    not be published as one message: see `_trv_publish_messages`.
     """
     setpoint_raw = params.get("setpoint", [None])[0]
     external_raw = params.get("external", [None])[0]
@@ -424,6 +427,41 @@ def _parse_trv_command(params):
     if not payload:
         return None, {}, None
     return payload, fields, None
+
+
+# The selection message goes out just after the reading so zigbee2mqtt's
+# optimistic state has usually carried the new reading into the second
+# converter. Even when it has not, the previously cached reading is enough for
+# the selection write; the next refresh brings the current value.
+TRV_SELECT_DELAY = 0.2
+
+
+def _trv_publish_messages(payload):
+    """Split a TRV payload into the set messages zigbee2mqtt can act on.
+
+    zigbee2mqtt runs each toZigbee converter at most once per set message
+    (`usedConverters` in lib/extension/publish.ts). The Sonoff TRVZB's
+    `external_temperature_input` and `temperature_sensor_select` are handled
+    by one converter, so a single message carrying both applies only the
+    first key -- the reading -- and silently drops the selection. The valve
+    keeps whatever selection it last reported, including
+    `remote_source_offline`; the converter then rewrites that same value on
+    every reading because it uses the cached selection. The result is a valve
+    that has fallen back to its own sensor and can never be put back on the
+    room thermometer.
+
+    Publishing the reading first and the selection as its own message gives
+    the converter its own run for each key. The control fields stay with the
+    reading message, where the climate converter already reads them.
+    """
+    has_reading = "external_temperature_input" in payload
+    has_select = "temperature_sensor_select" in payload
+    if not (has_reading and has_select):
+        return [payload]
+    without_select = {key: value for key, value in payload.items()
+                      if key != "temperature_sensor_select"}
+    return [without_select,
+            {"temperature_sensor_select": payload["temperature_sensor_select"]}]
 
 
 def _update_trv_file():
@@ -529,8 +567,12 @@ class ZigbeeBridgeHandler(BaseHTTPRequestHandler):
             if payload is not None:
                 topic = f"zigbee2mqtt/{device_name}/set"
                 if mqtt_client:
-                    mqtt_client.publish(topic, json.dumps(payload), qos=1)
-                    print(f"Published {payload} to {topic}")
+                    messages = _trv_publish_messages(payload)
+                    for index, message in enumerate(messages):
+                        if index:
+                            time.sleep(TRV_SELECT_DELAY)
+                        mqtt_client.publish(topic, json.dumps(message), qos=1)
+                        print(f"Published {message} to {topic}")
                 with trv_commands_lock:
                     trv_commands[device_name] = dict(fields, ts=time.time())
                 state = _read_device_state(device_name)

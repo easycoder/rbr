@@ -1,5 +1,5 @@
 {
-    "#doc": "Schedule period card — one entry in the room's periods[] array. /I/ replaced with the period index. Vertical stack: ON time stepper, OFF time stepper, target stepper; footer row with the Enabled checkbox and the delete button. When the period is switched off the three stepper rows are dimmed and made inert (schedule-editor.allspeak sets opacity + pointer-events), leaving the checkbox and delete usable.",
+    "#doc": "Schedule period card — one entry in the room's periods[] array. /I/ replaced with the period index. Vertical stack: ON time dropdown, OFF time dropdown, target stepper; footer row with the Enabled checkbox and the delete button. Both times are native <select> lists, built once in schedule-editor.allspeak and attached per card, so a time is picked rather than stepped. When the period is switched off the three editable rows are dimmed and made inert (schedule-editor.allspeak sets opacity + pointer-events), leaving the checkbox and delete usable.",
     "#element": "div",
     "@id": "schedule-period-/I/",
     "padding": "14px 14px 12px 14px",
@@ -18,7 +18,7 @@
         "display": "flex",
         "align-items": "center",
         "gap": "10px",
-        "#": ["$TimeLabel", "$TimeSpacer", "$TimeMinus", "$TimeValue", "$TimePlus"],
+        "#": ["$TimeLabel", "$TimeSpacer", "$TimeSelect"],
 
         "$TimeLabel": {
             "#element": "div",
@@ -30,55 +30,20 @@
             "#content": "On at"
         },
         "$TimeSpacer": { "#element": "div", "flex": "1" },
-        "$TimeMinus": {
-            "#element": "button",
-            "@id": "schedule-period-/I/-time-minus",
-            "width": "30px",
-            "height": "30px",
-            "padding": "0",
+        "$TimeSelect": {
+            "#element": "select",
+            "@id": "schedule-period-/I/-start-select",
+            "min-width": "112px",
+            "padding": "7px 10px",
             "border-radius": "8px",
-            "background": "transparent",
+            "background": "var(--color-surface-card)",
             "border": "1px solid var(--color-border-hairline)",
             "cursor": "pointer",
             "font-family": "inherit",
-            "font-size": "16px",
-            "font-weight": "600",
-            "color": "var(--color-text-primary)",
-            "display": "flex",
-            "align-items": "center",
-            "justify-content": "center",
-            "flex-shrink": "0",
-            "#content": "−"
-        },
-        "$TimeValue": {
-            "#element": "div",
-            "@id": "schedule-period-/I/-time-value",
-            "min-width": "60px",
-            "text-align": "center",
-            "font-size": "16px",
+            "font-size": "15px",
             "font-weight": "600",
             "font-variant-numeric": "tabular-nums",
             "color": "var(--color-text-primary)"
-        },
-        "$TimePlus": {
-            "#element": "button",
-            "@id": "schedule-period-/I/-time-plus",
-            "width": "30px",
-            "height": "30px",
-            "padding": "0",
-            "border-radius": "8px",
-            "background": "transparent",
-            "border": "1px solid var(--color-border-hairline)",
-            "cursor": "pointer",
-            "font-family": "inherit",
-            "font-size": "16px",
-            "font-weight": "600",
-            "color": "var(--color-text-primary)",
-            "display": "flex",
-            "align-items": "center",
-            "justify-content": "center",
-            "flex-shrink": "0",
-            "#content": "+"
         }
     },
 
@@ -88,7 +53,7 @@
         "display": "flex",
         "align-items": "center",
         "gap": "10px",
-        "#": ["$OffLabel", "$OffSpacer", "$OffMinus", "$OffValue", "$OffPlus"],
+        "#": ["$OffLabel", "$OffSpacer", "$OffSelect"],
 
         "$OffLabel": {
             "#element": "div",
@@ -100,55 +65,20 @@
             "#content": "Off at"
         },
         "$OffSpacer": { "#element": "div", "flex": "1" },
-        "$OffMinus": {
-            "#element": "button",
-            "@id": "schedule-period-/I/-off-minus",
-            "width": "30px",
-            "height": "30px",
-            "padding": "0",
+        "$OffSelect": {
+            "#element": "select",
+            "@id": "schedule-period-/I/-off-select",
+            "min-width": "112px",
+            "padding": "7px 10px",
             "border-radius": "8px",
-            "background": "transparent",
+            "background": "var(--color-surface-card)",
             "border": "1px solid var(--color-border-hairline)",
             "cursor": "pointer",
             "font-family": "inherit",
-            "font-size": "16px",
-            "font-weight": "600",
-            "color": "var(--color-text-primary)",
-            "display": "flex",
-            "align-items": "center",
-            "justify-content": "center",
-            "flex-shrink": "0",
-            "#content": "−"
-        },
-        "$OffValue": {
-            "#element": "div",
-            "@id": "schedule-period-/I/-off-value",
-            "min-width": "60px",
-            "text-align": "center",
-            "font-size": "16px",
+            "font-size": "15px",
             "font-weight": "600",
             "font-variant-numeric": "tabular-nums",
             "color": "var(--color-text-primary)"
-        },
-        "$OffPlus": {
-            "#element": "button",
-            "@id": "schedule-period-/I/-off-plus",
-            "width": "30px",
-            "height": "30px",
-            "padding": "0",
-            "border-radius": "8px",
-            "background": "transparent",
-            "border": "1px solid var(--color-border-hairline)",
-            "cursor": "pointer",
-            "font-family": "inherit",
-            "font-size": "16px",
-            "font-weight": "600",
-            "color": "var(--color-text-primary)",
-            "display": "flex",
-            "align-items": "center",
-            "justify-content": "center",
-            "flex-shrink": "0",
-            "#content": "+"
         }
     },
 

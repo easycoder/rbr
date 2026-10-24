@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "tests/unit/run-unit-tests.sh",
-    "check": "node tests/pwa-compile-check.js && node tests/pwa-device-editor-check.js"
+    "check": "node tests/pwa-compile-check.js && node tests/pwa-device-editor-check.js && node tests/pwa-schedule-editor-check.js && node tests/pwa-schedule-save-check.js"
   },
   "keywords": [],
   "author": "",

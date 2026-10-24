@@ -315,6 +315,11 @@
 !	ResetCredentialsAndReload).
 	variable ConfirmFlag
 	variable SheetDirty
+	variable ModuleEditorOpen
+!	A map that arrived while a sheet module held this script's reply slot.
+!	OnMapReceived cannot apply it there (see the guard there); the Open<Sheet>
+!	routine that owned the slot flushes this after the reply lands.
+	variable PendingMap
 
 !	Schedule editor reply-state. The editor itself lives in schedule-editor.allspeak;
 !	we ship an open-message and park on the reply (cancelled / profiles).
@@ -409,7 +414,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash 3bcd1e27
+!! @hash bb458f4e
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -710,6 +715,20 @@ OnMapReceived:
 		put empty into ReceivedMessage
 		return
 	end
+!	A map can also arrive while this script is parked on a sheet module's
+!	reply. The runtime keeps ONE reply slot per program: applying the map now
+!	means ApplyMapToRooms sends to MapToRoomsModule, which takes that slot for
+!	itself. The module's own reply then finds no slot, is dropped, and the
+!	sheet stays up — chrome open, its content already hidden, every tap going
+!	to a scrim whose close request nobody is left to consume. So hold the map
+!	until the sheet replies; the Open<Sheet> routine flushes it (FlushPendingMap).
+	if ModuleEditorOpen
+	begin
+		log `OnMapReceived: map held while a sheet module is open`
+		put ReceivedMessage into PendingMap
+		put empty into ReceivedMessage
+		return
+	end
 !	Diagnostic: dump the full payload so it can be pasted into JSON Lint
 !	to verify structure if anything downstream complains. Comment out
 !	once the bug is hunted down — these payloads are large.
@@ -731,7 +750,18 @@ OnMapReceived:
 		gosub to RefreshHomeScreen
 	end
 	return
-!! @hash 7776c148
+!! @hash 372f8c76
+!!!
+!! Re-enter the map path once a sheet module has replied and released the reply slot.
+!!
+!! OnMapReceived holds a map that arrives while a sheet module is open, because applying it would send to MapToRoomsModule and take the one reply slot this runtime gives a program. This is where that held map goes in: the Open<Sheet> routine calls it after the module's reply has landed and ModuleEditorOpen is clear, so the script is no longer parked and the full validation / first-build / refresh path runs exactly as it does for any other push.
+FlushPendingMap:
+	if PendingMap is empty return
+	put PendingMap into ReceivedMessage
+	put empty into PendingMap
+	gosub to OnMapReceived
+	return
+!! @hash 2f7c36b0
 !!!
 !! Project Map into the UI's room list and module-level state.
 !!
@@ -1390,6 +1420,15 @@ CloseSheet:
 !!
 !! The X and the scrim both use this; the parent-owned System, Outside and Special sheets also use it for Cancel. Module sheets (schedule, devices, profiles) run while the parent is blocked on their reply, so their own Cancel handlers own the confirmation. CloseSheet itself stays unconditional for Save paths.
 RequestCloseSheet:
+!	A module editor owns its own Cancel/dirty handling and cannot be read from
+!	this script. Leave a close request in shared storage; the editor consumes
+!	it, runs its own confirmation and replies, and this sheet closes after
+!	the blocked send returns.
+	if ModuleEditorOpen
+	begin
+		put `yes` into storage as `rbr-module-close`
+		return
+	end
 	if SheetDirty
 	begin
 		clear ConfirmFlag
@@ -1398,7 +1437,7 @@ RequestCloseSheet:
 	end
 	gosub to CloseSheet
 	return
-!! @hash eba15f92
+!! @hash f517c728
 !!!
 !! Hide every sibling sheet under sheet-content. Each Open<X> routine must call this before flipping a single sheet's display:block — the single chokepoint that prevents one sheet bleeding through another.
 !!
@@ -2195,7 +2234,9 @@ OpenProfileSheet:
 	gosub to HideAllSheets
 	set the content of SheetTitleEl to `Profile`
 	gosub to OpenSheet
+	set ModuleEditorOpen
 	send OpenMsg to ProfileSheetModule and assign reply to ProfileResult
+	clear ModuleEditorOpen
 	gosub to CloseSheet
 	if property `cancelled` of ProfileResult is `no`
 	begin
@@ -2206,8 +2247,9 @@ OpenProfileSheet:
 		put property `calendarData` of ProfileResult into PayloadCalendarData
 		gosub to SendUpdateProfiles
 	end
+	gosub to FlushPendingMap
 	return
-!! @hash ece45f8c
+!! @hash 80e9688c
 !!!
 !! Open the schedule editor for the room at ClickIndex. The schedule-editor.allspeak module owns the sheet's DOM and logic; we just ship the open-payload and park on the reply.
 !!
@@ -2221,7 +2263,9 @@ OpenScheduleEditor:
 	gosub to HideAllSheets
 	set the content of SheetTitleEl to `Schedule for ` cat property `name` of Room
 	gosub to OpenSheet
+	set ModuleEditorOpen
 	send OpenMsg to ScheduleEditorModule and assign reply to ScheduleResult
+	clear ModuleEditorOpen
 	gosub to CloseSheet
 	if property `cancelled` of ScheduleResult is `no`
 	begin
@@ -2231,8 +2275,9 @@ OpenScheduleEditor:
 		put property `calendar-data` of Map into PayloadCalendarData
 		gosub to SendUpdateProfiles
 	end
+	gosub to FlushPendingMap
 	return
-!! @hash 84276594
+!! @hash 21f7d0e3
 !!!
 !! Open the read-only room-info sheet for the room at ClickIndex. Shows the current readings (relay, temperature, humidity, battery, last-report age) and stays open across map refreshes — RefreshHomeScreen detects InfoSheetOpen and calls PaintInfoSheet to update the values in place.
 OpenInfoSheet:
@@ -2632,7 +2677,9 @@ OpenDeviceEditor:
 	gosub to HideAllSheets
 	set the content of SheetTitleEl to `Rooms and Devices`
 	gosub to OpenSheet
+	set ModuleEditorOpen
 	send OpenMsg to DeviceEditorModule and assign reply to DeviceResult
+	clear ModuleEditorOpen
 	gosub to CloseSheet
 	if property `cancelled` of DeviceResult is `no`
 	begin
@@ -2652,8 +2699,9 @@ OpenDeviceEditor:
 			gosub to PostUiRequest
 		end
 	end
+	gosub to FlushPendingMap
 	return
-!! @hash 4d20793b
+!! @hash 700f0577
 !!!
 !! Panic-button handler for stranded credentials. Wipes the stored MAC and reloads — useful when a typo has stranded the page on connect.
 !!

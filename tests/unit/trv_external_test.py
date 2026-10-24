@@ -139,6 +139,54 @@ class ParseTrvCommandTests(unittest.TestCase):
                 self.assertEqual(error, message)
 
 
+class PublishTrvMessagesTests(unittest.TestCase):
+    """The reading and the sensor selection must not share a set message.
+
+    zigbee2mqtt runs one toZigbee converter per set message, and the TRVZB's
+    two remote-temperature keys are one converter. A combined message applies
+    only the first key, so the selection was silently dropped.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.bridge = load_bridge()
+
+    def test_combined_command_sends_reading_then_selection(self):
+        payload, _, error = self.bridge._parse_trv_command(
+            self.params(setpoint="20.5", mode="heat",
+                        external="19.77", sensor="remote"))
+        self.assertIsNone(error)
+        messages = self.bridge._trv_publish_messages(payload)
+        self.assertEqual(messages, [
+            {
+                "system_mode": "heat",
+                "occupied_heating_setpoint": 20.5,
+                "external_temperature_input": 19.8,
+            },
+            {"temperature_sensor_select": "remote_temperature"},
+        ])
+
+    def test_selection_alone_is_one_message(self):
+        payload, _, _ = self.bridge._parse_trv_command(
+            self.params(sensor="local"))
+        self.assertEqual(
+            self.bridge._trv_publish_messages(payload),
+            [{"temperature_sensor_select": "local_temperature"}])
+
+    def test_reading_alone_is_one_message(self):
+        payload = {"external_temperature_input": 19.8}
+        self.assertEqual(self.bridge._trv_publish_messages(payload), [payload])
+
+    def test_control_alone_is_one_message(self):
+        payload, _, _ = self.bridge._parse_trv_command(
+            self.params(setpoint="20", mode="off"))
+        self.assertEqual(self.bridge._trv_publish_messages(payload), [payload])
+
+    @staticmethod
+    def params(**values):
+        return {key: [value] for key, value in values.items()}
+
+
 class TrvStateCaptureTests(unittest.TestCase):
     """Reported TRV fields reach device_states and zigbee-trv.json."""
 

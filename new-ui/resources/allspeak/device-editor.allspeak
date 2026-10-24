@@ -43,6 +43,7 @@
 	variable SavePending
 	variable ConfirmFlag
 	variable DeviceDirty
+	variable ModuleCloseRequest
 
 	variable OriginalRequestRelay
 
@@ -135,7 +136,7 @@
 	release parent
 	log `DeviceEditor module ready`
 	stop
-!! @hash 0f70d081
+!! @hash 053b1272
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -161,7 +162,20 @@ HandleOpen:
 	clear DeviceDirty
 	set style `display` of DeviceEditorSheetEl to `block`
 
-	while not DoneFlag wait 10 ticks
+!	The parent owns the chrome X and scrim, so it cannot read this module's
+!	dirty flag. It leaves a close request in shared storage instead; the
+!	editor consumes it and routes it through Cancel, confirmation included.
+	put empty into storage as `rbr-module-close`
+	while not DoneFlag
+	begin
+		wait 10 ticks
+		get ModuleCloseRequest from storage as `rbr-module-close`
+		if ModuleCloseRequest is `yes`
+		begin
+			put empty into storage as `rbr-module-close`
+			gosub to OnCancelClick
+		end
+	end
 
 	set style `display` of DeviceEditorSheetEl to `none`
 	put `{}` into Result
@@ -182,7 +196,7 @@ HandleOpen:
 	end
 	send Result to sender
 	stop
-!! @hash af57fc1c
+!! @hash 1ca468f1
 !!!
 !! Save click handler. Reads the input fields, splits the relays textarea on newlines (strips empties) into an array, writes the device fields onto the room's identity record, captures the demand-relay value, sets SavePending and DoneFlag so HandleOpen ships the reply.
 OnSaveClick:
