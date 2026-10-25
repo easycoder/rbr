@@ -299,8 +299,16 @@ ConvertTimeToInt:
     add Time to T
     multiply T by 60000 giving Time
     add today to Time
+    put the hour of Time into I
+    multiply I by 60
+    add the minute of Time to I
+    take I from T
+    if T is greater than 720 take 1440 from T
+    else if T is less than -720 add 1440 to T
+    multiply T by 60000
+    add T to Time
     return
-!! @hash ca05c0d7
+!! @hash a147d156
 !!!
 
 !! Convert a temperature string (e.g. "20.5") into integer-hundredths (2050), via `scale` (shared helper).

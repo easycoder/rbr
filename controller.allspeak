@@ -1101,7 +1101,7 @@ CommitRooms:
         set entry `profiles` of Map to Profiles
     end
     return
-!! @hash ab5bd53b
+!! @hash 0ac45038
 !!!
 !! Merge an identity list sent by the UI into Map.rooms.
 !!
@@ -2785,6 +2785,12 @@ OverrideMorningEnded:
 !! Convert an HH:MM time string into an integer milliseconds-since-epoch value for today (Time variable in/out).
 !!
 !! Used throughout period scheduling to compare schedule times against `now`. Clobbers I and T as scratch — callers iterating over a list must use a different counter (PI is the project's convention).
+!!
+!! `today` is local midnight, not a 24-hour canvas with a fixed offset: on a daylight-saving transition day the elapsed time from midnight to a wall-clock time is an hour more or less than the numbers on the clock. Adding HH:MM to midnight therefore puts every time after the transition an hour out — the 2026-10-25 report, when an 08:00 period began at 07:00 and the controller called for heat while the room's own card said "Off until 08:00". The candidate is corrected by re-reading its local hour and minute and shifting by the difference; the difference is taken modulo a day, so a late time on the short spring day (whose candidate lands on the next date) corrects by the one-hour shift rather than by −23 hours.
+!!
+!! Appendix
+!!
+!! §1 The shift is the zone's offset change, at most an hour where daylight saving is used. A second pass cannot improve it: the re-read already reports the wall clock after any transition the candidate crossed, and an ambiguous time in the repeated autumn hour resolves to its first occurrence.
 ConvertTimeToInt:
     put `` cat Time into Time
     put the index of `:` in Time into I
@@ -2795,9 +2801,18 @@ ConvertTimeToInt:
     add Time to T
     multiply T by 60000 giving Time
     add today to Time
+    ! §1
+    put the hour of Time into I
+    multiply I by 60
+    add the minute of Time to I
+    take I from T
+    if T is greater than 720 take 1440 from T
+    else if T is less than -720 add 1440 to T
+    multiply T by 60000
+    add T to Time
     return
-!! @hash 2893761b
-!! @verified 2893761b
+!! @hash b565e44e
+!! @verified b565e44e
 !!!
 !! Convert a temperature string (e.g. "20.5") into an integer-hundredths value (2050). Temp variable in/out.
 !!

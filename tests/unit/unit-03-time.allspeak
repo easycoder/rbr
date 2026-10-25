@@ -4,9 +4,10 @@
 !   Part of the RBR validation of the new testing vocabulary.
 !
 !   The subroutine returns milliseconds since midnight PLUS `today`, so an
-!   absolute result is wall-clock dependent. Instead we assert differences
-!   between two times of the same day, which are constant: 08:30 - 07:00 is
-!   1.5 hours = 5400000 ms, whatever day the test runs on.
+!   absolute result is wall-clock dependent. Differences between two times of
+!   the same day are normally constant — 08:30 - 07:00 is 1.5 hours = 5400000 ms
+!   — but a span that crosses a daylight-saving change is an hour longer or
+!   shorter in real time, and the full-day case asserts exactly that.
 !
 !   NOTE: this mirrors the subroutine as it stands today; it is not linked to
 !   the live code. Keep in sync with controller.allspeak if the conversion changes.
@@ -19,10 +20,14 @@
     variable SevenAM
     variable Midnight
     variable EightThirty
+    variable HourNow
+    variable MinuteNow
+    variable H
+    variable M
 
     go to RunTests
 
-!! Convert "HH:MM" to milliseconds since midnight, then add `today`. Both padded (`08:30`) and non-padded (`8:30`) hours parse.
+!! Convert "HH:MM" to milliseconds since local midnight, then add `today`. Both padded (`08:30`) and non-padded (`8:30`) hours parse. A daylight-saving day is not 24 hours long, so the candidate is corrected to its own local wall clock (mirrors controller.allspeak).
 
 ConvertTimeToInt:
     put `` cat Time into Time
@@ -34,8 +39,16 @@ ConvertTimeToInt:
     add Time to T
     multiply T by 60000 giving Time
     add today to Time
+    put the hour of Time into I
+    multiply I by 60
+    add the minute of Time to I
+    take I from T
+    if T is greater than 720 take 1440 from T
+    else if T is less than -720 add 1440 to T
+    multiply T by 60000
+    add T to Time
     return
-!! @hash ca05c0d7
+!! @hash a147d156
 !!!
 
 RunTests:
@@ -54,18 +67,18 @@ RunTests:
 !! @hash 5d19683b
 !!!
 
-!! 00:00 to 23:59 is 1439 minutes = 86340000 ms.
+!! 00:00 to 23:59 is normally 1439 minutes = 86340000 ms; a spring-forward day is an hour shorter and a fall-back day an hour longer.
 
-    test `full-day span`
+    test `full-day span is 23, 24 or 25 hours`
         put `00:00` into Time
         gosub to ConvertTimeToInt
         put Time into Midnight
         put `23:59` into Time
         gosub to ConvertTimeToInt
         take Midnight from Time
-        check that Time is 86340000
+        check that Time is 86340000 or Time is 89940000 or Time is 82740000
     end test
-!! @hash 7a5a3fda
+!! @hash 536a5d22
 !!!
 
 !! A non-padded hour (`8:30`) parses identically to `08:30` — their difference is zero.
@@ -79,6 +92,22 @@ RunTests:
         take EightThirty from Time
         check that Time is 0
     end test
+!! @hash f75bc824
+!!!
+
+!! The conversion must land on the wall-clock time it was handed, whatever the date — the guard that was missing on 2026-10-25, when an 08:00 period began at 07:00 because the conversion assumed a fixed offset from local midnight.
+
+    test `conversion lands on the wall clock it was given`
+        put the hour into HourNow
+        put the minute into MinuteNow
+        put `` cat HourNow cat `:` cat MinuteNow into Time
+        gosub to ConvertTimeToInt
+        put the hour of Time into H
+        put the minute of Time into M
+        check that H is HourNow and M is MinuteNow
+    end test
+!! @hash 66339491
+!!!
 
     exit
 !! @hash b43c908e

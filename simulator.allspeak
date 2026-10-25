@@ -216,6 +216,8 @@ FAT2:
 !! Convert an HH:MM time string into an integer milliseconds-since-epoch value for today (Time variable in/out).
 !!
 !! Mirror of the same routine in controller.allspeak — each AllSpeak module has its own label namespace and a sub-module can't gosub into its parent. Clobbers I and T as scratch.
+!!
+!! `today` is local midnight, and a daylight-saving day is not 24 hours long; the candidate is corrected to its own local wall clock (see the controller's copy for the full reasoning).
 ConvertTimeToInt:
     put `` cat Time into Time
     put the index of `:` in Time into I
@@ -226,9 +228,17 @@ ConvertTimeToInt:
     add Time to T
     multiply T by 60000 giving Time
     add today to Time
+    put the hour of Time into I
+    multiply I by 60
+    add the minute of Time to I
+    take I from T
+    if T is greater than 720 take 1440 from T
+    else if T is less than -720 add 1440 to T
+    multiply T by 60000
+    add T to Time
     return
-!! @hash 2893761b
-!! @verified 2893761b
+!! @hash d191a164
+!! @verified d191a164
 !!!
 !! Convert a temperature string (e.g. "20.5") into an integer-hundredths value (2050). Temp variable in/out.
 !!
