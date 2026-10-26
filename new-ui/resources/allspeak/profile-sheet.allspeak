@@ -63,6 +63,10 @@
 	variable EditProfileN
 	variable ProfileName
 	variable NewProfileName
+	variable ProbeName
+	variable ProfileNamed
+	variable NameProbe
+	variable CalCount
 	variable ClonedProfile
 	variable ClonedEntry
 	variable NewProfilesArray
@@ -193,7 +197,7 @@
 	release parent
 	log `ProfileSheet module ready`
 	stop
-!! @hash a30f25a6
+!! @hash 04c0bace
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -331,6 +335,52 @@ CloneCalendarData:
 	return
 !! @hash d6a48172
 !!!
+!! Move every calendar day that named the profile to its new name.
+!!
+!! ProfileName is the old name and NewProfileName the new one, both set by RenameEditProfile; a day naming anything else is left alone.
+RenameCalendarProfile:
+	put the json count of EditingCalendarData into CalCount
+	put 0 into LoopE
+	while LoopE is less than CalCount
+	begin
+		put element LoopE of EditingCalendarData into DayEntry
+		put `day` cat LoopE cat `-profile` into PropName
+		if DayEntry has entry PropName
+		begin
+			if property PropName of DayEntry is ProfileName
+			begin
+				set property PropName of DayEntry to NewProfileName
+				set element LoopE of EditingCalendarData to DayEntry
+			end
+		end
+		increment LoopE
+	end
+	return
+!! @hash 2c85033b
+!!!
+!! Drop the deleted profile's name from the calendar.
+!!
+!! ProfileName is set by DeleteEditProfile, which calls this only when no remaining profile still carries that name.
+ClearCalendarProfile:
+	put the json count of EditingCalendarData into CalCount
+	put 0 into LoopE
+	while LoopE is less than CalCount
+	begin
+		put element LoopE of EditingCalendarData into DayEntry
+		put `day` cat LoopE cat `-profile` into PropName
+		if DayEntry has entry PropName
+		begin
+			if property PropName of DayEntry is ProfileName
+			begin
+				json delete property PropName of DayEntry
+				set element LoopE of EditingCalendarData to DayEntry
+			end
+		end
+		increment LoopE
+	end
+	return
+!! @hash e847b893
+!!!
 !! Walk every profile row; highlight the row matching EditingActiveName, dim the row bodies when EditingCalendarOn (admin actions stay enabled).
 ApplyActiveProfile:
 	put 0 into ProfileIdx
@@ -402,34 +452,66 @@ ToggleCalendarCard:
 	return
 !! @hash 245021d9
 !!!
-!! Paint the 7 day-of-week rows from EditingCalendarData. Each entry's `day<i>-profile`; empty / missing shows as em-dash.
+!! Paint the seven day-of-week rows from EditingCalendarData.
+!!
+!! Each entry's `day<i>-profile`; empty / missing shows as em-dash.
+!!
+!! A name that matches no profile in the list is marked "(missing)" in the accent colour. The calendar stores names, so a stale one resolves to nothing — the controller and this page both silently fall back to the selected profile, which is how the 2026-10-26 report looked like "the calendar is being ignored". It has to look wrong instead of merely working differently.
 ApplyDayProfiles:
 	put 0 into DayLoopI
 	while DayLoopI is less than 7
 	begin
 		index DayProfileEl to DayLoopI
-		if EditingCalendarData is empty
+		put empty into DayProfileName
+		if EditingCalendarData is not empty
+		begin
+			put element DayLoopI of EditingCalendarData into DayEntry
+			if DayEntry is not empty
+				put property `day` cat DayLoopI cat `-profile` of DayEntry into DayProfileName
+		end
+		if DayProfileName is empty
 		begin
 			set the content of DayProfileEl to `—`
+			set style `color` of DayProfileEl to `var(--color-text-primary)`
 		end
 		else
 		begin
-			put element DayLoopI of EditingCalendarData into DayEntry
-			if DayEntry is empty
+			put DayProfileName into ProbeName
+			gosub to EditingProfileNamed
+			if ProfileNamed
 			begin
-				set the content of DayProfileEl to `—`
+				set the content of DayProfileEl to DayProfileName
+				set style `color` of DayProfileEl to `var(--color-text-primary)`
 			end
 			else
 			begin
-				put property `day` cat DayLoopI cat `-profile` of DayEntry into DayProfileName
-				if DayProfileName is empty set the content of DayProfileEl to `—`
-				else set the content of DayProfileEl to DayProfileName
+				set the content of DayProfileEl to DayProfileName cat ` (missing)`
+				set style `color` of DayProfileEl to `var(--color-accent)`
 			end
 		end
 		increment DayLoopI
 	end
 	return
-!! @hash 4a6d09c3
+!! @hash 904002d5
+!!!
+!! Does a profile in the editing list carry ProbeName?
+!!
+!! Sets ProfileNamed. Its own scratch (`NameProbe`) keeps the walk from disturbing a record a caller is holding.
+EditingProfileNamed:
+	clear ProfileNamed
+	put 0 into LoopE
+	while LoopE is less than EditingProfilesCount
+	begin
+		put element LoopE of EditingProfiles into NameProbe
+		if property `name` of NameProbe is ProbeName
+		begin
+			set ProfileNamed
+			put EditingProfilesCount into LoopE
+		end
+		increment LoopE
+	end
+	return
+!! @hash 859d3134
 !!!
 !! Open the day-picker embedded directly under day DayEditTargetIdx (0–6).
 !!
@@ -564,7 +646,13 @@ RenderProfileRows:
 	return
 !! @hash 6aee800a
 !!!
-!! Rename the profile at EditClickIdx. Prompt for a new name, write it back. If the renamed profile was the active one, update EditingActiveName to track the new name.
+!! Rename a profile, moving the calendar's day names with it.
+!!
+!! Prompts for a new name and writes it back. If the renamed profile was the active one, EditingActiveName follows the new name.
+!!
+!! The calendar stores profile *names*, so the rename moves them too. Leaving them behind points those days at a profile that no longer exists, and both the controller and this page then fall back to the selected profile without saying so — the 2026-10-26 fault, where Mon–Fri still said "Monday-Friday" after that profile had been renamed "Weekday", so the first weekday morning ran "All Off".
+!!
+!! A name already in the list is refused, as the device editor refuses a duplicate room name: a name is how a profile is referenced, so two profiles cannot share one.
 RenameEditProfile:
 	put element EditClickIdx of EditingProfiles into EditProfileN
 	put property `name` of EditProfileN into ProfileName
@@ -572,17 +660,31 @@ RenameEditProfile:
 	if NewProfileName is empty return
 	if NewProfileName is `null` return
 	if NewProfileName is `undefined` return
+	if NewProfileName is ProfileName return
+	put NewProfileName into ProbeName
+	gosub to EditingProfileNamed
+	if ProfileNamed
+	begin
+		alert `There is already a profile called "` cat NewProfileName cat `".`
+		return
+	end
 	set property `name` of EditProfileN to NewProfileName
 	set element EditClickIdx of EditingProfiles to EditProfileN
 	set ProfileDirty
 	if ProfileName is EditingActiveName put NewProfileName into EditingActiveName
+	gosub to RenameCalendarProfile
 	gosub to RenderProfileRows
 	gosub to ApplyActiveProfile
+	gosub to ApplyDayProfiles
 	gosub to ValidateEditingProfiles
 	return
-!! @hash 39b4e9f0
+!! @hash 45aa22b7
 !!!
-!! Delete the profile at EditClickIdx after a confirm. Rebuilds EditingProfiles without the entry, re-renders rows. If the active was deleted, ValidateEditingProfiles disables Save until the user picks another.
+!! Delete a profile, clearing the calendar days that named it.
+!!
+!! Rebuilds EditingProfiles without the entry after a confirm and re-renders the rows. If the active was deleted, ValidateEditingProfiles disables Save until the user picks another.
+!!
+!! Calendar days that named the deleted profile are cleared, unless another profile still carries that name; leaving a stale name behind is what silently falls back to the selected profile.
 DeleteEditProfile:
 	put element EditClickIdx of EditingProfiles into EditProfileN
 	put property `name` of EditProfileN into ProfileName
@@ -605,14 +707,20 @@ DeleteEditProfile:
 	end
 	put NewProfilesArray into EditingProfiles
 	put NewIdx into EditingProfilesCount
+	put ProfileName into ProbeName
+	gosub to EditingProfileNamed
+	if not ProfileNamed gosub to ClearCalendarProfile
 	set ProfileDirty
 	gosub to RenderProfileRows
 	gosub to ApplyActiveProfile
+	gosub to ApplyDayProfiles
 	gosub to ValidateEditingProfiles
 	return
-!! @hash e71e3a3f
+!! @hash d824876a
 !!!
-!! Add a new profile by cloning the active one, so the new profile inherits the same per-room schedules — much easier than starting from scratch, and safe because rooms are keyed by name rather than by position. Prompt for a name and append.
+!! Add a profile by cloning the active one.
+!!
+!! The new profile inherits the same per-room schedules — much easier than starting from scratch, and safe because rooms are keyed by name rather than by position. Prompts for a name and appends it; a name already in the list is refused for the same reason a rename is.
 !!
 !! Falls back to profile 0 if the active profile can't be found (shouldn't happen, defensive).
 AddEditProfile:
@@ -630,7 +738,13 @@ AddEditProfile:
 	if NewProfileName is empty return
 	if NewProfileName is `null` return
 	if NewProfileName is `undefined` return
-
+	put NewProfileName into ProbeName
+	gosub to EditingProfileNamed
+	if ProfileNamed
+	begin
+		alert `There is already a profile called "` cat NewProfileName cat `".`
+		return
+	end
 	put element EditIdx of EditingProfiles into EditProfileN
 	put `{}` into ClonedProfile
 	set property `name` of ClonedProfile to NewProfileName
@@ -642,7 +756,7 @@ AddEditProfile:
 	gosub to ApplyActiveProfile
 	gosub to ValidateEditingProfiles
 	return
-!! @hash 300000d4
+!! @hash c7cc2dfb
 !!!
 !! Validate the editing state. Save is disabled if EditingActiveName isn't present in EditingProfiles (the user has deleted the previously-active profile without picking another).
 !!

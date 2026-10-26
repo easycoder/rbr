@@ -124,6 +124,7 @@
     variable RoomName
     variable RoomIndex
     variable SelectedProfile
+    variable CalendarResolved
     variable TempNow
     variable TempWas
     variable Target
@@ -297,8 +298,8 @@
     variable TrvNeedsExternal
     variable TrvSendingControl
     variable TrvSend
-!! @hash 9b6c4366
-!! @verified b913fc30
+!! @hash 35356bed
+!! @verified 35356bed
 !!!
 !! Basic initialisation.
 !! The system can run either with real hardware or wth a simulator. The latter is chosen if a file 'sim' exists.
@@ -1300,7 +1301,9 @@ ReportUnknownStates:
 !!
 !! Uses Monday=0 weekday numbering to match how calendar-data is indexed in the map. A no-op when the calendar is off, when calendar-data is missing, or when the day's profile name doesn't resolve to any profile in the list.
 !!
-!! After testing that the calendar has an entry for the current day, the code looks up the profile held for that day, and checks it against the list of profiles. If one matches it is returned in SelectedProfile as the profile to use. 
+!! After testing that the calendar has an entry for the current day, the code looks up the profile held for that day, and checks it against the list of profiles. If one matches it is returned in SelectedProfile as the profile to use.
+!!
+!! A name that does not resolve leaves the selected profile in place, and is logged. That fallback is deliberate — a day with no assignment is not a fault — but a name that is *not in the list* is, and silence is what made the 2026-10-26 stale-calendar-name fault look like "the calendar is being ignored" for a whole morning.
 ResolveCalendarProfile:
     if entry `calendar` of Map is not `on` return
     if Map has entry `calendar-data`
@@ -1315,18 +1318,24 @@ ResolveCalendarProfile:
             begin
                 put the count of Profiles into L
                 put 0 into I
+                clear CalendarResolved
                 while I is less than L
                 begin
                     put item I of Profiles into CalendarDay
-                    if entry `name` of CalendarDay is Value2 put I into SelectedProfile
+                    if entry `name` of CalendarDay is Value2
+                    begin
+                        put I into SelectedProfile
+                        set CalendarResolved
+                    end
                     increment I
                 end
+                if not CalendarResolved log `Calendar: today's profile "` cat Value2 cat `" is not in the profile list — using the selected profile`
             end
         end
     end
     return
-!! @hash fd56a9bc
-!! @verified fd56a9bc
+!! @hash f99572fa
+!! @verified f99572fa
 !!!
 !! Re-bind the per-room state arrays to the currently-selected profile and reset transient flags before a full processing cycle.
 !!
