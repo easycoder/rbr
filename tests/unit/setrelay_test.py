@@ -38,7 +38,7 @@ list R
 variable RelayState
 variable RelayStateWas
 variable HasActuator
-list RoomRelays
+list ActuatorRelays
 variable Mode
 variable TempNow
 variable Target

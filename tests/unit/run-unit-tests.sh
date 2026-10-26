@@ -40,6 +40,14 @@ else
     exit 2
 fi
 
+# The whole controller must compile before any routine test means anything.
+# The AllSpeak compiler is single-pass with one global symbol table, and a
+# duplicate declaration stops every controller that takes the release.
+echo ""
+echo "Compiling the whole controller..."
+"$SCRIPT_DIR/controller-compile-check.sh"
+CTL_STATUS=$?
+
 # Python unit tests: the heating-data CSV writer (heatlog.py), the split
 # between the controller's working room array and the profile state — the two
 # aliasing traps that bit the shared room list on the live system (DIFF.md) —
@@ -50,7 +58,7 @@ PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test commit_roundtrip_
 PY_STATUS=$?
 echo "$PY_OUT"
 
-if [ $AS_STATUS -eq 0 ] && [ $PY_STATUS -eq 0 ]; then
+if [ $AS_STATUS -eq 0 ] && [ $PY_STATUS -eq 0 ] && [ $CTL_STATUS -eq 0 ]; then
     echo ""
     echo "All unit tests passed."
     exit 0

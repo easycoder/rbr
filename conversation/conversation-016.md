@@ -47,3 +47,15 @@ Both are in.
 Tests: `tests/unit/setrelay_test.py` (ten cases on the shipped SetRelay — unwired, TRV, relay, On, Boost, unlinked, warn, above target); `commit_roundtrip_test.py` carries `trvrunning` through materialise into identity and proves it does not leak into the profile state; `tests/pwa-valve-state-check.js` drives the whole shell and reads the rendered tags and warn rows; the Devices-sheet check now includes `trv` in the identity it compares.
 
 Verification: unit suite 51 tests passed (AllSpeak 71/179 checks plus 51 Python), `npm run check` 12/12 + 10/10 + 18/18 + 4/4 + 19/19 + 10/10. `DIFF.md` says to deploy; the New System still needs DR-Rad, KW-Rad and OB-Rad bound.
+
+## 12:16
+
+Something not right: [console showing MQTT connected, Requesting map: first, then "First map didn't arrive in 30s"]
+
+**Assistant**
+
+The controller is not compiling, so it never connects. The 11:52 release added `list RoomRelays` in `SetRelay`'s new actuator test, but that name already exists (ProcessReply uses it). The AllSpeak compiler is single-pass and refuses the duplicate: `Compile error ... Duplicate symbol name "RoomRelays"`. The service has been crash-looping since it took the update.
+
+Reproduced locally: the deployed bundle fails exactly there; the fixed file compiles. Renamed the new list to `ActuatorRelays` and added `tests/unit/controller-compile-check.sh`, which compiles the whole controller in a throwaway directory on every unit run — the routine-extraction tests could never see a duplicate-symbol fault.
+
+I could not deploy from here: `~/.ssh/id_ed25519` is now a character device (1,3) rather than a key, and the agent socket is dead, so `deploy.sh` cannot authenticate. Deploy `--release` from the normal environment; controllers recover on the next hourly check, or copy `controller.allspeak` to the box and restart it.

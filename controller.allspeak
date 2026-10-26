@@ -136,7 +136,7 @@
     variable RelayState
     variable RelayStateWas
     variable HasActuator
-    list RoomRelays
+    list ActuatorRelays
     variable SensorFresh
     variable SensorFreshWas
     variable RequestState
@@ -1992,8 +1992,8 @@ SetRelay:
     if Room has entry `trv` set HasActuator
     else if Room has entry `relays`
     begin
-        put entry `relays` of Room into RoomRelays
-        if the count of RoomRelays is greater than 0 set HasActuator
+        put entry `relays` of Room into ActuatorRelays
+        if the count of ActuatorRelays is greater than 0 set HasActuator
     end
     if not HasActuator set RelayState to `off`
     else if Mode is `off` set RelayState to `off`

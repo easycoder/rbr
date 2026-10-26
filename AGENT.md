@@ -39,7 +39,8 @@ allspeak controller.allspeak
 These checks run without a browser, a broker or the controller box, and all are cheap enough to run after any edit:
 
 ```bash
-tests/unit/run-unit-tests.sh          # AllSpeak unit tests + Python tests (heatlog, commit round-trip, overrides)
+tests/unit/controller-compile-check.sh # the whole controller must compile (a duplicate symbol once stopped every controller)
+tests/unit/run-unit-tests.sh          # the compile check + AllSpeak unit tests + Python tests (heatlog, round-trip, overrides, SetRelay)
 node tests/pwa-compile-check.js       # compiles all five new-ui modules in the browser runtime
 node tests/pwa-device-editor-check.js # drives the Devices sheet: a rename keeps its room's own wiring
 node tests/pwa-schedule-editor-check.js # drives the schedule's time dropdowns: how a stop follows its start
@@ -55,6 +56,8 @@ node tests/pwa-valve-state-check.js # the room tag follows a TRV's own running s
 `tests/pwa-schedule-save-check.js` exists because a sheet editor is opened with a blocking `send … and assign reply`, and the runtime keeps only one reply slot per program. A controller map push is handled by the same program, and applying it is another blocking send — so a map landing while the Schedule, Profiles or Devices sheet is open used to take the slot, drop the editor's reply, and leave the chrome up over hidden content with every tap going to a scrim nobody would answer (the 2026-10-24 report). The test runs the whole shell in the real runtime with a fake MQTT client in place of the broker, pushes a map mid-edit, and checks that the map is held, that Save still closes the sheet and ships `Update Profiles`, and that the held map is applied afterwards.
 
 `tests/pwa-profile-sheet-check.js` exists because the calendar stores profile *names*, while the profile list stores the profiles themselves: a rename that changed only `profiles[].name` left every day pointing at the old name, and both the controller and the page then fell back to the selected profile in silence (the 2026-10-26 report — Mon–Fri still said "Monday-Friday" after that profile had been renamed "Weekday", so Monday ran "All Off"). The test opens the real sheet against a fixture built in the test, renames and deletes through the sheet's own buttons, and checks the whole `calendarData` array the shell would ship — plus that a day naming a profile that does not exist is shown as "(missing)".
+
+`tests/unit/controller-compile-check.sh` exists because every other controller test works on extracted routines, and none of them compiles `controller.allspeak` as a whole. On 2026-10-26 a release added a second declaration of an existing list name; the AllSpeak compiler is single-pass with one global symbol table, so every controller that took the update stopped at `Compile error … Duplicate symbol name` and never connected to the broker. The check compiles the real file in a throwaway directory with a fake MAC and local credentials, so it cannot reach the live system; it fails only on a compiler error.
 
 `tests/pwa-valve-state-check.js` exists because the room card's orange tag came from the controller's *demand* (`relay`), while a self-contained TRV decides for itself: on 2026-10-26 two rooms were "heating" in the app and every valve reported `running_state: idle`, so every radiator was cold. The shell now shows the valve's own `trvrunning` (`heat` / `idle`) and falls back to the demand only when no report has arrived; a room with no relay and no TRV shows "No radiator assigned" instead of a tag. The test pushes a small map through the whole shell (fake MQTT, no broker) and reads the rendered tags and warn rows.
 
