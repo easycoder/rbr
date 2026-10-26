@@ -84,6 +84,8 @@
 	variable LegacyRelaysTotal
 	variable LegacyRelayMsg
 	variable LegacyLinked
+	variable LegacyTrvName
+	variable Valve
 	variable OfflineReason
 	variable LegacyBattery
 	variable BoostUntil
@@ -130,7 +132,7 @@
 	on message go to Translate
 	release parent
 	stop
-!! @hash b1caf384
+!! @hash 0f44796f
 !!!
 !! Message handler. Unpacks the Map from the message, runs the translation, packs the output dict, ships it back. Boolean flags (CalendarOn, OutsideRoomFound) travel as "on"/"off" / "yes"/"no" strings because boolean state doesn't round-trip cleanly through JSON.
 Translate:
@@ -257,7 +259,7 @@ TranslateMap:
 	end
 	put RoomsListIdx into RoomCount
 	return
-!! @hash e80023c6
+!! @hash 668bfa36
 !!!
 !! Build one flat record per room from the shared room list and the selected profile's schedule state, which is what everything below this point expects to read.
 !!
@@ -325,6 +327,14 @@ BuildRoomEntry:
 	set property `sensor` of NewRoom to `no`
 	if LegacyRoom has entry `trv` set property `trv` of NewRoom to property `trv` of LegacyRoom
 	if LegacyRoom has entry `trvsetpoint` set property `trvsetpoint` of NewRoom to property `trvsetpoint` of LegacyRoom
+!	The valve's own report, not RBR's demand: `heat` means the valve is open.
+!	Only a recognised value travels; anything else leaves the card on the demand.
+	set property `valve` of NewRoom to empty
+	if LegacyRoom has entry `trvrunning`
+	begin
+		put property `trvrunning` of LegacyRoom into Valve
+		if Valve is `heat` or Valve is `idle` set property `valve` of NewRoom to Valve
+	end
 	if LegacyRoom has entry `trvmode` set property `trvmode` of NewRoom to property `trvmode` of LegacyRoom
 	if LegacyRoom has entry `trvfails` set property `trvfails` of NewRoom to property `trvfails` of LegacyRoom
 
@@ -371,6 +381,7 @@ BuildRoomEntry:
 
 	set property `offline` of NewRoom to `no`
 	set property `partial` of NewRoom to `no`
+	set property `unwired` of NewRoom to `no`
 	put `No signal` into OfflineReason
 	put property `status` of LegacyRoom into LegacyStatus
 	put property `statusMessage` of LegacyRoom into LegacyStatusMessage
@@ -439,6 +450,23 @@ BuildRoomEntry:
 		begin
 			if the index of `Sensor` in LegacyStatusMessage is greater than -1
 				set property `warnMessage` of NewRoom to `No recent change`
+		end
+	end
+
+!	A room with no relay and no valve cannot heat. Its card would otherwise
+!	show a schedule and no reason why the room stays cold.
+	put empty into LegacyTrvName
+	if LegacyRoom has entry `trv` put property `trv` of LegacyRoom into LegacyTrvName
+	if LegacyTrvName is empty
+	begin
+		if LegacyRelaysTotal is 0 set property `unwired` of NewRoom to `yes`
+	end
+	if property `offline` of NewRoom is `no`
+	begin
+		if property `warnMessage` of NewRoom is empty
+		begin
+			if property `unwired` of NewRoom is `yes`
+				set property `warnMessage` of NewRoom to `No radiator assigned`
 		end
 	end
 
@@ -723,9 +751,12 @@ BuildRoomEntry:
 	end
 
 	set property `calling` of NewRoom to `no`
-	if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
+	if property `unwired` of NewRoom is `no`
+	begin
+		if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
+	end
 	return
-!! @hash 8ad7a317
+!! @hash e99879bb
 !!!
 !! Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string (19.8). In-place via TempStr — caller passes the integer in, gets the string back out.
 FormatHundredths:

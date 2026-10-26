@@ -25,6 +25,8 @@
 	button AboutCtaSetup
 	div RoomName
 	div HeatingTag
+	div HeatingTagIcon
+	span HeatingTagLabel
 	div OfflineTag
 	div Subline
 	div TempEl
@@ -144,6 +146,12 @@
 	variable NameText
 	variable SublineText
 	variable CallingForHeat
+	variable ValveState
+	variable ShowHeatTag
+	variable HeatTagText
+	variable HeatTagColor
+	variable HeatTagIconUrl
+	variable HeatTagMask
 	variable ChipBg
 	variable ChipFg
 	variable ChipIconUrl
@@ -414,7 +422,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash bb458f4e
+!! @hash 47bf427b
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -3112,15 +3120,55 @@ RenderRoom:
 
 	clear CallingForHeat
 	if property `calling` of Room is `yes` set CallingForHeat
+!	An unactuated room cannot be heating whatever a stale map says; the warn
+!	row says "No radiator assigned".
+	if property `unwired` of Room is `yes` clear CallingForHeat
 
 	attach RoomName to `room-` cat IndexStr cat `-name`
 	set the content of RoomName to NameText
 	if CallingForHeat set style `color` of RoomName to `var(--color-accent)`
 	else set style `color` of RoomName to `#2F75B5`
 
+!	The tag tells the truth the room card is for. A relay room shows "heating"
+!	when RBR is calling, as before. A room with a valve shows the valve's own
+!	state: "heating" while it is open, and "valve idle" when RBR is calling
+!	but the valve is not — the case an unreachable setpoint or a valve on its
+!	own dial produces. With no valve report, fall back to the demand.
+	put empty into ValveState
+	if property `valve` of Room is `heat` put `heat` into ValveState
+	else if property `valve` of Room is `idle` put `idle` into ValveState
+	clear ShowHeatTag
+	put `heating` into HeatTagText
+	put `var(--color-accent)` into HeatTagColor
+	put `resources/icon/flame.svg` into HeatTagIconUrl
+	if ValveState is `heat` set ShowHeatTag
+	else if ValveState is `idle`
+	begin
+		if CallingForHeat
+		begin
+			set ShowHeatTag
+			put `valve idle` into HeatTagText
+			put `var(--color-status-warn)` into HeatTagColor
+			put `resources/icon/clock.svg` into HeatTagIconUrl
+		end
+	end
+	else if CallingForHeat set ShowHeatTag
+	if property `unwired` of Room is `yes` clear ShowHeatTag
+
 	attach HeatingTag to `room-` cat IndexStr cat `-heating-tag`
-	if CallingForHeat set style `display` of HeatingTag to `inline-flex`
+	attach HeatingTagIcon to `room-` cat IndexStr cat `-heating-icon`
+	attach HeatingTagLabel to `room-` cat IndexStr cat `-heating-label`
+	if ShowHeatTag set style `display` of HeatingTag to `inline-flex`
 	else set style `display` of HeatingTag to `none`
+	if ShowHeatTag
+	begin
+		set the content of HeatingTagLabel to HeatTagText
+		set style `color` of HeatingTag to HeatTagColor
+		set style `background-color` of HeatingTagIcon to HeatTagColor
+		put `url(` cat HeatTagIconUrl cat `) center/contain no-repeat` into HeatTagMask
+		set style `mask` of HeatingTagIcon to HeatTagMask
+		set style `-webkit-mask` of HeatingTagIcon to HeatTagMask
+	end
 
 	attach OfflineTag to `room-` cat IndexStr cat `-offline-tag`
 	if Offline is `yes` set style `display` of OfflineTag to `inline-flex`
@@ -3228,7 +3276,7 @@ RenderRoom:
 
 	gosub to ApplyChipStyle
 	return
-!! @hash 76bb4252
+!! @hash 73f05ac3
 !!!
 !! Decide the chip background / foreground / icon-url and apply them.
 !!

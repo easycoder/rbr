@@ -31,3 +31,19 @@ At 06:39: Dining Room 19.8 vs 18.0 and Living Room 19.2 vs 18.0 → satisfied; K
 The live map shows why nothing could follow the app: only Living Room has a `trv` (`LR-Rad`). Dining Room, KW and OB have `relays: []` and no `trv`, and the Devices sheet shows their TRV and relay fields blank. So their "heating" cannot open anything; their valves are running on their own dials. Binding DR-Rad, KW-Rad and OB-Rad in Rooms and Devices is the fix — RBR will then send each valve its target and the room thermometer reading as the external temperature.
 
 Two related findings: an unactuated room still counts as "calling for heat" and sets `HeatingRequested`, which would fire a demand relay if one were configured (this system has none); and `running_state` is cached by the bridge but never published to the map, so the card cannot show what the valve is actually doing. Also LR-HT and OB-HT report only every 40-odd minutes, close to the 45-minute staleness gate that forces a valve off.
+
+## 11:43
+
+Yes, both code changes look like worth doing.
+
+**Assistant**
+
+Both are in.
+
+**A room with no actuator no longer calls for heat.** If a room has no relays and no TRV, `SetRelay` leaves it off and does not set `HeatingRequested`, so it cannot fire the demand relay for a room it cannot heat. `On` and `Boost` cannot override the rule. The page suppresses the heating tag and shows "No radiator assigned" in the warn row.
+
+**The valve's own state is on the card.** `zigbee-trv.json` already had `running_state` and `last_seen`; `ProcessTrvState` now publishes `trvrunning` on the room's identity record, freshness-gated at 45 minutes. The card shows "heating" while the valve is open, and "valve idle" in amber when RBR is calling but the valve is closed; with no report it falls back to the demand as before. A change in valve state marks the map changed, so the card updates within a cycle. The state is stripped from the on-disk map with the other live readings.
+
+Tests: `tests/unit/setrelay_test.py` (ten cases on the shipped SetRelay — unwired, TRV, relay, On, Boost, unlinked, warn, above target); `commit_roundtrip_test.py` carries `trvrunning` through materialise into identity and proves it does not leak into the profile state; `tests/pwa-valve-state-check.js` drives the whole shell and reads the rendered tags and warn rows; the Devices-sheet check now includes `trv` in the identity it compares.
+
+Verification: unit suite 51 tests passed (AllSpeak 71/179 checks plus 51 Python), `npm run check` 12/12 + 10/10 + 18/18 + 4/4 + 19/19 + 10/10. `DIFF.md` says to deploy; the New System still needs DR-Rad, KW-Rad and OB-Rad bound.

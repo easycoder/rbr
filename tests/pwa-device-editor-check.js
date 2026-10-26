@@ -65,9 +65,10 @@ const FIXTURE = {
     { name: 'Hall', relays: ['Hall-relay'], sensor: 'Hall-thermometer', linked: 'yes',
       protect: 'no', relayfails: [0], temperature: 1900, humidity: 52, battery: 80,
       sensorAge: 60000, timestamp: 1, status: 'good', statusMessage: '', relay: 'off' },
-    { name: 'Study', relays: ['Study-relay'], sensor: 'Study-thermometer', linked: 'yes',
-      protect: 'no', relayfails: [0], temperature: 1800, humidity: 48, battery: 70,
-      sensorAge: 60000, timestamp: 1, status: 'good', statusMessage: '', relay: 'off' },
+    { name: 'Study', relays: ['Study-relay'], sensor: 'Study-thermometer', trv: 'Study-TRV',
+      linked: 'yes', protect: 'no', relayfails: [0], temperature: 1800, humidity: 48,
+      battery: 70, sensorAge: 60000, timestamp: 1, status: 'good', statusMessage: '',
+      relay: 'off' },
     { name: 'Lounge', relays: ['Lounge-relays'], sensor: 'Lounge-thermometer', linked: 'no',
       protect: 'no', relayfails: [0], temperature: 2100, humidity: 45, battery: 60,
       sensorAge: 60000, timestamp: 1, status: 'good', statusMessage: '', relay: 'off' },
@@ -94,7 +95,7 @@ FIXTURE.profiles.forEach(p => {
   });
 });
 
-const IDENTITY_FIELDS = ['relays', 'sensor', 'linked', 'protect', 'ptemp'];
+const IDENTITY_FIELDS = ['relays', 'sensor', 'trv', 'linked', 'protect', 'ptemp'];
 
 // A page that loads one runtime + the module, sends the open message the shell
 // sends, and parks until the sheet replies.

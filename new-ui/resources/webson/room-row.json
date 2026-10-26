@@ -82,6 +82,7 @@
 
                     "$Flame": {
                         "#element": "div",
+                        "@id": "room-/I/-heating-icon",
                         "width": "11px",
                         "height": "11px",
                         "background-color": "var(--color-accent)",
@@ -90,6 +91,7 @@
                     },
                     "$Label": {
                         "#element": "span",
+                        "@id": "room-/I/-heating-label",
                         "#content": "heating"
                     }
                 },

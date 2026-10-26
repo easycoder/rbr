@@ -45,8 +45,8 @@ fi
 # aliasing traps that bit the shared room list on the live system (DIFF.md) —
 # and the bridge's TRV external-sensor command.
 echo ""
-echo "Running Python tests (heatlog_test, commit_roundtrip_test, identity_override_test, trv_external_test)..."
-PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test commit_roundtrip_test identity_override_test trv_external_test 2>&1)"
+echo "Running Python tests (heatlog_test, commit_roundtrip_test, identity_override_test, trv_external_test, setrelay_test)..."
+PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test commit_roundtrip_test identity_override_test trv_external_test setrelay_test 2>&1)"
 PY_STATUS=$?
 echo "$PY_OUT"
 

@@ -135,6 +135,8 @@
     variable Relays
     variable RelayState
     variable RelayStateWas
+    variable HasActuator
+    list RoomRelays
     variable SensorFresh
     variable SensorFreshWas
     variable RequestState
@@ -298,8 +300,12 @@
     variable TrvNeedsExternal
     variable TrvSendingControl
     variable TrvSend
-!! @hash 35356bed
-!! @verified 35356bed
+    variable TrvRunningState
+    variable TrvWasRunning
+    variable TrvSeen
+    variable TrvAge
+!! @hash 7e2d58c7
+!! @verified 7e2d58c7
 !!!
 !! Basic initialisation.
 !! The system can run either with real hardware or wth a simulator. The latter is chosen if a file 'sim' exists.
@@ -978,6 +984,7 @@ MaterialiseRooms:
             if MRRoom has entry `trvfails` set entry `trvfails` of MRState to entry `trvfails` of MRRoom
             if MRRoom has entry `trvext` set entry `trvext` of MRState to entry `trvext` of MRRoom
             if MRRoom has entry `trvextat` set entry `trvextat` of MRState to entry `trvextat` of MRRoom
+            if MRRoom has entry `trvrunning` set entry `trvrunning` of MRState to entry `trvrunning` of MRRoom
             if MRRoom has entry `linked` set entry `linked` of MRState to entry `linked` of MRRoom
             if MRRoom has entry `relayfails` set entry `relayfails` of MRState to entry `relayfails` of MRRoom
             if MRRoom has entry `protect` set entry `protect` of MRState to entry `protect` of MRRoom
@@ -1035,6 +1042,7 @@ CommitRooms:
         if CRRoom has entry `trvfails` set entry `trvfails` of CRTarget to entry `trvfails` of CRRoom
         if CRRoom has entry `trvext` set entry `trvext` of CRTarget to entry `trvext` of CRRoom
         if CRRoom has entry `trvextat` set entry `trvextat` of CRTarget to entry `trvextat` of CRRoom
+        if CRRoom has entry `trvrunning` set entry `trvrunning` of CRTarget to entry `trvrunning` of CRRoom
         if CRRoom has entry `linked` set entry `linked` of CRTarget to entry `linked` of CRRoom
         if CRRoom has entry `relayfails` set entry `relayfails` of CRTarget to entry `relayfails` of CRRoom
         if CRRoom has entry `protect` set entry `protect` of CRTarget to entry `protect` of CRRoom
@@ -1102,7 +1110,7 @@ CommitRooms:
         set entry `profiles` of Map to Profiles
     end
     return
-!! @hash 0ac45038
+!! @hash f81ef21d
 !!!
 !! Merge an identity list sent by the UI into Map.rooms.
 !!
@@ -1731,6 +1739,44 @@ SyncTrvLocalSetpoint:
     log `TRV ` cat TrvName cat ` dial setpoint adopted: ` cat TrvReportedText
     gosub to ForceUpdate
     return
+!! Record the valve's own running state for the page.
+!!
+!! `zigbee-trv.json` carries `running_state` — the valve's own verdict, `heat` when the valve is open and `idle` when it is closed — and `last_seen`. The page uses it for the room's tag, so a demand the valve is not following reads "valve idle" instead of "heating". A state older than the 45-minute sensor gate is not a state: the entry is cleared and the page falls back to the demand.
+ProcessTrvState:
+    put empty into TrvRunningState
+    if Room has entry `trv`
+    begin
+        put entry `trv` of Room into TrvName
+        if ZigbeeTrvs has entry TrvName
+        begin
+            put entry TrvName of ZigbeeTrvs into TrvState
+            if TrvState has entry `running_state`
+            begin
+                put entry `running_state` of TrvState into TrvRunningState
+                if TrvRunningState is not `heat` and TrvRunningState is not `idle` put empty into TrvRunningState
+            end
+            if TrvRunningState is not empty
+            begin
+                if TrvState has entry `last_seen`
+                begin
+                    put entry `last_seen` of TrvState into TrvSeen
+                    if TrvSeen is not empty
+                    begin
+                        multiply TrvSeen by 1000
+                        put now into TrvAge
+                        take TrvSeen from TrvAge
+                        if TrvAge is greater than 2700000 put empty into TrvRunningState
+                    end
+                end
+            end
+        end
+    end
+    put empty into TrvWasRunning
+    if Room has entry `trvrunning` put entry `trvrunning` of Room into TrvWasRunning
+    if TrvWasRunning is TrvRunningState return
+    set entry `trvrunning` of Room to TrvRunningState
+    set MapHasChanged
+    return
 !! Drive a room whose actuator is a self-contained TRV.
 !!
 !! The valve is sent its target as `occupied_heating_setpoint` and `heat` while
@@ -1748,6 +1794,7 @@ SyncTrvLocalSetpoint:
 !! minutes, and travels with any setpoint/mode command. A room whose `sensor`
 !! is the valve itself is told `local`, so the valve keeps its internal sensor.
 ProcessTrv:
+    gosub to ProcessTrvState
     gosub to SyncTrvLocalSetpoint
     put empty into TrvSetpoint
     put -1 into TrvPeriodIdx
@@ -1894,7 +1941,7 @@ ProcessTrv:
         set entry `trvextat` of Room to now
     end
     return
-!! @hash 96ed3b0e
+!! @hash b8a80b78
 !!!
 !! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
 !!
@@ -1934,12 +1981,22 @@ ProcessRequestRelay:
 !!
 !! Unlinked relays (`linked: no`) are driven directly by mode rather than by target/temperature. For a linked room in `on` or `timed` mode, the relay turns on if the current temperature is below the target. SetRelay also signals the boiler request via HeatingRequested.
 !!
+!! A room with no actuator — no relays and no TRV — never calls for heat, however far below target it is. Its demand would fire the demand relay with nothing in the room to release the heat, and it made the page claim "heating" for rooms that were never wired. Such a room stays off and does not set HeatingRequested; the page marks it "No radiator assigned".
+!!
 !! Falls through to RoomStatus.
 SetRelay:
     put RelayState into RelayStateWas
     put empty into PriorStatus
     if Room has entry `status` put entry `status` of Room into PriorStatus
-    if Mode is `off` set RelayState to `off`
+    clear HasActuator
+    if Room has entry `trv` set HasActuator
+    else if Room has entry `relays`
+    begin
+        put entry `relays` of Room into RoomRelays
+        if the count of RoomRelays is greater than 0 set HasActuator
+    end
+    if not HasActuator set RelayState to `off`
+    else if Mode is `off` set RelayState to `off`
     else if Mode is `boost`
     begin
         if entry `linked` of Room is `no` set RelayState to `on`
@@ -1992,8 +2049,8 @@ SetRelay:
     if TempNow is not empty set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodActive
-!! @hash f95ee503
-!! @verified f95ee503
+!! @hash 4e77ffec
+!! @verified 4e77ffec
 !!!
 !! Compute the room's health status (`good` / `warn` / `fail` / `partial`) and a human-readable status message for the UI.
 !!
@@ -2226,6 +2283,7 @@ PrepareMapForDisk:
             if DiskRoom has entry `relaysTotal` delete entry `relaysTotal` of DiskRoom
             if DiskRoom has entry `timestamp` delete entry `timestamp` of DiskRoom
             if DiskRoom has entry `sensorAge` delete entry `sensorAge` of DiskRoom
+            if DiskRoom has entry `trvrunning` delete entry `trvrunning` of DiskRoom
             if DiskRoom has entry `relay` delete entry `relay` of DiskRoom
             set entry DRName of DiskRooms to DiskRoom
             increment DRIdx
@@ -2251,6 +2309,7 @@ PrepareMapForDisk:
         if DiskIdRoom has entry `relaysTotal` delete entry `relaysTotal` of DiskIdRoom
         if DiskIdRoom has entry `timestamp` delete entry `timestamp` of DiskIdRoom
         if DiskIdRoom has entry `sensorAge` delete entry `sensorAge` of DiskIdRoom
+        if DiskIdRoom has entry `trvrunning` delete entry `trvrunning` of DiskIdRoom
         if DiskIdRoom has entry `relay` delete entry `relay` of DiskIdRoom
         set item DIIdx of DiskIdentity to DiskIdRoom
         increment DIIdx
@@ -2258,8 +2317,8 @@ PrepareMapForDisk:
     set entry `rooms` of MapDisk to DiskIdentity
     put prettify MapDisk into MapDiskText
     return
-!! @hash a9af2f05
-!! @verified 593badbb
+!! @hash 6a2faafc
+!! @verified 6a2faafc
 !!!
 !! Trigger an immediate UI update by setting both ImmediateUpdate (which short-circuits MainLoop's 5-second wait) and MapHasChanged (which makes SendMapToUI actually push). 
 !!

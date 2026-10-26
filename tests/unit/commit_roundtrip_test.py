@@ -52,7 +52,7 @@ FIXTURE = {
         {"name": "Sunroom", "relays": ["s1"], "sensor": "st", "linked": "yes",
          "temperature": 2100, "status": "good", "relay": "off"},
         {"name": "Living Room", "relays": [], "sensor": "LR-HT", "trv": "LR-Rad",
-         "trvext": 1980, "trvextat": 1234567890, "linked": "yes",
+         "trvext": 1980, "trvextat": 1234567890, "trvrunning": "idle", "linked": "yes",
          "temperature": 1980, "status": "good", "relay": "off"},
     ],
     "profiles": [
@@ -129,11 +129,26 @@ put entry `trvext` of Room into S
 log `PROBE working-trvext-after=` cat S
 put entry `trvextat` of Room into S
 log `PROBE working-trvextat-after=` cat S
+put entry `trvrunning` of Room into S
+log `PROBE working-trvrunning=` cat S
+set entry `trvrunning` of Room to `heat`
+gosub to UpdateRooms
+gosub to MaterialiseRooms
+put item 2 of Rooms into Room
+put entry `trvrunning` of Room into S
+log `PROBE working-trvrunning-after=` cat S
+put entry `rooms` of Map into MRIdentity
+put item 2 of MRIdentity into MRRoom
+if MRRoom has entry `trvrunning` put entry `trvrunning` of MRRoom into S else put `missing` into S
+log `PROBE identity-trvrunning=` cat S
+
 put item SelectedProfile of Profiles into Profile
 put entry `rooms` of Profile into MRStates
 put entry `Living Room` of MRStates into MRState
 if MRState has entry `trvext` put `yes` into S else put `no` into S
 log `PROBE state-has-trvext=` cat S
+if MRState has entry `trvrunning` put `yes` into S else put `no` into S
+log `PROBE state-has-trvrunning=` cat S
 
 put 0 into RoomIndex
 put item RoomIndex of Rooms into Room
@@ -294,6 +309,16 @@ class CommitRoundTrip(unittest.TestCase):
         self.assertAlmostEqual(float(self.v["working-trvextat-after"]), 1234567999.0)
         self.assertEqual(self.v["state-has-trvext"], "no",
                          "TRV throttle state leaked into the profile schedule")
+
+    def test_trv_running_state_survives_the_round_trip(self):
+        # The valve's own report travels on the identity record, like the
+        # throttle state, and must not be dropped on the way to the page.
+        self.assertEqual(self.v["working-trvrunning"], "idle")
+        self.assertEqual(self.v["working-trvrunning-after"], "heat")
+        self.assertEqual(self.v["identity-trvrunning"], "heat",
+                         "the valve state never reached the identity record")
+        self.assertEqual(self.v["state-has-trvrunning"], "no",
+                         "live valve state leaked into the profile schedule")
 
 
 if __name__ == "__main__":
