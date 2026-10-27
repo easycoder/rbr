@@ -215,6 +215,8 @@
     variable OffTime
     variable InPeriod
     variable NaturalPeriodActive
+    variable CancelAdvance
+    variable AdvanceOffTime
     variable NextAdvanceIdx
     variable NextAdvanceMin
     variable PI
@@ -304,8 +306,8 @@
     variable TrvWasRunning
     variable TrvSeen
     variable TrvAge
-!! @hash 7e2d58c7
-!! @verified 7e2d58c7
+!! @hash 6610b2a6
+!! @verified 6610b2a6
 !!!
 !! Basic initialisation.
 !! The system can run either with real hardware or wth a simulator. The latter is chosen if a file 'sim' exists.
@@ -1099,6 +1101,7 @@ CommitRooms:
             if CRRoom has entry `events` set entry `events` of CRState to entry `events` of CRRoom
             if CRRoom has entry `period` set entry `period` of CRState to entry `period` of CRRoom
             if CRRoom has entry `advance` set entry `advance` of CRState to entry `advance` of CRRoom
+            if CRRoom has entry `advanceuntil` set entry `advanceuntil` of CRState to entry `advanceuntil` of CRRoom
             if CRRoom has entry `prevmode` set entry `prevmode` of CRState to entry `prevmode` of CRRoom
             if CRRoom has entry `until` set entry `until` of CRState to entry `until` of CRRoom
             if CRRoom has entry `boostperiod` set entry `boostperiod` of CRState to entry `boostperiod` of CRRoom
@@ -1110,7 +1113,7 @@ CommitRooms:
         set entry `profiles` of Map to Profiles
     end
     return
-!! @hash f81ef21d
+!! @hash 882dea5c
 !!!
 !! Merge an identity list sent by the UI into Map.rooms.
 !!
@@ -2049,8 +2052,8 @@ SetRelay:
     if TempNow is not empty set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodActive
-!! @hash 4e77ffec
-!! @verified 4e77ffec
+!! @hash 35944179
+!! @verified 35944179
 !!!
 !! Compute the room's health status (`good` / `warn` / `fail` / `partial`) and a human-readable status message for the UI.
 !!
@@ -2396,19 +2399,32 @@ FindCurrentPeriod:
 !!
 !! Without advance, both simply mirror the natural state. With advance on (and no roll-over since it was engaged), the room shifts to its schedule's next *change*: from natural background that change is the next period starting, so Target = its temp (heat skips ahead and turns on now); from a natural period it is normally the end of that period, so Target = background-temp and the heat goes off until the next period starts naturally — except when a period starts exactly where the running one ends (back-to-back periods, e.g. 18:00-20:00 then 20:00-23:00), because then the change *is* that period beginning, so it is brought forward and the room heats to its temp now.
 !!
-!! Auto-cancels the moment the natural state would have rolled, so the user never has to remember to undo it.
+!! Auto-cancels at the change it was aiming for (`advanceuntil`, set when the advance is armed and persisted with the plan) or the moment the natural state rolls, whichever comes first — so the user never has to remember to undo it, and a restart during or after the change cannot resurrect it.
 ApplyPeriodsAdvance:
     if entry `advance` of Room is `A`
     begin
-        ! Auto-cancel the advance once the natural state has rolled.
-        ! PeriodWas is seeded from the room's current natural period in
-        ! ProcessAllRooms, so any value here is a real period index
-        ! (>= 0) or -1 for background — both legitimate engagement
-        ! anchors. A simple inequality is enough; no sentinel guard.
-        if NaturalPeriodActive is not PeriodWas
+        ! Auto-cancel the advance once the natural state has rolled, and at
+        ! the instant of the change it was aiming for. The deadline is
+        ! persisted (`advanceuntil`) because PeriodWas is not: a restart or
+        ! any ProcessAllRooms rebuild reseeds PeriodWas from the *current*
+        ! natural period, so a change that happened while the controller was
+        ! down would go unnoticed and a stale `A` would jump forward to the
+        ! next period — the 2026-10-27 report, where an Advance pressed on a
+        ! cloudy Monday morning re-armed itself at 03:00 and ran the heat
+        ! pump. An advance with no deadline (a map from an older controller)
+        ! is cancelled rather than trusted.
+        clear CancelAdvance
+        if Room has entry `advanceuntil`
+        begin
+            if now is not less than entry `advanceuntil` of Room set CancelAdvance
+        end
+        else set CancelAdvance
+        if NaturalPeriodActive is not PeriodWas set CancelAdvance
+        if CancelAdvance
         begin
             ! log RoomName cat `: Cancelling the advance (periods)`
             set entry `advance` of Room to `-`
+            if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
             set entry `period` of Room to NaturalPeriodActive
             gosub to ForceUpdate
             ! Fall through: use natural state.
@@ -2474,6 +2490,7 @@ ApplyPeriodsAdvance:
     end
 
     ! Natural state (advance not set, or just cancelled).
+    if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
     set PeriodActive to NaturalPeriodActive
     if NaturalPeriodActive is less than 0 gosub to PeriodsBackgroundTarget
     else
@@ -2484,8 +2501,53 @@ ApplyPeriodsAdvance:
         put Temp into Target
     end
     return
-!! @hash 2118f3e9
-!! @verified 46a58892
+!! Record the instant the advance is aiming at, so it can be cancelled even if the controller was not running when that instant passed.
+!!
+!! The advance ends at the schedule's next change: the running period's end from a period (or, for back-to-back periods, the end of the period it joins), and the next period's start from background. It is stored as `advanceuntil` on the room and persisted with the plan; ApplyPeriodsAdvance cancels on it. A change time that has already passed today means tomorrow's occurrence. The hour a daylight-saving step can introduce is accepted: this is a cancellation deadline, not a schedule time.
+SetAdvanceDeadline:
+    if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
+    gosub to GetNaturalPeriod
+    if EventCount is 0 return
+    if NaturalPeriod is less than 0
+    begin
+        gosub to FindNextPeriodFromNow
+        if NextAdvanceIdx is less than 0 return
+        put item NextAdvanceIdx of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        gosub to AdvanceDeadlineTomorrow
+        set entry `advanceuntil` of Room to Time
+        return
+    end
+    put item NaturalPeriod of PeriodList into Period
+    put entry `off` of Period into Time
+    gosub to ConvertTimeToInt
+    put Time into AdvanceOffTime
+    gosub to FindNextPeriodFromNow
+    if NextAdvanceIdx is not less than 0
+    begin
+        put item NextAdvanceIdx of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        if Time is AdvanceOffTime
+        begin
+            put item NextAdvanceIdx of PeriodList into Period
+            put entry `off` of Period into Time
+            gosub to ConvertTimeToInt
+            put Time into AdvanceOffTime
+        end
+    end
+    put AdvanceOffTime into Time
+    gosub to AdvanceDeadlineTomorrow
+    set entry `advanceuntil` of Room to Time
+    return
+!! Push a change time that has already passed today to tomorrow. A day of epoch milliseconds is close enough across daylight saving for a cancellation deadline.
+AdvanceDeadlineTomorrow:
+    if Time is greater than now return
+    add 86400000 to Time
+    return
+!! @hash b7af31b8
+!! @verified b7af31b8
 !!!
 !! Find the next period chronologically: smallest `on` strictly after `now`, else (no on later today) wrap to the smallest `on` overall = tomorrow's first.
 !!
@@ -2758,6 +2820,7 @@ SetRoomOverride:
     put entry `on` of Period into OverrideWas
     gosub to ResolveOverrideDate
     if entry `advance` of Room is `A` set entry `advance` of Room to `-`
+    if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
     reset OverrideEntry
     set entry `kind` of OverrideEntry to OverrideKind
     set entry `date` of OverrideEntry to OverrideDate
@@ -2774,7 +2837,7 @@ SetRoomOverride:
     log `Room override armed: ` cat OverrideName cat ` ` cat OverrideKind cat ` for ` cat OverrideDate
     set MapHasChanged
     return
-!! @hash 463ba962
+!! @hash fb6263f7
 !!!
 !! Cancel any override held for the room named in the current UI request.
 ClearRoomOverride:
@@ -2964,7 +3027,7 @@ ResolveRoomFromMessage:
 !!
 !! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (replaces the shared room identity list, used by add/delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites the shared room list, the profiles list and the optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), and `Test`.
 !!
-!! Operating Mode handles all four modes plus advance and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). `advance` is a desired state: the PWA sends `A` or `-` and it is applied as-is, so a retried or duplicated request cannot flip the wrong way; older clients sending `yes` still toggle. Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
+!! Operating Mode handles all four modes plus advance and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). `advance` is a desired state: the PWA sends `A` or `-` and it is applied as-is, so a retried or duplicated request cannot flip the wrong way; older clients sending `yes` still toggle. Arming an advance records `advanceuntil`, the schedule change it is aiming at; leaving Timed drops the flag and the deadline with it. Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
 !!
 !! Room Override carries `op` (`set`, the default, or `clear`) plus, for a set, `kind` (`start` with a `time` of HH:MM, or `skip`). It is a one-day schedule tweak stored outside `profiles` — see SetRoomOverride — and is not a mode change, so a room in `on`/`off`/`boost` keeps that mode and the override applies when the room returns to `timed`.
 ProcessUIRequest:
@@ -3205,6 +3268,12 @@ ProcessUIRequest:
             delete entry `boostperiod` of Room
         end
         set entry `mode` of Room to Mode
+        if Mode is not `timed`
+        begin
+            ! Advance is a Timed-mode override; leaving Timed drops it.
+            set entry `advance` of Room to `-`
+            if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
+        end
         if Message has entry `target` set entry `target` of Room to entry `target` of Message
         else if Message has entry `Target` set entry `target` of Room to entry `Target` of Message
         if Mode is `on`
@@ -3247,6 +3316,8 @@ ProcessUIRequest:
                 else if Value is `-` set entry `advance` of Room to `-`
                 else if entry `advance` of Room is `-` set entry `advance` of Room to `A`
                 else set entry `advance` of Room to `-`
+                if entry `advance` of Room is `A` gosub to SetAdvanceDeadline
+                else if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
                 ! log `Force an update (timed mode)`
                 gosub to ForceUpdate
             end
@@ -3303,8 +3374,8 @@ ProcessUIRequest:
         gosub to ForceUpdate
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 6a740fc3
-!! @verified 671aea6e
+!! @hash 550db757
+!! @verified 550db757
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).
 !!

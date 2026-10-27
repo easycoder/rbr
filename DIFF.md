@@ -1,11 +1,12 @@
 # What to do
 
-- **Deploy the fix now, with `--release`.** Release `2610261152` does not compile — `ProcessTrvState`'s new list reused the name `RoomRelays`, which already exists — so every controller that took it stops at `Compile error … Duplicate symbol name` and never reconnects (the page's "first map didn't arrive in 30s"). `./deploy.sh --release` publishes the corrected controller and a new stamp; controllers recover on their next hourly check.
-- **To recover one immediately:** copy this `controller.allspeak` to the controller and restart it (`sudo systemctl restart controller`), or restart `rbr-updater` to force the check now. The service's own 60-second restart brings it up once the file is good.
-- The release also carries the calendar-name and valve/no-actuator changes from earlier today. The calendar repair (Mon–Fri → `Weekday`) is already live in the map.
+- **Deploy the controller** (`./deploy.sh --release`). The PWA is unchanged. This release also carries the compile fix already live since `2610261218`.
+- No map change. An advance still flagged when the new controller starts has no deadline to check, so it is cancelled rather than trusted; nothing needs clearing by hand.
 
 # What changed
 
-The controller had a duplicate `list RoomRelays` declaration: the actuator test in `SetRelay` used that name instead of its own, and the AllSpeak compiler refuses a duplicate symbol in a single pass. The whole controller therefore failed to compile, which is why MQTT never connected. It now uses `ActuatorRelays`, and `tests/unit/controller-compile-check.sh` compiles the whole controller in a throwaway directory (fake MAC, local credentials, `--no-dashboard`) on every unit run. The routine tests extract functions and could never see this class of fault; the compile check can.
+An Advance is a Timed-mode override, and its auto-cancel relied on `PeriodWas` — an in-memory record of the natural period in the previous cycle. `ProcessAllRooms` reseeds `PeriodWas` from the *current* natural period on startup, on a day rollover and after a UI save. A change that happened while the controller was not running (the 26th's compile outage, or any restart) therefore went unnoticed: with `advance: A` still in the map and the room back in background, the next cycle applied the advance *from background* and jumped to the next period — the following day's 18:00. That is the 03:00 heat pump.
 
-Everything else from today's release stands: no-actuator rooms no longer call for heat, and the valve's own `running_state` is published as `trvrunning` for the room card.
+The controller now records `advanceuntil` when the advance is armed: the instant of the schedule change it is aiming at — the running period's end, the period it joins across a back-to-back pair, or the next period's start from background. It is stored with the plan and `ApplyPeriodsAdvance` cancels on it as well as on the rollover, so a restart during or after the change cannot resurrect it. An advance with no deadline (a map written by an older controller) is cancelled rather than trusted. Leaving Timed, or arming a one-off override, clears the flag and the deadline.
+
+`tests/unit/unit-04-periods.allspeak` gains the deadline cases: an expired deadline cancels across a restart; no deadline cancels; and the deadline is the next start, the joined period's end, or the running period's end for background, back-to-back and gap schedules.

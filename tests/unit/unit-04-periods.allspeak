@@ -34,6 +34,8 @@
     variable NaturalPeriodActive
     variable PeriodActive
     variable PeriodWas
+    variable CancelAdvance
+    variable AdvanceOffTime
     variable Target
     variable NextAdvanceIdx
     variable NextAdvanceMin
@@ -168,9 +170,17 @@ FindNextPeriodFromNow:
 ApplyPeriodsAdvance:
     if entry `advance` of Room is `A`
     begin
-        if NaturalPeriodActive is not PeriodWas
+        clear CancelAdvance
+        if Room has entry `advanceuntil`
+        begin
+            if now is not less than entry `advanceuntil` of Room set CancelAdvance
+        end
+        else set CancelAdvance
+        if NaturalPeriodActive is not PeriodWas set CancelAdvance
+        if CancelAdvance
         begin
             set entry `advance` of Room to `-`
+            if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
             set entry `period` of Room to NaturalPeriodActive
         end
         else
@@ -220,6 +230,7 @@ ApplyPeriodsAdvance:
             return
         end
     end
+    if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
     set PeriodActive to NaturalPeriodActive
     if NaturalPeriodActive is less than 0 gosub to PeriodsBackgroundTarget
     else
@@ -230,7 +241,7 @@ ApplyPeriodsAdvance:
         put Temp into Target
     end
     return
-!! @hash 4cb926c8
+!! @hash 167040ea
 !!!
 
 !! The natural-period phase of FindCurrentPeriod: scans the room's periods against `now` (phase 1) then resolves PeriodActive/Target via ApplyPeriodsAdvance (phase 2).
@@ -320,6 +331,57 @@ ConvertTempToInt:
 !! @hash 1ee8520e
 !!!
 
+!! Record the instant the advance aims at — the schedule's next change. Mirrors controller.allspeak, where ApplyPeriodsAdvance cancels on this persisted deadline.
+
+SetAdvanceDeadline:
+    if Room has entry `advanceuntil` delete entry `advanceuntil` of Room
+    gosub to GetNaturalPeriod
+    if EventCount is 0 return
+    if NaturalPeriod is less than 0
+    begin
+        gosub to FindNextPeriodFromNow
+        if NextAdvanceIdx is less than 0 return
+        put item NextAdvanceIdx of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        gosub to AdvanceDeadlineTomorrow
+        set entry `advanceuntil` of Room to Time
+        return
+    end
+    put item NaturalPeriod of PeriodList into Period
+    put entry `off` of Period into Time
+    gosub to ConvertTimeToInt
+    put Time into AdvanceOffTime
+    gosub to FindNextPeriodFromNow
+    if NextAdvanceIdx is not less than 0
+    begin
+        put item NextAdvanceIdx of PeriodList into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        if Time is AdvanceOffTime
+        begin
+            put item NextAdvanceIdx of PeriodList into Period
+            put entry `off` of Period into Time
+            gosub to ConvertTimeToInt
+            put Time into AdvanceOffTime
+        end
+    end
+    put AdvanceOffTime into Time
+    gosub to AdvanceDeadlineTomorrow
+    set entry `advanceuntil` of Room to Time
+    return
+!! @hash 980bd240
+!!!
+
+!! A change time that has already passed today means tomorrow's occurrence.
+
+AdvanceDeadlineTomorrow:
+    if Time is greater than now return
+    add 86400000 to Time
+    return
+!! @hash 1e191c1b
+!!!
+
 RunTests:
 
 !! Case 1: a zero-length period (12:00-12:00, 21.0) is always "in period", so the natural index is 0 and the target is 2100.
@@ -380,6 +442,9 @@ RunTests:
 
     reset Room
     set entry `advance` of Room to `A`
+    put now into T
+    add 86400000 to T
+    set entry `advanceuntil` of Room to T
     reset Periods
     put -5400000 into OnDelta
     put 1800000 into OffDelta
@@ -399,13 +464,16 @@ RunTests:
         check that PeriodActive is 1
         check that Target is 2300
     end test
-!! @hash 1e6d8aec
+!! @hash c1ef53f6
 !!!
 
 !! Case 5: the same schedule with a real gap after the running period — Advance lands in the gap, so the target is the background temperature.
 
     reset Room
     set entry `advance` of Room to `A`
+    put now into T
+    add 86400000 to T
+    set entry `advanceuntil` of Room to T
     reset Periods
     put -5400000 into OnDelta
     put 1800000 into OffDelta
@@ -424,6 +492,114 @@ RunTests:
         gosub to FindCurrentPeriod
         check that PeriodActive is -1
         check that Target is 1800
+    end test
+!! @hash 0c4ccc5f
+!!!
+
+!! Case 5b: a deadline that has passed cancels the advance even when PeriodWas was seeded to the current natural period — the restart case. A zero-length period is always active, so seeding cannot detect the roll-over on its own; only the persisted deadline can.
+
+    reset Room
+    set entry `advance` of Room to `A`
+    put now into T
+    take 3600000 from T
+    set entry `advanceuntil` of Room to T
+    reset Periods
+    append `{"on": "12:00", "off": "12:00", "temp": "21.0"}` to Periods
+    set entry `periods` of Room to Periods
+
+    test `an expired deadline cancels the advance across a restart`
+        gosub to GetNaturalPeriod
+        check that NaturalPeriod is 0
+        set PeriodWas to NaturalPeriod
+        gosub to FindCurrentPeriod
+        check that entry `advance` of Room is `-`
+        check that PeriodActive is 0
+        check that Target is 2100
+    end test
+!! @hash c0e853e8
+!!!
+
+!! Case 5c: an advance with no deadline — a map from a controller older than the deadline — is cancelled rather than trusted, because there is no way to know whether the change it aimed at has passed.
+
+    reset Room
+    set entry `advance` of Room to `A`
+    reset Periods
+    append `{"on": "12:00", "off": "12:00", "temp": "21.0"}` to Periods
+    set entry `periods` of Room to Periods
+
+    test `an advance without a deadline is cancelled`
+        gosub to GetNaturalPeriod
+        set PeriodWas to NaturalPeriod
+        gosub to FindCurrentPeriod
+        check that entry `advance` of Room is `-`
+        check that Target is 2100
+    end test
+!! @hash f1a734c6
+!!!
+
+!! Case 5d: the deadline is the schedule's next change — the next period's start from background, the running period's end from a period, and the joined period's end across back-to-back periods.
+
+    reset Room
+    reset Periods
+    put 3600000 into OnDelta
+    put 7200000 into OffDelta
+    put `21.0` into PeriodTemp
+    gosub to AddPeriodFromNow
+    set entry `periods` of Room to Periods
+
+    test `from background the deadline is the next period's start`
+        gosub to SetAdvanceDeadline
+        put item 0 of Periods into Period
+        put entry `on` of Period into Time
+        gosub to ConvertTimeToInt
+        if Time is not greater than now add 86400000 to Time
+        check that entry `advanceuntil` of Room is Time
+    end test
+!! @hash e184f7c3
+!!!
+
+    reset Room
+    reset Periods
+    put -5400000 into OnDelta
+    put 1800000 into OffDelta
+    put `21.5` into PeriodTemp
+    gosub to AddPeriodFromNow
+    put 1800000 into OnDelta
+    put 12600000 into OffDelta
+    put `23.0` into PeriodTemp
+    gosub to AddPeriodFromNow
+    set entry `periods` of Room to Periods
+
+    test `in a back-to-back pair the deadline is the joined period's end`
+        gosub to SetAdvanceDeadline
+        put item 1 of Periods into Period
+        put entry `off` of Period into Time
+        gosub to ConvertTimeToInt
+        if Time is not greater than now add 86400000 to Time
+        check that entry `advanceuntil` of Room is Time
+    end test
+!! @hash 24cec13b
+!!!
+
+    reset Room
+    reset Periods
+    put -5400000 into OnDelta
+    put 1800000 into OffDelta
+    put `21.5` into PeriodTemp
+    gosub to AddPeriodFromNow
+    put 10800000 into OnDelta
+    put 19800000 into OffDelta
+    put `23.0` into PeriodTemp
+    gosub to AddPeriodFromNow
+    set entry `periods` of Room to Periods
+
+    test `with a gap the deadline is the running period's end`
+        gosub to SetAdvanceDeadline
+        put item 0 of Periods into Period
+        put entry `off` of Period into Time
+        gosub to ConvertTimeToInt
+        if Time is not greater than now add 86400000 to Time
+        check that entry `advanceuntil` of Room is Time
     end test
 !! @hash 24cec13b
 !!!
