@@ -35,6 +35,7 @@
 	variable SystemName
 	variable SystemType
 	variable RequestRelay
+	variable BackupInfo
 	variable CalendarOn
 	variable CalendarData
 	variable CalendarEntry
@@ -132,7 +133,7 @@
 	on message go to Translate
 	release parent
 	stop
-!! @hash 0f44796f
+!! @hash d431dc31
 !!!
 !! Message handler. Unpacks the Map from the message, runs the translation, packs the output dict, ships it back. Boolean flags (CalendarOn, OutsideRoomFound) travel as "on"/"off" / "yes"/"no" strings because boolean state doesn't round-trip cleanly through JSON.
 Translate:
@@ -155,12 +156,13 @@ Translate:
 	set property `systemName` of Result to SystemName
 	set property `systemType` of Result to SystemType
 	set property `requestRelay` of Result to RequestRelay
+	set property `backup` of Result to BackupInfo
 	if CalendarOn set property `calendarOn` of Result to `on`
 	else set property `calendarOn` of Result to `off`
 
 	send Result to sender
 	stop
-!! @hash 71eacfef
+!! @hash cc7a3850
 !!!
 !! Walk the controller's map, build the new-UI RoomsList from scratch. Resolves the active profile via the calendar (when on) or Map.profile (when off), captures system-wide fields, and filters out the outdoor sensor entry into separate OutsideTemp / OutsideSensor / FrostTrigger state.
 !!
@@ -210,6 +212,7 @@ TranslateMap:
 	put property `systemType` of Map into SystemType
 	if SystemType is empty put `Boiler` into SystemType
 	put property `request` of Map into RequestRelay
+	put property `backup` of Map into BackupInfo
 	put property `rooms` of ActiveProfile into ActiveStates
 	put property `rooms` of Map into SharedRooms
 	gosub to MergeSharedRooms
@@ -259,7 +262,7 @@ TranslateMap:
 	end
 	put RoomsListIdx into RoomCount
 	return
-!! @hash 668bfa36
+!! @hash 37115f59
 !!!
 !! Build one flat record per room from the shared room list and the selected profile's schedule state, which is what everything below this point expects to read.
 !!

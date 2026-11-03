@@ -1,10 +1,10 @@
 [Unit]
-Description=Run the RBR component watchdog hourly
+Description=Run the RBR component watchdog every 15 minutes
 
 [Timer]
-OnCalendar=hourly
+OnCalendar=*:0/15
 Persistent=true
-RandomizedDelaySec=300
+RandomizedDelaySec=120
 
 [Install]
 WantedBy=timers.target

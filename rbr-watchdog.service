@@ -1,5 +1,5 @@
 [Unit]
-Description=RBR component health watchdog (restart any down core service)
+Description=RBR component and heating watchdog (restart down or unresponsive services)
 
 [Service]
 Type=oneshot
@@ -9,5 +9,9 @@ Type=oneshot
 # ships — rbr-watchdog.sh is part of rbr-controller.tar.gz and is applied
 # by rbr-updater.py like any other runtime file. Installed by rbr-setup.sh
 # STEP 6b.
+#
+# The heating check can restart all four services, so allow for four sequential
+# systemctl restarts; a slow Zigbee2MQTT start is the long pole.
 ExecStart=/home/graham/rbr/rbr-watchdog.sh
+TimeoutStartSec=300
 SyslogIdentifier=rbr-watchdog

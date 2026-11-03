@@ -45,6 +45,8 @@ Underneath, RBR is three things working together: the controller and the room de
 
 **The app.** The web page described above: the whole of the household's contact with the system, and the whole of a provider's view of an estate.
 
+How those three are connected is set out in [Architecture](../technical/01-architecture.md).
+
 ## Where next
 
 - [A fitted house](03-a-fitted-house.md) — what the system looks like in a property.

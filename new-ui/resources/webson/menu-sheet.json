@@ -11,7 +11,7 @@
         "border-radius": "14px",
         "margin-top": "10px",
         "overflow": "hidden",
-        "#": ["$Row1", "$Row2", "$Row3"],
+        "#": ["$Row1", "$Row2", "$Row3", "$Row4"],
 
         "$Row1": {
             "$ID": "menu-row-system",
@@ -29,6 +29,12 @@
             "$ID": "menu-row-outside",
             "$Label": "Outside thermometer",
             "$Sub": "Frost protection",
+            "#": ["$Row"]
+        },
+        "$Row4": {
+            "$ID": "menu-row-backups",
+            "$Label": "Backups",
+            "$Sub": "Monthly archive; email a copy",
             "#": ["$Row"]
         },
 

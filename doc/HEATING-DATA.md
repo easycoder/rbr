@@ -65,6 +65,8 @@ A relay is on iff `mode` is one of `c`/`p`/`b` **and** `targetTenths` is greater
 
 If you ever need to tell "room was off" from "room was satisfied at target", the `mode` letter does exactly that (`o` vs `c`/`p` with target == actual).
 
+This is the rule the heating watchdog uses: `heatwatch.py` treats a room with a relay or TRV, a fresh reading and a target at least 0.5 °C above the room as calling for heat, and if the log shows no rise of 0.2 °C over 60 minutes it restarts the four core services (three-hour cooldown, three restarts a day at most).
+
 ## Configuration and storage
 
 - The data root is the one-line content of a file named `heatlog-root` in the controller's working directory (e.g. `/home/linaro/heatlog-root`). Absent that file, heat logging is disabled and the controller logs that at startup. `rbr-setup.sh` (Step 5b) creates the file.

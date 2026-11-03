@@ -35,6 +35,9 @@ DONGLE_DEVICE=""
 
 Z2M_DIR="/opt/zigbee2mqtt"
 Z2M_USER="zigbee2mqtt"
+# Set by Step 3 when an existing configuration.yaml still carries a GENERATE
+# network identity. The start section must then leave Zigbee2MQTT alone.
+Z2M_NETWORK_UNSAFE=0
 
 MOSQUITTO_CONF="/etc/mosquitto/conf.d/rbr-local.conf"
 
@@ -144,7 +147,15 @@ echo "  → Saved $RBR_DIR/.mqtt_password"
 MQTT_USERNAME="$(prompt_value "  MQTT username" "user" "rbr")"
 
 # MAC address — the MQTT topic that identifies this controller
-DEFAULT_MAC="$(ip link show "$(ip route show default | awk '{print $5}')" 2>/dev/null | awk '/ether/ {print $2}' || echo "")"
+# The MAC is the MQTT topic identity. On a re-run the existing override is the
+# safe default: the NIC's address is not necessarily what this controller was
+# registered under, and accepting the wrong default here renames the system.
+EXISTING_MAC=""
+if [[ -f "$RBR_DIR/.mac_override" ]]; then
+    EXISTING_MAC="$(tr -d '[:space:]' < "$RBR_DIR/.mac_override")"
+fi
+NIC_MAC="$(ip link show "$(ip route show default | awk '{print $5}')" 2>/dev/null | awk '/ether/ {print $2}' || echo "")"
+DEFAULT_MAC="${EXISTING_MAC:-$NIC_MAC}"
 MAC="$(prompt_value "  Controller MAC address" "mac" "$DEFAULT_MAC")"
 echo "$MAC" > "$RBR_DIR/.mac_override"
 chown "$RBR_USER:$RBR_USER" "$RBR_DIR/.mac_override"
@@ -257,9 +268,15 @@ fi
 # Install dependencies
 echo "  Running pnpm install (needs dev deps for TypeScript build)..."
 cd "$Z2M_DIR"
-pnpm install 2>&1 | tail -5 \
-    || echo "  ⚠ pnpm install failed — Zigbee2MQTT may not build (see output above)"
-echo "  pnpm install done"
+# Run visibly, with prompts disabled and stdin closed. The old
+# `pnpm install 2>&1 | tail -5` hid the progress *and* pnpm's
+# "purge node_modules?" question: the prompt waited on a pipe nobody could
+# answer, so a normal dependency refresh looked like a hung install.
+if pnpm install --reporter=append-only --config.confirm-modules-purge=false </dev/null; then
+    echo "  pnpm install done"
+else
+    echo "  ⚠ pnpm install failed — Zigbee2MQTT may not build (see output above)"
+fi
 
 # --- Zigbee dongle: prompt if not detected, create udev symlink -----------
 if [[ -z "$DONGLE_DEVICE" ]]; then
@@ -305,7 +322,31 @@ mkdir -p "$Z2M_DIR/data"
 Z2M_CONF="$Z2M_DIR/data/configuration.yaml"
 if [[ -f "$Z2M_CONF" ]]; then
     echo "  → $Z2M_CONF already exists — keeping it (its network_key is this Zigbee network)"
-    if grep -qE '^serial:' "$Z2M_CONF"; then
+
+    # Always leave a copy before touching the file. This is the only file that
+    # carries the Zigbee network identity, and an edit that goes wrong is not
+    # recoverable from anywhere else on the machine.
+    CONFIG_BACKUP="${Z2M_CONF}.bak-$(date +%Y%m%d-%H%M%S)"
+    cp -a "$Z2M_CONF" "$CONFIG_BACKUP"
+    echo "  → Backed up $Z2M_CONF to $CONFIG_BACKUP"
+
+    # A GENERATE here means no network identity has been set. Starting z2m
+    # would invent a new network and orphan every paired device — exactly the
+    # damage the pre-2026-10-17 script did on every re-run. Do not edit, and
+    # do not let the start section launch it.
+    if grep -qE '^[[:space:]]*(network_key|pan_id|ext_pan_id):[[:space:]]*"?GENERATE"?[[:space:]]*(#.*)?$' "$Z2M_CONF"; then
+        Z2M_NETWORK_UNSAFE=1
+        echo ""
+        echo "  ✗ $Z2M_CONF still says GENERATE for a Zigbee network identity field."
+        echo "    Starting Zigbee2MQTT in this state creates a NEW network and orphans"
+        echo "    every paired relay and thermometer. The file has NOT been modified."
+        echo "    Restore the real network_key/pan_id/ext_pan_id (the backup files in"
+        echo "    $Z2M_DIR/data may contain them), or re-pair the devices deliberately."
+        echo "    This run will not start Zigbee2MQTT. Until it is repaired, a reboot"
+        echo "    will still start it, so disable it if you need to reboot:"
+        echo "      sudo systemctl disable --now zigbee2mqtt"
+        echo ""
+    elif grep -qE '^serial:' "$Z2M_CONF"; then
         awk -v p="$RESOLVED_DONGLE" '
             /^serial:/            { in_serial = 1; print; next }
             in_serial && /^[^[:space:]]/ { in_serial = 0 }
@@ -424,7 +465,22 @@ echo "  → Created and enabled rbr-zigbee-bridge.service"
 # ===========================================================================
 confirm "Step 5 — Creating controller credentials"
 
-cat > "$RBR_DIR/credentials" << JSON
+# Never rewrite an existing file. It carries the MAIL settings as well as the
+# broker account, and re-running the installer used to reset the mail server
+# and password to placeholders — which silently broke the emailed backup and
+# the verification emails. If the broker settings written in Step 2 no longer
+# match the file, say so and leave the repair to the operator.
+if [[ -f "$RBR_DIR/credentials" ]]; then
+    echo "  → $RBR_DIR/credentials already exists — leaving it untouched"
+    EXISTING_USER="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("username",""))' "$RBR_DIR/credentials" 2>/dev/null || true)"
+    EXISTING_PASS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("password",""))' "$RBR_DIR/credentials" 2>/dev/null || true)"
+    if [[ "$EXISTING_USER" != "$MQTT_USERNAME" || "$EXISTING_PASS" != "$MQTT_PASSWORD" ]]; then
+        echo "  ⚠ The broker account written in this run does not match the existing file."
+        echo "    Update $RBR_DIR/credentials by hand, or delete it and re-run setup,"
+        echo "    or the controller will not connect to the local broker."
+    fi
+else
+    cat > "$RBR_DIR/credentials" << JSON
 {
     "broker": "localhost",
     "port": 1883,
@@ -436,10 +492,12 @@ cat > "$RBR_DIR/credentials" << JSON
     "mail_from": "noreply@rbrheating.com"
 }
 JSON
-chown "$RBR_USER:$RBR_USER" "$RBR_DIR/credentials"
-chmod 640 "$RBR_DIR/credentials"
-echo "  → Created $RBR_DIR/credentials (broker: localhost, MAC: $MAC)"
-echo "  Note: mail credentials are placeholders — update if you need email features."
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/credentials"
+    chmod 640 "$RBR_DIR/credentials"
+    echo "  → Created $RBR_DIR/credentials (broker: localhost, MAC: $MAC)"
+    echo "  Note: mail credentials are placeholders — update them to use verification"
+    echo "        emails and the emailed backup (Menu → Backups)."
+fi
 
 # ===========================================================================
 # STEP 5b — Heating-data log root (see doc/HEATING-DATA.md)
@@ -582,9 +640,9 @@ TIMER
 fi
 
 # =========================================================================--
-# STEP 6b — RBR component watchdog (auto-restart down services)
+# STEP 6b — RBR component watchdog (auto-restart down services, heating check)
 # ===========================================================================
-confirm "Step 6b — RBR component watchdog (hourly health check)"
+confirm "Step 6b — RBR component watchdog (15-minute health and heating check)"
 
 if [[ ! -f "$RBR_DIR/rbr-watchdog.sh" ]]; then
     echo "  ⚠ rbr-watchdog.sh not found in $RBR_DIR — skipping watchdog install"
@@ -592,28 +650,38 @@ if [[ ! -f "$RBR_DIR/rbr-watchdog.sh" ]]; then
 else
     chown "$RBR_USER:$RBR_USER" "$RBR_DIR/rbr-watchdog.sh"
     chmod 0755 "$RBR_DIR/rbr-watchdog.sh"
+    if [[ -f "$RBR_DIR/heatwatch.py" ]]; then
+        chown "$RBR_USER:$RBR_USER" "$RBR_DIR/heatwatch.py"
+        chmod 0644 "$RBR_DIR/heatwatch.py"
+    else
+        echo "  ⚠ heatwatch.py not found — the heating check will be skipped"
+        echo "    (it ships in rbr-controller.zip; re-run after fetching the pack)"
+    fi
 
     cat > /etc/systemd/system/rbr-watchdog.service << SERVICE
 [Unit]
-Description=RBR component health watchdog (restart any down core service)
+Description=RBR component and heating watchdog (restart down or unresponsive services)
 
 [Service]
 Type=oneshot
 # Runs as root so it can restart mosquitto/zigbee2mqtt/bridge/controller.
 # The script lives in ${RBR_DIR} so the hourly updater refreshes it when a
 # new release ships (rbr-watchdog.sh is part of rbr-controller.tar.gz).
+# The heating check can restart all four services, so allow for four sequential
+# systemctl restarts; a slow Zigbee2MQTT start is the long pole.
 ExecStart=${RBR_DIR}/rbr-watchdog.sh
+TimeoutStartSec=300
 SyslogIdentifier=rbr-watchdog
 SERVICE
 
     cat > /etc/systemd/system/rbr-watchdog.timer << TIMER
 [Unit]
-Description=Run the RBR component watchdog hourly
+Description=Run the RBR component watchdog every 15 minutes
 
 [Timer]
-OnCalendar=hourly
+OnCalendar=*:0/15
 Persistent=true
-RandomizedDelaySec=300
+RandomizedDelaySec=120
 
 [Install]
 WantedBy=timers.target
@@ -622,7 +690,8 @@ TIMER
     systemctl daemon-reload
     systemctl enable rbr-watchdog.timer
     systemctl start rbr-watchdog.timer
-    echo "  → rbr-watchdog.timer enabled (hourly; restarts any down service)"
+    echo "  → rbr-watchdog.timer enabled (every 15 min; restarts down services and"
+    echo "    all four when a scheduled room is not warming)"
 fi
 
 # ===========================================================================--
@@ -674,14 +743,65 @@ TIMER
     echo "  → rbr-mapbackup.timer enabled (last 10 map revisions kept in map-history/)"
 fi
 
-# =========================================================================--
+# ===========================================================================--
+# STEP 6d — Monthly backup (controller state + Zigbee2MQTT data)
+# ===========================================================================--
+confirm "Step 6d — Monthly backup archive"
+
+if [[ ! -f "$RBR_DIR/rbr-backup.py" ]]; then
+    echo "  ⚠ rbr-backup.py not found in $RBR_DIR — skipping backup install"
+    echo "    (it ships in rbr-controller.zip; re-run after fetching the pack)"
+else
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/rbr-backup.py"
+    chmod 0755 "$RBR_DIR/rbr-backup.py"
+    if [[ -f "$RBR_DIR/rbr-restore.py" ]]; then
+        chown "$RBR_USER:$RBR_USER" "$RBR_DIR/rbr-restore.py"
+        chmod 0755 "$RBR_DIR/rbr-restore.py"
+    fi
+
+    cat > /etc/systemd/system/rbr-backup.service << SERVICE
+[Unit]
+Description=RBR monthly backup (controller state + Zigbee2MQTT data)
+
+[Service]
+Type=oneshot
+# Runs as the controller user so the archive and backup-status.json keep the
+# same owner as map.json. Reads the plan, the credentials and
+# /opt/zigbee2mqtt/data; email settings come from \`credentials\`.
+User=${RBR_USER}
+WorkingDirectory=${RBR_DIR}
+ExecStart=/usr/bin/python3 ${RBR_DIR}/rbr-backup.py
+SyslogIdentifier=rbr-backup
+TimeoutStartSec=300
+SERVICE
+
+    cat > /etc/systemd/system/rbr-backup.timer << TIMER
+[Unit]
+Description=Run the RBR backup on the first of every month
+
+[Timer]
+OnCalendar=*-*-01 03:00:00
+Persistent=true
+RandomizedDelaySec=1800
+AccuracySec=1h
+
+[Install]
+WantedBy=timers.target
+TIMER
+
+    systemctl daemon-reload
+    systemctl enable rbr-backup.timer
+    systemctl start rbr-backup.timer
+    echo "  → rbr-backup.timer enabled (monthly archive in $RBR_DIR/backup/)"
+    echo "    Email is opt-in: set it under Menu → Backups in the app."
+fi
+
 # STEP 7 — (optional) Run the controller as a systemd service
 # ===========================================================================
 confirm "Step 7 — Controller systemd service (optional)"
 
-INSTALL_CTRL=""
-read -r -p "  Run the controller as a service (auto-restart after updates)? (y/N): " INSTALL_CTRL
-if [[ "${INSTALL_CTRL,,}" == "y" ]]; then
+INSTALL_CTRL="$(prompt_value "  Run the controller as a service (auto-restart after updates)? (Y/n)" "controller service" "y")"
+if [[ "${INSTALL_CTRL,,}" =~ ^y ]]; then
     if [[ -z "$ALLSPEAK_BIN" ]]; then
         echo "  ⚠ Could not find the allspeak binary — skipping controller service"
     else
@@ -772,8 +892,13 @@ fi
 # ===========================================================================
 confirm "Starting services"
 
-echo "  Starting zigbee2mqtt..."
-systemctl start zigbee2mqtt.service 2>/dev/null || echo "  ⚠ zigbee2mqtt may need the dongle connected — check with: journalctl -u zigbee2mqtt -n 20"
+if [[ "${Z2M_NETWORK_UNSAFE:-0}" = "1" ]]; then
+    echo "  ⚠ Not starting zigbee2mqtt — $Z2M_CONF still contains GENERATE."
+    echo "    Fix the network identity or re-pair first; see the warning in Step 3."
+else
+    echo "  Starting zigbee2mqtt..."
+    systemctl start zigbee2mqtt.service 2>/dev/null || echo "  ⚠ zigbee2mqtt may need the dongle connected — check with: journalctl -u zigbee2mqtt -n 20"
+fi
 
 echo "  Starting rbr-zigbee-bridge..."
 systemctl start rbr-zigbee-bridge.service 2>/dev/null || echo "  ⚠ bridge may need zigbee2mqtt running first"
@@ -798,6 +923,9 @@ if [[ -f /etc/systemd/system/rbr-watchdog.timer ]]; then
 fi
 if [[ -f /etc/systemd/system/rbr-mapbackup.timer ]]; then
     echo "    rbr-mapbackup.timer $(systemctl is-active rbr-mapbackup.timer)"
+fi
+if [[ -f /etc/systemd/system/rbr-backup.timer ]]; then
+    echo "    rbr-backup.timer    $(systemctl is-active rbr-backup.timer)"
 fi
 echo ""
 echo "  Controller:"

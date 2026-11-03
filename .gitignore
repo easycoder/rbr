@@ -12,6 +12,7 @@ map.json
 thermometers.json
 heatlog-root
 heatlog-state.json
+heat-watch-state.json
 rbr-controller.tar.gz
 rbr-controller.zip
 __pycache__/
@@ -26,3 +27,9 @@ credentials
 zigbee-config.json
 .mqtt_password
 .mqtt_token
+
+# Backup archives and their settings/status — runtime data, never committed.
+backup/
+backup-config.json
+backup-status.json
+pre-restore-*/

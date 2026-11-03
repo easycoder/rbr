@@ -1,0 +1,147 @@
+{
+    "#doc": "Backups sheet — the monthly archive kept on the controller, and the optional email copy to the registered address. Opened from the menu's Backups row. The controller owns the schedule; this sheet only sets the email toggle and can ask for a backup now.",
+    "#element": "div",
+    "@id": "backup-sheet",
+    "#": ["$Intro", "$Card", "$Tagline"],
+
+    "$Intro": {
+        "#element": "div",
+        "margin-top": "2px",
+        "font-size": "13px",
+        "font-weight": "400",
+        "line-height": "1.45",
+        "color": "var(--color-text-secondary)",
+        "#content": "A complete archive is kept on the controller every month: the plan, its history, the Zigbee2MQTT data and the system credentials. It contains the Zigbee network key, so treat a copy as sensitive."
+    },
+
+    "$Card": {
+        "#element": "div",
+        "margin-top": "14px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "14px",
+        "overflow": "hidden",
+        "#": ["$EmailRow", "$LastRow", "$NoticeRow"],
+
+        "$EmailRow": {
+            "#element": "div",
+            "padding": "14px",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "12px",
+            "border-bottom": "1px solid var(--color-border-divider-soft)",
+            "#": ["$EmailText", "$Spacer", "$Toggle"],
+
+            "$EmailText": {
+                "#element": "div",
+                "display": "flex",
+                "flex-direction": "column",
+                "min-width": "0",
+
+                "$EmailLabel": {
+                    "#element": "div",
+                    "font-size": "15px",
+                    "font-weight": "500",
+                    "color": "var(--color-text-primary)",
+                    "#content": "Email a monthly copy"
+                },
+                "$EmailValue": {
+                    "#element": "div",
+                    "@id": "backup-sheet-email",
+                    "font-size": "12px",
+                    "font-weight": "400",
+                    "color": "var(--color-text-muted)",
+                    "margin-top": "2px",
+                    "#content": "Registered address"
+                }
+            },
+
+            "$Spacer": {
+                "#element": "div",
+                "flex": "1"
+            },
+
+            "$Toggle": {
+                "#element": "button",
+                "@id": "backup-sheet-toggle",
+                "min-width": "58px",
+                "padding": "8px 12px",
+                "border": "1px solid var(--color-border-hairline)",
+                "border-radius": "10px",
+                "background": "var(--color-surface-sunk)",
+                "color": "var(--color-text-primary)",
+                "font-family": "inherit",
+                "font-size": "13px",
+                "font-weight": "600",
+                "cursor": "pointer",
+                "#content": "Off"
+            }
+        },
+
+        "$LastRow": {
+            "#element": "div",
+            "padding": "14px",
+            "display": "flex",
+            "flex-direction": "column",
+            "gap": "2px",
+            "border-bottom": "1px solid var(--color-border-divider-soft)",
+
+            "$LastLabel": {
+                "#element": "div",
+                "font-size": "12px",
+                "font-weight": "500",
+                "color": "var(--color-text-meta)",
+                "text-transform": "uppercase",
+                "letter-spacing": "var(--type-section-label-track)",
+                "#content": "Last backup"
+            },
+            "$LastValue": {
+                "#element": "div",
+                "@id": "backup-sheet-last",
+                "font-size": "14px",
+                "font-weight": "400",
+                "color": "var(--color-text-primary)",
+                "#content": "No backup has run yet"
+            }
+        },
+
+        "$NoticeRow": {
+            "#element": "div",
+            "padding": "12px 14px",
+            "$Notice": {
+                "#element": "div",
+                "@id": "backup-sheet-notice",
+                "font-size": "12px",
+                "font-weight": "400",
+                "line-height": "1.4",
+                "color": "var(--color-text-muted)",
+                "#content": "Archives stay in backup/ on the controller; the newest 12 are kept."
+            }
+        }
+    },
+
+    "$Tagline": {
+        "#element": "div",
+        "margin-top": "16px",
+        "font-size": "12px",
+        "font-weight": "400",
+        "color": "var(--color-text-muted)",
+        "text-align": "center",
+        "#": ["$Send"]
+    },
+
+    "$Send": {
+        "#element": "button",
+        "@id": "backup-sheet-send",
+        "width": "100%",
+        "padding": "12px",
+        "border-radius": "12px",
+        "background": "var(--color-surface-card)",
+        "border": "1px solid var(--color-border-hairline)",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "font-size": "14px",
+        "font-weight": "500",
+        "color": "var(--color-text-primary)",
+        "#content": "Send a backup now"
+    }
+}

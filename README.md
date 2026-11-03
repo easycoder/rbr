@@ -18,6 +18,8 @@ Between the controller and the radiators sit Zigbee thermometers and relays, wit
 
 The map — `map.json` on the controller — is the whole configuration: **one shared room list**, carrying each room's identity (which relays it has, which thermometer serves it, whether it is frost-protected, its readings), and then, per profile, only that room's schedule state, keyed by room name. A name is the join, so a room's wiring and its schedule cannot drift into another room. `AI/MAP_FORMAT.md` is the format of record.
 
+The controller also writes a monthly archive of the plan, its credentials and the Zigbee2MQTT data — including the network key and the paired-device database — into `backup/`, and can email a copy to the registered address from **Menu → Backups** in the app. After a fresh install, `sudo python3 rbr-restore.py <archive>` puts it back. Archives contain secrets, so treat them as sensitive.
+
 ## Working on it
 
 ```bash

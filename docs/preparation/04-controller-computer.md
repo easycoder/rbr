@@ -48,7 +48,7 @@ And keep it clear of metalwork, on a USB extension lead. The reason is in the [b
 
 The controller writes constantly, and most of what it writes is not worth keeping. Sorting the two apart is what makes the machine reliable without making it fragile.
 
-**What has to survive a power cut is small and changes rarely:** the plan, its history, and the rooms' heating records. These belong on persistent storage, and they are the reason for choosing an SSD over a card.
+**What has to survive a power cut is small and changes rarely:** the plan, its history, and the rooms' heating records. These belong on persistent storage, and they are the reason for choosing an SSD over a card. The monthly archive in `backup/` also lives there; it is a second copy for rebuilding the machine, not a substitute for keeping the plan itself on disk.
 
 **What does not:** the readings as they arrive, the running summary the terminal dashboard draws from, and the logs. This data is regenerated within minutes or is of no lasting value, and it is the natural candidate for volatile storage.
 

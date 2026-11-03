@@ -105,12 +105,15 @@ rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
 # go into /heat/ — see upload_heat() below. The old root copies are left on the
 # server as they are; nothing refreshes them.
 
-# Controller runtime files shipped in BOTH the updater tarball and the
-# bootstrap zip. VERSION (the deploy stamp) is added separately.
+# Controller files shipped in BOTH the updater tarball and the bootstrap zip.
+# rbr-setup.sh is here so an existing controller can re-run the current
+# installer; the updater replaces it but never runs it. VERSION (the deploy
+# stamp) is added separately.
 CONTROLLER_FILES=(controller.allspeak deviceControl.allspeak simulator.allspeak \
                   diagnose.allspeak zigbee-bridge.py zigbee-pair.py zigbee-mesh.py \
                   rbr-dashboard.py heatlog.py dashboard.txt rbr-updater.py \
-                  rbr-watchdog.sh rbr-mapbackup.py)
+                  rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py \
+                  rbr-restore.py rbr-setup.sh)
 
 # Versioned controller tarball for the standalone updater (rbr-updater.py).
 # Contains the controller runtime files with a VERSION stamp embedded;
@@ -180,14 +183,15 @@ upload_heat_version() {
 build_controller_zip() {
     local BUILD_DIR
     BUILD_DIR="$(mktemp -d)"
-    for f in "${CONTROLLER_FILES[@]}" rbr-setup.sh; do
+    for f in "${CONTROLLER_FILES[@]}"; do
         cp "$LOCAL/$f" "$BUILD_DIR/"
     done
     cp "$LOCAL/version" "$BUILD_DIR/VERSION"
     (cd "$BUILD_DIR" && zip -q "$LOCAL/rbr-controller.zip" \
         controller.allspeak deviceControl.allspeak simulator.allspeak diagnose.allspeak zigbee-bridge.py \
         zigbee-pair.py zigbee-mesh.py rbr-dashboard.py heatlog.py dashboard.txt \
-        rbr-updater.py rbr-watchdog.sh rbr-mapbackup.py rbr-setup.sh VERSION)
+        rbr-updater.py rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py \
+        rbr-restore.py rbr-setup.sh VERSION)
     rm -rf "$BUILD_DIR"
     echo "  → $LOCAL/rbr-controller.zip (version $(cat "$LOCAL/version"))"
 }

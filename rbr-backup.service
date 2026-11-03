@@ -1,0 +1,14 @@
+[Unit]
+Description=RBR monthly backup (controller state + Zigbee2MQTT data)
+
+[Service]
+Type=oneshot
+# Runs as the controller user so the archive and backup-status.json keep the
+# same owner as map.json. Reads the plan, the credentials and
+# /opt/zigbee2mqtt/data; email settings come from `credentials`.
+# Adjust ExecStart to your RBR directory (the one containing controller.allspeak).
+ExecStart=/usr/bin/python3 /home/graham/rbr/rbr-backup.py
+SyslogIdentifier=rbr-backup
+# A busy Zigbee database is snapshotted through SQLite; allow time for a large
+# data directory and an SMTP upload.
+TimeoutStartSec=300

@@ -127,6 +127,12 @@
     variable CalendarResolved
     variable TempNow
     variable TempWas
+    variable TempDecision
+    variable PeriodGrace
+    variable GraceTemp
+    variable GraceStart
+    variable GraceElapsed
+    variable StaleGrace
     variable Target
     variable TargetWas
     variable PeriodWas
@@ -174,6 +180,16 @@
     variable MailLogin
     variable MailPassword
     variable MailFrom
+    dictionary BackupConfig
+    variable BackupConfigText
+    dictionary BackupInfo
+    dictionary BackupInfoCopy
+    variable BackupInfoText
+    dictionary BackupStatus
+    variable BackupStatusText
+    variable BackupAddress
+    variable BackupEnabled
+    variable LastBackupInfoText
     variable Action
     variable Mode
     variable Value
@@ -306,8 +322,8 @@
     variable TrvWasRunning
     variable TrvSeen
     variable TrvAge
-!! @hash 6610b2a6
-!! @verified 6610b2a6
+!! @hash ad8714a4
+!! @verified 85d32787
 !!!
 !! Basic initialisation.
 !! The system can run either with real hardware or wth a simulator. The latter is chosen if a file 'sim' exists.
@@ -332,6 +348,10 @@
     ! this on its first run. Empty is the right starting value — no map text can
     ! equal it, so the first tick always writes.
     set LastMapDiskText to empty
+    ! The same rule for the backup status text: it is compared on the first
+    ! LoadBackupState, which now runs during Start, before any earlier call
+    ! has had a chance to assign it.
+    set LastBackupInfoText to empty
     clear MapHasChanged
     clear ThermometerUpdate
     clear HeatingRequested
@@ -358,7 +378,7 @@
     begin
         if arg 0 is `--no-dashboard` clear DashboardEnabled
     end
-!! @hash 4c0b0e93
+!! @hash 24932080
 !! @verified 4c0b0e93
 !!!
 !! Load credentials and set up MQTT. Credentials come from the server unless a local 'credentials' file exists.
@@ -445,6 +465,7 @@ NoCredentials:
 !! Check if a new version is available, then process the room list.
 Start:
     gosub to LoadMap
+    gosub to LoadBackupState
     ! Volatile data lives in RAM. The readings as they arrive, the heat-log
     ! change state and the terminal dashboard's JSON are all regenerated within
     ! minutes, and writing them to the card or the disk is the great majority of
@@ -509,7 +530,7 @@ Start:
 
 !   Walk the list of rooms and process the needs of each one
     gosub to ProcessAllRooms
-!! @hash a0f42257
+!! @hash b723bb68
 !! @verified 2e5e5cad
 !!!
 !! This is the head of each loop.
@@ -809,6 +830,9 @@ HandleMessages:
             save prettify HeatlogLast to HeatlogStatePath
             clear HeatlogDirty
         end
+        ! Pick up a backup that ran, or a setting changed elsewhere, so the
+        ! Backups sheet is not showing the previous month's result.
+        gosub to LoadBackupState
     end
 
     ! If no messages have beeen received for 60 seconds, remove the sender from the list
@@ -828,7 +852,7 @@ HandleMessages:
         increment S
     end
     go to MainLoop
-!! @hash 36ffbbab
+!! @hash 7eb4048a
 !! @verified 86f1875f
 !!!
 !! Load the system map from disk, or build a fresh default map if the file is absent.
@@ -860,6 +884,87 @@ LoadMap:
     return
 !! @hash ad046dc3
 !! @verified e3869999
+!!!
+!! Publish the backup setting and last-run status into the map for the Backups sheet.
+!!
+!! Settings live in backup-config.json and the outcome of each run in backup-status.json, both written by rbr-backup.py (or by SaveBackupSettings here). Reading them every minute means the sheet shows a fresh result after a monthly run or a "send now" without the controller having to be told. The status is display data, not plan: PrepareMapForDisk strips it, so it never reaches map.json.
+!!
+!! A change is only broadcast when the combined text changes, so a steady state does not make the map dirty once a minute. The copy through prettify/json keeps Map.backup independent of the working record, because assignment aliases in this runtime.
+LoadBackupState:
+    put `{}` into BackupInfo
+    set entry `enabled` of BackupInfo to `off`
+    put empty into BackupAddress
+    if file `backup-config.json` exists
+    begin
+        load BackupConfigText from `backup-config.json`
+        put json BackupConfigText into BackupConfig
+        if BackupConfig has entry `enabled`
+        begin
+            put entry `enabled` of BackupConfig into BackupEnabled
+            if BackupEnabled is `on` set entry `enabled` of BackupInfo to `on`
+            if BackupEnabled is `true` set entry `enabled` of BackupInfo to `on`
+            if BackupEnabled is `yes` set entry `enabled` of BackupInfo to `on`
+        end
+        if BackupConfig has entry `address` put entry `address` of BackupConfig into BackupAddress
+    end
+    if BackupAddress is not empty set entry `address` of BackupInfo to BackupAddress
+    if file `backup-status.json` exists
+    begin
+        load BackupStatusText from `backup-status.json`
+        put json BackupStatusText into BackupStatus
+        if BackupStatus has entry `last` set entry `last` of BackupInfo to entry `last` of BackupStatus
+        if BackupStatus has entry `last_display` set entry `last_display` of BackupInfo to entry `last_display` of BackupStatus
+        if BackupStatus has entry `archive` set entry `archive` of BackupInfo to entry `archive` of BackupStatus
+        if BackupStatus has entry `bytes` set entry `bytes` of BackupInfo to entry `bytes` of BackupStatus
+        if BackupStatus has entry `emailed` set entry `emailed` of BackupInfo to entry `emailed` of BackupStatus
+        if BackupStatus has entry `email_to` set entry `email_to` of BackupInfo to entry `email_to` of BackupStatus
+        if BackupStatus has entry `ok` set entry `ok` of BackupInfo to entry `ok` of BackupStatus
+        if BackupStatus has entry `error` set entry `error` of BackupInfo to entry `error` of BackupStatus
+    end
+    put prettify BackupInfo into BackupInfoText
+    ! Seeded empty at startup; the guard keeps a later reset (or a routine
+    ! test) from comparing against an unset variable.
+    if LastBackupInfoText is not empty
+    begin
+        if BackupInfoText is LastBackupInfoText return
+    end
+    put json BackupInfoText into BackupInfoCopy
+    set entry `backup` of Map to BackupInfoCopy
+    put BackupInfoText into LastBackupInfoText
+    set MapHasChanged
+    return
+!! @hash 33f58893
+!!!
+!! Record the Backups sheet's on/off choice and registered address for rbr-backup.py.
+!!
+!! The address is whatever credentials.php returned to the UI for this system. Keeping a copy here means the monthly timer can address the mail even when no browser is open, and means a paired browser is not required for the toggle to work. The file is small and its loss is not fatal: rbr-backup.py falls back to the cloud lookup (via .mqtt_token) and then to the local credentials file.
+SaveBackupSettings:
+    put `off` into BackupEnabled
+    if Message has entry `enabled`
+    begin
+        put entry `enabled` of Message into Value
+        if Value is `on` set BackupEnabled to `on`
+        if Value is `true` set BackupEnabled to `on`
+        if Value is `yes` set BackupEnabled to `on`
+    end
+    put `{}` into BackupConfig
+    if file `backup-config.json` exists
+    begin
+        load BackupConfigText from `backup-config.json`
+        put json BackupConfigText into BackupConfig
+    end
+    set entry `enabled` of BackupConfig to BackupEnabled
+    if Message has entry `address`
+    begin
+        put entry `address` of Message into BackupAddress
+        if BackupAddress is not empty set entry `address` of BackupConfig to BackupAddress
+    end
+    put prettify BackupConfig into BackupConfigText
+    save BackupConfigText to `backup-config.json`
+    log `Backup email ` cat BackupEnabled
+    gosub to LoadBackupState
+    return
+!! @hash 9bae4778
 !!!
 !! Rooms live above profiles. Identity — name, relays, sensor, linked, relayfails, protect, ptemp — is a property of the installation and lives once in Map.rooms. Schedule state — mode, target, periods, events, advance and the rest — lives in profiles[].rooms keyed by room name, because it is meaningless outside a plan. These three routines are the only places that cross that boundary; every other routine keeps working on one flat Room per iteration, exactly as it did when a profile simply owned a room list.
 !!
@@ -1405,6 +1510,52 @@ ProcessAllRooms:
 !! @hash 9b57c018
 !! @verified 09455c73
 !!!
+!! Allow a scheduled period's first 30 minutes to use the last reported temperature.
+!!
+!! A period often starts while its thermometer is between reports — many report only on a ~60-minute heartbeat — and the 45-minute staleness gate would then hold the room's heat off until a fresh reading arrives. On a cold morning that is the whole of the period the schedule asked for. This routine grants the room's first 30 minutes the last known temperature (`Room.temperature`, which ProcessRoom preserves when the gate empties TempNow), so the heat starts on the best evidence available and the resulting temperature change usually prompts the next report.
+!!
+!! The grant is deliberately narrow: Timed mode only, a scheduled period that is genuinely running, a start within the last 30 minutes, and a last known reading. It covers the period's own start, not one brought forward by Advance, and it is not a change to the 45-minute rule — the reading is still reported as stale, the status still turns `warn`/`fail`, and after 30 minutes the ordinary gate applies and the heat goes off. The window is measured from the period's `on`, so a controller restart during it inherits the remaining minutes rather than starting a fresh 30.
+!!
+!! Sets PeriodGrace and GraceTemp (hundredths); SetRelay and ProcessTrv do the rest.
+PeriodHeatGrace:
+    clear PeriodGrace
+    put empty into GraceTemp
+    if Mode is not `timed` return
+    if Room has no entry `temperature` return
+    if EventCount is 0 return
+    if NaturalPeriodActive is less than 0 return
+    if NaturalPeriodActive is not less than the count of PeriodList return
+    put item NaturalPeriodActive of PeriodList into Period
+    put entry `on` of Period into Time
+    gosub to ConvertTimeToInt
+    put Time into GraceStart
+    ! A zero-length period (`on` = `off`) runs all day; its "start" is not a
+    ! moment a schedule asked for heat, so it gets no grace.
+    put entry `off` of Period into Time
+    gosub to ConvertTimeToInt
+    if Time is GraceStart return
+    ! A period that wraps midnight began yesterday when `now` is after
+    ! midnight. ConvertTimeToInt builds today's occurrence, so step back a
+    ! day. A daylight-saving step inside that day is accepted: this bounds a
+    ! 30-minute window, not a schedule time.
+    if GraceStart is greater than now take 86400000 from GraceStart
+    put now into GraceElapsed
+    take GraceStart from GraceElapsed
+    if GraceElapsed is less than 0 return
+    if GraceElapsed is not less than 1800000 return
+    put entry `temperature` of Room into GraceTemp
+    if GraceTemp is empty return
+    if GraceTemp is not numeric
+    begin
+        put GraceTemp into Temp
+        gosub to ConvertTempToInt
+        put Temp into GraceTemp
+    end
+    set PeriodGrace
+    return
+!! @hash a3e52277
+!! @verified a3e52277
+!!!
 !! Run one control cycle for a single room: read its current temperature, apply the active mode to derive a target, send a relay command to the device controller, and store the outcome on the Room dictionary for the UI.
 !!
 !! Mode handling:
@@ -1419,6 +1570,8 @@ ProcessAllRooms:
 !! A boost engaged mid-period latches `boostperiod` so it doesn't self-cancel on its own first cycle.
 !!
 !! Sensor staleness: if the configured thermometer hasn't reported within 45 minutes the current reading is treated as missing, the relay is forced off (which in most cases will soon trigger a temperature change to be posted), and the last known temperature is preserved on the Room so the UI can show it greyed out rather than blank. Boost mode bypasses this gate (the `until` timestamp is the safety bound). A flip in freshness also marks the map changed, so connected UIs learn that the status moved without waiting for the temperature itself to differ.
+!!
+!! The one exception is a scheduled period's first 30 minutes, when the last known reading may decide the heat (see PeriodHeatGrace). The gate still empties TempNow and the UI still shows the reading as stale; only the heating decision uses the preserved value, and only until the window closes.
 !!
 !! Falls through to ProcessReply, which folds the device's reply back into the Room.
 ProcessRoom:
@@ -1585,6 +1738,10 @@ ProcessRoom:
         set RelayState to `off`
     end
 BoostDone:
+    ! A scheduled period's first 30 minutes may decide on the last known
+    ! reading even when the 45-minute gate has emptied TempNow. SetRelay (and
+    ! ProcessTrv) turn PeriodGrace/GraceTemp into TempDecision.
+    gosub to PeriodHeatGrace
     if TempNow is empty set RelayState to `off`
 
     ! Compute the desired relay state now so the device command
@@ -1614,8 +1771,8 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash 1c2dc34c
-!! @verified e0219ef1
+!! @hash 9c87d092
+!! @verified 9c87d092
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
 !!
@@ -1796,6 +1953,11 @@ ProcessTrvState:
 !! `external` in °C. The reading is sent when it changes, at most every five
 !! minutes, and travels with any setpoint/mode command. A room whose `sensor`
 !! is the valve itself is told `local`, so the valve keeps its internal sensor.
+!!
+!! A scheduled period's first 30 minutes may decide `heat` on the last known
+!! reading (see PeriodHeatGrace). In that case no `external` reading is sent —
+!! it is stale — so the valve keeps its own sensor and modulates locally while
+!! the controller's 30-minute bound still governs whether it is heating at all.
 ProcessTrv:
     gosub to ProcessTrvState
     gosub to SyncTrvLocalSetpoint
@@ -1816,9 +1978,9 @@ ProcessTrv:
     if TrvSetpoint is empty put 20 into TrvSetpoint
 
     if Mode is `off` put `off` into TrvMode
-    else if PriorStatus is `warn` put `off` into TrvMode
-    else if PriorStatus is `fail` put `off` into TrvMode
-    else if TempNow is empty put `off` into TrvMode
+    else if PriorStatus is `warn` and not StaleGrace put `off` into TrvMode
+    else if PriorStatus is `fail` and not StaleGrace put `off` into TrvMode
+    else if TempDecision is empty put `off` into TrvMode
     else put `heat` into TrvMode
 
     ! Choose the valve's temperature source. A separate thermometer is the
@@ -1944,7 +2106,7 @@ ProcessTrv:
         set entry `trvextat` of Room to now
     end
     return
-!! @hash b8a80b78
+!! @hash 0af3062e
 !!!
 !! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
 !!
@@ -1982,6 +2144,8 @@ ProcessRequestRelay:
 !!
 !! Safety overrides come first: a prior `warn`/`fail` status (from staleness or repeated relay failures) forces relay off regardless of mode, so a dead sensor cannot leave heat permanently on. Boost mode is the one exception — it's a user-initiated, time-bounded override (the `until` timestamp is the safety bound) and runs even when no temperature data is available at all.
 !!
+!! The other exception is the period-start grace: in a scheduled period's first 30 minutes a stale reading with a last known value decides the heat on that value (see PeriodHeatGrace and StaleGrace below). The room's status still reports the sensor stale to the UI; this routine only declines to let that status veto a bounded, deliberate start.
+!!
 !! Unlinked relays (`linked: no`) are driven directly by mode rather than by target/temperature. For a linked room in `on` or `timed` mode, the relay turns on if the current temperature is below the target. SetRelay also signals the boiler request via HeatingRequested.
 !!
 !! A room with no actuator — no relays and no TRV — never calls for heat, however far below target it is. Its demand would fire the demand relay with nothing in the room to release the heat, and it made the page claim "heating" for rooms that were never wired. Such a room stays off and does not set HeatingRequested; the page marks it "No radiator assigned".
@@ -1991,6 +2155,18 @@ SetRelay:
     put RelayState into RelayStateWas
     put empty into PriorStatus
     if Room has entry `status` put entry `status` of Room into PriorStatus
+    ! TempDecision is the reading the heat decision is made on: the current
+    ! one when fresh, otherwise the last known value during a period-start
+    ! grace. TempNow stays empty in that case, so the UI keeps showing the
+    ! reading as stale. ProcessReply calls SetRelay again after folding a
+    ! reply in, so this is recomputed there too.
+    put TempNow into TempDecision
+    clear StaleGrace
+    if TempDecision is empty and PeriodGrace and GraceTemp is not empty
+    begin
+        put GraceTemp into TempDecision
+        set StaleGrace
+    end
     clear HasActuator
     if Room has entry `trv` set HasActuator
     else if Room has entry `relays`
@@ -2027,8 +2203,8 @@ SetRelay:
             else set RelayState to `off`
         end
     end
-    else if PriorStatus is `warn` set RelayState to `off`
-    else if PriorStatus is `fail` set RelayState to `off`
+    else if PriorStatus is `warn` and not StaleGrace set RelayState to `off`
+    else if PriorStatus is `fail` and not StaleGrace set RelayState to `off`
     else if entry `linked` of Room is `no`
     begin
         ! Unlinked relays are driven directly by mode, not by target/temperature.
@@ -2037,11 +2213,11 @@ SetRelay:
     end
     else
     begin
-!        log RoomName cat ` ` cat TempNow cat `/` cat Target
+!        log RoomName cat ` ` cat TempDecision cat `/` cat Target
         set RelayState to `off`
-        if TempNow is not empty
+        if TempDecision is not empty
         begin
-            if TempNow is less than Target set RelayState to `on`
+            if TempDecision is less than Target set RelayState to `on`
         end
     end
     set entry `relay` of Room to RelayState
@@ -2052,8 +2228,8 @@ SetRelay:
     if TempNow is not empty set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodActive
-!! @hash 35944179
-!! @verified 35944179
+!! @hash f93d7b23
+!! @verified f93d7b23
 !!!
 !! Compute the room's health status (`good` / `warn` / `fail` / `partial`) and a human-readable status message for the UI.
 !!
@@ -2256,6 +2432,8 @@ PrepareMapForDisk:
     gosub to CommitRooms
     put prettify Map into MapDiskText
     put json MapDiskText into MapDisk
+    ! Backup status is display state for the UI, not part of the plan.
+    if MapDisk has entry `backup` delete entry `backup` of MapDisk
     put entry `profiles` of MapDisk into DiskProfiles
     set DPIdx to 0
     while DPIdx is less than the count of DiskProfiles
@@ -2320,7 +2498,7 @@ PrepareMapForDisk:
     set entry `rooms` of MapDisk to DiskIdentity
     put prettify MapDisk into MapDiskText
     return
-!! @hash 6a2faafc
+!! @hash 1d3fe588
 !! @verified 6a2faafc
 !!!
 !! Trigger an immediate UI update by setting both ImmediateUpdate (which short-circuits MainLoop's 5-second wait) and MapHasChanged (which makes SendMapToUI actually push). 
@@ -3085,6 +3263,8 @@ ProcessUIRequest:
     else if Value is `operating mode` put `Operating Mode` into Action
     else if Value is `room override` put `Room Override` into Action
     else if Value is `special action` put `Room Override` into Action
+    else if Value is `backup` put `Backup` into Action
+    else if Value is `backup now` put `Backup Now` into Action
 
     if Action is `Test`
     begin
@@ -3373,8 +3553,21 @@ ProcessUIRequest:
         else gosub to SetRoomOverride
         gosub to ForceUpdate
     end
+    else if Action is `Backup`
+    begin
+        gosub to SaveBackupSettings
+        gosub to ForceUpdate
+    end
+    else if Action is `Backup Now`
+    begin
+        ! The archive can take a few seconds with a busy Zigbee database;
+        ! run it detached so the controller keeps its ten-second cycle, and
+        ! let backup-status.json carry the result back to the sheet.
+        log `Backup: requested from the UI`
+        system background `python3 rbr-backup.py --email-now`
+    end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 550db757
+!! @hash 8e5fd0e6
 !! @verified 550db757
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).

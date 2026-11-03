@@ -8,7 +8,9 @@ Here are the steps to be taken to set up a new RBR system.
 >
 > **Updates:** automatic code updates are handled by the standalone updater (`rbr-updater.py` + hourly systemd timer, installed by `rbr-setup.sh`) pulling a versioned tarball from rbrheating.com — see [UPDATE-MECHANISM.md](UPDATE-MECHANISM.md).
 >
-> **Data safety:** `rbr-mapbackup.py` (2-minute timer, also installed by `rbr-setup.sh`) keeps the last 10 valid `map.json` revisions in `map-history/` and restores the newest good one if the live file is ever left unreadable — a power cut mid-save can truncate it, because AllSpeak's `save` is not atomic.
+> **Re-running setup:** `rbr-setup.sh` is safe to run again for a repair. It leaves an existing `credentials` untouched — including the mail settings — and uses an existing `.mac_override` as the default MAC. If the MQTT username or password changes, edit `credentials` by hand (or delete it and re-run) so the controller can reach the local broker.
+>
+> **Data safety:** `rbr-mapbackup.py` (2-minute timer, also installed by `rbr-setup.sh`) keeps the last 10 valid `map.json` revisions in `map-history/` and restores the newest good one if the live file is ever left unreadable — a power cut mid-save can truncate it, because AllSpeak's `save` is not atomic. Separately, `rbr-backup.timer` writes a complete archive on the first of every month into `backup/` (plan, credentials and the Zigbee2MQTT data, including the network key); **Menu → Backups** can email a copy to the registered address. After a fresh install, `sudo python3 rbr-restore.py <archive>` puts it back; see [CONTROLLER-FILES.md](CONTROLLER-FILES.md#backups).
 
 1. **Check the machine before you start.** Copy `rbr-preflight.py` across and run it — it changes nothing and takes ten seconds:
 ```
@@ -27,7 +29,7 @@ sh get-controller.sh        # fetches and unpacks rbr-controller.zip over this d
 ```
 pip install allspeak-ai         # add --break-system-packages if pip refuses
 ```
-6. Run the setup script as root. It prompts for the MQTT password and MAC address, then installs and configures everything: mosquitto (local broker + cloud bridge), Zigbee2MQTT (dongle auto-detected; web frontend on port 8080), the zigbee bridge service, the automatic updater and the component watchdog (both hourly), the map history keeper (every 2 minutes), and optionally the local UI and a controller service.
+6. Run the setup script as root. It prompts for the MQTT password and MAC address, then installs and configures everything: mosquitto (local broker + cloud bridge), Zigbee2MQTT (dongle auto-detected; web frontend on port 8080), the zigbee bridge service, the automatic updater (hourly) and the component watchdog (every 15 minutes, including the heating check), the map history keeper (every 2 minutes), the monthly backup (with an optional email copy set under **Menu → Backups**), the controller service (installed by default; answer `n` to skip it), and optionally the local UI.
 ```
 sudo ./rbr-setup.sh
 ```
@@ -86,7 +88,7 @@ sudo systemctl status zigbee2mqtt     # should show active (running)
     - `sudo journalctl -u controller.service -f` — the controller's own log.
     - `curl -s http://127.0.0.1:8889/health` — bridge health, including `setFailures`. Localhost only, by design: that port can also switch relays.
 
-    > **"No recent change" is normal.** Many thermometers report on a ~60-minute heartbeat, or sooner if the temperature moves. A reading older than 45 minutes counts as missing, so the controller holds that room's relay off until a fresh one arrives and the UI shows the last known value with a soft warning. That is deliberate — a room cools gently rather than heating without feedback — and it clears itself.
+    > **"No recent change" is normal.** Many thermometers report on a ~60-minute heartbeat, or sooner if the temperature moves. A reading older than 45 minutes counts as missing, so the controller holds that room's relay off until a fresh one arrives and the UI shows the last known value with a soft warning. The exception is the first 30 minutes of a scheduled period, which start the heat from the last known value — a period lost to a reporting gap is worse than heating briefly on an old reading — and if the thermometer still has not reported when those 30 minutes are up, the heat goes off. Either way that is deliberate — a room cools gently rather than heating without feedback — and it clears itself.
 
     > **For unattended operation, check the firmware.** Set the BIOS/UEFI "Restore AC Power Loss" (also "AC Back" / "After Power Failure") to **Power On**, and disable **ErP/EuP Ready**, which can block automatic power-on. Nothing in the OS can read or set this, so test it by cutting mains, restoring it and watching the machine come up by itself. The OS half is already handled: every service is enabled, so the whole stack returns without a login. After any outage, confirm `map.json` survived — `allspeak diagnose.allspeak` says whether it is present and lists the rooms; the map keeper repairs a truncated one within a couple of minutes of boot.
 

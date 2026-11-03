@@ -41,6 +41,10 @@ variable HasActuator
 list ActuatorRelays
 variable Mode
 variable TempNow
+variable TempDecision
+variable PeriodGrace
+variable GraceTemp
+variable StaleGrace
 variable Target
 variable PriorStatus
 variable BoostTemp
@@ -194,6 +198,94 @@ log `PROBE trv-above-on=` cat RelayState
 if HeatingRequested put `yes` into S else put `no` into S
 log `PROBE trv-above-request=` cat S
 
+! 11. Period-start grace: a stale reading with a last known value heats in
+!     the first 30 minutes of a period, even though status already says warn.
+gosub to ResetRoomForProbe
+reset R
+append `r1` to R
+set entry `relays` of Room to R
+set entry `status` of Room to `warn`
+set entry `temperature` of Room to 1950
+put `timed` into Mode
+put empty into TempNow
+put 2000 into Target
+put `off` into RelayState
+set PeriodGrace
+put 1950 into GraceTemp
+clear HeatingRequested
+gosub to SetRelay
+log `PROBE grace-on=` cat RelayState
+if HeatingRequested put `yes` into S else put `no` into S
+log `PROBE grace-request=` cat S
+
+! 12. The grace also outlives a fail status, which a long silence produces.
+gosub to ResetRoomForProbe
+reset R
+append `r1` to R
+set entry `relays` of Room to R
+set entry `status` of Room to `fail`
+set entry `temperature` of Room to 1950
+put `timed` into Mode
+put empty into TempNow
+put 2000 into Target
+put `off` into RelayState
+set PeriodGrace
+put 1950 into GraceTemp
+clear HeatingRequested
+gosub to SetRelay
+log `PROBE grace-fail-on=` cat RelayState
+
+! 13. The grace does not invent a reading: no last known value, no heat.
+gosub to ResetRoomForProbe
+reset R
+append `r1` to R
+set entry `relays` of Room to R
+set entry `status` of Room to `warn`
+put `timed` into Mode
+put empty into TempNow
+put 2000 into Target
+put `off` into RelayState
+set PeriodGrace
+put empty into GraceTemp
+clear HeatingRequested
+gosub to SetRelay
+log `PROBE grace-noreading-on=` cat RelayState
+
+! 14. Once the 30-minute window closes, the ordinary staleness rule returns.
+gosub to ResetRoomForProbe
+reset R
+append `r1` to R
+set entry `relays` of Room to R
+set entry `status` of Room to `warn`
+set entry `temperature` of Room to 1950
+put `timed` into Mode
+put empty into TempNow
+put 2000 into Target
+put `off` into RelayState
+clear PeriodGrace
+put empty into GraceTemp
+clear HeatingRequested
+gosub to SetRelay
+log `PROBE grace-expired-on=` cat RelayState
+
+! 15. The grace decides on the last known value like any other reading, so a
+!     room that was already above target stays off.
+gosub to ResetRoomForProbe
+reset R
+append `r1` to R
+set entry `relays` of Room to R
+set entry `status` of Room to `warn`
+set entry `temperature` of Room to 2050
+put `timed` into Mode
+put empty into TempNow
+put 2000 into Target
+put `on` into RelayState
+set PeriodGrace
+put 2050 into GraceTemp
+clear HeatingRequested
+gosub to SetRelay
+log `PROBE grace-above-on=` cat RelayState
+
 stop
 
 ResetRoomForProbe:
@@ -204,6 +296,11 @@ ResetRoomForProbe:
     put empty into PriorStatus
     put empty into BoostTemp
     put empty into S
+    put empty into TempNow
+    put empty into TempDecision
+    clear PeriodGrace
+    put empty into GraceTemp
+    clear StaleGrace
     return
 """
 
@@ -316,6 +413,24 @@ class SetRelayDecision(unittest.TestCase):
     def test_a_trv_room_above_target_is_off(self):
         self.assertEqual(self.v["trv-above-on"], "off")
         self.assertEqual(self.v["trv-above-request"], "no")
+
+    def test_period_start_grace_heats_on_the_last_known_reading(self):
+        self.assertEqual(self.v["grace-on"], "on")
+        self.assertEqual(self.v["grace-request"], "yes")
+
+    def test_the_grace_outlives_the_status_it_would_otherwise_trigger(self):
+        # A sensor silent for over an hour is `fail`; the 30-minute window is
+        # the bound, not the status, or the grace could never run at all.
+        self.assertEqual(self.v["grace-fail-on"], "on")
+
+    def test_the_grace_without_a_last_reading_does_not_heat(self):
+        self.assertEqual(self.v["grace-noreading-on"], "off")
+
+    def test_an_expired_grace_restores_the_staleness_rule(self):
+        self.assertEqual(self.v["grace-expired-on"], "off")
+
+    def test_the_grace_still_respects_the_last_reading_against_target(self):
+        self.assertEqual(self.v["grace-above-on"], "off")
 
 
 if __name__ == "__main__":

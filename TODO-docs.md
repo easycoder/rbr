@@ -2,7 +2,7 @@
 
 A working note, not product documentation. **Where each document stands is in [docs/README.md](docs/README.md)**: its document map carries a status for every page, its role paths give the reading order, and its Status section names what is written. This file holds what that map cannot — the order of work, the two items waiting on the world rather than on us, and the conventions the work has settled on.
 
-> **Audience:** maintainer · **Status:** working note · **Last verified:** 2026-10-16
+> **Audience:** maintainer · **Status:** working note · **Last verified:** 2026-10-25
 
 ## State
 
@@ -18,7 +18,7 @@ A one-line change to `docs/README.md` on 27 September was the tree's last touch.
 
 **2. Installation — four documents left, sources ready.** `01-installing-the-controller` is the re-cut of `doc/setupRBR.md` (11 KB, unchanged since 27 September); `02-pairing-devices`, `03-commissioning`, `04-verification` and `05-unattended-operation` are re-cuts too. This is the layer a customer actually walks, and [06](docs/installation/06-what-the-setup-script-does.md) is already written — it is the script's own reference and sits beside `01`, which is the sequence. If it reads better as the second half of `01`, or as `02` with the rest renumbered, that is a one-line change to the map and the file name; nothing links to the installation pages except the map and two preparation documents, and those point only at `01`.
 
-**3. Technical — seven documents, harvest only.** Every source the map names still exists and has not moved since 27 September: `AI/ARCHITECTURE.md`, `AI/MAP_FORMAT.md`, `deviceControl.allspeak` + `zigbee-bridge.py`, `doc/UPDATE-MECHANISM.md`, `doc/HEATING-DATA.md`, `doc/CONTROLLER-FILES.md`, `doc/current-measurement.md`. Nothing in this layer has to be invented: read a source, change the voice, cross-link.
+**3. Technical — six documents left, harvest only.** [Architecture](docs/technical/01-architecture.md) is written: the parts, the message flow, the topics and the two brokers, aimed at anyone who wants the outline. The six that remain harvest cleanly — `AI/MAP_FORMAT.md`, `deviceControl.allspeak` + `zigbee-bridge.py`, `doc/UPDATE-MECHANISM.md`, `doc/HEATING-DATA.md`, `doc/CONTROLLER-FILES.md`, `doc/current-measurement.md` — and the sources the map names still exist and have not moved since 27 September. Nothing in this layer has to be invented: read a source, change the voice, cross-link.
 
 **4. Operation — four documents, and the only layer with no source.** `01-the-interface`, `02-modes-schedules-profiles`, `03-managing-many-systems` and `04-troubleshooting` have to be written from the product's behaviour, not harvested. This is also the layer most readers need — residents, property managers, housing providers — so it is worth doing properly rather than last in a rush.
 
@@ -52,4 +52,4 @@ The order is deliberate: sources first, from the outside in, and authoring last.
 ## Checked, and no action needed
 
 - **The Advance change of 11 October did not invalidate anything written.** The glossary's line — "Brings the room's *next* scheduled period forward to now; it cancels itself when that period would have ended anyway" — survives the settled semantics. The settled rule (shift to the schedule's *next change*, joining a back-to-back period rather than dropping to background) still has to be *stated* in `operation/02`, which is unwritten: a note for that work, not a defect.
-- **The map is accurate.** The eighteen documents it lists as missing are exactly the eighteen that do not exist, and no source it names has gone away.
+- **The map is accurate.** The documents it lists as missing are exactly the ones that do not exist, and no source it names has gone away.

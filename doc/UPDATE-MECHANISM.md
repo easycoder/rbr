@@ -43,7 +43,8 @@ controller.allspeak      deviceControl.allspeak   simulator.allspeak
 diagnose.allspeak        zigbee-bridge.py   zigbee-pair.py
 zigbee-mesh.py     rbr-dashboard.py   heatlog.py
 dashboard.txt      rbr-updater.py     rbr-watchdog.sh
-rbr-mapbackup.py   VERSION
+heatwatch.py       rbr-mapbackup.py   rbr-backup.py
+rbr-restore.py     VERSION            rbr-setup.sh
 ```
 
 `VERSION` is a copy of the `version` stamp. On a `--release` run the stamp is bumped **before** the tarball is built, so the published tarball carries the new version. On a plain `./deploy.sh` (iteration) the tarball keeps the last release stamp — controllers that already have it skip it, exactly like the old `.allspeak` behaviour.
@@ -120,6 +121,6 @@ The downloader fetches the zip, unpacks it over the current directory (existing 
 
 ## Files that are still updated manually ##
 
-`server.allspeak` (the AllSpeak dev server) and `rbr-setup.sh` itself are not in the tarball — they are dev tools, not controller runtime. Copy them by hand when they change. **`server.allspeak` is the one to watch**: it is published by AllSpeak and moves with it, and a copy old enough serves nothing at all — the 27 September copy answered `503 Server handler not ready` to every request, silently (see `AGENT.md`). Refresh it from `https://allspeak.ai/code/server.allspeak` whenever you use the editor on a box. The `.code-version` file the old copy kept for its own update check is not needed by the current one, and was removed on 2026-10-16.
+`server.allspeak` (the AllSpeak dev server) is not in the tarball — it is a dev tool, not controller runtime. Copy it by hand when it changes. (`rbr-setup.sh` is in the tarball now: the updater replaces it so an existing controller can re-run the current installer, but it never runs it.) **`server.allspeak` is the one to watch**: it is published by AllSpeak and moves with it, and a copy old enough serves nothing at all — the 27 September copy answered `503 Server handler not ready` to every request, silently (see `AGENT.md`). Refresh it from `https://allspeak.ai/code/server.allspeak` whenever you use the editor on a box. The `.code-version` file the old copy kept for its own update check is not needed by the current one, and was removed on 2026-10-16.
 
 See also [CONTROLLER-FILES.md](CONTROLLER-FILES.md) for the full list of files a controller needs.

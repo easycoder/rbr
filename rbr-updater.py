@@ -105,6 +105,9 @@ TARBALL_FILES = [
     "heatlog.py",
     "dashboard.txt",
     "rbr-updater.py",
+    "rbr-backup.py",
+    "rbr-restore.py",
+    "heatwatch.py",
     "VERSION",
 ]
 
@@ -434,7 +437,7 @@ def ensure_restart_policy():
     controller.allspeak exits cleanly (code 0) when a new release is applied, expecting
     the service to bring it straight back. Units written by an older
     rbr-setup.sh used Restart=on-failure, so that clean exit left the heating
-    controller DOWN until the next hourly watchdog run. A drop-in is used so the
+    controller DOWN until the next watchdog run. A drop-in is used so the
     unit file itself is untouched; when the unit is absent or already
     Restart=always this is a no-op. Runs as root, like the rest of the updater.
     """
@@ -490,7 +493,7 @@ CHECK_FILES = [f for f in TARBALL_FILES if f != "VERSION"]
 CHECK_SERVICES = [
     ("rbr-updater.service", True, "updater service (one-shot)", "oneshot"),
     ("rbr-updater.timer", True, "updater timer (drives hourly runs)"),
-    ("rbr-watchdog.timer", True, "component watchdog timer (hourly health check)"),
+    ("rbr-watchdog.timer", True, "component and heating watchdog timer (every 15 min)"),
     ("mosquitto.service", True, "local MQTT broker"),
     ("zigbee2mqtt.service", True, "Zigbee2MQTT (dongle bridge)"),
     ("rbr-zigbee-bridge.service", True, "RBR HTTP/MQTT bridge (restarted on update)"),

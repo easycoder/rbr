@@ -16,23 +16,30 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `rbr-dashboard.py` | Terminal dashboard renderer (reads `/tmp/rbr-dashboard.json` written by the controller) | manual |
 | `dashboard.txt` | Dashboard column headers — read by `rbr-dashboard.py` | manual |
 | `rbr-updater.py` | Applies code updates pulled from `rbrheating.com/heat/` (installed as an hourly timer) | auto (rbr-updater.py) |
-| `rbr-watchdog.sh` | Hourly health check — restarts any core service that is down | auto (rbr-updater.py) |
+| `rbr-watchdog.sh` | 15-minute health check — restarts any core service that is down or unresponsive, and runs the heating check | auto (rbr-updater.py) |
+| `heatwatch.py` | Heating check — restarts all four core services when a scheduled room has not warmed for an hour; called by `rbr-watchdog.sh` | auto (rbr-updater.py) |
 | `rbr-mapbackup.py` | Keeps the last 10 valid `map.json` revisions and repairs a truncated map (2-minute timer) | auto (rbr-updater.py) |
-| `credentials` | MQTT broker credentials — created by `rbr-setup.sh` | generated |
+| `rbr-backup.py` | Writes the monthly archive of the plan, credentials and Zigbee2MQTT data, and emails it when the Backups sheet has it enabled (monthly timer) | auto (rbr-updater.py) |
+| `rbr-restore.py` | Restores one of those archives onto a fresh install — run by hand after setup | auto (rbr-updater.py) |
+| `credentials` | MQTT and mail credentials — created by `rbr-setup.sh` on first install and never overwritten by a re-run | generated |
 | `.mqtt_password` | Stored MQTT password — created by `rbr-setup.sh` | generated |
 | `.mac_override` | Controller MAC (MQTT topic identity) — created by `rbr-setup.sh` | generated |
 | `.version` | Local version stamp, compared against the `VERSION` inside `rbrheating.com/heat/rbr-controller.tar.gz` | auto (rbr-updater.py) |
 | `map.json` | Room/schedule data — read AND written by the controller, and written only when the plan changes (the readings are stripped from the copy that reaches the disk) | live data |
 | `map-last-good.json` | Newest valid `map.json`, written by `rbr-mapbackup.py` — restored over a damaged map | live data |
 | `map-history/` | Rolling copies of the last 10 valid maps, written by `rbr-mapbackup.py` | live data |
+| `backup/` | Monthly archives written by `rbr-backup.py`; the newest 12 are kept | live data |
+| `backup-config.json` | The Backups sheet's email toggle and the registered address; written by the controller | live data |
+| `backup-status.json` | The last backup's result, for the Backups sheet; written by `rbr-backup.py` | live data |
 | `volatile-root` | One line: the directory holding the regenerable files below. `rbr-setup.sh` writes `/run/rbr`, which is a tmpfs and is emptied on every reboot. With no such file the paths stay plain names in this directory (what a test machine gets) | generated |
 | `thermometers.json` | Temperature readings — created on first run. In the volatile directory | volatile |
 | `zigbee-temperatures.json` | Zigbee readings written by the bridge, merged by the controller. In the volatile directory | volatile |
 | `zigbee-trv.json` | TRV setpoint/mode, reported local and external temperatures, and the selected temperature source, written by the bridge for the controller's dial-change sync. In the volatile directory | volatile |
 | `heatlog-state.json` | Per-room last-logged target/actual/mode, so a restart does not re-log the current state. In the volatile directory | volatile |
-| `rbr-setup.sh` | The installer itself — keep it so setup can be re-run | manual |
+| `heat-watch-state.json` | Per-room demand baseline and the restart cooldown for the heating check. In the volatile directory | volatile |
+| `rbr-setup.sh` | The installer itself — shipped in the tarball so an existing controller can re-run the current one; the updater replaces it but never runs it | auto (rbr-updater.py) |
 
-Everything marked **volatile** is regenerated within minutes and is deliberately lost on a reboot (`rbr-dashboard.json`, the terminal dashboard's state, is the fourth member of that set and is written only when the dashboard is on). Nothing needs backing up from there.
+Everything marked **volatile** is regenerated within minutes and is deliberately lost on a reboot (`rbr-dashboard.json`, the terminal dashboard's state, is another member of that set and is written only when the dashboard is on; `heat-watch-state.json` is the heating check's baseline and cooldown, so a reboot starts its next window clean). Nothing needs backing up from there.
 
 ## Optional — only if you need these features ##
 
@@ -53,6 +60,22 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 | `.venv/` | Services use the system `python3`; not required |
 | `deploy.sh`, `index.html`, `new-ui/`, `.htaccess`, `auth.php`, `credentials.php` | Cloud server (pushed by `deploy.sh`) |
 | `tests/`, `doc/`, `docs/`, `desktop/`, `design/`, `AI/`, `conversation/`, `node_modules/` | Dev machine |
+
+## Backups ##
+
+`rbr-backup.py` runs from `rbr-backup.service` + `rbr-backup.timer` on the first of every month at 03:00, with `Persistent=true` so a machine that was off catches up on its next boot. It writes one ZIP into `backup/`, prunes to the newest 12, and records the outcome in `backup-status.json`. The archive holds the controller's own state (`map.json`, its history, `credentials`, `zigbee-config.json`, `.mac_override`, `.mqtt_*`, the root markers and `backup-config.json`) and all of Zigbee2MQTT's data directory — `configuration.yaml` with the network key, a consistent snapshot of `database.db`, `coordinator_backup.json` and external converters. Code is not included: a fresh install gets that from rbrheating.com.
+
+The archive therefore contains the secrets that let a rebuilt controller rejoin the mesh. Archives are written mode 0600 and should be treated as sensitive.
+
+Email is opt-in from the app's **Menu → Backups** sheet. The sheet writes `backup-config.json` with `enabled` and the registered address, so the timer can send its copy with no browser open. The recipient falls back to the address the cloud holds for this controller (via `.mqtt_token`) and then to `mail_to` in `credentials`. Mail itself uses the `mail_*` settings in `credentials`; a placeholder SMTP server leaves the local archive intact and reports the failure in `backup-status.json`, which the sheet shows.
+
+To restore after a fresh install:
+
+```sh
+sudo python3 rbr-restore.py rbr-backup-YYYYMMDD-HHMMSS.zip
+```
+
+It verifies the manifest and every checksum, refuses paths that would escape the destination, snapshots what is already there under `pre-restore-<timestamp>/`, restores ownership and permissions, and restarts the services. `--dry-run` lists the files without changing anything.
 
 ## How updates work today ##
 

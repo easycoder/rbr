@@ -1,0 +1,14 @@
+[Unit]
+Description=Run the RBR backup on the first of every month
+
+[Timer]
+# 03:00 on the 1st, local time. Persistent=true catches up after the machine
+# has been off at that moment — the backup is missed only if the controller is
+# down for the whole of the following boot before the timer is reached.
+OnCalendar=*-*-01 03:00:00
+Persistent=true
+RandomizedDelaySec=1800
+AccuracySec=1h
+
+[Install]
+WantedBy=timers.target

@@ -53,6 +53,13 @@
 	button MenuRowSystem
 	button MenuRowDevices
 	button MenuRowOutside
+	button MenuRowBackups
+	div BackupSheetEl
+	div BackupEmailEl
+	div BackupLastEl
+	div BackupNoticeEl
+	button BackupToggleBtn
+	button BackupSendBtn
 !	Owned by the profile-sheet module — declared here so HideAllSheets can
 !	hide it. The module attaches it independently for its own toggling.
 	div ProfileSheetEl
@@ -389,6 +396,21 @@
 	variable EditingSystemType
 	variable SystemType
 
+!	Backups sheet state. BackupInfo is the controller's Map.backup (the
+!	email toggle, the registered address and the last run's result).
+!	BackupTo is the address shown and shipped; AccountEmail is the address
+!	credentials.php returned for this system, used when the controller has
+!	not stored one yet.
+	variable BackupSheetWebson
+	variable BackupInfo
+	variable BackupEnabled
+	variable BackupTo
+	variable BackupLast
+	variable BackupEmailed
+	variable BackupError
+	variable BackupSheetOpen
+	variable AccountEmail
+
 !	Demand-relay state. RequestRelay holds the current map.request value;
 !	the in-flight editing value lives in the device-editor module while
 !	its sheet is open. Save (in the module) returns the new value and a
@@ -422,7 +444,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash 47bf427b
+!! @hash 1160f1f5
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -566,6 +588,7 @@ ApplyCredentials:
 		put property `port` of Credentials into Port
 		put property `username` of Credentials into Username
 		put property `password` of Credentials into Password
+		if Credentials has entry `email` put property `email` of Credentials into AccountEmail
 		if Broker is `localhost`
 		begin
 			if the hostname is not `localhost` put the hostname into Broker
@@ -620,7 +643,7 @@ NoCredentialsFile:
 		gosub to OnMapReceived
 	end
 	stop
-!! @hash 9ed1a0ee
+!! @hash ce4dbdab
 !!!
 !! First-render path: fired by `on mqtt connect`. Sets the Prompt to `first` so the controller sends a full map (rather than the empty-payload heartbeat used for refreshes), then forks a watchdog and parks.
 !!
@@ -792,12 +815,20 @@ ApplyMapToRooms:
 	put property `activeProfileName` of MapResult into ActiveProfileName
 	put property `systemName` of MapResult into SystemName
 	put property `systemType` of MapResult into SystemType
+	put property `backup` of MapResult into BackupInfo
 	put property `requestRelay` of MapResult into RequestRelay
 	clear CalendarOn
 	if property `calendarOn` of MapResult is `on` set CalendarOn
 	gosub to ApplyPendingRooms
+!	A background backup writes its result while the sheet may be open, and
+!	the map that carries it lands here. Repaint so "Last backup" is live
+!	rather than waiting for the sheet to be reopened.
+	if SheetsReady
+	begin
+		if BackupSheetOpen gosub to PaintBackupState
+	end
 	return
-!! @hash 168faf69
+!! @hash 73a35a43
 !!!
 !! Keep a just-commanded room's optimistic state on the cards until the controller's map agrees.
 !!
@@ -1035,6 +1066,20 @@ BuildHomeScreen:
 	render MenuWebson in SheetContent
 
 	attach MenuSheetEl to `menu-sheet`
+!	Backups sheet — the monthly archive setting and the last run's result.
+!	Rendered here with the other parent-owned sheets; it reads Map.backup.
+	rest get BackupSheetWebson from `resources/webson/backup-sheet.json?v=` cat now
+		or go to LoadFailed
+	render BackupSheetWebson in SheetContent
+	attach BackupSheetEl to `backup-sheet`
+	set style `display` of BackupSheetEl to `none`
+	attach BackupEmailEl to `backup-sheet-email`
+	attach BackupLastEl to `backup-sheet-last`
+	attach BackupNoticeEl to `backup-sheet-notice`
+	attach BackupToggleBtn to `backup-sheet-toggle`
+	attach BackupSendBtn to `backup-sheet-send`
+	on click BackupToggleBtn gosub to ToggleBackupEmail
+	on click BackupSendBtn gosub to SendBackupNow
 !	ProfileSheet lives in its own module (profile-sheet.allspeak). It renders its
 !	sheet into the same sheet-content container, attaches its own DOM, and
 !	wires its own click handlers. Loaded below; the local ProfileSheetEl
@@ -1057,6 +1102,8 @@ BuildHomeScreen:
 	on click MenuRowDevices gosub to OpenDeviceEditor
 	attach MenuRowOutside to `menu-row-outside`
 	on click MenuRowOutside gosub to OpenOutsideSheet
+	attach MenuRowBackups to `menu-row-backups`
+	on click MenuRowBackups gosub to OpenBackupSheet
 
 !	Hook up the top-bar menu button now that the sheet is ready.
 	attach MenuButton to `top-bar-menu-btn`
@@ -1236,7 +1283,7 @@ BuildHomeScreen:
 
 	clear BuildingHome
 	return
-!! @hash d337b58a
+!! @hash 4f6ae9af
 !!!
 !! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
 !!
@@ -1418,11 +1465,12 @@ OpenSheet:
 
 CloseSheet:
 	clear SheetDirty
+	clear BackupSheetOpen
 	set style `opacity` of SheetScrim to `0`
 	set style `transform` of SheetContainer to `translateY(100%)`
 	set style `pointer-events` of SheetRoot to `none`
 	return
-!! @hash 940eb1b5
+!! @hash a438b70d
 !!!
 !! Close a sheet from a user action, confirming first when the sheet has unsaved edits.
 !!
@@ -1453,7 +1501,9 @@ RequestCloseSheet:
 HideAllSheets:
 	if not SheetsReady return
 	clear SheetDirty
+	clear BackupSheetOpen
 	set style `display` of MenuSheetEl to `none`
+	set style `display` of BackupSheetEl to `none`
 	set style `display` of ProfileSheetEl to `none`
 	set style `display` of ScheduleSheetEl to `none`
 	set style `display` of DeviceEditorSheetEl to `none`
@@ -1464,7 +1514,7 @@ HideAllSheets:
 	set style `display` of SpecialSheetEl to `none`
 	set style `display` of SpecialTimeSheetEl to `none`
 	return
-!! @hash 84e1a712
+!! @hash 9b505db7
 !!!
 !! Wire every interactive element of a single room row. Called once per non-sensor row from the BuildHomeScreen render loop, with RoomIndex pre-set to the row being wired.
 !!
@@ -2591,6 +2641,90 @@ SaveSystemSheet:
 	gosub to CloseSheet
 	return
 !! @hash 68cd9583
+!!!
+!! Open the Backups sheet from the menu's Backups row.
+!!
+!! The controller owns the monthly schedule; this sheet only reads Map.backup, shows the registered address and the last run, and lets the user turn the email copy on or off or ask for a backup now. The archive is always written locally, whether email is on or not.
+OpenBackupSheet:
+	gosub to PaintBackupState
+	gosub to HideAllSheets
+	set BackupSheetOpen
+	set style `display` of BackupSheetEl to `block`
+	set the content of SheetTitleEl to `Backups`
+	gosub to OpenSheet
+	return
+!! @hash baf5e9df
+!!!
+!! Paint the Backups sheet from Map.backup.
+!!
+!! The address shown is the stored one, falling back to the address credentials.php returned for this system: a paired browser can set the toggle before the controller has ever stored an address. The last-run line says whether the copy was emailed, and a run error (for example a mail server that is not configured) is shown here rather than only in the journal.
+PaintBackupState:
+	if BackupInfo is `null` put `{}` into BackupInfo
+	if BackupInfo is `undefined` put `{}` into BackupInfo
+	put `off` into BackupEnabled
+	put empty into BackupTo
+	put empty into BackupLast
+	put empty into BackupEmailed
+	put empty into BackupError
+	if BackupInfo is not empty
+	begin
+		if BackupInfo has entry `enabled`
+		begin
+			if property `enabled` of BackupInfo is `on` put `on` into BackupEnabled
+		end
+		if BackupInfo has entry `address` put property `address` of BackupInfo into BackupTo
+		if BackupInfo has entry `last_display` put property `last_display` of BackupInfo into BackupLast
+		if BackupInfo has entry `emailed` put property `emailed` of BackupInfo into BackupEmailed
+		if BackupInfo has entry `error` put property `error` of BackupInfo into BackupError
+	end
+	if BackupTo is empty put AccountEmail into BackupTo
+	if BackupTo is empty set the content of BackupEmailEl to `Registered address not known yet`
+	else set the content of BackupEmailEl to `To ` cat BackupTo
+	if BackupEnabled is `on` set the content of BackupToggleBtn to `On`
+	else set the content of BackupToggleBtn to `Off`
+	if BackupLast is empty set the content of BackupLastEl to `No backup has run yet`
+	else
+	begin
+		put `Last backup: ` cat BackupLast into BackupLast
+		if BackupEmailed is `yes` put BackupLast cat ` — emailed` into BackupLast
+		set the content of BackupLastEl to BackupLast
+	end
+	if BackupError is not empty set the content of BackupNoticeEl to BackupError
+	else set the content of BackupNoticeEl to `Archives stay in backup/ on the controller; the newest 12 are kept.`
+	return
+!! @hash 78c79714
+!!!
+!! Turn the monthly email copy on or off and send the choice to the controller.
+!!
+!! The local Map.backup is updated first so the button changes under the finger; the next map push reconciles. The address travels with the choice: the controller keeps it in backup-config.json for the timer, which may run with no browser open.
+ToggleBackupEmail:
+	if BackupInfo is `null` put `{}` into BackupInfo
+	if BackupInfo is `undefined` put `{}` into BackupInfo
+	if BackupEnabled is `on` put `off` into BackupEnabled
+	else put `on` into BackupEnabled
+	if BackupInfo is empty put `{}` into BackupInfo
+	set property `enabled` of BackupInfo to BackupEnabled
+	if BackupTo is not empty set property `address` of BackupInfo to BackupTo
+	gosub to PaintBackupState
+	put `{}` into Result
+	set property `Action` of Result to `Backup`
+	set property `enabled` of Result to BackupEnabled
+	if BackupTo is not empty set property `address` of Result to BackupTo
+	gosub to PostUiRequest
+	return
+!! @hash 408d3749
+!!!
+!! Ask the controller for an immediate backup.
+!!
+!! The archive is written in the background, so there is nothing to wait for here. The notice says where the copy is going; the Last backup line updates from the next map once the run has finished, which is why the sheet is left open.
+SendBackupNow:
+	put `{}` into Result
+	set property `Action` of Result to `Backup Now`
+	gosub to PostUiRequest
+	if BackupTo is empty set the content of BackupNoticeEl to `Backup started. It will be saved on the controller; no registered address is known for email.`
+	else set the content of BackupNoticeEl to `Backup started. It will be emailed to ` cat BackupTo
+	return
+!! @hash 880718ce
 !!!
 !! Open the Outside thermometer + frost protection sheet from the menu's Outside row.
 !!

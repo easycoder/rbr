@@ -56,7 +56,11 @@ $out = [
     'broker' => $creds['broker'] ?? ($hostSettings['broker'] ?? ''),
     'port' => $creds['port'] ?? ($hostSettings['port'] ?? 8883),
     'username' => $creds['username'],
-    'password' => $creds['password'] ?? ''
+    'password' => $creds['password'] ?? '',
+    // The address this system registered with, so the controller's backup can
+    // mail itself to its owner without the browser being open. The caller has
+    // already proved it holds this system's token.
+    'email' => $system['email'] ?? ''
 ];
 foreach (['_doc_', 'mail_server', 'mail_login', 'mail_password', 'mail_from'] as $k) {
     if (isset($hostSettings[$k])) $out[$k] = $hostSettings[$k];

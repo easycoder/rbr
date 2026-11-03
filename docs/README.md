@@ -4,7 +4,7 @@ RBR turns the radiators already in a house into a system that heats each room to
 
 These pages describe RBR as a **product**, for the people who might specify it, fit it, run it or maintain it. For how the software works inside, see the engineering documents in `doc/` and `AI/` — this tree links to them rather than repeating them.
 
-> **Audience:** all · **Status:** draft · **Last verified:** 2026-09-20
+> **Audience:** all · **Status:** draft · **Last verified:** 2026-10-25
 
 ## Where to start
 
@@ -96,15 +96,15 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 
 **Technical — how it works underneath**
 
-| Document | Purpose | Source to harvest |
-|---|---|---|
-| 01-architecture.md | Components and message flow | `AI/ARCHITECTURE.md` |
-| 02-map-format.md | The map file | `AI/MAP_FORMAT.md` |
-| 03-device-control-and-bridge.md | Relays, thermometers, the Zigbee bridge | `deviceControl.allspeak`, `zigbee-bridge.py` |
-| 04-updates-and-deployment.md | How code reaches a controller | `doc/UPDATE-MECHANISM.md` |
-| 05-heating-data.md | The heating log format | `doc/HEATING-DATA.md` |
-| 06-controller-files.md | The file manifest | `doc/CONTROLLER-FILES.md` |
-| 08-roadmap-current-measurement.md | Power-flow monitoring, the next phase | `doc/current-measurement.md` |
+| Document | Purpose | Source to harvest | Status |
+|---|---|---|---|
+| [01-architecture.md](technical/01-architecture.md) | The parts, the message flow, and how many brokers | `AI/ARCHITECTURE.md` | **Draft** |
+| 02-map-format.md | The map file | `AI/MAP_FORMAT.md` | To write |
+| 03-device-control-and-bridge.md | Relays, thermometers, the Zigbee bridge | `deviceControl.allspeak`, `zigbee-bridge.py` | To write |
+| 04-updates-and-deployment.md | How code reaches a controller | `doc/UPDATE-MECHANISM.md` | To write |
+| 05-heating-data.md | The heating log format | `doc/HEATING-DATA.md` | To write |
+| 06-controller-files.md | The file manifest | `doc/CONTROLLER-FILES.md` | To write |
+| 08-roadmap-current-measurement.md | Power-flow monitoring, the next phase | `doc/current-measurement.md` | To write |
 
 **Appendix**
 
@@ -136,4 +136,4 @@ This tree links into `doc/` and `AI/` for detail. Those two remain the source of
 
 ## Status
 
-The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md); the rest of installation, all of operation and all of technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet.
+The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md), and the technical layer its first, [Architecture](technical/01-architecture.md); the rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet.

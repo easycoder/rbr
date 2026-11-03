@@ -1,6 +1,6 @@
 # Glossary
 
-> **Audience:** all · **Status:** draft · **Last verified:** 2026-09-20
+> **Audience:** all · **Status:** draft · **Last verified:** 2026-10-25
 
 Terms are defined once, here. Where a term belongs to a deeper layer, the entry says so rather than expanding it — follow the link for detail. Heating terms are given only where RBR means something more specific than the trade does.
 
@@ -12,7 +12,7 @@ Terms are defined once, here. Where a term belongs to a deeper layer, the entry 
 | **System** | One installed, RBR-controlled home, as seen in the app. You add a system to the app with its address and password, and a single account can hold several. |
 | **Controller** | The small Linux computer in the home that runs the RBR software. It decides, room by room, whether heat is wanted, and switches the relays accordingly. Also called the *master controller*. |
 | **Controller computer** | The physical machine the controller runs on. Any small Linux box will serve; an industrial touchscreen panel is one option, a fanless mini-PC another. |
-| **The app** / **the interface** / **UI** | The RBR app: a web page that runs in any smartphone browser, reached at `rbrheating.com/ui`. Used both to commission a system and to operate it. |
+| **The app** / **the interface** / **UI** | The RBR app: a web page that runs in any smartphone browser, reached at `rbrheating.com/heat/`. Used both to commission a system and to operate it. |
 | **Room** | One heated space, with its own thermometer, one or more heating devices, its own schedule and its own mode. |
 
 ## Devices and wiring
@@ -33,9 +33,9 @@ Terms are defined once, here. Where a term belongs to a deeper layer, the entry 
 |---|---|
 | **Zigbee** | The low-power radio standard used by the thermometers and relays. Consumer hardware, bought off the shelf. |
 | **Coordinator** | The Zigbee dongle plugged into the controller computer. Every device in the home talks to it, and it is the one point that must be sited well — clear of metal, ideally on a short extension lead. |
-| **Zigbee2MQTT** | The software on the controller that runs the Zigbee network and publishes each device on the internal message bus. It has its own web page, used during pairing only. *See the technical layer.* |
-| **MQTT** | The lightweight messaging protocol the controller and the app use to talk to each other. *See the technical layer.* |
-| **Broker** | The server that carries MQTT messages. A local one lives on the controller; it is bridged to a cloud one so the phone can reach the system from anywhere. *See the technical layer.* |
+| **Zigbee2MQTT** | The software on the controller that runs the Zigbee network and publishes each device on the internal message bus. It has its own web page, used during pairing only. *See [Architecture](../technical/01-architecture.md).* |
+| **MQTT** | The lightweight messaging protocol the controller and the app use to talk to each other. *See [Architecture](../technical/01-architecture.md).* |
+| **Broker** | The server that carries MQTT messages. A local one lives on the controller; it is bridged to a shared cloud one so the phone can reach the system from anywhere. *See [Architecture](../technical/01-architecture.md).* |
 | **Router** | The home broadband router the controller plugs into. The system uses the network that is already there and needs no changes to it. |
 | **MAC address** | The hardware identifier used to name a controller (and so a system) when you add it to the app. Printed on the machine and recorded at setup. |
 
@@ -67,5 +67,5 @@ Terms are defined once, here. Where a term belongs to a deeper layer, the entry 
 
 | Term | Meaning |
 |---|---|
-| **Stale reading** | When a thermometer has not reported for about 45 minutes, its reading counts as missing. The room's relay is deliberately held off until a fresh reading arrives — a room cools gently rather than heating without feedback — and the app shows the last known value with a soft warning until it clears. |
+| **Stale reading** | When a thermometer has not reported for about 45 minutes, its reading counts as missing. The room's relay is deliberately held off until a fresh reading arrives — a room cools gently rather than heating without feedback — and the app shows the last known value with a soft warning until it clears. The one exception is the first 30 minutes of a scheduled period, which start the heat on the last known value so the period is not lost to a reporting gap; if no report follows within those 30 minutes, the heat goes off. |
 | **Undelivered commands** | A count of commands a device has not acknowledged. A small non-zero figure is a diagnostic, not necessarily a fault; a *relay that stops acknowledging* usually needs a power-cycle. |

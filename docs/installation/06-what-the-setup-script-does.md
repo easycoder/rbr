@@ -82,7 +82,7 @@ Zigbee2MQTT is the software that owns the Zigbee radio: it talks to the coordina
 - Creates a dedicated system account, `zigbee2mqtt`, with no login shell, and adds it to the `dialout` group so it may use the serial port.
 - Clones the project to `/opt/zigbee2mqtt`, or updates an existing copy there, and builds its dependencies with `pnpm`.
 - Gives the coordinator a **stable name**. For the dongle it expects — a Silicon Labs CP210x device — it writes a udev rule so the dongle always appears as `/dev/zigbee-dongle` no matter which socket it is plugged into, and configures Zigbee2MQTT against that name. Without this, a restart that renumbers the serial devices would leave the Zigbee software unable to find its radio. **A different coordinator still works, but keeps whatever serial name it is given**, which can change between reboots; giving it its own rule is a small job the script does not attempt.
-- Writes `/opt/zigbee2mqtt/data/configuration.yaml`: the local broker as its message server, the serial port and the Ember adapter type, the web frontend on port 8080 of all interfaces, radio channel 15, and fresh network key and network identifier generation (`GENERATE` — a new mesh on first start).
+- On a fresh install, writes `/opt/zigbee2mqtt/data/configuration.yaml`: the local broker as its message server, the serial port and the Ember adapter type, the web frontend on port 8080 of all interfaces, radio channel 15, and fresh network key and network identifier generation (`GENERATE` — a new mesh on first start). On an existing install it keeps that file, because `network_key` and `pan_id` are the mesh: it backs the file up first, only corrects `serial.port`, and if the existing file still says `GENERATE` it refuses to start Zigbee2MQTT rather than orphan every paired device.
 - Installs and enables `zigbee2mqtt.service`, ordered after the broker.
 
 If no coordinator is detected, the script asks for the device path; if you skip that too, it configures a placeholder and tells you the line to edit, and Zigbee2MQTT will not start until you do.
@@ -131,15 +131,23 @@ If the updater is not present in the directory, the script says so and skips thi
 
 ### Step 6b — The watchdog
 
-Installs `rbr-watchdog.service` and an hourly `rbr-watchdog.timer`. It checks the four core services — the broker, Zigbee2MQTT, the bridge and the controller — and restarts any that is not running, or that is running but has stopped responding to its own health probe. This is what makes an unattended machine recover from a wedged component without anyone logging in.
+Installs `rbr-watchdog.service` and a 15-minute `rbr-watchdog.timer`. Every run it checks the four core services — the broker, Zigbee2MQTT, the bridge and the controller — and restarts any that is not running, or that is running but has stopped responding to its own health probe. It then runs the heating check: a scheduled room with a fresh thermometer and a target at least 0.5 °C above the room should warm, and if it has not warmed by 0.2 °C in 60 minutes the same four services are restarted, with a three-hour cooldown and a cap of three restarts in 24 hours so a persistent fault cannot become a restart loop. That catches a controller or bridge that is up but no longer driving the valves, which the service probes cannot see. This is what makes an unattended machine recover from a wedged component without anyone logging in.
 
 ### Step 6c — The map keeper
 
 Installs `rbr-mapbackup.service` and `rbr-mapbackup.timer`, which runs shortly after boot and every two minutes. The controller saves its map with a non-atomic write, so a power cut in the middle of one can leave the file truncated — and a truncated map is worse than a missing one, because the controller's fallback covers only a missing file. The keeper checks the map, keeps the last ten distinct good revisions in `map-history/` beside the live file, and restores the newest good one if the live file cannot be read. It also runs shortly after boot, so a machine coming back from an outage repairs itself within a couple of minutes.
 
+### Step 6d — The monthly backup
+
+Installs `rbr-backup.service` and `rbr-backup.timer`, which runs at 03:00 on the first of every month and catches up after downtime. It writes one ZIP into `backup/` beside the controller and keeps the newest twelve: the plan and its history, the system credentials and identity files, and the whole Zigbee2MQTT data directory — including the network key, a consistent snapshot of the paired-device database, and the coordinator backup. It contains secrets, so archives are mode 0600.
+
+Emailing a copy is optional and off by default. Turn it on under **Menu → Backups** in the app; the address shown is the one the system registered with. The toggle and address are written to `backup-config.json`, so the timer can send the mail with no browser open. The `mail_*` settings in `credentials` are used for sending — the placeholder values created by Step 5 must be replaced first, and the Backups sheet reports a sending failure without losing the local archive.
+
+`rbr-restore.py` (installed beside it) restores an archive after a fresh install: it verifies every checksum, snapshots the files it is about to replace, restores ownership and permissions, and restarts the services.
+
 ### Step 7 — The controller as a service (optional)
 
-Asked as `Run the controller as a service (auto-restart after updates)? (y/N)` and skipped unless you answer `y`. If you do, the script installs `controller.service`, running the controller as your user with restart-on-failure, so it survives reboots, crashes and updates. Two details in that service are worth knowing:
+Asked as `Run the controller as a service (auto-restart after updates)? (Y/n)`; pressing Enter installs it, and only an explicit `n` skips it. The script then installs `controller.service`, running the controller as your user with restart-on-failure, so it survives reboots, crashes and updates. Two details in that service are worth knowing:
 
 - Output is unbuffered, so its log lines reach the system journal as they are written rather than in bursts.
 - The terminal dashboard is switched off. A service has no terminal; run the controller by hand without that flag to see the dashboard.
@@ -160,7 +168,7 @@ The script starts Zigbee2MQTT and the bridge explicitly (the others were started
 
 - **Install AllSpeak.** Deliberate; see above.
 - **Pair your Zigbee devices.** That is the next step of the install, and it is interactive.
-- **Fill in your email settings.** The credentials file carries placeholders.
+- **Fill in your email settings.** The credentials file carries placeholders; the emailed backup and the verification/recovery mails both need real `mail_*` values.
 - **Configure the machine's firmware.** Coming back after a power cut depends on the BIOS/UEFI "restore after power loss" setting, which no Linux can set. The operating-system half — every service enabled, so the stack returns without a login — is what this script provides.
 - **Change the map.** Rooms, schedules and profiles are entered in the interface, not here.
 
@@ -172,6 +180,7 @@ The script is written to be re-run, and re-running it is the normal way to repai
 - Zigbee2MQTT is updated in place rather than cloned again.
 - The broker configuration and every service file are rewritten from scratch, so any hand-editing of those files is lost.
 - An existing `heatlog-root` is left alone.
+- An existing `credentials` is **left untouched**, including its mail settings. If the broker username or password changed, edit that file by hand or delete it and re-run setup; the installer warns when the two disagree.
 - `credentials.json` and the desktop service are only rewritten if you answer `y` again.
 
 ## If it stops part-way
