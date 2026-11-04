@@ -51,11 +51,12 @@ new-ui/index.html → load AllSpeak runtime
 - **Home screen**: rendered from local map copy, refreshed every 10s from controller
 - **Sheets (Profile, Room, Schedule)**: snapshot live data into Editing\* variables on open, mutate locally, ship one `Update Profiles` (or `Update Rooms`) on Save, discard on Cancel
 - **Demo mode**: when no credentials exist, renders a baked map + About sheet for marketing visits
+- **Offline boot**: `sw.js` caches the same-origin app shell *and* the two CDN boot scripts (the AllSpeak runtime and MQTT.js), network-first with a cache fallback, so a reload that lands with no network still boots and can retry the broker. `index.html` adds a guard for the case where even the cache has nothing: it shows a retrying message and reloads with a backoff instead of leaving an empty window.
 
 ## Known integration sensitivities
 
 - If `render ... in Body` fails with "Webson engine is not loaded": ensure `Webson.js` is loaded by `index.html` and the render symbol name is correct
-- MQTT WebSockets are silently torn down by mobile OSes when the tab is backgrounded — the UI handles this with a tab-resume freshness check and a poll-interval staleness watchdog
+- MQTT WebSockets are silently torn down by mobile OSes when the tab is backgrounded — the UI handles this with a tab-resume freshness check (which reloads when the connection is known dead) and a poll-interval staleness watchdog; the runtime ends its MQTT client on the first error, so a reload is the only repair
 
 ## Operational: checking the live controller
 

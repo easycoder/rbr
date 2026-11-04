@@ -67,7 +67,7 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 
 The archive therefore contains the secrets that let a rebuilt controller rejoin the mesh. Archives are written mode 0600 and should be treated as sensitive.
 
-Email is opt-in from the app's **Menu → Backups** sheet. The sheet writes `backup-config.json` with `enabled` and the registered address, so the timer can send its copy with no browser open. The recipient falls back to the address the cloud holds for this controller (via `.mqtt_token`) and then to `mail_to` in `credentials`. Mail itself uses the `mail_*` settings in `credentials`; a placeholder SMTP server leaves the local archive intact and reports the failure in `backup-status.json`, which the sheet shows.
+Email is opt-in from the app's **Menu → Backups** sheet. The sheet writes `backup-config.json` with `enabled` and the registered address, so the timer can send its copy with no browser open. The recipient falls back to the address the cloud holds for this controller (via `.mqtt_token`) and then to `mail_to` in `credentials`. Mail itself uses the `mail_*` settings in `credentials`, which `rbr-setup.sh` asks for when it writes the file (skipping them leaves the placeholder SMTP server, which keeps the local archive intact and reports the failure in `backup-status.json`, which the sheet shows).
 
 To restore after a fresh install:
 

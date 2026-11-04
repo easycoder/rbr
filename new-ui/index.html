@@ -23,6 +23,46 @@
         });
       }
     </script>
+    <script>
+      // Boot guard. Both the AllSpeak runtime and the MQTT client come from
+      // CDNs, and until they arrive nothing on the page can recover anything:
+      // a reload that lands while the phone has no network would leave an
+      // empty window for ever. The service worker now caches both, so this
+      // only fires when they are neither cached nor reachable — it says so
+      // and keeps retrying, backing off so a broken CDN is not hammered.
+      (function () {
+        function booted() { return !!window.AllSpeak && !!window.mqtt; }
+        function retry() {
+          var tries = 1;
+          try { tries = Number(sessionStorage.getItem('boot-retry') || '0') + 1; } catch (e) { /* no storage */ }
+          try { sessionStorage.setItem('boot-retry', String(tries)); } catch (e) { /* no storage */ }
+          var app = document.getElementById('app');
+          if (app && !app.getAttribute('data-boot-warning')) {
+            app.setAttribute('data-boot-warning', '1');
+            app.innerHTML = '<div style="padding:24px 20px;font:16px/1.5 system-ui,sans-serif;color:#333">'
+              + 'Trying to reach Room By Room&hellip;<br>'
+              + '<span style="color:#777">The app could not load. It will keep trying; '
+              + 'reconnecting brings it back.</span><br>'
+              + '<button type="button" style="margin-top:16px;padding:10px 18px;border-radius:10px;'
+              + 'border:1px solid #ccc;background:#fff;font:inherit" '
+              + 'onclick="location.reload()">Retry now</button></div>';
+          }
+          setTimeout(function () { location.reload(); }, Math.min(5000 * tries, 60000));
+        }
+        // A tick after `load`, so the runtime's own onload startup has run.
+        window.addEventListener('load', function () {
+          setTimeout(function () {
+            if (booted()) {
+              try { sessionStorage.removeItem('boot-retry'); } catch (e) { /* no storage */ }
+              return;
+            }
+            retry();
+          }, 200);
+        });
+        // The moment the phone has a network again, stop waiting for the backoff.
+        window.addEventListener('online', function () { if (!booted()) location.reload(); });
+      })();
+    </script>
   </head>
 
   <body>

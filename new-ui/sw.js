@@ -14,11 +14,31 @@
 //   - APP_SHELL is precached on install so the very first offline visit
 //     after install has something to serve. Subsequent online visits keep
 //     it fresh.
-//   - Cross-origin requests (the AllSpeak runtime CDN, MQTT broker WS) are
+//   - The two cross-origin scripts the app boots from (the AllSpeak runtime
+//     and the MQTT client) are cached the same way — network-first, cache
+//     fallback — and precached on install as well. Without them a reload that
+//     lands with no network renders an empty page with no script left to
+//     recover it, which is exactly the state a phone wakes up into. A CDN
+//     hiccup during install is tolerated, so it cannot block a service-worker
+//     update; the next load that reaches the CDN fills the cache.
+//   - Every other cross-origin request (the MQTT broker WebSocket) is
 //     pass-through — no caching, no interception.
 
-const CACHE_VERSION = 'rbr-v1-2610241516';
+const CACHE_VERSION = 'rbr-v1-2611041200';
 const CACHE_NAME = `rbr-cache-${CACHE_VERSION}`;
+
+// The bare URLs: index.html pins the runtime with a `?v=` query, and matching
+// on origin + path leaves that pin free to change without editing this file.
+// The cache itself is keyed by the full requested URL, so a changed pin misses
+// and fetches the new build; `ignoreSearch` is only the offline fallback.
+const CDN_SCRIPTS = [
+    'https://allspeak.ai/dist/allspeak.js',
+    'https://cdn.jsdelivr.net/npm/mqtt/dist/mqtt.min.js'
+];
+
+function isCdnScript(url) {
+    return CDN_SCRIPTS.indexOf(url.origin + url.pathname) >= 0;
+}
 
 const APP_SHELL = [
     './',
@@ -80,6 +100,15 @@ self.addEventListener('install', event => {
             const res = await fetch(url, { cache: 'reload' });
             if (res && res.ok) await cache.put(url, res);
         }));
+        // The boot scripts, as above. A failure here must not fail the install:
+        // online the app still boots, and the next load that reaches the CDN
+        // caches it through the fetch handler.
+        await Promise.all(CDN_SCRIPTS.map(async url => {
+            try {
+                const res = await fetch(url, { cache: 'reload' });
+                if (res && (res.ok || res.type === 'opaque')) await cache.put(url, res);
+            } catch (err) { /* offline install — any earlier cached copy stands */ }
+        }));
         await self.skipWaiting();
     })());
 });
@@ -93,9 +122,34 @@ self.addEventListener('activate', event => {
     );
 });
 
+// Network-first for the CDN boot scripts too. Online, the response refreshes
+// the cache (so a CDN update is picked up); offline, the last copy that worked
+// is served and the app can at least boot and keep retrying the broker.
+async function serveCdnScript(req) {
+    try {
+        const res = await fetch(req);
+        if (res && (res.ok || res.type === 'opaque')) {
+            const copy = res.clone();
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(req, copy);
+        }
+        return res;
+    } catch (err) {
+        const cached = (await caches.match(req)) || (await caches.match(req, { ignoreSearch: true }));
+        if (cached) return cached;
+        throw err;
+    }
+}
+
 self.addEventListener('fetch', event => {
     const req = event.request;
     const url = new URL(req.url);
+
+    // The two boot scripts are cross-origin but must survive an offline start.
+    if (req.method === 'GET' && isCdnScript(url)) {
+        event.respondWith(serveCdnScript(req));
+        return;
+    }
 
     // Only handle same-origin GET. Everything else passes through.
     if (req.method !== 'GET' || url.origin !== self.location.origin) return;

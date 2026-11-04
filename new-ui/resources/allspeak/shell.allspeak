@@ -2,7 +2,7 @@
 !!
 !! Architecture in brief. The shell is a long-running message loop: MQTT connect → first map → render → 10-second polling refresh. The controller is authoritative for relay/schedule/temperature state; the UI mirrors it optimistically (mutating its local copy on user action, shipping a `uirequest`, and reconciling on the next map push). All sheet UIs follow the same pattern — snapshot live data into Editing* working copies on open, mutate locally, ship one `Update Profiles` (or `Update Rooms`) on Save, discard on Cancel.
 !!
-!! Resilience layers. MQTT WebSockets are silently torn down by mobile OSes when the tab is backgrounded; we paper over that with a tab-resume hook (reload if stale >5min, otherwise refresh), a 30-second first-map watchdog (capped at 3 attempts), and a poll-interval staleness check (reload if no reply for 60s). A demo mode kicks in when there are no credentials, rendering a baked map and the About sheet for marketing visits.
+!! Resilience layers. MQTT WebSockets are silently torn down by mobile OSes when the tab is backgrounded; we paper over that with a tab-resume hook (reload if stale >5min or the connection is known dead, otherwise refresh), a 30-second first-map watchdog that keeps retrying with a lengthening delay after its third attempt (the poll loop does not exist until the first map lands, so giving up would strand the page), and a poll-interval staleness check (reload if no reply for 60s). A demo mode kicks in when there are no credentials, rendering a baked map and the About sheet for marketing visits.
 !!
 !! Slice history (preserved for archaeology): 02 TopBar + 03 RoomRow + 04 SummaryCard + 05 Sheet chrome + MenuSheet + 06 ProfileSheet + 07 RoomRow expansion (mode/target/boost/edit-schedule) + 08 Time-of-day background gradient. Subsequent slices added Schedule editor, Device editor, System sheet, Outside sheet, Info sheet, About sheet.
 !!
@@ -275,9 +275,11 @@
 	variable BuildingHome
 	variable SheetsReady
 	variable LastReceivedAt
+	variable MqttConnected
 	variable ResumeAge
 	variable ConsecutiveSendFailures
 	variable FirstMapAttempts
+	variable FirstMapWait
 	variable HeartbeatCount
 
 !	Map ingestion / transformation state.
@@ -501,10 +503,26 @@
 	on resume
 	begin
 		log `Tab resumed`
-!		Don't try to RequestMap before MQTT has connected and the first
-!		map cycle has run — the topic objects and Prompt aren't reliably
-!		set yet, and the next normal poll will catch up on its own.
-		if not FirstMapDone return
+!		The runtime ends the client on its first error, so MQTT.js never
+!		reconnects after one: the socket is gone for good and only a fresh
+!		page can rebuild it. That is the "visible but no longer connected"
+!		state a long sleep can leave behind.
+		if not MqttConnected
+		begin
+			if not FirstMapDone return
+			log `MQTT not connected on resume; reloading`
+			location the location
+			return
+		end
+!		Don't try to RequestMap before MQTT has connected and the topic
+!		objects exist — the topic objects and Prompt aren't reliably set
+!		yet. Once connected but before the first map there is no poll loop
+!		to catch up for us, so asking again is the only nudge.
+		if not FirstMapDone
+		begin
+			gosub to RequestMap
+			return
+		end
 		if LastReceivedAt is not empty
 		begin
 			put now into ResumeAge
@@ -633,8 +651,19 @@ NoCredentialsFile:
 
 	on mqtt connect
 	begin
+		set MqttConnected
 		log `MQTT Connected`
 		go to Connected
+	end
+
+!	The runtime ends the client on its first error, so the connect handler
+!	never fires again for that page. Clear the flag (a resume then reloads
+!	instead of polling a socket that is gone) and leave the reason in the
+!	console for the next time this needs diagnosing.
+	on mqtt error
+	begin
+		clear MqttConnected
+		log `MQTT error: ` cat the mqtt error
 	end
 
 	on mqtt message
@@ -642,39 +671,55 @@ NoCredentialsFile:
 		put the mqtt message into ReceivedMessage
 		gosub to OnMapReceived
 	end
+
+!	Arm the first-map watchdog here, not from Connected: a connect that never
+!	succeeds never runs Connected, and that is exactly the page a reload during
+!	a sleeping phone produces — no map, no poll loop, and until now nothing
+!	left to retry.
+	fork to FirstMapWatchdog
 	stop
 !! @hash ce4dbdab
 !!!
 !! First-render path: fired by `on mqtt connect`. Sets the Prompt to `first` so the controller sends a full map (rather than the empty-payload heartbeat used for refreshes), then forks a watchdog and parks.
 !!
-!! The watchdog handles a common mobile failure mode where the WebSocket opens but the MQTT subscription is silently dropped before the controller's reply lands — without it the UI hangs forever showing the loading state. Capped at 3 attempts via localStorage so a genuinely unreachable controller doesn't become an infinite reload loop.
+!! The watchdog (forked from the bootstrap, so it also covers a connect that never happens) handles a common mobile failure mode where the WebSocket opens but the MQTT subscription is silently dropped before the controller's reply lands — without it the UI hangs forever showing the loading state. Attempts are counted in localStorage so the retry rate survives the reloads it causes.
 Connected:
 	put `first` into Prompt
 	clear FirstMapDone
 	gosub to RequestMap
-	fork to FirstMapWatchdog
 	stop
 !! @hash 188df672
 !!!
-!! Forked watchdog. Sleeps 30 seconds; if the first map still hasn't arrived, the MQTT subscription is almost certainly dead — force a full reload to rebuild the connection. Capped at 3 attempts via localStorage so an unreachable controller is reported with an alert rather than an infinite reload loop.
+!! Forked watchdog, armed as soon as the MQTT client is registered. Sleeps 30 seconds; if the first map still hasn't arrived, the MQTT subscription is almost certainly dead or never opened — force a full reload to rebuild the connection.
+!!
+!! It never gives up. A page that has no first map has no poll loop either (MapPollTask is forked from OnMapReceived), so stopping here would leave the app sitting on an empty screen until it was closed and reopened — the recurring "still open, no longer connected" report after a phone sleeps with the tab in the foreground. Past the third attempt the cadence lengthens (30s, 60s, then every 90s) so a phone left on a desk with no network is not reloaded twice a minute for ever, and the alert fires once rather than every time; the map that finally arrives resets the count in OnMapReceived.
 FirstMapWatchdog:
-	wait 30 seconds
-	if FirstMapDone return
-	log `First map didn't arrive in 30s`
-	get FirstMapAttempts from storage as `first-map-attempts`
-	if FirstMapAttempts is `null` put 0 into FirstMapAttempts
-	if FirstMapAttempts is `undefined` put 0 into FirstMapAttempts
-	if FirstMapAttempts is empty put 0 into FirstMapAttempts
-	increment FirstMapAttempts
-	put FirstMapAttempts into storage as `first-map-attempts`
-	if FirstMapAttempts is greater than 2
+	while true
 	begin
-		alert `Cannot reach controller. Please check your network and reload.`
+		wait 30 seconds
+		if FirstMapDone return
+		log `First map didn't arrive in 30s`
+		get FirstMapAttempts from storage as `first-map-attempts`
+		if FirstMapAttempts is `null` put 0 into FirstMapAttempts
+		if FirstMapAttempts is `undefined` put 0 into FirstMapAttempts
+		if FirstMapAttempts is empty put 0 into FirstMapAttempts
+		increment FirstMapAttempts
+		put FirstMapAttempts into storage as `first-map-attempts`
+		if FirstMapAttempts is greater than 2
+		begin
+			if FirstMapAttempts is 3 alert `Cannot reach the controller. Still trying — check the network if this persists.`
+			put FirstMapAttempts into FirstMapWait
+			take 4 from FirstMapWait
+			multiply FirstMapWait by 30
+			if FirstMapWait is less than 0 put 0 into FirstMapWait
+			if FirstMapWait is greater than 90 put 90 into FirstMapWait
+			wait FirstMapWait seconds
+			if FirstMapDone return
+		end
+		log `Reloading (first-map attempt ` cat FirstMapAttempts cat `)`
+		location the location
 		return
 	end
-	log `Reloading (first-map attempt ` cat FirstMapAttempts cat `)`
-	location the location
-	return
 !! @hash 4fe2712f
 !!!
 !! Send a single map request to the controller. Used both for the initial `first` push and the recurring `refresh` heartbeat — the action string is whatever Prompt happens to hold.

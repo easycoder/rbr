@@ -69,6 +69,21 @@ prompt_value() {
     fi
 }
 
+# Like prompt_value, but nothing typed is echoed — for passwords, which would
+# otherwise be left on the terminal and in its scrollback. An empty answer
+# keeps `keep` (shown as [keep existing]), which is how a re-run leaves a
+# stored password alone without printing it.
+prompt_secret() {
+    local label="$1" keep="${2:-}"
+    local val suffix=""
+    [[ -n "$keep" ]] && suffix=" [keep existing]"
+    local eof_msg="  ✗ No input available for '$label' — stdin is closed (EOF)."
+    # read -s does not emit the newline the user's Enter would have shown.
+    read -r -s -p "$label$suffix: " val || { echo "" >&2; echo "$eof_msg" >&2; exit 1; }
+    echo "" >&2
+    echo "${val:-$keep}"
+}
+
 # ---------------------------------------------------------------------------
 # Must be root
 # ---------------------------------------------------------------------------
@@ -136,7 +151,7 @@ if [[ -z "$MQTT_PASSWORD" ]]; then
     echo "  It's the 'password' field from https://rbrheating.com/credentials.php"
     echo "  (or from the credentials.example.json file in the repo)."
     echo ""
-    MQTT_PASSWORD="$(prompt_value "  Enter MQTT password" "pw")"
+    MQTT_PASSWORD="$(prompt_secret "  Enter MQTT password")"
 fi
 echo "$MQTT_PASSWORD" > "$RBR_DIR/.mqtt_password"
 chown "$RBR_USER:$RBR_USER" "$RBR_DIR/.mqtt_password"
@@ -465,38 +480,213 @@ echo "  → Created and enabled rbr-zigbee-bridge.service"
 # ===========================================================================
 confirm "Step 5 — Creating controller credentials"
 
-# Never rewrite an existing file. It carries the MAIL settings as well as the
-# broker account, and re-running the installer used to reset the mail server
-# and password to placeholders — which silently broke the emailed backup and
-# the verification emails. If the broker settings written in Step 2 no longer
-# match the file, say so and leave the repair to the operator.
+# This file is the controller's own configuration: the broker it talks to, the
+# account it uses there, and the SMTP settings for the verification emails and
+# the emailed backup. The broker has a safe default (this machine's Mosquitto);
+# the mail settings do not, and used to be written as placeholders that every
+# install with email enabled then had to repair by hand. So they are asked for
+# here, and an empty mail server is the one "skip" that writes the old
+# placeholders.
+
+# Read one field from the existing credentials file; print nothing if the file
+# is missing or unreadable.
+cred_field() {
+    python3 - "$RBR_DIR/credentials" "$1" 2>/dev/null <<'PY' || true
+import json, sys
+try:
+    data = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    raise SystemExit(1)
+value = data.get(sys.argv[2], "")
+print("" if value is None else value)
+PY
+}
+
+# A value from the existing file worth offering as a default: not empty, not
+# the installer's old placeholder, and a number for a port. Mirrors
+# usable_mail_value() in rbr-backup.py, which decides whether mail can send.
+mail_default() {
+    local key="$1" value="$2" low
+    [[ -n "${value//[[:space:]]/}" ]] || return 0
+    low="${value,,}"
+    [[ "$low" == *replace_with* ]] && return 0
+    case "$key" in
+        mail_server) [[ "$low" == "smtp.example.com" || "$low" == *.example.com ]] && return 0 ;;
+        mail_port)   [[ "$value" =~ ^[0-9]+$ ]] || return 0 ;;
+    esac
+    printf '%s' "$value"
+}
+
+# Write the file. Any fields an existing file already has are kept, so an
+# update touches only what was asked. The values arrive through the
+# environment and json.dump, so a quote or backslash in a password cannot
+# produce the unreadable file the old here-document did.
+write_credentials() {
+    local broker="$1" port="$2" username="$3" password="$4"
+    local mail_server="$5" mail_port="$6" mail_login="$7" mail_password="$8"
+    local mail_from="$9" mail_to="${10}"
+    RBR_CRED_BROKER="$broker" RBR_CRED_PORT="$port" \
+    RBR_CRED_USERNAME="$username" RBR_CRED_PASSWORD="$password" \
+    RBR_CRED_MAIL_SERVER="$mail_server" RBR_CRED_MAIL_PORT="$mail_port" \
+    RBR_CRED_MAIL_LOGIN="$mail_login" RBR_CRED_MAIL_PASSWORD="$mail_password" \
+    RBR_CRED_MAIL_FROM="$mail_from" RBR_CRED_MAIL_TO="$mail_to" \
+    python3 - "$RBR_DIR/credentials" <<'PY'
+import json, os, sys
+
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        data = {}
+except (OSError, ValueError):
+    data = {}
+
+data["broker"] = os.environ["RBR_CRED_BROKER"]
+data["port"] = int(os.environ["RBR_CRED_PORT"] or 1883)
+data["username"] = os.environ["RBR_CRED_USERNAME"]
+data["password"] = os.environ["RBR_CRED_PASSWORD"]
+data["mail_server"] = os.environ["RBR_CRED_MAIL_SERVER"]
+data["mail_login"] = os.environ["RBR_CRED_MAIL_LOGIN"]
+data["mail_password"] = os.environ["RBR_CRED_MAIL_PASSWORD"]
+data["mail_from"] = os.environ["RBR_CRED_MAIL_FROM"]
+if os.environ["RBR_CRED_MAIL_PORT"]:
+    data["mail_port"] = int(os.environ["RBR_CRED_MAIL_PORT"])
+else:
+    data.pop("mail_port", None)
+if os.environ["RBR_CRED_MAIL_TO"]:
+    data["mail_to"] = os.environ["RBR_CRED_MAIL_TO"]
+else:
+    data.pop("mail_to", None)
+
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(data, fh, indent=4)
+    fh.write("\n")
+PY
+}
+
+# Ask for the mail settings, using what the existing file has as defaults. An
+# empty mail server means "no email": write the placeholders, as before.
+ask_mail_settings() {
+    MAIL_CONFIGURED=1
+    MAIL_SERVER="$(prompt_value "  Mail server (SMTP host — empty to skip email)" "mail server" "${DEFAULT_MAIL_SERVER:-}")"
+    if [[ -z "${MAIL_SERVER//[[:space:]]/}" ]]; then
+        MAIL_SERVER="smtp.example.com"
+        MAIL_LOGIN="noreply@rbrheating.com"
+        MAIL_PASSWORD=""
+        MAIL_FROM="noreply@rbrheating.com"
+        MAIL_PORT=""
+        MAIL_TO=""
+        MAIL_CONFIGURED=0
+        return
+    fi
+    MAIL_PORT="$(prompt_value "  Mail port (465 = implicit TLS, 587 = STARTTLS)" "mail port" "${DEFAULT_MAIL_PORT:-465}")"
+    if [[ ! "$MAIL_PORT" =~ ^[0-9]+$ ]]; then
+        echo "  ⚠ '$MAIL_PORT' is not a port number — using 465."
+        MAIL_PORT=465
+    fi
+    MAIL_LOGIN="$(prompt_value "  Mail login (usually the From: address)" "mail login" "${DEFAULT_MAIL_LOGIN:-}")"
+    MAIL_PASSWORD="$(prompt_secret "  Mail password" "${DEFAULT_MAIL_PASSWORD:-}")"
+    MAIL_FROM="$(prompt_value "  Mail From: address" "mail from" "${DEFAULT_MAIL_FROM:-$MAIL_LOGIN}")"
+    MAIL_TO="$(prompt_value "  Fallback recipient for emailed backups (empty = the registered address)" "mail to" "${DEFAULT_MAIL_TO:-}")"
+    if [[ -z "${MAIL_LOGIN//[[:space:]]/}" || -z "$MAIL_PASSWORD" ]]; then
+        MAIL_CONFIGURED=0
+        echo "  ⚠ Mail login and password are empty — the controller cannot send until"
+        echo "    $RBR_DIR/credentials is completed."
+    fi
+}
+
+# Never rewrite an existing file uninvited: it carries the mail settings as
+# well as the broker account, and re-running the installer used to reset them
+# to placeholders — silently breaking the emailed backup and the verification
+# emails. Pressing Enter at the question below therefore leaves it untouched,
+# which is what every re-run did before. If the broker settings written in
+# Step 2 no longer match the file, say so and leave the repair to the operator.
+EXISTING_CREDENTIALS=0
 if [[ -f "$RBR_DIR/credentials" ]]; then
-    echo "  → $RBR_DIR/credentials already exists — leaving it untouched"
-    EXISTING_USER="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("username",""))' "$RBR_DIR/credentials" 2>/dev/null || true)"
-    EXISTING_PASS="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("password",""))' "$RBR_DIR/credentials" 2>/dev/null || true)"
+    EXISTING_CREDENTIALS=1
+    echo "  → $RBR_DIR/credentials already exists"
+    EXISTING_USER="$(cred_field username)"
+    EXISTING_PASS="$(cred_field password)"
     if [[ "$EXISTING_USER" != "$MQTT_USERNAME" || "$EXISTING_PASS" != "$MQTT_PASSWORD" ]]; then
         echo "  ⚠ The broker account written in this run does not match the existing file."
         echo "    Update $RBR_DIR/credentials by hand, or delete it and re-run setup,"
         echo "    or the controller will not connect to the local broker."
     fi
+fi
+
+UPDATE_MAIL=0
+MAIL_QUESTION_ASKED=0
+if (( EXISTING_CREDENTIALS )); then
+    if python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$RBR_DIR/credentials" 2>/dev/null; then
+        MAIL_QUESTION_ASKED=1
+        MAIL_ANSWER="$(prompt_value "  Update the mail settings in that file? (y/N)" "update mail" "n")"
+        [[ "${MAIL_ANSWER,,}" =~ ^y ]] && UPDATE_MAIL=1
+    else
+        echo "  ⚠ It is not valid JSON — leaving it untouched; fix or delete it by hand."
+    fi
+fi
+
+if (( EXISTING_CREDENTIALS && ! UPDATE_MAIL )); then
+    echo "  → Leaving it untouched"
+    (( MAIL_QUESTION_ASKED )) && \
+        echo "    To change the mail settings, re-run and answer y above, or edit it by hand."
+    CRED_BROKER="$(cred_field broker)"
+    CRED_PORT="$(cred_field port)"
+    CRED_BROKER="${CRED_BROKER:-localhost}"
+    CRED_PORT="${CRED_PORT:-1883}"
+    [[ "$CRED_PORT" =~ ^[0-9]+$ ]] || CRED_PORT=1883
 else
-    cat > "$RBR_DIR/credentials" << JSON
-{
-    "broker": "localhost",
-    "port": 1883,
-    "username": "${MQTT_USERNAME}",
-    "password": "${MQTT_PASSWORD}",
-    "mail_server": "smtp.example.com",
-    "mail_login": "noreply@rbrheating.com",
-    "mail_password": "",
-    "mail_from": "noreply@rbrheating.com"
-}
-JSON
-    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/credentials"
-    chmod 640 "$RBR_DIR/credentials"
-    echo "  → Created $RBR_DIR/credentials (broker: localhost, MAC: $MAC)"
-    echo "  Note: mail credentials are placeholders — update them to use verification"
-    echo "        emails and the emailed backup (Menu → Backups)."
+    if (( UPDATE_MAIL )); then
+        echo "  Pressing Enter keeps the value already in the file. The mail password"
+        echo "  is not echoed; an empty answer keeps the stored one."
+        CRED_BROKER="$(cred_field broker)"
+        CRED_PORT="$(cred_field port)"
+        CRED_BROKER="${CRED_BROKER:-localhost}"
+        CRED_PORT="${CRED_PORT:-1883}"
+        [[ "$CRED_PORT" =~ ^[0-9]+$ ]] || CRED_PORT=1883
+        CRED_USER="${EXISTING_USER:-$MQTT_USERNAME}"
+        CRED_PASS="${EXISTING_PASS:-$MQTT_PASSWORD}"
+        DEFAULT_MAIL_SERVER="$(mail_default mail_server "$(cred_field mail_server)")"
+        DEFAULT_MAIL_PORT="$(mail_default mail_port "$(cred_field mail_port)")"
+        DEFAULT_MAIL_LOGIN="$(mail_default mail_login "$(cred_field mail_login)")"
+        DEFAULT_MAIL_PASSWORD="$(mail_default mail_password "$(cred_field mail_password)")"
+        DEFAULT_MAIL_FROM="$(mail_default mail_from "$(cred_field mail_from)")"
+        DEFAULT_MAIL_TO="$(mail_default mail_to "$(cred_field mail_to)")"
+        cp -p "$RBR_DIR/credentials" "$RBR_DIR/credentials.bak"
+        echo "  → Saved the current file as credentials.bak"
+        ask_mail_settings
+        write_credentials "$CRED_BROKER" "$CRED_PORT" "$CRED_USER" "$CRED_PASS" \
+            "$MAIL_SERVER" "$MAIL_PORT" "$MAIL_LOGIN" "$MAIL_PASSWORD" "$MAIL_FROM" "$MAIL_TO"
+        chown "$RBR_USER:$RBR_USER" "$RBR_DIR/credentials"
+        chmod 640 "$RBR_DIR/credentials"
+        echo "  → Updated the mail settings in $RBR_DIR/credentials"
+    else
+        # Fresh file: ask its contents. The broker is this machine's
+        # Mosquitto, so localhost:1883 is right for almost every install; the
+        # account was already supplied in Step 0 and is not asked again.
+        CRED_BROKER="$(prompt_value "  MQTT broker host" "broker" "localhost")"
+        CRED_PORT="$(prompt_value "  MQTT broker port" "broker port" "1883")"
+        if [[ ! "$CRED_PORT" =~ ^[0-9]+$ ]]; then
+            echo "  ⚠ '$CRED_PORT' is not a port number — using 1883."
+            CRED_PORT=1883
+        fi
+        echo "  → Broker account: ${MQTT_USERNAME} (from Step 0)"
+        echo ""
+        ask_mail_settings
+        write_credentials "$CRED_BROKER" "$CRED_PORT" "$MQTT_USERNAME" "$MQTT_PASSWORD" \
+            "$MAIL_SERVER" "$MAIL_PORT" "$MAIL_LOGIN" "$MAIL_PASSWORD" "$MAIL_FROM" "$MAIL_TO"
+        chown "$RBR_USER:$RBR_USER" "$RBR_DIR/credentials"
+        chmod 640 "$RBR_DIR/credentials"
+        echo "  → Created $RBR_DIR/credentials (broker: $CRED_BROKER:$CRED_PORT, MAC: $MAC)"
+    fi
+    if (( MAIL_CONFIGURED )); then
+        echo "  → Mail: $MAIL_SERVER:$MAIL_PORT as $MAIL_LOGIN — verification emails and"
+        echo "    the emailed backup (Menu → Backups) can now send."
+    else
+        echo "  Note: mail credentials are placeholders — update them to use verification"
+        echo "        emails and the emailed backup (Menu → Backups)."
+    fi
 fi
 
 # ===========================================================================
@@ -929,7 +1119,7 @@ if [[ -f /etc/systemd/system/rbr-backup.timer ]]; then
 fi
 echo ""
 echo "  Controller:"
-echo "    Credentials: $RBR_DIR/credentials (broker localhost:1883)"
+echo "    Credentials: $RBR_DIR/credentials (broker $CRED_BROKER:$CRED_PORT)"
 echo "    MAC:         $MAC"
 echo ""
 echo "  Zigbee:"

@@ -46,6 +46,8 @@ The password is the only one with no sensible default, so it is the one you are 
 
 Every answer is stored the moment it is given, before any package is installed: the password in `.mqtt_password` (readable only by its owner), the MAC in `.mac_override`. Both live in the controller directory and both are what the "make a note of the MAC and password" step of the install guide reads back.
 
+The rest of what the credentials file holds is asked later, in Step 5: the broker host and port, then the mail settings — or Enter at the mail server to skip email. The script needs none of that until it writes the file, so it waits until then.
+
 **If you run the script with its input closed** — from a script, or with a file of answers that runs out early — it stops with a plain message rather than quietly storing an empty password. An empty password would look like success and then fail somewhere less obvious.
 
 ## What it installs, step by step
@@ -95,9 +97,22 @@ That HTTP port is deliberately local: it can switch relays, so it is not meant t
 
 ### Step 5 — Controller credentials
 
-Writes the controller's credentials file, pointing it at the local broker rather than the cloud one, so all of the controller's traffic goes through the bridge and the broker's own cloud bridge. The file is readable by its owner and its group only.
+Writes the controller's credentials file — its own configuration: the broker it talks to, the account it uses there, and the SMTP settings for verification mail and the emailed backup. It points at the local broker rather than the cloud one, so all of the controller's traffic goes through the bridge and the broker's own cloud bridge. The file is readable by its owner and its group only.
 
-The email settings in it are **placeholders** (`smtp.example.com`, an empty password). The script says so; fill them in only if you want the controller's email features.
+Rather than leaving the mail settings as placeholders, the step asks for the file's contents:
+
+| Question | Default | Notes |
+|---|---|---|
+| MQTT broker host | `localhost` | This machine's Mosquitto. |
+| MQTT broker port | `1883` | |
+| Mail server (SMTP host) | — (empty skips email) | Pressing Enter here leaves the mail settings as placeholders. |
+| Mail port | `465` | 465 is implicit TLS; use 587 for STARTTLS providers. |
+| Mail login | — | Usually the same as the From: address. |
+| Mail password | — | Not echoed. |
+| Mail From: address | the mail login | |
+| Fallback recipient for emailed backups | — (empty) | Used only when no address is registered; stored as `mail_to`. |
+
+The broker account is not asked again: it is the MQTT username and password supplied at the start. Leaving the mail server empty writes the placeholders the script has always written (`smtp.example.com`, an empty password) and says so; the email features then need completing by hand. The answers are written with a JSON writer, so a quote or backslash in a password cannot corrupt the file.
 
 ### Step 5b — Where the heating records live
 
@@ -141,7 +156,7 @@ Installs `rbr-mapbackup.service` and `rbr-mapbackup.timer`, which runs shortly a
 
 Installs `rbr-backup.service` and `rbr-backup.timer`, which runs at 03:00 on the first of every month and catches up after downtime. It writes one ZIP into `backup/` beside the controller and keeps the newest twelve: the plan and its history, the system credentials and identity files, and the whole Zigbee2MQTT data directory — including the network key, a consistent snapshot of the paired-device database, and the coordinator backup. It contains secrets, so archives are mode 0600.
 
-Emailing a copy is optional and off by default. Turn it on under **Menu → Backups** in the app; the address shown is the one the system registered with. The toggle and address are written to `backup-config.json`, so the timer can send the mail with no browser open. The `mail_*` settings in `credentials` are used for sending — the placeholder values created by Step 5 must be replaced first, and the Backups sheet reports a sending failure without losing the local archive.
+Emailing a copy is optional and off by default. Turn it on under **Menu → Backups** in the app; the address shown is the one the system registered with. The toggle and address are written to `backup-config.json`, so the timer can send the mail with no browser open. The `mail_*` settings in `credentials` are used for sending — the values asked for in Step 5, or the placeholders if email was skipped there, which must be replaced first. The Backups sheet reports a sending failure without losing the local archive.
 
 `rbr-restore.py` (installed beside it) restores an archive after a fresh install: it verifies every checksum, snapshots the files it is about to replace, restores ownership and permissions, and restarts the services.
 
@@ -168,7 +183,7 @@ The script starts Zigbee2MQTT and the bridge explicitly (the others were started
 
 - **Install AllSpeak.** Deliberate; see above.
 - **Pair your Zigbee devices.** That is the next step of the install, and it is interactive.
-- **Fill in your email settings.** The credentials file carries placeholders; the emailed backup and the verification/recovery mails both need real `mail_*` values.
+- **Finish email settings you skipped.** The mail settings are asked for in Step 5; pressing Enter at the mail server leaves the placeholders, and the emailed backup and the verification/recovery mails need real `mail_*` values.
 - **Configure the machine's firmware.** Coming back after a power cut depends on the BIOS/UEFI "restore after power loss" setting, which no Linux can set. The operating-system half — every service enabled, so the stack returns without a login — is what this script provides.
 - **Change the map.** Rooms, schedules and profiles are entered in the interface, not here.
 
@@ -180,7 +195,7 @@ The script is written to be re-run, and re-running it is the normal way to repai
 - Zigbee2MQTT is updated in place rather than cloned again.
 - The broker configuration and every service file are rewritten from scratch, so any hand-editing of those files is lost.
 - An existing `heatlog-root` is left alone.
-- An existing `credentials` is **left untouched**, including its mail settings. If the broker username or password changed, edit that file by hand or delete it and re-run setup; the installer warns when the two disagree.
+- An existing `credentials` is **left untouched** unless you answer `y` to `Update the mail settings in that file?` — that rewrites only the mail fields and keeps the previous file as `credentials.bak`. If the broker username or password changed, edit that file by hand or delete it and re-run setup; the installer warns when the two disagree.
 - `credentials.json` and the desktop service are only rewritten if you answer `y` again.
 
 ## If it stops part-way

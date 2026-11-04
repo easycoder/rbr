@@ -8,7 +8,7 @@ Here are the steps to be taken to set up a new RBR system.
 >
 > **Updates:** automatic code updates are handled by the standalone updater (`rbr-updater.py` + hourly systemd timer, installed by `rbr-setup.sh`) pulling a versioned tarball from rbrheating.com — see [UPDATE-MECHANISM.md](UPDATE-MECHANISM.md).
 >
-> **Re-running setup:** `rbr-setup.sh` is safe to run again for a repair. It leaves an existing `credentials` untouched — including the mail settings — and uses an existing `.mac_override` as the default MAC. If the MQTT username or password changes, edit `credentials` by hand (or delete it and re-run) so the controller can reach the local broker.
+> **Re-running setup:** `rbr-setup.sh` is safe to run again for a repair. It leaves an existing `credentials` untouched — including the mail settings — unless you answer `y` to its mail-settings question, which updates only those fields and keeps the previous file as `credentials.bak`. It uses an existing `.mac_override` as the default MAC. If the MQTT username or password changes, edit `credentials` by hand (or delete it and re-run) so the controller can reach the local broker.
 >
 > **Data safety:** `rbr-mapbackup.py` (2-minute timer, also installed by `rbr-setup.sh`) keeps the last 10 valid `map.json` revisions in `map-history/` and restores the newest good one if the live file is ever left unreadable — a power cut mid-save can truncate it, because AllSpeak's `save` is not atomic. Separately, `rbr-backup.timer` writes a complete archive on the first of every month into `backup/` (plan, credentials and the Zigbee2MQTT data, including the network key); **Menu → Backups** can email a copy to the registered address. After a fresh install, `sudo python3 rbr-restore.py <archive>` puts it back; see [CONTROLLER-FILES.md](CONTROLLER-FILES.md#backups).
 
@@ -29,7 +29,7 @@ sh get-controller.sh        # fetches and unpacks rbr-controller.zip over this d
 ```
 pip install allspeak-ai         # add --break-system-packages if pip refuses
 ```
-6. Run the setup script as root. It prompts for the MQTT password and MAC address, then installs and configures everything: mosquitto (local broker + cloud bridge), Zigbee2MQTT (dongle auto-detected; web frontend on port 8080), the zigbee bridge service, the automatic updater (hourly) and the component watchdog (every 15 minutes, including the heating check), the map history keeper (every 2 minutes), the monthly backup (with an optional email copy set under **Menu → Backups**), the controller service (installed by default; answer `n` to skip it), and optionally the local UI.
+6. Run the setup script as root. It prompts for the MQTT password and MAC address, then — when it builds `~/rbr/credentials` in Step 5 — for the broker host/port and the mail settings (press Enter at the mail server to skip email and keep the placeholders). It then installs and configures everything: mosquitto (local broker + cloud bridge), Zigbee2MQTT (dongle auto-detected; web frontend on port 8080), the zigbee bridge service, the automatic updater (hourly) and the component watchdog (every 15 minutes, including the heating check), the map history keeper (every 2 minutes), the monthly backup (with an optional email copy set under **Menu → Backups**), the controller service (installed by default; answer `n` to skip it), and optionally the local UI.
 ```
 sudo ./rbr-setup.sh
 ```
