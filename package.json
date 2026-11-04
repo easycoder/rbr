@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "tests/unit/run-unit-tests.sh",
-    "check": "node tests/pwa-compile-check.js && node tests/pwa-device-editor-check.js && node tests/pwa-schedule-editor-check.js && node tests/pwa-schedule-save-check.js && node tests/pwa-profile-sheet-check.js && node tests/pwa-valve-state-check.js && node tests/pwa-backup-sheet-check.js"
+    "check": "node tests/pwa-compile-check.js && node tests/pwa-device-editor-check.js && node tests/pwa-schedule-editor-check.js && node tests/pwa-schedule-save-check.js && node tests/pwa-profile-sheet-check.js && node tests/pwa-valve-state-check.js && node tests/pwa-backup-sheet-check.js && node tests/pwa-build-tap-check.js"
   },
   "keywords": [],
   "author": "",

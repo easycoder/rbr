@@ -218,7 +218,11 @@ async function main() {
     await waitUntil(() => w.__pushMap, BUILD_MS, 'the MQTT client');
     await sleep(100);
     w.__pushMap(JSON.stringify(fixture()));
-    await waitUntil(() => d.getElementById('backup-sheet'), BUILD_MS, 'the home screen');
+    // The last sheet template in BuildHomeScreen, so this waits for the build
+    // to finish rather than for the first sheet to appear. Tapping a menu row
+    // mid-build is the race the openers now ignore (see pwa-build-tap-check),
+    // so a weaker wait here made the click land in the gap and do nothing.
+    await waitUntil(() => d.getElementById('special-time-sheet'), BUILD_MS, 'the home screen');
 
     console.log('\n== the hamburger opens the Backups sheet ==');
     d.getElementById('top-bar-menu-btn').click();

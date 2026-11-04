@@ -1268,6 +1268,10 @@ BuildHomeScreen:
 
 !	All sibling sheets are now attached — flag the world ready so
 !	HideAllSheets stops being a no-op when called from click handlers.
+!	Every Open<Sheet> routine gates on this flag too: their handlers are
+!	wired before this point (room rows, menu rows, profile pill), and the
+!	`rest get` calls in between park the program long enough for a tap to
+!	slip in and reach DOM that isn't attached yet.
 	set SheetsReady
 
 !	Background tick — re-pick the gradient at hour boundaries. Forked once
@@ -2283,6 +2287,7 @@ LowercaseModeForServer:
 !!
 !! The module returns either `{cancelled: yes}` (Cancel) or `{cancelled: no, profiles, activeIdx, calendarOn, calendarData}` (Save). On a save we ship the full Update Profiles via SendUpdateProfiles. The active idx may have changed (rename of active profile, or explicit row selection), so we use whatever the module computed rather than CurrentProfile.
 OpenProfileSheet:
+	if not SheetsReady return
 	put `{}` into OpenMsg
 	set property `profiles` of OpenMsg to property `profiles` of Map
 	set property `activeProfileName` of OpenMsg to ActiveProfileName
@@ -2313,6 +2318,7 @@ OpenProfileSheet:
 !!
 !! Snapshot the current Map state (profiles + active profile index), build the open dict, open the sheet chrome with the room's title, then send-and-block. The module renders its own period cards, runs its own event loop until the user clicks Save or Cancel, and ships back `{cancelled: yes|no, profiles}`. On a Save reply we ship the resulting Update Profiles via SendUpdateProfiles. CloseSheet animates the chrome closed in either case.
 OpenScheduleEditor:
+	if not SheetsReady return
 	put element ClickIndex of RoomsList into Room
 	put `{}` into OpenMsg
 	set property `roomName` of OpenMsg to property `name` of Room
@@ -2339,6 +2345,7 @@ OpenScheduleEditor:
 !!!
 !! Open the read-only room-info sheet for the room at ClickIndex. Shows the current readings (relay, temperature, humidity, battery, last-report age) and stays open across map refreshes — RefreshHomeScreen detects InfoSheetOpen and calls PaintInfoSheet to update the values in place.
 OpenInfoSheet:
+	if not SheetsReady return
 	put ClickIndex into InfoSheetRoomIdx
 	put element InfoSheetRoomIdx of RoomsList into Room
 	gosub to PaintInfoSheet
@@ -2428,6 +2435,7 @@ FormatOverrideText:
 !!!
 !! Open the special-actions sheet for the room at ClickIndex.
 OpenSpecialSheet:
+	if not SheetsReady return
 	put element ClickIndex of RoomsList into Room
 	put property `name` of Room into SpecialRoomName
 	put property `morningOn` of Room into SpecialMorningOn
@@ -2579,6 +2587,7 @@ ClearSpecialOverride:
 !!
 !! Snapshots SystemName and SystemType into the Editing* vars, paints the type-pill highlight, swaps the visible sheet. The controller's existing System Name handler picks up `name`; `systemType` is included as an additional map-root field that the controller currently just preserves, ready for future fuel-aware logic (Boiler vs Heat Pump scheduling differs in optimisation targets).
 OpenSystemSheet:
+	if not SheetsReady return
 	put SystemName into EditingSystemName
 	put SystemType into EditingSystemType
 	if EditingSystemType is empty put `Boiler` into EditingSystemType
@@ -2646,6 +2655,7 @@ SaveSystemSheet:
 !!
 !! The controller owns the monthly schedule; this sheet only reads Map.backup, shows the registered address and the last run, and lets the user turn the email copy on or off or ask for a backup now. The archive is always written locally, whether email is on or not.
 OpenBackupSheet:
+	if not SheetsReady return
 	gosub to PaintBackupState
 	gosub to HideAllSheets
 	set BackupSheetOpen
@@ -2732,6 +2742,7 @@ SendBackupNow:
 !!
 !! Snapshots the current OutsideSensor / FrostTrigger into the Editing* vars, sets the input contents, swaps the visible sheet.
 OpenOutsideSheet:
+	if not SheetsReady return
 	put OutsideSensor into EditingOutsideSensor
 	put FrostTrigger into EditingFrostTrigger
 	set the content of OutsideSheetSensor to EditingOutsideSensor
@@ -2801,6 +2812,7 @@ SaveOutsideSheet:
 !!
 !! Aborts early with an alert if there are no rooms yet, or if Map.profiles is empty (shouldn't happen post-bootstrap, defensive check).
 OpenDeviceEditor:
+	if not SheetsReady return
 	if RoomCount is 0
 	begin
 		alert `No rooms in the system yet.`
