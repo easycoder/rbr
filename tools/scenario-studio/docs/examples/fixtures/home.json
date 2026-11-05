@@ -1,0 +1,93 @@
+{
+  "_doc": "Base map for the Scenario Studio examples: wire-shaped, as the controller sends it. Three rooms; Office has a schedule change at 18:00 so Advance has somewhere to project to.",
+  "name": "Scenario Studio home",
+  "profile": 0,
+  "calendar": "off",
+  "calendar-data": [
+    { "day0-profile": "Weekday" },
+    { "day1-profile": "Weekday" },
+    { "day2-profile": "Weekday" },
+    { "day3-profile": "Weekday" },
+    { "day4-profile": "Weekday" },
+    { "day5-profile": "Weekend" },
+    { "day6-profile": "Weekend" }
+  ],
+  "rooms": [
+    {
+      "name": "Kitchen",
+      "sensor": "kitchen-thermometer",
+      "relays": ["kitchen-radiator"],
+      "relay": "on",
+      "linked": "yes",
+      "status": "good",
+      "temperature": 1840,
+      "battery": 82,
+      "statusMessage": "",
+      "relaysTotal": 1,
+      "relaysFailed": 0
+    },
+    {
+      "name": "Office",
+      "sensor": "office-thermometer",
+      "relays": ["office-radiator"],
+      "relay": "on",
+      "linked": "yes",
+      "status": "good",
+      "temperature": 2250,
+      "battery": 74,
+      "statusMessage": "",
+      "relaysTotal": 1,
+      "relaysFailed": 0
+    },
+    {
+      "name": "Outside",
+      "sensor": "outside-thermometer",
+      "relays": [],
+      "relay": "off",
+      "linked": "yes",
+      "status": "good",
+      "temperature": 600,
+      "battery": 51,
+      "statusMessage": "",
+      "relaysTotal": 0,
+      "relaysFailed": 0
+    }
+  ],
+  "profiles": [
+    {
+      "name": "Weekday",
+      "rooms": {
+        "Kitchen": {
+          "mode": "timed",
+          "target": 21,
+          "periods": [
+            { "on": "06:00", "off": "08:00", "temp": "21.0" },
+            { "on": "18:00", "off": "22:00", "temp": "20.0" }
+          ]
+        },
+        "Office": {
+          "mode": "timed",
+          "target": 22,
+          "periods": [
+            { "on": "09:00", "off": "12:00", "temp": "21.0" },
+            { "on": "14:00", "off": "18:00", "temp": "22.0" },
+            { "on": "18:00", "off": "22:00", "temp": "19.0" }
+          ]
+        },
+        "Outside": {
+          "mode": "off",
+          "target": 0,
+          "periods": []
+        }
+      }
+    },
+    {
+      "name": "Weekend",
+      "rooms": {
+        "Kitchen": { "mode": "off", "target": 0, "periods": [] },
+        "Office": { "mode": "off", "target": 0, "periods": [] },
+        "Outside": { "mode": "off", "target": 0, "periods": [] }
+      }
+    }
+  ]
+}

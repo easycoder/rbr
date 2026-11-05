@@ -2,6 +2,7 @@
 !.github
 !.htaccess
 *.txt
+!tools/scenario-studio/requirements.txt
 misc
 stats
 backup
@@ -20,6 +21,15 @@ node_modules/
 package-lock.json
 desktop/config.json
 
+# Playwright output — browser traces, failure screenshots and the HTML report.
+test-results/
+playwright-report/
+
+# Real system maps snapshotted for local scenario testing — room names and
+# device ids from a living installation. The public examples stay synthetic.
+tools/scenario-studio/fixtures/local/
+tools/scenario-studio/ai-config.json
+
 # Local machine credentials — never commit these. Both are generated per
 # machine (`rbr-setup.sh` writes `credentials` and `zigbee-config.json`), and
 # `credentials.example.json` documents their shape.
@@ -33,3 +43,4 @@ backup/
 backup-config.json
 backup-status.json
 pre-restore-*/
+DIFF.md

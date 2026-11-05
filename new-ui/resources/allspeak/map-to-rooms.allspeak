@@ -322,6 +322,8 @@ MergeSharedRooms:
 !! Advance override: when Advance is `A`, project the schedule one slot forward, mirroring the decision the controller itself makes. From a current period the shift normally ends it early and the room joins the inter-period gap (displayed as "Off until <next on>" with BG prefix) — except when the next period starts exactly where this one ends (back-to-back periods such as 18:00-20:00 then 20:00-23:00), because then that period is brought forward and its temp and off time are displayed with no BG prefix. From background, Advance jumps the next period forward in the same way.
 !!
 !! `calling` (relay state for chip styling) is taken straight from the controller's `relay` field, not re-derived. The controller already accounts for unlinked relays, boost overlay, and hysteresis-free temp-vs-target comparison; re-deriving in the UI's threshold ends up wrong.
+!!
+!! `relaysTotal` arrives only on the controller's reply: `CommitRooms` adds it, and `PrepareMapForDisk` strips it before writing `map.json`. A disk-shaped map (demo-map.json) therefore has no total, and an absent total must not read as "no relays" — that marks the room unwired, gives it "No radiator assigned", and stops it calling. The relays list is identity and is always present, so count it when the field is missing. `relaysFailed` needs no fallback: an absent count is already ignored.
 BuildRoomEntry:
 	put `{}` into NewRoom
 	put property `name` of LegacyRoom into LegacyName
@@ -422,6 +424,9 @@ BuildRoomEntry:
 !	some, but not all, relays faulty — the room still heats from the rest.
 	put property `relaysFailed` of LegacyRoom into LegacyRelaysFailed
 	put property `relaysTotal` of LegacyRoom into LegacyRelaysTotal
+!	A disk-shaped map has no relay total (see the block's paragraph above);
+!	the room's own relays are identity and are always there.
+	if LegacyRelaysTotal is empty put LegacyRelayCount into LegacyRelaysTotal
 	if LegacyStatus is `partial` set property `partial` of NewRoom to `yes`
 	else if LegacyRelaysFailed is not empty
 	begin
@@ -759,7 +764,7 @@ BuildRoomEntry:
 		if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
 	end
 	return
-!! @hash e99879bb
+!! @hash 1d2dcd7b
 !!!
 !! Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string (19.8). In-place via TempStr — caller passes the integer in, gets the string back out.
 FormatHundredths:

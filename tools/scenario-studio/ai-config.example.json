@@ -1,0 +1,17 @@
+{
+  "provider": "prompt",
+  "providers": {
+    "claude": {
+      "command": ["claude", "-p", "--output-format", "json", "--permission-mode", "plan"],
+      "timeout": 240
+    },
+    "reasonix": {
+      "command": [],
+      "timeout": 240
+    },
+    "command": {
+      "command": [],
+      "timeout": 240
+    }
+  }
+}

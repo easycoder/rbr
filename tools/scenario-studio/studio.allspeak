@@ -1,0 +1,1825 @@
+!   Scenario Studio — the desktop shell.
+!!
+!! An AllSpeak/PySide6 window, built from the graphics domain's own table,
+!! logpane, panes and tabs. The Run button starts scenario_runner as a child
+!! process and its JSONL events drive the result column and the log, while the
+!! AllSpeak flow sits in Idle. Nothing polls the child.
+!!
+!! Run from this directory, because the example paths and the runner's venv
+!! are relative to it:
+!!
+!!     cd tools/scenario-studio
+!!     allspeak studio.allspeak
+!!
+!! The runner is the v0 engine in scenario_runner/; its venv is .venv.
+!! @hash
+!! @verified
+!!!
+script ScenarioStudio
+
+use graphics
+use process
+
+window Win
+layout Root
+panel Toolbar
+layout ToolbarRow
+label Brand
+label Env
+label Clock
+pushbutton ValidateBtn
+pushbutton StopBtn
+pushbutton RunBtn
+pushbutton DemoBtn
+pushbutton RefreshBtn
+label SpeedLabel
+combobox SpeedBox
+
+panes Work
+panes Vert
+panel Sidebar
+layout SidebarCol
+layout DraftRow
+label GroupLabel
+combobox GroupBox
+pushbutton NewScenarioBtn
+pushbutton NewGroupBtn
+dialog GroupDlg
+label BatchLabel
+listbox BatchList
+pushbutton AddBatchBtn
+pushbutton RemoveBatchBtn
+pushbutton RunBatchBtn
+label ScenariosLabel
+listbox Scenarios
+label BriefPreview
+pushbutton EditBriefBtn
+dialog BriefDlg
+label AiLabel
+pushbutton DraftBtn
+pushbutton CopyPathBtn
+pushbutton RefreshScenariosBtn
+pushbutton DeleteScenarioBtn
+
+panel Editor
+layout EditorCol
+label Title
+label Meta
+table Steps
+
+panel InspectorPane
+layout InspectorCol
+label InspectorTitle
+label InspectorSub
+multiline Inspector
+
+tabs LogTabs
+logpane Log
+logpane WireLog
+logpane ConsoleLog
+logpane ArtifactsLog
+label StatusLabel
+
+process Runner
+process Refresher
+process Drafter
+process Deleter
+process Batcher
+process Grouper
+
+variable ScenarioPath
+variable Brief
+variable PromptPath
+variable Edited
+variable Command
+variable Running
+variable Pace
+variable SpeedValue
+variable Refreshing
+variable Drafting
+variable Deleting
+variable Batching
+variable BatchName
+variable BatchCount
+variable BatchI
+variable GroupValue
+variable Grouping
+variable DeleteArmed
+variable RequestText
+variable LastText
+variable LastStatus
+variable LastPath
+variable LastMessage
+variable LibText
+variable LibName
+variable LibRel
+variable LibFull
+variable LibCount
+variable LibI
+variable KeepPath
+variable CurrentGroup
+variable GroupName
+variable BriefRel
+variable LibGroup
+variable LibBrief
+list LibGroups
+variable LibGroupCount
+variable LibGroupI
+variable ScenarioText
+dictionary ScenarioData
+list StepList
+dictionary Step
+dictionary Controller
+dictionary State
+dictionary Fields
+dictionary UI
+dictionary Expect
+dictionary Wire
+variable LineText
+dictionary Event
+dictionary RoomAliases
+dictionary LibraryPaths
+dictionary BriefPaths
+dictionary LastData
+dictionary LibData
+list LibList
+dictionary LibEntry
+list BatchPaths
+list BatchNames
+variable Kind
+variable Id
+variable At
+variable Actor
+variable ActorLabel
+variable Target
+variable Action
+variable Expectation
+variable Detail
+variable Sub
+variable RowIndex
+variable Count
+variable StepId
+variable RunStatus
+variable Passed
+variable Failed
+variable Name
+variable ExitCode
+variable Message
+variable Source
+variable FirstAt
+variable LastAt
+variable ProfileName
+dictionary HomeSpec
+dictionary Artifacts
+
+list Rows
+list RowValues
+list StepIds
+list StepDetails
+list StepSubs
+list ActorTokens
+list ExampleNames
+dictionary ExamplePaths
+
+!! Build the window and load the first scenario.
+!!
+!! The layout is the mockup's four regions: a toolbar, three side-by-side
+!! panes, and the log tabs below them. The table is seeded from the scenario
+!! JSON; the process handlers are registered before Run can start anything.
+Setup:
+    init graphics
+
+    create Win title `Scenario Studio` size 1360 800
+    create Root type QVBoxLayout
+    create Toolbar
+    create ToolbarRow type QHBoxLayout
+    set the layout of Toolbar to ToolbarRow
+
+    create Brand text `Scenario Studio` size 18
+    create Env text `rbr · new-ui · 390 × 844` size 28
+    create Clock text `clock —` size 18
+    create SpeedLabel text `Speed` size 8
+    create SpeedBox
+    add `120` to SpeedBox
+    add `300` to SpeedBox
+    add `60` to SpeedBox
+    add `1` to SpeedBox
+    create ValidateBtn text `Validate` size 10
+    create StopBtn text `Stop` size 10
+    create RunBtn text `▶ Run` size 10
+    create DemoBtn text `Demo` size 10
+    create RefreshBtn text `Refresh map` size 12
+
+    set the style of Brand to `font-size:15px;font-weight:600;`
+    set the color of Env to `#666666`
+    set the color of Clock to `#666666`
+    set the color of SpeedLabel to `#666666`
+    disable StopBtn
+
+    add Brand to ToolbarRow
+    add spacer size 12 to ToolbarRow
+    add Env to ToolbarRow
+    add stretch to ToolbarRow
+    add SpeedLabel to ToolbarRow
+    add SpeedBox to ToolbarRow
+    add Clock to ToolbarRow
+    add RefreshBtn to ToolbarRow
+    add ValidateBtn to ToolbarRow
+    add StopBtn to ToolbarRow
+    add RunBtn to ToolbarRow
+    add DemoBtn to ToolbarRow
+    add spacer size 12 to ToolbarRow
+    add Toolbar to Root
+
+    create Work orientation horizontal
+    create Vert orientation vertical
+
+    create Sidebar
+    create SidebarCol type QVBoxLayout
+    set the layout of Sidebar to SidebarCol
+    create GroupLabel text `GROUP` size 12
+    create GroupBox
+    create NewScenarioBtn text `New scenario` size 12
+    create NewGroupBtn text `New group` size 12
+    create ScenariosLabel text `SCENARIOS` size 14
+    create Scenarios
+    set the height of Scenarios to 150
+    create AiLabel text `DRAFT WITH AI` size 14
+    put `Advance in the office at 15:00, expect the button to say Cancel the advance, then the controller clears it at 18:00.` into Brief
+    create BriefPreview text `Brief ready — Edit brief to change it.` size 28
+    create EditBriefBtn text `Edit brief…` size 12
+    create DraftBtn text `Draft scenario` size 10
+    create CopyPathBtn text `Copy path` size 12
+    disable CopyPathBtn
+    create DraftRow type QHBoxLayout
+    add DraftBtn to DraftRow
+    add CopyPathBtn to DraftRow
+    create BatchLabel text `BATCH` size 12
+    create BatchList
+    set the height of BatchList to 60
+    create AddBatchBtn text `+ Batch` size 10
+    create RemoveBatchBtn text `- Batch` size 12
+    create RunBatchBtn text `Run batch` size 12
+    create RefreshScenariosBtn text `↻ Scenarios` size 10
+    create DeleteScenarioBtn text `Delete scenario` size 12
+    disable DeleteScenarioBtn
+    set the style of GroupLabel to `font-size:9px;font-weight:700;color:#999999;`
+    set the style of BatchLabel to `font-size:9px;font-weight:700;color:#999999;`
+    set the style of ScenariosLabel to `font-size:9px;font-weight:700;color:#999999;`
+    set the style of AiLabel to `font-size:9px;font-weight:700;color:#999999;`
+    set the color of BriefPreview to `#666666`
+    add GroupLabel to SidebarCol
+    add GroupBox to SidebarCol
+    add NewGroupBtn to SidebarCol
+    add NewScenarioBtn to SidebarCol
+    add ScenariosLabel to SidebarCol
+    add Scenarios to SidebarCol
+    add RefreshScenariosBtn to SidebarCol
+    add DeleteScenarioBtn to SidebarCol
+    add spacer size 10 to SidebarCol
+    add AiLabel to SidebarCol
+    add BriefPreview to SidebarCol
+    add EditBriefBtn to SidebarCol
+    add DraftRow to SidebarCol
+    add spacer size 10 to SidebarCol
+    add BatchLabel to SidebarCol
+    add BatchList to SidebarCol
+    add AddBatchBtn to SidebarCol
+    add RemoveBatchBtn to SidebarCol
+    add RunBatchBtn to SidebarCol
+    add stretch to SidebarCol
+    add Sidebar to Work
+
+    create Editor
+    create EditorCol type QVBoxLayout
+    set the layout of Editor to EditorCol
+    create Title text `Loading…` size 60
+    create Meta text `` size 40
+    create Steps
+    set the style of Title to `font-size:16px;font-weight:600;`
+    set the color of Meta to `#666666`
+    set columns of Steps to `["#","Time","Actor","Target","Action","Expectation","Result"]`
+    set column widths of Steps to `[32,55,95,150,220,220,40]`
+    set stretch column of Steps to 5
+    add Title to EditorCol
+    add Meta to EditorCol
+    add stretch Steps to EditorCol
+    add Editor to Work
+
+    create InspectorPane
+    create InspectorCol type QVBoxLayout
+    set the layout of InspectorPane to InspectorCol
+    create InspectorTitle text `STEP —` size 14
+    create InspectorSub text `` size 20
+    create Inspector readonly cols 36 rows 20
+    set the style of InspectorTitle to `font-size:12px;font-weight:600;`
+    set the color of InspectorSub to `#666666`
+    add InspectorTitle to InspectorCol
+    add InspectorSub to InspectorCol
+    add stretch Inspector to InspectorCol
+    add InspectorPane to Work
+
+    set sizes of Work to `[230,820,310]`
+
+    create LogTabs
+    create Log
+    create WireLog
+    create ConsoleLog
+    create ArtifactsLog
+    add Log to LogTabs as `Steps`
+    add WireLog to LogTabs as `Wire`
+    add ConsoleLog to LogTabs as `Console`
+    add ArtifactsLog to LogTabs as `Artifacts`
+    set current tab of LogTabs to 0
+    add Work to Vert
+    add LogTabs to Vert
+    set sizes of Vert to `[590,190]`
+    add Vert to Root
+
+    create StatusLabel text `Ready` size 80
+    set the background color of StatusLabel to `#FDF0EA`
+    set the color of StatusLabel to `#8C4A2E`
+    add StatusLabel to Root
+    set the layout of Win to Root
+
+    on click RunBtn go to RunClicked
+    on click DemoBtn go to DemoClicked
+    on click RefreshBtn go to RefreshClicked
+    on click ValidateBtn go to ValidateClicked
+    on click StopBtn go to StopClicked
+    on select GroupBox go to GroupChanged
+    on click NewGroupBtn go to NewGroupClicked
+    on click NewScenarioBtn go to NewScenarioClicked
+    on click AddBatchBtn go to AddBatchClicked
+    on click RemoveBatchBtn go to RemoveBatchClicked
+    on click RunBatchBtn go to RunBatchClicked
+    on line Grouper go to GrouperLine
+    on stderr line Grouper go to GrouperError
+    on exit Grouper go to GrouperDone
+    on line Batcher go to BatcherLine
+    on stderr line Batcher go to BatcherError
+    on exit Batcher go to BatcherDone
+    on click EditBriefBtn go to EditBriefClicked
+    on click CopyPathBtn go to CopyPathClicked
+    on click DraftBtn go to DraftClicked
+    on click RefreshScenariosBtn go to RefreshScenariosClicked
+    on click DeleteScenarioBtn go to DeleteScenarioClicked
+    on select Scenarios go to ScenarioPicked
+    on select Steps go to StepSelected
+    on close Win go to WinClosed
+    on line Runner go to RunnerLine
+    on stderr line Runner go to RunnerError
+    on exit Runner go to RunnerDone
+    on line Refresher go to RefresherLine
+    on stderr line Refresher go to RefresherError
+    on exit Refresher go to RefresherDone
+    on line Drafter go to DrafterLine
+    on stderr line Drafter go to DrafterError
+    on exit Drafter go to DrafterDone
+    on line Deleter go to DeleterLine
+    on stderr line Deleter go to DeleterError
+    on exit Deleter go to DeleterDone
+
+    gosub to LoadGroups
+    gosub to BuildScenarioList
+
+    put `docs/examples/advance.json` into ScenarioPath
+    gosub to LoadScenario
+
+    show Win
+    put 0 into Running
+    put 0 into Drafting
+    put 0 into Deleting
+    put 0 into Refreshing
+    put empty into DeleteArmed
+    put 0 into Grouping
+    set the text of StatusLabel to `Ready — Run starts the runner.`
+Idle:
+    wait 1 tick
+    go to Idle
+!! @hash e37e2c0c
+!! @verified e37e2c0c
+!!!
+
+!! Load the scenario file and seed the table from its steps.
+!!
+!! Each row is an array in column order, because the table's readback and
+!! `set cell` are simplest with arrays. Step details for the inspector, step
+!! ids for the runner's events and the actor token for the cell colour are kept
+!! in parallel lists — the table is read-only, the inspector is the editor.
+LoadScenario:
+    load ScenarioText from ScenarioPath
+    put json ScenarioText into ScenarioData
+    if ScenarioData is empty
+    begin
+        set the text of StatusLabel to `Could not load ` cat ScenarioPath
+        return
+    end
+    put entry `name` of ScenarioData into Name
+    put entry `steps` of ScenarioData into StepList
+    put entry `home` of ScenarioData into HomeSpec
+    put json `{}` into RoomAliases
+    if ScenarioData has entry `rooms` put entry `rooms` of ScenarioData into RoomAliases
+    put empty into Brief
+    if BriefPaths has entry ScenarioPath
+    begin
+        put entry ScenarioPath of BriefPaths into BriefRel
+        if file BriefRel exists load Brief from BriefRel
+    end
+    if Brief is empty
+    begin
+        if ScenarioData has entry `description` put entry `description` of ScenarioData into Brief
+    end
+    if Brief is empty set the text of BriefPreview to `No brief yet — Edit brief to write one.`
+    else set the text of BriefPreview to `Brief ready — click Draft scenario.`
+    put `active profile` into ProfileName
+    if HomeSpec has entry `profile` put entry `profile` of HomeSpec into ProfileName
+    put `[]` into Rows
+    put `[]` into StepIds
+    put `[]` into StepDetails
+    put `[]` into StepSubs
+    put `[]` into ActorTokens
+    put empty into FirstAt
+    put empty into LastAt
+    put 0 into RowIndex
+    put the count of StepList into Count
+    while RowIndex is less than Count
+    begin
+        put item RowIndex of StepList into Step
+        gosub to DescribeStep
+        put `[]` into RowValues
+        append Id to RowValues
+        append At to RowValues
+        append ActorLabel to RowValues
+        append Target to RowValues
+        append Action to RowValues
+        append Expectation to RowValues
+        append `○` to RowValues
+        append RowValues to Rows
+        append Id to StepIds
+        append Actor to ActorTokens
+        append Detail to StepDetails
+        append ActorLabel cat ` · ` cat At to StepSubs
+        if FirstAt is empty put At into FirstAt
+        put At into LastAt
+        increment RowIndex
+    end
+    set rows of Steps to Rows
+    gosub to PaintRows
+    set the text of Title to Name
+    set the text of Meta to ProfileName cat ` · ` cat Count cat ` steps · virtual clock`
+    set the text of Clock to `clock ` cat FirstAt cat ` → ` cat LastAt
+    if Count is greater than 0
+    begin
+        put item 0 of StepIds into StepId
+        put item 0 of StepDetails into Detail
+        put item 0 of StepSubs into Sub
+        set the text of InspectorTitle to `STEP ` cat StepId
+        set the text of InspectorSub to Sub
+        set the text of Inspector to Detail
+    end
+    else
+    begin
+        set the text of InspectorTitle to `STEP —`
+        set the text of InspectorSub to ``
+        set the text of Inspector to `Select a step to inspect it.`
+    end
+    set the text of StatusLabel to `Loaded ` cat ScenarioPath
+    return
+!! @hash 6cd54bc1
+!! @verified 6cd54bc1
+!!!
+
+!! Turn one step into the table's six display cells and the inspector line.
+!!
+!! This mirrors the runner's own summary in Python, but only for the fields
+!! the examples use. Unknown shapes fall back to the actor and target, which is
+!! enough to see that a step exists; the raw JSON is in the runner's wire log.
+DescribeStep:
+    put entry `id` of Step into Id
+    put entry `at` of Step into At
+    put empty into Target
+    put empty into Action
+    put empty into Expectation
+    put empty into Detail
+    if Step has entry `controller`
+    begin
+        put `controller` into Actor
+        put `Controller` into ActorLabel
+        put entry `controller` of Step into Controller
+        put entry `room` of Controller into Target
+        put empty into Action
+        if Controller has entry `set`
+        begin
+            put entry `set` of Controller into Fields
+            if Fields has entry `temperature`
+            begin
+                if Action is not empty put Action cat `; ` into Action
+                put Action cat `temperature = ` cat entry `temperature` of Fields into Action
+            end
+            if Fields has entry `relay`
+            begin
+                if Action is not empty put Action cat `; ` into Action
+                put Action cat `relay = ` cat entry `relay` of Fields into Action
+            end
+            if Fields has entry `advance`
+            begin
+                if Action is not empty put Action cat `; ` into Action
+                put Action cat `advance = ` cat entry `advance` of Fields into Action
+            end
+        end
+        if Controller has entry `state`
+        begin
+            put entry `state` of Controller into State
+            if State has entry `set`
+            begin
+                put entry `set` of State into Fields
+                if Fields has entry `advance`
+                begin
+                    if Action is not empty put Action cat `; ` into Action
+                    put Action cat `advance = ` cat entry `advance` of Fields into Action
+                end
+            end
+        end
+        if Controller has entry `raw` put `raw payload` into Action
+        if Action is empty put `push` into Action
+        put Action cat ` · push` into Action
+        put `—` into Expectation
+    end
+    else if Step has entry `ui`
+    begin
+        put `ui` into Actor
+        put `UI` into ActorLabel
+        put entry `ui` of Step into UI
+        put `—` into Expectation
+        if UI has entry `tap` put entry `tap` of UI into Target
+        if UI has entry `tap` put `tap` into Action
+        if UI has entry `select`
+        begin
+            put entry `select` of UI into Fields
+            put entry `target` of Fields into Target
+            put `select ` cat entry `value` of Fields into Action
+        end
+        if UI has entry `fill`
+        begin
+            put entry `fill` of UI into Fields
+            put entry `target` of Fields into Target
+            put `fill ` cat entry `value` of Fields into Action
+        end
+        if UI has entry `scroll` put entry `scroll` of UI into Target
+    end
+    else if Step has entry `expect`
+    begin
+        put `expect` into Actor
+        put `Expect` into ActorLabel
+        put entry `expect` of Step into Expect
+        put entry `target` of Expect into Target
+        put `—` into Action
+        put empty into Expectation
+        if Expect has entry `contains` put `contains ` cat entry `contains` of Expect into Expectation
+        if Expect has entry `text` put `text = ` cat entry `text` of Expect into Expectation
+        if Expect has entry `notContains` put `not contains ` cat entry `notContains` of Expect into Expectation
+        if Expect has entry `visible` put `visible` into Expectation
+        if Expect has entry `hidden` put `hidden` into Expectation
+        if Expect has entry `value` put `value = ` cat entry `value` of Expect into Expectation
+        if Expect has entry `count` put `count = ` cat entry `count` of Expect into Expectation
+    end
+    else if Step has entry `expectWire`
+    begin
+        put `wire` into Actor
+        put `Wire` into ActorLabel
+        put entry `expectWire` of Step into Wire
+        put entry `request` of Wire into Target
+        put `—` into Action
+        put empty into Expectation
+        if Wire has entry `match` put `match` into Expectation
+        if Expectation is empty put `any` into Expectation
+    end
+    else if Step has entry `waitFor`
+    begin
+        put `expect` into Actor
+        put `Expect` into ActorLabel
+        put entry `waitFor` of Step into Wire
+        put entry `target` of Wire into Target
+        put `—` into Action
+        put entry `state` of Wire into Expectation
+    end
+    else if Step has entry `delay`
+    begin
+        put `delay` into Actor
+        put `Delay` into ActorLabel
+        put `—` into Target
+        put `wait ` cat entry `delay` of Step cat ` s (Demo)` into Action
+        put `—` into Expectation
+    end
+    else
+    begin
+        put `connection` into Actor
+        put `Connection` into ActorLabel
+        put `—` into Action
+        put `—` into Expectation
+    end
+    if RoomAliases has entry Target put entry Target of RoomAliases into Target
+    put Id cat `  ` cat At cat `  ` cat ActorLabel cat `  ` cat Target cat `  ` cat Action into Detail
+    if Step has entry `note`
+    begin
+        if entry `note` of Step is not empty put Detail cat ` — ` cat entry `note` of Step into Detail
+    end
+    return
+!! @hash b9d42057
+!! @verified b9d42057
+!!!
+
+!! Tint the actor cells by kind and mark the result cells as waiting.
+PaintRows:
+    put 0 into RowIndex
+    while RowIndex is less than the count of ActorTokens
+    begin
+        put item RowIndex of ActorTokens into Actor
+        if Actor is `controller` set cell colour Steps RowIndex 2 to `#2F75B5` `#E6EFF7`
+        else if Actor is `ui` set cell colour Steps RowIndex 2 to `#D95A24` `#FDF0EA`
+        else if Actor is `expect` set cell colour Steps RowIndex 2 to `#6B4FA1` `#F0ECF9`
+        else if Actor is `wire` set cell colour Steps RowIndex 2 to `#0F7B6C` `#E5F4F1`
+        else if Actor is `delay` set cell colour Steps RowIndex 2 to `#8A6D3B` `#F7F1E3`
+        else set cell colour Steps RowIndex 2 to `#666666` `#F0F1F3`
+        set cell colour Steps RowIndex 6 to `#C9CBD1`
+        set cell alignment Steps RowIndex 6 to center
+        put item RowIndex of StepDetails into Detail
+        set cell tooltip Steps RowIndex 3 to Detail
+        increment RowIndex
+    end
+    return
+!! @hash e4383fba
+!! @verified e4383fba
+!!!
+
+!! Load the group selector from the manifest; All/Examples/Local precede
+!! the library's own folders.
+LoadGroups:
+    clear GroupBox
+    add `All` to GroupBox
+    add `Examples` to GroupBox
+    add `Local` to GroupBox
+    if file `fixtures/local/scenarios/index.json` exists
+    begin
+        load LibText from `fixtures/local/scenarios/index.json`
+        put json LibText into LibData
+        if LibData is not empty
+        begin
+            if LibData has entry `groups` put entry `groups` of LibData into LibGroups else put `[]` into LibGroups
+            put the count of LibGroups into LibGroupCount
+            put 0 into LibGroupI
+            while LibGroupI is less than LibGroupCount
+            begin
+                put item LibGroupI of LibGroups into LibGroup
+                if LibGroup is not empty add LibGroup to GroupBox
+                add 1 to LibGroupI
+            end
+        end
+    end
+    return
+!! @hash 9f165528
+!! @verified 9f165528
+!!!
+
+GroupChanged:
+    put GroupBox into CurrentGroup
+    if CurrentGroup is empty put `All` into CurrentGroup
+    gosub to BuildScenarioList
+    put empty into DeleteArmed
+    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    set the text of StatusLabel to `Group ` cat CurrentGroup
+    return
+!! @hash
+!! @verified 9f165528
+!!!
+
+NewScenarioClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it first.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it first.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    put empty into ScenarioPath
+    put empty into Brief
+    put empty into PromptPath
+    disable CopyPathBtn
+    clear Steps
+    set the text of Title to `New scenario`
+    set the text of Meta to `No steps yet — write the brief, then Draft scenario`
+    set the text of InspectorTitle to `STEP —`
+    set the text of InspectorSub to ``
+    set the text of Inspector to `Select a step to inspect it.`
+    set the text of BriefPreview to `No brief yet — Edit brief to write one.`
+    disable DeleteScenarioBtn
+    set the text of StatusLabel to `New scenario`
+    gosub to EditBriefClicked
+    return
+!! @hash
+!! @verified 9f165528
+!!!
+
+!! Rebuild the scenario list: examples, the local system, then the library.
+!! `ExamplePaths` maps a list label to its file; `LibraryPaths` marks paths
+!! that may be deleted (the public examples and Local system may not).
+BuildScenarioList:
+    clear Scenarios
+    put json `{}` into ExamplePaths
+    put json `{}` into LibraryPaths
+    put json `{}` into BriefPaths
+    put CurrentGroup into GroupName
+    if GroupName is empty put `All` into GroupName
+    if GroupName is `All` or GroupName is `Examples`
+    begin
+        add `Advance at 15:00` to Scenarios
+        set entry `Advance at 15:00` of ExamplePaths to `docs/examples/advance.json`
+        add `Kitchen temperature` to Scenarios
+        set entry `Kitchen temperature` of ExamplePaths to `docs/examples/temperature.json`
+        add `Delay demo` to Scenarios
+        set entry `Delay demo` of ExamplePaths to `docs/examples/delay.json`
+    end
+    if GroupName is `All` or GroupName is `Local`
+    begin
+        if file `fixtures/local/smoke.json` exists
+        begin
+            add `Local system` to Scenarios
+            set entry `Local system` of ExamplePaths to `fixtures/local/smoke.json`
+        end
+    end
+    gosub to LoadLibrary
+    return
+!! @hash f8fcc98c
+!! @verified f8fcc98c
+!!!
+
+!! Append the library manifest to the scenario list.
+LoadLibrary:
+    if file `fixtures/local/scenarios/index.json` exists
+    begin
+        load LibText from `fixtures/local/scenarios/index.json`
+        put json LibText into LibData
+        if LibData is not empty
+        begin
+            if LibData has entry `scenarios` put entry `scenarios` of LibData into LibList else put `[]` into LibList
+            put the count of LibList into LibCount
+            put 0 into LibI
+            while LibI is less than LibCount
+            begin
+                put item LibI of LibList into LibEntry
+                put entry `name` of LibEntry into LibName
+                put entry `path` of LibEntry into LibRel
+                put entry `group` of LibEntry into LibGroup
+                put `fixtures/local/scenarios/` cat LibRel into LibFull
+                put empty into LibBrief
+                if LibEntry has entry `brief` put `fixtures/local/scenarios/` cat entry `brief` of LibEntry into LibBrief
+                if GroupName is `All` or LibGroup is GroupName
+                begin
+                    if ExamplePaths has entry LibName put LibName cat ` (local)` into LibName
+                    add LibName to Scenarios
+                    set entry LibName of ExamplePaths to LibFull
+                    set entry LibFull of LibraryPaths to 1
+                    if LibBrief is not empty set entry LibFull of BriefPaths to LibBrief
+                end
+                add 1 to LibI
+            end
+        end
+    end
+    return
+!! @hash 1e17961b
+!! @verified 1e17961b
+!!!
+
+!! Selecting a scenario loads its steps and replaces the table.
+ScenarioPicked:
+    put the current item in Scenarios into Name
+    if Name is empty return
+    if Running
+    begin
+        append `A run is in progress; stop it before switching scenario.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it before switching scenario.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    if ExamplePaths has entry Name
+    begin
+        put entry Name of ExamplePaths into ScenarioPath
+        put empty into PromptPath
+        disable CopyPathBtn
+        put empty into DeleteArmed
+        clear Log
+        gosub to LoadScenario
+        if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    end
+    return
+!! @hash e240cd6c
+!! @verified e240cd6c
+!!!
+
+!! Selecting a step fills the inspector from the parallel detail list.
+StepSelected:
+    put the selected row of Steps into RowIndex
+    if RowIndex is less than 0 return
+    put item RowIndex of StepIds into StepId
+    put item RowIndex of StepDetails into Detail
+    put item RowIndex of StepSubs into Sub
+    set the text of InspectorTitle to `STEP ` cat StepId
+    set the text of InspectorSub to Sub
+    set the text of Inspector to Detail
+    return
+!! @hash bdd712f7
+!! @verified bdd712f7
+!!!
+
+!! Start a run: clear the logs, mark the state, and hand the command to the
+!! process domain. The runner's default --repo is the checkout containing it.
+!!
+!! Run is headless and as fast as the page allows. Demo uses the same start
+!! path with --headed, a paced clock, a short pause after each step and
+!! collapsed polls; the speed selector chooses scenario seconds per real
+!! second (120 turns the three-hour gap into 90 seconds).
+RunClicked:
+    put empty into Pace
+    gosub to StartRun
+    return
+!! @hash ef5c6419
+!! @verified ef5c6419
+!!!
+
+!! Demo: a headed, paced run with the speed selector.
+DemoClicked:
+    put the current of SpeedBox into SpeedValue
+    if SpeedValue is empty put `120` into SpeedValue
+    put `--headed --collapse-polls --step-pause-ms 300 --speed ` cat SpeedValue into Pace
+    gosub to StartRun
+    return
+!! @hash 482783d6
+!! @verified 482783d6
+!!!
+
+!! Shared start for Run and Demo.
+StartRun:
+    if Running
+    begin
+        append `A run is already in progress.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed.` to Log
+        return
+    end
+    if Batching
+    begin
+        append `A batch is in progress; wait for it.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it first.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if ScenarioPath is empty return
+    if file `.venv/bin/python` exists
+    begin
+        clear Log
+        clear WireLog
+        clear ConsoleLog
+        clear ArtifactsLog
+        if Pace is empty
+        begin
+            append `Run ` cat ScenarioPath to Log
+            set the text of StatusLabel to `Running ` cat ScenarioPath
+        end
+        else
+        begin
+            append `Demo ` cat ScenarioPath cat ` at ` cat SpeedValue cat `×` to Log
+            set the text of StatusLabel to `Demo ` cat ScenarioPath
+        end
+        disable RunBtn
+        disable ValidateBtn
+        disable DemoBtn
+        disable RefreshBtn
+        disable RefreshScenariosBtn
+        disable DraftBtn
+        disable DeleteScenarioBtn
+        enable StopBtn
+        put 1 into Running
+        put `.venv/bin/python -m scenario_runner --scenario ` cat ScenarioPath cat ` --jsonl` into Command
+        if Pace is not empty put Command cat ` ` cat Pace into Command
+        start Runner command Command
+    end
+    else
+    begin
+        append `Runner venv missing: run the setup in tools/scenario-studio/README.md.` to Log
+        set the text of StatusLabel to `Runner venv missing`
+    end
+    return
+!! @hash eb2d871b
+!! @verified eb2d871b
+!!!
+
+!! Validate without launching a browser.
+ValidateClicked:
+    if Running
+    begin
+        append `A run is already in progress.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed.` to Log
+        return
+    end
+    if Batching
+    begin
+        append `A batch is in progress; wait for it.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it first.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if file `.venv/bin/python` exists
+    begin
+        clear Log
+        clear WireLog
+        clear ConsoleLog
+        clear ArtifactsLog
+        append `Validate ` cat ScenarioPath to Log
+        set the text of StatusLabel to `Validating ` cat ScenarioPath
+        disable RunBtn
+        disable ValidateBtn
+        disable DemoBtn
+        disable RefreshBtn
+        disable RefreshScenariosBtn
+        disable DraftBtn
+        disable DeleteScenarioBtn
+        enable StopBtn
+        put 1 into Running
+        put `.venv/bin/python -m scenario_runner --scenario ` cat ScenarioPath cat ` --jsonl --validate-only` into Command
+        start Runner command Command
+    end
+    else append `Runner venv missing.` to Log
+    return
+!! @hash 01209228
+!! @verified 01209228
+!!!
+
+!! Refresh the local map: run snapshot-map.py, add the Local system scenario if
+!! this is its first snapshot, and reload that scenario when it is selected.
+RefreshClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it before refreshing the map.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it before refreshing the map.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if Refreshing return
+    if file `map.json` exists
+    begin
+        append `Refreshing map.json…` to Log
+        set the text of StatusLabel to `Refreshing map…`
+        disable RunBtn
+        disable ValidateBtn
+        disable DemoBtn
+        disable RefreshBtn
+        disable RefreshScenariosBtn
+        disable DraftBtn
+        disable DeleteScenarioBtn
+        put 1 into Refreshing
+        start Refresher command `python3 snapshot-map.py`
+    end
+    else
+    begin
+        append `No map.json beside studio.allspeak; put the live map there.` to Log
+        set the text of StatusLabel to `No map.json`
+    end
+    return
+!! @hash 2b880350
+!! @verified 2b880350
+!!!
+
+RefresherLine:
+    append the line of Refresher to Log
+    return
+!! @hash
+!! @verified 2b880350
+!!!
+
+RefresherError:
+    append the stderr line of Refresher to Log with color `#B00020`
+    return
+!! @hash
+!! @verified 2b880350
+!!!
+
+RefresherDone:
+    put 0 into Refreshing
+    enable RunBtn
+    enable ValidateBtn
+    enable DemoBtn
+    enable RefreshBtn
+    enable RefreshScenariosBtn
+    enable DraftBtn
+    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    if the exit code of Refresher is 0
+    begin
+        if file `fixtures/local/smoke.json` exists
+        begin
+            if ExamplePaths has entry `Local system`
+            begin
+                if ScenarioPath is `fixtures/local/smoke.json` gosub to LoadScenario
+            end
+            else
+            begin
+                append `Local system` to ExampleNames
+                set entry `Local system` of ExamplePaths to `fixtures/local/smoke.json`
+                add `Local system` to Scenarios
+            end
+        end
+        set the text of StatusLabel to `Map refreshed`
+    end
+    else set the text of StatusLabel to `Map refresh failed`
+    return
+!! @hash
+!! @verified 2b880350
+!!!
+
+!! Open the brief editor. The native multiline dialog is the text area; OK
+!! saves the text, Cancel keeps the previous brief.
+EditBriefClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it before editing the brief.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it before editing the brief.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    create BriefDlg on Win type multiline title `Scenario brief` prompt `Write the scenario brief. OK saves; Cancel keeps the previous brief.` value Brief
+    show BriefDlg
+    put BriefDlg into Edited
+    if Edited is not Brief
+    begin
+        put Edited into Brief
+        put empty into PromptPath
+        disable CopyPathBtn
+        if Brief is empty set the text of BriefPreview to `No brief yet — Edit brief to write one.`
+        else set the text of BriefPreview to `Brief ready — click Draft scenario.`
+    end
+    return
+!! @hash 87eb2dd0
+!! @verified 87eb2dd0
+!!!
+
+!! Rebuild the scenario list from the manifest; keep the loaded file if it still exists.
+RefreshScenariosClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it first.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it first.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    put ScenarioPath into KeepPath
+    gosub to BuildScenarioList
+    if KeepPath is not empty
+    begin
+        if file KeepPath exists
+        begin
+            put KeepPath into ScenarioPath
+            gosub to LoadScenario
+        end
+    end
+    put empty into DeleteArmed
+    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    set the text of StatusLabel to `Scenarios refreshed`
+    return
+!! @hash a91e8520
+!! @verified a91e8520
+!!!
+
+!! Delete a library scenario on the second click; it moves to .trash, not away.
+DeleteScenarioClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it first.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it first.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is already in progress.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    if LibraryPaths has entry ScenarioPath
+    begin
+        if DeleteArmed is not ScenarioPath
+        begin
+            put ScenarioPath into DeleteArmed
+            append `Click Delete scenario again to remove ` cat ScenarioPath to Log
+            set the text of StatusLabel to `Click Delete again to confirm`
+            return
+        end
+        put empty into DeleteArmed
+        put empty into PromptPath
+        disable CopyPathBtn
+        append `Deleting ` cat ScenarioPath to Log
+        set the text of StatusLabel to `Deleting…`
+        disable RunBtn
+        disable ValidateBtn
+        disable DemoBtn
+        disable RefreshBtn
+        disable RefreshScenariosBtn
+        disable DraftBtn
+        disable DeleteScenarioBtn
+        enable StopBtn
+        put 1 into Deleting
+        start Deleter command `.venv/bin/python scenario_library.py remove --path ` cat ScenarioPath
+    end
+    else append `Only scenarios in the local library can be deleted.` to Log
+    return
+!! @hash a10d392b
+!! @verified a10d392b
+!!!
+
+!! Draft with the configured provider. The helper reads the brief on stdin,
+!! writes its result to fixtures/local/drafts/last.json and prints its log.
+DraftClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it first.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is already in progress.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    put Brief into RequestText
+    if RequestText is empty
+    begin
+        append `Click Edit brief and write a brief first.` to Log
+        return
+    end
+    if file `.venv/bin/python` exists
+    begin
+        append `Drafting with the configured provider…` to Log
+        set the text of StatusLabel to `Drafting…`
+        disable RunBtn
+        disable ValidateBtn
+        disable DemoBtn
+        disable RefreshBtn
+        disable RefreshScenariosBtn
+        disable DeleteScenarioBtn
+        disable DraftBtn
+        disable CopyPathBtn
+        enable StopBtn
+        put 1 into Drafting
+        put `.venv/bin/python ai-draft.py` into Command
+        if ScenarioPath is not empty
+        begin
+            if file ScenarioPath exists put Command cat ` --scenario ` cat ScenarioPath into Command
+        end
+        if CurrentGroup is not empty
+        begin
+            if CurrentGroup is not `All`
+            begin
+                if CurrentGroup is not `Examples`
+                begin
+                    if CurrentGroup is not `Local` put Command cat ` --group ` cat CurrentGroup into Command
+                end
+            end
+        end
+        start Drafter command Command
+        write RequestText to Drafter
+        write `__END__` to Drafter
+    end
+    else append `Runner venv missing: run the setup in tools/scenario-studio/README.md.` to Log
+    return
+!! @hash 7c603da3
+!! @verified 7c603da3
+!!!
+
+!! Copy the path of the prompt written by the last Draft, using the
+!! AllSpeak clipboard command.
+CopyPathClicked:
+    if PromptPath is empty
+    begin
+        append `No prompt path yet — click Draft scenario first.` to Log
+        set the text of StatusLabel to `No prompt path`
+        return
+    end
+    clipboard copy PromptPath
+    append `Copied prompt path: ` cat PromptPath to Log
+    set the text of StatusLabel to `Prompt path copied`
+    return
+!! @hash c39cf26f
+!! @verified c39cf26f
+!!!
+
+DrafterLine:
+    append the line of Drafter to Log
+    return
+!! @hash
+!! @verified c39cf26f
+!!!
+
+DrafterError:
+    append the stderr line of Drafter to Log with color `#B00020`
+    return
+!! @hash
+!! @verified c39cf26f
+!!!
+
+DrafterDone:
+    put 0 into Drafting
+    enable RunBtn
+    enable ValidateBtn
+    enable DemoBtn
+    enable RefreshBtn
+    enable RefreshScenariosBtn
+    enable DraftBtn
+    disable StopBtn
+    put empty into LastStatus
+    if file `fixtures/local/drafts/last.json` exists
+    begin
+        load LastText from `fixtures/local/drafts/last.json`
+        put json LastText into LastData
+        if LastData is not empty
+        begin
+            put entry `status` of LastData into LastStatus
+            if LastStatus is `prompt`
+            begin
+                put entry `prompt` of LastData into LastPath
+                put LastPath into PromptPath
+                enable CopyPathBtn
+                append `Brief saved: ` cat LastPath to Log
+                append `Give it to Reasonix Studio or another AI, save the reply, then use --check or Refresh scenarios.` to Log
+                set the text of StatusLabel to `Brief saved`
+            end
+            else if LastStatus is `ok`
+            begin
+                put empty into PromptPath
+                disable CopyPathBtn
+                put entry `path` of LastData into LastPath
+                if LastData has entry `diff` append `Diff: ` cat entry `diff` of LastData to Log
+                gosub to BuildScenarioList
+                put LastPath into ScenarioPath
+                gosub to LoadScenario
+                if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+                set the text of StatusLabel to `Draft loaded`
+            end
+            else if LastStatus is `error`
+            begin
+                put entry `message` of LastData into LastMessage
+                append `Draft rejected: ` cat LastMessage to Log with color `#B00020`
+                if LastData has entry `draft` append `Draft kept at ` cat entry `draft` of LastData to Log
+                set the text of StatusLabel to `Draft rejected`
+            end
+            else set the text of StatusLabel to `Draft stopped`
+        end
+    end
+    if LastStatus is empty set the text of StatusLabel to `Draft failed; see the log`
+    if PromptPath is empty disable CopyPathBtn else enable CopyPathBtn
+    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    return
+!! @hash
+!! @verified c39cf26f
+!!!
+
+DeleterLine:
+    append the line of Deleter to Log
+    return
+!! @hash
+!! @verified c39cf26f
+!!!
+
+DeleterError:
+    append the stderr line of Deleter to Log with color `#B00020`
+    return
+!! @hash
+!! @verified c39cf26f
+!!!
+
+DeleterDone:
+    put 0 into Deleting
+    enable RunBtn
+    enable ValidateBtn
+    enable DemoBtn
+    enable RefreshBtn
+    enable RefreshScenariosBtn
+    enable DraftBtn
+    disable StopBtn
+    disable DeleteScenarioBtn
+    if the exit code of Deleter is 0
+    begin
+        append `Scenario removed; it is in fixtures/local/.trash.` to Log
+        put `docs/examples/advance.json` into ScenarioPath
+        gosub to BuildScenarioList
+        gosub to LoadScenario
+        set the text of StatusLabel to `Scenario deleted`
+    end
+    else set the text of StatusLabel to `Delete failed`
+    return
+!! @hash
+!! @verified c39cf26f
+!!!
+
+!! Create a group through the library helper; a group is a folder.
+NewGroupClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it first.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it first.` to Log
+        return
+    end
+    if Batching
+    begin
+        append `A batch is running; wait for it.` to Log
+        return
+    end
+    create GroupDlg on Win type lineedit title `New group` prompt `Group name (one word)` value ``
+    show GroupDlg
+    put GroupDlg into GroupValue
+    if GroupValue is empty return
+    append `Creating group ` cat GroupValue to Log
+    put 1 into Grouping
+    start Grouper command `.venv/bin/python scenario_library.py group --name ` cat GroupValue
+    set the text of StatusLabel to `Creating group…`
+    return
+!! @hash a7cc27f9
+!! @verified a7cc27f9
+!!!
+
+GrouperLine:
+    append the line of Grouper to Log
+    return
+!! @hash
+!! @verified a7cc27f9
+!!!
+
+GrouperError:
+    append the stderr line of Grouper to Log with color `#B00020`
+    return
+!! @hash
+!! @verified a7cc27f9
+!!!
+
+GrouperDone:
+    put 0 into Grouping
+    if the exit code of Grouper is 0
+    begin
+        gosub to LoadGroups
+        gosub to BuildScenarioList
+        set the text of StatusLabel to `Group created — choose it in the group selector`
+    end
+    else set the text of StatusLabel to `Group creation failed`
+    return
+!! @hash
+!! @verified a7cc27f9
+!!!
+
+!! Build a batch by adding the selected scenario to the batch list.
+AddBatchClicked:
+    if ScenarioPath is empty
+    begin
+        append `Select a scenario before adding it to the batch.` to Log
+        return
+    end
+    put the current item in Scenarios into BatchName
+    if BatchName is empty put ScenarioPath into BatchName
+    put 0 into BatchI
+    while BatchI is less than the count of BatchPaths
+    begin
+        if item BatchI of BatchPaths is ScenarioPath
+        begin
+            append `Already in the batch: ` cat BatchName to Log
+            return
+        end
+        add 1 to BatchI
+    end
+    append ScenarioPath to BatchPaths
+    append BatchName to BatchNames
+    add BatchName to BatchList
+    append `Batch + ` cat BatchName to Log
+    set the text of StatusLabel to `Batch: ` cat the count of BatchPaths cat ` scenarios`
+    return
+!! @hash 53459387
+!! @verified 53459387
+!!!
+
+RemoveBatchClicked:
+    put the current item in BatchList into BatchName
+    if BatchName is empty
+    begin
+        append `Select a batch entry to remove.` to Log
+        return
+    end
+    put -1 into BatchI
+    put 0 into BatchCount
+    while BatchCount is less than the count of BatchNames
+    begin
+        if item BatchCount of BatchNames is BatchName put BatchCount into BatchI
+        add 1 to BatchCount
+    end
+    if BatchI is less than 0
+    begin
+        append `No such batch entry: ` cat BatchName to Log
+        return
+    end
+    delete item BatchI of BatchNames
+    delete item BatchI of BatchPaths
+    clear BatchList
+    put 0 into BatchI
+    while BatchI is less than the count of BatchNames
+    begin
+        add item BatchI of BatchNames to BatchList
+        add 1 to BatchI
+    end
+    append `Batch - ` cat BatchName to Log
+    set the text of StatusLabel to `Batch: ` cat the count of BatchPaths cat ` scenarios`
+    return
+!! @hash
+!! @verified 53459387
+!!!
+
+!! Run every scenario in the batch, in order, through batch_runner.py.
+RunBatchClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it first.` to Log
+        return
+    end
+    if Batching
+    begin
+        append `A batch is already running.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it first.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    put the count of BatchPaths into BatchCount
+    if BatchCount is 0
+    begin
+        append `The batch is empty; add a scenario first.` to Log
+        return
+    end
+    put `.venv/bin/python batch_runner.py` into Command
+    put 0 into BatchI
+    while BatchI is less than BatchCount
+    begin
+        put Command cat ` --scenario ` cat item BatchI of BatchPaths into Command
+        add 1 to BatchI
+    end
+    append `Running batch of ` cat BatchCount cat ` scenarios…` to Log
+    set the text of StatusLabel to `Batch running…`
+    disable RunBtn
+    disable ValidateBtn
+    disable DemoBtn
+    disable RefreshBtn
+    disable RefreshScenariosBtn
+    disable NewScenarioBtn
+    disable EditBriefBtn
+    disable DraftBtn
+    disable DeleteScenarioBtn
+    disable Scenarios
+    disable GroupBox
+    disable AddBatchBtn
+    disable RemoveBatchBtn
+    disable RunBatchBtn
+    enable StopBtn
+    put 1 into Batching
+    start Batcher command Command
+    return
+!! @hash 2c9eb0c3
+!! @verified 2c9eb0c3
+!!!
+
+BatcherLine:
+    append the line of Batcher to Log
+    return
+!! @hash
+!! @verified 2c9eb0c3
+!!!
+
+BatcherError:
+    append the stderr line of Batcher to Log with color `#B00020`
+    return
+!! @hash
+!! @verified 2c9eb0c3
+!!!
+
+BatcherDone:
+    put 0 into Batching
+    enable RunBtn
+    enable ValidateBtn
+    enable DemoBtn
+    enable RefreshBtn
+    enable RefreshScenariosBtn
+    enable NewScenarioBtn
+    enable EditBriefBtn
+    enable DraftBtn
+    enable Scenarios
+    enable GroupBox
+    enable AddBatchBtn
+    enable RemoveBatchBtn
+    enable RunBatchBtn
+    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    disable StopBtn
+    if the exit code of Batcher is 0 set the text of StatusLabel to `Batch passed`
+    else set the text of StatusLabel to `Batch failed`
+    append `batch exit code ` cat the exit code of Batcher to Log
+    return
+!! @hash
+!! @verified 2c9eb0c3
+!!!
+
+!! Ask the child to end. The exit event still arrives.
+StopClicked:
+    if Batching
+    begin
+        set the text of StatusLabel to `Stopping batch…`
+        stop Batcher
+        return
+    end
+    if Drafting
+    begin
+        set the text of StatusLabel to `Stopping draft…`
+        stop Drafter
+        return
+    end
+    if Deleting
+    begin
+        set the text of StatusLabel to `Stopping delete…`
+        stop Deleter
+        return
+    end
+    if Running
+    begin
+        set the text of StatusLabel to `Stopping…`
+        stop Runner
+    end
+    else append `No run in progress.` to Log
+    return
+!! @hash aac6b50d
+!! @verified aac6b50d
+!!!
+
+!! Stop any child before the window goes.
+WinClosed:
+    if Batching stop Batcher
+    if Grouping stop Grouper
+    if Running stop Runner
+    if Refreshing stop Refresher
+    if Drafting stop Drafter
+    if Deleting stop Deleter
+    return
+!! @hash 67e8e021
+!! @verified 67e8e021
+!!!
+
+!! A stdout line from the runner: raw JSON to the wire log, parsed events to
+!! the table and the readable logs.
+RunnerLine:
+    put the line of Runner into LineText
+    append LineText to WireLog
+    put json LineText into Event
+    if Event is empty return
+    put entry `event` of Event into Kind
+    if Kind is `step.started`
+    begin
+        put entry `stepId` of Event into StepId
+        set the text of StatusLabel to `Running step ` cat StepId
+        append `step ` cat StepId cat ` started` to Log
+        gosub to FindStep
+        if RowIndex is not -1 set cell Steps RowIndex 6 to `…`
+    end
+    else if Kind is `step.finished` gosub to MarkStep
+    else if Kind is `log`
+    begin
+        put entry `source` of Event into Source
+        put entry `message` of Event into Message
+        if Source is `console` append Message to ConsoleLog
+        else if Source is `wire` append Message to WireLog
+        else append Message to Log
+    end
+    else if Kind is `artifact`
+    begin
+        if Event has entry `path` append entry `path` of Event to ArtifactsLog
+    end
+    else if Kind is `run.finished` gosub to FinishRun
+    return
+!! @hash 99a61d66
+!! @verified 99a61d66
+!!!
+
+!! stderr is a separate event, and is red in both logs.
+RunnerError:
+    put the stderr line of Runner into Message
+    append Message to ConsoleLog with color `#B00020`
+    append `runner: ` cat Message to Log with color `#B00020`
+    return
+!! @hash 8794798c
+!! @verified 8794798c
+!!!
+
+!! The child has ended. A run.finished usually precedes this; if it did not,
+!! report the code here and release the buttons.
+RunnerDone:
+    put the exit code of Runner into ExitCode
+    append `runner exit code ` cat ExitCode to Log
+    enable RunBtn
+    enable ValidateBtn
+    enable DemoBtn
+    enable RefreshBtn
+    enable RefreshScenariosBtn
+    enable DraftBtn
+    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    disable StopBtn
+    put 0 into Running
+    if the text of StatusLabel is `Stopping…` set the text of StatusLabel to `Stopped`
+    return
+!! @hash d9cbf02d
+!! @verified d9cbf02d
+!!!
+
+!! Find the table row for StepId; RowIndex is -1 when it is absent.
+FindStep:
+    put -1 into RowIndex
+    put 0 into Count
+    while Count is less than the count of StepIds
+    begin
+        if item Count of StepIds is StepId put Count into RowIndex
+        increment Count
+    end
+    return
+!! @hash 7e5f2d6b
+!! @verified 7e5f2d6b
+!!!
+
+!! Mark a step's result from a step.finished event.
+MarkStep:
+    put entry `stepId` of Event into StepId
+    put entry `status` of Event into RunStatus
+    gosub to FindStep
+    if RowIndex is not -1
+    begin
+        if RunStatus is `passed`
+        begin
+            set cell Steps RowIndex 6 to `✓`
+            set cell colour Steps RowIndex 6 to `#2E7D32`
+            append `step ` cat StepId cat ` passed` to Log
+        end
+        else
+        begin
+            set cell Steps RowIndex 6 to `✗`
+            set cell colour Steps RowIndex 6 to `#C0392B`
+            append LineText to Log with color `#B00020`
+            if Event has entry `failure`
+            begin
+                put entry `failure` of Event into Fields
+                if Fields has entry `message` append entry `message` of Fields to Log with color `#B00020`
+            end
+        end
+    end
+    return
+!! @hash 907db811
+!! @verified 907db811
+!!!
+
+!! Finish a run: status line, buttons and the artefacts path.
+FinishRun:
+    put entry `status` of Event into RunStatus
+    put entry `passed` of Event into Passed
+    put entry `failed` of Event into Failed
+    if RunStatus is `valid` set the text of StatusLabel to `validation valid`
+    else if RunStatus is `invalid` set the text of StatusLabel to `validation invalid`
+    else set the text of StatusLabel to `run ` cat RunStatus cat ` · ` cat Passed cat ` passed · ` cat Failed cat ` failed`
+    append `run ` cat RunStatus cat ` (` cat Passed cat ` passed, ` cat Failed cat ` failed)` to Log
+    enable RunBtn
+    enable ValidateBtn
+    enable DemoBtn
+    enable RefreshBtn
+    enable RefreshScenariosBtn
+    enable DraftBtn
+    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    disable StopBtn
+    put 0 into Running
+    if Event has entry `artifacts`
+    begin
+        put entry `artifacts` of Event into Artifacts
+        if Artifacts has entry `dir` append `artefacts: ` cat entry `dir` of Artifacts to ArtifactsLog
+    end
+    return
+!! @hash 575d6f01
+!! @verified 575d6f01
+!!!

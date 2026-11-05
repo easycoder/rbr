@@ -1,0 +1,126 @@
+{
+  "schemaVersion": 1,
+  "name": "Advance holds until the schedule boundary",
+  "description": "Advance is tapped at 15:00. The controller acknowledges it, clears it at 18:00 and reports 21.9 °C at 18:30; the button says so at each stage.",
+  "clock": {
+    "start": "2026-11-05T14:30:00Z",
+    "timeZone": "Europe/London"
+  },
+  "home": {
+    "map": "fixtures/home.json",
+    "profile": "Weekday"
+  },
+  "rooms": {
+    "office": "Office"
+  },
+  "defaults": {
+    "stepTimeoutMs": 5000,
+    "screenshots": "failure"
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "at": "14:40",
+      "controller": {
+        "room": "Office",
+        "set": { "temperature": 2250 }
+      }
+    },
+    {
+      "id": "s2",
+      "at": "14:40",
+      "expect": {
+        "target": "room.Office.temp",
+        "contains": "22.5"
+      }
+    },
+    {
+      "id": "s3",
+      "at": "15:00",
+      "ui": { "tap": "room.Office.rest" },
+      "note": "Advance lives in the expanded room row, so the row is opened first."
+    },
+    {
+      "id": "s4",
+      "at": "15:00",
+      "expect": {
+        "target": "room.Office.advance",
+        "visible": true
+      }
+    },
+    {
+      "id": "s5",
+      "at": "15:00",
+      "ui": { "tap": "room.Office.advance" }
+    },
+    {
+      "id": "s6",
+      "at": "15:00",
+      "expectWire": {
+        "request": "Operating Mode",
+        "match": { "Room": "Office", "advance": "A" }
+      }
+    },
+    {
+      "id": "s7",
+      "at": "15:00",
+      "expect": {
+        "target": "room.Office.advance",
+        "text": "Cancel the advance"
+      },
+      "note": "The card flips optimistically, before the controller replies."
+    },
+    {
+      "id": "s8",
+      "at": "15:00",
+      "controller": {
+        "room": "Office",
+        "state": { "set": { "advance": "A" } }
+      },
+      "note": "The controller's acknowledgement: it has applied the request and pushes the map."
+    },
+    {
+      "id": "s9",
+      "at": "15:00",
+      "expect": {
+        "target": "room.Office.advance",
+        "text": "Cancel the advance"
+      },
+      "note": "Stable after the map: the optimistic state and the controller agree."
+    },
+    {
+      "id": "s10",
+      "at": "18:00",
+      "controller": {
+        "room": "Office",
+        "set": { "temperature": 2250 },
+        "state": { "set": { "advance": "-" } }
+      },
+      "note": "The schedule boundary and a reading share one full-map push. That transition is the scenario's assumption, not engine magic."
+    },
+    {
+      "id": "s11",
+      "at": "18:00",
+      "expect": {
+        "target": "room.Office.advance",
+        "notContains": "Cancel"
+      }
+    },
+    {
+      "id": "s12",
+      "at": "18:30",
+      "controller": {
+        "room": "Office",
+        "set": { "temperature": 2190 }
+      }
+    },
+    {
+      "id": "s13",
+      "at": "18:30",
+      "expect": {
+        "target": "room.Office.temp",
+        "contains": "21.9"
+      }
+    }
+  ]
+}

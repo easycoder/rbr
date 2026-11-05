@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "name": "Kitchen temperature follows the controller",
+  "description": "Two controller reports update the Kitchen card; the UI's 10-second poll is visible in the wire log.",
+  "clock": {
+    "start": "2026-11-05T07:00:00Z",
+    "timeZone": "Europe/London"
+  },
+  "home": {
+    "map": "fixtures/home.json",
+    "profile": "Weekday"
+  },
+  "rooms": {
+    "kitchen": "Kitchen"
+  },
+  "defaults": {
+    "stepTimeoutMs": 5000,
+    "screenshots": "failure"
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "at": "07:12",
+      "controller": {
+        "room": "Kitchen",
+        "set": { "temperature": 1840 }
+      }
+    },
+    {
+      "id": "s2",
+      "at": "07:12",
+      "expect": {
+        "target": "room.Kitchen.temp",
+        "contains": "18.4"
+      }
+    },
+    {
+      "id": "s3",
+      "at": "07:23",
+      "controller": {
+        "room": "Kitchen",
+        "set": { "temperature": 1880 }
+      }
+    },
+    {
+      "id": "s4",
+      "at": "07:23",
+      "expect": {
+        "target": "room.Kitchen.temp",
+        "contains": "18.8"
+      }
+    },
+    {
+      "id": "s5",
+      "at": "07:33",
+      "expectWire": { "request": "refresh" },
+      "note": "The UI polls every 10 s. Advancing the clock to 07:33 must have produced a refresh, and the stub answers it so the staleness watchdog stays quiet."
+    }
+  ]
+}

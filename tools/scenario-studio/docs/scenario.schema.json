@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rbr:scenario:1",
+  "title": "Room By Room scenario",
+  "description": "A sequence of controller events, UI actions and expectations, executed against new-ui with a virtual clock.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "clock", "home", "steps"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string" },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start"],
+      "properties": {
+        "start": { "type": "string", "format": "date-time" },
+        "timeZone": { "type": "string", "description": "IANA name, e.g. Europe/London" }
+      }
+    },
+    "home": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["map"],
+      "properties": {
+        "map": {
+          "description": "Path relative to the scenario, or an inline wire-shaped map.",
+          "oneOf": [{ "type": "string" }, { "type": "object" }]
+        },
+        "profile": {
+          "description": "Active profile, by name or index.",
+          "oneOf": [{ "type": "string" }, { "type": "integer", "minimum": 0 }]
+        },
+        "calendar": { "enum": ["on", "off"] }
+      }
+    },
+    "rooms": {
+      "description": "Scenario-local aliases for room names, so a rename changes one place.",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "allowOutOfOrder": {
+      "type": "boolean",
+      "description": "Allow step times to go backwards. Off by default: a table that reads out of order is usually a mistake."
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stepTimeoutMs": { "type": "integer", "minimum": 1 },
+        "continueOnFailure": { "type": "boolean" },
+        "screenshots": { "enum": ["none", "failure", "all"] },
+        "failOnPageError": { "type": "boolean" },
+        "refreshReply": {
+          "description": "What the stub answers a UI refresh poll with.",
+          "enum": ["empty", "full", "none"],
+          "default": "empty"
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/step" }
+    }
+  },
+  "$defs": {
+    "time": {
+      "oneOf": [
+        {
+          "type": "string",
+          "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$"
+        },
+        { "type": "string", "format": "date-time" }
+      ]
+    },
+    "target": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(summary|room|sheet|schedule|profiles|devices|menu|boot|css)[.:]"
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "at"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "at": { "$ref": "#/$defs/time" },
+        "note": { "type": "string" },
+        "disabled": { "type": "boolean" },
+        "timeoutMs": { "type": "integer", "minimum": 1 },
+        "delay": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Real seconds to hold the current state in a paced demo run (--speed > 0). Ignored in normal runs. This does not advance scenario time."
+        },
+
+        "controller": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "room": {
+              "type": "string",
+              "description": "Identity and profile-state room this push is about."
+            },
+            "set": {
+              "type": "object",
+              "description": "Shallow fields of the room's identity record."
+            },
+            "state": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["set"],
+              "properties": {
+                "profile": { "oneOf": [{ "type": "string" }, { "type": "integer" }] },
+                "set": { "type": "object", "description": "Shallow fields of the profile's room state." }
+              }
+            },
+            "raw": { "type": "string", "description": "Send this payload exactly, malformed or not." },
+            "push": { "type": "boolean", "default": true }
+          },
+          "anyOf": [
+            { "required": ["set"] },
+            { "required": ["state"] },
+            { "required": ["raw"] }
+          ],
+          "allOf": [
+            {
+              "if": { "required": ["set"] },
+              "then": { "required": ["room"] }
+            },
+            {
+              "if": { "required": ["state"] },
+              "then": { "required": ["room"] }
+            }
+          ]
+        },
+
+        "ui": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tap": { "$ref": "#/$defs/target" },
+            "select": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target", "value"],
+              "properties": {
+                "target": { "$ref": "#/$defs/target" },
+                "value": { "type": "string" }
+              }
+            },
+            "fill": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target", "value"],
+              "properties": {
+                "target": { "$ref": "#/$defs/target" },
+                "value": { "type": "string" }
+              }
+            },
+            "scroll": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["target"],
+              "properties": {
+                "target": { "$ref": "#/$defs/target" },
+                "deltaY": { "type": "number" }
+              }
+            }
+          },
+          "oneOf": [
+            { "required": ["tap"] },
+            { "required": ["select"] },
+            { "required": ["fill"] },
+            { "required": ["scroll"] }
+          ]
+        },
+
+        "expect": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target"],
+          "properties": {
+            "target": { "$ref": "#/$defs/target" },
+            "text": { "type": "string" },
+            "contains": { "type": "string" },
+            "notContains": { "type": "string" },
+            "visible": { "type": "boolean" },
+            "hidden": { "type": "boolean" },
+            "value": { "type": "string" },
+            "count": { "type": "integer", "minimum": 0 },
+            "geometry": {
+              "type": "object",
+              "description": "Bounding-box comparison (phase 5); kept open for now."
+            }
+          },
+          "anyOf": [
+            { "required": ["text"] },
+            { "required": ["contains"] },
+            { "required": ["notContains"] },
+            { "required": ["visible"] },
+            { "required": ["hidden"] },
+            { "required": ["value"] },
+            { "required": ["count"] },
+            { "required": ["geometry"] }
+          ]
+        },
+
+        "expectWire": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["request"],
+          "properties": {
+            "request": { "type": "string", "description": "Value of the request's Action field." },
+            "match": { "type": "object", "description": "Shallow field match." },
+            "notMatch": { "type": "object" },
+            "withinMs": { "type": "integer", "minimum": 1 }
+          }
+        },
+
+        "waitFor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["target"],
+          "properties": {
+            "target": { "$ref": "#/$defs/target" },
+            "state": { "enum": ["attached", "visible", "hidden", "detached"] },
+            "timeoutMs": { "type": "integer", "minimum": 1 }
+          }
+        },
+
+        "connection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action"],
+          "properties": {
+            "action": { "enum": ["drop", "reconnect", "error"] },
+            "message": { "type": "string" }
+          }
+        }
+      },
+      "oneOf": [
+        { "required": ["controller"] },
+        { "required": ["ui"] },
+        { "required": ["expect"] },
+        { "required": ["expectWire"] },
+        { "required": ["waitFor"] },
+        { "required": ["connection"] },
+        { "required": ["delay"] }
+      ]
+    }
+  }
+}

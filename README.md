@@ -33,6 +33,10 @@ python3 -m http.server 9000      # then open http://localhost:9000/new-ui/index.
 tests/unit/run-unit-tests.sh
 node tests/pwa-compile-check.js
 node tests/pwa-device-editor-check.js
+
+# the browser suite: real Chromium, scripted MQTT, no broker or controller
+# (needs `npx playwright install chromium` once per machine)
+npm run test:ui
 ```
 
 `AGENT.md` is the working guide — how the code is laid out, the conventions the documentation blocks follow, and the traps this language and this runtime have already cost time on. `DIFF.md` records why the system looks the way it does, change by change. Most of `doc/` and all of `docs/` are written for people rather than for agents; `docs/README.md` is the index.

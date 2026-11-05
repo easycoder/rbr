@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "name": "Demo pause on the Kitchen card",
+  "description": "The Kitchen reports 19.0 °C, the scenario holds that state for two real seconds, then reports 21.0 °C. The delay is honoured in a paced Demo and skipped in a normal run.",
+  "clock": {
+    "start": "2026-11-05T08:00:00Z",
+    "timeZone": "Europe/London"
+  },
+  "home": {
+    "map": "fixtures/home.json",
+    "profile": "Weekday"
+  },
+  "rooms": {
+    "kitchen": "Kitchen"
+  },
+  "defaults": {
+    "stepTimeoutMs": 5000,
+    "screenshots": "failure"
+  },
+  "steps": [
+    {
+      "id": "s1",
+      "at": "08:00",
+      "controller": {
+        "room": "Kitchen",
+        "set": { "temperature": 1900 }
+      }
+    },
+    {
+      "id": "s2",
+      "at": "08:00",
+      "expect": {
+        "target": "room.kitchen.temp",
+        "contains": "19.0"
+      }
+    },
+    {
+      "id": "s3",
+      "at": "08:00",
+      "delay": 2,
+      "note": "hold the 19.0 °C card on screen for the demo"
+    },
+    {
+      "id": "s4",
+      "at": "08:01",
+      "controller": {
+        "room": "Kitchen",
+        "set": { "temperature": 2100 }
+      }
+    },
+    {
+      "id": "s5",
+      "at": "08:01",
+      "expect": {
+        "target": "room.kitchen.temp",
+        "contains": "21.0"
+      }
+    }
+  ]
+}

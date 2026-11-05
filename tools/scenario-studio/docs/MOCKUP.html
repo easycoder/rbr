@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<!--
+  Scenario Studio — static wireframe.
+  This is a visual reference for docs/SPEC.md, not the application. The app is
+  an AllSpeak/PySide6 graphics program; sizes and colours here are indicative.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scenario Studio — wireframe</title>
+  <style>
+    :root {
+      --bg: #F4F5F7;
+      --card: #FFFFFF;
+      --text: #1A1A1A;
+      --muted: #666666;
+      --faint: #999999;
+      --border: #E5E7EB;
+      --divider: #F0F1F3;
+      --accent: #E86A33;
+      --accent-soft: #FDF0EA;
+      --pass: #2E7D32;
+      --fail: #C0392B;
+      --fail-soft: #FDF2F1;
+      --warn: #B26A00;
+      --controller: #2F75B5;
+      --controller-bg: #E6EFF7;
+      --ui: #D95A24;
+      --ui-bg: #FDF0EA;
+      --expect: #6B4FA1;
+      --expect-bg: #F0ECF9;
+      --wire: #0F7B6C;
+      --wire-bg: #E5F4F1;
+      --radius: 10px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.4 -apple-system, "Segoe UI", system-ui, Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    .app {
+      height: 100vh;
+      min-width: 1180px;
+      display: grid;
+      grid-template-rows: 54px minmax(0, 1fr);
+    }
+
+    /* ── title bar ───────────────────────────────────────────────────── */
+    .titlebar {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 16px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; }
+    .brand .wire {
+      margin-left: 8px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #FFF4E0;
+      color: var(--warn);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      vertical-align: 2px;
+    }
+
+    .env {
+      color: var(--muted);
+      font-size: 12px;
+      padding-left: 18px;
+      border-left: 1px solid var(--border);
+    }
+    .env b { color: var(--text); font-weight: 550; }
+
+    .spacer { flex: 1; }
+
+    .btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn:hover { background: #FAFAFA; }
+    .btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+    .btn.primary:hover { background: #D95A24; }
+    .btn:disabled { color: var(--faint); cursor: default; background: var(--card); }
+    .btn.small { padding: 5px 9px; font-size: 11px; }
+
+    .clock {
+      font-family: var(--mono);
+      font-size: 11.5px;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 5px 9px;
+    }
+
+    /* ── body grid ───────────────────────────────────────────────────── */
+    .body {
+      display: grid;
+      grid-template-columns: 250px minmax(0, 1fr) 320px;
+      grid-template-rows: minmax(0, 1fr) 188px;
+      min-height: 0;
+    }
+
+    .sidebar {
+      grid-row: 1 / 3;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .editor {
+      min-width: 0;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+
+    .inspector {
+      background: var(--card);
+      border-left: 1px solid var(--border);
+      min-height: 0;
+      overflow: auto;
+    }
+
+    .log {
+      grid-column: 2 / 4;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── sidebar ─────────────────────────────────────────────────────── */
+    .side-section { padding: 14px 14px 8px; }
+    .side-title {
+      font-size: 10.5px;
+      font-weight: 650;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 8px;
+    }
+
+    .scenario {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 9px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 2px;
+    }
+    .scenario:hover { background: #FAFAFA; }
+    .scenario.active { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+    .scenario .name { font-weight: 550; font-size: 12.5px; }
+    .scenario .meta { color: var(--faint); font-size: 10.5px; }
+
+    .new-scenario {
+      margin: 4px 14px 0;
+      text-align: left;
+      color: var(--accent);
+      border-style: dashed;
+    }
+
+    .ai-box {
+      margin-top: auto;
+      border-top: 1px solid var(--border);
+      padding: 12px 14px 14px;
+    }
+    .ai-box textarea {
+      width: 100%;
+      height: 70px;
+      resize: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      font: inherit;
+      font-size: 11.5px;
+      color: var(--text);
+      background: #FCFCFD;
+    }
+    .ai-box .btn { width: 100%; margin-top: 7px; }
+    .hint { color: var(--faint); font-size: 10.5px; margin: 7px 0 0; }
+
+    /* ── editor head ─────────────────────────────────────────────────── */
+    .scenario-head {
+      padding: 16px 20px 12px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    h1 { font-size: 17px; line-height: 1.25; margin: 0 0 4px; letter-spacing: -0.01em; }
+    .scenario-meta { color: var(--muted); font-size: 11.5px; }
+    .scenario-meta .dot { color: #C9CBD1; margin: 0 6px; }
+    .scenario-meta .warn { color: var(--warn); }
+
+    .viewbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 20px;
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+    }
+    .tabs { display: flex; gap: 4px; background: var(--bg); border-radius: 8px; padding: 3px; }
+    .tabs button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      border-radius: 6px;
+      padding: 4px 11px;
+      font: inherit;
+      font-size: 11.5px;
+      color: var(--muted);
+      cursor: pointer;
+    }
+    .tabs button.active { background: var(--card); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+
+    .legend { margin-left: auto; display: flex; gap: 10px; color: var(--faint); font-size: 10.5px; }
+    .legend span { display: inline-flex; align-items: center; gap: 4px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+    .dot.c { background: var(--controller); }
+    .dot.u { background: var(--ui); }
+    .dot.e { background: var(--expect); }
+    .dot.w { background: var(--wire); }
+
+    /* ── table ───────────────────────────────────────────────────────── */
+    .table-wrap { flex: 1; overflow: auto; padding: 0 20px; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: var(--bg);
+      text-align: left;
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--faint);
+      padding: 10px 8px 7px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tbody td {
+      padding: 8px;
+      border-bottom: 1px solid var(--divider);
+      vertical-align: top;
+      font-size: 11.5px;
+    }
+
+    tr.row:hover td { background: #FAFAFA; }
+    tr.row.selected td { background: var(--accent-soft); }
+    tr.row.failed td { background: var(--fail-soft); }
+    tr.row.failed td:first-child { box-shadow: inset 3px 0 0 var(--fail); }
+
+    .id { font-family: var(--mono); color: var(--muted); font-size: 10.5px; width: 34px; }
+    .time { font-family: var(--mono); font-size: 11px; width: 56px; white-space: nowrap; }
+    .target { font-family: var(--mono); font-size: 10.5px; color: #333; }
+    .value { color: var(--muted); }
+    .result { width: 44px; text-align: center; font-weight: 700; }
+    .result.ok { color: var(--pass); }
+    .result.bad { color: var(--fail); }
+    .result.pending { color: #C9CBD1; font-weight: 400; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .chip .glyph {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8.5px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.75);
+    }
+    .chip.controller { color: var(--controller); background: var(--controller-bg); }
+    .chip.ui { color: var(--ui); background: var(--ui-bg); }
+    .chip.expect { color: var(--expect); background: var(--expect-bg); }
+    .chip.wire { color: var(--wire); background: var(--wire-bg); }
+
+    .statusbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 20px;
+      background: var(--fail-soft);
+      border-top: 1px solid #F3D6D3;
+      color: #8C2F25;
+      font-size: 11.5px;
+    }
+    .statusbar b { font-weight: 650; }
+    .statusbar .link { margin-left: auto; color: var(--fail); font-weight: 600; cursor: pointer; }
+
+    /* ── inspector ───────────────────────────────────────────────────── */
+    .inspector-inner { padding: 14px; }
+    .inspector h2 { font-size: 13px; margin: 0 0 3px; }
+    .inspector .sub { color: var(--faint); font-size: 10.5px; margin-bottom: 14px; }
+    .field { margin-bottom: 11px; }
+    .field label {
+      display: block;
+      font-size: 10px;
+      font-weight: 650;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 4px;
+    }
+    .field input, .field textarea, .field .readonly {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 8px;
+      font: inherit;
+      font-size: 11.5px;
+      color: var(--text);
+      background: #FCFCFD;
+    }
+    .field textarea { height: 54px; resize: none; }
+    .field .readonly { background: var(--bg); color: var(--muted); }
+    .field .code {
+      font-family: var(--mono);
+      font-size: 10.5px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 7px 8px;
+      color: #333;
+    }
+    .field .code span { color: var(--accent); }
+    .inspector-actions { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+
+    /* ── log ─────────────────────────────────────────────────────────── */
+    .log-tabs {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 0 16px;
+      height: 34px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .log-tabs b { color: var(--text); font-weight: 600; box-shadow: inset 0 -2px 0 var(--accent); padding: 8px 0 7px; }
+    .log-tabs .right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+    .log-body { flex: 1; overflow: auto; padding: 8px 16px 10px; font-family: var(--mono); font-size: 10.8px; }
+    .line { padding: 2px 0; color: #444; }
+    .line .t { color: var(--faint); }
+    .line .sid { color: var(--muted); }
+    .line.ok { color: var(--pass); }
+    .line.bad { color: var(--fail); font-weight: 600; }
+
+    .failure {
+      border: 1px solid #F3D6D3;
+      background: var(--fail-soft);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin: 4px 0 8px;
+      font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+      font-size: 11px;
+      color: #5B2420;
+    }
+    .failure .row2 { display: flex; gap: 8px; margin-top: 5px; }
+    .failure .k { width: 62px; color: #9A4A42; flex: 0 0 auto; font-weight: 600; }
+    .failure .v { font-family: var(--mono); font-size: 10.5px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="titlebar">
+      <div class="brand">Scenario Studio <span class="wire">wireframe</span></div>
+      <div class="env">rbr · <b>new-ui @ main</b> · 390 × 844 · Europe/London</div>
+      <div class="spacer"></div>
+      <span class="clock">clock 14:30 → 18:30</span>
+      <button class="btn">Run from here</button>
+      <button class="btn">Stop</button>
+      <button class="btn primary">▶ Run</button>
+    </header>
+
+    <div class="body">
+      <aside class="sidebar">
+        <div class="side-section">
+          <div class="side-title">Scenarios</div>
+
+          <div class="scenario">
+            <span class="name">Kitchen temperature follows the controller</span>
+            <span class="meta">5 steps · passes</span>
+          </div>
+
+          <div class="scenario active">
+            <span class="name">Advance holds until the schedule boundary</span>
+            <span class="meta">13 steps · 1 failed</span>
+          </div>
+
+          <div class="scenario">
+            <span class="name">Disconnect mid-edit</span>
+            <span class="meta">8 steps · draft</span>
+          </div>
+
+          <button class="btn new-scenario">+ New scenario</button>
+        </div>
+
+        <div class="ai-box">
+          <div class="side-title">Draft with AI</div>
+          <textarea>Advance in the office at 15:00, expect the button to say Cancel the advance, then the controller clears it at 18:00.</textarea>
+          <button class="btn">Draft scenario</button>
+          <p class="hint">Drafts are scenario JSON. Every row, and every assumption, is yours to review.</p>
+        </div>
+      </aside>
+
+      <main class="editor">
+        <div class="scenario-head">
+          <h1>Advance holds until the schedule boundary</h1>
+          <div class="scenario-meta">
+            Weekday <span class="dot">·</span> 14:30–18:30 <span class="dot">·</span> 13 steps
+            <span class="dot">·</span> virtual clock <span class="dot">·</span>
+            <span class="warn">step s6 failed</span>
+          </div>
+        </div>
+
+        <div class="viewbar">
+          <div class="tabs">
+            <button class="active">Table</button>
+            <button>Timeline</button>
+          </div>
+          <div class="legend">
+            <span><i class="dot c"></i>Controller</span>
+            <span><i class="dot u"></i>UI</span>
+            <span><i class="dot e"></i>Expect</span>
+            <span><i class="dot w"></i>Wire</span>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Time</th>
+                <th>Actor</th>
+                <th>Target</th>
+                <th>Action / value</th>
+                <th>Expectation</th>
+                <th>Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="row">
+                <td class="id">s1</td>
+                <td class="time">14:40</td>
+                <td><span class="chip controller"><span class="glyph">C</span>Controller</span></td>
+                <td class="target">Office</td>
+                <td>temperature = 22.5 <span class="value">· push</span></td>
+                <td class="value">—</td>
+                <td class="result ok">✓</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s2</td>
+                <td class="time">14:40</td>
+                <td><span class="chip expect"><span class="glyph">E</span>Expect</span></td>
+                <td class="target">room.Office.temp</td>
+                <td class="value">—</td>
+                <td>contains “22.5”</td>
+                <td class="result ok">✓</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s3</td>
+                <td class="time">15:00</td>
+                <td><span class="chip ui"><span class="glyph">U</span>UI</span></td>
+                <td class="target">room.Office.rest</td>
+                <td>tap</td>
+                <td class="value">—</td>
+                <td class="result ok">✓</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s4</td>
+                <td class="time">15:00</td>
+                <td><span class="chip expect"><span class="glyph">E</span>Expect</span></td>
+                <td class="target">room.Office.advance</td>
+                <td class="value">—</td>
+                <td>visible</td>
+                <td class="result ok">✓</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s5</td>
+                <td class="time">15:00</td>
+                <td><span class="chip ui"><span class="glyph">U</span>UI</span></td>
+                <td class="target">room.Office.advance</td>
+                <td>tap</td>
+                <td class="value">—</td>
+                <td class="result ok">✓</td>
+              </tr>
+
+              <tr class="row failed selected">
+                <td class="id">s6</td>
+                <td class="time">15:00</td>
+                <td><span class="chip wire"><span class="glyph">W</span>Wire</span></td>
+                <td class="target">Operating Mode</td>
+                <td class="value">—</td>
+                <td>Room = Office, advance = A</td>
+                <td class="result bad">✗</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s7</td>
+                <td class="time">15:00</td>
+                <td><span class="chip expect"><span class="glyph">E</span>Expect</span></td>
+                <td class="target">room.Office.advance</td>
+                <td class="value">—</td>
+                <td>text = “Cancel the advance”</td>
+                <td class="result pending">○</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s8</td>
+                <td class="time">15:00</td>
+                <td><span class="chip controller"><span class="glyph">C</span>Controller</span></td>
+                <td class="target">Office · state</td>
+                <td>advance = A <span class="value">· push</span></td>
+                <td class="value">—</td>
+                <td class="result pending">○</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s9</td>
+                <td class="time">15:00</td>
+                <td><span class="chip expect"><span class="glyph">E</span>Expect</span></td>
+                <td class="target">room.Office.advance</td>
+                <td class="value">—</td>
+                <td>text = “Cancel the advance”</td>
+                <td class="result pending">○</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s10</td>
+                <td class="time">18:00</td>
+                <td><span class="chip controller"><span class="glyph">C</span>Controller</span></td>
+                <td class="target">Office · identity + state</td>
+                <td>temperature = 22.5, advance = — <span class="value">· push</span></td>
+                <td class="value">—</td>
+                <td class="result pending">○</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s11</td>
+                <td class="time">18:00</td>
+                <td><span class="chip expect"><span class="glyph">E</span>Expect</span></td>
+                <td class="target">room.Office.advance</td>
+                <td class="value">—</td>
+                <td>not contains “Cancel”</td>
+                <td class="result pending">○</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s12</td>
+                <td class="time">18:30</td>
+                <td><span class="chip controller"><span class="glyph">C</span>Controller</span></td>
+                <td class="target">Office</td>
+                <td>temperature = 21.9 <span class="value">· push</span></td>
+                <td class="value">—</td>
+                <td class="result pending">○</td>
+              </tr>
+
+              <tr class="row">
+                <td class="id">s13</td>
+                <td class="time">18:30</td>
+                <td><span class="chip expect"><span class="glyph">E</span>Expect</span></td>
+                <td class="target">room.Office.temp</td>
+                <td class="value">—</td>
+                <td>contains “21.9”</td>
+                <td class="result pending">○</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="statusbar">
+          <b>Run stopped at s6</b> · 5 passed · 1 failed · 7 not run
+          <span class="link">Jump to failure</span>
+        </div>
+      </main>
+
+      <aside class="inspector">
+        <div class="inspector-inner">
+          <h2>Step s6</h2>
+          <div class="sub">Wire expectation · 15:00</div>
+
+          <div class="field">
+            <label>Request</label>
+            <input value="Operating Mode" readonly>
+          </div>
+
+          <div class="field">
+            <label>Match</label>
+            <div class="code">Room = <span>“Office”</span><br>advance = <span>“A”</span></div>
+          </div>
+
+          <div class="field">
+            <label>Timeout (ms)</label>
+            <input value="5000">
+          </div>
+
+          <div class="field">
+            <label>Note</label>
+            <textarea readonly>The controller acknowledges the advance.</textarea>
+          </div>
+
+          <div class="inspector-actions">
+            <button class="btn small">Insert expectation</button>
+            <button class="btn small">Duplicate</button>
+            <button class="btn small">Disable</button>
+          </div>
+        </div>
+      </aside>
+
+      <section class="log">
+        <div class="log-tabs">
+          <b>Steps</b>
+          <span>Wire</span>
+          <span>Console</span>
+          <span>Artifacts</span>
+          <span class="right">
+            <span>screenshot</span>
+            <span>trace</span>
+          </span>
+        </div>
+
+        <div class="log-body">
+          <div class="failure">
+            <div><b>s6 · wire expectation failed</b> — no Operating Mode request matched</div>
+            <div class="row2"><span class="k">Expected</span><span class="v">Room=“Office”, advance=“A”</span></div>
+            <div class="row2"><span class="k">Actual</span><span class="v">Room=“Office”, advance=“none”</span></div>
+            <div class="row2"><span class="k">Source</span><span class="v">wire.jsonl · line 7 · screenshot s6.png</span></div>
+          </div>
+
+          <div class="line ok"><span class="t">15:00</span> <span class="sid">s5</span> ✓ tap room.Office.advance</div>
+          <div class="line ok"><span class="t">15:00</span> <span class="sid">s4</span> ✓ room.Office.advance is visible</div>
+          <div class="line"><span class="t">15:00</span> <span class="sid">s3</span> · opened the Office row</div>
+          <div class="line ok"><span class="t">14:40</span> <span class="sid">s2</span> ✓ room.Office.temp contains “22.5”</div>
+          <div class="line"><span class="t">14:40</span> <span class="sid">s1</span> · controller push: Office temperature = 22.5</div>
+          <div class="line"><span class="t">14:40</span> <span class="sid">wire</span> ← first → full map (3 rooms)</div>
+          <div class="line"><span class="t">14:40</span> <span class="sid">wire</span> → refresh (answered with heartbeat)</div>
+        </div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
