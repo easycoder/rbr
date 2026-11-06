@@ -487,7 +487,17 @@
 	render TopBarWebson in TopBarHolder
 
 	attach SystemId to `top-bar-system-id`
+!	A page that boots with a non-zero first-map count is a reload from the
+!	watchdog's own retry, not a first visit: start it on "Reconnecting…"
+!	instead of the blank loading mark, so a wake-up recovery does not look
+!	like a fresh start on every reload. OnMapReceived puts the count back
+!	to 0 when the first map lands, and BuildHomeScreen replaces this text.
+	get FirstMapAttempts from storage as `first-map-attempts`
+	if FirstMapAttempts is `null` put 0 into FirstMapAttempts
+	if FirstMapAttempts is `undefined` put 0 into FirstMapAttempts
+	if FirstMapAttempts is empty put 0 into FirstMapAttempts
 	set the content of SystemId to `…`
+	if FirstMapAttempts is greater than 0 set the content of SystemId to `Reconnecting…`
 
 	attach HeartbeatBtn to `top-bar-heartbeat`
 	attach HeartbeatDot to `top-bar-heartbeat-dot`
@@ -692,7 +702,9 @@ Connected:
 !!!
 !! Forked watchdog, armed as soon as the MQTT client is registered. Sleeps 30 seconds; if the first map still hasn't arrived, the MQTT subscription is almost certainly dead or never opened — force a full reload to rebuild the connection.
 !!
-!! It never gives up. A page that has no first map has no poll loop either (MapPollTask is forked from OnMapReceived), so stopping here would leave the app sitting on an empty screen until it was closed and reopened — the recurring "still open, no longer connected" report after a phone sleeps with the tab in the foreground. Past the third attempt the cadence lengthens (30s, 60s, then every 90s) so a phone left on a desk with no network is not reloaded twice a minute for ever, and the alert fires once rather than every time; the map that finally arrives resets the count in OnMapReceived.
+!! It never gives up. A page that has no first map has no poll loop either (MapPollTask is forked from OnMapReceived), so stopping here would leave the app sitting on an empty screen until it was closed and reopened — the recurring "still open, no longer connected" report after a phone sleeps with the tab in the foreground. Past the third attempt the cadence lengthens (30s, 60s, then every 90s) so a phone left on a desk with no network is not reloaded twice a minute for ever; the map that finally arrives resets the count in OnMapReceived.
+!!
+!! Recovery is reported quietly, in the top bar's system-name slot, never with a modal alert. The alert this used to raise at the third miss was shown most often on a phone that had just woken and was still reconnecting, and it blocked the very reload that fixes the page: the tap was a tax on something already working. The status text survives the reloads (it is derived from the stored attempt count at boot), so the user can still see that the retries are deliberate.
 FirstMapWatchdog:
 	while true
 	begin
@@ -705,9 +717,11 @@ FirstMapWatchdog:
 		if FirstMapAttempts is empty put 0 into FirstMapAttempts
 		increment FirstMapAttempts
 		put FirstMapAttempts into storage as `first-map-attempts`
+!		Quiet, non-blocking status in the top bar: the page reloads itself
+!		below, so this is the only sign the retry is deliberate.
+		set the content of SystemId to `Reconnecting…`
 		if FirstMapAttempts is greater than 2
 		begin
-			if FirstMapAttempts is 3 alert `Cannot reach the controller. Still trying — check the network if this persists.`
 			put FirstMapAttempts into FirstMapWait
 			take 4 from FirstMapWait
 			multiply FirstMapWait by 30
@@ -3219,7 +3233,11 @@ PaintSummary:
 		put ActiveProfileName into ProfileName
 		set the content of SummaryProfileName to ActiveProfileName
 	end
+!	The first map ends the "Reconnecting…" state shown by the first-map
+!	watchdog. A system with no name gets the blank loading mark back rather
+!	than leaving the recovery text there for ever.
 	if SystemName is not empty set the content of SystemId to SystemName
+	if SystemName is empty set the content of SystemId to `…`
 
 	if FrostActive set style `display` of SummaryOutsideFrost to `inline-block`
 	else set style `display` of SummaryOutsideFrost to `none`

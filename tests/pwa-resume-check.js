@@ -17,6 +17,14 @@
 // poll loop that does not exist yet, and a healthy resume still just refreshes.
 // This drives the real shell in the real runtime with a fake MQTT client and
 // tallies the requests the page sends and the lines it logs.
+//
+// Recovery is reported in the top bar, not with a modal alert. The alert the
+// watchdog used to raise at its third miss had to be dismissed before the
+// reload that fixes the page could run, and it surfaced most often on a phone
+// that had just woken and was still reconnecting — a tap for something that was
+// already working. So the checks below also pin the quiet status:
+// "Reconnecting…" takes the system-name slot while a first map is outstanding,
+// and the map replaces it when it arrives.
 
 const http = require('http');
 const fs = require('fs');
@@ -196,11 +204,20 @@ async function main() {
   };
   const since = n => lines.slice(n);
   const resume = () => d.dispatchEvent(new w.Event('visibilitychange'));
+  const systemId = () => {
+    const el = d.getElementById('top-bar-system-id');
+    return el ? el.textContent : null;
+  };
   const sent = () => (w.__sent || []).map(m => Buffer.from(m.payload).toString('utf8'));
   const mapRequests = marker => since(marker).filter(l => /Requesting map:/.test(l));
 
   try {
     await waitUntil(() => w.__pushMap && w.__mqttConnect, BUILD_MS, 'the MQTT client');
+    // A reload triggered by the watchdog inherits the stored count, so the page
+    // must not look like a fresh start: the top bar shows the recovery text
+    // from boot, before the watchdog's first tick.
+    check('a reloaded page starts on the reconnecting status',
+      systemId() === 'Reconnecting…', systemId());
 
     console.log('\n== no connection at all, past the old three-attempt cap ==');
     // Nothing is ever connected here. The counter is seeded at 3, so the first
@@ -213,6 +230,10 @@ async function main() {
       () => since(watchdogMarker).some(l => /Reloading \(first-map attempt 4\)/.test(l)),
       45000, 'the first-map watchdog to keep retrying').catch(() => false);
     check('the watchdog reloads instead of giving up', retried, since(watchdogMarker).slice(-5));
+    check('  without a blocking popup',
+      !since(watchdogMarker).some(l => /^alert: /.test(l)), since(watchdogMarker));
+    check('  and says so quietly in the top bar',
+      systemId() === 'Reconnecting…', systemId());
 
     // Now let the connection happen, and run the resume cases against it.
     w.__mqttConnect();
@@ -232,6 +253,8 @@ async function main() {
     w.__pushMap(map);
     await waitUntil(() => d.getElementById('special-time-sheet'), BUILD_MS, 'the home screen');
     await sleep(500);
+    check('the first map replaces the reconnecting status',
+      systemId() !== 'Reconnecting…', systemId());
 
     console.log('\n== a resume with a live connection ==');
     marker = lines.length;
