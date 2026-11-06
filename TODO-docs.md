@@ -14,7 +14,7 @@ A one-line change to `docs/README.md` on 27 September was the tree's last touch.
 
 ## What is left
 
-**1. Commit the reader.** `git add docs-reader tests/docs-reader-check.js` and the nine modified files (`AGENT.md`, `ALLSPEAK.md`, `DIFF.md`, `deploy.sh`, `.github/workflows/deploy.yml`, `package.json`, `doc/CONTROLLER-FILES.md`, `doc/UPDATE-MECHANISM.md`, `server.allspeak`). `DIFF.md` says what each of them was for.
+**1. Commit the reader.** `git add docs-reader tests/docs-reader-check.js` and the nine modified files (`AGENTS.md`, `ALLSPEAK.md`, `DIFF.md`, `deploy.sh`, `.github/workflows/deploy.yml`, `package.json`, `doc/CONTROLLER-FILES.md`, `doc/UPDATE-MECHANISM.md`, `server.allspeak`). `DIFF.md` says what each of them was for.
 
 **2. Installation — four documents left, sources ready.** `01-installing-the-controller` is the re-cut of `doc/setupRBR.md` (11 KB, unchanged since 27 September); `02-pairing-devices`, `03-commissioning`, `04-verification` and `05-unattended-operation` are re-cuts too. This is the layer a customer actually walks, and [06](docs/installation/06-what-the-setup-script-does.md) is already written — it is the script's own reference and sits beside `01`, which is the sequence. If it reads better as the second half of `01`, or as `02` with the rest renumbered, that is a one-line change to the map and the file name; nothing links to the installation pages except the map and two preparation documents, and those point only at `01`.
 

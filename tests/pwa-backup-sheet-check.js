@@ -251,12 +251,18 @@ async function main() {
     const setting = backupMessages[backupMessages.length - 1] || {};
     check('  enabled is on', setting.enabled === 'on', setting);
     check('  the registered address travels with it', setting.address === 'owner@example.com', setting);
+    check('  provenance names the Backups toggle',
+      setting.Source && setting.Source.app === 'pwa' && setting.Source.screen === 'backups' &&
+        setting.Source.control === 'toggle' && setting.Source.gesture === 'tap', setting.Source);
 
     console.log('\n== send now ==');
     d.getElementById('backup-sheet-send').click();
     await sleep(400);
     const nowMessages = sent().filter(message => message.Action === 'Backup Now');
     check('a Backup Now uirequest was sent', nowMessages.length === 1, sentRaw());
+    check('  provenance names the backup-now control',
+      nowMessages[0] && nowMessages[0].Source && nowMessages[0].Source.screen === 'backups' &&
+        nowMessages[0].Source.control === 'backup-now', nowMessages[0] && nowMessages[0].Source);
     check('the sheet stays open so the result can land', d.getElementById('backup-sheet').style.display === 'block',
       d.getElementById('backup-sheet').style.display);
     check('the notice says it has started', /Backup started/.test(d.getElementById('backup-sheet-notice').textContent),

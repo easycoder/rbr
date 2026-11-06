@@ -13,6 +13,9 @@ map.json
 thermometers.json
 heatlog-root
 heatlog-state.json
+journal-root
+journal-max-bytes
+journal-max-free-percent
 heat-watch-state.json
 rbr-controller.tar.gz
 rbr-controller.zip

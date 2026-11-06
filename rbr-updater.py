@@ -103,6 +103,7 @@ TARBALL_FILES = [
     "zigbee-mesh.py",
     "rbr-dashboard.py",
     "heatlog.py",
+    "eventlog.py",
     "dashboard.txt",
     "rbr-updater.py",
     "rbr-backup.py",

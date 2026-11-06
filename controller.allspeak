@@ -280,6 +280,36 @@
     variable HeatlogMode
     variable HeatlogName
     variable HeatlogDirty
+    dictionary JournalEvent
+    dictionary JournalData
+    dictionary JournalDataCopy
+    dictionary JournalProfileRec
+    dictionary JournalMapCopy
+    list JournalEvents
+    dictionary JournalRooms
+    dictionary JournalSensors
+    variable JournalEnabled
+    variable JournalRoot
+    variable JournalType
+    variable JournalBoot
+    variable JournalSeq
+    variable JournalBatchSeq
+    variable JournalBatchPath
+    variable JournalPending
+    variable JournalRoomText
+    variable JournalRoomHash
+    variable JournalSensorText
+    variable JournalSensorHash
+    variable JournalSensorKey
+    variable JournalDataText
+    variable JournalMapText
+    variable JournalProfileIdx
+    variable JournalProfileName
+    variable JournalProfileWas
+    variable JournalRequestSeen
+    variable JournalPlanChanged
+    variable JournalPlanReason
+    variable JournalRequestLast
     variable VolatileRoot
     variable VolatilePrefix
     variable ThermometersPath
@@ -322,7 +352,7 @@
     variable TrvWasRunning
     variable TrvSeen
     variable TrvAge
-!! @hash ad8714a4
+!! @hash 9f90aeda
 !! @verified 85d32787
 !!!
 !! Basic initialisation.
@@ -522,6 +552,14 @@ Start:
     if file HeatlogStatePath exists load HeatlogLast from HeatlogStatePath
     else reset HeatlogLast
     clear HeatlogDirty
+    clear JournalEnabled
+    reset JournalEvents
+    reset JournalRooms
+    reset JournalSensors
+    clear JournalPending
+    clear JournalPlanChanged
+    clear JournalRequestSeen
+    set JournalRequestLast to empty
 
     if Map has entry `request` set RequestName to entry `request` of Map
     else set RequestName to empty
@@ -530,7 +568,8 @@ Start:
 
 !   Walk the list of rooms and process the needs of each one
     gosub to ProcessAllRooms
-!! @hash b723bb68
+    gosub to JournalStart
+!! @hash 50b25490
 !! @verified 2e5e5cad
 !!!
 !! This is the head of each loop.
@@ -555,8 +594,17 @@ MainLoop:
     if today is not TodayWas
     begin
         log `Day rollover detected; refreshing profile selection`
+        if JournalEnabled
+        begin
+            reset JournalData
+            set entry `from` of JournalData to TodayWas
+            set entry `to` of JournalData to today
+            set JournalType to `day.rollover`
+            gosub to JournalWrite
+        end
         gosub to ProcessAllRooms
     end
+    gosub to JournalProfileCheck
 
     ! Retire one-off overrides that have done their work. This runs every
     ! cycle, not just at the rollover: an override armed for this morning
@@ -587,6 +635,7 @@ MainLoop:
             begin
                 log `Update applied: version ` cat StartedVersion cat ` -> ` cat CurrentVersion
                 log `Restarting to load the new code`
+                gosub to JournalSessionStop
                 exit
             end
         end
@@ -702,7 +751,7 @@ MainLoop:
         set MapHasChanged
         clear ImmediateUpdate
     end
-!! @hash 48b8ebe4
+!! @hash 62ee190a
 !! @verified 41ce1852
 !!!
 !! Drain the queue of messages received from the UI between MainLoop ticks.
@@ -760,6 +809,14 @@ HandleMessages:
             set MapHasChanged
             set StateChanged
 !            log `Update map from 'first'`
+            if JournalEnabled
+            begin
+                reset JournalData
+                set entry `client` of JournalData to SenderName
+                set JournalType to `ui.first`
+                gosub to JournalWrite
+                set JournalRequestSeen
+            end
             gosub to SendMapToUI
         end
         else if Action is `refresh`
@@ -779,10 +836,25 @@ HandleMessages:
                 gosub to SendMessage
             end
         end
-        else if Action is `uirequest` gosub to ProcessUIRequest
+        else if Action is `uirequest`
+        begin
+            gosub to JournalUIRequest
+            gosub to ProcessUIRequest
+            if JournalPlanChanged
+            begin
+                set JournalPlanReason to `ui:` cat Action
+                gosub to JournalPlanSnapshot
+                clear JournalPlanChanged
+            end
+        end
         else if Action is `sendemail` gosub to SendEmail
     end
     clear UIRequestPending
+    if JournalRequestSeen
+    begin
+        gosub to JournalFlush
+        clear JournalRequestSeen
+    end
 
     ! Refresh Zigbee thermometers and save files, once a minute.
     add 60000 to LastMapSave giving T
@@ -833,6 +905,7 @@ HandleMessages:
         ! Pick up a backup that ran, or a setting changed elsewhere, so the
         ! Backups sheet is not showing the previous month's result.
         gosub to LoadBackupState
+        gosub to JournalFlush
     end
 
     ! If no messages have beeen received for 60 seconds, remove the sender from the list
@@ -852,7 +925,7 @@ HandleMessages:
         increment S
     end
     go to MainLoop
-!! @hash 7eb4048a
+!! @hash 213ddd7f
 !! @verified 86f1875f
 !!!
 !! Load the system map from disk, or build a fresh default map if the file is absent.
@@ -1639,6 +1712,7 @@ ProcessRoom:
         set MapHasChanged
         put SensorFresh into SensorFreshWas
     end
+    gosub to JournalSensor
 
     put empty into TempWas
     if Room has entry `temperature` put entry `temperature` of Room into TempWas
@@ -1771,7 +1845,7 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash 9c87d092
+!! @hash 1b81ae80
 !! @verified 9c87d092
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
@@ -2124,6 +2198,7 @@ ProcessRequestRelay:
         ! when the RequestDash row is built in MainLoop, and RelayState is
         ! clobbered by the final SetRelay run in ProcessReply below.
         put RelayState into RequestState
+        gosub to JournalRequestRelay
         clear HeatingRequested
 !        log RequestName cat `: ` cat RelayState
         reset RoomSpec
@@ -2133,7 +2208,7 @@ ProcessRequestRelay:
         gosub to ProcessReply
     end
     return
-!! @hash fe034a6a
+!! @hash 9a6a19b9
 !! @verified ea51e1af
 !!!
 !! Decide whether this room's relay should be on or off this cycle, based on mode, target, current temperature, and prior status.
@@ -2397,7 +2472,8 @@ RoomStatus:
     end
     set entry `statusMessage` of Room to Value
     set entry `relayMessage` of Room to RelayMsg
-!! @hash 311c1342
+    gosub to JournalRoomState
+!! @hash 16b32e6a
 !! @verified e101ab9c
 !!!
 !! Cascading writers for the system map: callers gosub to whichever level they need, then control falls through up to UpdateMap and returns.
@@ -3282,6 +3358,7 @@ ProcessUIRequest:
         set entry `name` of Map to Value
         log `Set the system name to ` cat entry `name` of Map
         gosub to ForceUpdate
+        set JournalPlanChanged
     end
     else if Action is `Request Relay`
     begin
@@ -3296,6 +3373,7 @@ ProcessUIRequest:
         set RequestName to Value
         log `Set the request relay to ` cat entry `request` of Map
         gosub to ForceUpdate
+        set JournalPlanChanged
     end
     else if Action is `Add Room`
     begin
@@ -3325,6 +3403,7 @@ ProcessUIRequest:
         if AddStates does not have entry AddName set entry AddName of AddStates to RoomSpec
         gosub to ProcessAllRooms
         gosub to ForceUpdate
+        set JournalPlanChanged
     end
     else if Action is `Update Rooms`
     begin
@@ -3341,6 +3420,7 @@ ProcessUIRequest:
         gosub to ProcessAllRooms
         log `Force an update (Update Rooms)`
         gosub to ForceUpdate
+        set JournalPlanChanged
     end
     else if Action is `Select Profile`
     begin
@@ -3357,6 +3437,7 @@ ProcessUIRequest:
         gosub to ForceUpdate
         ! This recursive call is needed to ensure the UI updates immediately
         gosub to ProcessAllRooms
+        set JournalPlanChanged
     end
     else if Action is `Update Profiles`
     begin
@@ -3409,6 +3490,7 @@ ProcessUIRequest:
         gosub to ProcessAllRooms
         log `Force an update (profile change)`
         gosub to ForceUpdate
+        set JournalPlanChanged
     end
     else if Action is `Operating Mode`
     begin
@@ -3552,11 +3634,13 @@ ProcessUIRequest:
         end
         else gosub to SetRoomOverride
         gosub to ForceUpdate
+        set JournalPlanChanged
     end
     else if Action is `Backup`
     begin
         gosub to SaveBackupSettings
         gosub to ForceUpdate
+        set JournalPlanChanged
     end
     else if Action is `Backup Now`
     begin
@@ -3567,7 +3651,7 @@ ProcessUIRequest:
         system background `python3 rbr-backup.py --email-now`
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 8e5fd0e6
+!! @hash 1b2edcf1
 !! @verified 550db757
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).
@@ -3733,4 +3817,289 @@ HeatlogRecord:
     set HeatlogDirty
     return
 !! @hash 73266ce3
+!!!
+!! Event journal start-up: resolve the root, load the writer and record the session's opening state.
+!!
+!! The journal is disabled unless a journal-root file names a directory, or heat log
+!! logging is on — in that case it defaults to <heatlog-root>/events. Keeping the
+!! default means a machine already recording heating data starts recording events on
+!! the same release, with no extra setup. The writer is a separate Python process
+!! because AllSpeak's save command truncates: eventlog.py is the one append-only
+!! writer, and it content-addresses the map snapshot under <root>/maps/.
+JournalStart:
+    set JournalRoot to empty
+    if file `journal-root` exists
+    begin
+        load JournalRoot from `journal-root`
+        replace newline with `` in JournalRoot
+        put trim JournalRoot into JournalRoot
+    end
+    if JournalRoot is empty and HeatlogRoot is not empty
+    begin
+        put HeatlogRoot cat `/events` into JournalRoot
+    end
+    if JournalRoot is empty
+    begin
+        log `Event journal disabled (no journal-root or heatlog-root file)`
+        return
+    end
+    replace `"` with `` in JournalRoot
+    if file `eventlog.py` exists
+    begin
+        set JournalEnabled
+        put now into JournalBoot
+        set JournalSeq to 0
+        set JournalBatchSeq to 0
+        reset JournalEvents
+        reset JournalRooms
+        reset JournalSensors
+        clear JournalPending
+        log `Event journal enabled, root ` cat JournalRoot
+    end
+    else
+    begin
+        log `Event journal disabled: eventlog.py not found (release not fully applied?)`
+        return
+    end
+    reset JournalData
+    if StartedVersion is not empty set entry `version` of JournalData to StartedVersion
+    if Map has entry `name` set entry `system` of JournalData to entry `name` of Map
+    put SelectedProfile into JournalProfileIdx
+    set entry `profileIndex` of JournalData to JournalProfileIdx
+    gosub to JournalProfileLabel
+    if JournalProfileName is not empty set entry `profile` of JournalData to JournalProfileName
+    set entry `journalRoot` of JournalData to JournalRoot
+    put prettify Map into JournalMapText
+    put json JournalMapText into JournalMapCopy
+    set entry `map` of JournalData to JournalMapCopy
+    set JournalType to `session.start`
+    gosub to JournalWrite
+    put SelectedProfile into JournalProfileWas
+    gosub to JournalFlush
+    return
+!! @hash 1f713747
+!!!
+!! The session's closing record, written before a restart so the journal marks the gap.
+JournalSessionStop:
+    if not JournalEnabled return
+    reset JournalData
+    set entry `reason` of JournalData to `controller restart`
+    set JournalType to `session.stop`
+    gosub to JournalWrite
+    gosub to JournalFlush
+    return
+!! @hash 00efd8bb
+!!!
+!! Append one event to the in-memory batch; the caller has set JournalType and JournalData.
+!!
+!! The data record is copied through JSON before it is appended. AllSpeak collections
+!! are held by reference, and the caller reuses JournalData for the next event, so
+!! without the copy every queued event would end up carrying the last payload.
+JournalWrite:
+    if not JournalEnabled return
+    reset JournalEvent
+    set entry `v` of JournalEvent to 1
+    set entry `tsMs` of JournalEvent to now
+    increment JournalSeq
+    set entry `seq` of JournalEvent to JournalSeq
+    set entry `boot` of JournalEvent to JournalBoot
+    set entry `type` of JournalEvent to JournalType
+    put prettify JournalData into JournalDataText
+    put json JournalDataText into JournalDataCopy
+    set entry `data` of JournalEvent to JournalDataCopy
+    append JournalEvent to JournalEvents
+    set JournalPending
+    return
+!! @hash 794dd0c9
+!!!
+!! Hand the current batch to eventlog.py; a unique batch name keeps a leftover batch distinct from the next flush.
+!!
+!! Batches are flushed once a minute, immediately after a UI request, and before a
+!! restart. They live in the volatile directory when one is configured, so a failed
+!! helper cannot leave growing files on the disk; eventlog.py removes the batch after
+!! appending it.
+JournalFlush:
+    if not JournalEnabled return
+    if not JournalPending return
+    if the count of JournalEvents is 0
+    begin
+        clear JournalPending
+        return
+    end
+    increment JournalBatchSeq
+    put VolatilePrefix cat `journal-` cat JournalBoot cat `-` cat JournalBatchSeq cat `.json` into JournalBatchPath
+    save prettify JournalEvents to JournalBatchPath
+    system `python3 eventlog.py --root "` cat JournalRoot cat `" --batch "` cat JournalBatchPath cat `" --quiet`
+    reset JournalEvents
+    clear JournalPending
+    return
+!! @hash 2e051042
+!!!
+!! Resolve JournalProfileIdx to the profile's name, or keep a name that was already supplied.
+JournalProfileLabel:
+    set JournalProfileName to empty
+    if JournalProfileIdx is numeric
+    begin
+        if JournalProfileIdx is not less than 0 and JournalProfileIdx is less than the count of Profiles
+        begin
+            put item JournalProfileIdx of Profiles into JournalProfileRec
+            if JournalProfileRec has entry `name` put entry `name` of JournalProfileRec into JournalProfileName
+        end
+    end
+    else if JournalProfileIdx is not empty put JournalProfileIdx into JournalProfileName
+    return
+!! @hash d7f67b82
+!!!
+!! Record a profile switch (calendar rollover or a UI Select Profile) once, when it changes.
+JournalProfileCheck:
+    if not JournalEnabled return
+    put SelectedProfile into JournalProfileIdx
+    if JournalProfileIdx is JournalProfileWas return
+    reset JournalData
+    set entry `from` of JournalData to JournalProfileWas
+    set entry `to` of JournalData to JournalProfileIdx
+    gosub to JournalProfileLabel
+    if JournalProfileName is not empty set entry `toName` of JournalData to JournalProfileName
+    set JournalType to `profile.change`
+    gosub to JournalWrite
+    put JournalProfileIdx into JournalProfileWas
+    return
+!! @hash 02c12eb5
+!!!
+!! Record a changed sensor reading, with its source timestamp and optional humidity/battery.
+!!
+!! The key is the sensor id, so a shared thermometer is logged once rather than once
+!! per room. In simulation the reading has no external timestamp and is compared
+!! without one; on the real system the bridge's ts is included, which means a report
+!! that repeats the same temperature is still recorded (staleness and heartbeat
+!! scenarios need that).
+JournalSensor:
+    if not JournalEnabled return
+    if TempNow is empty return
+    reset JournalData
+    set entry `room` of JournalData to RoomName
+    if Sensor is not empty set entry `sensor` of JournalData to Sensor
+    set entry `temp` of JournalData to TempNow
+    if Simulate set entry `source` of JournalData to `simulate`
+    else
+    begin
+        set entry `source` of JournalData to `zigbee`
+        if Thermometers has entry Sensor
+        begin
+            put entry Sensor of Thermometers into Thermometer
+            if Thermometer has entry `ts` set entry `sourceTsMs` of JournalData to entry `ts` of Thermometer
+            if Thermometer has entry `hum` set entry `humidity` of JournalData to entry `hum` of Thermometer
+            if Thermometer has entry `batt` set entry `battery` of JournalData to entry `batt` of Thermometer
+        end
+    end
+    put prettify JournalData into JournalSensorText
+    put hash JournalSensorText into JournalSensorHash
+    set JournalSensorKey to Sensor
+    if JournalSensorKey is empty put RoomName into JournalSensorKey
+    if JournalSensors has entry JournalSensorKey
+    begin
+        if entry JournalSensorKey of JournalSensors is JournalSensorHash return
+    end
+    set entry JournalSensorKey of JournalSensors to JournalSensorHash
+    set JournalType to `sensor.reading`
+    gosub to JournalWrite
+    return
+!! @hash 3b95cf2f
+!!!
+!! Record the plane the UI sees for one room when it changes.
+!!
+!! Only control and status fields are here: temperature, humidity and battery arrive
+!! as sensor.reading events, and sensorAge changes every cycle, so including either
+!! would write a line per room per five seconds. The comparison is a prettified record
+!! keyed by room name, so a steady room is silent and a period, relay, mode, advance,
+!! boost, override or status transition is one line.
+JournalRoomState:
+    if not JournalEnabled return
+    reset JournalData
+    set entry `room` of JournalData to RoomName
+    put SelectedProfile into JournalProfileIdx
+    set entry `profileIndex` of JournalData to JournalProfileIdx
+    gosub to JournalProfileLabel
+    if JournalProfileName is not empty set entry `profile` of JournalData to JournalProfileName
+    if Room has entry `mode` set entry `mode` of JournalData to entry `mode` of Room
+    if Room has entry `target` set entry `target` of JournalData to entry `target` of Room
+    if Room has entry `period` set entry `period` of JournalData to entry `period` of Room
+    if Room has entry `advance` set entry `advance` of JournalData to entry `advance` of Room
+    if Room has entry `advanceuntil` set entry `advanceuntil` of JournalData to entry `advanceuntil` of Room
+    if Room has entry `until` set entry `until` of JournalData to entry `until` of Room
+    if Room has entry `prevmode` set entry `prevmode` of JournalData to entry `prevmode` of Room
+    if Room has entry `boostperiod` set entry `boostperiod` of JournalData to entry `boostperiod` of Room
+    if Room has entry `relay` set entry `relay` of JournalData to entry `relay` of Room
+    if Room has entry `status` set entry `status` of JournalData to entry `status` of Room
+    if Room has entry `statusMessage` set entry `statusMessage` of JournalData to entry `statusMessage` of Room
+    if Room has entry `relayMessage` set entry `relayMessage` of JournalData to entry `relayMessage` of Room
+    if Room has entry `relaysFailed` set entry `relaysFailed` of JournalData to entry `relaysFailed` of Room
+    if Room has entry `relaysTotal` set entry `relaysTotal` of JournalData to entry `relaysTotal` of Room
+    if Room has entry `relayfails` set entry `relayfails` of JournalData to entry `relayfails` of Room
+    if Room has entry `trvrunning` set entry `trvrunning` of JournalData to entry `trvrunning` of Room
+    if Room has entry `trvsetpoint` set entry `trvsetpoint` of JournalData to entry `trvsetpoint` of Room
+    if Room has entry `trvfails` set entry `trvfails` of JournalData to entry `trvfails` of Room
+    put prettify JournalData into JournalRoomText
+    put hash JournalRoomText into JournalRoomHash
+    if JournalRooms has entry RoomName
+    begin
+        if entry RoomName of JournalRooms is JournalRoomHash return
+    end
+    set entry RoomName of JournalRooms to JournalRoomHash
+    set JournalType to `room.state`
+    gosub to JournalWrite
+    return
+!! @hash b2874d81
+!!!
+!! Record the demand relay's own on/off decision when it changes.
+JournalRequestRelay:
+    if not JournalEnabled return
+    if RequestState is JournalRequestLast return
+    reset JournalData
+    set entry `name` of JournalData to RequestName
+    set entry `state` of JournalData to RequestState
+    set JournalType to `request.relay`
+    gosub to JournalWrite
+    put RequestState into JournalRequestLast
+    return
+!! @hash e7aaac1d
+!!!
+!! Record a UI request exactly as the controller received it, including the PWA's Source provenance.
+!!
+!! The whole message is kept: Update Profiles can carry every schedule, and the
+!! generator needs the payload the user's save actually sent. The controller's
+!! decision is recorded separately (room.state, plan.snapshot).
+JournalUIRequest:
+    if not JournalEnabled return
+    reset JournalData
+    set entry `client` of JournalData to SenderName
+    set entry `action` of JournalData to Action
+    if Message is not empty set entry `payload` of JournalData to Message
+    if Message has entry `Source` set entry `source` of JournalData to entry `Source` of Message
+    else if Message has entry `source` set entry `source` of JournalData to entry `source` of Message
+    if Message has entry `Room` set entry `room` of JournalData to entry `Room` of Message
+    else if Message has entry `room` set entry `room` of JournalData to entry `room` of Message
+    set JournalType to `ui.request`
+    gosub to JournalWrite
+    set JournalRequestSeen
+    return
+!! @hash d2985752
+!!!
+!! Snapshot the plan after a request that changed it; identical snapshots share one content-addressed file.
+JournalPlanSnapshot:
+    if not JournalEnabled return
+    reset JournalData
+    if JournalPlanReason is not empty set entry `reason` of JournalData to JournalPlanReason
+    put SelectedProfile into JournalProfileIdx
+    set entry `profileIndex` of JournalData to JournalProfileIdx
+    gosub to JournalProfileLabel
+    if JournalProfileName is not empty set entry `profile` of JournalData to JournalProfileName
+    put prettify Map into JournalMapText
+    put json JournalMapText into JournalMapCopy
+    set entry `map` of JournalData to JournalMapCopy
+    set JournalType to `plan.snapshot`
+    gosub to JournalWrite
+    set JournalPlanReason to empty
+    return
+!! @hash 38acb55a
 !!!

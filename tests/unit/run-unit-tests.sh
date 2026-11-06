@@ -48,7 +48,8 @@ echo "Compiling the whole controller..."
 "$SCRIPT_DIR/controller-compile-check.sh"
 CTL_STATUS=$?
 
-# Python unit tests: the heating-data CSV writer (heatlog.py), the split
+# Python unit tests: the heating-data CSV writer (heatlog.py), the event-journal
+# writer and its controller-side integration (eventlog.py, journal_test), the split
 # between the controller's working room array and the profile state — the two
 # aliasing traps that bit the shared room list on the live system (DIFF.md) —
 # the bridge's TRV external-sensor command, the no-temperature-rise heating
@@ -56,8 +57,8 @@ CTL_STATUS=$?
 # room heat on its last reading for its first 30 minutes, and the backup/restore
 # pair (archive contents, retention, checksums and a round trip onto a fresh dir).
 echo ""
-echo "Running Python tests (heatlog_test, commit_roundtrip_test, identity_override_test, trv_external_test, setrelay_test, period_grace_test, heat_watch_test, backup_test)..."
-PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test commit_roundtrip_test identity_override_test trv_external_test setrelay_test period_grace_test heat_watch_test 2>&1)"
+echo "Running Python tests (heatlog_test, eventlog_test, journal_test, commit_roundtrip_test, identity_override_test, trv_external_test, setrelay_test, period_grace_test, heat_watch_test, backup_test)..."
+PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test eventlog_test journal_test commit_roundtrip_test identity_override_test trv_external_test setrelay_test period_grace_test heat_watch_test 2>&1)"
 PY_STATUS=$?
 echo "$PY_OUT"
 

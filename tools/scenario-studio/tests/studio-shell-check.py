@@ -26,8 +26,10 @@ import scenario_library as library  # noqa: E402
 
 TEST_GROUP = "Test group"
 TEST_NAME = "Shell brief"
+TEST_NAME_2 = "Shell brief two"
 TEST_BRIEF = "Brief for the shell check. Keep the summary title visible."
 TEST_SOURCE = library.LOCAL / "drafts" / "shell-brief.json"
+TEST_SOURCE_2 = library.LOCAL / "drafts" / "shell-brief-two.json"
 CONFIG = STUDIO / "ai-config.json"
 CONFIG_BACKUP = CONFIG.read_text(encoding="utf-8") if CONFIG.exists() else None
 CONFIG.write_text('{"provider": "prompt"}\n', encoding="utf-8")
@@ -50,15 +52,20 @@ def prepare_library():
              "expect": {"target": "summary.title", "visible": True}},
         ],
     }, indent=2) + "\n", encoding="utf-8")
-    return library.add(TEST_SOURCE, name=TEST_NAME, group=TEST_GROUP, brief=TEST_BRIEF)
+    data = json.loads(TEST_SOURCE.read_text(encoding="utf-8"))
+    data["name"] = TEST_NAME_2
+    TEST_SOURCE_2.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return (library.add(TEST_SOURCE, name=TEST_NAME, group=TEST_GROUP, brief=TEST_BRIEF),
+            library.add(TEST_SOURCE_2, name=TEST_NAME_2, group=TEST_GROUP, brief=TEST_BRIEF))
 
 
 def cleanup_library():
-    try:
-        if TEST_ENTRY:
-            library.remove(library.SCENARIOS / TEST_ENTRY["path"])
-    except (SystemExit, FileNotFoundError):
-        pass
+    for entry in (TEST_ENTRY, TEST_ENTRY_2):
+        try:
+            if entry:
+                library.remove(library.SCENARIOS / entry["path"])
+        except (SystemExit, FileNotFoundError):
+            pass
     try:
         index = library.load_index()
         index["groups"] = [group for group in index.get("groups", []) if group != TEST_GROUP]
@@ -66,6 +73,7 @@ def cleanup_library():
     except SystemExit:
         pass
     TEST_SOURCE.unlink(missing_ok=True)
+    TEST_SOURCE_2.unlink(missing_ok=True)
     if CONFIG_BACKUP is None:
         CONFIG.unlink(missing_ok=True)
     else:
@@ -83,7 +91,7 @@ def cleanup_library():
             pass
 
 
-TEST_ENTRY = prepare_library()
+TEST_ENTRY, TEST_ENTRY_2 = prepare_library()
 
 from PySide6.QtCore import QTimer  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit  # noqa: E402
@@ -133,6 +141,22 @@ def fill_group():
         return
     editor.setText("Extra")
     dialog.accept()
+
+
+def fill_new_group(group):
+    dialog = QApplication.activeModalWidget()
+    if dialog is None:
+        check(False, "the new-scenario group dialog opened")
+        return
+    editor = dialog.findChild(QLineEdit)
+    if editor is None:
+        check(False, "the new-scenario group dialog has a text field")
+        dialog.reject()
+        return
+    editor.setText(group)
+    dialog.accept()
+    QTimer.singleShot(200, lambda: QApplication.activeModalWidget().reject()
+                      if QApplication.activeModalWidget() else None)
 
 
 def fill_brief(text, accept=True):
@@ -190,10 +214,13 @@ def click_run():
         print(f"  ..    shell ready: {steps.rowCount()} rows x {steps.columnCount()} columns")
         check(steps.rowCount() == 13, "the advance example seeds 13 rows")
         scenarios = widget(program, "Scenarios")
-        scenarios.setCurrentRow(1)
-        scenarios.itemClicked.emit(scenarios.item(1))
-        app.processEvents()
-        check(steps.rowCount() == 5, "selecting the second scenario seeds 5 rows")
+        temperature = next((i for i in range(scenarios.count())
+                            if scenarios.item(i).text() == "Kitchen temperature"), -1)
+        if temperature >= 0:
+            scenarios.setCurrentRow(temperature)
+            scenarios.itemClicked.emit(scenarios.item(temperature))
+            app.processEvents()
+        check(steps.rowCount() == 5, "selecting the temperature scenario seeds 5 rows")
         delay = next((i for i in range(scenarios.count())
                       if scenarios.item(i).text() == "Delay demo"), -1)
         if delay >= 0:
@@ -210,9 +237,12 @@ def click_run():
             scenarios.itemClicked.emit(scenarios.item(local))
             app.processEvents()
             check(steps.rowCount() == 3, "the local system snapshot seeds its starter steps")
-        scenarios.setCurrentRow(0)
-        scenarios.itemClicked.emit(scenarios.item(0))
-        app.processEvents()
+        advance = next((i for i in range(scenarios.count())
+                        if scenarios.item(i).text() == "Advance at 15:00"), -1)
+        if advance >= 0:
+            scenarios.setCurrentRow(advance)
+            scenarios.itemClicked.emit(scenarios.item(advance))
+            app.processEvents()
         check(steps.rowCount() == 13, "selecting Advance restores 13 rows")
 
         groups = widget(program, "GroupBox")
@@ -236,6 +266,21 @@ def click_run():
               "selecting a scenario loads its stored brief")
         check(widget(program, "DeleteScenarioBtn").isEnabled(),
               "a library scenario can be deleted")
+        widget(program, "RefreshScenariosBtn").click()
+        app.processEvents()
+        check(widget(program, "DeleteScenarioBtn").isEnabled(),
+              "Delete stays enabled after refreshing scenarios")
+        second_row = next(i for i in range(scenarios.count())
+                          if scenarios.item(i).text() == TEST_NAME_2)
+        scenarios.setCurrentRow(second_row)
+        scenarios.itemClicked.emit(scenarios.item(second_row))
+        app.processEvents()
+        check(widget(program, "DeleteScenarioBtn").isEnabled(),
+              "the second library scenario can also be deleted")
+        widget(program, "RefreshScenariosBtn").click()
+        app.processEvents()
+        check(widget(program, "DeleteScenarioBtn").isEnabled(),
+              "Delete stays enabled for the second scenario after refresh")
 
         widget(program, "AddBatchBtn").click()
         widget(program, "RunBatchBtn").click()
@@ -264,10 +309,11 @@ def click_run():
                 break
         check("Extra" in names, "New group adds a folder to the selector")
 
-        QTimer.singleShot(300, lambda: QApplication.activeModalWidget().reject()
-                          if QApplication.activeModalWidget() else None)
+        QTimer.singleShot(300, lambda: fill_new_group(TEST_GROUP))
         widget(program, "NewScenarioBtn").click()
         app.processEvents()
+        check(value(program, "DraftGroup") == TEST_GROUP,
+              "New offers the chosen destination group")
         check(steps.rowCount() == 0, "New clears the step table")
         check(value(program, "Brief") == "", "New clears the brief")
         check(not widget(program, "DeleteScenarioBtn").isEnabled(),
@@ -275,9 +321,12 @@ def click_run():
 
         groups.setCurrentIndex(0)
         app.processEvents()
-        scenarios.setCurrentRow(0)
-        scenarios.itemClicked.emit(scenarios.item(0))
-        app.processEvents()
+        advance = next((i for i in range(scenarios.count())
+                        if scenarios.item(i).text() == "Advance at 15:00"), -1)
+        if advance >= 0:
+            scenarios.setCurrentRow(advance)
+            scenarios.itemClicked.emit(scenarios.item(advance))
+            app.processEvents()
         check(steps.rowCount() == 13, "returning to All restores Advance")
         widget(program, "AddBatchBtn").click()
         app.processEvents()

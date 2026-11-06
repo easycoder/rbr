@@ -310,6 +310,15 @@
 !	Outbound (uirequest) payload state.
 	variable Result
 	variable SendOK
+!	Gesture provenance attached to every outgoing request, so the controller's
+!	event journal records what the user did, not only the resulting Action.
+	variable UiSource
+	variable GestureScreen
+	variable GestureControl
+	variable GestureGesture
+	variable GestureRoom
+	variable GesturePending
+	variable GestureAction
 	variable ModeForServer
 	variable BoostMinutes
 	variable RoomNameForServer
@@ -2031,6 +2040,11 @@ ChangeMode:
 !	Leaving Boost (any direction) — explicitly tell the controller to drop
 !	its boost state, mirroring the old CancelBoost path's `Boost: 0`.
 	if Tmode is `Boost` set property `Boost` of Result to 0
+	set GestureScreen to `home`
+	set GestureControl to `mode`
+	set GestureGesture to `tap`
+	put property `name` of Room into GestureRoom
+	set GesturePending
 	gosub to PostUiRequest
 	return
 !! @hash fea795ee
@@ -2098,6 +2112,11 @@ WriteTargetTenths:
 		else if BoostMinutes is less than 1 put 1 into BoostMinutes
 		set property `boost` of Result to `B` cat BoostMinutes
 	end
+	set GestureScreen to `home`
+	set GestureControl to `target`
+	set GestureGesture to `tap`
+	put property `name` of Room into GestureRoom
+	set GesturePending
 	gosub to PostUiRequest
 	return
 !! @hash 936acece
@@ -2142,6 +2161,11 @@ ApplyBoost:
 	set property `advance` of Result to `none`
 	set property `boost` of Result to `B` cat BoostMinutes
 	set property `target` of Result to TargetForServer
+	set GestureScreen to `home`
+	set GestureControl to `boost`
+	set GestureGesture to `tap`
+	put property `name` of Room into GestureRoom
+	set GesturePending
 	gosub to PostUiRequest
 	return
 !! @hash 9f654a69
@@ -2185,6 +2209,11 @@ BoostOffTapped:
 	set property `Room` of Result to RoomNameForServer
 	set property `Mode` of Result to ModeForServer
 	set property `Boost` of Result to 0
+	set GestureScreen to `home`
+	set GestureControl to `boost-off`
+	set GestureGesture to `tap`
+	put property `name` of Room into GestureRoom
+	set GesturePending
 	gosub to PostUiRequest
 	return
 !! @hash 6518b52f
@@ -2235,6 +2264,11 @@ ToggleAdvance:
 	set property `Room` of Result to RoomNameForServer
 	set property `Mode` of Result to `timed`
 	set property `advance` of Result to Advance
+	set GestureScreen to `home`
+	set GestureControl to `advance`
+	set GestureGesture to `tap`
+	put property `name` of Room into GestureRoom
+	set GesturePending
 	gosub to PostUiRequest
 	return
 !! @hash 7fe8a33e
@@ -2367,6 +2401,7 @@ OpenProfileSheet:
 		if property `calendarOn` of ProfileResult is `on` set PayloadCalendarOnFlag
 		else clear PayloadCalendarOnFlag
 		put property `calendarData` of ProfileResult into PayloadCalendarData
+		set GestureScreen to `profiles`
 		gosub to SendUpdateProfiles
 	end
 	gosub to FlushPendingMap
@@ -2396,6 +2431,8 @@ OpenScheduleEditor:
 		put CurrentProfile into PayloadActiveProfileIdx
 		if CalendarOn set PayloadCalendarOnFlag else clear PayloadCalendarOnFlag
 		put property `calendar-data` of Map into PayloadCalendarData
+		set GestureScreen to `schedule`
+		put property `name` of Room into GestureRoom
 		gosub to SendUpdateProfiles
 	end
 	gosub to FlushPendingMap
@@ -2620,6 +2657,11 @@ ArmSpecialOverride:
 	set property `op` of Result to `set`
 	set property `kind` of Result to SpecialKind
 	if SpecialKind is `start` set property `time` of Result to SpecialTime
+	set GestureScreen to `home`
+	set GestureControl to `override`
+	set GestureGesture to `tap`
+	put property `name` of Room into GestureRoom
+	set GesturePending
 	gosub to PostUiRequest
 	return
 !! @hash 6a1c3e33
@@ -2638,6 +2680,11 @@ ClearSpecialOverride:
 	set property `Action` of Result to `Room Override`
 	set property `Room` of Result to RoomNameForServer
 	set property `op` of Result to `clear`
+	set GestureScreen to `home`
+	set GestureControl to `override-clear`
+	set GestureGesture to `tap`
+	put property `name` of Room into GestureRoom
+	set GesturePending
 	gosub to PostUiRequest
 	return
 !! @hash 01fe44e5
@@ -2705,6 +2752,10 @@ SaveSystemSheet:
 	set property `Action` of Result to `System Name`
 	set property `name` of Result to EditingSystemName
 	set property `systemType` of Result to EditingSystemType
+	set GestureScreen to `system`
+	set GestureControl to `save`
+	set GestureGesture to `tap`
+	set GesturePending
 	gosub to PostUiRequest
 	gosub to CloseSheet
 	return
@@ -2779,6 +2830,10 @@ ToggleBackupEmail:
 	set property `Action` of Result to `Backup`
 	set property `enabled` of Result to BackupEnabled
 	if BackupTo is not empty set property `address` of Result to BackupTo
+	set GestureScreen to `backups`
+	set GestureControl to `toggle`
+	set GestureGesture to `tap`
+	set GesturePending
 	gosub to PostUiRequest
 	return
 !! @hash 408d3749
@@ -2789,6 +2844,10 @@ ToggleBackupEmail:
 SendBackupNow:
 	put `{}` into Result
 	set property `Action` of Result to `Backup Now`
+	set GestureScreen to `backups`
+	set GestureControl to `backup-now`
+	set GestureGesture to `tap`
+	set GesturePending
 	gosub to PostUiRequest
 	if BackupTo is empty set the content of BackupNoticeEl to `Backup started. It will be saved on the controller; no registered address is known for email.`
 	else set the content of BackupNoticeEl to `Backup started. It will be emailed to ` cat BackupTo
@@ -2857,6 +2916,7 @@ SaveOutsideSheet:
 	put CurrentProfile into PayloadActiveProfileIdx
 	if CalendarOn set PayloadCalendarOnFlag else clear PayloadCalendarOnFlag
 	put property `calendar-data` of Map into PayloadCalendarData
+	set GestureScreen to `outside`
 	gosub to SendUpdateProfiles
 
 	put EditingOutsideSensor into OutsideSensor
@@ -2901,6 +2961,7 @@ OpenDeviceEditor:
 		put CurrentProfile into PayloadActiveProfileIdx
 		if CalendarOn set PayloadCalendarOnFlag else clear PayloadCalendarOnFlag
 		put property `calendar-data` of Map into PayloadCalendarData
+		set GestureScreen to `devices`
 		gosub to SendUpdateProfiles
 		if property `requestRelayChanged` of DeviceResult is `yes`
 		begin
@@ -2909,6 +2970,10 @@ OpenDeviceEditor:
 			put `{}` into Result
 			set property `Action` of Result to `Request Relay`
 			set property `request` of Result to RequestRelay
+			set GestureScreen to `devices`
+			set GestureControl to `request-relay`
+			set GestureGesture to `select`
+			set GesturePending
 			gosub to PostUiRequest
 		end
 	end
@@ -3004,6 +3069,82 @@ PairFailed:
 	return
 !! @hash 6a01cdc4
 !!!
+!! Attach the user's gesture provenance to Result.Source before it is sent.
+!!
+!! The controller's event journal needs to know more than the canonical Action:
+!! an "Operating Mode" payload can come from a mode pill, a target stepper, a
+!! boost duration or the Advance button, and "Update Profiles" can come from four
+!! different sheets. Callers set GestureScreen / GestureControl / GestureGesture /
+!! GestureRoom and GesturePending immediately before PostUiRequest. When they do
+!! not, DefaultGestureSource derives a conservative label from the payload, so an
+!! older handler still ships a useful Source rather than nothing at all.
+AttachGestureSource:
+	put `{}` into UiSource
+	set property `app` of UiSource to `pwa`
+	if not GesturePending gosub to DefaultGestureSource
+	if GestureScreen is not empty set property `screen` of UiSource to GestureScreen
+	if GestureControl is not empty set property `control` of UiSource to GestureControl
+	if GestureGesture is not empty set property `gesture` of UiSource to GestureGesture
+	if GestureRoom is not empty set property `room` of UiSource to GestureRoom
+	set property `Source` of Result to UiSource
+	clear GesturePending
+	set GestureScreen to empty
+	set GestureControl to empty
+	set GestureGesture to empty
+	set GestureRoom to empty
+	return
+!! Derive a screen/control/gesture label from the request payload, for handlers that do not set one explicitly.
+DefaultGestureSource:
+	set GestureGesture to `tap`
+	put property `Action` of Result into GestureAction
+	if GestureAction is `Operating Mode`
+	begin
+		set GestureScreen to `home`
+		if property `Room` of Result is not empty put property `Room` of Result into GestureRoom
+		if property `advance` of Result is not empty set GestureControl to `advance`
+		else if property `Mode` of Result is `boost` set GestureControl to `boost`
+		else if property `target` of Result is not empty set GestureControl to `target`
+		else set GestureControl to `mode`
+	end
+	else if GestureAction is `Room Override`
+	begin
+		set GestureScreen to `home`
+		set GestureControl to `override`
+		if property `Room` of Result is not empty put property `Room` of Result into GestureRoom
+	end
+	else if GestureAction is `Update Profiles`
+	begin
+		set GestureScreen to `sheet`
+		set GestureControl to `save`
+	end
+	else if GestureAction is `Select Profile`
+	begin
+		set GestureScreen to `profiles`
+		set GestureControl to `profile`
+		set GestureGesture to `select`
+	end
+	else if GestureAction is `System Name`
+	begin
+		set GestureScreen to `system`
+		set GestureControl to `save`
+	end
+	else if GestureAction is `Request Relay`
+	begin
+		set GestureScreen to `devices`
+		set GestureControl to `request-relay`
+		set GestureGesture to `select`
+	end
+	else if GestureAction is `Backup`
+	begin
+		set GestureScreen to `backups`
+		set GestureControl to `toggle`
+	end
+	else if GestureAction is `Backup Now`
+	begin
+		set GestureScreen to `backups`
+		set GestureControl to `backup-now`
+	end
+	return
 !! Ship the Result JSON object to the controller as a `uirequest`.
 !!
 !! Optimistic pattern: every caller has already mutated local state to reflect the change. On send failure we just bump a consecutive-failure counter; the next refresh will reconcile the controller's view (or the user can reload the page).
@@ -3013,6 +3154,7 @@ PairFailed:
 !! In demo mode (no controller configured) the send is a no-op — visitors can poke the UI without throwing errors.
 PostUiRequest:
 	if DemoMode return
+	gosub to AttachGestureSource
 	log `Sending uirequest: ` cat property `Action` of Result
 	send to ServerTopic
 		sender MyTopic
@@ -3043,6 +3185,9 @@ PostUiRequest:
 !!
 !! Folds the four lines of skeleton + the calendar-on/off if + the calendar-data conditional into one gosub, avoiding the same payload-construction sequence in SaveScheduleEditor / SaveOutsideSheet / SaveDeviceEditor / SaveEditingProfiles.
 SendUpdateProfiles:
+	set GestureControl to `save`
+	set GestureGesture to `tap`
+	set GesturePending
 	put `{}` into Result
 	set property `Action` of Result to `Update Profiles`
 	set property `profiles` of Map to PayloadProfiles

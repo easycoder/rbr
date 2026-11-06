@@ -51,6 +51,7 @@ table and logs):
 
 ```bash
 QT_QPA_PLATFORM=offscreen python3 tests/studio-shell-check.py
+python3 tests/journal_check.py
 ```
 
 ## Real system maps
@@ -85,11 +86,36 @@ The public `docs/examples` fixtures remain synthetic.
 
 ## Scenario library, groups and batches
 
-Scenarios live under `fixtures/local/scenarios/<group>/` and each may have a sibling `<stem>.brief.md`. `index.json` drives the shell. Selecting a scenario loads its brief into the sidebar editor, so **Draft scenario** edits the existing scenario with that brief as context. **New scenario** clears the table and brief and opens the editor; **Delete scenario** (twice) moves the scenario and its brief into `fixtures/local/.trash/`.
+Scenarios live under `fixtures/local/scenarios/<group>/` and each may have a sibling `<stem>.brief.md`. `index.json` drives the shell. Selecting a scenario loads its brief into the sidebar editor, so **Draft scenario** edits the existing scenario with that brief as context. **New scenario** asks for the destination group (defaulting to the current library group, or `Unsorted` from All/Local), clears the table and brief, and opens the editor; **Delete scenario** (twice) moves the scenario and its brief into `fixtures/local/.trash/`.
+
+The three public examples are seeded into the **Examples** group as ordinary library scenarios on first start (`scenario_library.py seed-examples`, run by the shell). They are deletable copies; the public files remain in `docs/examples` for the README and tests. The seed marker is `fixtures/local/.examples-seeded`, so deleting an example does not bring it back on the next start; remove the marker or run `seed-examples --force` to restore it. **Local system** is still a generated snapshot and remains read-only.
 
 The **Group** selector filters the library to one folder; **New group** creates another. The examples and the Local system snapshot are available under **All**, **Examples** and **Local**. A new draft goes into the selected library group, or `Unsorted` from All.
 
 The **BATCH** panel is a working list: select a scenario and press **+ Batch**, remove an entry with **- Batch**, then **Run batch**. It runs each scenario in order through `batch_runner.py`, writes a record under `fixtures/local/batches/`, and appends each scenario's normal output to the log. The batch list is deliberately simple: a saved, named batch library comes later.
+
+## Importing the controller's event journal
+
+The controller records an append-only event journal (`doc/EVENT-JOURNAL.md`). Two command-line tools turn a day of it into a scenario; both are stdlib-only and need no controller runtime on the machine running them.
+
+```bash
+# local directory or mounted share
+python3 journal_import.py --source /data/rbr-heating/events     --day 2026-11-06 --dest fixtures/local/journal/qed6-2026-11-06     --archive fixtures/local/journal/qed6-2026-11-06.tar.gz
+
+# same network, over SSH (runs only `cat` on known paths)
+python3 journal_import.py --ssh linaro@192.168.1.20     --ssh-root /data/rbr-heating/events --day 2026-11-06     --dest fixtures/local/journal/qed6-2026-11-06
+
+# generate a scenario from the bundle
+python3 journal_to_scenario.py --bundle fixtures/local/journal/qed6-2026-11-06     --from 07:00 --to 09:30     --out fixtures/local/scenarios/journal/kitchen-morning.json     --name "Kitchen morning"
+```
+
+A bundle contains `manifest.json`, `events/YYYY/MM/YYYY-MM-DD.jsonl` and the `maps/` snapshots the day references. It is the transport-neutral unit; the same bundle can come from a local copy, SSH, a downloaded archive or, later, an email attachment or the RBR cloud. `journal_to_scenario.py` uses the latest map snapshot at or before the window start, seeds the state that existed before the window, drops unchanged sensor readings and duplicate room states, and writes controller steps plus visible expectations. It does not replay UI requests as taps: the controller saw the request, not the gesture. The controller effects are included.
+
+The Studio's **Import journal…** button runs `journal_ingest.py`, which chains those two tools and adds the result to the **Journal** group. The source prompt accepts a bundle, a raw `.jsonl`, a local journal root, `user@host` (using `/data/rbr-heating/events`), or `user@host:/journal-root`; the day and window are optional when the source already names them. SSH uses the operating system's client, agent and key, so no SSH credential belongs in `credentials` or in the Studio. Do not add SSH secrets to the controller's existing `credentials` file: that file is fetched from the cloud, backed up, and already carries broker and mail secrets. Use a dedicated key, or a separate 0600 file outside `credentials` if a password is unavoidable.
+
+The generated scenario is ordinary Scenario Studio JSON, so `--validate-only`, the shell, batches and AI editing all work on it. Keep windows short enough to stay under `--max-steps` (default 5000); a full day of frequent readings is usually more than a UI test needs.
+
+The importer never writes to the controller. For SSH it runs `ssh host cat <path>` and captures the file, using the machine's own `ssh` client with `BatchMode=yes`; it uses a key or an agent and will not prompt for a password. `--ssh-bin` and `--ssh-key` are there for non-default setups. The default remote root is `/data/rbr-heating/events`; use `user@host:/other/root` if the controller's journal lives elsewhere (for example `/home/qed6/heating-data/events`). This is deliberate: a GUI import should not need a password stored in the application. `--source` is the simplest path when the journal is already copied or mounted locally.
 
 ## AI authoring
 

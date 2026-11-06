@@ -1,4 +1,4 @@
-# AGENT.md
+# AGENTS.md
 
 This file provides guidance to agents when working with code in this repository.
 
@@ -40,7 +40,7 @@ These checks run without a browser, a broker or the controller box, and all are 
 
 ```bash
 tests/unit/controller-compile-check.sh # the whole controller must compile (a duplicate symbol once stopped every controller)
-tests/unit/run-unit-tests.sh          # the compile check + AllSpeak unit tests + Python tests (heatlog, round-trip, overrides, SetRelay, heatwatch)
+tests/unit/run-unit-tests.sh          # the compile check + AllSpeak unit tests + Python tests (heatlog, eventlog, journal, round-trip, overrides, SetRelay, heatwatch)
 node tests/pwa-compile-check.js       # compiles all five new-ui modules in the browser runtime
 node tests/pwa-device-editor-check.js # drives the Devices sheet: a rename keeps its room's own wiring
 node tests/pwa-schedule-editor-check.js # drives the schedule's time dropdowns: how a stop follows its start
@@ -48,6 +48,7 @@ node tests/pwa-schedule-save-check.js # a map push while a sheet editor is open 
 node tests/pwa-profile-sheet-check.js # a profile rename/delete keeps the calendar's day names in step
 node tests/pwa-valve-state-check.js # the room tag follows a TRV's own running state, and unwired rooms say so
 node tests/pwa-backup-sheet-check.js # the hamburger's Backups sheet ships its toggle and "send now"
+python3 tools/scenario-studio/tests/journal_check.py # journal bundle, importer and scenario converter
 ```
 
 The browser suite is separate, because it needs a browser:
@@ -78,13 +79,14 @@ The UI is a static webapp — it has to be served over HTTP (not `file://`) beca
 ## Repository Structure
 
 - `controller.allspeak` — Main controller script (AllSpeak Python dialect)
+- `eventlog.py` — Append-only writer for the controller event journal (`doc/EVENT-JOURNAL.md`)
 - `deviceControl.allspeak` — Device control logic: turns the controller's per-room decisions into HTTP calls on the local Zigbee bridge
 - `simulator.allspeak` — Controller simulator for testing without hardware
 - `TODO-docs.md` — where the documentation programme stands and what is left. It points at `docs/README.md`, which is the only place a page's status is recorded.
 - `docs-reader/` — the documentation reader served at `/docs`. It is a page, an AllSpeak script and a Webson layout, and it holds no documentation: it fetches the Markdown from the public repository as it is read and renders it with this runtime's markdown renderer. See `tests/docs-reader-check.js`.
 - `new-ui/` — the PWA: `index.html`, `sw.js`, the manifest, `resources/allspeak/` (the five scripts) and `resources/webson/` (its layouts). It is the only UI; `/heat/` on the site is built from this directory.
 - `desktop/` — the PySide6 port, kept but secondary, and not yet on the shared-room-list format.
-- `tools/scenario-studio/` — specification, schema, examples, wireframe, v0 Python runner, AllSpeak/PySide shell (table/log/panes/process; Run/Demo wired), `snapshot-map.py` for local real-system maps, and `ai-draft.py`/`scenario_library.py` for AI-drafted, grouped, briefed local scenarios and `batch_runner.py` for sequential batches.
+- `tools/scenario-studio/` — specification, schema, examples, wireframe, v0 Python runner, AllSpeak/PySide shell (table/log/panes/process; Run/Demo wired), `snapshot-map.py` for local real-system maps, `journal_import.py`/`journal_to_scenario.py`/`journal_ingest.py` for controller-journal bundles, and `ai-draft.py`/`scenario_library.py` for AI-drafted, grouped, briefed local scenarios and `batch_runner.py` for sequential batches.
 - `rbr-backup.py`, `rbr-restore.py` — monthly archive (controller state + Zigbee2MQTT data, optional email copy) and the script that restores one after a fresh install
 - `map.json` — System map in the shared-room-list format: one `rooms[]` of identity (relays, thermometer, frost), plus each profile's schedules keyed by room name. `AI/MAP_FORMAT.md` is the format of record.
 - `params.json`, `environment.csv` — Simulator configuration (per-room thermal parameters and the outdoor-conditions envelope)

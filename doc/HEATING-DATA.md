@@ -88,6 +88,16 @@ This is the rule the heating watchdog uses: `heatwatch.py` treats a room with a 
 - `heatlog.py` (shipped with the controller release) is the single writer: `python3 heatlog.py --root <root> --room <room> --ts <minutes> --target <t> --actual <a> --mode <m>`. It creates the day directories as needed and appends with one atomic `O_APPEND` write. The controller spawns it via `system background` on each change.
 - Rows are tiny and sparse; a whole house-year is well under a megabyte. Back up `<root>` with the rest of the machine data. Files older than you care about can simply be deleted — nothing in the controller needs them.
 
+## Relationship to the event journal
+
+The CSV rows are outcomes. The controller also writes an append-only event
+journal under `journal-root` (or `<heatlog-root>/events` by default) that
+records the inputs and decisions behind them: sensor reports, UI requests,
+period and mode transitions, relay decisions, status changes and plan
+snapshots. It is the source for replaying a real day as a Scenario Studio
+scenario; see `EVENT-JOURNAL.md`. The heat log remains the compact,
+long-term analysis record and is not replaced by it.
+
 ## Testing
 
 - `tests/unit/heatlog_test.py` — the writer (path/date derivation, symlink root, CLI). Runs via `tests/unit/run-unit-tests.sh` or directly.

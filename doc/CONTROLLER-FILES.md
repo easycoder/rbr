@@ -14,6 +14,7 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `zigbee-pair.py` | Tool for pairing Zigbee devices | manual |
 | `zigbee-mesh.py` | Shows the Zigbee mesh as the coordinator sees it — each device's parent, link quality, weak links, and (with `--failures`) which relays are failing to acknowledge | manual |
 | `rbr-dashboard.py` | Terminal dashboard renderer (reads `/tmp/rbr-dashboard.json` written by the controller) | manual |
+| `eventlog.py` | Append-only writer for the controller event journal (see `EVENT-JOURNAL.md`) | auto (rbr-updater.py) |
 | `dashboard.txt` | Dashboard column headers — read by `rbr-dashboard.py` | manual |
 | `rbr-updater.py` | Applies code updates pulled from `rbrheating.com/heat/` (installed as an hourly timer) | auto (rbr-updater.py) |
 | `rbr-watchdog.sh` | 15-minute health check — restarts any core service that is down or unresponsive, and runs the heating check | auto (rbr-updater.py) |
@@ -29,8 +30,12 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `map-last-good.json` | Newest valid `map.json`, written by `rbr-mapbackup.py` — restored over a damaged map | live data |
 | `map-history/` | Rolling copies of the last 10 valid maps, written by `rbr-mapbackup.py` | live data |
 | `backup/` | Monthly archives written by `rbr-backup.py`; the newest 12 are kept | live data |
+| `journal-root` | One line: the event-journal data root. Optional — absent, a machine with `heatlog-root` uses `<heatlog-root>/events` | generated |
+| `journal-max-bytes` | Optional one-line absolute journal cap, e.g. `1G` or `1073741824`; default 1 GiB, `0` disables | generated |
+| `journal-max-free-percent` | Optional one-line cap as a percentage of the filesystem's free space; default 10, `0` disables | generated |
 | `backup-config.json` | The Backups sheet's email toggle and the registered address; written by the controller | live data |
 | `backup-status.json` | The last backup's result, for the Backups sheet; written by `rbr-backup.py` | live data |
+| `<journal-root>/` | Daily event files and content-addressed map snapshots; delete old days freely | live data |
 | `volatile-root` | One line: the directory holding the regenerable files below. `rbr-setup.sh` writes `/run/rbr`, which is a tmpfs and is emptied on every reboot. With no such file the paths stay plain names in this directory (what a test machine gets) | generated |
 | `thermometers.json` | Temperature readings — created on first run. In the volatile directory | volatile |
 | `zigbee-temperatures.json` | Zigbee readings written by the bridge, merged by the controller. In the volatile directory | volatile |

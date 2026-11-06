@@ -39,7 +39,7 @@ node tests/pwa-device-editor-check.js
 npm run test:ui
 ```
 
-`AGENT.md` is the working guide — how the code is laid out, the conventions the documentation blocks follow, and the traps this language and this runtime have already cost time on. `DIFF.md` records why the system looks the way it does, change by change. Most of `doc/` and all of `docs/` are written for people rather than for agents; `docs/README.md` is the index.
+`AGENTS.md` is the working guide — how the code is laid out, the conventions the documentation blocks follow, and the traps this language and this runtime have already cost time on. `DIFF.md` records why the system looks the way it does, change by change. Most of `doc/` and all of `docs/` are written for people rather than for agents; `docs/README.md` is the index.
 
 ## Credits
 

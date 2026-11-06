@@ -121,7 +121,7 @@ The controller keeps each room's heating records under a data root, and that roo
 - If that path already exists — the preferred case, a partition of its own — it is used as-is.
 - If it does not, the script creates a folder in your home directory and makes `/data/rbr-heating` a symlink to it. Nothing else in the system changes when you later add a real partition; you move the folder and drop the symlink.
 
-Either way the chosen root is recorded in `heatlog-root`, and the reasoning is in `doc/HEATING-DATA.md`.
+Either way the chosen root is recorded in `heatlog-root`, and the reasoning is in `doc/HEATING-DATA.md`. The controller also writes its event journal under `<root>/events` by default; point a one-line `journal-root` file at another directory to separate it.
 
 ### Step 5c — Where the readings live
 

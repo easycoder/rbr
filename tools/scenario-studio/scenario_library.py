@@ -8,6 +8,7 @@ ignored: scenario and brief files contain real room names. Deleting moves both
 files to `fixtures/local/.trash/` rather than unlinking them.
 
     python3 scenario_library.py list
+    python3 scenario_library.py seed-examples
     python3 scenario_library.py add --path fixtures/local/drafts/office.json \
         --group "Office" --brief-file fixtures/local/drafts/office.brief.md
     python3 scenario_library.py group --name "Schedules"
@@ -33,6 +34,9 @@ SCENARIOS = LOCAL / "scenarios"
 TRASH = LOCAL / ".trash"
 INDEX = SCENARIOS / "index.json"
 UNSORTED = "Unsorted"
+EXAMPLES = HERE / "docs" / "examples"
+EXAMPLES_GROUP = "Examples"
+SEED_FLAG = LOCAL / ".examples-seeded"
 
 
 def slug(text):
@@ -155,6 +159,51 @@ def add(path, name=None, group=UNSORTED, brief=None):
     return entry
 
 
+def seed_examples(force=False):
+    """Copy the public example scenarios into the local library once.
+
+    They become ordinary deletable scenarios in the Examples group. The
+    public files stay in docs/examples for the README and the test suite; the
+    Studio list uses the copies, so deleting one cannot break those.
+    """
+    if SEED_FLAG.exists() and not force:
+        return []
+    sources = (
+        ("advance.json", "Advance at 15:00"),
+        ("temperature.json", "Kitchen temperature"),
+        ("delay.json", "Delay demo"),
+    )
+    index = load_index()
+    existing = {(item.get("group"), item.get("name")) for item in index["scenarios"]}
+    created = []
+    LOCAL.mkdir(parents=True, exist_ok=True)
+    DRAFTS = LOCAL / "drafts"
+    DRAFTS.mkdir(parents=True, exist_ok=True)
+    for filename, label in sources:
+        if (EXAMPLES_GROUP, label) in existing:
+            continue
+        source = EXAMPLES / filename
+        if not source.exists():
+            continue
+        data = read_json(source, {})
+        home = data.get("home") if isinstance(data, dict) else None
+        if isinstance(home, dict) and isinstance(home.get("map"), str):
+            candidate = (EXAMPLES / home["map"]).resolve()
+            if candidate.exists():
+                # Inline the shared fixture so the library copy is self-contained.
+                home["map"] = read_json(candidate, {})
+        data["name"] = label
+        draft = DRAFTS / f"_seed-{slug(label)}.json"
+        draft.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        try:
+            created.append(add(draft, name=label, group=EXAMPLES_GROUP,
+                               brief=data.get("description")))
+        finally:
+            draft.unlink(missing_ok=True)
+    SEED_FLAG.write_text("seeded\n", encoding="utf-8")
+    return created
+
+
 def add_group(name):
     """Create an empty group and return its display name."""
     group = (name or "").strip()
@@ -201,6 +250,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list", help="print the library manifest")
+    seed_parser = sub.add_parser("seed-examples", help="copy the public examples into the library")
+    seed_parser.add_argument("--force", action="store_true", help="run even if the seed marker exists")
+    seed_parser.add_argument("--quiet", action="store_true", help="suppress the summary")
 
     add_parser = sub.add_parser("add", help="add or update a scenario")
     add_parser.add_argument("--path", required=True)
@@ -218,6 +270,10 @@ def main():
     args = parser.parse_args()
     if args.command == "list":
         print(json.dumps(load_index(), indent=2, ensure_ascii=False))
+    elif args.command == "seed-examples":
+        created = seed_examples(args.force)
+        if not args.quiet:
+            print(json.dumps(created, indent=2, ensure_ascii=False))
     elif args.command == "add":
         brief = args.brief
         if args.brief_file:

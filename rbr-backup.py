@@ -84,6 +84,9 @@ RBR_FILES = (
     ".mqtt_token",
     "volatile-root",
     "heatlog-root",
+    "journal-root",
+    "journal-max-bytes",
+    "journal-max-free-percent",
     "backup-config.json",
 )
 RBR_DIRS = ("map-history",)

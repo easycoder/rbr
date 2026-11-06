@@ -52,9 +52,14 @@ pushbutton RemoveBatchBtn
 pushbutton RunBatchBtn
 label ScenariosLabel
 listbox Scenarios
+pushbutton JournalBtn
 label BriefPreview
 pushbutton EditBriefBtn
 dialog BriefDlg
+dialog NewScenarioGroupDlg
+dialog JournalSourceDlg
+dialog JournalDayDlg
+dialog JournalRangeDlg
 label AiLabel
 pushbutton DraftBtn
 pushbutton CopyPathBtn
@@ -86,6 +91,7 @@ process Drafter
 process Deleter
 process Batcher
 process Grouper
+process Journaler
 
 variable ScenarioPath
 variable Brief
@@ -104,7 +110,20 @@ variable BatchCount
 variable BatchI
 variable GroupValue
 variable Grouping
+variable DraftGroup
 variable DeleteArmed
+variable Journaling
+variable JournalSource
+variable JournalDay
+variable JournalRange
+variable JournalFrom
+variable JournalTo
+variable JournalPath
+variable DeleteAllowed
+variable SelectedIsLibrary
+variable SelectedName
+variable PathPos
+variable DotIdx
 variable RequestText
 variable LastText
 variable LastStatus
@@ -139,6 +158,7 @@ variable LineText
 dictionary Event
 dictionary RoomAliases
 dictionary LibraryPaths
+dictionary LibraryNames
 dictionary BriefPaths
 dictionary LastData
 dictionary LibData
@@ -244,6 +264,7 @@ Setup:
     create ScenariosLabel text `SCENARIOS` size 14
     create Scenarios
     set the height of Scenarios to 150
+    create JournalBtn text `Import journal…` size 10
     create AiLabel text `DRAFT WITH AI` size 14
     put `Advance in the office at 15:00, expect the button to say Cancel the advance, then the controller clears it at 18:00.` into Brief
     create BriefPreview text `Brief ready — Edit brief to change it.` size 28
@@ -274,6 +295,7 @@ Setup:
     add NewScenarioBtn to SidebarCol
     add ScenariosLabel to SidebarCol
     add Scenarios to SidebarCol
+    add JournalBtn to SidebarCol
     add RefreshScenariosBtn to SidebarCol
     add DeleteScenarioBtn to SidebarCol
     add spacer size 10 to SidebarCol
@@ -364,6 +386,7 @@ Setup:
     on click DraftBtn go to DraftClicked
     on click RefreshScenariosBtn go to RefreshScenariosClicked
     on click DeleteScenarioBtn go to DeleteScenarioClicked
+    on click JournalBtn go to JournalClicked
     on select Scenarios go to ScenarioPicked
     on select Steps go to StepSelected
     on close Win go to WinClosed
@@ -379,25 +402,32 @@ Setup:
     on line Deleter go to DeleterLine
     on stderr line Deleter go to DeleterError
     on exit Deleter go to DeleterDone
+    on line Journaler go to JournalerLine
+    on stderr line Journaler go to JournalerError
+    on exit Journaler go to JournalerDone
 
+    system `python3 scenario_library.py seed-examples --quiet`
     gosub to LoadGroups
     gosub to BuildScenarioList
 
-    put `docs/examples/advance.json` into ScenarioPath
+    put `fixtures/local/scenarios/examples/advance-at-15-00.json` into ScenarioPath
+    if file ScenarioPath does not exist put `docs/examples/advance.json` into ScenarioPath
     gosub to LoadScenario
 
     show Win
     put 0 into Running
     put 0 into Drafting
     put 0 into Deleting
+    put 0 into Journaling
     put 0 into Refreshing
+    put empty into JournalPath
     put empty into DeleteArmed
     put 0 into Grouping
     set the text of StatusLabel to `Ready — Run starts the runner.`
 Idle:
     wait 1 tick
     go to Idle
-!! @hash e37e2c0c
+!! @hash 97766e52
 !! @verified e37e2c0c
 !!!
 
@@ -653,12 +683,10 @@ PaintRows:
 !! @verified e4383fba
 !!!
 
-!! Load the group selector from the manifest; All/Examples/Local precede
-!! the library's own folders.
+!! Load the group selector from the manifest; All/Local precede the library's own folders.
 LoadGroups:
     clear GroupBox
     add `All` to GroupBox
-    add `Examples` to GroupBox
     add `Local` to GroupBox
     if file `fixtures/local/scenarios/index.json` exists
     begin
@@ -678,7 +706,7 @@ LoadGroups:
         end
     end
     return
-!! @hash 9f165528
+!! @hash 8930e270
 !! @verified 9f165528
 !!!
 
@@ -687,7 +715,12 @@ GroupChanged:
     if CurrentGroup is empty put `All` into CurrentGroup
     gosub to BuildScenarioList
     put empty into DeleteArmed
-    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    put 0 into SelectedIsLibrary
+    if SelectedName is not empty
+    begin
+        if LibraryNames has entry SelectedName set SelectedIsLibrary
+    end
+    gosub to SetDeleteButton
     set the text of StatusLabel to `Group ` cat CurrentGroup
     return
 !! @hash
@@ -716,6 +749,21 @@ NewScenarioClicked:
         return
     end
     put empty into ScenarioPath
+    put empty into SelectedName
+    put 0 into SelectedIsLibrary
+    put empty into DraftGroup
+    if CurrentGroup is not empty
+    begin
+        if CurrentGroup is not `All`
+        begin
+            if CurrentGroup is not `Local` put CurrentGroup into DraftGroup
+        end
+    end
+    if DraftGroup is empty put `Unsorted` into DraftGroup
+    create NewScenarioGroupDlg on Win type lineedit title `New scenario` prompt `Group for the new scenario (blank to cancel)` value DraftGroup
+    show NewScenarioGroupDlg
+    put NewScenarioGroupDlg into DraftGroup
+    if DraftGroup is empty return
     put empty into Brief
     put empty into PromptPath
     disable CopyPathBtn
@@ -734,25 +782,16 @@ NewScenarioClicked:
 !! @verified 9f165528
 !!!
 
-!! Rebuild the scenario list: examples, the local system, then the library.
-!! `ExamplePaths` maps a list label to its file; `LibraryPaths` marks paths
-!! that may be deleted (the public examples and Local system may not).
+!! Rebuild the scenario list: the local system, then the library, including the seeded Examples group.
+!! `ExamplePaths` maps a list label to its file; `LibraryPaths` marks deletable library paths; Local system remains read-only.
 BuildScenarioList:
     clear Scenarios
     put json `{}` into ExamplePaths
     put json `{}` into LibraryPaths
+    put json `{}` into LibraryNames
     put json `{}` into BriefPaths
     put CurrentGroup into GroupName
     if GroupName is empty put `All` into GroupName
-    if GroupName is `All` or GroupName is `Examples`
-    begin
-        add `Advance at 15:00` to Scenarios
-        set entry `Advance at 15:00` of ExamplePaths to `docs/examples/advance.json`
-        add `Kitchen temperature` to Scenarios
-        set entry `Kitchen temperature` of ExamplePaths to `docs/examples/temperature.json`
-        add `Delay demo` to Scenarios
-        set entry `Delay demo` of ExamplePaths to `docs/examples/delay.json`
-    end
     if GroupName is `All` or GroupName is `Local`
     begin
         if file `fixtures/local/smoke.json` exists
@@ -763,7 +802,7 @@ BuildScenarioList:
     end
     gosub to LoadLibrary
     return
-!! @hash f8fcc98c
+!! @hash 3141ddff
 !! @verified f8fcc98c
 !!!
 
@@ -787,9 +826,10 @@ LoadLibrary:
                 put `fixtures/local/scenarios/` cat LibRel into LibFull
                 put empty into LibBrief
                 if LibEntry has entry `brief` put `fixtures/local/scenarios/` cat entry `brief` of LibEntry into LibBrief
+                if ExamplePaths has entry LibName put LibName cat ` (local)` into LibName
+                set entry LibName of LibraryNames to LibFull
                 if GroupName is `All` or LibGroup is GroupName
                 begin
-                    if ExamplePaths has entry LibName put LibName cat ` (local)` into LibName
                     add LibName to Scenarios
                     set entry LibName of ExamplePaths to LibFull
                     set entry LibFull of LibraryPaths to 1
@@ -800,7 +840,7 @@ LoadLibrary:
         end
     end
     return
-!! @hash 1e17961b
+!! @hash ebf2916d
 !! @verified 1e17961b
 !!!
 
@@ -831,15 +871,19 @@ ScenarioPicked:
     if ExamplePaths has entry Name
     begin
         put entry Name of ExamplePaths into ScenarioPath
+        put Name into SelectedName
+        put 0 into SelectedIsLibrary
+        if LibraryNames has entry Name set SelectedIsLibrary
+        put empty into DraftGroup
         put empty into PromptPath
         disable CopyPathBtn
         put empty into DeleteArmed
         clear Log
         gosub to LoadScenario
-        if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+        gosub to SetDeleteButton
     end
     return
-!! @hash e240cd6c
+!! @hash b97c6cb8
 !! @verified e240cd6c
 !!!
 
@@ -1069,7 +1113,7 @@ RefresherDone:
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable DraftBtn
-    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    gosub to SetDeleteButton
     if the exit code of Refresher is 0
     begin
         if file `fixtures/local/smoke.json` exists
@@ -1091,6 +1135,124 @@ RefresherDone:
     return
 !! @hash
 !! @verified 2b880350
+!!!
+
+!! Ask for a journal source, day and window, then import it into the library.
+!!
+!! The source may be a bundle, a raw day, a local journal root, or user@host:/journal-root. The actual import, conversion and library update are one Python helper (`journal_ingest.py`); this handler only gathers the three values and follows the helper's SCENARIO_PATH line. The helper uses the operating system's SSH client and key, so no SSH secret is stored in the Studio or in the controller's credentials file.
+JournalClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it before importing a journal.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it before importing a journal.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    if Journaling return
+    if file `.venv/bin/python` does not exist
+    begin
+        append `Runner venv missing: run the setup in tools/scenario-studio/README.md.` to Log
+        return
+    end
+    create JournalSourceDlg on Win type lineedit title `Import journal` prompt `Bundle, .jsonl, local root, user@host, or user@host:/root` value JournalSource
+    show JournalSourceDlg
+    put JournalSourceDlg into JournalSource
+    if JournalSource is empty return
+    create JournalDayDlg on Win type lineedit title `Journal day` prompt `YYYY-MM-DD (blank when the source is a bundle)` value JournalDay
+    show JournalDayDlg
+    put JournalDayDlg into JournalDay
+    create JournalRangeDlg on Win type lineedit title `Window` prompt `HH:MM-HH:MM (blank for the whole source)` value JournalRange
+    show JournalRangeDlg
+    put JournalRangeDlg into JournalRange
+    put empty into JournalFrom
+    put empty into JournalTo
+    if JournalRange is not empty
+    begin
+        put the index of `-` in JournalRange into DotIdx
+        if DotIdx is greater than 0
+        begin
+            put left DotIdx of JournalRange into JournalFrom
+            increment DotIdx
+            put from DotIdx of JournalRange into JournalTo
+        end
+    end
+    put `.venv/bin/python journal_ingest.py --source "` cat JournalSource cat `"` into Command
+    if JournalDay is not empty put Command cat ` --day ` cat JournalDay into Command
+    if JournalFrom is not empty put Command cat ` --from ` cat JournalFrom into Command
+    if JournalTo is not empty put Command cat ` --to ` cat JournalTo into Command
+    if file `map.json` exists put Command cat ` --map map.json` into Command
+    append `Import journal: ` cat JournalSource to Log
+    set the text of StatusLabel to `Importing journal…`
+    disable JournalBtn
+    disable RunBtn
+    disable ValidateBtn
+    disable DemoBtn
+    disable RefreshBtn
+    disable RefreshScenariosBtn
+    disable DeleteScenarioBtn
+    put 1 into Journaling
+    put empty into JournalPath
+    start Journaler command Command
+    return
+!! @hash f4214350
+!!!
+!! Track the helper's output and remember the scenario path it reports.
+JournalerLine:
+    put the line of Journaler into LineText
+    append LineText to Log
+    if left 14 of LineText is `SCENARIO_PATH=`
+    begin
+        put LineText into JournalPath
+        replace `SCENARIO_PATH=` with `` in JournalPath
+        put trim JournalPath into JournalPath
+    end
+    return
+!! @hash 22646160
+!!!
+!! Show the helper's error output in the log.
+JournalerError:
+    append the stderr line of Journaler to Log with color `#B00020`
+    return
+!! @hash 2d8c2249
+!!!
+!! Re-enable the Studio and load the generated scenario when the import finishes.
+JournalerDone:
+    put 0 into Journaling
+    enable JournalBtn
+    enable RunBtn
+    enable ValidateBtn
+    enable DemoBtn
+    enable RefreshBtn
+    enable RefreshScenariosBtn
+    gosub to SetDeleteButton
+    if the exit code of Journaler is 0 and JournalPath is not empty
+    begin
+        gosub to BuildScenarioList
+        if file JournalPath exists
+        begin
+            put JournalPath into ScenarioPath
+            gosub to LoadScenario
+            gosub to SetDeleteButton
+            set the text of StatusLabel to `Journal imported: ` cat JournalPath
+        end
+        else set the text of StatusLabel to `Journal import finished but the scenario was not found`
+    end
+    else set the text of StatusLabel to `Journal import failed`
+    return
+!! @hash 905595c5
 !!!
 
 !! Open the brief editor. The native multiline dialog is the text area; OK
@@ -1165,13 +1327,41 @@ RefreshScenariosClicked:
         end
     end
     put empty into DeleteArmed
-    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    put 0 into SelectedIsLibrary
+    if SelectedName is not empty
+    begin
+        if LibraryNames has entry SelectedName set SelectedIsLibrary
+    end
+    gosub to SetDeleteButton
     set the text of StatusLabel to `Scenarios refreshed`
     return
-!! @hash a91e8520
+!! @hash 2c527c51
 !! @verified a91e8520
 !!!
 
+!! Enable Delete only for a real local-library scenario.
+!!
+!! LibraryPaths is rebuilt whenever the list is filtered by group, so relying on
+!! it alone made a selected library scenario look undeletable after a refresh.
+!! The selected path is the authority: if it exists and lies under the local
+!! scenarios directory, it can be removed. LibraryPaths is kept as a secondary
+!! signal for the normal case.
+SetDeleteButton:
+    disable DeleteScenarioBtn
+    put 0 into DeleteAllowed
+    if ScenarioPath is empty return
+    if file ScenarioPath does not exist return
+    if SelectedIsLibrary set DeleteAllowed
+    else
+    begin
+        put position of `fixtures/local/scenarios/` in ScenarioPath into PathPos
+        if LibraryPaths has entry ScenarioPath set DeleteAllowed
+        else if PathPos is not less than 0 set DeleteAllowed
+    end
+    if DeleteAllowed enable DeleteScenarioBtn
+    return
+!! @hash 77ebcfca
+!!!
 !! Delete a library scenario on the second click; it moves to .trash, not away.
 DeleteScenarioClicked:
     if Running
@@ -1194,7 +1384,7 @@ DeleteScenarioClicked:
         append `The map is being refreshed; wait for it.` to Log
         return
     end
-    if LibraryPaths has entry ScenarioPath
+    if DeleteAllowed
     begin
         if DeleteArmed is not ScenarioPath
         begin
@@ -1221,7 +1411,7 @@ DeleteScenarioClicked:
     end
     else append `Only scenarios in the local library can be deleted.` to Log
     return
-!! @hash a10d392b
+!! @hash 6359300d
 !! @verified a10d392b
 !!!
 
@@ -1273,14 +1463,12 @@ DraftClicked:
         begin
             if file ScenarioPath exists put Command cat ` --scenario ` cat ScenarioPath into Command
         end
-        if CurrentGroup is not empty
+        if DraftGroup is not empty put Command cat ` --group ` cat DraftGroup into Command
+        else if CurrentGroup is not empty
         begin
             if CurrentGroup is not `All`
             begin
-                if CurrentGroup is not `Examples`
-                begin
-                    if CurrentGroup is not `Local` put Command cat ` --group ` cat CurrentGroup into Command
-                end
+                if CurrentGroup is not `Local` put Command cat ` --group ` cat CurrentGroup into Command
             end
         end
         start Drafter command Command
@@ -1289,7 +1477,7 @@ DraftClicked:
     end
     else append `Runner venv missing: run the setup in tools/scenario-studio/README.md.` to Log
     return
-!! @hash 7c603da3
+!! @hash 4213ecbb
 !! @verified 7c603da3
 !!!
 
@@ -1356,10 +1544,12 @@ DrafterDone:
                 disable CopyPathBtn
                 put entry `path` of LastData into LastPath
                 if LastData has entry `diff` append `Diff: ` cat entry `diff` of LastData to Log
+                gosub to LoadGroups
                 gosub to BuildScenarioList
+                if DraftGroup is not empty append `Draft saved in group ` cat DraftGroup to Log
                 put LastPath into ScenarioPath
                 gosub to LoadScenario
-                if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+                gosub to SetDeleteButton
                 set the text of StatusLabel to `Draft loaded`
             end
             else if LastStatus is `error`
@@ -1374,7 +1564,7 @@ DrafterDone:
     end
     if LastStatus is empty set the text of StatusLabel to `Draft failed; see the log`
     if PromptPath is empty disable CopyPathBtn else enable CopyPathBtn
-    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    gosub to SetDeleteButton
     return
 !! @hash
 !! @verified c39cf26f
@@ -1407,7 +1597,8 @@ DeleterDone:
     if the exit code of Deleter is 0
     begin
         append `Scenario removed; it is in fixtures/local/.trash.` to Log
-        put `docs/examples/advance.json` into ScenarioPath
+        put `fixtures/local/scenarios/examples/advance-at-15-00.json` into ScenarioPath
+        if file ScenarioPath does not exist put `docs/examples/advance.json` into ScenarioPath
         gosub to BuildScenarioList
         gosub to LoadScenario
         set the text of StatusLabel to `Scenario deleted`
@@ -1633,7 +1824,7 @@ BatcherDone:
     enable AddBatchBtn
     enable RemoveBatchBtn
     enable RunBatchBtn
-    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    gosub to SetDeleteButton
     disable StopBtn
     if the exit code of Batcher is 0 set the text of StatusLabel to `Batch passed`
     else set the text of StatusLabel to `Batch failed`
@@ -1743,12 +1934,12 @@ RunnerDone:
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable DraftBtn
-    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    gosub to SetDeleteButton
     disable StopBtn
     put 0 into Running
     if the text of StatusLabel is `Stopping…` set the text of StatusLabel to `Stopped`
     return
-!! @hash d9cbf02d
+!! @hash 3f6cfed9
 !! @verified d9cbf02d
 !!!
 
@@ -1811,7 +2002,7 @@ FinishRun:
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable DraftBtn
-    if LibraryPaths has entry ScenarioPath enable DeleteScenarioBtn else disable DeleteScenarioBtn
+    gosub to SetDeleteButton
     disable StopBtn
     put 0 into Running
     if Event has entry `artifacts`
@@ -1820,6 +2011,6 @@ FinishRun:
         if Artifacts has entry `dir` append `artefacts: ` cat entry `dir` of Artifacts to ArtifactsLog
     end
     return
-!! @hash 575d6f01
+!! @hash f2f70702
 !! @verified 575d6f01
 !!!
