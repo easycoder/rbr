@@ -15,6 +15,7 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `zigbee-mesh.py` | Shows the Zigbee mesh as the coordinator sees it — each device's parent, link quality, weak links, and (with `--failures`) which relays are failing to acknowledge | manual |
 | `rbr-dashboard.py` | Terminal dashboard renderer (reads `/tmp/rbr-dashboard.json` written by the controller) | manual |
 | `eventlog.py` | Append-only writer for the controller event journal (see `EVENT-JOURNAL.md`) | auto (rbr-updater.py) |
+| `journal-export.py` | Compacts a journal day into a Scenario Studio bundle (daily timer; see `EVENT-JOURNAL.md`) | auto (rbr-updater.py) |
 | `dashboard.txt` | Dashboard column headers — read by `rbr-dashboard.py` | manual |
 | `rbr-updater.py` | Applies code updates pulled from `rbrheating.com/heat/` (installed as an hourly timer) | auto (rbr-updater.py) |
 | `rbr-watchdog.sh` | 15-minute health check — restarts any core service that is down or unresponsive, and runs the heating check | auto (rbr-updater.py) |
@@ -36,6 +37,7 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `backup-config.json` | The Backups sheet's email toggle and the registered address; written by the controller | live data |
 | `backup-status.json` | The last backup's result, for the Backups sheet; written by `rbr-backup.py` | live data |
 | `<journal-root>/` | Daily event files and content-addressed map snapshots; delete old days freely | live data |
+| `<journal-root>/exports/` | Daily `.tar.gz` bundles for Scenario Studio; newest 14 kept by default | live data |
 | `volatile-root` | One line: the directory holding the regenerable files below. `rbr-setup.sh` writes `/run/rbr`, which is a tmpfs and is emptied on every reboot. With no such file the paths stay plain names in this directory (what a test machine gets) | generated |
 | `thermometers.json` | Temperature readings — created on first run. In the volatile directory | volatile |
 | `zigbee-temperatures.json` | Zigbee readings written by the bridge, merged by the controller. In the volatile directory | volatile |

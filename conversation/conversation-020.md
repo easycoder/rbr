@@ -225,14 +225,109 @@ The chosen group is remembered in `DraftGroup` only for that draft; selecting an
 
 I updated the shell smoke test for the extra dialog and made its example selections name-based rather than row-index-based, since the seeded Examples group changed the list order. It passes. `git diff --check` is clean. Restart the Studio to load the change.
 
+## 14:41
 
+Is it time to do journal-export.py and the daily timer?
 
+**Assistant**
 
+Yes. The local/SSH import and Studio path are working, so this is the right next layer. `journal-export.py` now runs on the controller, reads one journal day, drops `sensor.reading` events whose temperature, humidity and battery did not change, copies the map snapshots the kept events reference, and writes `<journal-root>/exports/<system>-<day>.tar.gz` in the same bundle format the Studio importer already reads. `--mode full` keeps everything, `--mode summary` drops the sensor stream, and `--keep` retains 14 archives by default.
 
+`rbr-journal-export.timer` runs it daily at 03:30 local time with `Persistent=true`, and `rbr-setup.sh` Step 6e installs the service and timer when `journal-export.py` is present. Re-running setup installs it; a manual run is `python3 journal-export.py --day YYYY-MM-DD`. The archive stays local: SSH, a file copy, email or a later cloud upload is still the collection step. The raw journal is untouched.
 
+The export root is under `<journal-root>/exports/`. The event-pruning code now only treats `YYYY/MM/YYYY-MM-DD.jsonl` as journal days, so exports cannot be mistaken for source records.
 
+Tests: `tests/unit/journal_export_test.py` covers scenario/full/summary filtering, importer-compatible manifests and maps, and archive retention. The full unit suite passes 114 Python tests and the controller compile; the Studio journal tests pass nine; `bash -n rbr-setup.sh` and `deploy.sh` pass. `git diff --check` is clean.
 
+The remaining piece for a fully remote workflow is choosing the transport for the bundle: email is the smallest server-free step, and an authenticated upload to the RBR website is the best automated one. Both can consume the archive unchanged.
 
+## 14:49
 
+I'll wait a few days to get an idea of file sizes, then think about how/when to move the data off the controller.
 
+**Assistant**
 
+That is the right call. The numbers worth watching are the raw journal day size and the exported archive size, because they answer different questions: whether the controller is accumulating too much, and whether moving a day over a slow link is practical.
+
+On the controller:
+
+    ROOT=$(cat journal-root 2>/dev/null || printf '/data/rbr-heating/events')
+    du -sh "$ROOT" "$ROOT/exports"
+    find "$ROOT" -name '*.jsonl' -printf '%TY-%Tm-%Td %s %p\n' | sort | tail -5
+    ls -lh "$ROOT/exports"
+
+The first days after the redeploy are the meaningful ones. Older files still contain the duplicate `room.state` rows, so they will look much larger than the steady-state rate. The export archive is already compacted and gzipped, and the newest 14 are kept.
+
+Check that the timer is actually running:
+
+    systemctl list-timers rbr-journal-export.timer
+    journalctl -u rbr-journal-export.service -n 20
+
+If the raw journal grows faster than expected, adjust `journal-max-bytes` or `journal-max-free-percent`; if the archives are larger than you want to move, `--mode summary` drops the sensor stream, and `--keep` changes how many are retained. The transport decision can wait: email and an authenticated upload both consume the same archive unchanged.
+
+No code changes this turn.
+
+## 18:15
+
+The delete confirmation appears in the message panel at the bottom but is not obvious. Can it be made a confirmation popup?
+
+**Assistant**
+
+Yes. **Delete scenario** now opens a modal confirmation titled **Delete scenario** with the prompt `Move <path> to the trash?`. Cancel returns to the Studio with `Delete cancelled` in the status line and leaves the scenario and its brief in place; OK starts the existing `.trash` move. The old two-click arming message and the `DeleteArmed` state are gone.
+
+The shell test now cancels the confirmation and checks that the scenario is still listed, as well as the existing multiple-library and refresh checks. The Studio shell check passes. Restart the Studio to load the changed `studio.allspeak`.
+
+## 19:20
+
+I think too much information is being compressed. I clicked "Import journal" and specified the controller SSH, today and 14:00-19:00 and the resulting scenario came up as in various/Screenshot_20261106_191107.png. It takes only a couple of seconds to run and has no event times visible.
+
+**Assistant**
+
+The 16 rows are not the converter compressing 9,756 events. The imported bundle contains 9,756 events, but its last event is at 12:54:02 UTC. The requested 14:00–19:00 window contains no events at all, so the converter emitted only the pre-window state: eight room baselines and eight baseline readings, all stamped 14:00. That is why it runs in seconds and shows no event times.
+
+I fixed the two misleading behaviours. `journal_to_scenario.py` now rejects a window with no events, and a window whose events produce no changes, instead of writing a baseline-only scenario. The message names the requested window and the journal's real range, for example 14:00:00–19:00:00 against 11:07:18–12:54:02. The Studio displays that error and does not add a scenario to the library.
+
+The Steps table now shows `HH:MM:SS` in the Time column rather than a truncated ISO date; the full timestamp remains in the inspector. The shell test checks that display, and `journal_check.py` now covers the empty-window case. The journal tests pass ten tests and the shell check passes.
+
+The real question is why the controller journal ends at 12:54. Check that the controller is still writing the day file (mtime and last line) and that the controller process is alive; the journal should normally keep advancing. The existing `Journal 2026-11-06 14:00-19:00` scenario in the library is the baseline-only one—delete it, and re-import once the journal has events in the window. If you want every repeated sensor reading rather than only changed values, `journal_to_scenario.py` also has `--all-sensors`.
+
+## 19:32
+
+I tried 16:00-20:00 and got this message:
+Import journal: qed6@192.168.1.20
+journal_to_scenario.py: no journal events between 16:00:00 and 20:00:00 on 2026-11-06; the journal covers 11:07:18 to 12:54:02. Check that the controller is still writing its journal, then retry.
+Yet the controller is still logging: [controller JSONL lines omitted]
+
+**Assistant**
+
+The controller is right; the importer was reading a stale local copy. `journal_ingest.py` had a cache shortcut:
+
+    bundle = fixtures/local/journal/<day>
+    if bundle.exists():
+        pass
+
+so the second Import journal reused the first download from 11:07–12:54 instead of asking the controller again. The converter's range error was accurate for the bundle it was given, but that bundle was old.
+
+Root and SSH imports now always refresh the day bundle with `journal_import.py --force`. An explicit bundle source is still read as-is, because that is the user's chosen file. The stale `fixtures/local/journal/2026-11-06` will be replaced on the next import.
+
+Restart the Studio to pick up the shell changes, delete the baseline-only `Journal 2026-11-06 14:00-19:00` scenario, and import 16:00–20:00 again. The importer will now pull the current controller file (the 19:29 seq 1739 lines) and the converter should produce the real events. The empty-window guard and the `HH:MM:SS` Time column from the previous fix remain.
+
+`journal_check.py` now has ten tests, including the stale-cache regression: a pre-existing bundle with one event is replaced by the eight-event fixture. All ten pass. `git diff --check` is clean.
+
+## 19:53
+
+As a convenience, can you implement persistence for values used by Studio. These include
+Window size and position
+Last selected Group and Scenario
+Last used SSH address
+Last used date
+Last used time range
+These can all  be written when the window closes. It might also be useful to have a Quit button somewhere.
+
+**Assistant**
+
+Added a machine-local settings file, `fixtures/local/studio-settings.json`, written from `WinClosed` and therefore by both the window's X button and the new **Quit** button in the top toolbar. It stores the window's `x`, `y`, `width` and `height`, the selected group and scenario path, the last SSH source, journal day and time range.
+
+On startup `LoadStudioSettings` reads the file before the window is created, so the geometry is applied immediately. `RestoreStudioSettings` then selects the saved group, filters the list, and loads the saved scenario once the library has been loaded. A deleted group or scenario falls back to All and the seeded Advance example instead of leaving the Studio pointing at something missing. Empty SSH/day/range values are saved as null and simply skip the corresponding restore.
+
+The shell test now preloads a settings file, checks the window position and journal prompts are restored, closes the window, and checks that geometry, group, scenario, SSH, day and range were written back. The Studio shell check passes, `asdoc-check` reports no errors, and `git diff --check` is clean. No new dependencies; the file is machine-local and ignored by git.

@@ -111,7 +111,7 @@ rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
 # stamp) is added separately.
 CONTROLLER_FILES=(controller.allspeak deviceControl.allspeak simulator.allspeak \
                   diagnose.allspeak zigbee-bridge.py zigbee-pair.py zigbee-mesh.py \
-                  rbr-dashboard.py heatlog.py eventlog.py dashboard.txt rbr-updater.py \
+                  rbr-dashboard.py heatlog.py eventlog.py journal-export.py dashboard.txt rbr-updater.py \
                   rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py \
                   rbr-restore.py rbr-setup.sh)
 
@@ -189,7 +189,7 @@ build_controller_zip() {
     cp "$LOCAL/version" "$BUILD_DIR/VERSION"
     (cd "$BUILD_DIR" && zip -q "$LOCAL/rbr-controller.zip" \
         controller.allspeak deviceControl.allspeak simulator.allspeak diagnose.allspeak zigbee-bridge.py \
-        zigbee-pair.py zigbee-mesh.py rbr-dashboard.py heatlog.py eventlog.py dashboard.txt \
+        zigbee-pair.py zigbee-mesh.py rbr-dashboard.py heatlog.py eventlog.py journal-export.py dashboard.txt \
         rbr-updater.py rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py \
         rbr-restore.py rbr-setup.sh VERSION)
     rm -rf "$BUILD_DIR"

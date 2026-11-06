@@ -219,7 +219,11 @@ def effective_cap(root, max_bytes, max_free_percent, free_bytes=None):
 
 
 def _event_files(root):
-    return sorted((path for path in pathlib.Path(root).rglob("*.jsonl") if path.is_file()),
+    """Only the dated day files, never JSONL inside an export or bundle tree."""
+    root = pathlib.Path(root)
+    candidates = (path for path in root.glob("*/*/*.jsonl") if path.is_file())
+    return sorted((path for path in candidates
+                   if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}\.jsonl", path.name)),
                   key=lambda path: str(path))
 
 

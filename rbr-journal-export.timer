@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the RBR journal export daily
+
+[Timer]
+# 03:30 local time, after midnight's day file has closed. Persistent=true
+# catches up after the machine has been off at that moment.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=1800
+AccuracySec=1h
+
+[Install]
+WantedBy=timers.target

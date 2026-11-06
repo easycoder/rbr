@@ -243,9 +243,11 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
         add_controller(room, start, identity=identity,
                        note=f"baseline reading from seq {seq or '?'}")
 
+    baseline_steps = len(steps)
     last_state = {room: dict(data) for room, (data, _seq) in prior_states.items()}
     last_sensor = {room: dict(data) for room, (data, _seq) in prior_sensors.items()}
     warnings = []
+    window_events = 0
     request_count = 0
     snapshot_after_start = False
     profile_changed = False
@@ -253,6 +255,7 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
     for event, stamp in dated:
         if stamp < start or stamp > end:
             continue
+        window_events += 1
         data = event.get("data") or {}
         kind = event.get("type")
         room = data.get("room")
@@ -317,6 +320,15 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
         warnings.append(f"{request_count} UI request(s) were recorded but not replayed as UI actions; their controller effects are included")
     if profile_changed:
         warnings.append("a profile change was not replayed as an active-profile change; narrow the window or add a profile step")
+    if window_events == 0:
+        raise SystemExit(
+            f"journal_to_scenario.py: no journal events between {start:%H:%M:%S} and {end:%H:%M:%S} "
+            f"on {day}; the journal covers {first:%H:%M:%S} to {last:%H:%M:%S}. "
+            "Check that the controller is still writing its journal, then retry.")
+    if len(steps) == baseline_steps:
+        raise SystemExit(
+            f"journal_to_scenario.py: {window_events} journal event(s) in the window produced no convertible changes; "
+            "the scenario would contain only the pre-window baseline. Widen the window or use --all-sensors.")
     if not steps:
         raise SystemExit("journal_to_scenario.py: no convertible events in the window")
     if len(steps) > args.max_steps:

@@ -40,7 +40,7 @@ These checks run without a browser, a broker or the controller box, and all are 
 
 ```bash
 tests/unit/controller-compile-check.sh # the whole controller must compile (a duplicate symbol once stopped every controller)
-tests/unit/run-unit-tests.sh          # the compile check + AllSpeak unit tests + Python tests (heatlog, eventlog, journal, round-trip, overrides, SetRelay, heatwatch)
+tests/unit/run-unit-tests.sh          # the compile check + AllSpeak unit tests + Python tests (heatlog, eventlog, journal, journal export, round-trip, overrides, SetRelay, heatwatch)
 node tests/pwa-compile-check.js       # compiles all five new-ui modules in the browser runtime
 node tests/pwa-device-editor-check.js # drives the Devices sheet: a rename keeps its room's own wiring
 node tests/pwa-schedule-editor-check.js # drives the schedule's time dropdowns: how a stop follows its start
@@ -49,6 +49,7 @@ node tests/pwa-profile-sheet-check.js # a profile rename/delete keeps the calend
 node tests/pwa-valve-state-check.js # the room tag follows a TRV's own running state, and unwired rooms say so
 node tests/pwa-backup-sheet-check.js # the hamburger's Backups sheet ships its toggle and "send now"
 python3 tools/scenario-studio/tests/journal_check.py # journal bundle, importer and scenario converter
+python3 -m unittest tests/unit/journal_export_test.py # controller-side compact journal export
 ```
 
 The browser suite is separate, because it needs a browser:

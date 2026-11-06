@@ -86,7 +86,9 @@ The public `docs/examples` fixtures remain synthetic.
 
 ## Scenario library, groups and batches
 
-Scenarios live under `fixtures/local/scenarios/<group>/` and each may have a sibling `<stem>.brief.md`. `index.json` drives the shell. Selecting a scenario loads its brief into the sidebar editor, so **Draft scenario** edits the existing scenario with that brief as context. **New scenario** asks for the destination group (defaulting to the current library group, or `Unsorted` from All/Local), clears the table and brief, and opens the editor; **Delete scenario** (twice) moves the scenario and its brief into `fixtures/local/.trash/`.
+Scenarios live under `fixtures/local/scenarios/<group>/` and each may have a sibling `<stem>.brief.md`. `index.json` drives the shell. Selecting a scenario loads its brief into the sidebar editor, so **Draft scenario** edits the existing scenario with that brief as context. **New scenario** asks for the destination group (defaulting to the current library group, or `Unsorted` from All/Local), clears the table and brief, and opens the editor; **Delete scenario** opens a confirmation popup; accepting moves the scenario and its brief into `fixtures/local/.trash/`.
+
+The Studio remembers its window position and size, last selected group and scenario, and the last SSH source, journal day and time range. It writes them to `fixtures/local/studio-settings.json` when the window closes, including through the **Quit** button in the toolbar; a missing or stale setting falls back safely.
 
 The three public examples are seeded into the **Examples** group as ordinary library scenarios on first start (`scenario_library.py seed-examples`, run by the shell). They are deletable copies; the public files remain in `docs/examples` for the README and tests. The seed marker is `fixtures/local/.examples-seeded`, so deleting an example does not bring it back on the next start; remove the marker or run `seed-examples --force` to restore it. **Local system** is still a generated snapshot and remains read-only.
 

@@ -154,6 +154,16 @@ Two optional one-line files in the controller's working directory override the d
 
 At the synthetic worst case of 7.9 MiB/day, 1 GiB holds about 130 days. The free-space share usually binds first on a small disk: with 4 GB free, 10% caps the journal at about 400 MB, or roughly 50 days; with 1 GB free it caps at about 100 MB, or roughly 12 days.
 
+## Daily export
+
+`journal-export.py` runs on the controller and makes one compact bundle per day:
+
+    python3 journal-export.py --day 2026-11-06
+
+It reads `<journal-root>/<YYYY>/<MM>/<day>.jsonl`, drops `sensor.reading` events whose temperature, humidity and battery are unchanged, copies the map snapshots the kept events reference, and writes `<journal-root>/exports/<system>-<day>.tar.gz` in the same format as the Studio importer. The default mode is `scenario`; `--mode full` keeps every event, and `--mode summary` drops the sensor stream entirely. `--keep` controls how many archives are retained (default 14, newest first).
+
+`rbr-journal-export.timer` runs it daily at 03:30 local time. `rbr-setup.sh` installs the service and timer when `journal-export.py` is present. The archive is local; copying it to the Studio is still the separate SSH, file or future cloud step. A manual run is safe and does not touch the journal.
+
 ## Configuration, privacy and retention
 
 - `journal-root` is machine-specific and git-ignored. On a controller with

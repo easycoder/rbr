@@ -42,7 +42,8 @@ A standalone updater daemon, **`rbr-updater.py`**, replaces `CheckForUpdate`. It
 controller.allspeak      deviceControl.allspeak   simulator.allspeak
 diagnose.allspeak        zigbee-bridge.py   zigbee-pair.py
 zigbee-mesh.py     rbr-dashboard.py   heatlog.py
-eventlog.py        dashboard.txt      rbr-updater.py
+eventlog.py        journal-export.py  dashboard.txt
+rbr-updater.py
 rbr-watchdog.sh
 heatwatch.py       rbr-mapbackup.py   rbr-backup.py
 rbr-restore.py     VERSION            rbr-setup.sh

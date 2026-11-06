@@ -100,17 +100,18 @@ def main(argv=None):
         name += f" {args.start or 'start'}-{args.end or 'end'}"
 
     if kind in ("root", "ssh"):
+        # A day bundle is a cache, not a source of truth: always refresh it.
+        # Reusing an existing directory made a second Import journal return the
+        # events downloaded before the window had happened.
         bundle = JOURNALS / f"{day}"
-        if bundle.exists():
-            pass
-        elif kind == "root":
+        if kind == "root":
             _run([sys.executable, str(HERE / "journal_import.py"),
                   "--source", str(pathlib.Path(one).expanduser()), "--day", day,
-                  "--dest", str(bundle)])
+                  "--dest", str(bundle), "--force"])
         else:
             command = [sys.executable, str(HERE / "journal_import.py"),
                        "--ssh", one, "--ssh-root", two, "--day", day,
-                       "--dest", str(bundle), "--ssh-bin", args.ssh_bin]
+                       "--dest", str(bundle), "--ssh-bin", args.ssh_bin, "--force"]
             if args.ssh_key:
                 command += ["--ssh-key", args.ssh_key]
             _run(command)

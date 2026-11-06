@@ -33,6 +33,14 @@ TEST_SOURCE_2 = library.LOCAL / "drafts" / "shell-brief-two.json"
 CONFIG = STUDIO / "ai-config.json"
 CONFIG_BACKUP = CONFIG.read_text(encoding="utf-8") if CONFIG.exists() else None
 CONFIG.write_text('{"provider": "prompt"}\n', encoding="utf-8")
+SETTINGS = library.LOCAL / "studio-settings.json"
+SETTINGS_BACKUP = SETTINGS.read_text(encoding="utf-8") if SETTINGS.exists() else None
+SETTINGS.write_text(json.dumps({
+    "x": 55, "y": 66, "width": 1000, "height": 700,
+    "group": "All",
+    "scenario": "fixtures/local/scenarios/examples/advance-at-15-00.json",
+    "ssh": "test@example", "day": "2026-11-06", "range": "14:00-19:00",
+}), encoding="utf-8")
 
 
 def prepare_library():
@@ -48,7 +56,7 @@ def prepare_library():
         "clock": {"start": "2026-11-05T08:00:00Z", "timeZone": "Europe/London"},
         "home": {"map": "../home.json", "profile": "Weekday"},
         "steps": [
-            {"id": "s1", "at": "08:00",
+            {"id": "s1", "at": "2026-11-05T08:00:00+00:00",
              "expect": {"target": "summary.title", "visible": True}},
         ],
     }, indent=2) + "\n", encoding="utf-8")
@@ -78,6 +86,10 @@ def cleanup_library():
         CONFIG.unlink(missing_ok=True)
     else:
         CONFIG.write_text(CONFIG_BACKUP, encoding="utf-8")
+    if SETTINGS_BACKUP is None:
+        SETTINGS.unlink(missing_ok=True)
+    else:
+        SETTINGS.write_text(SETTINGS_BACKUP, encoding="utf-8")
     for group in (TEST_GROUP, "Extra"):
         try:
             index = library.load_index()
@@ -141,6 +153,17 @@ def fill_group():
         return
     editor.setText("Extra")
     dialog.accept()
+
+
+def answer_confirm(accept):
+    dialog = QApplication.activeModalWidget()
+    if dialog is None:
+        check(False, "the confirmation dialog opened")
+        return
+    if accept:
+        dialog.accept()
+    else:
+        dialog.reject()
 
 
 def fill_new_group(group):
@@ -213,6 +236,14 @@ def click_run():
         steps = widget(program, "Steps")
         print(f"  ..    shell ready: {steps.rowCount()} rows x {steps.columnCount()} columns")
         check(steps.rowCount() == 13, "the advance example seeds 13 rows")
+        check(value(program, "WindowX") == 55 and value(program, "WindowY") == 66,
+              "the saved window position is restored")
+        check(value(program, "JournalSource") == "test@example",
+              "the saved SSH address is restored")
+        check(value(program, "JournalDay") == "2026-11-06",
+              "the saved journal day is restored")
+        check(value(program, "JournalRange") == "14:00-19:00",
+              "the saved time range is restored")
         scenarios = widget(program, "Scenarios")
         temperature = next((i for i in range(scenarios.count())
                             if scenarios.item(i).text() == "Kitchen temperature"), -1)
@@ -264,6 +295,8 @@ def click_run():
         app.processEvents()
         check(TEST_BRIEF in value(program, "Brief"),
               "selecting a scenario loads its stored brief")
+        check(steps.item(0, 1).text() == "08:00:00",
+              "the Time column shows the event time, not the full ISO timestamp")
         check(widget(program, "DeleteScenarioBtn").isEnabled(),
               "a library scenario can be deleted")
         widget(program, "RefreshScenariosBtn").click()
@@ -281,6 +314,13 @@ def click_run():
         app.processEvents()
         check(widget(program, "DeleteScenarioBtn").isEnabled(),
               "Delete stays enabled for the second scenario after refresh")
+        QTimer.singleShot(300, lambda: answer_confirm(False))
+        widget(program, "DeleteScenarioBtn").click()
+        app.processEvents()
+        check(widget(program, "StatusLabel").text() == "Delete cancelled",
+              "cancelling the Delete confirmation leaves the scenario alone")
+        check(TEST_NAME_2 in [scenarios.item(i).text() for i in range(scenarios.count())],
+              "the scenario remains listed after cancelling Delete")
 
         widget(program, "AddBatchBtn").click()
         widget(program, "RunBatchBtn").click()
@@ -399,6 +439,16 @@ program.start()
 timer.stop()
 if state.get("prompt_path"):
     (STUDIO / state["prompt_path"]).unlink(missing_ok=True)
+saved = json.loads(SETTINGS.read_text(encoding="utf-8")) if SETTINGS.exists() else {}
+check(saved.get("x") is not None and saved.get("width") is not None,
+      "closing the Studio writes window geometry")
+check(saved.get("group") == "All", "closing the Studio keeps the selected group")
+check(saved.get("scenario") == "fixtures/local/scenarios/examples/advance-at-15-00.json",
+      "closing the Studio keeps the selected scenario")
+check(saved.get("ssh") == "test@example",
+      "closing the Studio keeps the SSH address")
+check(saved.get("day") == "2026-11-06", "closing the Studio keeps the journal day")
+check(saved.get("range") == "14:00-19:00", "closing the Studio keeps the time range")
 cleanup_library()
 print()
 if failures:

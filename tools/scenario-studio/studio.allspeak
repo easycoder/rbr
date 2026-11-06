@@ -31,6 +31,7 @@ pushbutton ValidateBtn
 pushbutton StopBtn
 pushbutton RunBtn
 pushbutton DemoBtn
+pushbutton QuitBtn
 pushbutton RefreshBtn
 label SpeedLabel
 combobox SpeedBox
@@ -57,6 +58,7 @@ label BriefPreview
 pushbutton EditBriefBtn
 dialog BriefDlg
 dialog NewScenarioGroupDlg
+dialog DeleteConfirmDlg
 dialog JournalSourceDlg
 dialog JournalDayDlg
 dialog JournalRangeDlg
@@ -111,7 +113,7 @@ variable BatchI
 variable GroupValue
 variable Grouping
 variable DraftGroup
-variable DeleteArmed
+variable DeleteConfirmed
 variable Journaling
 variable JournalSource
 variable JournalDay
@@ -169,6 +171,7 @@ list BatchNames
 variable Kind
 variable Id
 variable At
+variable AtShort
 variable Actor
 variable ActorLabel
 variable Target
@@ -200,6 +203,17 @@ list StepSubs
 list ActorTokens
 list ExampleNames
 dictionary ExamplePaths
+dictionary StudioSettings
+variable SettingsText
+variable SavedGroup
+variable SavedScenario
+variable SavedSSH
+variable SavedDay
+variable SavedRange
+variable WindowX
+variable WindowY
+variable WindowW
+variable WindowH
 
 !! Build the window and load the first scenario.
 !!
@@ -209,7 +223,8 @@ dictionary ExamplePaths
 Setup:
     init graphics
 
-    create Win title `Scenario Studio` size 1360 800
+    gosub to LoadStudioSettings
+    create Win title `Scenario Studio` at WindowX WindowY size WindowW WindowH
     create Root type QVBoxLayout
     create Toolbar
     create ToolbarRow type QHBoxLayout
@@ -228,6 +243,7 @@ Setup:
     create StopBtn text `Stop` size 10
     create RunBtn text `▶ Run` size 10
     create DemoBtn text `Demo` size 10
+    create QuitBtn text `Quit` size 10
     create RefreshBtn text `Refresh map` size 12
 
     set the style of Brand to `font-size:15px;font-weight:600;`
@@ -248,6 +264,7 @@ Setup:
     add StopBtn to ToolbarRow
     add RunBtn to ToolbarRow
     add DemoBtn to ToolbarRow
+    add QuitBtn to ToolbarRow
     add spacer size 12 to ToolbarRow
     add Toolbar to Root
 
@@ -387,6 +404,7 @@ Setup:
     on click RefreshScenariosBtn go to RefreshScenariosClicked
     on click DeleteScenarioBtn go to DeleteScenarioClicked
     on click JournalBtn go to JournalClicked
+    on click QuitBtn go to QuitClicked
     on select Scenarios go to ScenarioPicked
     on select Steps go to StepSelected
     on close Win go to WinClosed
@@ -408,10 +426,8 @@ Setup:
 
     system `python3 scenario_library.py seed-examples --quiet`
     gosub to LoadGroups
+    gosub to RestoreStudioSettings
     gosub to BuildScenarioList
-
-    put `fixtures/local/scenarios/examples/advance-at-15-00.json` into ScenarioPath
-    if file ScenarioPath does not exist put `docs/examples/advance.json` into ScenarioPath
     gosub to LoadScenario
 
     show Win
@@ -421,14 +437,71 @@ Setup:
     put 0 into Journaling
     put 0 into Refreshing
     put empty into JournalPath
-    put empty into DeleteArmed
     put 0 into Grouping
     set the text of StatusLabel to `Ready — Run starts the runner.`
 Idle:
     wait 1 tick
     go to Idle
-!! @hash 97766e52
+!! @hash bcd519f1
 !! @verified e37e2c0c
+!!!
+
+!! Restore the Studio's last window geometry and form values.
+!!
+!! The settings file is machine-local and deliberately separate from the scenario library; a missing or invalid file falls back to the defaults.
+LoadStudioSettings:
+    put 40 into WindowX
+    put 40 into WindowY
+    put 1360 into WindowW
+    put 800 into WindowH
+    put empty into SavedGroup
+    put empty into SavedScenario
+    put empty into SavedSSH
+    put empty into SavedDay
+    put empty into SavedRange
+    if file `fixtures/local/studio-settings.json` exists
+    begin
+        load SettingsText from `fixtures/local/studio-settings.json`
+        put json SettingsText into StudioSettings
+        if StudioSettings has entry `x` put entry `x` of StudioSettings into WindowX
+        if StudioSettings has entry `y` put entry `y` of StudioSettings into WindowY
+        if StudioSettings has entry `width` put entry `width` of StudioSettings into WindowW
+        if StudioSettings has entry `height` put entry `height` of StudioSettings into WindowH
+        if StudioSettings has entry `group` put entry `group` of StudioSettings into SavedGroup
+        if StudioSettings has entry `scenario` put entry `scenario` of StudioSettings into SavedScenario
+        if StudioSettings has entry `ssh` put entry `ssh` of StudioSettings into SavedSSH
+        if StudioSettings has entry `day` put entry `day` of StudioSettings into SavedDay
+        if StudioSettings has entry `range` put entry `range` of StudioSettings into SavedRange
+    end
+    return
+!! @hash a8cbb1b1
+!! @verified
+!!!
+
+!! Restore the saved group, scenario and journal prompts after the lists exist.
+!!
+!! A deleted group or scenario falls back to All and the seeded Advance example; the saved values only seed the dialogs, so they never start a request by themselves.
+RestoreStudioSettings:
+    if SavedGroup is not empty
+    begin
+        select SavedGroup in GroupBox
+        put GroupBox into CurrentGroup
+    end
+    if SavedScenario is not empty
+    begin
+        if file SavedScenario exists put SavedScenario into ScenarioPath
+    end
+    if ScenarioPath is empty
+    begin
+        put `fixtures/local/scenarios/examples/advance-at-15-00.json` into ScenarioPath
+        if file ScenarioPath does not exist put `docs/examples/advance.json` into ScenarioPath
+    end
+    if SavedSSH is not empty put SavedSSH into JournalSource
+    if SavedDay is not empty put SavedDay into JournalDay
+    if SavedRange is not empty put SavedRange into JournalRange
+    return
+!! @hash 76f9bd5d
+!! @verified
 !!!
 
 !! Load the scenario file and seed the table from its steps.
@@ -479,7 +552,7 @@ LoadScenario:
         gosub to DescribeStep
         put `[]` into RowValues
         append Id to RowValues
-        append At to RowValues
+        append AtShort to RowValues
         append ActorLabel to RowValues
         append Target to RowValues
         append Action to RowValues
@@ -489,9 +562,9 @@ LoadScenario:
         append Id to StepIds
         append Actor to ActorTokens
         append Detail to StepDetails
-        append ActorLabel cat ` · ` cat At to StepSubs
-        if FirstAt is empty put At into FirstAt
-        put At into LastAt
+        append ActorLabel cat ` · ` cat AtShort to StepSubs
+        if FirstAt is empty put AtShort into FirstAt
+        put AtShort into LastAt
         increment RowIndex
     end
     set rows of Steps to Rows
@@ -516,7 +589,7 @@ LoadScenario:
     end
     set the text of StatusLabel to `Loaded ` cat ScenarioPath
     return
-!! @hash 6cd54bc1
+!! @hash 24f8ee84
 !! @verified 6cd54bc1
 !!!
 
@@ -528,6 +601,8 @@ LoadScenario:
 DescribeStep:
     put entry `id` of Step into Id
     put entry `at` of Step into At
+    put At into AtShort
+    if the length of At is greater than 18 put from 11 to 19 of At into AtShort
     put empty into Target
     put empty into Action
     put empty into Expectation
@@ -656,7 +731,7 @@ DescribeStep:
         if entry `note` of Step is not empty put Detail cat ` — ` cat entry `note` of Step into Detail
     end
     return
-!! @hash b9d42057
+!! @hash 2ea0c9d1
 !! @verified b9d42057
 !!!
 
@@ -714,7 +789,6 @@ GroupChanged:
     put GroupBox into CurrentGroup
     if CurrentGroup is empty put `All` into CurrentGroup
     gosub to BuildScenarioList
-    put empty into DeleteArmed
     put 0 into SelectedIsLibrary
     if SelectedName is not empty
     begin
@@ -877,13 +951,12 @@ ScenarioPicked:
         put empty into DraftGroup
         put empty into PromptPath
         disable CopyPathBtn
-        put empty into DeleteArmed
-        clear Log
+            clear Log
         gosub to LoadScenario
         gosub to SetDeleteButton
     end
     return
-!! @hash b97c6cb8
+!! @hash 9bfc8ab0
 !! @verified e240cd6c
 !!!
 
@@ -1326,7 +1399,6 @@ RefreshScenariosClicked:
             gosub to LoadScenario
         end
     end
-    put empty into DeleteArmed
     put 0 into SelectedIsLibrary
     if SelectedName is not empty
     begin
@@ -1335,7 +1407,7 @@ RefreshScenariosClicked:
     gosub to SetDeleteButton
     set the text of StatusLabel to `Scenarios refreshed`
     return
-!! @hash 2c527c51
+!! @hash 63fbb72e
 !! @verified a91e8520
 !!!
 
@@ -1362,7 +1434,7 @@ SetDeleteButton:
     return
 !! @hash 77ebcfca
 !!!
-!! Delete a library scenario on the second click; it moves to .trash, not away.
+!! Delete a library scenario after a confirmation popup; it moves to .trash.
 DeleteScenarioClicked:
     if Running
     begin
@@ -1386,14 +1458,15 @@ DeleteScenarioClicked:
     end
     if DeleteAllowed
     begin
-        if DeleteArmed is not ScenarioPath
+        put `Move ` cat ScenarioPath cat ` to the trash?` into RequestText
+        create DeleteConfirmDlg on Win type confirm title `Delete scenario` prompt RequestText
+        show DeleteConfirmDlg
+        put DeleteConfirmDlg into DeleteConfirmed
+        if DeleteConfirmed is false
         begin
-            put ScenarioPath into DeleteArmed
-            append `Click Delete scenario again to remove ` cat ScenarioPath to Log
-            set the text of StatusLabel to `Click Delete again to confirm`
+            set the text of StatusLabel to `Delete cancelled`
             return
         end
-        put empty into DeleteArmed
         put empty into PromptPath
         disable CopyPathBtn
         append `Deleting ` cat ScenarioPath to Log
@@ -1411,7 +1484,7 @@ DeleteScenarioClicked:
     end
     else append `Only scenarios in the local library can be deleted.` to Log
     return
-!! @hash 6359300d
+!! @hash 2899a4cc
 !! @verified a10d392b
 !!!
 
@@ -1867,6 +1940,7 @@ StopClicked:
 
 !! Stop any child before the window goes.
 WinClosed:
+    gosub to SaveStudioSettings
     if Batching stop Batcher
     if Grouping stop Grouper
     if Running stop Runner
@@ -1874,8 +1948,36 @@ WinClosed:
     if Drafting stop Drafter
     if Deleting stop Deleter
     return
-!! @hash 67e8e021
+!! @hash 1e2959f5
 !! @verified 67e8e021
+!!!
+
+!! Save the geometry and the last-used Studio values while the window still exists.
+!!
+!! `on close` runs before the window disappears, so the geometry reads are valid; Quit and the window's X button both take this path.
+SaveStudioSettings:
+    put json `{}` into StudioSettings
+    set entry `x` of StudioSettings to the x of Win
+    set entry `y` of StudioSettings to the y of Win
+    set entry `width` of StudioSettings to the width of Win
+    set entry `height` of StudioSettings to the height of Win
+    if CurrentGroup is not empty set entry `group` of StudioSettings to CurrentGroup
+    if ScenarioPath is not empty set entry `scenario` of StudioSettings to ScenarioPath
+    set entry `ssh` of StudioSettings to JournalSource
+    set entry `day` of StudioSettings to JournalDay
+    set entry `range` of StudioSettings to JournalRange
+    save StudioSettings to `fixtures/local/studio-settings.json`
+    return
+!! @hash 0f4817f1
+!! @verified
+!!!
+
+!! Close the Studio; the close handler writes the settings before the window goes.
+QuitClicked:
+    close Win
+    return
+!! @hash e944b197
+!! @verified
 !!!
 
 !! A stdout line from the runner: raw JSON to the wire log, parsed events to

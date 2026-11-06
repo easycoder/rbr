@@ -986,6 +986,53 @@ TIMER
     echo "    Email is opt-in: set it under Menu → Backups in the app."
 fi
 
+# ===========================================================================
+# STEP 6e — Daily compact journal export
+# ===========================================================================
+confirm "Step 6e — Daily journal export"
+
+if [[ ! -f "$RBR_DIR/journal-export.py" ]]; then
+    echo "  ⚠ journal-export.py not found in $RBR_DIR — skipping journal export timer"
+    echo "    (it ships in rbr-controller.zip; re-run after fetching the pack)"
+else
+    chown "$RBR_USER:$RBR_USER" "$RBR_DIR/journal-export.py"
+    chmod 0755 "$RBR_DIR/journal-export.py"
+
+    cat > /etc/systemd/system/rbr-journal-export.service << SERVICE
+[Unit]
+Description=RBR daily compact event-journal export
+
+[Service]
+Type=oneshot
+# Reads journal-root (or <heatlog-root>/events) from the working directory and
+# writes one tar.gz bundle per day under <root>/exports/.
+User=${RBR_USER}
+WorkingDirectory=${RBR_DIR}
+ExecStart=/usr/bin/python3 ${RBR_DIR}/journal-export.py --quiet
+SyslogIdentifier=rbr-journal-export
+TimeoutStartSec=300
+SERVICE
+
+    cat > /etc/systemd/system/rbr-journal-export.timer << TIMER
+[Unit]
+Description=Run the RBR journal export daily
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+RandomizedDelaySec=1800
+AccuracySec=1h
+
+[Install]
+WantedBy=timers.target
+TIMER
+
+    systemctl daemon-reload
+    systemctl enable rbr-journal-export.timer
+    systemctl start rbr-journal-export.timer
+    echo "  → rbr-journal-export.timer enabled (daily bundle in ${RBR_DIR}/<journal-root>/exports/)"
+fi
+
 # STEP 7 — (optional) Run the controller as a systemd service
 # ===========================================================================
 confirm "Step 7 — Controller systemd service (optional)"
@@ -1116,6 +1163,9 @@ if [[ -f /etc/systemd/system/rbr-mapbackup.timer ]]; then
 fi
 if [[ -f /etc/systemd/system/rbr-backup.timer ]]; then
     echo "    rbr-backup.timer    $(systemctl is-active rbr-backup.timer)"
+fi
+if [[ -f /etc/systemd/system/rbr-journal-export.timer ]]; then
+    echo "    rbr-journal-export.timer $(systemctl is-active rbr-journal-export.timer)"
 fi
 echo ""
 echo "  Controller:"

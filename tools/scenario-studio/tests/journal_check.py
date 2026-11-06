@@ -168,6 +168,19 @@ class JournalToolsTests(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
+    def test_empty_window_is_rejected_with_the_journal_range(self):
+        out = pathlib.Path(self._tmp.name) / "empty.json"
+        result = subprocess.run([
+            sys.executable, str(STUDIO / "journal_to_scenario.py"),
+            "--journal", str(self.root / "2026" / "11" / f"{DAY}.jsonl"),
+            "--map", str(self.root / "maps" / f"{self.digest}.json"),
+            "--from", "14:00", "--to", "19:00", "--out", str(out),
+        ], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("no journal events between 14:00:00 and 19:00:00", result.stderr)
+        self.assertIn("11:00:00 to 11:03:00", result.stderr)
+        self.assertFalse(out.exists())
+
     def test_temperature_format_matches_the_page(self):
         # The page truncates hundredths to one decimal; 1939 is 19.3, not 19.4.
         self.assertEqual(journal_to_scenario._format_temp(1939), "19.3")
@@ -247,6 +260,9 @@ class JournalToolsTests(unittest.TestCase):
         journal_ingest.JOURNALS = pathlib.Path(self._tmp.name) / "ssh-journals"
         journal_ingest.DEFAULT_SSH_ROOT = str(self.root)
         journal_ingest.DRAFTS.mkdir()
+        stale = journal_ingest.JOURNALS / DAY
+        stale.mkdir(parents=True)
+        (stale / "manifest.json").write_text(json.dumps({"day": DAY, "events": 1}), encoding="utf-8")
         try:
             self.assertEqual(journal_ingest.main([
                 "--source", "test@example", "--day", DAY, "--no-add",
@@ -254,7 +270,8 @@ class JournalToolsTests(unittest.TestCase):
         finally:
             journal_ingest.DRAFTS, journal_ingest.JOURNALS = old_drafts, old_journals
             journal_ingest.DEFAULT_SSH_ROOT = old_root
-        self.assertTrue((pathlib.Path(self._tmp.name) / "ssh-journals" / DAY / "manifest.json").is_file())
+        refreshed = json.loads((pathlib.Path(self._tmp.name) / "ssh-journals" / DAY / "manifest.json").read_text())
+        self.assertEqual(refreshed["events"], 8)
         drafts = list((pathlib.Path(self._tmp.name) / "ssh-drafts").glob("*.json"))
         self.assertEqual(len(drafts), 1, drafts)
 

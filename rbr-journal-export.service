@@ -1,0 +1,13 @@
+[Unit]
+Description=RBR daily compact event-journal export
+
+[Service]
+Type=oneshot
+# Reads journal-root (or <heatlog-root>/events) from the working directory and
+# writes one tar.gz bundle per day under <root>/exports/. Adjust the path to
+# your RBR directory if it is not the default.
+User=linaro
+WorkingDirectory=/home/linaro
+ExecStart=/usr/bin/python3 /home/linaro/journal-export.py --quiet
+SyslogIdentifier=rbr-journal-export
+TimeoutStartSec=300

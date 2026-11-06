@@ -104,6 +104,7 @@ TARBALL_FILES = [
     "rbr-dashboard.py",
     "heatlog.py",
     "eventlog.py",
+    "journal-export.py",
     "dashboard.txt",
     "rbr-updater.py",
     "rbr-backup.py",
