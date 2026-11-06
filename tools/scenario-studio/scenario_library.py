@@ -204,6 +204,61 @@ def seed_examples(force=False):
     return created
 
 
+def duplicate(path, name=None, group=None):
+    """Copy a scenario (and its brief) into the library as a new entry."""
+    source = Path(path).resolve()
+    data = read_json(source)
+    if not isinstance(data, dict):
+        raise SystemExit(f"{source}: the scenario must be a JSON object")
+    name = (name or f"{data.get('name') or source.stem} copy").strip()
+    if not name:
+        raise SystemExit("a duplicate name is required")
+    if group is None:
+        if SCENARIOS in source.parents:
+            group = source.parent.relative_to(SCENARIOS).as_posix()
+        else:
+            group = UNSORTED
+    data["name"] = name
+    draft_dir = LOCAL / "drafts"
+    draft_dir.mkdir(parents=True, exist_ok=True)
+    draft = draft_dir / f"_duplicate-{slug(name)}.json"
+    draft.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    brief = source.with_name(source.stem + ".brief.md")
+    try:
+        entry = add(draft, name=name, group=group,
+                    brief=brief.read_text(encoding="utf-8") if brief.exists() else data.get("description"))
+    finally:
+        draft.unlink(missing_ok=True)
+    return entry
+
+
+def rename(path, name):
+    """Rename a library scenario's display name without moving its file."""
+    source = Path(path).resolve()
+    name = (name or "").strip()
+    if not name:
+        raise SystemExit("a new scenario name is required")
+    if SCENARIOS not in source.parents:
+        raise SystemExit(f"{source}: only library scenarios can be renamed here")
+    if not source.exists():
+        raise SystemExit(f"{source}: no such scenario")
+    data = read_json(source)
+    if not isinstance(data, dict):
+        raise SystemExit(f"{source}: the scenario must be a JSON object")
+    data["name"] = name
+    source.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    rel = source.relative_to(SCENARIOS).as_posix()
+    index = load_index()
+    entry = next((item for item in index["scenarios"] if item.get("path") == rel), None)
+    if entry is None:
+        raise SystemExit(f"{source}: not in the library index")
+    entry["name"] = name
+    index["scenarios"].sort(key=lambda item: (str(item.get("group", "")).lower(),
+                                              str(item.get("name", "")).lower()))
+    save_index(index)
+    return entry
+
+
 def add_group(name):
     """Create an empty group and return its display name."""
     group = (name or "").strip()
@@ -264,6 +319,15 @@ def main():
     group_parser = sub.add_parser("group", help="create an empty group")
     group_parser.add_argument("--name", required=True)
 
+    duplicate_parser = sub.add_parser("duplicate", help="copy a scenario and its brief")
+    duplicate_parser.add_argument("--path", required=True)
+    duplicate_parser.add_argument("--name")
+    duplicate_parser.add_argument("--group")
+
+    rename_parser = sub.add_parser("rename", help="rename a library scenario")
+    rename_parser.add_argument("--path", required=True)
+    rename_parser.add_argument("--name", required=True)
+
     remove_parser = sub.add_parser("remove", help="move a scenario and its brief to .trash")
     remove_parser.add_argument("--path", required=True)
 
@@ -282,6 +346,14 @@ def main():
                          indent=2, ensure_ascii=False))
     elif args.command == "group":
         print(json.dumps({"group": add_group(args.name)}, indent=2, ensure_ascii=False))
+    elif args.command == "duplicate":
+        entry = duplicate(args.path, args.name, args.group)
+        print(json.dumps(entry, indent=2, ensure_ascii=False))
+        print(f"SCENARIO_PATH=fixtures/local/scenarios/{entry['path']}")
+    elif args.command == "rename":
+        entry = rename(args.path, args.name)
+        print(json.dumps(entry, indent=2, ensure_ascii=False))
+        print(f"SCENARIO_PATH=fixtures/local/scenarios/{entry['path']}")
     elif args.command == "remove":
         print(json.dumps(remove(args.path), indent=2, ensure_ascii=False))
     return 0

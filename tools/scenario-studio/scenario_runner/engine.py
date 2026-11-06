@@ -111,7 +111,7 @@ def _write(path, text):
 
 
 def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, run_dir=None,
-                 speed=0, collapse_polls=False, step_pause_ms=0):
+                 speed=0, collapse_polls=False, step_pause_ms=0, end_pause_ms=0):
     """Run one scenario. Returns a process exit code (0 pass, 1 fail)."""
     from .protocol import Events
     events = events or Events(jsonl)
@@ -230,6 +230,10 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
         failure = {"message": f"the run could not start: {exc}"}
         duration_ms = int((time.time() - started) * 1000)
     finally:
+        # A demo can leave the final state on screen for a moment before the
+        # headed browser window disappears. Normal runs leave this at zero.
+        if end_pause_ms > 0 and driver.browser is not None:
+            time.sleep(end_pause_ms / 1000.0)
         try:
             messages = driver.messages()
         except Exception:

@@ -39,7 +39,7 @@ This uses the system `allspeak`/`pyside6`, not the runner venv; the Run and
 Validate buttons use the venv created above. Run it from this directory so the
 app's example paths and `.venv/bin/python` resolve.
 
-**Demo** runs the selected scenario headed — the PWA window opens — with the
+**Demo** runs the selected scenario headed — the PWA window opens — with a five-second pause at the end before the browser closes, the
 virtual clock paced at the speed selector (1×, 60×, 120× or 300× scenario
 seconds per real second), a 300 ms pause after each step, and repeated refresh
 polls collapsed to `refresh ×50` / `refresh polls: N` summaries in Console. The
@@ -87,6 +87,10 @@ The public `docs/examples` fixtures remain synthetic.
 ## Scenario library, groups and batches
 
 Scenarios live under `fixtures/local/scenarios/<group>/` and each may have a sibling `<stem>.brief.md`. `index.json` drives the shell. Selecting a scenario loads its brief into the sidebar editor, so **Draft scenario** edits the existing scenario with that brief as context. **New scenario** asks for the destination group (defaulting to the current library group, or `Unsorted` from All/Local), clears the table and brief, and opens the editor; **Delete scenario** opens a confirmation popup; accepting moves the scenario and its brief into `fixtures/local/.trash/`.
+
+The right-hand Inspector has **Duplicate…** and **Rename…** tools. Duplicate asks for a name and copies the scenario and its brief into the library; Rename updates a library scenario's display name. Public examples are never renamed in place; duplicate one first.
+
+The table uses AllSpeak's native multi-selection (`set selection of Steps to multiple`). Use Ctrl/Shift-click or drag to select one or more rows; **Delete rows** asks for confirmation and removes the selected steps from a library scenario. Cell editing and row insertion will use the same Tools row.
 
 The Studio remembers its window position and size, last selected group and scenario, and the last SSH source, journal day and time range. It writes them to `fixtures/local/studio-settings.json` when the window closes, including through the **Quit** button in the toolbar; a missing or stale setting falls back safely.
 

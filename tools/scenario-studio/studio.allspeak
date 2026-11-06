@@ -41,6 +41,7 @@ panes Vert
 panel Sidebar
 layout SidebarCol
 layout DraftRow
+layout ToolsRow
 label GroupLabel
 combobox GroupBox
 pushbutton NewScenarioBtn
@@ -58,6 +59,9 @@ label BriefPreview
 pushbutton EditBriefBtn
 dialog BriefDlg
 dialog NewScenarioGroupDlg
+dialog DuplicateDlg
+dialog RenameDlg
+dialog DeleteRowsDlg
 dialog DeleteConfirmDlg
 dialog JournalSourceDlg
 dialog JournalDayDlg
@@ -67,6 +71,9 @@ pushbutton DraftBtn
 pushbutton CopyPathBtn
 pushbutton RefreshScenariosBtn
 pushbutton DeleteScenarioBtn
+pushbutton DuplicateBtn
+pushbutton RenameBtn
+pushbutton DeleteRowsBtn
 
 panel Editor
 layout EditorCol
@@ -94,6 +101,7 @@ process Deleter
 process Batcher
 process Grouper
 process Journaler
+process Librarian
 
 variable ScenarioPath
 variable Brief
@@ -114,6 +122,16 @@ variable GroupValue
 variable Grouping
 variable DraftGroup
 variable DeleteConfirmed
+variable DuplicateName
+variable RenameName
+variable Librarying
+variable LibraryAction
+variable LibraryPath
+list Selection
+variable RemoveRow
+variable DeleteRow
+variable DeleteRowCount
+variable DeletedCount
 variable Journaling
 variable JournalSource
 variable JournalDay
@@ -338,6 +356,7 @@ Setup:
     set the style of Title to `font-size:16px;font-weight:600;`
     set the color of Meta to `#666666`
     set columns of Steps to `["#","Time","Actor","Target","Action","Expectation","Result"]`
+    set selection of Steps to multiple
     set column widths of Steps to `[32,55,95,150,220,220,40]`
     set stretch column of Steps to 5
     add Title to EditorCol
@@ -351,10 +370,20 @@ Setup:
     create InspectorTitle text `STEP —` size 14
     create InspectorSub text `` size 20
     create Inspector readonly cols 36 rows 20
+    create ToolsRow type QHBoxLayout
+    create DuplicateBtn text `Duplicate…` size 10
+    create RenameBtn text `Rename…` size 10
+    create DeleteRowsBtn text `Delete rows` size 10
+    disable RenameBtn
+    disable DeleteRowsBtn
     set the style of InspectorTitle to `font-size:12px;font-weight:600;`
     set the color of InspectorSub to `#666666`
     add InspectorTitle to InspectorCol
     add InspectorSub to InspectorCol
+    add DuplicateBtn to ToolsRow
+    add RenameBtn to ToolsRow
+    add DeleteRowsBtn to ToolsRow
+    add ToolsRow to InspectorCol
     add stretch Inspector to InspectorCol
     add InspectorPane to Work
 
@@ -404,6 +433,9 @@ Setup:
     on click RefreshScenariosBtn go to RefreshScenariosClicked
     on click DeleteScenarioBtn go to DeleteScenarioClicked
     on click JournalBtn go to JournalClicked
+    on click DuplicateBtn go to DuplicateClicked
+    on click RenameBtn go to RenameClicked
+    on click DeleteRowsBtn go to DeleteRowsClicked
     on click QuitBtn go to QuitClicked
     on select Scenarios go to ScenarioPicked
     on select Steps go to StepSelected
@@ -423,6 +455,9 @@ Setup:
     on line Journaler go to JournalerLine
     on stderr line Journaler go to JournalerError
     on exit Journaler go to JournalerDone
+    on line Librarian go to LibrarianLine
+    on stderr line Librarian go to LibrarianError
+    on exit Librarian go to LibrarianDone
 
     system `python3 scenario_library.py seed-examples --quiet`
     gosub to LoadGroups
@@ -438,11 +473,14 @@ Setup:
     put 0 into Refreshing
     put empty into JournalPath
     put 0 into Grouping
+    put 0 into Librarying
+    put empty into LibraryAction
+    put empty into LibraryPath
     set the text of StatusLabel to `Ready — Run starts the runner.`
 Idle:
     wait 1 tick
     go to Idle
-!! @hash bcd519f1
+!! @hash 0ec99863
 !! @verified e37e2c0c
 !!!
 
@@ -537,6 +575,8 @@ LoadScenario:
     else set the text of BriefPreview to `Brief ready — click Draft scenario.`
     put `active profile` into ProfileName
     if HomeSpec has entry `profile` put entry `profile` of HomeSpec into ProfileName
+    reset Selection
+    disable DeleteRowsBtn
     put `[]` into Rows
     put `[]` into StepIds
     put `[]` into StepDetails
@@ -587,9 +627,13 @@ LoadScenario:
         set the text of InspectorSub to ``
         set the text of Inspector to `Select a step to inspect it.`
     end
+    if ScenarioPath is not empty enable DuplicateBtn
+    else disable DuplicateBtn
+    if position of `fixtures/local/scenarios/` in ScenarioPath is greater than -1 enable RenameBtn
+    else disable RenameBtn
     set the text of StatusLabel to `Loaded ` cat ScenarioPath
     return
-!! @hash 24f8ee84
+!! @hash 47fcd2bb
 !! @verified 6cd54bc1
 !!!
 
@@ -849,6 +893,10 @@ NewScenarioClicked:
     set the text of Inspector to `Select a step to inspect it.`
     set the text of BriefPreview to `No brief yet — Edit brief to write one.`
     disable DeleteScenarioBtn
+    disable DuplicateBtn
+    disable RenameBtn
+    disable DeleteRowsBtn
+    reset Selection
     set the text of StatusLabel to `New scenario`
     gosub to EditBriefClicked
     return
@@ -960,8 +1008,48 @@ ScenarioPicked:
 !! @verified e240cd6c
 !!!
 
+!! Delete selected rows from a library scenario.
+!!
+!! The table uses native ExtendedSelection, so the selection can contain one row or many; `the selection of` returns ascending row indexes. Rows are removed from the highest index first so earlier indexes stay valid. Public examples must be duplicated before their rows can be removed.
+DeleteRowsClicked:
+    put the selection of Steps into Selection
+    if the count of Selection is 0 return
+    if position of `fixtures/local/scenarios/` in ScenarioPath is -1
+    begin
+        append `Duplicate this scenario before editing its rows.` to Log
+        return
+    end
+    put `Delete ` cat the count of Selection cat ` selected row(s)?` into RequestText
+    create DeleteRowsDlg on Win type confirm title `Delete rows` prompt RequestText
+    show DeleteRowsDlg
+    if DeleteRowsDlg is false return
+    put the count of Selection into DeletedCount
+    load ScenarioText from ScenarioPath
+    put json ScenarioText into ScenarioData
+    put entry `steps` of ScenarioData into StepList
+    put the count of Selection into DeleteRowCount
+    put DeleteRowCount into DeleteRow
+    while DeleteRow is greater than 0
+    begin
+        subtract 1 from DeleteRow
+        put item DeleteRow of Selection into RemoveRow
+        delete item RemoveRow of StepList
+    end
+    set entry `steps` of ScenarioData to StepList
+    save ScenarioData to ScenarioPath
+    gosub to LoadScenario
+    gosub to SetDeleteButton
+    set the text of StatusLabel to `Deleted ` cat DeletedCount cat ` row(s)`
+    return
+!! @hash 3b088536
+!! @verified
+!!!
+
 !! Selecting a step fills the inspector from the parallel detail list.
 StepSelected:
+    put the selection of Steps into Selection
+    if the count of Selection is greater than 0 enable DeleteRowsBtn
+    else disable DeleteRowsBtn
     put the selected row of Steps into RowIndex
     if RowIndex is less than 0 return
     put item RowIndex of StepIds into StepId
@@ -971,7 +1059,7 @@ StepSelected:
     set the text of InspectorSub to Sub
     set the text of Inspector to Detail
     return
-!! @hash bdd712f7
+!! @hash 9bbe0657
 !! @verified bdd712f7
 !!!
 
@@ -994,10 +1082,10 @@ RunClicked:
 DemoClicked:
     put the current of SpeedBox into SpeedValue
     if SpeedValue is empty put `120` into SpeedValue
-    put `--headed --collapse-polls --step-pause-ms 300 --speed ` cat SpeedValue into Pace
+    put `--headed --collapse-polls --step-pause-ms 300 --end-pause-ms 5000 --speed ` cat SpeedValue into Pace
     gosub to StartRun
     return
-!! @hash 482783d6
+!! @hash ab8052c7
 !! @verified 482783d6
 !!!
 
@@ -1488,6 +1576,96 @@ DeleteScenarioClicked:
 !! @verified a10d392b
 !!!
 
+!! Duplicate or rename the selected scenario through the library helper.
+!!
+!! These are the first editing tools; row insertion, row deletion and cell editing will use the same right-hand Tools row. Duplicate copies the brief and keeps the new scenario in the selected real group; rename is limited to library scenarios so public examples are never altered.
+DuplicateClicked:
+    if Librarying return
+    if ScenarioPath is empty return
+    if Name is empty put `Scenario` into DuplicateName
+    else put Name cat ` copy` into DuplicateName
+    create DuplicateDlg on Win type lineedit title `Duplicate scenario` prompt `Name for the copy` value DuplicateName
+    show DuplicateDlg
+    put DuplicateDlg into DuplicateName
+    if DuplicateName is empty return
+    put `Duplicate` into LibraryAction
+    put `.venv/bin/python scenario_library.py duplicate --path "` cat ScenarioPath cat `" --name "` cat DuplicateName cat `"` into Command
+    if CurrentGroup is not empty
+    begin
+        if CurrentGroup is not `All`
+        begin
+            if CurrentGroup is not `Local` put Command cat ` --group "` cat CurrentGroup cat `"` into Command
+        end
+    end
+    gosub to StartLibrary
+    return
+
+RenameClicked:
+    if Librarying return
+    if ScenarioPath is empty return
+    if position of `fixtures/local/scenarios/` in ScenarioPath is -1
+    begin
+        append `Only library scenarios can be renamed; duplicate this one first.` to Log
+        return
+    end
+    put Name into RenameName
+    create RenameDlg on Win type lineedit title `Rename scenario` prompt `New name` value RenameName
+    show RenameDlg
+    put RenameDlg into RenameName
+    if RenameName is empty return
+    put `Rename` into LibraryAction
+    put `.venv/bin/python scenario_library.py rename --path "` cat ScenarioPath cat `" --name "` cat RenameName cat `"` into Command
+    gosub to StartLibrary
+    return
+
+StartLibrary:
+    if Librarying return
+    put 1 into Librarying
+    put empty into LibraryPath
+    disable DuplicateBtn
+    disable RenameBtn
+    disable DeleteScenarioBtn
+    set the text of StatusLabel to LibraryAction cat `…`
+    start Librarian command Command
+    return
+
+LibrarianLine:
+    put the line of Librarian into LineText
+    append LineText to Log
+    if left 14 of LineText is `SCENARIO_PATH=`
+    begin
+        put LineText into LibraryPath
+        replace `SCENARIO_PATH=` with `` in LibraryPath
+    end
+    return
+
+LibrarianError:
+    append the line of Librarian to Log
+    return
+
+LibrarianDone:
+    put 0 into Librarying
+    enable DuplicateBtn
+    if the exit code of Librarian is 0
+    begin
+        gosub to LoadGroups
+        gosub to BuildScenarioList
+        if LibraryPath is not empty and file LibraryPath exists put LibraryPath into ScenarioPath
+        gosub to LoadScenario
+        gosub to SetDeleteButton
+        set the text of StatusLabel to LibraryAction cat ` complete`
+    end
+    else
+    begin
+        append `Scenario edit failed.` to Log
+        set the text of StatusLabel to `Scenario edit failed`
+    end
+    put empty into LibraryAction
+    return
+!! @hash d26f0a2f
+!! @verified
+!!!
+
 !! Draft with the configured provider. The helper reads the brief on stdin,
 !! writes its result to fixtures/local/drafts/last.json and prints its log.
 DraftClicked:
@@ -1947,8 +2125,9 @@ WinClosed:
     if Refreshing stop Refresher
     if Drafting stop Drafter
     if Deleting stop Deleter
+    if Librarying stop Librarian
     return
-!! @hash 1e2959f5
+!! @hash ea0f2c50
 !! @verified 67e8e021
 !!!
 

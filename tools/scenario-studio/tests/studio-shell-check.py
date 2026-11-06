@@ -58,6 +58,8 @@ def prepare_library():
         "steps": [
             {"id": "s1", "at": "2026-11-05T08:00:00+00:00",
              "expect": {"target": "summary.title", "visible": True}},
+            {"id": "s2", "at": "2026-11-05T08:01:00+00:00",
+             "expect": {"target": "summary.title", "visible": True}},
         ],
     }, indent=2) + "\n", encoding="utf-8")
     data = json.loads(TEST_SOURCE.read_text(encoding="utf-8"))
@@ -106,7 +108,7 @@ def cleanup_library():
 TEST_ENTRY, TEST_ENTRY_2 = prepare_library()
 
 from PySide6.QtCore import QTimer  # noqa: E402
-from PySide6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit  # noqa: E402
+from PySide6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit, QTableWidgetSelectionRange  # noqa: E402
 from allspeak.as_program import Program  # noqa: E402
 
 failures = []
@@ -297,6 +299,21 @@ def click_run():
               "selecting a scenario loads its stored brief")
         check(steps.item(0, 1).text() == "08:00:00",
               "the Time column shows the event time, not the full ISO timestamp")
+        check(steps.rowCount() == 2, "the temporary scenario has two rows")
+        steps.setRangeSelected(QTableWidgetSelectionRange(0, 0, 1, 6), True)
+        app.processEvents()
+        check(widget(program, "DeleteRowsBtn").isEnabled(),
+              "Delete rows is enabled by a native multi-row selection")
+        QTimer.singleShot(300, lambda: answer_confirm(False))
+        widget(program, "DeleteRowsBtn").click()
+        app.processEvents()
+        check(steps.rowCount() == 2, "cancelling row deletion keeps both rows")
+        QTimer.singleShot(300, lambda: answer_confirm(True))
+        widget(program, "DeleteRowsBtn").click()
+        app.processEvents()
+        check(steps.rowCount() == 0, "both selected rows are deleted")
+        check(widget(program, "StatusLabel").text() == "Deleted 2 row(s)",
+              "the row deletion reports its count")
         check(widget(program, "DeleteScenarioBtn").isEnabled(),
               "a library scenario can be deleted")
         widget(program, "RefreshScenariosBtn").click()

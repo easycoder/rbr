@@ -331,3 +331,49 @@ Added a machine-local settings file, `fixtures/local/studio-settings.json`, writ
 On startup `LoadStudioSettings` reads the file before the window is created, so the geometry is applied immediately. `RestoreStudioSettings` then selects the saved group, filters the list, and loads the saved scenario once the library has been loaded. A deleted group or scenario falls back to All and the seeded Advance example instead of leaving the Studio pointing at something missing. Empty SSH/day/range values are saved as null and simply skip the corresponding restore.
 
 The shell test now preloads a settings file, checks the window position and journal prompts are restored, closes the window, and checks that geometry, group, scenario, SSH, day and range were written back. The Studio shell check passes, `asdoc-check` reports no errors, and `git diff --check` is clean. No new dependencies; the file is machine-local and ignored by git.
+
+## 20:13
+
+It would be useful to pause for say 5 seconds at the end of a demo run before closing the browser window.
+
+**Assistant**
+
+Added `--end-pause-ms` to `scenario_runner`. The Studio's **Demo** button passes `5000`, so the final PWA state stays visible for five seconds before the headed browser closes. The sleep is in the runner's `finally`, immediately before `driver.stop`, and is skipped when no browser was started; normal **Run** is unchanged and still closes as soon as it finishes.
+
+The command-line option is available for manual demos too, and the runner README describes it. The Studio shell check compiles and passes with the changed Demo command, `.venv/bin/python -m scenario_runner --help` shows the new option, `asdoc-check` reports no errors, and `git diff --check` is clean. Restart the Studio to load the changed Demo command.
+
+## 20:27
+
+When a special scenario is wanted it can be described to AI, but another way is to customize an existing scenario. This requires a set of editing tools, including Duplicate the scenario, Rename the current scenario, Delete the selected row or rows, Add a row above or below the selected row, and Edit any one of the cells. These don't have to be done all in one sprint; I can test as we go. I suggest using the area to the right of the table, which is currently fairly sparse.
+
+**Assistant**
+
+Implemented the first editing increment in the right-hand Inspector: **Duplicate…** and **Rename…**.
+
+Duplicate prompts for a name, copies the scenario JSON and its brief into the library, and keeps the map reference valid. Rename changes the display name and the library index entry. Rename is offered only for scenarios under `fixtures/local/scenarios/`; a public example must be duplicated before it can be renamed, so the tracked example files are never modified in place. The new tools run through `scenario_library.py duplicate|rename`, report progress in the log, and reload the list and scenario afterwards.
+
+The row operations you listed — multi-row delete, add above/below, and cell editing — are not in this pass. The Tools row is deliberately small so those can be added without reworking this one; the next step is table selection and a row/cell editor.
+
+`journal_check.py` now has eleven tests, including duplicate-and-rename coverage. The Studio shell check compiles and passes with the new controls, `asdoc-check` reports no errors, and `git diff --check` is clean. Restart the Studio to load the new Inspector tools.
+
+## 20:54
+
+Duplicate and Rename work fine, so let's try multi-row selection and deletion. If there are gaps in the AllSpeak feature set, let me know.
+
+**Assistant**
+
+Implemented multi-row selection and deletion as a Studio-level workaround. The graphics table in AllSpeak is hard-wired to `SingleSelection`, so there is no native multi-select API. The Inspector Tools row now has **Select rows**, which turns row clicks into toggles and paints the chosen rows, and **Delete rows**, which asks for confirmation and removes the selected steps from a library scenario. A public example must be duplicated first.
+
+The gap is recorded in `REQUESTS.md`: a native multi-selection mode, or a way to read selected row indexes, would remove the workaround. The shell test selects two rows, checks the highlight state, cancels one deletion, then deletes both and verifies the file reloads empty. The Studio shell check passes; `asdoc-check` reports no errors and `git diff --check` is clean. Row insertion and cell editing are still the next pass.
+
+## 21:31
+
+Sorry, I forgot to deploy. Continue.
+
+**Assistant**
+
+You were right about `learn/reference/20-graphics.md`: the table supports native multi-selection. I removed the Click-toggle workaround and switched Steps to `set selection of Steps to multiple`; Delete rows now reads `the selection of Steps` and removes the selected indexes from the highest index down. Ctrl/Shift-click and drag selection work normally, and the Delete rows button is enabled from the selection itself.
+
+The obsolete `Select rows` button, the selection dictionary and its paint pass are gone. The native API made the workaround and its `REQUESTS.md` entry unnecessary, so both were removed. The shell test now uses `QTableWidgetSelectionRange` to select two rows, verifies Delete rows enables, cancels once, then deletes both. The Studio shell check passes, `asdoc-check` reports no errors and `git diff --check` is clean.
+
+This is a Studio-only change; it does not need a controller deployment. Restart the Studio to load it. Row insertion and cell editing remain the next editing pass.

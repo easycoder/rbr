@@ -242,6 +242,38 @@ class JournalToolsTests(unittest.TestCase):
                          ("ssh", "qed6@host", "/tmp/events"))
         self.assertEqual(journal_ingest._source_kind("/data/rbr-heating/events")[0], "root")
 
+    def test_duplicate_and_rename_library_scenario(self):
+        with tempfile.TemporaryDirectory(prefix="rbr-library-edit-") as tmp:
+            tmp_path = pathlib.Path(tmp)
+            local = tmp_path / "fixtures" / "local"
+            scenarios = local / "scenarios"
+            old = (scenario_library.LOCAL, scenario_library.SCENARIOS,
+                   scenario_library.TRASH, scenario_library.INDEX,
+                   scenario_library.SEED_FLAG, scenario_library.EXAMPLES)
+            scenario_library.LOCAL = local
+            scenario_library.SCENARIOS = scenarios
+            scenario_library.TRASH = local / ".trash"
+            scenario_library.INDEX = scenarios / "index.json"
+            scenario_library.SEED_FLAG = local / ".examples-seeded"
+            scenario_library.EXAMPLES = STUDIO / "docs" / "examples"
+            try:
+                entry = scenario_library.duplicate(
+                    STUDIO / "docs" / "examples" / "advance.json",
+                    name="Copy of advance", group="Unsorted")
+                copied = scenarios / entry["path"]
+                self.assertTrue(copied.is_file())
+                self.assertEqual(json.loads(copied.read_text())["name"], "Copy of advance")
+                renamed = scenario_library.rename(copied, "Renamed copy")
+                self.assertEqual(renamed["name"], "Renamed copy")
+                index = scenario_library.load_index()
+                match = next(item for item in index["scenarios"]
+                             if item["path"] == renamed["path"])
+                self.assertEqual(match["name"], "Renamed copy")
+            finally:
+                (scenario_library.LOCAL, scenario_library.SCENARIOS,
+                 scenario_library.TRASH, scenario_library.INDEX,
+                 scenario_library.SEED_FLAG, scenario_library.EXAMPLES) = old
+
     def test_ingest_ssh_source_passes_host_and_root_in_the_right_order(self):
         fake = pathlib.Path(self._tmp.name) / "ssh"
         fake.write_text(

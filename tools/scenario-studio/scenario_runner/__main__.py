@@ -24,6 +24,8 @@ def main(argv=None):
                         help="summarise repeated refresh polls in the live event stream (full console stays in the run)")
     parser.add_argument("--step-pause-ms", type=int, default=0,
                         help="real pause after each passed step, for demos")
+    parser.add_argument("--end-pause-ms", type=int, default=0,
+                        help="real pause before the browser closes, for demos")
     parser.add_argument("--jsonl", action="store_true", help="emit PROTOCOL.md events on stdout")
     parser.add_argument("--validate-only", action="store_true", help="validate without launching a browser")
     parser.add_argument("--run-dir", default=None, help="write artefacts here instead of the user data directory")
@@ -50,7 +52,8 @@ def main(argv=None):
         return run_scenario(scenario, repo, headless=not args.headed,
                             jsonl=args.jsonl, events=events, run_dir=args.run_dir,
                             speed=args.speed, collapse_polls=args.collapse_polls,
-                            step_pause_ms=args.step_pause_ms)
+                            step_pause_ms=args.step_pause_ms,
+                            end_pause_ms=args.end_pause_ms)
     except ScenarioError as exc:
         message = str(exc)
         for line in message.splitlines():
