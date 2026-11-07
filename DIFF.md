@@ -1,32 +1,25 @@
 # What to do
 
-- **Use the new directory.** The application and its directory are now **RBR Studio**, under `tools/rbr-studio/`. Any local alias, script or shell history pointing at `tools/scenario-studio` needs updating; `git mv` carried the files and their history across.
-- **Rebuild the portable package** from the new path:
-
-      cd tools/rbr-studio
-      ./package-studio.sh
-
-  The archive is still `dist/rbr-studio-<stamp>.tar.gz`; unpack it anywhere and run `./run-studio.sh`.
-- **Restart RBR Studio** to see the new window and toolbar name. Its configuration, scenario library and extracted journal bundles are unchanged; they live under `tools/rbr-studio/fixtures/local/`.
-- **Rerun `./run-studio.sh` if you had already created `.venv` in the old directory.** A venv records absolute paths in its scripts, so the moved copy cannot run its own `pip`; the launcher now detects that and replaces it automatically, then installs the requirements again.
-- **The run and cache directories moved** from `~/.local/share/rbr-scenario-studio` and `~/.cache/rbr-scenario-studio` to `~/.local/share/rbr-studio` and `~/.cache/rbr-studio`. Old artefacts stay where they are; nothing reads them.
-- **The controller is unaffected.** It still writes and emails bundles for RBR Studio; the bundle format and `reports/heatlog/` contents are unchanged by the rename.
+- **Deploy the controller and the PWA together.** The hamburger has a new **Send journal now** row; the controller must know the `Journal Now` action. A controller still on the old build will reject the request with `UIRequest rejected: unsupported action Journal Now`. The service-worker cache version is bumped, so reload the PWA once to pick up the new shell and sheet.
+- **No mail-setting change is needed** if the daily journal email already works. The request forces one send (`--email-now`) even when the daily toggle is off; if no address or SMTP settings are configured, the controller logs the failure.
+- **Look for the file in `exports/requests/`.** A requested bundle is partial: it covers today up to the moment of the tap and is named `<system>-<date>-<HHMMSS>.tar.gz`, separate from the daily exports in `exports/`.
+- **RBR Studio imports it as its own scenario.** The manifest marks it `partial` with a `label`; the inbox keys it by MAC and time, so it does not collide with the full-day bundle and appears as `Journal <date> <time> — <name>`.
 
 # What changed
 
-- **The product name is RBR Studio.** The window title, toolbar brand, docs, public architecture/testing pages, tests, package text, script names and `studio.allspeak` script name now use it.
-- **The checkout path is `tools/rbr-studio/`.** All tracked references and `.gitignore` rules moved with it; the package launcher and tests use their own locations, so they need no absolute paths.
-- **Data locations.** The scenario runner's default artefacts directory and the Playwright runtime cache now use `rbr-studio`, matching the package name.
-- **No behavioural change.** The journal bundle, inbox scanner, package bootstrap and scenario runner are the same code under the new name.
-- **A moved `.venv` is detected and recreated.** Console scripts in a venv contain the absolute path of the directory that created them; after the rename they cannot run. `run-studio.sh` checks its venv's `pip` shebang (or a marker written on creation) and replaces a stale one, and uses `python -m pip` so the stale script cannot block the repair.
+- **PWA.** The hamburger's menu has a **Send journal now** row opening a small Journal sheet. It shows the registered address and sends `Journal Now` with gesture provenance; the sheet stays open and confirms the request.
+- **Controller.** `ProcessUIRequest` accepts `Journal Now`, flushes the pending journal so the request and its preceding events are in the file, and runs `journal-export.py --now --email-now` in the background.
+- **Exporter.** `journal-export.py --now` uses today's file as it stands, writes a partial bundle under `exports/requests/` (newest 14 kept), and records `partial`, `label` and `requestedAt` in the manifest. The email subject adds the time: `RBR journal <MAC> <date> <HH:MM:SS>`.
+- **Studio inbox.** Partial bundles get a time-suffixed folder and scenario name and are not deduplicated against the full-day bundle. The full-day path is unchanged.
+- **Tests and docs.** The hamburger sheet test now covers the Journal row and request; `journal_export_test` covers `--now`, the partial manifest and the timed subject; `journal_check` covers the partial key/name. `doc/EVENT-JOURNAL.md`, `doc/CONTROLLER-FILES.md` and the Studio README describe the new path.
 
 # Try it
 
-```bash
-cd tools/rbr-studio
-./run-studio.sh
-python3 tests/journal_check.py
-python3 tests/package_check.py
-```
+1. Open the PWA, tap the hamburger and **Send journal now**.
+2. Check the registered mailbox for `RBR journal <MAC> <date> <time>`.
+3. Restart RBR Studio and let its inbox scan import the partial bundle.
 
-`tests/unit/run-unit-tests.sh` still includes `journal_export_test`; its `STUDIO` path now points at `tools/rbr-studio`.
+```bash
+# controller-side equivalent
+python3 journal-export.py --now --email-now
+```

@@ -11,7 +11,7 @@
         "border-radius": "14px",
         "margin-top": "10px",
         "overflow": "hidden",
-        "#": ["$Row1", "$Row2", "$Row3", "$Row4"],
+        "#": ["$Row1", "$Row2", "$Row3", "$Row4", "$Row5"],
 
         "$Row1": {
             "$ID": "menu-row-system",
@@ -35,6 +35,12 @@
             "$ID": "menu-row-backups",
             "$Label": "Backups",
             "$Sub": "Monthly archive; email a copy",
+            "#": ["$Row"]
+        },
+        "$Row5": {
+            "$ID": "menu-row-journal",
+            "$Label": "Send journal now",
+            "$Sub": "Today's events and heating data, by email",
             "#": ["$Row"]
         },
 

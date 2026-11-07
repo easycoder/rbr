@@ -3279,7 +3279,7 @@ ResolveRoomFromMessage:
 !!
 !! Action names are normalised so the UI can be upgraded incrementally — `request`, `addroom`, `rooms`, `system name`, etc. all map to their canonical forms.
 !!
-!! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (replaces the shared room identity list, used by add/delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites the shared room list, the profiles list and the optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), and `Test`.
+!! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (replaces the shared room identity list, used by add/delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites the shared room list, the profiles list and the optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), `Backup` (save the monthly email setting), `Backup Now` (email a monthly archive immediately), `Journal Now` (export today's events up to now and email them), and `Test`.
 !!
 !! Operating Mode handles all four modes plus advance and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). `advance` is a desired state: the PWA sends `A` or `-` and it is applied as-is, so a retried or duplicated request cannot flip the wrong way; older clients sending `yes` still toggle. Arming an advance records `advanceuntil`, the schedule change it is aiming at; leaving Timed drops the flag and the deadline with it. Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
 !!
@@ -3341,6 +3341,7 @@ ProcessUIRequest:
     else if Value is `special action` put `Room Override` into Action
     else if Value is `backup` put `Backup` into Action
     else if Value is `backup now` put `Backup Now` into Action
+    else if Value is `journal now` put `Journal Now` into Action
 
     if Action is `Test`
     begin
@@ -3650,9 +3651,18 @@ ProcessUIRequest:
         log `Backup: requested from the UI`
         system background `python3 rbr-backup.py --email-now`
     end
+    else if Action is `Journal Now`
+    begin
+        ! Flush first, so the bundle includes this request and the events
+        ! leading up to it. Exporting today's file to the requests folder
+        ! keeps the daily bundle for the timer intact.
+        log `Journal: requested from the UI`
+        gosub to JournalFlush
+        system background `python3 journal-export.py --now --email-now`
+    end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 1b2edcf1
-!! @verified 550db757
+!! @hash 1a3b523f
+!! @verified 1a3b523f
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).
 !!

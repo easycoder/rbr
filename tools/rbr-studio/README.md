@@ -30,7 +30,7 @@ cd tools/rbr-studio
 ./package-studio.sh
 ```
 
-It writes `dist/rbr-studio-<stamp>.tar.gz`. Unpack it anywhere and run `./run-studio.sh`; the first run creates `.venv`, installs `requirements-studio.txt` and Playwright's Chromium, and asks for the folder the controller's daily journal bundles arrive in (default `~/RBR-journal`). `configure-studio.py --show` prints the setting, `--inbox DIR` changes it, and `--setup-only` installs and configures without opening the window. The development checkout can use the same launcher.
+It writes `dist/rbr-studio-<stamp>.tar.gz`. Unpack it anywhere and run `./run-studio.sh`; the first run creates `.venv`, installs `requirements-studio.txt` and Playwright's Chromium, and asks for the root folder the controller's daily journal bundles arrive in (default `~/RBR-journal`). Name systems with `--system MAC=Name` (repeatable), or later with `configure-studio.py --system`; `configure-studio.py --show` prints the setting, `--inbox DIR` changes the root, and `--setup-only` installs and configures without opening the window. The development checkout can use the same launcher.
 
 The package deliberately carries no `fixtures/local`, real `map.json`, `ai-config.json` or `.venv`: the first two belong to the machine, and the launcher creates them. Scenario testing is one role; the extracted bundles also carry the day's heating CSVs under `reports/heatlog/`, which is the input a statistics view can use later.
 
@@ -106,7 +106,7 @@ The right-hand Inspector has **Duplicate…** and **Rename…** tools. Duplicate
 
 The table uses AllSpeak's native multi-selection (`set selection of Steps to multiple`). Use Ctrl/Shift-click or drag to select one or more rows; **Delete rows** asks for confirmation and removes the selected steps from a library scenario. Cell editing and row insertion will use the same Tools row.
 
-The Studio remembers its window position and size, last selected group and scenario, and the last SSH source, journal day and time range. It writes them to `fixtures/local/studio-settings.json` when the window closes, including through the **Quit** button in the toolbar; a missing or stale setting falls back safely.
+The Studio remembers its window position and size, last selected group and scenario, and the last local journal source, journal day and time range. It writes them to `fixtures/local/studio-settings.json` when the window closes, including through the **Quit** button in the toolbar; a missing or stale setting falls back safely.
 
 The three public examples are seeded into the **Examples** group as ordinary library scenarios on first start (`scenario_library.py seed-examples`, run by the shell). They are deletable copies; the public files remain in `docs/examples` for the README and tests. The seed marker is `fixtures/local/.examples-seeded`, so deleting an example does not bring it back on the next start; remove the marker or run `seed-examples --force` to restore it. **Local system** is still a generated snapshot and remains read-only.
 
@@ -122,33 +122,35 @@ The controller records an append-only event journal (`doc/EVENT-JOURNAL.md`). Tw
 # local directory or mounted share
 python3 journal_import.py --source /data/rbr-heating/events     --day 2026-11-06 --dest fixtures/local/journal/qed6-2026-11-06     --archive fixtures/local/journal/qed6-2026-11-06.tar.gz
 
-# same network, over SSH (runs only `cat` on known paths)
-python3 journal_import.py --ssh linaro@192.168.1.20     --ssh-root /data/rbr-heating/events --day 2026-11-06     --dest fixtures/local/journal/qed6-2026-11-06
-
 # generate a scenario from the bundle
 python3 journal_to_scenario.py --bundle fixtures/local/journal/qed6-2026-11-06     --from 07:00 --to 09:30     --out fixtures/local/scenarios/journal/kitchen-morning.json     --name "Kitchen morning"
 ```
 
 For a local source, `journal_import.py --heatlog-root DIR` copies the day's heating CSVs into `reports/heatlog/` as well; when the source directory is named `events`, its parent is used automatically.
 
-A bundle contains `manifest.json`, `events/YYYY/MM/YYYY-MM-DD.jsonl`, the `maps/` snapshots the day references, and — when heat logging is enabled — the day's `reports/heatlog/<room>/YYYY/MM/DD.csv` files. It is the transport-neutral unit; the same bundle can come from a local copy, SSH, a downloaded archive, an email attachment or the RBR cloud. The heating CSVs give a future statistics view the same day's outcomes without a second transfer; `journal_to_scenario.py` ignores them. `journal_to_scenario.py` uses the latest map snapshot at or before the window start, seeds the state that existed before the window, drops unchanged sensor readings and duplicate room states, and writes controller steps plus visible expectations. It does not replay UI requests as taps: the controller saw the request, not the gesture. The controller effects are included.
+A bundle contains `manifest.json`, `events/YYYY/MM/YYYY-MM-DD.jsonl`, the `maps/` snapshots the day references, and — when heat logging is enabled — the day's `reports/heatlog/<room>/YYYY/MM/DD.csv` files. It is the transport-neutral unit; the same bundle can come from a local copy, a downloaded archive, an email attachment or the RBR cloud. The heating CSVs give a future statistics view the same day's outcomes without a second transfer; `journal_to_scenario.py` ignores them. `journal_to_scenario.py` uses the latest map snapshot at or before the window start, seeds the state that existed before the window, drops unchanged sensor readings and duplicate room states, and writes controller steps plus visible expectations. It does not replay UI requests as taps: the controller saw the request, not the gesture. The controller effects are included.
 
-The Studio's **Import journal…** button runs `journal_ingest.py`, which chains those two tools and adds the result to the **Journal** group. The source prompt accepts a bundle, a raw `.jsonl`, a local journal root, `user@host` (using `/data/rbr-heating/events`), or `user@host:/journal-root`; the day and window are optional when the source already names them. SSH uses the operating system's client, agent and key, so no SSH credential belongs in `credentials` or in the Studio. Do not add SSH secrets to the controller's existing `credentials` file: that file is fetched from the cloud, backed up, and already carries broker and mail secrets. Use a dedicated key, or a separate 0600 file outside `credentials` if a password is unavoidable.
+The Studio's **Import journal…** button runs `journal_ingest.py`, which chains those two tools and adds the result to the **Journal** group. The source prompt accepts a bundle, a raw `.jsonl`, or a local journal root; the day and window are optional when the source already names them. Everything reads local files, so the Studio needs no network access to the controller.
 
 ### Emailed bundles
 
-`journal-export.py` can email each daily bundle (opt-in through `journal-export-config.json`; `rbr-setup.sh` asks when it installs the timer). A mail filter should match the subject prefix **`RBR journal`** and save the `.tar.gz` attachment into one folder. The Studio scans that folder when it starts:
+`journal-export.py` can email each daily bundle (opt-in through `journal-export-config.json`; `rbr-setup.sh` asks when it installs the timer). The subject is `RBR journal <MAC> <YYYY-MM-DD>`, so a mail filter can match each system's MAC and save its `.tar.gz` attachments under `~/RBR-journal/<MAC>/`. The Studio scans that root when it starts:
 
-- default folder: `~/RBR-journal`
-- packaged/configured copy: the path in `studio-config.json`, written by `run-studio.sh`/`configure-studio.py`
+- default root: `~/RBR-journal` (per-system subfolders are scanned)
+- system names: `./run-studio.sh --system 00:e0:27:5b:31:40=Home`, repeatable; stored in `studio-config.json`'s `systems` map
+- packaged/configured copy: the inbox path in `studio-config.json`, written by `run-studio.sh`/`configure-studio.py`
 - override: write the path as one line in `fixtures/local/journal-inbox`
 - by hand: `python3 journal_inbox.py --scan --inbox DIR`
 
-Each unseen archive is extracted into `fixtures/local/journal/<system>-<day>/`, converted into a whole-day scenario and added to the **Journal** group, so the day is in the list when the window opens. The extraction keeps the bundle's `events/`, `maps/` and `reports/heatlog/` trees, so the statistics data sits beside the scenario. `fixtures/local/journal/inbox-seen.json` keeps the archive hashes; a rescan does nothing, and a corrected bundle (a new hash) is imported. A bundle that cannot be converted is recorded as failed rather than retried every start. The inbox file is left alone, so the mail filter owns its own retention.
+Each unseen archive is extracted into `fixtures/local/journal/<MAC-or-system>-<day>/`, converted into a whole-day scenario and added to the **Journal** group, so the day is in the list when the window opens. The MAC is the stable folder key; a name from the `systems` map is used in the scenario name (`Journal 2026-11-06 — Home`), falling back to the controller's system name. The extraction keeps the bundle's `events/`, `maps/` and `reports/heatlog/` trees, so the statistics data sits beside the scenario. `fixtures/local/journal/inbox-seen.json` keeps the archive hashes; a rescan does nothing, and a corrected bundle (a new hash) is imported. A bundle that cannot be converted is recorded as failed rather than retried every start. The inbox file is left alone, so the mail filter owns its own retention.
+
+### Send a bundle now
+
+The PWA's **Send journal now** row under the hamburger asks the controller to flush the journal, export today up to that moment and email the result. The controller writes those requests under `exports/requests/` and marks them as partial, so they do not overwrite the daily export. In RBR Studio a partial bundle is imported as its own scenario with the time in the name (`Journal 2026-11-06 14:22:10 — Home`); it is not treated as a duplicate of the full day.
 
 The generated scenario is ordinary RBR Studio JSON, so `--validate-only`, the shell, batches and AI editing all work on it. Keep windows short enough to stay under `--max-steps` (default 5000); a full day of frequent readings is usually more than a UI test needs.
 
-The importer never writes to the controller. For SSH it runs `ssh host cat <path>` and captures the file, using the machine's own `ssh` client with `BatchMode=yes`; it uses a key or an agent and will not prompt for a password. `--ssh-bin` and `--ssh-key` are there for non-default setups. The default remote root is `/data/rbr-heating/events`; use `user@host:/other/root` if the controller's journal lives elsewhere (for example `/home/qed6/heating-data/events`). This is deliberate: a GUI import should not need a password stored in the application. `--source` is the simplest path when the journal is already copied or mounted locally.
+The importer never writes to the controller and only reads local files. `--source` is the path to a journal root, a raw day, or a bundle already copied or mounted locally.
 
 ## AI authoring
 

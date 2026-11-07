@@ -1,3 +1,6 @@
 {
-  "journalInbox": "~/RBR-journal"
+  "journalInbox": "~/RBR-journal",
+  "systems": {
+    "00:e0:27:5b:31:40": "Home"
+  }
 }

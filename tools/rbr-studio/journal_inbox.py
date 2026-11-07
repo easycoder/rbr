@@ -9,13 +9,7 @@ Studio's **Journal** group. It runs at Studio startup, and by hand:
     python3 journal_inbox.py --scan
     python3 journal_inbox.py --scan --inbox ~/Downloads/RBR
 
-The folder defaults to `~/RBR-journal`. A `studio-config.json` beside this
-script (written by `configure-studio.py`) can name another folder; a one-line
-`fixtures/local/journal-inbox` file overrides it, so the setting lives beside
-the rest of the Studio's machine-local data. Imported bundles are kept in
-`fixtures/local/journal/<system>-<day>/`, and
-`fixtures/local/journal/inbox-seen.json` remembers every archive it has handled
-(by SHA-256), so scanning again is a no-op.
+The folder defaults to `~/RBR-journal`, and the scan includes its per-system subfolders (the mail filter can save each system's attachments under `~/RBR-journal/<MAC>/`). A `studio-config.json` beside this script (written by `configure-studio.py`) can name another folder and can map a MAC to a useful system name; a one-line `fixtures/local/journal-inbox` file overrides the folder, so the setting lives beside the rest of the Studio's machine-local data. Imported bundles are kept in `fixtures/local/journal/<MAC-or-system>-<day>/`, and `fixtures/local/journal/inbox-seen.json` remembers every archive it has handled (by SHA-256), so scanning again is a no-op.
 
 A bundle that cannot be read is recorded as failed rather than retried on every
 start; a corrected file has a different hash and is picked up then.
@@ -51,17 +45,35 @@ def slug(text) -> str:
     return re.sub(r"[^a-z0-9]+", "-", str(text).lower()).strip("-") or "rbr"
 
 
-def config_inbox(path=None) -> str:
-    """The inbox named in studio-config.json, or "" when there is none."""
+def config_data(path=None) -> dict:
+    """Read studio-config.json, or {} when it is absent or unusable."""
     path = pathlib.Path(path) if path else CONFIG
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return ""
-    if not isinstance(data, dict):
-        return ""
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def config_inbox(path=None) -> str:
+    """The inbox named in studio-config.json, or "" when there is none."""
+    data = config_data(path)
     value = data.get("journalInbox") or data.get("inbox")
     return str(value).strip() if value else ""
+
+
+def config_systems(path=None) -> dict[str, str]:
+    """The MAC-to-name map from studio-config.json, keys normalised to lower case."""
+    raw = config_data(path).get("systems")
+    if not isinstance(raw, dict):
+        return {}
+    systems = {}
+    for mac, name in raw.items():
+        key = str(mac).strip().lower()
+        label = str(name).strip()
+        if key and label:
+            systems[key] = label
+    return systems
 
 
 def resolve_inbox(explicit=None, pointer=None, config=None) -> pathlib.Path:
@@ -106,7 +118,7 @@ def save_state(path, state) -> None:
 def _archives(inbox: pathlib.Path) -> list[pathlib.Path]:
     found = []
     for pattern in ("*.tar.gz", "*.tgz"):
-        found.extend(inbox.glob(pattern))
+        found.extend(inbox.rglob(pattern))
     unique = {}
     for path in found:
         if path.is_file():
@@ -122,14 +134,32 @@ def _manifest(archive: pathlib.Path) -> dict:
         bundle.close()
 
 
-def _scenario_name(manifest: dict) -> str:
-    day = manifest.get("day") or "unknown"
+def _system_identity(manifest: dict, systems: dict[str, str] | None = None):
+    """Stable folder key and display label: MAC first, then system name, then time for partial bundles."""
+    mac = str(manifest.get("mac") or "").strip().lower()
     system = str(manifest.get("system") or "").strip()
-    return f"Journal {day}" if not system else f"Journal {day} — {system}"
+    name = str((systems or {}).get(mac) or "").strip()
+    label = name or system or mac or "rbr"
+    partial = bool(manifest.get("partial"))
+    stamp = str(manifest.get("label") or "").strip()
+    key = slug(mac) if mac else slug(system or "rbr")
+    if partial:
+        key = f"{key}-{slug(stamp or manifest.get('requestedAt') or 'partial')}"
+        if stamp:
+            label = f"{label} {stamp}"
+    return mac, system, label, key, partial, stamp
 
 
-def _existing_bundle(journal_dir: pathlib.Path, day: str, system) -> pathlib.Path | None:
-    """A bundle for the same system and day, whatever folder an importer gave it."""
+def _scenario_name(manifest: dict, systems: dict[str, str] | None = None) -> str:
+    day = manifest.get("day") or "unknown"
+    _, _, label, _, _, _ = _system_identity(manifest, systems)
+    return f"Journal {day} — {label}" if label and label != "rbr" else f"Journal {day}"
+
+
+def _existing_bundle(journal_dir: pathlib.Path, day: str, system,
+                     mac: str = "", partial: bool = False,
+                     stamp: str = "") -> pathlib.Path | None:
+    """A bundle for the same system and day (and time, for a partial bundle)."""
     if not journal_dir.is_dir():
         return None
     for candidate in journal_dir.iterdir():
@@ -140,15 +170,27 @@ def _existing_bundle(journal_dir: pathlib.Path, day: str, system) -> pathlib.Pat
             data = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if data.get("day") == day and data.get("system") == system:
+        if data.get("day") != day:
+            continue
+        if bool(data.get("partial")) != partial:
+            continue
+        if partial and str(data.get("label") or "") != stamp:
+            continue
+        existing_mac = str(data.get("mac") or "").strip().lower()
+        if mac and existing_mac and existing_mac == mac:
+            return candidate
+        if not existing_mac and data.get("system") == system:
             return candidate
     return None
 
 
 def scan(inbox=None, journal_dir=None, drafts_dir=None, state_path=None,
-         group=DEFAULT_GROUP, quiet=False, pointer=None, config=None) -> list[dict]:
+         group=DEFAULT_GROUP, quiet=False, pointer=None, config=None,
+         systems=None) -> list[dict]:
     """Import unseen bundles and return one record per newly handled archive."""
     inbox = resolve_inbox(inbox, pointer, config)
+    if systems is None:
+        systems = config_systems(config)
     journal_dir = pathlib.Path(journal_dir) if journal_dir else JOURNAL
     drafts_dir = pathlib.Path(drafts_dir) if drafts_dir else DRAFTS
     state_path = pathlib.Path(state_path) if state_path else STATE
@@ -187,10 +229,12 @@ def scan(inbox=None, journal_dir=None, drafts_dir=None, state_path=None,
             continue
 
         day = manifest["day"]
-        system = manifest.get("system") or "rbr"
-        target = journal_dir / f"{slug(system)}-{day}"
-        record.update(day=day, system=manifest.get("system"), bundle=str(target))
-        existing = _existing_bundle(journal_dir, day, manifest.get("system"))
+        mac, system, label, key, partial, stamp = _system_identity(manifest, systems)
+        target = journal_dir / f"{key}-{day}"
+        record.update(day=day, system=manifest.get("system"), mac=mac, name=label,
+                      partial=partial, label=stamp, bundle=str(target))
+        existing = _existing_bundle(journal_dir, day, manifest.get("system"), mac,
+                                    partial, stamp)
         if existing is not None or target.exists():
             found = existing or target
             record.update(status="present", bundle=str(found),
@@ -202,9 +246,9 @@ def scan(inbox=None, journal_dir=None, drafts_dir=None, state_path=None,
         try:
             journal_bundle.extract_bundle(archive, target)
             report_count = len(list((target / "reports" / "heatlog").rglob("*.csv")))
-            name = _scenario_name(manifest)
+            name = _scenario_name(manifest, systems)
             drafts_dir.mkdir(parents=True, exist_ok=True)
-            draft = drafts_dir / f"journal-{slug(system)}-{day}.json"
+            draft = drafts_dir / f"journal-{key}-{day}.json"
             command = [sys.executable, str(HERE / "journal_to_scenario.py"),
                        "--bundle", str(target), "--out", str(draft), "--name", name]
             result = subprocess.run(command, cwd=HERE, capture_output=True, text=True)
@@ -223,11 +267,12 @@ def scan(inbox=None, journal_dir=None, drafts_dir=None, state_path=None,
             say(f"journal_inbox.py: imported {day} into {target}, but no scenario was made — {record['error']}")
             continue
 
-        record.update(status="imported", scenario=entry["path"], reports=report_count)
+        record.update(status="imported", scenario=entry["path"], reports=report_count,
+                      mac=mac, name=label, partial=partial, label=stamp)
         state[digest] = record
         save_state(state_path, state)
         handled.append(record)
-        say(f"journal_inbox.py: {day} → {entry['path']} ({report_count} heatlog CSV(s))")
+        say(f"journal_inbox.py: {day} [{label}] → {entry['path']} ({report_count} heatlog CSV(s))")
     return handled
 
 

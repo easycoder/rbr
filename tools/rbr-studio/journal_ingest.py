@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """One-shot journal ingest for the RBR Studio shell.
 
-Takes a bundle, a raw day, a local journal root, or `user@host:/journal-root`,
-imports it if necessary, generates a scenario window, and adds the result to
-the local RBR Studio library. Prints progress lines and a final
-`SCENARIO_PATH=` line for the shell to select.
+Takes a bundle, a raw day, or a local journal root, imports it if necessary,
+generates a scenario window, and adds the result to the local RBR Studio
+library. Prints progress lines and a final `SCENARIO_PATH=` line for the shell
+to select.
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ import scenario_library
 HERE = pathlib.Path(__file__).resolve().parent
 DRAFTS = HERE / "fixtures" / "local" / "drafts"
 JOURNALS = HERE / "fixtures" / "local" / "journal"
-DEFAULT_SSH_ROOT = "/data/rbr-heating/events"
 
 
 def _run(command):
@@ -43,14 +42,6 @@ def _source_kind(source: str):
         return "bundle", path, None
     if source.endswith(".jsonl"):
         return "journal", path, None
-    if ":" in source:
-        host, root = source.split(":", 1)
-        # `user@host:/path` (or host:/path) is explicit; a bare user@host
-        # means the standard journal root on that host.
-        if root.startswith("/") and "/" not in host:
-            return "ssh", host, root
-    if "@" in source:
-        return "ssh", source, DEFAULT_SSH_ROOT
     return "root", path, None
 
 
@@ -70,20 +61,18 @@ def _manifest_day(bundle_path: pathlib.Path | None) -> str | None:
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", required=True,
-                        help="bundle, .jsonl, local journal root, user@host, or user@host:/journal-root")
-    parser.add_argument("--day", help="journal day (YYYY-MM-DD); required for a root or SSH source")
+                        help="bundle, .jsonl, or local journal root")
+    parser.add_argument("--day", help="journal day (YYYY-MM-DD); required for a local root")
     parser.add_argument("--from", dest="start", help="window start (HH:MM or ISO)")
     parser.add_argument("--to", dest="end", help="window end (HH:MM or ISO)")
     parser.add_argument("--name", help="scenario name")
     parser.add_argument("--group", default="Journal", help="library group (default: Journal)")
     parser.add_argument("--timezone", default="Europe/London")
     parser.add_argument("--map", help="base map for a raw journal without snapshots")
-    parser.add_argument("--ssh-key", help="private key passed to journal_import.py")
-    parser.add_argument("--ssh-bin", default="ssh", help="ssh executable passed to journal_import.py")
     parser.add_argument("--no-add", action="store_true", help="generate the draft but do not add it to the library")
     args = parser.parse_args(argv)
 
-    kind, one, two = _source_kind(args.source)
+    kind, one, _ = _source_kind(args.source)
     bundle = None
     if kind == "bundle":
         bundle = one
@@ -92,29 +81,21 @@ def main(argv=None):
         day = args.day or pathlib.Path(one).stem
     else:
         if not args.day:
-            raise SystemExit("journal_ingest.py: --day is required for a root or SSH source")
+            raise SystemExit("journal_ingest.py: --day is required for a local journal root")
         day = args.day
 
     name = args.name or f"Journal {day or ''}".strip()
     if args.start or args.end:
         name += f" {args.start or 'start'}-{args.end or 'end'}"
 
-    if kind in ("root", "ssh"):
+    if kind == "root":
         # A day bundle is a cache, not a source of truth: always refresh it.
         # Reusing an existing directory made a second Import journal return the
         # events downloaded before the window had happened.
         bundle = JOURNALS / f"{day}"
-        if kind == "root":
-            _run([sys.executable, str(HERE / "journal_import.py"),
-                  "--source", str(pathlib.Path(one).expanduser()), "--day", day,
-                  "--dest", str(bundle), "--force"])
-        else:
-            command = [sys.executable, str(HERE / "journal_import.py"),
-                       "--ssh", one, "--ssh-root", two, "--day", day,
-                       "--dest", str(bundle), "--ssh-bin", args.ssh_bin, "--force"]
-            if args.ssh_key:
-                command += ["--ssh-key", args.ssh_key]
-            _run(command)
+        _run([sys.executable, str(HERE / "journal_import.py"),
+              "--source", str(pathlib.Path(one).expanduser()), "--day", day,
+              "--dest", str(bundle), "--force"])
 
     DRAFTS.mkdir(parents=True, exist_ok=True)
     draft = DRAFTS / f"journal-{day or 'unknown'}-{(args.start or 'start').replace(':','')}-{(args.end or 'end').replace(':','')}.json"

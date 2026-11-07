@@ -40,6 +40,7 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `journal-export-config.json` | The daily journal email toggle and optional recipient; written by `rbr-setup.sh` | live data |
 | `<journal-root>/` | Daily event files and content-addressed map snapshots; delete old days freely | live data |
 | `<journal-root>/exports/` | Daily `.tar.gz` bundles for RBR Studio and statistics; includes the day's heatlog CSVs under `reports/heatlog/`, newest 14 kept by default | live data |
+| `<journal-root>/exports/requests/` | Partial bundles requested from the PWA's **Send journal now** action; newest 14 kept by default | live data |
 | `volatile-root` | One line: the directory holding the regenerable files below. `rbr-setup.sh` writes `/run/rbr`, which is a tmpfs and is emptied on every reboot. With no such file the paths stay plain names in this directory (what a test machine gets) | generated |
 | `thermometers.json` | Temperature readings — created on first run. In the volatile directory | volatile |
 | `zigbee-temperatures.json` | Zigbee readings written by the bridge, merged by the controller. In the volatile directory | volatile |

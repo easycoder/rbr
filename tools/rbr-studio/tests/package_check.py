@@ -66,15 +66,20 @@ class PackageTests(unittest.TestCase):
             result = subprocess.run([
                 sys.executable, str(STUDIO / "configure-studio.py"),
                 "--config", str(config), "--local-dir", str(local),
-                "--inbox", str(inbox), "--no-prompt",
+                "--inbox", str(inbox), "--system", "00:e0:27:5b:31:40=Home",
+                "--no-prompt",
             ], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(config.read_text(encoding="utf-8"))
             self.assertEqual(data["journalInbox"], str(inbox.absolute()))
+            self.assertEqual(data["systems"]["00:e0:27:5b:31:40"], "Home")
             self.assertTrue((local / "journal").is_dir())
             self.assertTrue(inbox.is_dir())
+            self.assertTrue((inbox / "00:e0:27:5b:31:40").is_dir())
             self.assertEqual(journal_inbox.resolve_inbox(
                 pointer=root / "missing", config=config), inbox.absolute())
+            self.assertEqual(journal_inbox.config_systems(config),
+                             {"00:e0:27:5b:31:40": "Home"})
 
     def test_explicit_inbox_wins_over_config(self):
         with tempfile.TemporaryDirectory(prefix="rbr-studio-config-") as tmp:

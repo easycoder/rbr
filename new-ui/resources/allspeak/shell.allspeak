@@ -54,12 +54,17 @@
 	button MenuRowDevices
 	button MenuRowOutside
 	button MenuRowBackups
+	button MenuRowJournal
 	div BackupSheetEl
 	div BackupEmailEl
 	div BackupLastEl
 	div BackupNoticeEl
 	button BackupToggleBtn
 	button BackupSendBtn
+	div JournalSheetEl
+	div JournalEmailEl
+	div JournalNoticeEl
+	button JournalSendBtn
 !	Owned by the profile-sheet module — declared here so HideAllSheets can
 !	hide it. The module attaches it independently for its own toggling.
 	div ProfileSheetEl
@@ -421,6 +426,8 @@
 	variable BackupError
 	variable BackupSheetOpen
 	variable AccountEmail
+	variable JournalSheetWebson
+	variable JournalSheetOpen
 
 !	Demand-relay state. RequestRelay holds the current map.request value;
 !	the in-flight editing value lives in the device-editor module while
@@ -455,7 +462,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash 1160f1f5
+!! @hash b886614a
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -697,7 +704,7 @@ NoCredentialsFile:
 !	left to retry.
 	fork to FirstMapWatchdog
 	stop
-!! @hash ce4dbdab
+!! @hash 68e427eb
 !!!
 !! First-render path: fired by `on mqtt connect`. Sets the Prompt to `first` so the controller sends a full map (rather than the empty-payload heartbeat used for refreshes), then forks a watchdog and parks.
 !!
@@ -707,7 +714,7 @@ Connected:
 	clear FirstMapDone
 	gosub to RequestMap
 	stop
-!! @hash 188df672
+!! @hash 95471428
 !!!
 !! Forked watchdog, armed as soon as the MQTT client is registered. Sleeps 30 seconds; if the first map still hasn't arrived, the MQTT subscription is almost certainly dead or never opened — force a full reload to rebuild the connection.
 !!
@@ -743,7 +750,7 @@ FirstMapWatchdog:
 		location the location
 		return
 	end
-!! @hash 4fe2712f
+!! @hash 9212e575
 !!!
 !! Send a single map request to the controller. Used both for the initial `first` push and the recurring `refresh` heartbeat — the action string is whatever Prompt happens to hold.
 !!
@@ -1148,6 +1155,16 @@ BuildHomeScreen:
 	attach BackupSendBtn to `backup-sheet-send`
 	on click BackupToggleBtn gosub to ToggleBackupEmail
 	on click BackupSendBtn gosub to SendBackupNow
+!	Journal sheet — send today's events up to now as an emailed bundle.
+	rest get JournalSheetWebson from `resources/webson/journal-sheet.json?v=` cat now
+		or go to LoadFailed
+	render JournalSheetWebson in SheetContent
+	attach JournalSheetEl to `journal-sheet`
+	set style `display` of JournalSheetEl to `none`
+	attach JournalEmailEl to `journal-sheet-email`
+	attach JournalNoticeEl to `journal-sheet-notice`
+	attach JournalSendBtn to `journal-sheet-send`
+	on click JournalSendBtn gosub to SendJournalNow
 !	ProfileSheet lives in its own module (profile-sheet.allspeak). It renders its
 !	sheet into the same sheet-content container, attaches its own DOM, and
 !	wires its own click handlers. Loaded below; the local ProfileSheetEl
@@ -1172,6 +1189,8 @@ BuildHomeScreen:
 	on click MenuRowOutside gosub to OpenOutsideSheet
 	attach MenuRowBackups to `menu-row-backups`
 	on click MenuRowBackups gosub to OpenBackupSheet
+	attach MenuRowJournal to `menu-row-journal`
+	on click MenuRowJournal gosub to OpenJournalSheet
 
 !	Hook up the top-bar menu button now that the sheet is ready.
 	attach MenuButton to `top-bar-menu-btn`
@@ -1355,7 +1374,7 @@ BuildHomeScreen:
 
 	clear BuildingHome
 	return
-!! @hash 4f6ae9af
+!! @hash 5884e175
 !!!
 !! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
 !!
@@ -1574,8 +1593,10 @@ HideAllSheets:
 	if not SheetsReady return
 	clear SheetDirty
 	clear BackupSheetOpen
+	clear JournalSheetOpen
 	set style `display` of MenuSheetEl to `none`
 	set style `display` of BackupSheetEl to `none`
+	set style `display` of JournalSheetEl to `none`
 	set style `display` of ProfileSheetEl to `none`
 	set style `display` of ScheduleSheetEl to `none`
 	set style `display` of DeviceEditorSheetEl to `none`
@@ -1586,7 +1607,7 @@ HideAllSheets:
 	set style `display` of SpecialSheetEl to `none`
 	set style `display` of SpecialTimeSheetEl to `none`
 	return
-!! @hash 9b505db7
+!! @hash ef79ac0f
 !!!
 !! Wire every interactive element of a single room row. Called once per non-sensor row from the BuildHomeScreen render loop, with RoomIndex pre-set to the row being wired.
 !!
@@ -2047,7 +2068,7 @@ ChangeMode:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash fea795ee
+!! @hash 4756a9ca
 !!!
 !! Target steppers. StepTargetUp / StepTargetDown adjust by 0.5° (= 5 tenths) per tap, clamped to [50, 300] (= 5.0° to 30.0°). LoadTargetTenths reads Room.target into TargetT; WriteTargetTenths persists it back to Room.target and ships an "Operating Mode" with the current mode + new target. Boost-active edits additionally resend the boost duration so the controller's `until` is preserved.
 !!
@@ -2119,7 +2140,7 @@ WriteTargetTenths:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash 936acece
+!! @hash 216fd199
 !!!
 !! Commit a Boost. The user has tapped a duration button (30 min / 1 hr / 2 hr) inside the configuring panel, or while a boost is already active (to replace the running duration).
 !!
@@ -2168,7 +2189,7 @@ ApplyBoost:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash 9f654a69
+!! @hash 8ba95224
 !!!
 !! The Boost panel's "Off" duration button. Two cases:
 !!
@@ -2216,7 +2237,7 @@ BoostOffTapped:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash 6518b52f
+!! @hash 5867dfc3
 !!!
 !! Toggle the Advance state for the current room. Optimistic local flip, reproject from the local map, then ship the new desired state in an "Operating Mode" uirequest.
 !!
@@ -2271,7 +2292,7 @@ ToggleAdvance:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash 7fe8a33e
+!! @hash c243f4e4
 !!!
 !! Mirror the locally-mutated Room (RoomsList[ClickIndex]) back into Map.profiles[CurrentProfile].rooms[room name], translating new-UI fields (Title-case mode, Boost-as-peer-mode overlay) into the controller's form.
 !!
@@ -2406,7 +2427,7 @@ OpenProfileSheet:
 	end
 	gosub to FlushPendingMap
 	return
-!! @hash 80e9688c
+!! @hash 808cb19f
 !!!
 !! Open the schedule editor for the room at ClickIndex. The schedule-editor.allspeak module owns the sheet's DOM and logic; we just ship the open-payload and park on the reply.
 !!
@@ -2437,7 +2458,7 @@ OpenScheduleEditor:
 	end
 	gosub to FlushPendingMap
 	return
-!! @hash 21f7d0e3
+!! @hash 97811628
 !!!
 !! Open the read-only room-info sheet for the room at ClickIndex. Shows the current readings (relay, temperature, humidity, battery, last-report age) and stays open across map refreshes — RefreshHomeScreen detects InfoSheetOpen and calls PaintInfoSheet to update the values in place.
 OpenInfoSheet:
@@ -2451,7 +2472,7 @@ OpenInfoSheet:
 	set InfoSheetOpen
 	gosub to OpenSheet
 	return
-!! @hash 413b2fe9
+!! @hash b6ead1d3
 !!!
 !! Close the info sheet and clear InfoSheetOpen so RefreshHomeScreen stops repainting it.
 CloseInfoSheet:
@@ -2541,7 +2562,7 @@ OpenSpecialSheet:
 	set the content of SheetTitleEl to `Special actions`
 	gosub to OpenSheet
 	return
-!! @hash 70dd4704
+!! @hash 82f5f886
 !!!
 !! Fill the sheet's subtitles for the room at ClickIndex, and reveal the Cancel-the-override
 !! row only when something is actually armed.
@@ -2664,7 +2685,7 @@ ArmSpecialOverride:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash 6a1c3e33
+!! @hash a4fad4e0
 !!!
 !! Withdraw the room's override — from the expansion's Cancel button or the sheet's row.
 ClearSpecialOverride:
@@ -2687,7 +2708,7 @@ ClearSpecialOverride:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash 01fe44e5
+!! @hash d82d8dfa
 !!!
 !! Open the system type & name sheet from the menu's "System" row.
 !!
@@ -2704,7 +2725,7 @@ OpenSystemSheet:
 	set the content of SheetTitleEl to `System type & name`
 	gosub to OpenSheet
 	return
-!! @hash e11582d7
+!! @hash 04506dc0
 !!!
 !! Paint and activation helpers for the Boiler / Heat Pump type pill. Reset blanks both pills; Activate<X> applies the lit look (card background, drop shadow, weight 600) to the matching pill.
 PaintSystemSheetType:
@@ -2759,7 +2780,7 @@ SaveSystemSheet:
 	gosub to PostUiRequest
 	gosub to CloseSheet
 	return
-!! @hash 68cd9583
+!! @hash 3a63e275
 !!!
 !! Open the Backups sheet from the menu's Backups row.
 !!
@@ -2773,7 +2794,7 @@ OpenBackupSheet:
 	set the content of SheetTitleEl to `Backups`
 	gosub to OpenSheet
 	return
-!! @hash baf5e9df
+!! @hash 98ffa13e
 !!!
 !! Paint the Backups sheet from Map.backup.
 !!
@@ -2836,7 +2857,7 @@ ToggleBackupEmail:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash 408d3749
+!! @hash 97ddccee
 !!!
 !! Ask the controller for an immediate backup.
 !!
@@ -2852,8 +2873,44 @@ SendBackupNow:
 	if BackupTo is empty set the content of BackupNoticeEl to `Backup started. It will be saved on the controller; no registered address is known for email.`
 	else set the content of BackupNoticeEl to `Backup started. It will be emailed to ` cat BackupTo
 	return
-!! @hash 880718ce
+!! @hash 288070f2
 !!!
+!! Open the Journal sheet from the menu's Send journal now row.
+!!
+!! The controller exports today's journal up to the moment of the request and emails the bundle. The sheet only shows the registered address and a notice; the export runs on the controller, so it does not wait for a map reply.
+OpenJournalSheet:
+	if not SheetsReady return
+	if AccountEmail is empty set the content of JournalEmailEl to `Registered address not known yet`
+	else set the content of JournalEmailEl to `To ` cat AccountEmail
+	set the content of JournalNoticeEl to `The export runs on the controller; the bundle covers the day up to the moment you tap.`
+	gosub to HideAllSheets
+	set JournalSheetOpen
+	set style `display` of JournalSheetEl to `block`
+	set the content of SheetTitleEl to `Journal`
+	gosub to OpenSheet
+	return
+!! @hash 0485f5b2
+!! @verified 0485f5b2
+!!!
+
+!! Ask the controller for today's journal bundle up to now.
+!!
+!! The export is background work on the controller: it flushes the pending journal, writes a partial bundle and emails it. The sheet reports the request and stays open; there is no reply to wait for.
+SendJournalNow:
+	put `{}` into Result
+	set property `Action` of Result to `Journal Now`
+	set GestureScreen to `journal`
+	set GestureControl to `send-journal`
+	set GestureGesture to `tap`
+	set GesturePending
+	gosub to PostUiRequest
+	if AccountEmail is empty set the content of JournalNoticeEl to `Journal request sent. The controller will email it if a mail address is configured.`
+	else set the content of JournalNoticeEl to `Journal request sent to ` cat AccountEmail cat `. The bundle covers today up to the moment of the request.`
+	return
+!! @hash 8709919e
+!! @verified 8709919e
+!!!
+
 !! Open the Outside thermometer + frost protection sheet from the menu's Outside row.
 !!
 !! The outside thermometer is the room in the shared room list with empty relays — one identity record, not a slot in every profile. Its `sensor`, `protect` and `ptemp` are written once, by name, when the sheet is saved. FrostActive (used by the summary card) is derived per refresh from the controller's `frostActive` flag if present, else computed locally (outside temp ≤ trigger AND no rooms calling).
@@ -2870,7 +2927,7 @@ OpenOutsideSheet:
 	set the content of SheetTitleEl to `Outside thermometer`
 	gosub to OpenSheet
 	return
-!! @hash 49a64a64
+!! @hash 3bc35662
 !!!
 !! Save the outside-sensor edits. The outside room is one room with one sensor and one frost trigger — identity, not schedule — so the edit is written once, by name, into Map.rooms. It used to be fanned across a slot in every profile, which is the duplication the shared room list removes.
 !!
@@ -2923,7 +2980,7 @@ SaveOutsideSheet:
 	put EditingFrostTrigger into FrostTrigger
 	gosub to CloseSheet
 	return
-!! @hash dfa75679
+!! @hash 81c8eb4b
 !!!
 !! Open the device editor for room + device configuration. The device-editor.allspeak module owns the sheet's DOM and logic; we just ship the open-payload and park on the reply.
 !!
@@ -2979,7 +3036,7 @@ OpenDeviceEditor:
 	end
 	gosub to FlushPendingMap
 	return
-!! @hash 700f0577
+!! @hash eacfd06c
 !!!
 !! Panic-button handler for stranded credentials. Wipes the stored MAC and reloads — useful when a typo has stranded the page on connect.
 !!
@@ -3177,7 +3234,7 @@ PostUiRequest:
 		put 0 into ConsecutiveSendFailures
 	end
 	return
-!! @hash 3e399f34
+!! @hash 23aa8c9d
 !!!
 !! Build and ship an `Update Profiles` uirequest. Callers set the four Payload* inputs first: PayloadProfiles (the profiles array), PayloadActiveProfileIdx (the active profile index), PayloadCalendarOnFlag (set/cleared), and PayloadCalendarData (the calendar-data array, or empty to omit).
 !!
@@ -3199,7 +3256,7 @@ SendUpdateProfiles:
 	if PayloadCalendarData is not empty set property `calendar-data` of Result to PayloadCalendarData
 	gosub to PostUiRequest
 	return
-!! @hash 19fd8d43
+!! @hash ded9de18
 !!!
 !! Per-room post-change repaint. Called from every interactive change handler (ChangeMode, WriteTargetTenths, ApplyBoost, BoostOffTapped, ToggleAdvance) after the local Room dict has been mutated.
 !!
@@ -3400,7 +3457,7 @@ PaintSummary:
 		set style `display` of SummaryDot to `block`
 	end
 	return
-!! @hash 08ff7a9b
+!! @hash c76b663e
 !!!
 !! Build today's date and the current time as "Tue 20 Oct 09:19" into TempStr. Uses DayNames / MonthNames lookup tables built once during synchronous startup, and the browser's own date keywords — this runtime has no `datime` — so ClockTick can refresh it between map pushes. Both time fields are zero-padded.
 FormatTodayString:

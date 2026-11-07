@@ -3,6 +3,7 @@
 #
 #   ./run-studio.sh                 # first run prompts for the journal inbox
 #   ./run-studio.sh --inbox DIR     # set the inbox and start
+#   ./run-studio.sh --system 00:e0:27:5b:31:40=Home  # name a system; repeatable
 #   ./run-studio.sh --setup-only    # install and configure, do not open the window
 #   ./run-studio.sh --no-install    # use the existing .venv; do not pip install
 #
@@ -18,11 +19,17 @@ cd "$HERE"
 INBOX=""
 SETUP_ONLY=0
 INSTALL=1
+SYSTEM_ARGS=()
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --inbox)
             [[ $# -ge 2 ]] || { echo "run-studio.sh: --inbox needs a folder" >&2; exit 2; }
             INBOX="$2"
+            shift 2
+            ;;
+        --system)
+            [[ $# -ge 2 ]] || { echo "run-studio.sh: --system needs MAC=Name" >&2; exit 2; }
+            SYSTEM_ARGS+=(--system "$2")
             shift 2
             ;;
         --setup-only) SETUP_ONLY=1; shift ;;
@@ -86,11 +93,11 @@ if ! venv_current; then
 fi
 
 if [[ -n "$INBOX" ]]; then
-    .venv/bin/python configure-studio.py --inbox "$INBOX"
+    .venv/bin/python configure-studio.py --inbox "$INBOX" ${SYSTEM_ARGS[@]+"${SYSTEM_ARGS[@]}"}
 elif [[ -f studio-config.json ]]; then
-    .venv/bin/python configure-studio.py --ensure --no-prompt
+    .venv/bin/python configure-studio.py --ensure --no-prompt ${SYSTEM_ARGS[@]+"${SYSTEM_ARGS[@]}"}
 else
-    .venv/bin/python configure-studio.py --ensure
+    .venv/bin/python configure-studio.py --ensure ${SYSTEM_ARGS[@]+"${SYSTEM_ARGS[@]}"}
 fi
 
 if (( SETUP_ONLY )); then

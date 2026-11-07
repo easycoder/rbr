@@ -1,0 +1,79 @@
+{
+    "#doc": "Journal sheet — send the current day's event journal, up to the moment of the tap, as an emailed bundle. Opened from the menu's Send journal now row.",
+    "#element": "div",
+    "@id": "journal-sheet",
+    "#": ["$Intro", "$Card", "$Send", "$Notice"],
+
+    "$Intro": {
+        "#element": "div",
+        "margin-top": "2px",
+        "font-size": "13px",
+        "font-weight": "400",
+        "line-height": "1.45",
+        "color": "var(--color-text-secondary)",
+        "#content": "Bundle today's events up to now and email them. The bundle carries the event journal, map snapshots and the day's heating CSVs, so a bug report can include the evidence without SSH or a file copy."
+    },
+
+    "$Card": {
+        "#element": "div",
+        "margin-top": "14px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "14px",
+        "overflow": "hidden",
+        "#": ["$EmailRow"],
+
+        "$EmailRow": {
+            "#element": "div",
+            "padding": "14px",
+            "display": "flex",
+            "flex-direction": "column",
+            "gap": "2px",
+
+            "$EmailLabel": {
+                "#element": "div",
+                "font-size": "12px",
+                "font-weight": "500",
+                "color": "var(--color-text-meta)",
+                "text-transform": "uppercase",
+                "letter-spacing": "var(--type-section-label-track)",
+                "#content": "Send to"
+            },
+            "$EmailValue": {
+                "#element": "div",
+                "@id": "journal-sheet-email",
+                "font-size": "14px",
+                "font-weight": "400",
+                "color": "var(--color-text-primary)",
+                "#content": "Registered address"
+            }
+        }
+    },
+
+    "$Send": {
+        "#element": "button",
+        "@id": "journal-sheet-send",
+        "width": "100%",
+        "margin-top": "14px",
+        "padding": "12px",
+        "border-radius": "12px",
+        "background": "var(--color-surface-card)",
+        "border": "1px solid var(--color-border-hairline)",
+        "cursor": "pointer",
+        "font-family": "inherit",
+        "font-size": "14px",
+        "font-weight": "500",
+        "color": "var(--color-text-primary)",
+        "#content": "Send today's journal now"
+    },
+
+    "$Notice": {
+        "#element": "div",
+        "@id": "journal-sheet-notice",
+        "margin-top": "12px",
+        "font-size": "12px",
+        "font-weight": "400",
+        "line-height": "1.4",
+        "color": "var(--color-text-muted)",
+        "#content": "The export runs on the controller; the bundle covers the day up to that moment."
+    }
+}

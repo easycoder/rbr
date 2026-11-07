@@ -233,7 +233,7 @@ dictionary StudioSettings
 variable SettingsText
 variable SavedGroup
 variable SavedScenario
-variable SavedSSH
+variable SavedSource
 variable SavedDay
 variable SavedRange
 variable WindowX
@@ -505,7 +505,7 @@ LoadStudioSettings:
     put 800 into WindowH
     put empty into SavedGroup
     put empty into SavedScenario
-    put empty into SavedSSH
+    put empty into SavedSource
     put empty into SavedDay
     put empty into SavedRange
     if file `fixtures/local/studio-settings.json` exists
@@ -518,13 +518,13 @@ LoadStudioSettings:
         if StudioSettings has entry `height` put entry `height` of StudioSettings into WindowH
         if StudioSettings has entry `group` put entry `group` of StudioSettings into SavedGroup
         if StudioSettings has entry `scenario` put entry `scenario` of StudioSettings into SavedScenario
-        if StudioSettings has entry `ssh` put entry `ssh` of StudioSettings into SavedSSH
+        if StudioSettings has entry `source` put entry `source` of StudioSettings into SavedSource
         if StudioSettings has entry `day` put entry `day` of StudioSettings into SavedDay
         if StudioSettings has entry `range` put entry `range` of StudioSettings into SavedRange
     end
     return
-!! @hash a8cbb1b1
-!! @verified
+!! @hash 7a028803
+!! @verified 7a028803
 !!!
 
 !! Restore the saved group, scenario and journal prompts after the lists exist.
@@ -545,12 +545,12 @@ RestoreStudioSettings:
         put `fixtures/local/scenarios/examples/advance-at-15-00.json` into ScenarioPath
         if file ScenarioPath does not exist put `docs/examples/advance.json` into ScenarioPath
     end
-    if SavedSSH is not empty put SavedSSH into JournalSource
+    if SavedSource is not empty put SavedSource into JournalSource
     if SavedDay is not empty put SavedDay into JournalDay
     if SavedRange is not empty put SavedRange into JournalRange
     return
-!! @hash 76f9bd5d
-!! @verified
+!! @hash cec83c0b
+!! @verified cec83c0b
 !!!
 
 !! Load the scenario file and seed the table from its steps.
@@ -1345,7 +1345,7 @@ RefresherDone:
 
 !! Ask for a journal source, day and window, then import it into the library.
 !!
-!! The source may be a bundle, a raw day, a local journal root, or user@host:/journal-root. The actual import, conversion and library update are one Python helper (`journal_ingest.py`); this handler only gathers the three values and follows the helper's SCENARIO_PATH line. The helper uses the operating system's SSH client and key, so no SSH secret is stored in the Studio or in the controller's credentials file.
+!! The source may be a bundle, a raw day, or a local journal root. The actual import, conversion and library update are one Python helper (`journal_ingest.py`); this handler only gathers the three values and follows the helper's SCENARIO_PATH line. Nothing here needs a network connection to the controller.
 JournalClicked:
     if Running
     begin
@@ -1373,7 +1373,7 @@ JournalClicked:
         append `Runner venv missing: run the setup in tools/rbr-studio/README.md.` to Log
         return
     end
-    create JournalSourceDlg on Win type lineedit title `Import journal` prompt `Bundle, .jsonl, local root, user@host, or user@host:/root` value JournalSource
+    create JournalSourceDlg on Win type lineedit title `Import journal` prompt `Bundle, .jsonl, or local journal root` value JournalSource
     show JournalSourceDlg
     put JournalSourceDlg into JournalSource
     if JournalSource is empty return
@@ -1413,7 +1413,8 @@ JournalClicked:
     put empty into JournalPath
     start Journaler command Command
     return
-!! @hash 4d8327e0
+!! @hash 1f8f5534
+!! @verified 1f8f5534
 !!!
 !! Track the helper's output and remember the scenario path it reports.
 JournalerLine:
@@ -2187,13 +2188,13 @@ SaveStudioSettings:
     set entry `height` of StudioSettings to the height of Win
     if CurrentGroup is not empty set entry `group` of StudioSettings to CurrentGroup
     if ScenarioPath is not empty set entry `scenario` of StudioSettings to ScenarioPath
-    set entry `ssh` of StudioSettings to JournalSource
+    set entry `source` of StudioSettings to JournalSource
     set entry `day` of StudioSettings to JournalDay
     set entry `range` of StudioSettings to JournalRange
     save StudioSettings to `fixtures/local/studio-settings.json`
     return
-!! @hash 0f4817f1
-!! @verified
+!! @hash b402cdeb
+!! @verified b402cdeb
 !!!
 
 !! Close the Studio; the close handler writes the settings before the window goes.

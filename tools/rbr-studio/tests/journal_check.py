@@ -5,15 +5,13 @@ Run directly:
     python3 tools/rbr-studio/tests/journal_check.py
 
 Only stdlib is used. The fixtures are synthetic; no controller or network is
-needed, and the SSH test uses a fake `ssh` executable on the temporary PATH.
+needed.
 """
 
 import datetime as dt
 import hashlib
 import json
-import os
 import pathlib
-import stat
 import subprocess
 import sys
 import tempfile
@@ -217,11 +215,12 @@ class JournalToolsTests(unittest.TestCase):
     def test_mail_inbox_imports_each_bundle_once(self):
         bundle = pathlib.Path(self._tmp.name) / "mail-bundle"
         inbox = pathlib.Path(self._tmp.name) / "inbox"
-        inbox.mkdir()
-        archive = inbox / f"Test-{DAY}.tar.gz"
+        system_dir = inbox / "00:e0:27:5b:31:40"
+        system_dir.mkdir(parents=True)
+        archive = system_dir / f"Test-{DAY}.tar.gz"
         run("journal_import.py", "--source", str(self.root), "--day", DAY,
-            "--heatlog-root", str(self.heatlog), "--dest", str(bundle),
-            "--archive", str(archive))
+            "--mac", "00:e0:27:5b:31:40", "--heatlog-root", str(self.heatlog),
+            "--dest", str(bundle), "--archive", str(archive))
         local = pathlib.Path(self._tmp.name) / "fixtures" / "local"
         scenarios = local / "scenarios"
         old = (scenario_library.LOCAL, scenario_library.SCENARIOS,
@@ -237,25 +236,31 @@ class JournalToolsTests(unittest.TestCase):
         drafts = pathlib.Path(self._tmp.name) / "drafts"
         state = journal_dir / "inbox-seen.json"
         try:
+            systems = {"00:e0:27:5b:31:40": "Home"}
             handled = journal_inbox.scan(inbox=inbox, journal_dir=journal_dir,
-                                         drafts_dir=drafts, state_path=state, quiet=True)
+                                         drafts_dir=drafts, state_path=state,
+                                         systems=systems, quiet=True)
             self.assertEqual([row["day"] for row in handled], [DAY])
-            self.assertTrue((journal_dir / f"test-{DAY}" / "manifest.json").is_file())
-            self.assertTrue((journal_dir / f"test-{DAY}" / "reports" / "heatlog" /
+            self.assertEqual(handled[0]["name"], "Home")
+            self.assertEqual(handled[0]["mac"], "00:e0:27:5b:31:40")
+            target = journal_dir / f"00-e0-27-5b-31-40-{DAY}"
+            self.assertTrue((target / "manifest.json").is_file())
+            self.assertTrue((target / "reports" / "heatlog" /
                              "Kitchen" / "2026" / "11" / f"{DAY[-2:]}.csv").is_file())
             index = scenario_library.load_index()
             entry = next(item for item in index["scenarios"] if item["group"] == "Journal")
+            self.assertEqual(entry["name"], f"Journal {DAY} — Home")
             self.assertTrue((scenarios / entry["path"]).is_file())
             # An unchanged inbox is a no-op, and the filter's own file stays put.
             self.assertEqual(journal_inbox.scan(inbox=inbox, journal_dir=journal_dir,
                                                 drafts_dir=drafts, state_path=state,
-                                                quiet=True), [])
+                                                systems=systems, quiet=True), [])
             self.assertTrue(archive.is_file())
             # Losing the state file must not duplicate a day already on disk.
             state.unlink()
             self.assertEqual(journal_inbox.scan(inbox=inbox, journal_dir=journal_dir,
                                                 drafts_dir=drafts, state_path=state,
-                                                quiet=True), [])
+                                                systems=systems, quiet=True), [])
             index = scenario_library.load_index()
             self.assertEqual(len([item for item in index["scenarios"]
                                   if item["group"] == "Journal"]), 1)
@@ -263,6 +268,31 @@ class JournalToolsTests(unittest.TestCase):
             (scenario_library.LOCAL, scenario_library.SCENARIOS,
              scenario_library.TRASH, scenario_library.INDEX,
              scenario_library.SEED_FLAG, scenario_library.EXAMPLES) = old
+
+    def test_partial_bundle_gets_its_own_key_and_name(self):
+        systems = {"00:e0:27:5b:31:40": "Home"}
+        full = {"day": "2026-11-06", "mac": "00:e0:27:5b:31:40", "system": "Test"}
+        partial = {"day": "2026-11-06", "mac": "00:e0:27:5b:31:40",
+                   "system": "Test", "partial": True, "label": "12:34:56"}
+        self.assertEqual(journal_inbox._system_identity(full, systems)[3],
+                         "00-e0-27-5b-31-40")
+        self.assertEqual(journal_inbox._system_identity(partial, systems)[3],
+                         "00-e0-27-5b-31-40-12-34-56")
+        self.assertEqual(journal_inbox._scenario_name(partial, systems),
+                         "Journal 2026-11-06 — Home 12:34:56")
+
+        journal_dir = pathlib.Path(self._tmp.name) / "partial-journal"
+        for name, data in (("full", full), ("partial", partial)):
+            directory = journal_dir / name
+            directory.mkdir(parents=True)
+            (directory / "manifest.json").write_text(json.dumps(data), encoding="utf-8")
+        self.assertEqual(journal_inbox._existing_bundle(
+            journal_dir, "2026-11-06", "Test", "00:e0:27:5b:31:40"),
+            journal_dir / "full")
+        self.assertEqual(journal_inbox._existing_bundle(
+            journal_dir, "2026-11-06", "Test", "00:e0:27:5b:31:40",
+            partial=True, stamp="12:34:56"),
+            journal_dir / "partial")
 
     def test_mail_inbox_records_a_bad_archive_without_retrying(self):
         inbox = pathlib.Path(self._tmp.name) / "bad-inbox"
@@ -307,12 +337,9 @@ class JournalToolsTests(unittest.TestCase):
         self.assertEqual(scenario["clock"]["timeZone"], "Europe/London")
         prepare(out, REPO)
 
-    def test_bare_user_at_host_uses_the_default_ssh_root(self):
-        self.assertEqual(journal_ingest._source_kind("qed6@192.168.1.20"),
-                         ("ssh", "qed6@192.168.1.20", "/data/rbr-heating/events"))
-        self.assertEqual(journal_ingest._source_kind("qed6@host:/tmp/events"),
-                         ("ssh", "qed6@host", "/tmp/events"))
+    def test_source_kind_recognises_local_inputs(self):
         self.assertEqual(journal_ingest._source_kind("/data/rbr-heating/events")[0], "root")
+        self.assertEqual(journal_ingest._source_kind(str(self.root))[0], "root")
 
     def test_duplicate_and_rename_library_scenario(self):
         with tempfile.TemporaryDirectory(prefix="rbr-library-edit-") as tmp:
@@ -346,39 +373,6 @@ class JournalToolsTests(unittest.TestCase):
                  scenario_library.TRASH, scenario_library.INDEX,
                  scenario_library.SEED_FLAG, scenario_library.EXAMPLES) = old
 
-    def test_ingest_ssh_source_passes_host_and_root_in_the_right_order(self):
-        fake = pathlib.Path(self._tmp.name) / "ssh"
-        fake.write_text(
-            "#!/usr/bin/env python3\n"
-            "import shlex, sys\n"
-            "command = sys.argv[-1]\n"
-            "if not command.startswith('cat '):\n"
-            "    sys.exit('unexpected command: ' + command)\n"
-            "path = shlex.split(command)[1]\n"
-            "sys.stdout.buffer.write(open(path, 'rb').read())\n",
-            encoding="utf-8")
-        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
-        old_drafts, old_journals = journal_ingest.DRAFTS, journal_ingest.JOURNALS
-        old_root = journal_ingest.DEFAULT_SSH_ROOT
-        journal_ingest.DRAFTS = pathlib.Path(self._tmp.name) / "ssh-drafts"
-        journal_ingest.JOURNALS = pathlib.Path(self._tmp.name) / "ssh-journals"
-        journal_ingest.DEFAULT_SSH_ROOT = str(self.root)
-        journal_ingest.DRAFTS.mkdir()
-        stale = journal_ingest.JOURNALS / DAY
-        stale.mkdir(parents=True)
-        (stale / "manifest.json").write_text(json.dumps({"day": DAY, "events": 1}), encoding="utf-8")
-        try:
-            self.assertEqual(journal_ingest.main([
-                "--source", "test@example", "--day", DAY, "--no-add",
-                "--ssh-bin", str(fake)]), 0)
-        finally:
-            journal_ingest.DRAFTS, journal_ingest.JOURNALS = old_drafts, old_journals
-            journal_ingest.DEFAULT_SSH_ROOT = old_root
-        refreshed = json.loads((pathlib.Path(self._tmp.name) / "ssh-journals" / DAY / "manifest.json").read_text())
-        self.assertEqual(refreshed["events"], 8)
-        drafts = list((pathlib.Path(self._tmp.name) / "ssh-drafts").glob("*.json"))
-        self.assertEqual(len(drafts), 1, drafts)
-
     def test_ingest_helper_generates_a_draft_without_touching_the_library(self):
         bundle = pathlib.Path(self._tmp.name) / "bundle"
         run("journal_import.py", "--source", str(self.root), "--day", DAY,
@@ -396,25 +390,6 @@ class JournalToolsTests(unittest.TestCase):
         self.assertEqual(len(drafts), 1, drafts)
         scenario = json.loads(drafts[0].read_text())
         self.assertGreaterEqual(len(scenario["steps"]), 2)
-
-    def test_ssh_import_with_fake_ssh(self):
-        fake = pathlib.Path(self._tmp.name) / "ssh"
-        fake.write_text(
-            "#!/usr/bin/env python3\n"
-            "import shlex, sys\n"
-            "command = sys.argv[-1]\n"
-            "if not command.startswith('cat '):\n"
-            "    sys.exit('unexpected command: ' + command)\n"
-            "path = shlex.split(command)[1]\n"
-            "sys.stdout.buffer.write(open(path, 'rb').read())\n",
-            encoding="utf-8")
-        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
-        bundle = pathlib.Path(self._tmp.name) / "ssh-bundle"
-        run("journal_import.py", "--ssh", "test@example", "--ssh-root", str(self.root),
-            "--ssh-bin", str(fake), "--day", DAY, "--dest", str(bundle))
-        manifest = json.loads((bundle / "manifest.json").read_text())
-        self.assertEqual(manifest["events"], 8)
-        self.assertTrue(manifest["source"].startswith("ssh:test@example:"))
 
     def test_raw_journal_with_explicit_map(self):
         map_path = pathlib.Path(self._tmp.name) / "map.json"

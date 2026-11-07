@@ -123,6 +123,47 @@ class ExportTests(unittest.TestCase):
         self.assertFalse(first.exists())
         self.assertTrue(second.exists())
 
+    def test_now_exports_a_partial_bundle_into_the_requests_folder(self):
+        today = dt.date.today()
+        day_dir = self.root / f"{today.year:04d}" / f"{today.month:02d}"
+        day_dir.mkdir(parents=True, exist_ok=True)
+        source = self.root / "2026" / "11" / "2026-11-06.jsonl"
+        target = day_dir / f"{today.isoformat()}.jsonl"
+        target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+        status = journal_export.main([
+            "--root", str(self.root), "--now", "--no-email", "--dir", str(self.rbr_dir),
+            "--quiet",
+        ])
+        self.assertEqual(status, 0)
+        archives = list((self.root / "exports" / "requests").glob("*.tar.gz"))
+        self.assertEqual(len(archives), 1, archives)
+        opened = journal_bundle.open_bundle(archives[0])
+        try:
+            self.assertTrue(opened.manifest["partial"])
+            self.assertRegex(opened.manifest["label"], r"^\d{2}:\d{2}:\d{2}$")
+            self.assertEqual(opened.manifest["day"], today.isoformat())
+        finally:
+            opened.close()
+
+    def test_partial_now_bundle_is_labelled_and_subject_carries_the_time(self):
+        self.write_controller(None)
+        archive, manifest = journal_export.export_day(
+            self.root, self.day, self.out, partial=True, label="12:34:56",
+            requested_at="2026-11-06T12:34:56+00:00", mac="00:e0:27:5b:31:40")
+        self.assertTrue(archive.name.endswith("-123456.tar.gz"), archive.name)
+        self.assertTrue(manifest["partial"])
+        self.assertEqual(manifest["label"], "12:34:56")
+        self.assertEqual(manifest["requestedAt"], "2026-11-06T12:34:56+00:00")
+        with mock.patch.object(journal_export.rbr_mail, "fetch_cloud", return_value={}):
+            with mock.patch.object(journal_export.rbr_mail, "send_files",
+                                   return_value=(True, "")) as send:
+                journal_export.send_bundle(
+                    archive, manifest, {"address": "owner@example.com"},
+                    self.rbr_dir, quiet=True)
+        subject = send.call_args[0][2]
+        self.assertEqual(subject,
+                         "RBR journal 00:e0:27:5b:31:40 2026-11-06 12:34:56")
+
     def test_bundle_carries_the_day_heatlog_csvs(self):
         heatlog = pathlib.Path(self._tmp.name) / "heating-data"
         kitchen = heatlog / "Kitchen" / "2026" / "11"
@@ -184,17 +225,23 @@ class ExportTests(unittest.TestCase):
 
     def test_enabled_config_emails_the_exported_bundle(self):
         self.write_controller({"enabled": "yes", "address": "owner@example.com"})
+        (self.rbr_dir / ".mac_override").write_text("00:e0:27:5b:31:40\n", encoding="utf-8")
         status = self.run_export()
         self.assertEqual(status, 0)
         self.assertEqual(len(FakeSMTP.sent), 1)
         message = FakeSMTP.sent[0]
-        self.assertIn("RBR journal", message["Subject"])
+        self.assertEqual(message["Subject"], "RBR journal 00:e0:27:5b:31:40 2026-11-06")
         self.assertEqual(message["To"], "owner@example.com")
         attachments = list(message.iter_attachments())
         self.assertEqual(len(attachments), 1)
         self.assertTrue(attachments[0].get_filename().endswith(".tar.gz"))
         archive = next(self.out.glob("*.tar.gz"))
         self.assertEqual(attachments[0].get_content(), archive.read_bytes())
+        opened = journal_bundle.open_bundle(archive)
+        try:
+            self.assertEqual(opened.manifest["mac"], "00:e0:27:5b:31:40")
+        finally:
+            opened.close()
 
     def test_email_stays_off_without_an_enabled_config(self):
         self.write_controller(None)

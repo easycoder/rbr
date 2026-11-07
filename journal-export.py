@@ -16,8 +16,10 @@ The bundle also carries the day's heating CSVs when heat logging is enabled,
 so the same archive serves RBR Studio and the statistics role without a
 second transfer. The raw journal stays local until retention removes it. Email
 is opt-in through `journal-export-config.json` (see `load_config`), and
-`--email-now` sends one bundle regardless of that toggle. Run it as a systemd
-timer (see rbr-journal-export.timer) or by hand:
+`--email-now` sends one bundle regardless of that toggle. `--now` exports
+today's file as it stands, as a partial bundle under `exports/requests/`, for
+the PWA's **Send journal now** action. Run it as a systemd timer (see
+rbr-journal-export.timer) or by hand:
 
     python3 journal-export.py --day 2026-11-06
     python3 journal-export.py --day 2026-11-06 --mode full --out /tmp/exports
@@ -152,7 +154,8 @@ def heatlog_files(root, day):
 
 
 def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False,
-               heatlog_root=None):
+               heatlog_root=None, mac=None, partial=False, label=None,
+               requested_at=None):
     source = day_path(root, day)
     if not source.is_file():
         raise SystemExit(f"journal-export.py: no journal day at {source}")
@@ -166,7 +169,8 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False,
     system = session_data.get("system") or "rbr"
     out = pathlib.Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    archive = out / f"{_slug(system)}-{day.isoformat()}.tar.gz"
+    suffix = f"-{label.replace(':', '')}" if partial and label else ""
+    archive = out / f"{_slug(system)}-{day.isoformat()}{suffix}.tar.gz"
     if archive.exists() and not force:
         raise SystemExit(f"journal-export.py: {archive} exists (use --force)")
 
@@ -211,6 +215,10 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False,
             "createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
             "source": f"controller-export:{root}",
             "day": day.isoformat(),
+            "mac": mac,
+            "partial": bool(partial),
+            "label": label,
+            "requestedAt": requested_at,
             "events": len(events),
             "eventsBytes": day_file.stat().st_size,
             "eventsSha256": _sha(day_file),
@@ -297,9 +305,15 @@ def send_bundle(archive, manifest, config, rbr_dir, to="", smtp_port=0,
         to or config.get("address", ""), cloud, local)
     day = manifest.get("day") or "unknown day"
     system = manifest.get("system") or socket.gethostname()
-    subject = f"RBR journal — {day} — {system}"
+    mac = str(manifest.get("mac") or "").strip()
+    label = mac or system
+    partial = bool(manifest.get("partial"))
+    stamp = str(manifest.get("label") or "").strip()
+    suffix = f" {stamp}" if partial and stamp else ""
+    subject = f"RBR journal {label} {day}{suffix}"
     body = (
-        f"Attached is the Room By Room journal bundle for {day} ({system}).\n\n"
+        f"Attached is the Room By Room journal bundle for {day} ({system}, {mac or 'MAC unknown'})"
+        f"{', up to ' + stamp if partial and stamp else ''}.\n\n"
         f"{manifest.get('events', 0)} events, {len(manifest.get('maps') or [])} "
         f"map snapshot(s), {len(manifest.get('reports') or [])} heatlog CSV(s), "
         f"mode {manifest.get('mode') or 'scenario'}.\n\n"
@@ -322,7 +336,9 @@ def main(argv=None):
     parser.add_argument("--root", help="journal root (default: journal-root, then <heatlog-root>/events)")
     parser.add_argument("--heatlog-root", help="heating-CSV root (default: heatlog-root, then <root>/.. for an events root)")
     parser.add_argument("--day", help="day to export (YYYY-MM-DD; default: yesterday)")
-    parser.add_argument("--out", help="export directory (default: <root>/exports)")
+    parser.add_argument("--now", action="store_true",
+                        help="export today's journal up to this moment, as a partial bundle")
+    parser.add_argument("--out", help="export directory (default: <root>/exports, or <root>/exports/requests with --now)")
     parser.add_argument("--mode", choices=("scenario", "summary", "full"), default="scenario",
                         help="scenario drops unchanged sensor repeats; summary drops sensors; full keeps all")
     parser.add_argument("--keep", type=int, default=DEFAULT_KEEP,
@@ -342,18 +358,38 @@ def main(argv=None):
                         help=f"do not email bundles larger than this (0 disables; default: {DEFAULT_MAX_EMAIL_MB})")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
+    if args.now and args.day:
+        parser.error("--now and --day cannot be used together")
     root = resolve_root(args.root)
     heatlog_root = resolve_heatlog_root(args.heatlog_root, root)
-    day = datetime.date.fromisoformat(args.day) if args.day else yesterday
-    out = pathlib.Path(args.out).expanduser() if args.out else root / "exports"
-    archive, manifest = export_day(root, day, out, args.mode, args.keep, args.force,
-                                   heatlog_root=heatlog_root)
+    rbr_dir = pathlib.Path(args.dir).expanduser() if args.dir else pathlib.Path.cwd()
+    mac = rbr_mail.local_mac(rbr_dir)
+    partial = bool(args.now)
+    label = None
+    requested_at = None
+    if args.now:
+        now = datetime.datetime.now().astimezone()
+        day = now.date()
+        label = now.strftime("%H:%M:%S")
+        requested_at = now.isoformat(timespec="seconds")
+    else:
+        day = datetime.date.fromisoformat(args.day) if args.day else yesterday
+    if args.out:
+        out = pathlib.Path(args.out).expanduser()
+    elif partial:
+        out = root / "exports" / "requests"
+    else:
+        out = root / "exports"
+    archive, manifest = export_day(
+        root, day, out, args.mode, args.keep, args.force,
+        heatlog_root=heatlog_root, mac=mac, partial=partial, label=label,
+        requested_at=requested_at)
     if not args.quiet:
         print(f"journal-export.py: {archive}")
         print(f"  {manifest['events']} events, {len(manifest['maps'])} map(s), "
-              f"{len(manifest['reports'])} heatlog CSV(s), mode {manifest['mode']}")
+              f"{len(manifest['reports'])} heatlog CSV(s), mode {manifest['mode']}"
+              + (f", partial to {label}" if partial else ""))
 
-    rbr_dir = pathlib.Path(args.dir).expanduser() if args.dir else pathlib.Path.cwd()
     config_path = (pathlib.Path(args.config).expanduser() if args.config
                    else rbr_dir / CONFIG_NAME)
     config = load_config(config_path)

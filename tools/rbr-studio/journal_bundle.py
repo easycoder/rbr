@@ -11,7 +11,7 @@ generator consumes. It is either a directory or a gzipped tar archive with:
 The manifest records the source, the day, the system and profile, the event
 count and hashes, the map snapshots the day refers to, and the heating CSVs
 that carry the same day's outcomes for statistics. Keeping the format small
-and explicit means the local, SSH, HTTPS and email transports can all produce
+and explicit means the local, HTTPS and email transports can all produce
 the same thing, and the converter never needs to know where it came from.
 """
 
@@ -118,7 +118,8 @@ def report_rows(reports: dict[str, pathlib.Path]) -> list[dict]:
 
 
 def manifest_for(day_path: pathlib.Path, maps: dict[str, pathlib.Path], source: str,
-                 day: str | None = None, reports: list[dict] | None = None) -> dict:
+                 day: str | None = None, reports: list[dict] | None = None,
+                 mac: str | None = None) -> dict:
     events = read_events(day_path)
     session = next((event for event in events if event.get("type") == "session.start"), {})
     session_data = session.get("data") or {}
@@ -138,6 +139,7 @@ def manifest_for(day_path: pathlib.Path, maps: dict[str, pathlib.Path], source: 
         "createdAt": _datetime.datetime.now(_datetime.timezone.utc).isoformat(timespec="seconds"),
         "source": source,
         "day": day or day_path.stem,
+        "mac": mac,
         "events": len(events),
         "eventsBytes": len(payload),
         "eventsSha256": sha256_bytes(payload),
@@ -157,7 +159,8 @@ def manifest_for(day_path: pathlib.Path, maps: dict[str, pathlib.Path], source: 
 
 def write_bundle(dest: pathlib.Path, day_path: pathlib.Path, maps: dict[str, pathlib.Path],
                  source: str, archive: pathlib.Path | None = None,
-                 reports: dict[str, pathlib.Path] | None = None) -> dict:
+                 reports: dict[str, pathlib.Path] | None = None,
+                 mac: str | None = None) -> dict:
     """Write a bundle directory, optionally tar.gz it, and return the manifest."""
     dest = pathlib.Path(dest)
     if dest.exists() and any(dest.iterdir()):
@@ -180,7 +183,7 @@ def write_bundle(dest: pathlib.Path, day_path: pathlib.Path, maps: dict[str, pat
         target = dest.joinpath(*pathlib.PurePosixPath(str(relative)).parts)
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source_path, target)
-    manifest = manifest_for(day_path, maps, source, day, rows)
+    manifest = manifest_for(day_path, maps, source, day, rows, mac)
     manifest["eventsPath"] = str((events_dir / day_path.name).relative_to(dest)).replace("\\", "/")
     (dest / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

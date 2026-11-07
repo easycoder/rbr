@@ -1,4 +1,4 @@
-// pwa-backup-sheet-check.js — the Backups sheet under the hamburger.
+// pwa-backup-sheet-check.js — the Backups and Journal sheets under the hamburger.
 //
 //   node tests/pwa-backup-sheet-check.js
 //
@@ -267,6 +267,37 @@ async function main() {
       d.getElementById('backup-sheet').style.display);
     check('the notice says it has started', /Backup started/.test(d.getElementById('backup-sheet-notice').textContent),
       d.getElementById('backup-sheet-notice').textContent);
+
+    console.log('\n== the hamburger opens the Journal sheet ==');
+    d.getElementById('sheet-close-btn').click();
+    await sleep(250);
+    d.getElementById('top-bar-menu-btn').click();
+    await sleep(250);
+    const journalRow = d.getElementById('menu-row-journal');
+    check('the menu has a Send journal now row', !!journalRow,
+      journalRow && journalRow.outerHTML.slice(0, 160));
+    journalRow.click();
+    await sleep(300);
+    check('the journal sheet is shown', d.getElementById('journal-sheet').style.display === 'block',
+      d.getElementById('journal-sheet').style.display);
+    check('  with the registered address',
+      d.getElementById('journal-sheet-email').textContent === 'To owner@example.com',
+      d.getElementById('journal-sheet-email').textContent);
+    d.getElementById('journal-sheet-send').click();
+    await sleep(400);
+    const journalMessages = sent().filter(message => message.Action === 'Journal Now');
+    check('a Journal Now uirequest was sent', journalMessages.length === 1, sentRaw());
+    check('  provenance names the journal send control',
+      journalMessages[0] && journalMessages[0].Source &&
+        journalMessages[0].Source.screen === 'journal' &&
+        journalMessages[0].Source.control === 'send-journal' &&
+        journalMessages[0].Source.gesture === 'tap',
+      journalMessages[0] && journalMessages[0].Source);
+    check('the journal sheet stays open', d.getElementById('journal-sheet').style.display === 'block',
+      d.getElementById('journal-sheet').style.display);
+    check('the notice confirms the request',
+      /Journal request sent/.test(d.getElementById('journal-sheet-notice').textContent),
+      d.getElementById('journal-sheet-notice').textContent);
   } finally {
     try { dom.window.close(); } catch (e) { /* already closed */ }
     server.close();

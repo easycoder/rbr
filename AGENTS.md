@@ -47,7 +47,7 @@ node tests/pwa-schedule-editor-check.js # drives the schedule's time dropdowns: 
 node tests/pwa-schedule-save-check.js # a map push while a sheet editor is open must not swallow its reply
 node tests/pwa-profile-sheet-check.js # a profile rename/delete keeps the calendar's day names in step
 node tests/pwa-valve-state-check.js # the room tag follows a TRV's own running state, and unwired rooms say so
-node tests/pwa-backup-sheet-check.js # the hamburger's Backups sheet ships its toggle and "send now"
+node tests/pwa-backup-sheet-check.js # the hamburger's Backups and Journal sheets ship their requests
 python3 tools/rbr-studio/tests/journal_check.py # journal bundle, mail inbox, importer and scenario converter
 python3 tools/rbr-studio/tests/package_check.py # portable RBR Studio package and first-run inbox config
 python3 -m unittest tests/unit/journal_export_test.py # controller-side compact journal export

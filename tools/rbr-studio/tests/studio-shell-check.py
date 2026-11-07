@@ -39,7 +39,7 @@ SETTINGS.write_text(json.dumps({
     "x": 55, "y": 66, "width": 1000, "height": 700,
     "group": "All",
     "scenario": "fixtures/local/scenarios/examples/advance-at-15-00.json",
-    "ssh": "test@example", "day": "2026-11-06", "range": "14:00-19:00",
+    "source": "docs/examples", "day": "2026-11-06", "range": "14:00-19:00",
 }), encoding="utf-8")
 
 
@@ -242,8 +242,8 @@ def click_run():
         check(steps.rowCount() == 13, "the advance example seeds 13 rows")
         check(value(program, "WindowX") == 55 and value(program, "WindowY") == 66,
               "the saved window position is restored")
-        check(value(program, "JournalSource") == "test@example",
-              "the saved SSH address is restored")
+        check(value(program, "JournalSource") == "docs/examples",
+              "the saved journal source is restored")
         check(value(program, "JournalDay") == "2026-11-06",
               "the saved journal day is restored")
         check(value(program, "JournalRange") == "14:00-19:00",
@@ -478,8 +478,8 @@ check(saved.get("x") is not None and saved.get("width") is not None,
 check(saved.get("group") == "All", "closing the Studio keeps the selected group")
 check(saved.get("scenario") == "fixtures/local/scenarios/examples/advance-at-15-00.json",
       "closing the Studio keeps the selected scenario")
-check(saved.get("ssh") == "test@example",
-      "closing the Studio keeps the SSH address")
+check(saved.get("source") == "docs/examples",
+      "closing the Studio keeps the journal source")
 check(saved.get("day") == "2026-11-06", "closing the Studio keeps the journal day")
 check(saved.get("range") == "14:00-19:00", "closing the Studio keeps the time range")
 cleanup_library()

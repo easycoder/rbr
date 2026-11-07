@@ -139,8 +139,49 @@ Yes. Every file under `tools/rbr-studio/.venv` is ignored by the `.*` rule at th
 
 The rule is broad rather than venv-specific. If you would prefer an explicit `.venv/` line for clarity, I can add one, but it would not change what is ignored.
 
+## 14:40
 
+The emails carrying the bundles should identify the system by its MAC address, e.g. RBR journal 00:e0:27:5b:31:40. This is to enable a mail filter to direct to a folder per system, so multiple systems can be managed. RBR Studio will default to ~/RBR-journal/<MAC>. I expect this means it needs a means to define MAC addresses with useful names against them.
 
+**Assistant**
 
+The bundle path now carries the MAC end to end.
 
+- The email subject is `RBR journal <MAC> <YYYY-MM-DD>`, so a filter can match `RBR journal 00:e0:27:5b:31:40` and save that system's attachments under `~/RBR-journal/00:e0:27:5b:31:40/`. The MAC comes from `.mac_override` via the shared `rbr_mail.local_mac()`, with the NIC as a fallback; the body and `manifest.json` carry it too.
+- `journal_import.py --mac` records a MAC for a local import. Older bundles without one still import and are keyed by their system name.
+- `journal_inbox.py` scans `~/RBR-journal` and its subfolders, so several systems can share the root. The extracted bundle folder uses the MAC (or the system name when a bundle has no MAC) as its stable key; the archive hash still prevents duplicate imports.
+- `studio-config.json` now has a `systems` map. Name a system with `./run-studio.sh --system 00:e0:27:5b:31:40=Home` (repeatable), or `python3 configure-studio.py --system 00:e0:27:5b:31:40=Home`; the configured inbox subfolder is created at the same time. Without a mapping, the controller's own system name is used.
+- Scenario names use the friendly name (`Journal 2026-11-06 — Home`) while the folder stays keyed by the MAC. `configure-studio.py --show` prints the current mapping.
 
+The export, journal and package tests pass, including the subject/manifest MAC, the recursive per-MAC inbox and the `--system` configuration.
+
+## 14:57
+
+Since bundles arrive daily into a local folder there should be no need for SSH access to the local controller. Unless there is another place it's needed, let's remove the code for it.
+
+**Assistant**
+
+Removed the SSH transport from RBR Studio. I found no other place in the repository that needs it.
+
+- `journal_import.py` no longer has `SSHSource`, `--ssh`, `--ssh-root`, `--ssh-bin`, `--ssh-key` or `--ssh-option`; `--source` is now required and must be a local journal root. It reads the day file and map snapshots directly.
+- `journal_ingest.py` accepts a bundle, a raw `.jsonl` or a local journal root. The `user@host` parsing, default remote root and SSH argument pass-through are gone.
+- The Studio's **Import journal…** prompt accepts local paths only. Its saved setting is now `source`; an old `ssh` entry in `studio-settings.json` is ignored.
+- The fake-SSH tests and SSH documentation are removed. The email/inbox path remains the normal way to get daily bundles, and **Import journal…** remains for a local copy.
+
+The 11 journal tests, 4 package tests, 9 export tests and the offscreen shell check pass; `git diff --check` is clean. No controller release is needed.
+
+## 15:10
+
+And to enable tests to be done on bugs as they are reported, let's have an option under the UI hamburger to request a bundle to be created for the current day up to the current time, and emailed out.
+
+**Assistant**
+
+Added **Send journal now** under the hamburger, with a small Journal sheet.
+
+- The sheet shows the registered address and a **Send today's journal now** button. It sends `Journal Now` with gesture provenance and stays open with a confirmation.
+- The controller flushes the pending journal first, so the request and the events leading to it are in the file, then runs `journal-export.py --now --email-now` in the background.
+- `--now` exports today's file as it stands into `exports/requests/` as `<system>-<date>-<HHMMSS>.tar.gz`, marks the manifest `partial` with a `label` and `requestedAt`, and puts the time in the email subject. The daily exports are untouched.
+- RBR Studio treats a partial bundle as its own scenario (`Journal <date> <time> — Home`), not as a duplicate of the full day.
+- The service-worker cache version is bumped, so the PWA needs one reload after deployment. The controller and PWA must be deployed together; an old controller rejects the new action.
+
+The hamburger sheet test passes (22 checks, including the Journal row and request), the PWA compiles, the controller compiles, and the exporter, inbox and package tests pass.
