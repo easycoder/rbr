@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn a controller journal day into a Scenario Studio scenario.
+"""Turn a controller journal day into an RBR Studio scenario.
 
 This is the deterministic half of the recorder. It reads a bundle produced by
 `journal_import.py`, or a raw daily JSONL plus its maps, and writes an ordinary
@@ -374,7 +374,7 @@ def load_input(args):
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         prog="journal_to_scenario.py",
-        description="Turn a controller journal day into a Scenario Studio scenario")
+        description="Turn a controller journal day into an RBR Studio scenario")
     parser.add_argument("--bundle", help="bundle directory or .tar.gz from journal_import.py")
     parser.add_argument("--journal", help="raw daily JSONL file")
     parser.add_argument("--maps", help="maps directory for --journal (default: <root>/maps)")

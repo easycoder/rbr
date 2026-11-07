@@ -4,16 +4,16 @@
 
 ## What this page is
 
-This is the starting point for how the RBR interface is tested, and it will grow into the full UI test strategy; at present it records the two layers that exist, where they run, what they deliberately do not cover, and why the split is where it is. The engineering detail stays with the code: `tests/ui/README.md`, `tools/scenario-studio/README.md` and `tools/scenario-studio/docs/SPEC.md`.
+This is the starting point for how the RBR interface is tested, and it will grow into the full UI test strategy; at present it records the two layers that exist, where they run, what they deliberately do not cover, and why the split is where it is. The engineering detail stays with the code: `tests/ui/README.md`, `tools/rbr-studio/README.md` and `tools/rbr-studio/docs/SPEC.md`.
 
 ## Two layers
 
 | Layer | Where it lives | What question it answers |
 |---|---|---|
 | **Browser regression suite** | `tests/ui/` | Does the page that ships still boot, render and send the right requests when the controller sends a given map? |
-| **Scenario Studio** | `tools/scenario-studio/` | Can a described sequence of controller events and user actions be run against the page, step by step, with a readable result? |
+| **RBR Studio** | `tools/rbr-studio/` | Can a described sequence of controller events and user actions be run against the page, step by step, with a readable result? |
 
-The regression suite is the gate: it is small, deterministic and can run on every change. Scenario Studio is the authoring and investigation tool: it makes a sequence visible, executable and easy to vary. Neither replaces the other, and a scenario that is useful in the studio should be distilled into a suite spec when it becomes a fixed expectation.
+The regression suite is the gate: it is small, deterministic and can run on every change. RBR Studio is the authoring and investigation tool: it makes a sequence visible, executable and easy to vary. Neither replaces the other, and a scenario that is useful in the studio should be distilled into a suite spec when it becomes a fixed expectation.
 
 ## Where the tests run
 
@@ -29,7 +29,7 @@ Requests are checked as the page would actually send them, including the runtime
 
 ## What the scenario layer covers
 
-The runner in `tools/scenario-studio/` uses the same real page and a stubbed controller, but its unit is a scenario: a timed sequence of controller events, user actions, expectations and wire checks. It advances a virtual clock, resolves semantic targets such as `room.Office.advance` against the map in use, and records every step with its result, a wire log and, on failure, a screenshot and a Playwright trace.
+The runner in `tools/rbr-studio/` uses the same real page and a stubbed controller, but its unit is a scenario: a timed sequence of controller events, user actions, expectations and wire checks. It advances a virtual clock, resolves semantic targets such as `room.Office.advance` against the map in use, and records every step with its result, a wire log and, on failure, a screenshot and a Playwright trace.
 
 Scenarios can be built from the two worked examples, from a snapshot of a real system map, or from an AI draft that is validated before it is listed. The point is to make a suspected interaction reproducible, not to replace the regression suite.
 
@@ -51,7 +51,7 @@ npm run test:ui
 The scenario layer needs Python and Playwright; the shell is AllSpeak/PySide6:
 
 ```bash
-cd tools/scenario-studio
+cd tools/rbr-studio
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m playwright install chromium

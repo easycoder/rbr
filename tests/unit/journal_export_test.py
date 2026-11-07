@@ -8,9 +8,10 @@ import pathlib
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
-STUDIO = REPO / "tools" / "scenario-studio"
+STUDIO = REPO / "tools" / "rbr-studio"
 sys.path.insert(0, str(STUDIO))
 import journal_bundle  # noqa: E402
 
@@ -19,9 +20,35 @@ journal_export = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(journal_export)
 
 
+class FakeSMTP:
+    """The smallest SMTP client the sender touches, recording messages."""
+
+    sent = []
+
+    def __init__(self, host, port, timeout=None, context=None):
+        self.host = host
+        self.port = port
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def login(self, login, password):
+        self.login_pair = (login, password)
+
+    def starttls(self, context=None):
+        pass
+
+    def send_message(self, message):
+        type(self).sent.append(message)
+
+
 class ExportTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory(prefix="rbr-export-test-")
+        self.rbr_dir = pathlib.Path(self._tmp.name)
         self.root = pathlib.Path(self._tmp.name) / "events"
         self.out = pathlib.Path(self._tmp.name) / "exports"
         self.day = dt.date(2026, 11, 6)
@@ -95,6 +122,102 @@ class ExportTests(unittest.TestCase):
         journal_export._prune_exports(self.out, 1)
         self.assertFalse(first.exists())
         self.assertTrue(second.exists())
+
+    def test_bundle_carries_the_day_heatlog_csvs(self):
+        heatlog = pathlib.Path(self._tmp.name) / "heating-data"
+        kitchen = heatlog / "Kitchen" / "2026" / "11"
+        office = heatlog / "Office" / "2026" / "11"
+        kitchen.mkdir(parents=True)
+        office.mkdir(parents=True)
+        (kitchen / "06.csv").write_text("30504123,207,205,p\n", encoding="utf-8")
+        (office / "06.csv").write_text("30504123,200,190,c\n", encoding="utf-8")
+        (kitchen / "05.csv").write_text("30504000,200,200,o\n", encoding="utf-8")
+
+        archive, manifest = journal_export.export_day(
+            self.root, self.day, self.out, heatlog_root=heatlog)
+        self.assertEqual([row["room"] for row in manifest["reports"]], ["Kitchen", "Office"])
+        self.assertTrue(all(row["kind"] == "heatlog" for row in manifest["reports"]))
+
+        opened = journal_bundle.open_bundle(archive)
+        try:
+            self.assertEqual(
+                (opened.reports_dir / "heatlog" / "Kitchen" / "2026" / "11" / "06.csv")
+                .read_text(encoding="utf-8"),
+                "30504123,207,205,p\n")
+            self.assertFalse(
+                (opened.reports_dir / "heatlog" / "Kitchen" / "2026" / "11" / "05.csv").exists())
+        finally:
+            opened.close()
+
+    def test_bundle_without_heatlog_root_has_no_reports(self):
+        _, manifest = journal_export.export_day(
+            self.root, self.day, self.out, heatlog_root=None)
+        self.assertEqual(manifest["reports"], [])
+
+    # --- email delivery -------------------------------------------------
+
+    def write_controller(self, config=None, **credentials):
+        base = {
+            "mail_server": "smtp.example.net",
+            "mail_port": 465,
+            "mail_login": "login@example.net",
+            "mail_password": "secret",
+            "mail_from": "login@example.net",
+        }
+        base.update(credentials)
+        (self.rbr_dir / "credentials").write_text(json.dumps(base), encoding="utf-8")
+        path = self.rbr_dir / "journal-export-config.json"
+        if config is None:
+            path.unlink(missing_ok=True)
+        else:
+            path.write_text(json.dumps(config), encoding="utf-8")
+
+    def run_export(self, *extra):
+        FakeSMTP.sent = []
+        arguments = ["--root", str(self.root), "--day", "2026-11-06",
+                     "--out", str(self.out), "--dir", str(self.rbr_dir), "--quiet"]
+        arguments.extend(extra)
+        with mock.patch.object(journal_export.rbr_mail, "fetch_cloud", return_value={}):
+            with mock.patch.object(journal_export.rbr_mail.smtplib, "SMTP", FakeSMTP):
+                with mock.patch.object(journal_export.rbr_mail.smtplib, "SMTP_SSL", FakeSMTP):
+                    return journal_export.main(arguments)
+
+    def test_enabled_config_emails_the_exported_bundle(self):
+        self.write_controller({"enabled": "yes", "address": "owner@example.com"})
+        status = self.run_export()
+        self.assertEqual(status, 0)
+        self.assertEqual(len(FakeSMTP.sent), 1)
+        message = FakeSMTP.sent[0]
+        self.assertIn("RBR journal", message["Subject"])
+        self.assertEqual(message["To"], "owner@example.com")
+        attachments = list(message.iter_attachments())
+        self.assertEqual(len(attachments), 1)
+        self.assertTrue(attachments[0].get_filename().endswith(".tar.gz"))
+        archive = next(self.out.glob("*.tar.gz"))
+        self.assertEqual(attachments[0].get_content(), archive.read_bytes())
+
+    def test_email_stays_off_without_an_enabled_config(self):
+        self.write_controller(None)
+        self.run_export()
+        self.assertEqual(FakeSMTP.sent, [])
+        self.write_controller({"enabled": "no", "address": "owner@example.com"})
+        self.run_export("--force")
+        self.assertEqual(FakeSMTP.sent, [])
+
+    def test_flags_override_the_config(self):
+        self.write_controller({"enabled": "no", "address": "owner@example.com"})
+        self.run_export("--email-now")
+        self.assertEqual(len(FakeSMTP.sent), 1)
+        self.write_controller({"enabled": "yes", "address": "owner@example.com"})
+        self.run_export("--no-email", "--force")
+        self.assertEqual(FakeSMTP.sent, [])
+
+    def test_a_send_failure_leaves_the_archive_and_exits_zero(self):
+        self.write_controller({"enabled": "yes"})
+        status = self.run_export()
+        self.assertEqual(status, 0)
+        self.assertEqual(FakeSMTP.sent, [])
+        self.assertTrue(any(self.out.glob("*.tar.gz")))
 
 
 if __name__ == "__main__":

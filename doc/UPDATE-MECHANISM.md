@@ -46,7 +46,8 @@ eventlog.py        journal-export.py  dashboard.txt
 rbr-updater.py
 rbr-watchdog.sh
 heatwatch.py       rbr-mapbackup.py   rbr-backup.py
-rbr-restore.py     VERSION            rbr-setup.sh
+rbr_mail.py        rbr-setup.sh       rbr-restore.py
+VERSION
 ```
 
 `VERSION` is a copy of the `version` stamp. On a `--release` run the stamp is bumped **before** the tarball is built, so the published tarball carries the new version. On a plain `./deploy.sh` (iteration) the tarball keeps the last release stamp — controllers that already have it skip it, exactly like the old `.allspeak` behaviour.

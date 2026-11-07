@@ -1,4 +1,4 @@
-!   Scenario Studio — the desktop shell.
+!   RBR Studio — the desktop shell.
 !!
 !! An AllSpeak/PySide6 window, built from the graphics domain's own table,
 !! logpane, panes and tabs. The Run button starts scenario_runner as a child
@@ -8,14 +8,14 @@
 !! Run from this directory, because the example paths and the runner's venv
 !! are relative to it:
 !!
-!!     cd tools/scenario-studio
+!!     cd tools/rbr-studio
 !!     allspeak studio.allspeak
 !!
 !! The runner is the v0 engine in scenario_runner/; its venv is .venv.
 !! @hash
 !! @verified
 !!!
-script ScenarioStudio
+script RBRStudio
 
 use graphics
 use process
@@ -132,6 +132,11 @@ variable RemoveRow
 variable DeleteRow
 variable DeleteRowCount
 variable DeletedCount
+variable RenumberIndex
+variable NewStepNumber
+variable RenumberId
+variable ClockStart
+variable NewStart
 variable Journaling
 variable JournalSource
 variable JournalDay
@@ -166,6 +171,9 @@ variable LibGroupCount
 variable LibGroupI
 variable ScenarioText
 dictionary ScenarioData
+dictionary ClockData
+dictionary FirstStep
+dictionary RenumberStep
 list StepList
 dictionary Step
 dictionary Controller
@@ -238,17 +246,19 @@ variable WindowH
 !! The layout is the mockup's four regions: a toolbar, three side-by-side
 !! panes, and the log tabs below them. The table is seeded from the scenario
 !! JSON; the process handlers are registered before Run can start anything.
+!!
+!! A startup scan of the mail-filter folder adds any emailed journal bundle to the Journal group before the list is built, so a day the controller posted overnight is present when the window opens.
 Setup:
     init graphics
 
     gosub to LoadStudioSettings
-    create Win title `Scenario Studio` at WindowX WindowY size WindowW WindowH
+    create Win title `RBR Studio` at WindowX WindowY size WindowW WindowH
     create Root type QVBoxLayout
     create Toolbar
     create ToolbarRow type QHBoxLayout
     set the layout of Toolbar to ToolbarRow
 
-    create Brand text `Scenario Studio` size 18
+    create Brand text `RBR Studio` size 18
     create Env text `rbr · new-ui · 390 × 844` size 28
     create Clock text `clock —` size 18
     create SpeedLabel text `Speed` size 8
@@ -460,6 +470,7 @@ Setup:
     on exit Librarian go to LibrarianDone
 
     system `python3 scenario_library.py seed-examples --quiet`
+    system `python3 journal_inbox.py --scan --quiet`
     gosub to LoadGroups
     gosub to RestoreStudioSettings
     gosub to BuildScenarioList
@@ -480,8 +491,8 @@ Setup:
 Idle:
     wait 1 tick
     go to Idle
-!! @hash 0ec99863
-!! @verified e37e2c0c
+!! @hash 222c8394
+!! @verified 222c8394
 !!!
 
 !! Restore the Studio's last window geometry and form values.
@@ -1035,13 +1046,47 @@ DeleteRowsClicked:
         put item DeleteRow of Selection into RemoveRow
         delete item RemoveRow of StepList
     end
+    put 1 into NewStepNumber
+    put 0 into RenumberIndex
+    while RenumberIndex is less than the count of StepList
+    begin
+        put item RenumberIndex of StepList into RenumberStep
+        put `s` cat NewStepNumber into RenumberId
+        set entry `id` of RenumberStep to RenumberId
+        add 1 to NewStepNumber
+        add 1 to RenumberIndex
+    end
     set entry `steps` of ScenarioData to StepList
+    if ScenarioData has entry `clock`
+    begin
+        put entry `clock` of ScenarioData into ClockData
+        if the count of StepList is greater than 0
+        begin
+            put item 0 of StepList into FirstStep
+            if FirstStep has entry `at`
+            begin
+                put entry `at` of FirstStep into FirstAt
+                if the length of FirstAt is greater than 10
+                    set entry `start` of ClockData to FirstAt
+                else
+                begin
+                    put entry `start` of ClockData into ClockStart
+                    put left 11 of ClockStart into NewStart
+                    put NewStart cat FirstAt into NewStart
+                    if the length of FirstAt is less than 8 put NewStart cat `:00` into NewStart
+                    put NewStart cat right 6 of ClockStart into NewStart
+                    set entry `start` of ClockData to NewStart
+                end
+            end
+        end
+        set entry `clock` of ScenarioData to ClockData
+    end
     save ScenarioData to ScenarioPath
     gosub to LoadScenario
     gosub to SetDeleteButton
     set the text of StatusLabel to `Deleted ` cat DeletedCount cat ` row(s)`
     return
-!! @hash 3b088536
+!! @hash 96492828
 !! @verified
 !!!
 
@@ -1148,12 +1193,12 @@ StartRun:
     end
     else
     begin
-        append `Runner venv missing: run the setup in tools/scenario-studio/README.md.` to Log
+        append `Runner venv missing: run the setup in tools/rbr-studio/README.md.` to Log
         set the text of StatusLabel to `Runner venv missing`
     end
     return
-!! @hash eb2d871b
-!! @verified eb2d871b
+!! @hash daa94db2
+!! @verified daa94db2
 !!!
 
 !! Validate without launching a browser.
@@ -1325,7 +1370,7 @@ JournalClicked:
     if Journaling return
     if file `.venv/bin/python` does not exist
     begin
-        append `Runner venv missing: run the setup in tools/scenario-studio/README.md.` to Log
+        append `Runner venv missing: run the setup in tools/rbr-studio/README.md.` to Log
         return
     end
     create JournalSourceDlg on Win type lineedit title `Import journal` prompt `Bundle, .jsonl, local root, user@host, or user@host:/root` value JournalSource
@@ -1368,7 +1413,7 @@ JournalClicked:
     put empty into JournalPath
     start Journaler command Command
     return
-!! @hash f4214350
+!! @hash 4d8327e0
 !!!
 !! Track the helper's output and remember the scenario path it reports.
 JournalerLine:
@@ -1726,10 +1771,10 @@ DraftClicked:
         write RequestText to Drafter
         write `__END__` to Drafter
     end
-    else append `Runner venv missing: run the setup in tools/scenario-studio/README.md.` to Log
+    else append `Runner venv missing: run the setup in tools/rbr-studio/README.md.` to Log
     return
-!! @hash 4213ecbb
-!! @verified 7c603da3
+!! @hash 940a3464
+!! @verified 940a3464
 !!!
 
 !! Copy the path of the prompt written by the last Draft, using the

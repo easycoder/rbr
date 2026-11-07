@@ -98,6 +98,6 @@ That is the whole of the app's relationship with the system: it reads a map and 
 
 ## Where the detail is
 
-The engineering notes are the source of truth for everything above, and they are named here rather than linked because they are written for people working in the repository: `AI/ARCHITECTURE.md` for the running architecture, `AI/MAP_FORMAT.md` for the map, `doc/CONTROLLER-FILES.md` for what lives where, `doc/UPDATE-MECHANISM.md` for how code reaches a controller, `doc/HEATING-DATA.md` for the heating log, and `doc/EVENT-JOURNAL.md` for the event journal that feeds Scenario Studio.
+The engineering notes are the source of truth for everything above, and they are named here rather than linked because they are written for people working in the repository: `AI/ARCHITECTURE.md` for the running architecture, `AI/MAP_FORMAT.md` for the map, `doc/CONTROLLER-FILES.md` for what lives where, `doc/UPDATE-MECHANISM.md` for how code reaches a controller, `doc/HEATING-DATA.md` for the heating log, and `doc/EVENT-JOURNAL.md` for the event journal that feeds RBR Studio.
 
 The other documents in this layer cover the map format, device control and the Zigbee bridge, updates and deployment, heating data and the controller files in their own right. The [glossary](../appendix/glossary.md) defines the terms used here; [What the setup script does](../installation/06-what-the-setup-script-does.md) describes the machine and the services that run on it.

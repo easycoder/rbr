@@ -75,7 +75,7 @@ def runtime_source(repo):
         raise ScenarioError("new-ui/index.html names no AllSpeak runtime")
     url = urljoin("https://allspeak.ai/", match.group(1))
 
-    cache_root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "rbr-scenario-studio"
+    cache_root = Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "rbr-studio"
     try:
         cache_root.mkdir(parents=True, exist_ok=True)
     except OSError:
@@ -222,14 +222,20 @@ class PageDriver:
             return
         remaining = delta_ms
         if self.speed and self.speed > 0:
-            pace_slice = 10_000
-            while remaining > pace_slice:
-                self.page.clock.fast_forward(pace_slice)
-                time.sleep(pace_slice / (1000.0 * self.speed))
-                remaining -= pace_slice
-            if remaining > 0:
-                self.page.clock.fast_forward(remaining)
-                time.sleep(remaining / (1000.0 * self.speed))
+            if self.speed == 1:
+                # At 1x the fake clock is already flowing in real time. Sleeping
+                # the gap advances it exactly once; fast_forwarding as well
+                # would advance every slice twice and drift the UI clock ahead.
+                time.sleep(remaining / 1000.0)
+            else:
+                pace_slice = 10_000
+                while remaining > pace_slice:
+                    self.page.clock.fast_forward(pace_slice)
+                    time.sleep(pace_slice / (1000.0 * self.speed))
+                    remaining -= pace_slice
+                if remaining > 0:
+                    self.page.clock.fast_forward(remaining)
+                    time.sleep(remaining / (1000.0 * self.speed))
         else:
             while remaining > CLOCK_SLICE_MS:
                 self.page.clock.fast_forward(CLOCK_SLICE_MS)

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""One-shot journal ingest for the Scenario Studio shell.
+"""One-shot journal ingest for the RBR Studio shell.
 
 Takes a bundle, a raw day, a local journal root, or `user@host:/journal-root`,
 imports it if necessary, generates a scenario window, and adds the result to
-the local Scenario Studio library. Prints progress lines and a final
+the local RBR Studio library. Prints progress lines and a final
 `SCENARIO_PATH=` line for the shell to select.
 """
 

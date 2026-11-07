@@ -10,7 +10,7 @@ readings) before writing it, and adds them back in its reply. This script copies
 a map into `fixtures/local/`, fills those fields from what the disk map does
 have, and writes a small scenario that reports one room's temperature.
 
-    cd tools/scenario-studio
+    cd tools/rbr-studio
     python3 snapshot-map.py                 # uses map.json beside this script
     python3 snapshot-map.py --source /path/to/map.json
     python3 snapshot-map.py --source ... --out fixtures/local/us.json --no-scenario

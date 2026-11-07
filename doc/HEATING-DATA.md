@@ -90,13 +90,9 @@ This is the rule the heating watchdog uses: `heatwatch.py` treats a room with a 
 
 ## Relationship to the event journal
 
-The CSV rows are outcomes. The controller also writes an append-only event
-journal under `journal-root` (or `<heatlog-root>/events` by default) that
-records the inputs and decisions behind them: sensor reports, UI requests,
-period and mode transitions, relay decisions, status changes and plan
-snapshots. It is the source for replaying a real day as a Scenario Studio
-scenario; see `EVENT-JOURNAL.md`. The heat log remains the compact,
-long-term analysis record and is not replaced by it.
+The CSV rows are outcomes. The controller also writes an append-only event journal under `journal-root` (or `<heatlog-root>/events` by default) that records the inputs and decisions behind them: sensor reports, UI requests, period and mode transitions, relay decisions, status changes and plan snapshots. It is the source for replaying a real day as an RBR Studio scenario; see `EVENT-JOURNAL.md`. The heat log remains the compact, long-term analysis record and is not replaced by it.
+
+The daily export bundle carries the day's CSV files under `reports/heatlog/` as well as the events and map snapshots, so one archive is both the scenario source and the statistics record. The local heatlog hierarchy remains the controller's own long-term copy; the bundle is the copy that leaves the machine.
 
 ## Testing
 

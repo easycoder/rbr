@@ -108,6 +108,7 @@ TARBALL_FILES = [
     "dashboard.txt",
     "rbr-updater.py",
     "rbr-backup.py",
+    "rbr_mail.py",
     "rbr-restore.py",
     "heatwatch.py",
     "VERSION",

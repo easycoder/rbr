@@ -377,3 +377,15 @@ You were right about `learn/reference/20-graphics.md`: the table supports native
 The obsolete `Select rows` button, the selection dictionary and its paint pass are gone. The native API made the workaround and its `REQUESTS.md` entry unnecessary, so both were removed. The shell test now uses `QTableWidgetSelectionRange` to select two rows, verifies Delete rows enables, cancels once, then deletes both. The Studio shell check passes, `asdoc-check` reports no errors and `git diff --check` is clean.
 
 This is a Studio-only change; it does not need a controller deployment. Restart the Studio to load it. Row insertion and cell editing remain the next editing pass.
+
+## 11:27
+
+That looks like it's fixed. This session is getting long so shortly I'll start a new one. Last item here: Can you renumber the steps from 1 after row deletions?
+
+**Assistant**
+
+Done. Row deletion now renumbers the surviving steps as `s1`, `s2`… after removing the selected rows, before the scenario is saved and reloaded. The Steps table picks up the new IDs automatically.
+
+I also renumbered the existing `Test of editing` copy to `s1`–`s13`; its clock still starts at its first remaining step, 16:00:18. The shell test deletes the first two of three rows, verifies the clock moves to the remaining step, and verifies that step is now `s1` both in the JSON and in the table.
+
+The Studio shell check passes, `asdoc-check` reports no errors, and `git diff --check` is clean. Restart the Studio to load the change.

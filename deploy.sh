@@ -112,7 +112,7 @@ rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
 CONTROLLER_FILES=(controller.allspeak deviceControl.allspeak simulator.allspeak \
                   diagnose.allspeak zigbee-bridge.py zigbee-pair.py zigbee-mesh.py \
                   rbr-dashboard.py heatlog.py eventlog.py journal-export.py dashboard.txt rbr-updater.py \
-                  rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py \
+                  rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py rbr_mail.py \
                   rbr-restore.py rbr-setup.sh)
 
 # Versioned controller tarball for the standalone updater (rbr-updater.py).
@@ -190,7 +190,7 @@ build_controller_zip() {
     (cd "$BUILD_DIR" && zip -q "$LOCAL/rbr-controller.zip" \
         controller.allspeak deviceControl.allspeak simulator.allspeak diagnose.allspeak zigbee-bridge.py \
         zigbee-pair.py zigbee-mesh.py rbr-dashboard.py heatlog.py eventlog.py journal-export.py dashboard.txt \
-        rbr-updater.py rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py \
+        rbr-updater.py rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py rbr_mail.py \
         rbr-restore.py rbr-setup.sh VERSION)
     rm -rf "$BUILD_DIR"
     echo "  → $LOCAL/rbr-controller.zip (version $(cat "$LOCAL/version"))"

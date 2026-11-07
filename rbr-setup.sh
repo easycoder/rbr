@@ -998,6 +998,78 @@ else
     chown "$RBR_USER:$RBR_USER" "$RBR_DIR/journal-export.py"
     chmod 0755 "$RBR_DIR/journal-export.py"
 
+    # Email is opt-in, because the bundle carries room names, schedules and
+    # the requests the UI sent. The config is deliberately not rewritten on a
+    # re-run unless the operator answers the question below.
+    JOURNAL_CONFIG="$RBR_DIR/journal-export-config.json"
+    JOURNAL_EMAIL="n"
+    JOURNAL_ADDRESS="$(mail_default mail_to "$(cred_field mail_to)")"
+    if [[ -f "$JOURNAL_CONFIG" ]]; then
+        SAVED_JOURNAL="$(python3 - "$JOURNAL_CONFIG" <<'PY' 2>/dev/null || true
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        data = json.load(fh)
+except Exception:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+enabled = str(data.get("enabled", "")).strip().lower()
+print(("y" if enabled in ("on", "true", "yes", "1") else "n") + "\t" + str(data.get("address") or ""))
+PY
+)"
+        if [[ -n "$SAVED_JOURNAL" ]]; then
+            JOURNAL_EMAIL="${SAVED_JOURNAL%%$'\t'*}"
+            SAVED_JOURNAL_ADDRESS="${SAVED_JOURNAL#*$'\t'}"
+            [[ -n "$SAVED_JOURNAL_ADDRESS" ]] && JOURNAL_ADDRESS="$SAVED_JOURNAL_ADDRESS"
+        fi
+    fi
+    echo "  The daily bundle is written locally whether or not it is emailed."
+    JOURNAL_ANSWER="$(prompt_value "  Email each daily bundle to the registered address? (y/N)" "email bundles" "$JOURNAL_EMAIL")"
+    JOURNAL_ENABLED=0
+    [[ "${JOURNAL_ANSWER,,}" =~ ^y ]] && JOURNAL_ENABLED=1
+    JOURNAL_TO=""
+    if (( JOURNAL_ENABLED )); then
+        JOURNAL_TO="$(prompt_value "  Journal recipient (empty = the address registered in the app)" "journal recipient" "$JOURNAL_ADDRESS")"
+        JOURNAL_MAIL_SERVER="$(mail_default mail_server "$(cred_field mail_server)")"
+        if [[ -z "$JOURNAL_MAIL_SERVER" ]]; then
+            echo "  ⚠ No usable mail server is configured in $RBR_DIR/credentials."
+            echo "    The daily export will still run; sending will fail until the mail"
+            echo "    settings are completed."
+        fi
+        echo "  → Daily bundles will be emailed (subject starts with 'RBR journal')."
+    else
+        echo "  → Daily bundles stay on the controller."
+    fi
+    if (( JOURNAL_ENABLED )) || [[ -f "$JOURNAL_CONFIG" ]]; then
+        RBR_JOURNAL_ENABLED="$JOURNAL_ENABLED" RBR_JOURNAL_ADDRESS="$JOURNAL_TO" \
+        python3 - "$JOURNAL_CONFIG" <<'PY'
+import json, os, sys
+
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        data = {}
+except (OSError, ValueError):
+    data = {}
+
+data["enabled"] = "yes" if os.environ["RBR_JOURNAL_ENABLED"] == "1" else "no"
+address = os.environ.get("RBR_JOURNAL_ADDRESS", "").strip()
+if address:
+    data["address"] = address
+else:
+    data.pop("address", None)
+
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(data, fh, indent=4)
+    fh.write("\n")
+PY
+        chown "$RBR_USER:$RBR_USER" "$JOURNAL_CONFIG"
+        chmod 0644 "$JOURNAL_CONFIG"
+    fi
+
     cat > /etc/systemd/system/rbr-journal-export.service << SERVICE
 [Unit]
 Description=RBR daily compact event-journal export

@@ -1,9 +1,9 @@
-"""Headless check for the Scenario Studio shell.
+"""Headless check for the RBR Studio shell.
 
 Starts studio.allspeak offscreen, switches scenario, clicks Run, waits for the
 runner child to finish, and asks the table and logs what they hold.
 
-    cd tools/scenario-studio
+    cd tools/rbr-studio
     QT_QPA_PLATFORM=offscreen python3 tests/studio-shell-check.py
 
 It needs the runner venv (Run starts .venv/bin/python) and the installed
@@ -59,6 +59,8 @@ def prepare_library():
             {"id": "s1", "at": "2026-11-05T08:00:00+00:00",
              "expect": {"target": "summary.title", "visible": True}},
             {"id": "s2", "at": "2026-11-05T08:01:00+00:00",
+             "expect": {"target": "summary.title", "visible": True}},
+            {"id": "s3", "at": "2026-11-05T08:02:00+00:00",
              "expect": {"target": "summary.title", "visible": True}},
         ],
     }, indent=2) + "\n", encoding="utf-8")
@@ -299,7 +301,7 @@ def click_run():
               "selecting a scenario loads its stored brief")
         check(steps.item(0, 1).text() == "08:00:00",
               "the Time column shows the event time, not the full ISO timestamp")
-        check(steps.rowCount() == 2, "the temporary scenario has two rows")
+        check(steps.rowCount() == 3, "the temporary scenario has three rows")
         steps.setRangeSelected(QTableWidgetSelectionRange(0, 0, 1, 6), True)
         app.processEvents()
         check(widget(program, "DeleteRowsBtn").isEnabled(),
@@ -307,13 +309,27 @@ def click_run():
         QTimer.singleShot(300, lambda: answer_confirm(False))
         widget(program, "DeleteRowsBtn").click()
         app.processEvents()
-        check(steps.rowCount() == 2, "cancelling row deletion keeps both rows")
+        check(steps.rowCount() == 3, "cancelling row deletion keeps all rows")
         QTimer.singleShot(300, lambda: answer_confirm(True))
         widget(program, "DeleteRowsBtn").click()
         app.processEvents()
-        check(steps.rowCount() == 0, "both selected rows are deleted")
+        check(steps.rowCount() == 1, "the two selected rows are deleted")
         check(widget(program, "StatusLabel").text() == "Deleted 2 row(s)",
               "the row deletion reports its count")
+        scenario_path = STUDIO / value(program, "ScenarioPath")
+        saved = json.loads(scenario_path.read_text(encoding="utf-8"))
+        check(saved["clock"]["start"] == "2026-11-05T08:02:00+00:00",
+              "the clock start follows the first remaining row")
+        check(saved["steps"][0]["id"] == "s1",
+              "the remaining step is renumbered from one")
+        check(steps.item(0, 0).text() == "s1",
+              "the Steps table shows the renumbered id")
+        steps.setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 6), True)
+        app.processEvents()
+        QTimer.singleShot(300, lambda: answer_confirm(True))
+        widget(program, "DeleteRowsBtn").click()
+        app.processEvents()
+        check(steps.rowCount() == 0, "the remaining row can be deleted")
         check(widget(program, "DeleteScenarioBtn").isEnabled(),
               "a library scenario can be deleted")
         widget(program, "RefreshScenariosBtn").click()

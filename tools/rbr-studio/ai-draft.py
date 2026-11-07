@@ -96,7 +96,7 @@ def map_summary(path=None):
     path = Path(path) if path else HOME_MAP
     if not path.exists():
         raise SystemExit(
-            f"{path} is missing; put the live map at tools/scenario-studio/map.json "
+            f"{path} is missing; put the live map at tools/rbr-studio/map.json "
             "and run python3 snapshot-map.py first")
     base = read_json(path)
     profiles = base.get("profiles", [])
@@ -153,7 +153,7 @@ def target_catalogue():
 
 def instructions(summary, editing):
     lines = [
-        "You are writing one RBR Scenario Studio scenario.",
+        "You are writing one RBR Studio scenario.",
         "Return only a single JSON object. No prose, no markdown fence, no code.",
         "Use exactly schemaVersion 1 and the field names in the schema.",
         "The scenario is data, not a Playwright script. Do not invent target names.",

@@ -3,7 +3,7 @@
 Runs a scenario JSON against the real `new-ui` page in Chromium.
 
 ```bash
-cd tools/scenario-studio
+cd tools/rbr-studio
 
 # once per machine
 python3 -m venv .venv
@@ -32,7 +32,7 @@ python3 -m venv .venv
     --headed --speed 120 --collapse-polls --step-pause-ms 300
 ```
 
-Artefacts go to `~/.local/share/rbr-scenario-studio/runs/<timestamp>-<slug>/`
+Artefacts go to `~/.local/share/rbr-studio/runs/<timestamp>-<slug>/`
 unless `--run-dir` is given: the scenario snapshot, base map, environment,
 `result.json`, `wire.jsonl`, `console.log`, failure screenshot and trace.
 If the user data directory is not writable, the default falls back to `.runs/`

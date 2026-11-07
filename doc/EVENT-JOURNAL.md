@@ -140,9 +140,9 @@ detail.
 
 ## Importing and generating a scenario
 
-Scenario Studio carries two stdlib-only tools. `tools/scenario-studio/journal_import.py` copies one day and the map snapshots it references into a transport-neutral bundle, from a local directory or over SSH; it only runs `cat` on known remote paths. `tools/scenario-studio/journal_to_scenario.py` turns a bundle (or a raw day plus `--map`) into an ordinary scenario JSON for the existing runner. Both accept a window with `--from`/`--to`, and the converter drops repeated sensor readings and duplicate room states, seeds the state that existed before the window, and writes controller steps plus visible expectations. It does not replay recorded UI requests as taps; their controller effects are included, but the gesture itself is not recoverable from the controller's side.
+RBR Studio carries two stdlib-only tools. `tools/rbr-studio/journal_import.py` copies one day and the map snapshots it references into a transport-neutral bundle, from a local directory or over SSH; it only runs `cat` on known remote paths. `tools/rbr-studio/journal_to_scenario.py` turns a bundle (or a raw day plus `--map`) into an ordinary scenario JSON for the existing runner. Both accept a window with `--from`/`--to`, and the converter drops repeated sensor readings and duplicate room states, seeds the state that existed before the window, and writes controller steps plus visible expectations. It does not replay recorded UI requests as taps; their controller effects are included, but the gesture itself is not recoverable from the controller's side.
 
-The Studio's **Import journal…** button runs `tools/scenario-studio/journal_ingest.py`, which accepts a bundle, a raw day, a local journal root, `user@host` (using `/data/rbr-heating/events`) or `user@host:/journal-root`, chains the importer and converter, and adds the result to the **Journal** group. SSH uses the operating system's client with `BatchMode=yes`, so it needs a key or agent and will not prompt for a password; SSH secrets should not go into the controller's `credentials` file, which is fetched from the cloud and backed up. A dedicated key is the right place. The remote command is exactly `cat <path>`, capturing the file's bytes; the default root is `/data/rbr-heating/events`, and `user@host:/other/root` overrides it.
+The Studio's **Import journal…** button runs `tools/rbr-studio/journal_ingest.py`, which accepts a bundle, a raw day, a local journal root, `user@host` (using `/data/rbr-heating/events`) or `user@host:/journal-root`, chains the importer and converter, and adds the result to the **Journal** group. SSH uses the operating system's client with `BatchMode=yes`, so it needs a key or agent and will not prompt for a password; SSH secrets should not go into the controller's `credentials` file, which is fetched from the cloud and backed up. A dedicated key is the right place. The remote command is exactly `cat <path>`, capturing the file's bytes; the default root is `/data/rbr-heating/events`, and `user@host:/other/root` overrides it.
 
 The `room.state` change detector uses a hash of the serialised record. The first version compared the JSON text directly, but AllSpeak normalises a JSON-looking string when it is stored in a dictionary, so every cycle looked different and wrote another identical row. A 25-minute live sample showed the difference clearly: 3,350 room-state rows became roughly one per room per minute once the comparison was hash-based. Existing journal files keep their duplicates; the converter suppresses them, and a controller running the fixed code stops writing them.
 
@@ -162,7 +162,19 @@ At the synthetic worst case of 7.9 MiB/day, 1 GiB holds about 130 days. The free
 
 It reads `<journal-root>/<YYYY>/<MM>/<day>.jsonl`, drops `sensor.reading` events whose temperature, humidity and battery are unchanged, copies the map snapshots the kept events reference, and writes `<journal-root>/exports/<system>-<day>.tar.gz` in the same format as the Studio importer. The default mode is `scenario`; `--mode full` keeps every event, and `--mode summary` drops the sensor stream entirely. `--keep` controls how many archives are retained (default 14, newest first).
 
-`rbr-journal-export.timer` runs it daily at 03:30 local time. `rbr-setup.sh` installs the service and timer when `journal-export.py` is present. The archive is local; copying it to the Studio is still the separate SSH, file or future cloud step. A manual run is safe and does not touch the journal.
+When heat logging is enabled, the bundle also carries the day's `<heatlog-root>/<room>/<YYYY>/<MM>/<DD>.csv` files under `reports/heatlog/`, and `manifest.reports` lists them with their rooms, sizes and hashes. `--heatlog-root` names the root; otherwise the `heatlog-root` file is read, and a journal root named `events` uses its parent. The day's outcomes therefore travel with the events that produced them, so one archive serves both RBR Studio and the statistics role. `journal_import.py --heatlog-root` does the same for a local import; the Studio's inbox keeps the extracted `reports/` tree beside the bundle.
+
+`rbr-journal-export.timer` runs it daily at 03:30 local time. `rbr-setup.sh` installs the service and timer when `journal-export.py` is present. A manual run is safe and does not touch the journal.
+
+Email delivery is opt-in, because the bundle carries room names, schedules and the exact UI payloads the user sent. `rbr-setup.sh` asks during Step 6e and writes `journal-export-config.json`:
+
+```json
+{"enabled": "yes", "address": "owner@example.com"}
+```
+
+With the file absent, or `enabled` not on, the bundle stays local. `--email-now` sends one bundle regardless of the toggle, `--no-email` never sends, and `--to` overrides the recipient. The recipient is the config's `address`, then the address the cloud holds for this controller (via `.mqtt_token`), then `mail_to` in `credentials`. Mail uses the same `mail_*` settings as the backup, through the shared `rbr_mail.py`; a send failure is printed to stderr (the systemd journal) and does not remove the archive or mark the timer failed. The subject starts `RBR journal` and the attachment is the same `.tar.gz` the exporter writes.
+
+RBR Studio scans a mail-filter folder at startup with `journal_inbox.py`. The folder is `~/RBR-journal` by default, or the path in a one-line `fixtures/local/journal-inbox` file. Every unseen `.tar.gz` is extracted into `fixtures/local/journal/<system>-<day>/`, converted into a whole-day scenario and added to the **Journal** group. `fixtures/local/journal/inbox-seen.json` records each archive's SHA-256, so a rescan is a no-op; a corrected bundle has a new hash and is picked up. The same scanner runs by hand with `python3 journal_inbox.py --scan --inbox DIR`.
 
 ## Configuration, privacy and retention
 
@@ -181,12 +193,8 @@ It reads `<journal-root>/<YYYY>/<MM>/<day>.jsonl`, drops `sensor.reading` events
 
 ## Tests
 
-- `tools/scenario-studio/tests/journal_check.py` — local and fake-SSH import, bundle archive round-trip, duplicate suppression, value formatting and scenario validation.
-- `tests/unit/eventlog_test.py` — the writer: local date paths, midnight and
-  year boundaries, compact JSONL, cross-midnight batches, map content
-  addressing, skipped invalid events and batch deletion.
-- `tests/unit/journal_test.py` — extracts the controller's Journal* block and
-  runs it through AllSpeak with a real `eventlog.py`, proving the event order,
-  the provenance field, the map snapshot and the batch writer together.
-- `tests/unit/controller-compile-check.sh` — the controller, with the journal
-  routines, must compile.
+- `tools/rbr-studio/tests/journal_check.py` — local and fake-SSH import, bundle archive round-trip, mail-inbox import and deduplication, duplicate suppression, value formatting and scenario validation.
+- `tests/unit/journal_export_test.py` — daily export modes, retention, bundle compatibility, the `reports/heatlog` rows and the email opt-in, flag overrides and attachment.
+- `tests/unit/eventlog_test.py` — the writer: local date paths, midnight and year boundaries, compact JSONL, cross-midnight batches, map content addressing, skipped invalid events and batch deletion.
+- `tests/unit/journal_test.py` — extracts the controller's Journal* block and runs it through AllSpeak with a real `eventlog.py`, proving the event order, the provenance field, the map snapshot and the batch writer together.
+- `tests/unit/controller-compile-check.sh` — the controller, with the journal routines, must compile.

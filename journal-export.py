@@ -4,15 +4,19 @@
 Runs on the controller. Reads <journal-root>/<YYYY>/<MM>/<YYYY-MM-DD>.jsonl,
 copies the map snapshots it references, drops repeated sensor readings that did
 not change value, and writes a tar.gz bundle in the same format as the
-Scenario Studio importer:
+RBR Studio importer:
 
     <journal-root>/exports/<system>-<YYYY-MM-DD>.tar.gz
     manifest.json
     events/<YYYY>/<MM>/<YYYY-MM-DD>.jsonl
     maps/<sha256>.json
+    reports/heatlog/<room>/<YYYY>/<MM>/<DD>.csv
 
-The archive is what an SSH pull, email or a future cloud upload should carry;
-the raw journal stays local until retention removes it. Run it as a systemd
+The bundle also carries the day's heating CSVs when heat logging is enabled,
+so the same archive serves RBR Studio and the statistics role without a
+second transfer. The raw journal stays local until retention removes it. Email
+is opt-in through `journal-export-config.json` (see `load_config`), and
+`--email-now` sends one bundle regardless of that toggle. Run it as a systemd
 timer (see rbr-journal-export.timer) or by hand:
 
     python3 journal-export.py --day 2026-11-06
@@ -25,16 +29,26 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 import pathlib
 import re
 import shutil
+import socket
 import sys
 import tarfile
 import tempfile
 
+# The mail merge rule is shared with rbr-backup.py so the two senders cannot
+# disagree about which credentials value wins.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rbr_mail  # noqa: E402 - beside this script, not on the caller's path
+
 BUNDLE_FORMAT = "rbr-journal-bundle"
 BUNDLE_VERSION = 1
 DEFAULT_KEEP = 14
+CONFIG_NAME = "journal-export-config.json"
+DEFAULT_MAX_EMAIL_MB = 25
+TRUE_VALUES = {"1", "on", "true", "yes", "enabled"}
 
 
 def resolve_root(cli_root):
@@ -102,7 +116,43 @@ def _slug(text):
     return value or "rbr"
 
 
-def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False):
+def resolve_heatlog_root(cli_root, journal_root):
+    """Find the heating-CSV root: --heatlog-root, heatlog-root, then <root>/events."""
+    if cli_root:
+        return pathlib.Path(cli_root).expanduser()
+    marker = pathlib.Path("heatlog-root")
+    if marker.is_file():
+        value = marker.read_text(encoding="utf-8").strip()
+        if value:
+            return pathlib.Path(value).expanduser()
+    root = pathlib.Path(journal_root)
+    if root.name == "events":
+        candidate = root.parent
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
+def heatlog_files(root, day):
+    """Bundle-relative paths mapped to the day's heatlog CSVs, or {} if there are none."""
+    if root is None:
+        return {}
+    root = pathlib.Path(root)
+    if not root.is_dir():
+        return {}
+    relative_day = f"{day.year:04d}/{day.month:02d}/{day.day:02d}.csv"
+    reports = {}
+    for room in sorted(root.iterdir()):
+        if not room.is_dir():
+            continue
+        source = room / relative_day
+        if source.is_file():
+            reports[f"reports/heatlog/{room.name}/{relative_day}"] = source
+    return reports
+
+
+def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False,
+               heatlog_root=None):
     source = day_path(root, day)
     if not source.is_file():
         raise SystemExit(f"journal-export.py: no journal day at {source}")
@@ -141,6 +191,18 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False):
             shutil.copyfile(source_map, maps_dir / source_map.name)
             map_rows.append({"hash": digest, "bytes": source_map.stat().st_size,
                              "sha256": _sha(source_map)})
+        report_rows = []
+        report_sources = heatlog_files(heatlog_root, day)
+        for relative, source_report in sorted(report_sources.items()):
+            parts = pathlib.PurePosixPath(relative).parts
+            target = bundle.joinpath(*parts)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source_report, target)
+            row = {"kind": "heatlog", "path": relative,
+                   "bytes": source_report.stat().st_size, "sha256": _sha(source_report)}
+            if len(parts) >= 3:
+                row["room"] = parts[2]
+            report_rows.append(row)
         first = events[0] if events else {}
         last = events[-1] if events else {}
         manifest = {
@@ -162,6 +224,7 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False):
             "baseMapHash": session_data.get("mapHash"),
             "tzOffsetMinutes": first.get("tzOffsetMinutes"),
             "maps": map_rows,
+            "reports": report_rows,
             "eventsPath": day_file.relative_to(bundle).as_posix(),
             "mode": mode,
         }
@@ -170,6 +233,8 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False):
         with tarfile.open(archive, "w:gz") as tar:
             for name in ("manifest.json", "events", "maps"):
                 tar.add(bundle / name, arcname=name)
+            if (bundle / "reports").is_dir():
+                tar.add(bundle / "reports", arcname="reports")
 
     _prune_exports(out, keep)
     return archive, manifest
@@ -187,11 +252,75 @@ def _prune_exports(out, keep):
             pass
 
 
+def load_config(path):
+    """Read the opt-in config, or {} when it is absent or unusable."""
+    path = pathlib.Path(path)
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        # Always visible: a config that exists but cannot be read would
+        # otherwise look exactly like an opted-out installation.
+        print(f"journal-export: cannot read {path}: {exc}", file=sys.stderr, flush=True)
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def config_enabled(config):
+    value = config.get("enabled")
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in TRUE_VALUES
+
+
+def _log(quiet):
+    if quiet:
+        return lambda message: None
+    return lambda message: print(f"journal-export: {message}", flush=True)
+
+
+def send_bundle(archive, manifest, config, rbr_dir, to="", smtp_port=0,
+                max_email_mb=DEFAULT_MAX_EMAIL_MB, quiet=False):
+    """Email one exported bundle. Returns (sent, error_message)."""
+    log = _log(quiet)
+    size = pathlib.Path(archive).stat().st_size
+    if max_email_mb > 0 and size > max_email_mb * 1024 * 1024:
+        return False, (f"{pathlib.Path(archive).name} is {size} bytes, over the "
+                       f"{max_email_mb} MB mail limit — kept locally only")
+    local = rbr_mail.load_local_credentials(rbr_dir, log)
+    cloud = rbr_mail.fetch_cloud(rbr_dir, log)
+    settings = rbr_mail.mail_settings(local, cloud)
+    if smtp_port:
+        settings["mail_port"] = smtp_port
+    recipient = rbr_mail.resolve_recipient(
+        to or config.get("address", ""), cloud, local)
+    day = manifest.get("day") or "unknown day"
+    system = manifest.get("system") or socket.gethostname()
+    subject = f"RBR journal — {day} — {system}"
+    body = (
+        f"Attached is the Room By Room journal bundle for {day} ({system}).\n\n"
+        f"{manifest.get('events', 0)} events, {len(manifest.get('maps') or [])} "
+        f"map snapshot(s), {len(manifest.get('reports') or [])} heatlog CSV(s), "
+        f"mode {manifest.get('mode') or 'scenario'}.\n\n"
+        "It contains room and device identifiers, schedules, sensor readings "
+        "and the UI requests the controller received. Keep it private.\n\n"
+        "RBR Studio scans ~/RBR-journal at startup, so a mail filter can "
+        "save this attachment there and the day will appear in its Journal "
+        "group. The bundle can also be imported by hand with journal_ingest.py.\n")
+    sent, error = rbr_mail.send_files(
+        settings, recipient, subject, body, [archive], log=log)
+    if not sent:
+        print(f"journal-export: {error}", file=sys.stderr, flush=True)
+    return sent, error
+
+
 def main(argv=None):
     yesterday = datetime.date.today() - datetime.timedelta(days=1)
     parser = argparse.ArgumentParser(prog="journal-export.py",
-                                     description="Export one journal day as a Scenario Studio bundle")
+                                     description="Export one journal day as an RBR Studio bundle")
     parser.add_argument("--root", help="journal root (default: journal-root, then <heatlog-root>/events)")
+    parser.add_argument("--heatlog-root", help="heating-CSV root (default: heatlog-root, then <root>/.. for an events root)")
     parser.add_argument("--day", help="day to export (YYYY-MM-DD; default: yesterday)")
     parser.add_argument("--out", help="export directory (default: <root>/exports)")
     parser.add_argument("--mode", choices=("scenario", "summary", "full"), default="scenario",
@@ -199,15 +328,44 @@ def main(argv=None):
     parser.add_argument("--keep", type=int, default=DEFAULT_KEEP,
                         help="keep this many archives, newest first (0 disables; default: 14)")
     parser.add_argument("--force", action="store_true", help="overwrite an existing archive")
+    parser.add_argument("--dir", help="controller directory holding credentials and the email config "
+                                     "(default: the current directory)")
+    parser.add_argument("--config", help=f"email config (default: <dir>/{CONFIG_NAME})")
+    email = parser.add_mutually_exclusive_group()
+    email.add_argument("--email-now", action="store_true",
+                       help="email this bundle even when the config has email switched off")
+    email.add_argument("--no-email", action="store_true", help="never email this run")
+    parser.add_argument("--to", help="recipient, overriding the config, the cloud and `mail_to`")
+    parser.add_argument("--smtp-port", type=int, default=0,
+                        help="SMTP port, overriding mail_port (default: mail_port or 465)")
+    parser.add_argument("--max-email-mb", type=int, default=DEFAULT_MAX_EMAIL_MB,
+                        help=f"do not email bundles larger than this (0 disables; default: {DEFAULT_MAX_EMAIL_MB})")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
     root = resolve_root(args.root)
+    heatlog_root = resolve_heatlog_root(args.heatlog_root, root)
     day = datetime.date.fromisoformat(args.day) if args.day else yesterday
     out = pathlib.Path(args.out).expanduser() if args.out else root / "exports"
-    archive, manifest = export_day(root, day, out, args.mode, args.keep, args.force)
+    archive, manifest = export_day(root, day, out, args.mode, args.keep, args.force,
+                                   heatlog_root=heatlog_root)
     if not args.quiet:
         print(f"journal-export.py: {archive}")
-        print(f"  {manifest['events']} events, {len(manifest['maps'])} map(s), mode {manifest['mode']}")
+        print(f"  {manifest['events']} events, {len(manifest['maps'])} map(s), "
+              f"{len(manifest['reports'])} heatlog CSV(s), mode {manifest['mode']}")
+
+    rbr_dir = pathlib.Path(args.dir).expanduser() if args.dir else pathlib.Path.cwd()
+    config_path = (pathlib.Path(args.config).expanduser() if args.config
+                   else rbr_dir / CONFIG_NAME)
+    config = load_config(config_path)
+    if args.no_email:
+        wanted = False
+    elif args.email_now:
+        wanted = True
+    else:
+        wanted = config_enabled(config)
+    if wanted:
+        send_bundle(archive, manifest, config, rbr_dir, args.to, args.smtp_port,
+                    args.max_email_mb, args.quiet)
     return 0
 
 

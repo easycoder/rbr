@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Import one day of the controller event journal into a Scenario Studio bundle.
+"""Import one day of the controller event journal into an RBR Studio bundle.
 
 The journal is already local on the controller. This tool pulls one day from a
 directory (same machine or a mounted share) or over SSH/SFTP, collects the map
@@ -119,6 +119,14 @@ def import_day(args) -> int:
             map_path.write_bytes(data)
             maps[digest] = map_path
 
+        heatlog_root = None
+        if args.source:
+            if args.heatlog_root:
+                heatlog_root = pathlib.Path(args.heatlog_root).expanduser()
+            elif pathlib.Path(args.source).name == "events":
+                heatlog_root = pathlib.Path(args.source).expanduser().parent
+        reports = journal_bundle.heatlog_files(heatlog_root, day) if heatlog_root else {}
+
         dest = pathlib.Path(args.dest).expanduser()
         if args.force and dest.exists():
             resolved = dest.resolve()
@@ -127,11 +135,13 @@ def import_day(args) -> int:
             shutil.rmtree(dest)
         manifest = journal_bundle.write_bundle(
             dest, day_path, maps, source_label,
-            pathlib.Path(args.archive).expanduser() if args.archive else None)
+            pathlib.Path(args.archive).expanduser() if args.archive else None,
+            reports=reports)
 
     print(f"imported {manifest['events']} events from {source_label}")
     print(f"  day:   {manifest['day']}  system: {manifest.get('system') or '?'}  profile: {manifest.get('profile') or '?'}")
     print(f"  maps:  {len(manifest['maps'])} snapshot(s)")
+    print(f"  heatlog: {len(manifest.get('reports') or [])} CSV(s)")
     print(f"  bundle: {pathlib.Path(args.dest).resolve()}")
     if args.archive:
         print(f"  archive: {pathlib.Path(args.archive).resolve()}")
@@ -145,8 +155,10 @@ def import_day(args) -> int:
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
         prog="journal_import.py",
-        description="Import a controller journal day into a Scenario Studio bundle")
+        description="Import a controller journal day into an RBR Studio bundle")
     parser.add_argument("--source", help="local journal root (containing YYYY/MM/... and maps/)")
+    parser.add_argument("--heatlog-root", help="local heatlog root to copy the day's CSVs from "
+                                             "(default: the parent of an --source named events)")
     parser.add_argument("--ssh", help="SSH host, e.g. linaro@192.168.1.20")
     parser.add_argument("--ssh-root", default="/data/rbr-heating/events",
                         help="journal root on the SSH host (default: /data/rbr-heating/events)")

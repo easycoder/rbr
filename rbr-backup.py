@@ -47,28 +47,27 @@ was configured or succeeded; 1 when the archive itself could not be created.
 """
 import argparse
 import datetime
-import email.message
 import hashlib
 import json
 import os
 import shutil
-import smtplib
 import sqlite3
 import socket
-import ssl
 import subprocess
 import sys
 import tempfile
 import urllib.parse
-import urllib.request
 import zipfile
+
+# The mail merge rule is shared with journal-export.py so the two senders
+# cannot disagree about which credentials value wins.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import rbr_mail  # noqa: E402 - beside this script, not on the caller's path
 
 PREFIX = "rbr-backup-"
 MANIFEST = "MANIFEST.json"
 README = "README.txt"
 FORMAT = 1
-CREDENTIALS_URL = "https://rbrheating.com/credentials.php"
-HTTP_TIMEOUT = 15
 DEFAULT_KEEP = 12
 DEFAULT_MAX_EMAIL_MB = 25
 
@@ -87,6 +86,7 @@ RBR_FILES = (
     "journal-root",
     "journal-max-bytes",
     "journal-max-free-percent",
+    "journal-export-config.json",
     "backup-config.json",
 )
 RBR_DIRS = ("map-history",)
@@ -145,132 +145,12 @@ def sha256_file(path):
     return digest.hexdigest()
 
 
-def local_mac(rbr_dir):
-    """The controller's topic identity: .mac_override, else the default NIC."""
-    override = os.path.join(rbr_dir, ".mac_override")
-    if os.path.isfile(override):
-        with open(override, encoding="utf-8") as fh:
-            mac = fh.read().strip()
-        if mac:
-            return mac.lower()
-    try:
-        route = subprocess.run(
-            ["sh", "-c", "ip route show default | awk '{print $5}'"],
-            capture_output=True, text=True, timeout=5)
-        device = route.stdout.strip().splitlines()[0] if route.stdout.strip() else ""
-        if device:
-            link = subprocess.run(
-                ["ip", "link", "show", device], capture_output=True, text=True, timeout=5)
-            for token in link.stdout.split():
-                if token.count(":") == 5:
-                    return token.lower()
-    except (OSError, IndexError, subprocess.SubprocessError):
-        pass
-    return ""
-
-
-def fetch_cloud(rbr_dir):
-    """What credentials.php says for this controller, or {} when it cannot say."""
-    mac = local_mac(rbr_dir)
-    token = ""
-    token_file = os.path.join(rbr_dir, ".mqtt_token")
-    if os.path.isfile(token_file):
-        with open(token_file, encoding="utf-8") as fh:
-            token = fh.read().strip()
-    if not mac or not token:
-        return {}
-    url = "%s?mac=%s&token=%s" % (
-        CREDENTIALS_URL, urllib.parse.quote(mac), urllib.parse.quote(token))
-    try:
-        with urllib.request.urlopen(url, timeout=HTTP_TIMEOUT) as resp:
-            data = json.load(resp)
-        return data if isinstance(data, dict) else {}
-    except Exception as exc:  # noqa: BLE001 - offline is an expected state
-        log(f"cloud lookup failed ({exc}); using local settings")
-        return {}
-
-
-def load_local_credentials(rbr_dir):
-    path = os.path.join(rbr_dir, "credentials")
-    try:
-        data = read_json(path)
-        if isinstance(data, dict):
-            return data
-        log("local credentials is not a JSON object; ignoring it")
-    except FileNotFoundError:
-        log("no local credentials file; using the cloud's settings")
-    except (OSError, ValueError) as exc:
-        log(f"cannot read local credentials ({exc}); using the cloud's settings")
-    return {}
-
-
-def usable_mail_value(key, value):
-    """True when a mail setting is present and is not the installer's placeholder."""
-    if value is None:
-        return False
-    text = str(value).strip()
-    if not text:
-        return False
-    low = text.lower()
-    if "replace_with" in low:
-        return False
-    if key == "mail_server":
-        if low == "smtp.example.com" or low.endswith(".example.com"):
-            return False
-    if key == "mail_port":
-        try:
-            int(text)
-        except ValueError:
-            return False
-    return True
-
-
-def mail_settings(local, cloud):
-    """Mail settings, with a real local value winning over the cloud's copy.
-
-    The controller's own `credentials` file is what the operator edits, and it
-    used to be overwritten by re-running the installer. The cloud's host file
-    may still carry the placeholder values from `credentials.example.json`; a
-    naive merge let those override a working local SMTP configuration and made
-    the backup report "mail settings are not configured" after the operator had
-    just fixed them. So: use the local value when it is real, and let the cloud
-    fill only what the local file has not configured.
-    """
-    settings = {}
-    for key in ("mail_server", "mail_login", "mail_password",
-                "mail_from", "mail_port", "mail_to"):
-        local_value = local.get(key)
-        cloud_value = cloud.get(key)
-        if usable_mail_value(key, local_value):
-            settings[key] = local_value
-        elif usable_mail_value(key, cloud_value):
-            settings[key] = cloud_value
-    return settings
-
-
-def mail_problem(settings):
-    """Why the settings cannot send, or "" when they can."""
-    server = str(settings.get("mail_server", "")).strip()
-    login = str(settings.get("mail_login", "")).strip()
-    password = str(settings.get("mail_password", ""))
-    if not server:
-        return "mail_server is empty"
-    if not usable_mail_value("mail_server", server):
-        return "mail_server is still the placeholder smtp.example.com"
-    if not login:
-        return "mail_login is empty"
-    if not password:
-        return "mail_password is empty"
-    if not usable_mail_value("mail_password", password):
-        return "mail_password is still a placeholder"
-    return ""
-
-
-def resolve_recipient(address, cloud, local):
-    for value in (address, cloud.get("email"), local.get("mail_to")):
-        if value and "@" in str(value):
-            return str(value).strip()
-    return ""
+# Kept here because the backup's tests and its own code speak these names;
+# the implementations live in rbr_mail.py.
+usable_mail_value = rbr_mail.usable_mail_value
+mail_settings = rbr_mail.mail_settings
+mail_problem = rbr_mail.mail_problem
+resolve_recipient = rbr_mail.resolve_recipient
 
 
 def z2m_data_dir(explicit):
@@ -448,47 +328,15 @@ def prune(out_dir, keep, current, quiet):
 
 def send_archive(archive, recipient, settings, quiet):
     """Email the archive. Returns (sent, error_message)."""
-    if not recipient:
-        return False, "no registered email address is known"
-    problem = mail_problem(settings)
-    if problem:
-        return False, f"mail settings are not configured in `credentials`: {problem}"
-    server = str(settings["mail_server"]).strip()
-    port = int(settings.get("mail_port") or 465)
-    sender = str(settings.get("mail_from") or settings["mail_login"]).strip()
-    login = str(settings["mail_login"]).strip()
-    password = str(settings["mail_password"])
-
-    message = email.message.EmailMessage()
-    message["Subject"] = f"RBR backup — {socket.gethostname()} — " \
-                         f"{datetime.date.today().isoformat()}"
-    message["From"] = sender
-    message["To"] = recipient
-    message.set_content(
+    subject = f"RBR backup — {socket.gethostname()} — {datetime.date.today().isoformat()}"
+    body = (
         "Attached is the monthly backup of your Room By Room controller.\n\n"
         "It contains the heating plan, the Zigbee2MQTT data (including the "
         "network key) and the controller's credentials. Keep it private.\n\n"
         "To restore it on a fresh install:\n\n"
         f"    sudo python3 rbr-restore.py {os.path.basename(archive)}\n")
-    with open(archive, "rb") as fh:
-        message.add_attachment(fh.read(), maintype="application",
-                               subtype="zip", filename=os.path.basename(archive))
-
-    try:
-        if port == 587:
-            with smtplib.SMTP(server, port, timeout=60) as smtp:
-                smtp.starttls(context=ssl.create_default_context())
-                smtp.login(login, password)
-                smtp.send_message(message)
-        else:
-            with smtplib.SMTP_SSL(server, port, timeout=60,
-                                  context=ssl.create_default_context()) as smtp:
-                smtp.login(login, password)
-                smtp.send_message(message)
-    except Exception as exc:  # noqa: BLE001 - report, do not lose the archive
-        return False, f"email failed: {exc}"
-    log(f"emailed {os.path.basename(archive)} to {recipient}", quiet)
-    return True, ""
+    return rbr_mail.send_files(settings, recipient, subject, body, [archive],
+                               log=lambda message: log(message, quiet))
 
 
 def write_status(path, archive, manifest, warnings, emailed, email_to, error):
@@ -567,8 +415,10 @@ def main():
         except (OSError, ValueError) as exc:
             warnings.append(f"backup-config.json is unreadable ({exc}); email left off")
 
-    local = load_local_credentials(rbr_dir)
-    cloud = fetch_cloud(rbr_dir)
+    local = rbr_mail.load_local_credentials(
+        rbr_dir, lambda message: log(message, args.quiet))
+    cloud = rbr_mail.fetch_cloud(
+        rbr_dir, lambda message: log(message, args.quiet))
     settings = mail_settings(local, cloud)
     if args.smtp_port:
         settings["mail_port"] = args.smtp_port

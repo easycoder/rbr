@@ -48,7 +48,8 @@ node tests/pwa-schedule-save-check.js # a map push while a sheet editor is open 
 node tests/pwa-profile-sheet-check.js # a profile rename/delete keeps the calendar's day names in step
 node tests/pwa-valve-state-check.js # the room tag follows a TRV's own running state, and unwired rooms say so
 node tests/pwa-backup-sheet-check.js # the hamburger's Backups sheet ships its toggle and "send now"
-python3 tools/scenario-studio/tests/journal_check.py # journal bundle, importer and scenario converter
+python3 tools/rbr-studio/tests/journal_check.py # journal bundle, mail inbox, importer and scenario converter
+python3 tools/rbr-studio/tests/package_check.py # portable RBR Studio package and first-run inbox config
 python3 -m unittest tests/unit/journal_export_test.py # controller-side compact journal export
 ```
 
@@ -87,7 +88,7 @@ The UI is a static webapp — it has to be served over HTTP (not `file://`) beca
 - `docs-reader/` — the documentation reader served at `/docs`. It is a page, an AllSpeak script and a Webson layout, and it holds no documentation: it fetches the Markdown from the public repository as it is read and renders it with this runtime's markdown renderer. See `tests/docs-reader-check.js`.
 - `new-ui/` — the PWA: `index.html`, `sw.js`, the manifest, `resources/allspeak/` (the five scripts) and `resources/webson/` (its layouts). It is the only UI; `/heat/` on the site is built from this directory.
 - `desktop/` — the PySide6 port, kept but secondary, and not yet on the shared-room-list format.
-- `tools/scenario-studio/` — specification, schema, examples, wireframe, v0 Python runner, AllSpeak/PySide shell (table/log/panes/process; Run/Demo wired), `snapshot-map.py` for local real-system maps, `journal_import.py`/`journal_to_scenario.py`/`journal_ingest.py` for controller-journal bundles, and `ai-draft.py`/`scenario_library.py` for AI-drafted, grouped, briefed local scenarios and `batch_runner.py` for sequential batches.
+- `tools/rbr-studio/` — RBR Studio: specification, schema, examples, wireframe, v0 Python runner, AllSpeak/PySide shell (table/log/panes/process; Run/Demo wired), `snapshot-map.py` for local real-system maps, `journal_import.py`/`journal_to_scenario.py`/`journal_ingest.py` for controller-journal bundles, and `ai-draft.py`/`scenario_library.py` for AI-drafted, grouped, briefed local scenarios and `batch_runner.py` for sequential batches.
 - `rbr-backup.py`, `rbr-restore.py` — monthly archive (controller state + Zigbee2MQTT data, optional email copy) and the script that restores one after a fresh install
 - `map.json` — System map in the shared-room-list format: one `rooms[]` of identity (relays, thermometer, frost), plus each profile's schedules keyed by room name. `AI/MAP_FORMAT.md` is the format of record.
 - `params.json`, `environment.csv` — Simulator configuration (per-room thermal parameters and the outdoor-conditions envelope)

@@ -2,7 +2,7 @@
 """Tests for journal_import.py, journal_to_scenario.py and journal_bundle.py.
 
 Run directly:
-    python3 tools/scenario-studio/tests/journal_check.py
+    python3 tools/rbr-studio/tests/journal_check.py
 
 Only stdlib is used. The fixtures are synthetic; no controller or network is
 needed, and the SSH test uses a fake `ssh` executable on the temporary PATH.
@@ -24,6 +24,7 @@ REPO = STUDIO.parent.parent
 sys.path.insert(0, str(STUDIO))
 
 import journal_bundle  # noqa: E402
+import journal_inbox  # noqa: E402
 import journal_ingest  # noqa: E402
 import journal_to_scenario  # noqa: E402
 import scenario_library  # noqa: E402
@@ -164,6 +165,10 @@ class JournalToolsTests(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory(prefix="rbr-journal-tools-")
         self.root = pathlib.Path(self._tmp.name) / "events"
         self.digest = build_fixture(self.root)
+        self.heatlog = pathlib.Path(self._tmp.name) / "heating-data"
+        day_csv = self.heatlog / "Kitchen" / "2026" / "11"
+        day_csv.mkdir(parents=True)
+        (day_csv / f"{DAY[-2:]}.csv").write_text("30504123,207,205,p\n", encoding="utf-8")
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -208,6 +213,73 @@ class JournalToolsTests(unittest.TestCase):
             self.assertEqual(opened.load_map(self.digest)["name"], "Test home")
         finally:
             opened.close()
+
+    def test_mail_inbox_imports_each_bundle_once(self):
+        bundle = pathlib.Path(self._tmp.name) / "mail-bundle"
+        inbox = pathlib.Path(self._tmp.name) / "inbox"
+        inbox.mkdir()
+        archive = inbox / f"Test-{DAY}.tar.gz"
+        run("journal_import.py", "--source", str(self.root), "--day", DAY,
+            "--heatlog-root", str(self.heatlog), "--dest", str(bundle),
+            "--archive", str(archive))
+        local = pathlib.Path(self._tmp.name) / "fixtures" / "local"
+        scenarios = local / "scenarios"
+        old = (scenario_library.LOCAL, scenario_library.SCENARIOS,
+               scenario_library.TRASH, scenario_library.INDEX,
+               scenario_library.SEED_FLAG, scenario_library.EXAMPLES)
+        scenario_library.LOCAL = local
+        scenario_library.SCENARIOS = scenarios
+        scenario_library.TRASH = local / ".trash"
+        scenario_library.INDEX = scenarios / "index.json"
+        scenario_library.SEED_FLAG = local / ".examples-seeded"
+        scenario_library.EXAMPLES = STUDIO / "docs" / "examples"
+        journal_dir = pathlib.Path(self._tmp.name) / "journal"
+        drafts = pathlib.Path(self._tmp.name) / "drafts"
+        state = journal_dir / "inbox-seen.json"
+        try:
+            handled = journal_inbox.scan(inbox=inbox, journal_dir=journal_dir,
+                                         drafts_dir=drafts, state_path=state, quiet=True)
+            self.assertEqual([row["day"] for row in handled], [DAY])
+            self.assertTrue((journal_dir / f"test-{DAY}" / "manifest.json").is_file())
+            self.assertTrue((journal_dir / f"test-{DAY}" / "reports" / "heatlog" /
+                             "Kitchen" / "2026" / "11" / f"{DAY[-2:]}.csv").is_file())
+            index = scenario_library.load_index()
+            entry = next(item for item in index["scenarios"] if item["group"] == "Journal")
+            self.assertTrue((scenarios / entry["path"]).is_file())
+            # An unchanged inbox is a no-op, and the filter's own file stays put.
+            self.assertEqual(journal_inbox.scan(inbox=inbox, journal_dir=journal_dir,
+                                                drafts_dir=drafts, state_path=state,
+                                                quiet=True), [])
+            self.assertTrue(archive.is_file())
+            # Losing the state file must not duplicate a day already on disk.
+            state.unlink()
+            self.assertEqual(journal_inbox.scan(inbox=inbox, journal_dir=journal_dir,
+                                                drafts_dir=drafts, state_path=state,
+                                                quiet=True), [])
+            index = scenario_library.load_index()
+            self.assertEqual(len([item for item in index["scenarios"]
+                                  if item["group"] == "Journal"]), 1)
+        finally:
+            (scenario_library.LOCAL, scenario_library.SCENARIOS,
+             scenario_library.TRASH, scenario_library.INDEX,
+             scenario_library.SEED_FLAG, scenario_library.EXAMPLES) = old
+
+    def test_mail_inbox_records_a_bad_archive_without_retrying(self):
+        inbox = pathlib.Path(self._tmp.name) / "bad-inbox"
+        inbox.mkdir()
+        (inbox / "broken.tar.gz").write_bytes(b"not a tar archive")
+        state = pathlib.Path(self._tmp.name) / "bad-state.json"
+        self.assertEqual(journal_inbox.scan(
+            inbox=inbox, journal_dir=pathlib.Path(self._tmp.name) / "journal",
+            drafts_dir=pathlib.Path(self._tmp.name) / "drafts",
+            state_path=state, quiet=True), [])
+        saved = json.loads(state.read_text(encoding="utf-8"))
+        self.assertEqual(len(saved), 1)
+        self.assertEqual(next(iter(saved.values()))["status"], "failed")
+        self.assertEqual(journal_inbox.scan(
+            inbox=inbox, journal_dir=pathlib.Path(self._tmp.name) / "journal",
+            drafts_dir=pathlib.Path(self._tmp.name) / "drafts",
+            state_path=state, quiet=True), [])
 
     def test_converter_suppresses_duplicates_and_formats_values(self):
         bundle = pathlib.Path(self._tmp.name) / "bundle"

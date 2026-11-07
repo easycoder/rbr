@@ -1,4 +1,4 @@
-# Scenario Studio — specification
+# RBR Studio — specification
 
 Status: design, 2026-11-05. The v0 Python runner in `scenario_runner/`
 implements validation, the controller stub, semantic targets, the virtual
@@ -9,7 +9,7 @@ adds headed, paced playback with collapsed poll logging.
 
 ## 1. Purpose
 
-Scenario Studio builds and runs UI test scenarios for Room By Room. A scenario
+RBR Studio builds and runs UI test scenarios for Room By Room. A scenario
 is a list of things the **controller** does, things the **user** does, and
 things the **UI must show**. The studio gives that list a visual editor, a
 validator, an AI drafting aid and a runner that reports results step by step.
@@ -78,7 +78,7 @@ dependency, and the same runner works headless in CI or from another tool.
 
 ```
 ┌──────────────────────────────────────────────┐
-│ Scenario Studio (AllSpeak + PySide6)         │
+│ RBR Studio (AllSpeak + PySide6)              │
 │  scenario browser · step table · inspector   │
 │  validation · log panel · AI draft panel     │
 └───────────────┬──────────────────────────────┘
@@ -303,7 +303,7 @@ Exact 10-second poll cadence is a later, separate mode.
 
 ## 8. Run artefacts
 
-Runs are written outside the repository by default (`~/.local/share/rbr-scenario-studio/runs/`),
+Runs are written outside the repository by default (`~/.local/share/rbr-studio/runs/`),
 or under a configured directory:
 
 ```
@@ -465,7 +465,7 @@ MQTT itself. The runner is a subprocess and speaks to a stubbed page.
 ## 16. Open questions
 
 - Does the studio stay in this repository permanently, or move once stable? The
-  spec assumes `tools/scenario-studio/` for now.
+  spec assumes `tools/rbr-studio/` for now.
 - Should scenarios live beside the UI code (reviewed in the same PR) or in the
   studio's own store? Default: a `scenarios/` folder in the studio, referenced
   from PRs.

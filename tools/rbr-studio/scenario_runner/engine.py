@@ -33,10 +33,10 @@ def _slug(name):
 
 
 def _data_root():
-    preferred = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "rbr-scenario-studio" / "runs"
+    preferred = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / "rbr-studio" / "runs"
     # A sandboxed home is often read-only. Fall back to a local, git-ignored
     # directory and, failing that, the temp directory; the run path is printed.
-    candidates = [preferred, Path.cwd() / ".runs", Path(tempfile.gettempdir()) / "rbr-scenario-studio" / "runs"]
+    candidates = [preferred, Path.cwd() / ".runs", Path(tempfile.gettempdir()) / "rbr-studio" / "runs"]
     for root in candidates:
         try:
             root.mkdir(parents=True, exist_ok=True)

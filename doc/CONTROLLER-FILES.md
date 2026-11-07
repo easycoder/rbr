@@ -15,7 +15,8 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `zigbee-mesh.py` | Shows the Zigbee mesh as the coordinator sees it — each device's parent, link quality, weak links, and (with `--failures`) which relays are failing to acknowledge | manual |
 | `rbr-dashboard.py` | Terminal dashboard renderer (reads `/tmp/rbr-dashboard.json` written by the controller) | manual |
 | `eventlog.py` | Append-only writer for the controller event journal (see `EVENT-JOURNAL.md`) | auto (rbr-updater.py) |
-| `journal-export.py` | Compacts a journal day into a Scenario Studio bundle (daily timer; see `EVENT-JOURNAL.md`) | auto (rbr-updater.py) |
+| `journal-export.py` | Compacts a journal day into an RBR Studio bundle, with the day's heatlog CSVs and map snapshots (daily timer; see `EVENT-JOURNAL.md`). Emails it when `journal-export-config.json` enables that | auto (rbr-updater.py) |
+| `rbr_mail.py` | Shared SMTP settings, recipient resolution and sending for `rbr-backup.py` and `journal-export.py` | auto (rbr-updater.py) |
 | `dashboard.txt` | Dashboard column headers — read by `rbr-dashboard.py` | manual |
 | `rbr-updater.py` | Applies code updates pulled from `rbrheating.com/heat/` (installed as an hourly timer) | auto (rbr-updater.py) |
 | `rbr-watchdog.sh` | 15-minute health check — restarts any core service that is down or unresponsive, and runs the heating check | auto (rbr-updater.py) |
@@ -36,8 +37,9 @@ The controller directory does NOT need any of the repo's folders (`new-ui/`, `de
 | `journal-max-free-percent` | Optional one-line cap as a percentage of the filesystem's free space; default 10, `0` disables | generated |
 | `backup-config.json` | The Backups sheet's email toggle and the registered address; written by the controller | live data |
 | `backup-status.json` | The last backup's result, for the Backups sheet; written by `rbr-backup.py` | live data |
+| `journal-export-config.json` | The daily journal email toggle and optional recipient; written by `rbr-setup.sh` | live data |
 | `<journal-root>/` | Daily event files and content-addressed map snapshots; delete old days freely | live data |
-| `<journal-root>/exports/` | Daily `.tar.gz` bundles for Scenario Studio; newest 14 kept by default | live data |
+| `<journal-root>/exports/` | Daily `.tar.gz` bundles for RBR Studio and statistics; includes the day's heatlog CSVs under `reports/heatlog/`, newest 14 kept by default | live data |
 | `volatile-root` | One line: the directory holding the regenerable files below. `rbr-setup.sh` writes `/run/rbr`, which is a tmpfs and is emptied on every reboot. With no such file the paths stay plain names in this directory (what a test machine gets) | generated |
 | `thermometers.json` | Temperature readings — created on first run. In the volatile directory | volatile |
 | `zigbee-temperatures.json` | Zigbee readings written by the bridge, merged by the controller. In the volatile directory | volatile |
@@ -70,7 +72,7 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 
 ## Backups ##
 
-`rbr-backup.py` runs from `rbr-backup.service` + `rbr-backup.timer` on the first of every month at 03:00, with `Persistent=true` so a machine that was off catches up on its next boot. It writes one ZIP into `backup/`, prunes to the newest 12, and records the outcome in `backup-status.json`. The archive holds the controller's own state (`map.json`, its history, `credentials`, `zigbee-config.json`, `.mac_override`, `.mqtt_*`, the root markers and `backup-config.json`) and all of Zigbee2MQTT's data directory — `configuration.yaml` with the network key, a consistent snapshot of `database.db`, `coordinator_backup.json` and external converters. Code is not included: a fresh install gets that from rbrheating.com.
+`rbr-backup.py` runs from `rbr-backup.service` + `rbr-backup.timer` on the first of every month at 03:00, with `Persistent=true` so a machine that was off catches up on its next boot. It writes one ZIP into `backup/`, prunes to the newest 12, and records the outcome in `backup-status.json`. The archive holds the controller's own state (`map.json`, its history, `credentials`, `zigbee-config.json`, `.mac_override`, `.mqtt_*`, the root markers, `backup-config.json` and `journal-export-config.json`) and all of Zigbee2MQTT's data directory — `configuration.yaml` with the network key, a consistent snapshot of `database.db`, `coordinator_backup.json` and external converters. Code is not included: a fresh install gets that from rbrheating.com.
 
 The archive therefore contains the secrets that let a rebuilt controller rejoin the mesh. Archives are written mode 0600 and should be treated as sensitive.
 

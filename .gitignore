@@ -2,7 +2,8 @@
 !.github
 !.htaccess
 *.txt
-!tools/scenario-studio/requirements.txt
+!tools/rbr-studio/requirements.txt
+!tools/rbr-studio/requirements-studio.txt
 misc
 stats
 backup
@@ -30,8 +31,10 @@ playwright-report/
 
 # Real system maps snapshotted for local scenario testing — room names and
 # device ids from a living installation. The public examples stay synthetic.
-tools/scenario-studio/fixtures/local/
-tools/scenario-studio/ai-config.json
+tools/rbr-studio/fixtures/local/
+tools/rbr-studio/ai-config.json
+tools/rbr-studio/studio-config.json
+tools/rbr-studio/dist/
 
 # Local machine credentials — never commit these. Both are generated per
 # machine (`rbr-setup.sh` writes `credentials` and `zigbee-config.json`), and
@@ -45,5 +48,6 @@ zigbee-config.json
 backup/
 backup-config.json
 backup-status.json
+journal-export-config.json
 pre-restore-*/
 DIFF.md

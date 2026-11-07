@@ -1,4 +1,4 @@
-"""Read and write RBR journal bundles for Scenario Studio.
+"""Read and write RBR journal bundles for RBR Studio.
 
 A bundle is the transport-neutral unit the importer produces and the scenario
 generator consumes. It is either a directory or a gzipped tar archive with:
@@ -6,12 +6,13 @@ generator consumes. It is either a directory or a gzipped tar archive with:
     manifest.json
     events/<YYYY>/<MM>/<YYYY-MM-DD>.jsonl
     maps/<sha256>.json
+    reports/heatlog/<room>/<YYYY>/<MM>/<DD>.csv   (when heat logging is on)
 
 The manifest records the source, the day, the system and profile, the event
-count and hashes, and the map snapshots the day refers to. Keeping the format
-small and explicit means the local, SSH, HTTPS and email transports can all
-produce the same thing, and the converter never needs to know where it came
-from.
+count and hashes, the map snapshots the day refers to, and the heating CSVs
+that carry the same day's outcomes for statistics. Keeping the format small
+and explicit means the local, SSH, HTTPS and email transports can all produce
+the same thing, and the converter never needs to know where it came from.
 """
 
 from __future__ import annotations
@@ -71,8 +72,53 @@ def collect_map_hashes(events) -> list[str]:
     return seen
 
 
+def heatlog_files(root, day) -> dict[str, pathlib.Path]:
+    """Map bundle-relative report paths to the day's heatlog CSVs.
+
+    The controller writes `<heatlog-root>/<room>/<YYYY>/<MM>/<DD>.csv`; the
+    bundle keeps that shape under `reports/heatlog/`, so a reader can tell the
+    room and the day from the path alone. Missing root or no rows is not an
+    error: heat logging is optional.
+    """
+    if not root:
+        return {}
+    root = pathlib.Path(root).expanduser()
+    if not root.is_dir():
+        return {}
+    stamp = _datetime.date.fromisoformat(str(day))
+    relative_day = f"{stamp.year:04d}/{stamp.month:02d}/{stamp.day:02d}.csv"
+    reports = {}
+    for room in sorted(root.iterdir()):
+        if not room.is_dir():
+            continue
+        source = room / relative_day
+        if source.is_file():
+            reports[f"reports/heatlog/{room.name}/{relative_day}"] = source
+    return reports
+
+
+def report_rows(reports: dict[str, pathlib.Path]) -> list[dict]:
+    """Manifest rows for report files, rejecting paths that could escape the bundle."""
+    rows = []
+    for relative, source in sorted(reports.items()):
+        relative = pathlib.PurePosixPath(str(relative))
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ValueError(f"report path must stay inside the bundle: {relative}")
+        source = pathlib.Path(source)
+        row = {
+            "kind": "heatlog" if relative.parts[:2] == ("reports", "heatlog") else "file",
+            "path": relative.as_posix(),
+            "bytes": source.stat().st_size,
+            "sha256": sha256_file(source),
+        }
+        if row["kind"] == "heatlog" and len(relative.parts) >= 3:
+            row["room"] = relative.parts[2]
+        rows.append(row)
+    return rows
+
+
 def manifest_for(day_path: pathlib.Path, maps: dict[str, pathlib.Path], source: str,
-                 day: str | None = None) -> dict:
+                 day: str | None = None, reports: list[dict] | None = None) -> dict:
     events = read_events(day_path)
     session = next((event for event in events if event.get("type") == "session.start"), {})
     session_data = session.get("data") or {}
@@ -105,11 +151,13 @@ def manifest_for(day_path: pathlib.Path, maps: dict[str, pathlib.Path], source: 
         "baseMapHash": session_data.get("mapHash"),
         "tzOffsetMinutes": first.get("tzOffsetMinutes"),
         "maps": map_rows,
+        "reports": reports or [],
     }
 
 
 def write_bundle(dest: pathlib.Path, day_path: pathlib.Path, maps: dict[str, pathlib.Path],
-                 source: str, archive: pathlib.Path | None = None) -> dict:
+                 source: str, archive: pathlib.Path | None = None,
+                 reports: dict[str, pathlib.Path] | None = None) -> dict:
     """Write a bundle directory, optionally tar.gz it, and return the manifest."""
     dest = pathlib.Path(dest)
     if dest.exists() and any(dest.iterdir()):
@@ -126,7 +174,13 @@ def write_bundle(dest: pathlib.Path, day_path: pathlib.Path, maps: dict[str, pat
     shutil.copyfile(day_path, events_dir / day_path.name)
     for digest, path in maps.items():
         shutil.copyfile(path, maps_dir / f"{digest}.json")
-    manifest = manifest_for(day_path, maps, source, day)
+    reports = reports or {}
+    rows = report_rows(reports)
+    for relative, source_path in reports.items():
+        target = dest.joinpath(*pathlib.PurePosixPath(str(relative)).parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source_path, target)
+    manifest = manifest_for(day_path, maps, source, day, rows)
     manifest["eventsPath"] = str((events_dir / day_path.name).relative_to(dest)).replace("\\", "/")
     (dest / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -136,6 +190,8 @@ def write_bundle(dest: pathlib.Path, day_path: pathlib.Path, maps: dict[str, pat
         with tarfile.open(archive, "w:gz") as tar:
             for name in ("manifest.json", "events", "maps"):
                 tar.add(dest / name, arcname=name)
+            if (dest / "reports").is_dir():
+                tar.add(dest / "reports", arcname="reports")
     return manifest
 
 
@@ -146,6 +202,10 @@ class Bundle:
     maps_dir: pathlib.Path
     manifest: dict = field(default_factory=dict)
     _temporary: tempfile.TemporaryDirectory | None = None
+
+    @property
+    def reports_dir(self) -> pathlib.Path:
+        return self.root / "reports"
 
     def close(self):
         if self._temporary is not None:
@@ -181,6 +241,15 @@ def _safe_extract(tar: tarfile.TarFile, dest: pathlib.Path):
         tar.extractall(dest)
 
 
+def extract_bundle(archive: pathlib.Path, dest: pathlib.Path) -> pathlib.Path:
+    """Extract a bundle archive into dest, refusing paths outside it."""
+    dest = pathlib.Path(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    with tarfile.open(archive, "r:*") as tar:
+        _safe_extract(tar, dest)
+    return dest
+
+
 def open_bundle(path: pathlib.Path) -> Bundle:
     """Open a bundle directory or .tar.gz and return its events, maps and manifest."""
     path = pathlib.Path(path)
@@ -197,7 +266,6 @@ def open_bundle(path: pathlib.Path) -> Bundle:
 
     if path.is_file():
         temporary = tempfile.TemporaryDirectory(prefix="rbr-journal-bundle-")
-        with tarfile.open(path, "r:*") as tar:
-            _safe_extract(tar, pathlib.Path(temporary.name))
+        extract_bundle(path, pathlib.Path(temporary.name))
         return open_bundle(pathlib.Path(temporary.name)).with_temporary(temporary)
     raise FileNotFoundError(f"no such journal bundle: {path}")
