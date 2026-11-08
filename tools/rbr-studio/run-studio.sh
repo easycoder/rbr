@@ -55,18 +55,20 @@ VENV_HOME=".venv/.studio-home"
 venv_current() {
     [[ -x .venv/bin/python ]] || return 1
     if [[ -f "$VENV_HOME" ]]; then
-        [[ "$(cat "$VENV_HOME")" == "$HERE" ]] && return 0
-        return 1
+        [[ "$(cat "$VENV_HOME")" == "$HERE" ]] || return 1
+    else
+        # A venv from before the marker existed is current when its console
+        # scripts still name this directory. A moved venv cannot run its pip.
+        head -n 1 .venv/bin/pip 2>/dev/null | grep -Fq "#!$HERE/.venv/bin/python" || return 1
     fi
-    # A venv from before the marker existed is current when its console
-    # scripts still name this directory. A moved venv cannot run its pip.
-    head -n 1 .venv/bin/pip 2>/dev/null | grep -Fq "#!$HERE/.venv/bin/python"
+    # Studio uses `set the cursor`; an older AllSpeak cannot compile it.
+    .venv/bin/python -c 'import allspeak.as_graphics as g; raise SystemExit(0 if hasattr(g, "CURSORS") else 1)' 2>/dev/null
 }
 
 if (( INSTALL )); then
     if ! venv_current; then
         if [[ -e .venv ]]; then
-            echo "Replacing the .venv: it was created in another directory."
+            echo "Replacing the .venv: it is from another directory or an older AllSpeak."
             rm -rf .venv
         fi
         echo "Creating .venv and installing the Studio requirements (first run)..."

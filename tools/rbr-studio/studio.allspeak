@@ -33,6 +33,7 @@ pushbutton RunBtn
 pushbutton DemoBtn
 pushbutton QuitBtn
 pushbutton RefreshBtn
+pushbutton ColumnsBtn
 label SpeedLabel
 combobox SpeedBox
 
@@ -42,6 +43,13 @@ panel Sidebar
 layout SidebarCol
 layout DraftRow
 layout ToolsRow
+layout BatchRow
+label SystemLabel
+combobox SystemBox
+pushbutton MboxBtn
+pushbutton ResetJournalBtn
+label JournalListLabel
+listbox JournalList
 label GroupLabel
 combobox GroupBox
 pushbutton NewScenarioBtn
@@ -51,6 +59,7 @@ label BatchLabel
 listbox BatchList
 pushbutton AddBatchBtn
 pushbutton RemoveBatchBtn
+label BatchRowLabel
 pushbutton RunBatchBtn
 label ScenariosLabel
 listbox Scenarios
@@ -63,6 +72,23 @@ dialog DuplicateDlg
 dialog RenameDlg
 dialog DeleteRowsDlg
 dialog DeleteConfirmDlg
+dialog ResetJournalDlg
+dialog ColumnsDlg
+window ColumnsWin
+pushbutton ColumnsApplyBtn
+pushbutton ColumnsCloseBtn
+layout ColumnsLayout
+panel ColumnsBody
+layout ColumnsBodyLayout
+checkbox ColS
+checkbox ColM
+checkbox ColT
+checkbox ColH
+checkbox ColB
+checkbox ColP
+checkbox ColA
+checkbox ColR
+label ColumnHint
 dialog JournalSourceDlg
 dialog JournalDayDlg
 dialog JournalRangeDlg
@@ -101,6 +127,7 @@ process Deleter
 process Batcher
 process Grouper
 process Journaler
+process Mailboxer
 process Librarian
 
 variable ScenarioPath
@@ -144,6 +171,37 @@ variable JournalRange
 variable JournalFrom
 variable JournalTo
 variable JournalPath
+variable LogTick
+variable LogLimit
+variable LogText
+variable LogCount
+variable LogDrop
+variable LogIndex
+variable LogKeep
+variable LogLine
+variable LogLines
+variable Mailboxing
+variable SelectedSystemName
+variable SelectedSystemMac
+variable SelectedSystemMailbox
+variable JournalCount
+variable JournalFile
+variable SystemConfigText
+variable SystemConfigPath
+variable SystemConfigPointer
+variable SystemI
+variable FirstSystemName
+variable SystemMac
+variable SystemName
+variable SystemKey
+variable SystemMailboxPath
+dictionary SystemConfig
+dictionary SystemMap
+dictionary SystemNames
+dictionary SystemMailboxes
+dictionary MailboxMap
+list SystemMacs
+list MailboxMacs
 variable DeleteAllowed
 variable SelectedIsLibrary
 variable SelectedName
@@ -161,6 +219,13 @@ variable LibFull
 variable LibCount
 variable LibI
 variable KeepPath
+variable KeepGroup
+variable Marker
+variable ClickedRow
+variable ClickedColumn
+dictionary MarkerStep
+variable MarkerLoop
+variable MarkerWas
 variable CurrentGroup
 variable GroupName
 variable BriefRel
@@ -179,6 +244,30 @@ dictionary Step
 dictionary Controller
 dictionary State
 dictionary Fields
+list FieldKeys
+variable StatusValue
+variable RelayValue
+variable ModeValue
+variable TemperatureValue
+variable HumidityValue
+variable BatteryValue
+variable PeriodValue
+variable AdvanceValue
+variable ActionFields
+variable ActionValue
+variable Field
+variable FieldIndex
+variable ColumnText
+variable ColumnCount
+variable SelectedFlag
+variable CheckedFlag
+variable FieldTitle
+dictionary ActionValues
+list StatusValues
+list RelayValues
+variable FieldKey
+variable FieldValue
+variable PushFlag
 dictionary UI
 dictionary Expect
 dictionary Wire
@@ -222,6 +311,11 @@ dictionary HomeSpec
 dictionary Artifacts
 
 list Rows
+list ColumnWidths
+list ColumnLabels
+variable ResultCol
+variable ExpectationCol
+variable FieldCol
 list RowValues
 list StepIds
 list StepDetails
@@ -273,6 +367,7 @@ Setup:
     create DemoBtn text `Demo` size 10
     create QuitBtn text `Quit` size 10
     create RefreshBtn text `Refresh map` size 12
+    create ColumnsBtn text `Columns…` size 10
 
     set the style of Brand to `font-size:15px;font-weight:600;`
     set the color of Env to `#666666`
@@ -288,6 +383,7 @@ Setup:
     add SpeedBox to ToolbarRow
     add Clock to ToolbarRow
     add RefreshBtn to ToolbarRow
+    add ColumnsBtn to ToolbarRow
     add ValidateBtn to ToolbarRow
     add StopBtn to ToolbarRow
     add RunBtn to ToolbarRow
@@ -302,6 +398,13 @@ Setup:
     create Sidebar
     create SidebarCol type QVBoxLayout
     set the layout of Sidebar to SidebarCol
+    create SystemLabel text `SYSTEM` size 12
+    create SystemBox
+    create MboxBtn text `Import mbox` size 10
+    create ResetJournalBtn text `Reset today` size 10
+    create JournalListLabel text `AVAILABLE JOURNALS` size 12
+    create JournalList
+    set the height of JournalList to 80
     create GroupLabel text `GROUP` size 12
     create GroupBox
     create NewScenarioBtn text `New scenario` size 12
@@ -323,17 +426,31 @@ Setup:
     create BatchLabel text `BATCH` size 12
     create BatchList
     set the height of BatchList to 60
-    create AddBatchBtn text `+ Batch` size 10
-    create RemoveBatchBtn text `- Batch` size 12
+    create BatchRow type QHBoxLayout
+    create AddBatchBtn text `+` size 12
+    create BatchRowLabel text `Batch` size 12
+    create RemoveBatchBtn text `-` size 12
+    add AddBatchBtn to BatchRow
+    add BatchRowLabel to BatchRow
+    add RemoveBatchBtn to BatchRow
     create RunBatchBtn text `Run batch` size 12
     create RefreshScenariosBtn text `↻ Scenarios` size 10
     create DeleteScenarioBtn text `Delete scenario` size 12
     disable DeleteScenarioBtn
     set the style of GroupLabel to `font-size:9px;font-weight:700;color:#999999;`
+    set the style of SystemLabel to `font-size:9px;font-weight:700;color:#999999;`
+    set the style of JournalListLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the style of BatchLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the style of ScenariosLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the style of AiLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the color of BriefPreview to `#666666`
+    add SystemLabel to SidebarCol
+    add SystemBox to SidebarCol
+    add MboxBtn to SidebarCol
+    add ResetJournalBtn to SidebarCol
+    add JournalListLabel to SidebarCol
+    add JournalList to SidebarCol
+    add spacer size 10 to SidebarCol
     add GroupLabel to SidebarCol
     add GroupBox to SidebarCol
     add NewGroupBtn to SidebarCol
@@ -351,8 +468,7 @@ Setup:
     add spacer size 10 to SidebarCol
     add BatchLabel to SidebarCol
     add BatchList to SidebarCol
-    add AddBatchBtn to SidebarCol
-    add RemoveBatchBtn to SidebarCol
+    add BatchRow to SidebarCol
     add RunBatchBtn to SidebarCol
     add stretch to SidebarCol
     add Sidebar to Work
@@ -365,14 +481,57 @@ Setup:
     create Steps
     set the style of Title to `font-size:16px;font-weight:600;`
     set the color of Meta to `#666666`
-    set columns of Steps to `["#","Time","Actor","Target","Action","Expectation","Result"]`
+    set columns of Steps to `["#","Mark","Time","Actor","Target","S","M","T","H","B","P","A","R","Expectation","Result"]`
     set selection of Steps to multiple
-    set column widths of Steps to `[32,55,95,150,220,220,40]`
-    set stretch column of Steps to 5
+    set column widths of Steps to `[32,26,55,95,150,36,36,36,36,36,36,36,36,220,40]`
+    set stretch column of Steps to 4
     add Title to EditorCol
     add Meta to EditorCol
     add stretch Steps to EditorCol
     add Editor to Work
+
+    create ColumnsWin title `Columns` at 500 200 size 380 420
+    create ColumnsLayout type QVBoxLayout
+    create ColumnsBody
+    create ColumnsBodyLayout type QVBoxLayout
+    set the layout of ColumnsBody to ColumnsBodyLayout
+    create ColS text `S — status`
+    create ColM text `M — mode`
+    create ColT text `T — temperature`
+    create ColH text `H — humidity`
+    create ColB text `B — battery`
+    create ColP text `P — period`
+    create ColA text `A — advance`
+    create ColR text `R — relay`
+    create ColumnsApplyBtn text `Apply` size 10
+    create ColumnsCloseBtn text `Close` size 10
+    add ColS to ColumnsBodyLayout
+    add ColM to ColumnsBodyLayout
+    add ColT to ColumnsBodyLayout
+    add ColH to ColumnsBodyLayout
+    add ColB to ColumnsBodyLayout
+    add ColP to ColumnsBodyLayout
+    add ColA to ColumnsBodyLayout
+    add ColR to ColumnsBodyLayout
+    add ColumnsBody to ColumnsLayout
+    add ColumnsApplyBtn to ColumnsLayout
+    add ColumnsCloseBtn to ColumnsLayout
+    set the layout of ColumnsWin to ColumnsLayout
+    put 0 into FieldIndex
+    while FieldIndex is less than the elements of ActionFields
+    begin
+        index ActionFields to FieldIndex
+        put trim ActionFields into Field
+        if Field is `S` set the state of ColS to true
+        if Field is `M` set the state of ColM to true
+        if Field is `T` set the state of ColT to true
+        if Field is `H` set the state of ColH to true
+        if Field is `B` set the state of ColB to true
+        if Field is `P` set the state of ColP to true
+        if Field is `A` set the state of ColA to true
+        if Field is `R` set the state of ColR to true
+        add 1 to FieldIndex
+    end
 
     create InspectorPane
     create InspectorCol type QVBoxLayout
@@ -380,7 +539,7 @@ Setup:
     create InspectorTitle text `STEP —` size 14
     create InspectorSub text `` size 20
     create Inspector readonly cols 36 rows 20
-    create ToolsRow type QHBoxLayout
+    create ToolsRow type QVBoxLayout
     create DuplicateBtn text `Duplicate…` size 10
     create RenameBtn text `Rename…` size 10
     create DeleteRowsBtn text `Delete rows` size 10
@@ -397,7 +556,7 @@ Setup:
     add stretch Inspector to InspectorCol
     add InspectorPane to Work
 
-    set sizes of Work to `[230,820,310]`
+    set sizes of Work to `[230,900,180]`
 
     create LogTabs
     create Log
@@ -423,9 +582,16 @@ Setup:
     on click RunBtn go to RunClicked
     on click DemoBtn go to DemoClicked
     on click RefreshBtn go to RefreshClicked
+    on click ColumnsBtn go to ColumnsClicked
+    on click ColumnsApplyBtn go to ColumnsApplyClicked
+    on click ColumnsCloseBtn go to ColumnsCloseClicked
     on click ValidateBtn go to ValidateClicked
     on click StopBtn go to StopClicked
     on select GroupBox go to GroupChanged
+    on select SystemBox go to SystemChanged
+    on click MboxBtn go to MboxClicked
+    on click ResetJournalBtn go to ResetJournalClicked
+    on select JournalList go to JournalPicked
     on click NewGroupBtn go to NewGroupClicked
     on click NewScenarioBtn go to NewScenarioClicked
     on click AddBatchBtn go to AddBatchClicked
@@ -449,6 +615,7 @@ Setup:
     on click QuitBtn go to QuitClicked
     on select Scenarios go to ScenarioPicked
     on select Steps go to StepSelected
+    on click Steps go to StepClicked
     on close Win go to WinClosed
     on line Runner go to RunnerLine
     on stderr line Runner go to RunnerError
@@ -465,14 +632,19 @@ Setup:
     on line Journaler go to JournalerLine
     on stderr line Journaler go to JournalerError
     on exit Journaler go to JournalerDone
+    on line Mailboxer go to MailboxerLine
+    on stderr line Mailboxer go to MailboxerError
+    on exit Mailboxer go to MailboxerDone
     on line Librarian go to LibrarianLine
     on stderr line Librarian go to LibrarianError
     on exit Librarian go to LibrarianDone
 
     system `python3 scenario_library.py seed-examples --quiet`
     system `python3 journal_inbox.py --scan --quiet`
+    gosub to LoadSystemSettings
     gosub to LoadGroups
     gosub to RestoreStudioSettings
+    gosub to ApplyColumns
     gosub to BuildScenarioList
     gosub to LoadScenario
 
@@ -481,6 +653,9 @@ Setup:
     put 0 into Drafting
     put 0 into Deleting
     put 0 into Journaling
+    put 0 into Mailboxing
+    put 0 into LogTick
+    put 2000 into LogLimit
     put 0 into Refreshing
     put empty into JournalPath
     put 0 into Grouping
@@ -490,9 +665,44 @@ Setup:
     set the text of StatusLabel to `Ready — Run starts the runner.`
 Idle:
     wait 1 tick
+    add 1 to LogTick
+    if LogTick is greater than 99
+    begin
+        put 0 into LogTick
+        gosub to TrimStepsLog
+    end
     go to Idle
-!! @hash 222c8394
+!! @hash 05a11e6f
 !! @verified 222c8394
+!!!
+
+!! Keep the Steps log to its newest 2000 lines.
+!!
+!! The logpane is append-only, so the trim reads its text, splits it, and writes the last 2000 lines back. This runs every hundred ticks (about a second) from Idle; a trim loses the colour of the lines it rewrites, which is the cost of doing the cap in the shell rather than in a runtime max-block-count property.
+TrimStepsLog:
+    put the text of Log into LogText
+    put LogText into LogLines
+    split LogLines
+    put the elements of LogLines into LogCount
+    if LogCount is greater than LogLimit
+    begin
+        put LogCount into LogDrop
+        subtract LogLimit from LogDrop
+        put empty into LogKeep
+        put LogDrop into LogIndex
+        while LogIndex is less than LogCount
+        begin
+            index LogLines to LogIndex
+            put LogLines into LogLine
+            if LogKeep is empty put LogLine into LogKeep
+            else put LogKeep cat newline cat LogLine into LogKeep
+            add 1 to LogIndex
+        end
+        set the text of Log to LogKeep
+    end
+    return
+!! @hash 06c1eeec
+!! @verified 06c1eeec
 !!!
 
 !! Restore the Studio's last window geometry and form values.
@@ -508,6 +718,8 @@ LoadStudioSettings:
     put empty into SavedSource
     put empty into SavedDay
     put empty into SavedRange
+    put `S,M,T,R` into ActionFields
+    split ActionFields on `,`
     if file `fixtures/local/studio-settings.json` exists
     begin
         load SettingsText from `fixtures/local/studio-settings.json`
@@ -521,10 +733,252 @@ LoadStudioSettings:
         if StudioSettings has entry `source` put entry `source` of StudioSettings into SavedSource
         if StudioSettings has entry `day` put entry `day` of StudioSettings into SavedDay
         if StudioSettings has entry `range` put entry `range` of StudioSettings into SavedRange
+        if StudioSettings has entry `columns`
+        begin
+            put entry `columns` of StudioSettings into ColumnText
+            if ColumnText is not empty
+            begin
+                put ColumnText into ActionFields
+                split ActionFields on `,`
+            end
+        end
     end
     return
 !! @hash 7a028803
 !! @verified 7a028803
+!!!
+
+!! Load system names and mailbox paths from studio-config.json.
+!!
+!! The config is edited by hand or by configure-studio.py. `systems` maps a MAC to a display name; `mailboxes` maps the same MAC to an mbox file. A missing or empty config leaves the selector disabled rather than failing startup; a system with no mailbox can still be selected, and the import button explains what is missing.
+LoadSystemSettings:
+    clear SystemBox
+    reset SystemNames
+    reset SystemMailboxes
+    put json `{}` into SystemConfig
+    put `studio-config.json` into SystemConfigPath
+    if file `fixtures/local/studio-config-path` exists
+    begin
+        load SystemConfigPointer from `fixtures/local/studio-config-path`
+        put trim SystemConfigPointer into SystemConfigPointer
+        if SystemConfigPointer is not empty
+        begin
+            if file SystemConfigPointer exists put SystemConfigPointer into SystemConfigPath
+        end
+    end
+    if file SystemConfigPath exists
+    begin
+        load SystemConfigText from SystemConfigPath
+        put json SystemConfigText into SystemConfig
+    end
+    put empty into FirstSystemName
+    if SystemConfig has entry `systems`
+    begin
+        put entry `systems` of SystemConfig into SystemMap
+        put the keys of SystemMap into SystemMacs
+        put 0 into SystemI
+        while SystemI is less than the count of SystemMacs
+        begin
+            put item SystemI of SystemMacs into SystemMac
+            put lowercase SystemMac into SystemKey
+            put entry SystemMac of SystemMap into SystemName
+            if SystemName is empty put SystemKey into SystemName
+            if SystemNames does not have entry SystemName
+            begin
+                add SystemName to SystemBox
+                set entry SystemName of SystemNames to SystemKey
+                if FirstSystemName is empty put SystemName into FirstSystemName
+            end
+            add 1 to SystemI
+        end
+    end
+    if SystemConfig has entry `mailboxes`
+    begin
+        put entry `mailboxes` of SystemConfig into MailboxMap
+        put the keys of MailboxMap into MailboxMacs
+        put 0 into SystemI
+        while SystemI is less than the count of MailboxMacs
+        begin
+            put item SystemI of MailboxMacs into SystemMac
+            put lowercase SystemMac into SystemKey
+            put entry SystemMac of MailboxMap into SystemMailboxPath
+            set entry SystemKey of SystemMailboxes to SystemMailboxPath
+            add 1 to SystemI
+        end
+    end
+    if SystemBox is empty
+    begin
+        add `(no systems configured)` to SystemBox
+        disable MboxBtn
+        disable ResetJournalBtn
+        put empty into SelectedSystemName
+        put empty into SelectedSystemMac
+        put empty into SelectedSystemMailbox
+        return
+    end
+    select FirstSystemName in SystemBox
+    gosub to SystemChanged
+    return
+!! @hash 42f947ef
+!! @verified 42f947ef
+!!!
+
+!! Resolve the selected system name to its MAC and configured mailbox.
+SystemChanged:
+    put SystemBox into SelectedSystemName
+    put empty into SelectedSystemMac
+    put empty into SelectedSystemMailbox
+    if SystemNames has entry SelectedSystemName
+        put entry SelectedSystemName of SystemNames into SelectedSystemMac
+    if SelectedSystemMac is not empty
+    begin
+        if SystemMailboxes has entry SelectedSystemMac
+            put entry SelectedSystemMac of SystemMailboxes into SelectedSystemMailbox
+    end
+    if SelectedSystemMac is empty disable ResetJournalBtn
+    else enable ResetJournalBtn
+    if SelectedSystemMailbox is empty
+    begin
+        disable MboxBtn
+        if SelectedSystemName is `(no systems configured)` set the text of StatusLabel to `Add systems to studio-config.json to import a mailbox.`
+        else set the text of StatusLabel to `No mailbox configured for ` cat SelectedSystemName
+    end
+    else
+    begin
+        enable MboxBtn
+        set the text of StatusLabel to `System: ` cat SelectedSystemName
+    end
+    return
+!! @hash 8aa9a150
+!! @verified 8aa9a150
+!!!
+
+!! Extract the selected system's mailbox and list its newest journals.
+!!
+!! The helper reads the `mailboxes` path for the selected MAC, writes any new attachments into the inbox, then prints `JOURNAL <file>` for the newest five. The list is the available-journal display; the normal Studio inbox scan imports those files into the Journal group when the helper finishes.
+MboxClicked:
+    if Mailboxing return
+    if SelectedSystemMac is empty
+    begin
+        set the text of StatusLabel to `Choose a system first.`
+        return
+    end
+    if SelectedSystemMailbox is empty
+    begin
+        set the text of StatusLabel to `No mailbox configured for ` cat SelectedSystemName
+        return
+    end
+    if file `.venv/bin/python` does not exist
+    begin
+        append `Runner venv missing: run the setup in tools/rbr-studio/README.md.` to Log
+        return
+    end
+    clear JournalList
+    put 0 into JournalCount
+    put `.venv/bin/python journal_mbox.py --system "` cat SelectedSystemMac cat `" --config "` cat SystemConfigPath cat `" --list --limit 5` into Command
+    append `Mbox import: ` cat SelectedSystemName to Log
+    set the text of StatusLabel to `Reading mailbox…`
+    disable MboxBtn
+    disable ResetJournalBtn
+    disable RunBtn
+    disable ValidateBtn
+    disable DemoBtn
+    disable RefreshBtn
+    disable RefreshScenariosBtn
+    put 1 into Mailboxing
+    start Mailboxer command Command
+    return
+!! @hash 731a948a
+!! @verified 731a948a
+!!!
+
+!! Add the helper's `JOURNAL <file>` lines to the available-journals list.
+MailboxerLine:
+    put the line of Mailboxer into LineText
+    if left 8 of LineText is `JOURNAL `
+    begin
+        put from 9 of LineText into JournalFile
+        put trim JournalFile into JournalFile
+        add JournalFile to JournalList
+        add 1 to JournalCount
+    end
+    else append LineText to Log
+    return
+!! @hash 22ad2402
+!! @verified 22ad2402
+!!!
+
+!! Show the helper's error output in the log.
+MailboxerError:
+    append the stderr line of Mailboxer to Log with color `#B00020`
+    return
+!! @hash edb56b3d
+!! @verified edb56b3d
+!!!
+
+!! Re-enable the Studio and import the newly extracted journals.
+MailboxerDone:
+    put 0 into Mailboxing
+    enable MboxBtn
+    enable ResetJournalBtn
+    enable RunBtn
+    enable ValidateBtn
+    enable DemoBtn
+    enable RefreshBtn
+    enable RefreshScenariosBtn
+    if the exit code of Mailboxer is 0
+    begin
+        system `python3 journal_inbox.py --scan --quiet --config "` cat SystemConfigPath cat `"`
+        gosub to BuildScenarioList
+        if JournalCount is greater than 0
+            set the text of StatusLabel to JournalCount cat ` journal(s) available for ` cat SelectedSystemName
+        else
+            set the text of StatusLabel to `No journals found for ` cat SelectedSystemName
+    end
+    else set the text of StatusLabel to `Mbox import failed`
+    return
+!! @hash 6d3ba5f8
+!! @verified 6d3ba5f8
+!!!
+
+!! Forget today's imported journal so it can be imported again.
+!!
+!! The reset removes the Studio's state, extracted bundle, generated scenario and the inbox archive for the selected system; the mbox itself is untouched. Import mbox then extracts the attachment again.
+ResetJournalClicked:
+    if Mailboxing return
+    if SelectedSystemMac is empty
+    begin
+        set the text of StatusLabel to `Choose a system first.`
+        return
+    end
+    put `Remove today's imported journal for ` cat SelectedSystemName cat `? The inbox copy and imported bundle are removed; the mbox is unchanged.` into RequestText
+    create ResetJournalDlg on Win type confirm title `Reset today's journal` prompt RequestText
+    show ResetJournalDlg
+    if ResetJournalDlg is false
+    begin
+        set the text of StatusLabel to `Reset cancelled`
+        return
+    end
+    set the text of StatusLabel to `Resetting today's journal…`
+    system `python3 journal_inbox.py --reset --system "` cat SelectedSystemMac cat `" --config "` cat SystemConfigPath cat `"`
+    clear JournalList
+    put 0 into JournalCount
+    gosub to BuildScenarioList
+    set the text of StatusLabel to `Journal reset — Import mbox to re-import today`
+    return
+!! @hash 317ed8fe
+!! @verified 317ed8fe
+!!!
+
+!! Show which available journal was selected.
+JournalPicked:
+    put the current item in JournalList into JournalFile
+    if JournalFile is empty return
+    append `Journal selected: ` cat JournalFile to Log
+    set the text of StatusLabel to `Selected ` cat JournalFile cat ` — Import mbox or Reset today`
+    return
+!! @hash 57757020
+!! @verified 57757020
 !!!
 
 !! Restore the saved group, scenario and journal prompts after the lists exist.
@@ -553,6 +1007,108 @@ RestoreStudioSettings:
 !! @verified cec83c0b
 !!!
 
+!! Set the Action-field column widths from the saved selection.
+!!
+!! The table always carries all eight short column headers; unselected ones get width 0, so switching the selection does not rebuild the row model.
+ApplyColumns:
+    reset ColumnWidths
+    reset ColumnLabels
+    append `#` to ColumnLabels
+    append 32 to ColumnWidths
+    append `Mark` to ColumnLabels
+    append 26 to ColumnWidths
+    append `Time` to ColumnLabels
+    append 55 to ColumnWidths
+    append `Actor` to ColumnLabels
+    append 95 to ColumnWidths
+    append `Target` to ColumnLabels
+    append 150 to ColumnWidths
+    put 0 into FieldIndex
+    while FieldIndex is less than the elements of ActionFields
+    begin
+        index ActionFields to FieldIndex
+        put trim ActionFields into Field
+        if Field is `S` or Field is `M` or Field is `T` or Field is `H`
+        begin
+            append Field to ColumnLabels
+            append 36 to ColumnWidths
+        end
+        else if Field is `B` or Field is `P` or Field is `A` or Field is `R`
+        begin
+            append Field to ColumnLabels
+            append 36 to ColumnWidths
+        end
+        add 1 to FieldIndex
+    end
+    put the count of ColumnLabels into ExpectationCol
+    append `Expectation` to ColumnLabels
+    append 220 to ColumnWidths
+    put the count of ColumnLabels into ResultCol
+    append `Result` to ColumnLabels
+    append 40 to ColumnWidths
+    set columns of Steps to ColumnLabels
+    set column widths of Steps to ColumnWidths
+    set stretch column of Steps to 4
+    return
+!! @hash
+!! @verified
+!!!
+
+!! Open the Action-column chooser.
+ColumnsClicked:
+    show ColumnsWin
+    return
+!! @hash
+!! @verified
+!!!
+
+!! Apply the checked Action columns and persist the choice.
+ColumnsApplyClicked:
+    set the cursor of Win to wait
+    put empty into ColumnText
+    put ColS into CheckedFlag
+    if CheckedFlag put ColumnText cat `S,` into ColumnText
+    put ColM into CheckedFlag
+    if CheckedFlag put ColumnText cat `M,` into ColumnText
+    put ColT into CheckedFlag
+    if CheckedFlag put ColumnText cat `T,` into ColumnText
+    put ColH into CheckedFlag
+    if CheckedFlag put ColumnText cat `H,` into ColumnText
+    put ColB into CheckedFlag
+    if CheckedFlag put ColumnText cat `B,` into ColumnText
+    put ColP into CheckedFlag
+    if CheckedFlag put ColumnText cat `P,` into ColumnText
+    put ColA into CheckedFlag
+    if CheckedFlag put ColumnText cat `A,` into ColumnText
+    put ColR into CheckedFlag
+    if CheckedFlag put ColumnText cat `R,` into ColumnText
+    put the length of ColumnText into ColumnCount
+    if ColumnCount is greater than 0
+    begin
+        subtract 1 from ColumnCount
+        put left ColumnCount of ColumnText into ColumnText
+    end
+    put ColumnText into ActionFields
+    split ActionFields on `,`
+    close ColumnsWin
+    gosub to ApplyColumns
+    gosub to LoadScenario
+    gosub to SaveStudioSettings
+    set the text of StatusLabel to `Columns applied`
+    set the cursor of Win to arrow
+    return
+!! @hash
+!! @verified
+!!!
+
+!! Close the column chooser without changing the selection.
+ColumnsCloseClicked:
+    close ColumnsWin
+    return
+!! @hash
+!! @verified
+!!!
+
 !! Load the scenario file and seed the table from its steps.
 !!
 !! Each row is an array in column order, because the table's readback and
@@ -560,11 +1116,14 @@ RestoreStudioSettings:
 !! ids for the runner's events and the actor token for the cell colour are kept
 !! in parallel lists — the table is read-only, the inspector is the editor.
 LoadScenario:
+    set the text of StatusLabel to `Working…`
+    set the cursor of Win to wait
     load ScenarioText from ScenarioPath
     put json ScenarioText into ScenarioData
     if ScenarioData is empty
     begin
         set the text of StatusLabel to `Could not load ` cat ScenarioPath
+        set the cursor of Win to arrow
         return
     end
     put entry `name` of ScenarioData into Name
@@ -593,6 +1152,8 @@ LoadScenario:
     put `[]` into StepDetails
     put `[]` into StepSubs
     put `[]` into ActorTokens
+    reset StatusValues
+    reset RelayValues
     put empty into FirstAt
     put empty into LastAt
     put 0 into RowIndex
@@ -603,12 +1164,26 @@ LoadScenario:
         gosub to DescribeStep
         put `[]` into RowValues
         append Id to RowValues
+        append Marker to RowValues
         append AtShort to RowValues
         append ActorLabel to RowValues
         append Target to RowValues
-        append Action to RowValues
+        put 0 into FieldIndex
+        while FieldIndex is less than the elements of ActionFields
+        begin
+            index ActionFields to FieldIndex
+            put trim ActionFields into Field
+            if Field is `S` or Field is `M` or Field is `T` or Field is `H` or Field is `B` or Field is `P` or Field is `A` or Field is `R`
+            begin
+                put entry Field of ActionValues into ActionValue
+                append ActionValue to RowValues
+            end
+            add 1 to FieldIndex
+        end
         append Expectation to RowValues
         append `○` to RowValues
+        append StatusValue to StatusValues
+        append RelayValue to RelayValues
         append RowValues to Rows
         append Id to StepIds
         append Actor to ActorTokens
@@ -643,9 +1218,10 @@ LoadScenario:
     if position of `fixtures/local/scenarios/` in ScenarioPath is greater than -1 enable RenameBtn
     else disable RenameBtn
     set the text of StatusLabel to `Loaded ` cat ScenarioPath
+    set the cursor of Win to arrow
     return
-!! @hash 47fcd2bb
-!! @verified 6cd54bc1
+!! @hash a8d1ce77
+!! @verified a8d1ce77
 !!!
 
 !! Turn one step into the table's six display cells and the inspector line.
@@ -657,11 +1233,33 @@ DescribeStep:
     put entry `id` of Step into Id
     put entry `at` of Step into At
     put At into AtShort
+    put empty into Marker
+    if Step has entry `marker`
+    begin
+        if entry `marker` of Step put `●` into Marker
+    end
     if the length of At is greater than 18 put from 11 to 19 of At into AtShort
     put empty into Target
     put empty into Action
     put empty into Expectation
     put empty into Detail
+    put empty into StatusValue
+    put empty into RelayValue
+    put empty into ModeValue
+    put empty into TemperatureValue
+    put empty into HumidityValue
+    put empty into BatteryValue
+    put empty into PeriodValue
+    put empty into AdvanceValue
+    reset ActionValues
+    set entry `S` of ActionValues to ``
+    set entry `M` of ActionValues to ``
+    set entry `T` of ActionValues to ``
+    set entry `H` of ActionValues to ``
+    set entry `B` of ActionValues to ``
+    set entry `P` of ActionValues to ``
+    set entry `A` of ActionValues to ``
+    set entry `R` of ActionValues to ``
     if Step has entry `controller`
     begin
         put `controller` into Actor
@@ -672,21 +1270,12 @@ DescribeStep:
         if Controller has entry `set`
         begin
             put entry `set` of Controller into Fields
-            if Fields has entry `temperature`
-            begin
-                if Action is not empty put Action cat `; ` into Action
-                put Action cat `temperature = ` cat entry `temperature` of Fields into Action
-            end
-            if Fields has entry `relay`
-            begin
-                if Action is not empty put Action cat `; ` into Action
-                put Action cat `relay = ` cat entry `relay` of Fields into Action
-            end
-            if Fields has entry `advance`
-            begin
-                if Action is not empty put Action cat `; ` into Action
-                put Action cat `advance = ` cat entry `advance` of Fields into Action
-            end
+            if Fields has entry `status` put entry `status` of Fields into StatusValue
+            if Fields has entry `temperature` put entry `temperature` of Fields into TemperatureValue
+            if Fields has entry `humidity` put entry `humidity` of Fields into HumidityValue
+            if Fields has entry `battery` put entry `battery` of Fields into BatteryValue
+            if Fields has entry `relay` put entry `relay` of Fields into RelayValue
+            gosub to AppendFields
         end
         if Controller has entry `state`
         begin
@@ -694,16 +1283,44 @@ DescribeStep:
             if State has entry `set`
             begin
                 put entry `set` of State into Fields
-                if Fields has entry `advance`
-                begin
-                    if Action is not empty put Action cat `; ` into Action
-                    put Action cat `advance = ` cat entry `advance` of Fields into Action
-                end
+                if Fields has entry `mode` put entry `mode` of Fields into ModeValue
+                if Fields has entry `period` put entry `period` of Fields into PeriodValue
+                if Fields has entry `advance` put entry `advance` of Fields into AdvanceValue
+                gosub to AppendFields
             end
         end
-        if Controller has entry `raw` put `raw payload` into Action
-        if Action is empty put `push` into Action
-        put Action cat ` · push` into Action
+        if StatusValue is empty set entry `S` of ActionValues to ``
+        else set entry `S` of ActionValues to `●`
+        if ModeValue is `timed` set entry `M` of ActionValues to `T`
+        else if ModeValue is `advance` set entry `M` of ActionValues to `A`
+        else if ModeValue is `boost` set entry `M` of ActionValues to `B`
+        else if ModeValue is `on` set entry `M` of ActionValues to `O`
+        else if ModeValue is `off` set entry `M` of ActionValues to `X`
+        else set entry `M` of ActionValues to ModeValue
+        set entry `T` of ActionValues to TemperatureValue
+        set entry `H` of ActionValues to HumidityValue
+        set entry `B` of ActionValues to BatteryValue
+        set entry `P` of ActionValues to PeriodValue
+        set entry `A` of ActionValues to AdvanceValue
+        if RelayValue is `on` set entry `R` of ActionValues to `●`
+        else if RelayValue is `off` set entry `R` of ActionValues to `○`
+        else set entry `R` of ActionValues to RelayValue
+        put 1 into PushFlag
+        if Controller has entry `push`
+        begin
+            if entry `push` of Controller is false put 0 into PushFlag
+        end
+        if Controller has entry `raw`
+        begin
+            put `raw payload` into Action
+            put 0 into PushFlag
+        end
+        if PushFlag is 1
+        begin
+            if Action is empty put `↑` into Action
+            else put Action cat ` ↑` into Action
+        end
+        else if Action is empty put `no-op` into Action
         put `—` into Expectation
     end
     else if Step has entry `ui`
@@ -786,8 +1403,30 @@ DescribeStep:
         if entry `note` of Step is not empty put Detail cat ` — ` cat entry `note` of Step into Detail
     end
     return
-!! @hash 2ea0c9d1
-!! @verified b9d42057
+!! @hash a32874bd
+!! @verified a32874bd
+!!!
+
+!! Append every field of the current controller set to the Action column.
+!!
+!! Timestamp is omitted because it is sensor metadata rather than a state change; the detail tooltip retains the note and the raw JSON is in the wire log.
+AppendFields:
+    put the keys of Fields into FieldKeys
+    put 0 into FieldIndex
+    while FieldIndex is less than the count of FieldKeys
+    begin
+        put item FieldIndex of FieldKeys into FieldKey
+        if FieldKey is not `timestamp`
+        begin
+            put entry FieldKey of Fields into FieldValue
+            if Action is empty put FieldKey cat ` = ` cat FieldValue into Action
+            else put Action cat `; ` cat FieldKey cat ` = ` cat FieldValue into Action
+        end
+        add 1 to FieldIndex
+    end
+    return
+!! @hash ec01e69e
+!! @verified ec01e69e
 !!!
 
 !! Tint the actor cells by kind and mark the result cells as waiting.
@@ -796,21 +1435,72 @@ PaintRows:
     while RowIndex is less than the count of ActorTokens
     begin
         put item RowIndex of ActorTokens into Actor
-        if Actor is `controller` set cell colour Steps RowIndex 2 to `#2F75B5` `#E6EFF7`
-        else if Actor is `ui` set cell colour Steps RowIndex 2 to `#D95A24` `#FDF0EA`
-        else if Actor is `expect` set cell colour Steps RowIndex 2 to `#6B4FA1` `#F0ECF9`
-        else if Actor is `wire` set cell colour Steps RowIndex 2 to `#0F7B6C` `#E5F4F1`
-        else if Actor is `delay` set cell colour Steps RowIndex 2 to `#8A6D3B` `#F7F1E3`
-        else set cell colour Steps RowIndex 2 to `#666666` `#F0F1F3`
-        set cell colour Steps RowIndex 6 to `#C9CBD1`
-        set cell alignment Steps RowIndex 6 to center
+        if Actor is `controller` set cell colour Steps RowIndex 3 to `#2F75B5` `#E6EFF7`
+        else if Actor is `ui` set cell colour Steps RowIndex 3 to `#D95A24` `#FDF0EA`
+        else if Actor is `expect` set cell colour Steps RowIndex 3 to `#6B4FA1` `#F0ECF9`
+        else if Actor is `wire` set cell colour Steps RowIndex 3 to `#0F7B6C` `#E5F4F1`
+        else if Actor is `delay` set cell colour Steps RowIndex 3 to `#8A6D3B` `#F7F1E3`
+        else set cell colour Steps RowIndex 3 to `#666666` `#F0F1F3`
+        set cell colour Steps RowIndex 1 to `#D95A24` `#FDF0EA`
+        set cell alignment Steps RowIndex 1 to center
+        set cell colour Steps RowIndex ResultCol to `#C9CBD1`
+        set cell alignment Steps RowIndex ResultCol to center
+        put item RowIndex of StatusValues into StatusValue
+        put item RowIndex of RelayValues into RelayValue
+        put 5 into FieldCol
+        put 0 into FieldIndex
+        while FieldIndex is less than the elements of ActionFields
+        begin
+            index ActionFields to FieldIndex
+            put trim ActionFields into Field
+            set cell alignment Steps RowIndex FieldCol to center
+            if Field is `S`
+            begin
+                if StatusValue is `good` set cell colour Steps RowIndex FieldCol to `#2E7D32`
+                else if StatusValue is `warn` set cell colour Steps RowIndex FieldCol to `#C58B00`
+                else if StatusValue is `fail` set cell colour Steps RowIndex FieldCol to `#C0392B`
+                set cell tooltip Steps RowIndex FieldCol to `Status`
+            end
+            else if Field is `M`
+            begin
+                set cell tooltip Steps RowIndex FieldCol to `Mode`
+            end
+            else if Field is `T`
+            begin
+                set cell tooltip Steps RowIndex FieldCol to `Temperature`
+            end
+            else if Field is `H`
+            begin
+                set cell tooltip Steps RowIndex FieldCol to `Humidity`
+            end
+            else if Field is `B`
+            begin
+                set cell tooltip Steps RowIndex FieldCol to `Battery`
+            end
+            else if Field is `P`
+            begin
+                set cell tooltip Steps RowIndex FieldCol to `Period`
+            end
+            else if Field is `A`
+            begin
+                set cell tooltip Steps RowIndex FieldCol to `Advance`
+            end
+            else if Field is `R`
+            begin
+                if RelayValue is `on` set cell colour Steps RowIndex FieldCol to `#2F75B5`
+                else if RelayValue is `off` set cell colour Steps RowIndex FieldCol to `#666666`
+                set cell tooltip Steps RowIndex FieldCol to `Relay`
+            end
+            add 1 to FieldCol
+            add 1 to FieldIndex
+        end
         put item RowIndex of StepDetails into Detail
-        set cell tooltip Steps RowIndex 3 to Detail
+        set cell tooltip Steps RowIndex 4 to Detail
         increment RowIndex
     end
     return
-!! @hash e4383fba
-!! @verified e4383fba
+!! @hash 899d2a2a
+!! @verified 899d2a2a
 !!!
 
 !! Load the group selector from the manifest; All/Local precede the library's own folders.
@@ -1106,6 +1796,54 @@ StepSelected:
     return
 !! @hash 9bbe0657
 !! @verified bdd712f7
+!!!
+
+!! Toggle the one fast-forward marker by clicking the Mark cell.
+!!
+!! The marker is stored on the step as `marker: true`; a second marker is never
+!! kept. Demo runs every step before the marker at maximum speed, then the
+!! marker and all later steps at the selected speed. Public examples are
+!! read-only, so they must be duplicated before a marker can be set.
+StepClicked:
+    put the clicked row of Steps into ClickedRow
+    put the clicked column of Steps into ClickedColumn
+    if ClickedColumn is not 1 return
+    if ClickedRow is less than 0 return
+    if ScenarioPath is empty return
+    if position of `fixtures/local/scenarios/` in ScenarioPath is -1
+    begin
+        append `Duplicate this scenario before setting a marker.` to Log
+        return
+    end
+    load ScenarioText from ScenarioPath
+    put json ScenarioText into ScenarioData
+    put entry `steps` of ScenarioData into StepList
+    put item ClickedRow of StepList into MarkerStep
+    put 0 into MarkerWas
+    if MarkerStep has entry `marker`
+    begin
+        if entry `marker` of MarkerStep put 1 into MarkerWas
+    end
+    put 0 into MarkerLoop
+    while MarkerLoop is less than the count of StepList
+    begin
+        put item MarkerLoop of StepList into MarkerStep
+        if MarkerStep has entry `marker` delete entry `marker` of MarkerStep
+        add 1 to MarkerLoop
+    end
+    if MarkerWas is 0
+    begin
+        put item ClickedRow of StepList into MarkerStep
+        set entry `marker` of MarkerStep to true
+    end
+    set entry `steps` of ScenarioData to StepList
+    save ScenarioData to ScenarioPath
+    gosub to LoadScenario
+    if MarkerWas is 0 set the text of StatusLabel to `Marker set`
+    else set the text of StatusLabel to `Marker cleared`
+    return
+!! @hash e354fe79
+!! @verified e354fe79
 !!!
 
 !! Start a run: clear the logs, mark the state, and hand the command to the
@@ -1694,7 +2432,13 @@ LibrarianDone:
     enable DuplicateBtn
     if the exit code of Librarian is 0
     begin
+        put CurrentGroup into KeepGroup
         gosub to LoadGroups
+        if KeepGroup is not empty
+        begin
+            select KeepGroup in GroupBox
+            put GroupBox into CurrentGroup
+        end
         gosub to BuildScenarioList
         if LibraryPath is not empty and file LibraryPath exists put LibraryPath into ScenarioPath
         gosub to LoadScenario
@@ -1708,8 +2452,8 @@ LibrarianDone:
     end
     put empty into LibraryAction
     return
-!! @hash d26f0a2f
-!! @verified
+!! @hash c1c15521
+!! @verified c1c15521
 !!!
 
 !! Draft with the configured provider. The helper reads the brief on stdin,
@@ -2191,6 +2935,8 @@ SaveStudioSettings:
     set entry `source` of StudioSettings to JournalSource
     set entry `day` of StudioSettings to JournalDay
     set entry `range` of StudioSettings to JournalRange
+    join ActionFields with `,` into ColumnText
+    set entry `columns` of StudioSettings to ColumnText
     save StudioSettings to `fixtures/local/studio-settings.json`
     return
 !! @hash b402cdeb
@@ -2219,7 +2965,7 @@ RunnerLine:
         set the text of StatusLabel to `Running step ` cat StepId
         append `step ` cat StepId cat ` started` to Log
         gosub to FindStep
-        if RowIndex is not -1 set cell Steps RowIndex 6 to `…`
+        if RowIndex is not -1 set cell Steps RowIndex ResultCol to `…`
     end
     else if Kind is `step.finished` gosub to MarkStep
     else if Kind is `log`
@@ -2236,8 +2982,8 @@ RunnerLine:
     end
     else if Kind is `run.finished` gosub to FinishRun
     return
-!! @hash 99a61d66
-!! @verified 99a61d66
+!! @hash 3bdde279
+!! @verified 3bdde279
 !!!
 
 !! stderr is a separate event, and is red in both logs.
@@ -2293,14 +3039,14 @@ MarkStep:
     begin
         if RunStatus is `passed`
         begin
-            set cell Steps RowIndex 6 to `✓`
-            set cell colour Steps RowIndex 6 to `#2E7D32`
+            set cell Steps RowIndex ResultCol to `✓`
+            set cell colour Steps RowIndex ResultCol to `#2E7D32`
             append `step ` cat StepId cat ` passed` to Log
         end
         else
         begin
-            set cell Steps RowIndex 6 to `✗`
-            set cell colour Steps RowIndex 6 to `#C0392B`
+            set cell Steps RowIndex ResultCol to `✗`
+            set cell colour Steps RowIndex ResultCol to `#C0392B`
             append LineText to Log with color `#B00020`
             if Event has entry `failure`
             begin
@@ -2310,8 +3056,8 @@ MarkStep:
         end
     end
     return
-!! @hash 907db811
-!! @verified 907db811
+!! @hash 75ff05e7
+!! @verified 75ff05e7
 !!!
 
 !! Finish a run: status line, buttons and the artefacts path.

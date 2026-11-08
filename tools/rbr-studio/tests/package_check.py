@@ -46,7 +46,7 @@ class PackageTests(unittest.TestCase):
                 self.assertNotIn("ai-config.json", names)
             for required in ("studio.allspeak", "run-studio.sh", "configure-studio.py",
                              "journal_inbox.py", "journal_import.py", "journal_bundle.py",
-                             "scenario_library.py", "requirements-studio.txt",
+                             "journal_mbox.py", "scenario_library.py", "requirements-studio.txt",
                              "scenario_runner/__main__.py", "docs/examples/advance.json",
                              "PACKAGE.txt"):
                 self.assertIn(required, names)
@@ -67,12 +67,15 @@ class PackageTests(unittest.TestCase):
                 sys.executable, str(STUDIO / "configure-studio.py"),
                 "--config", str(config), "--local-dir", str(local),
                 "--inbox", str(inbox), "--system", "00:e0:27:5b:31:40=Home",
+                "--mailbox", f"00:e0:27:5b:31:40={root / 'mail.mbox'}",
                 "--no-prompt",
             ], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             data = json.loads(config.read_text(encoding="utf-8"))
             self.assertEqual(data["journalInbox"], str(inbox.absolute()))
             self.assertEqual(data["systems"]["00:e0:27:5b:31:40"], "Home")
+            self.assertEqual(data["mailboxes"]["00:e0:27:5b:31:40"],
+                             str((root / "mail.mbox").absolute()))
             self.assertTrue((local / "journal").is_dir())
             self.assertTrue(inbox.is_dir())
             self.assertTrue((inbox / "00:e0:27:5b:31:40").is_dir())

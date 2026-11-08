@@ -95,6 +95,12 @@ the full console is still written to the run's `console.log`.
 The shell uses these together for its **Demo** button; **Run** stays headless
 and as fast as possible.
 
+A step may carry `"marker": true`, and at most one step in a scenario may do so.
+In a demo, every step before the marker runs at maximum speed and skips the
+`--step-pause-ms` pause; the marker step and every step after it use `--speed`.
+A normal run ignores the marker because it is already as fast as possible. The
+Studio's **Mark** column sets or clears the marker on a library scenario.
+
 ## Not in v0
 
 - the PySide window, table, inspector and log (the JSON is edited by hand);

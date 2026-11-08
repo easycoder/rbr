@@ -2,5 +2,8 @@
   "journalInbox": "~/RBR-journal",
   "systems": {
     "00:e0:27:5b:31:40": "Home"
+  },
+  "mailboxes": {
+    "00:e0:27:5b:31:40": "~/Mail/RBR-journal"
   }
 }

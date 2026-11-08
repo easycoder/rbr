@@ -114,6 +114,8 @@ def _validate_step(step, index, prepared, ids, issues):
     if len(actions) != 1:
         issues.append(f"{where}: exactly one of {', '.join(ALLOWED_STEP_ACTIONS)} is required (got {actions or 'none'})")
         return
+    if "marker" in step and not isinstance(step["marker"], bool):
+        issues.append(f"{where}.marker: true or false is required")
     action = actions[0]
 
     def check_target(value, label):
@@ -326,9 +328,12 @@ def prepare(path, repo=None):
 
     ids = set()
     previous = None
+    markers = []
     allow_out_of_order = bool(scenario.get("allowOutOfOrder"))
     for index, step in enumerate(steps):
         _validate_step(step, index, prepared, ids, issues)
+        if isinstance(step, dict) and step.get("marker"):
+            markers.append(index)
         if isinstance(step, dict) and step.get("at"):
             try:
                 when = prepared.when(step["at"])
@@ -346,4 +351,6 @@ def prepare(path, repo=None):
 
     if issues:
         raise ScenarioError("\n".join(issues))
+    if len(markers) > 1:
+        raise ScenarioError("only one step may carry the marker")
     return prepared

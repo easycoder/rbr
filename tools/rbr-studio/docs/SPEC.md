@@ -147,7 +147,9 @@ A scenario is one JSON file, validated by `scenario.schema.json`.
   `failOnPageError`.
 
 Every step has `id`, `at`, an optional `note`, `disabled` and `timeoutMs`, plus
-exactly one action:
+exactly one action. A step may also carry `"marker": true`; at most one step in a
+scenario may do so. In a demo the steps before that marker run at maximum speed
+and the marker and later steps use the selected speed.
 
 | Key | Meaning |
 | --- | --- |

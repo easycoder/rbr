@@ -60,6 +60,18 @@ def parse_system(value):
     return mac, name
 
 
+def parse_mailbox(value):
+    """Parse MAC=PATH and normalise the MAC to lower-case colon form."""
+    if "=" not in value:
+        raise SystemExit(f"configure-studio.py: --mailbox expects MAC=PATH, got {value!r}")
+    mac, path = value.split("=", 1)
+    mac = mac.strip().lower().replace("-", ":")
+    path = path.strip()
+    if not mac or not path:
+        raise SystemExit(f"configure-studio.py: --mailbox expects MAC=PATH, got {value!r}")
+    return mac, str(pathlib.Path(path).expanduser().absolute())
+
+
 def ensure(args):
     config_path = pathlib.Path(args.config).expanduser()
     local = pathlib.Path(args.local_dir).expanduser()
@@ -72,6 +84,14 @@ def ensure(args):
         systems[mac] = name
     if systems:
         data["systems"] = systems
+    mailboxes = data.get("mailboxes")
+    if not isinstance(mailboxes, dict):
+        mailboxes = {}
+    for value in args.mailbox or []:
+        mac, path = parse_mailbox(value)
+        mailboxes[mac] = path
+    if mailboxes:
+        data["mailboxes"] = mailboxes
 
     current = str(data.get("journalInbox") or "").strip()
     if args.inbox:
@@ -98,6 +118,8 @@ def ensure(args):
     print(f"Data:  {local}")
     for mac, name in sorted(systems.items()):
         print(f"System: {mac} = {name}")
+    for mac, path in sorted(mailboxes.items()):
+        print(f"Mailbox: {mac} = {path}")
     return 0
 
 
@@ -109,6 +131,8 @@ def main(argv=None):
                                        "(default: ~/RBR-journal)")
     parser.add_argument("--system", action="append", metavar="MAC=NAME",
                         help="name a system by its MAC; repeatable, creates its inbox subfolder")
+    parser.add_argument("--mailbox", action="append", metavar="MAC=PATH",
+                        help="mbox file for a system; repeatable")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG),
                         help=f"config file (default: {DEFAULT_CONFIG})")
     parser.add_argument("--local-dir", default=str(DEFAULT_LOCAL),

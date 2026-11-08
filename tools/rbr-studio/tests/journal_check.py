@@ -251,6 +251,23 @@ class JournalToolsTests(unittest.TestCase):
             entry = next(item for item in index["scenarios"] if item["group"] == "Journal")
             self.assertEqual(entry["name"], f"Journal {DAY} — Home")
             self.assertTrue((scenarios / entry["path"]).is_file())
+            # Reset forgets the day, then the same archive can be imported again.
+            archive_bytes = archive.read_bytes()
+            removed = journal_inbox.reset(
+                system="00:e0:27:5b:31:40", day=DAY, inbox=inbox,
+                journal_dir=journal_dir, drafts_dir=drafts, state_path=state,
+                quiet=True)
+            self.assertEqual(len(removed), 1)
+            self.assertFalse(target.exists())
+            self.assertFalse(archive.exists())
+            self.assertFalse((scenarios / entry["path"]).exists())
+            self.assertEqual(json.loads(state.read_text(encoding="utf-8")), {})
+            archive.write_bytes(archive_bytes)
+            again = journal_inbox.scan(inbox=inbox, journal_dir=journal_dir,
+                                       drafts_dir=drafts, state_path=state,
+                                       systems=systems, quiet=True)
+            self.assertEqual([row["day"] for row in again], [DAY])
+            self.assertTrue((target / "manifest.json").is_file())
             # An unchanged inbox is a no-op, and the filter's own file stays put.
             self.assertEqual(journal_inbox.scan(inbox=inbox, journal_dir=journal_dir,
                                                 drafts_dir=drafts, state_path=state,

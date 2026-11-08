@@ -8,6 +8,11 @@ Studio's **Journal** group. It runs at Studio startup, and by hand:
 
     python3 journal_inbox.py --scan
     python3 journal_inbox.py --scan --inbox ~/Downloads/RBR
+    python3 journal_inbox.py --reset --system 00:e0:27:5b:31:40 --day 2026-11-07
+
+`--reset` forgets one system's imported journal for a day: it removes the Studio's
+state entry, extracted bundle, generated scenario and inbox archive, leaving the
+mbox alone so the attachment can be extracted again.
 
 The folder defaults to `~/RBR-journal`, and the scan includes its per-system subfolders (the mail filter can save each system's attachments under `~/RBR-journal/<MAC>/`). A `studio-config.json` beside this script (written by `configure-studio.py`) can name another folder and can map a MAC to a useful system name; a one-line `fixtures/local/journal-inbox` file overrides the folder, so the setting lives beside the rest of the Studio's machine-local data. Imported bundles are kept in `fixtures/local/journal/<MAC-or-system>-<day>/`, and `fixtures/local/journal/inbox-seen.json` remembers every archive it has handled (by SHA-256), so scanning again is a no-op.
 
@@ -184,6 +189,78 @@ def _existing_bundle(journal_dir: pathlib.Path, day: str, system,
     return None
 
 
+def reset(system, day=None, inbox=None, journal_dir=None, drafts_dir=None,
+          state_path=None, config=None, quiet=False) -> list[dict]:
+    """Forget one system's imported journal for a day, ready for a fresh import.
+
+    The import state, the extracted bundle, the generated scenario and the inbox
+    archive are removed. The mbox itself is left alone, so Import mbox can
+    extract the attachment again. Nothing outside the Studio's own folders is
+    touched.
+    """
+    system = str(system or "").strip().lower()
+    if not system:
+        raise SystemExit("journal_inbox.py: --reset needs --system MAC")
+    day = str(day or _datetime.date.today().isoformat()).strip()
+    inbox = resolve_inbox(inbox, config=config)
+    journal_dir = pathlib.Path(journal_dir) if journal_dir else JOURNAL
+    drafts_dir = pathlib.Path(drafts_dir) if drafts_dir else DRAFTS
+    state_path = pathlib.Path(state_path) if state_path else STATE
+    say = (lambda message: None) if quiet else (lambda message: print(message, flush=True))
+    state = load_state(state_path)
+    removed = []
+    for digest, record in list(state.items()):
+        if not isinstance(record, dict):
+            continue
+        record_mac = str(record.get("mac") or "").strip().lower()
+        record_system = str(record.get("system") or "").strip().lower()
+        if record_mac != system and record_system != system:
+            continue
+        if str(record.get("day") or "") != day:
+            continue
+        item = {"archive": record.get("archive"), "bundle": record.get("bundle"),
+                "scenario": record.get("scenario")}
+        bundle_path = pathlib.Path(record["bundle"]) if record.get("bundle") else None
+        if bundle_path is not None:
+            try:
+                bundle_path.resolve().relative_to(journal_dir.resolve())
+                if bundle_path.is_dir():
+                    shutil.rmtree(bundle_path)
+                    item["bundleRemoved"] = str(bundle_path)
+            except ValueError:
+                pass
+            if bundle_path.name.endswith(f"-{day}"):
+                key = bundle_path.name[:-len(day) - 1]
+                draft = drafts_dir / f"journal-{key}-{day}.json"
+                if draft.is_file():
+                    draft.unlink()
+                    item["draftRemoved"] = str(draft)
+        scenario = str(record.get("scenario") or "").strip()
+        if scenario:
+            scenario_path = scenario_library.SCENARIOS / scenario
+            if scenario_path.is_file():
+                try:
+                    scenario_library.remove(scenario_path)
+                    item["scenarioRemoved"] = scenario
+                except SystemExit:
+                    pass
+        archive_name = str(record.get("archive") or "").strip()
+        if archive_name:
+            candidates = [inbox / str(record.get("mac") or ""), inbox]
+            for directory in candidates:
+                archive = directory / archive_name
+                if archive.is_file():
+                    archive.unlink()
+                    item["archiveRemoved"] = str(archive)
+                    break
+        del state[digest]
+        removed.append(item)
+        say(f"journal_inbox.py: reset {day} [{record.get('name') or record.get('system') or system}]")
+    if removed:
+        save_state(state_path, state)
+    return removed
+
+
 def scan(inbox=None, journal_dir=None, drafts_dir=None, state_path=None,
          group=DEFAULT_GROUP, quiet=False, pointer=None, config=None,
          systems=None) -> list[dict]:
@@ -282,6 +359,10 @@ def main(argv=None):
         description="Import daily journal bundles from the mail-filter folder")
     parser.add_argument("--scan", action="store_true",
                         help="scan the folder (the default action)")
+    parser.add_argument("--reset", action="store_true",
+                        help="forget one system's imported journal for a day, ready to import again")
+    parser.add_argument("--system", help="system MAC for --reset")
+    parser.add_argument("--day", help="day for --reset (default: today)")
     parser.add_argument("--inbox", help="folder holding the emailed .tar.gz attachments "
                                        f"(default: {DEFAULT_INBOX})")
     parser.add_argument("--journal-dir", help="where extracted bundles are kept "
@@ -291,6 +372,15 @@ def main(argv=None):
     parser.add_argument("--group", default=DEFAULT_GROUP, help="library group (default: Journal)")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
+    if args.reset:
+        if not args.system:
+            parser.error("--reset needs --system MAC")
+        removed = reset(system=args.system, day=args.day, inbox=args.inbox,
+                        journal_dir=args.journal_dir, config=args.config,
+                        quiet=args.quiet)
+        if not args.quiet:
+            print(f"journal_inbox.py: {len(removed)} journal record(s) reset")
+        return 0
     handled = scan(inbox=args.inbox, journal_dir=args.journal_dir, group=args.group,
                    quiet=args.quiet, config=args.config)
     if not args.quiet:

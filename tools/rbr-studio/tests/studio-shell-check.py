@@ -41,6 +41,17 @@ SETTINGS.write_text(json.dumps({
     "scenario": "fixtures/local/scenarios/examples/advance-at-15-00.json",
     "source": "docs/examples", "day": "2026-11-06", "range": "14:00-19:00",
 }), encoding="utf-8")
+STUDIO_CONFIG = STUDIO / "studio-config.json"
+STUDIO_CONFIG_BEFORE = STUDIO_CONFIG.read_bytes() if STUDIO_CONFIG.exists() else None
+TEST_CONFIG = library.LOCAL / "shell-check-config.json"
+TEST_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+TEST_CONFIG.write_text(json.dumps({
+    "systems": {"00:e0:27:5b:31:40": "Home"},
+    "mailboxes": {"00:e0:27:5b:31:40": str(STUDIO / "fixtures" / "local" / "shell-check.mbox")},
+}), encoding="utf-8")
+CONFIG_POINTER = library.LOCAL / "studio-config-path"
+CONFIG_POINTER_BACKUP = CONFIG_POINTER.read_text(encoding="utf-8") if CONFIG_POINTER.exists() else None
+CONFIG_POINTER.write_text(str(TEST_CONFIG), encoding="utf-8")
 
 
 def prepare_library():
@@ -94,6 +105,11 @@ def cleanup_library():
         SETTINGS.unlink(missing_ok=True)
     else:
         SETTINGS.write_text(SETTINGS_BACKUP, encoding="utf-8")
+    TEST_CONFIG.unlink(missing_ok=True)
+    if CONFIG_POINTER_BACKUP is None:
+        CONFIG_POINTER.unlink(missing_ok=True)
+    else:
+        CONFIG_POINTER.write_text(CONFIG_POINTER_BACKUP, encoding="utf-8")
     for group in (TEST_GROUP, "Extra"):
         try:
             index = library.load_index()
@@ -186,6 +202,20 @@ def fill_new_group(group):
                       if QApplication.activeModalWidget() else None)
 
 
+def fill_duplicate(name):
+    dialog = QApplication.activeModalWidget()
+    if dialog is None:
+        check(False, "the duplicate dialog opened")
+        return
+    editor = dialog.findChild(QLineEdit)
+    if editor is None:
+        check(False, "the duplicate dialog has a text field")
+        dialog.reject()
+        return
+    editor.setText(name)
+    dialog.accept()
+
+
 def fill_brief(text, accept=True):
     dialog = QApplication.activeModalWidget()
     if dialog is None:
@@ -242,6 +272,17 @@ def click_run():
         check(steps.rowCount() == 13, "the advance example seeds 13 rows")
         check(value(program, "WindowX") == 55 and value(program, "WindowY") == 66,
               "the saved window position is restored")
+        check(widget(program, "SystemBox").count() == 1,
+              "the system selector has the configured system")
+        check(widget(program, "SystemBox").currentText() == "Home",
+              "the system selector shows the MAC's name")
+        check(widget(program, "MboxBtn").isEnabled(),
+              "the mbox button is enabled when a mailbox is configured")
+        check(widget(program, "ResetJournalBtn").isEnabled(),
+              "the reset button is enabled when a system is selected")
+        check(widget(program, "AddBatchBtn").text() == "+" and
+              widget(program, "RemoveBatchBtn").text() == "-",
+              "the batch add/remove buttons are condensed")
         check(value(program, "JournalSource") == "docs/examples",
               "the saved journal source is restored")
         check(value(program, "JournalDay") == "2026-11-06",
@@ -263,8 +304,7 @@ def click_run():
             scenarios.itemClicked.emit(scenarios.item(delay))
             app.processEvents()
             check(steps.rowCount() == 5, "the delay demo seeds 5 rows")
-            check(steps.item(2, 2).text() == "Delay", "the delay row has the Delay actor")
-            check("wait 2 s" in steps.item(2, 4).text(), "the delay row shows its seconds")
+            check(steps.item(2, 3).text() == "Delay", "the delay row has the Delay actor")
         local = next((i for i in range(scenarios.count())
                       if scenarios.item(i).text() == "Local system"), -1)
         if local >= 0:
@@ -279,6 +319,9 @@ def click_run():
             scenarios.itemClicked.emit(scenarios.item(advance))
             app.processEvents()
         check(steps.rowCount() == 13, "selecting Advance restores 13 rows")
+        check(steps.horizontalHeaderItem(5).text() == "S" and
+              steps.horizontalHeaderItem(7).text() == "T",
+              "the default action columns are S, M, T and R")
 
         groups = widget(program, "GroupBox")
         group_names = [groups.itemText(i) for i in range(groups.count())]
@@ -299,10 +342,31 @@ def click_run():
         app.processEvents()
         check(TEST_BRIEF in value(program, "Brief"),
               "selecting a scenario loads its stored brief")
-        check(steps.item(0, 1).text() == "08:00:00",
+        check(steps.item(0, 2).text() == "08:00:00",
               "the Time column shows the event time, not the full ISO timestamp")
         check(steps.rowCount() == 3, "the temporary scenario has three rows")
-        steps.setRangeSelected(QTableWidgetSelectionRange(0, 0, 1, 6), True)
+        QTimer.singleShot(300, lambda: fill_duplicate("Shell duplicate"))
+        widget(program, "DuplicateBtn").click()
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            app.processEvents()
+            time.sleep(0.05)
+            if widget(program, "StatusLabel").text() == "Duplicate complete":
+                break
+        check(widget(program, "GroupBox").currentText() == TEST_GROUP,
+              "duplicating a scenario stays in the current group")
+        check("Shell duplicate" in [scenarios.item(i).text()
+                                    for i in range(scenarios.count())],
+              "the duplicate is listed in the current group")
+        steps.cellClicked.emit(0, 1)
+        app.processEvents()
+        check(steps.item(0, 1).text() == "●",
+              "clicking the Mark cell sets the fast-forward marker")
+        steps.cellClicked.emit(0, 1)
+        app.processEvents()
+        check(steps.item(0, 1).text() == "",
+              "clicking the marked cell again clears it")
+        steps.setRangeSelected(QTableWidgetSelectionRange(0, 0, 1, 10), True)
         app.processEvents()
         check(widget(program, "DeleteRowsBtn").isEnabled(),
               "Delete rows is enabled by a native multi-row selection")
@@ -324,7 +388,7 @@ def click_run():
               "the remaining step is renumbered from one")
         check(steps.item(0, 0).text() == "s1",
               "the Steps table shows the renumbered id")
-        steps.setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 6), True)
+        steps.setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 10), True)
         app.processEvents()
         QTimer.singleShot(300, lambda: answer_confirm(True))
         widget(program, "DeleteRowsBtn").click()
@@ -445,7 +509,7 @@ def inspect():
     print(f"  ..    status={status!r}")
     check("run passed" in status or "validation valid" in status,
           f"the run reports success ({status!r})")
-    results = [steps.item(row, 6).text() for row in range(steps.rowCount())]
+    results = [steps.item(row, 10).text() for row in range(steps.rowCount())]
     check(all(mark == "✓" for mark in results),
           f"all 13 result cells are ticks ({results})")
     check("run passed" in log, "the readable log carries the run summary")
@@ -482,6 +546,9 @@ check(saved.get("source") == "docs/examples",
       "closing the Studio keeps the journal source")
 check(saved.get("day") == "2026-11-06", "closing the Studio keeps the journal day")
 check(saved.get("range") == "14:00-19:00", "closing the Studio keeps the time range")
+after = STUDIO_CONFIG.read_bytes() if STUDIO_CONFIG.exists() else None
+check(after == STUDIO_CONFIG_BEFORE,
+      "the shell check leaves the real studio-config.json alone")
 cleanup_library()
 print()
 if failures:

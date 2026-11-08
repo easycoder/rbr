@@ -47,6 +47,7 @@ FILES=(
     journal_import.py
     journal_inbox.py
     journal_ingest.py
+    journal_mbox.py
     journal_to_scenario.py
     scenario_library.py
     snapshot-map.py

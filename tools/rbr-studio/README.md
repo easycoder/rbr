@@ -40,8 +40,11 @@ The package deliberately carries no `fixtures/local`, real `map.json`, `ai-confi
 domain's own `table`, `logpane`, `panes` and `tabs`. It loads the example
 scenarios; Run starts `scenario_runner` through the `process` domain, updates
 the Result column from `step.finished`, and streams the JSONL into the Steps,
-Wire, Console and Artifacts tabs. Validate uses `--validate-only`; Stop
-terminates the child.
+Wire, Console and Artifacts tabs. The Steps tab keeps its newest 2000 lines;
+the trim runs from the shell's idle loop once a second, so a long run does
+not grow the log without bound. A trim rewrites the text and therefore loses
+the per-line colours of the lines it keeps. Validate uses `--validate-only`;
+Stop terminates the child.
 
 ```bash
 cd tools/rbr-studio
@@ -56,8 +59,9 @@ app's example paths and `.venv/bin/python` resolve.
 virtual clock paced at the speed selector (1×, 60×, 120× or 300× scenario
 seconds per real second), a 300 ms pause after each step, and repeated refresh
 polls collapsed to `refresh ×50` / `refresh polls: N` summaries in Console. The
-full console remains in the run's `console.log`. Run stays headless and as fast
-as possible.
+full console remains in the run's `console.log`. If a step carries the **Mark**
+marker, every step before it runs at maximum speed and the marker and later
+steps use the selected speed. Run stays headless and as fast as possible.
 
 Headless check (starts the shell, switches scenario, runs Advance, inspects the
 table and logs):
@@ -104,7 +108,9 @@ Scenarios live under `fixtures/local/scenarios/<group>/` and each may have a sib
 
 The right-hand Inspector has **Duplicate…** and **Rename…** tools. Duplicate asks for a name and copies the scenario and its brief into the library; Rename updates a library scenario's display name. Public examples are never renamed in place; duplicate one first.
 
-The table uses AllSpeak's native multi-selection (`set selection of Steps to multiple`). Use Ctrl/Shift-click or drag to select one or more rows; **Delete rows** asks for confirmation and removes the selected steps from a library scenario. Cell editing and row insertion will use the same Tools row.
+The table uses AllSpeak's native multi-selection (`set selection of Steps to multiple`). Use Ctrl/Shift-click or drag to select one or more rows; **Delete rows** asks for confirmation and removes the selected steps from a library scenario. Cell editing and row insertion will use the same Tools row. The **Mark** column is clickable: it sets the scenario's single fast-forward marker on that step, or clears it when clicked again. The marker is stored as `marker: true` and is only writable on library scenarios; duplicate a public example first.
+
+The wordy Action column has been replaced by short selectable fields: **S** status, **M** mode, **T** temperature, **H** humidity, **B** battery, **P** period, **A** advance and **R** relay. **Columns…** opens a checkbox window; the default is **S, M, T, R**. The choice is saved in `fixtures/local/studio-settings.json` and restored at startup. Status is a coloured dot, relay is a filled/open circle, and the numeric fields are plain values; the full names appear in the chooser and on the cells' tooltips. Mode uses **T** timed, **A** advance, **B** boost, **O** on and **X** off; all Action columns are centre-aligned. The table and Inspector are in a movable splitter, so the Inspector can be narrowed when its space is not needed.
 
 The Studio remembers its window position and size, last selected group and scenario, and the last local journal source, journal day and time range. It writes them to `fixtures/local/studio-settings.json` when the window closes, including through the **Quit** button in the toolbar; a missing or stale setting falls back safely.
 
@@ -143,6 +149,44 @@ The Studio's **Import journal…** button runs `journal_ingest.py`, which chains
 - by hand: `python3 journal_inbox.py --scan --inbox DIR`
 
 Each unseen archive is extracted into `fixtures/local/journal/<MAC-or-system>-<day>/`, converted into a whole-day scenario and added to the **Journal** group, so the day is in the list when the window opens. The MAC is the stable folder key; a name from the `systems` map is used in the scenario name (`Journal 2026-11-06 — Home`), falling back to the controller's system name. The extraction keeps the bundle's `events/`, `maps/` and `reports/heatlog/` trees, so the statistics data sits beside the scenario. `fixtures/local/journal/inbox-seen.json` keeps the archive hashes; a rescan does nothing, and a corrected bundle (a new hash) is imported. A bundle that cannot be converted is recorded as failed rather than retried every start. The inbox file is left alone, so the mail filter owns its own retention.
+
+### Extracting from an mbox
+
+If the mail client keeps the messages in an mbox rather than saving attachments, `journal_mbox.py` reads the mailbox and writes each valid bundle into `<root>/<MAC>/`:
+
+```bash
+python3 journal_mbox.py --mbox ~/Mail/RBR-journal --dry-run
+python3 journal_mbox.py --mbox ~/Mail/RBR-journal
+python3 journal_mbox.py --mbox ~/Mail/RBR-journal --remove
+```
+
+The root is the same one the Studio scans (`studio-config.json`, the pointer file, or `~/RBR-journal`). The MAC comes from the subject, with the bundle manifest as a fallback. The `mailboxes` path may be an mbox file, a folder of mboxes, or a Thunderbird profile: a Thunderbird profile is searched for mbox files whose names contain `RBR` or `journal` (pass `--all-mailboxes` to scan every mbox); a plain folder of mboxes is scanned as it is. Identical files are skipped; a different file with the same name gets a `-2` suffix. Without `--remove` the mailbox is untouched; with it, messages whose attachments were all handled are removed and the mbox is rewritten. A message with an invalid attachment is left alone.
+
+### Systems and mailboxes
+
+The sidebar starts with a **System** selector, filled from the `systems` map in `studio-config.json`, and an **Import mbox** button. The mailbox for the selected MAC comes from the same file:
+
+```json
+{
+  "journalInbox": "~/RBR-journal",
+  "systems": {
+    "00:e0:27:5b:31:40": "Home"
+  },
+  "mailboxes": {
+    "00:e0:27:5b:31:40": "~/Mail/RBR-journal"
+  }
+}
+```
+
+Edit the file by hand, or set the entries with `configure-studio.py --system MAC=Name --mailbox MAC=PATH` (both repeatable). The button runs `journal_mbox.py --system <MAC> --list --limit 5`, which extracts new attachments into `~/RBR-journal/<MAC>/` and fills **Available journals** with the five newest filenames; the Studio then scans the inbox and adds new scenarios to the **Journal** group. Selecting a name there shows it in the log and status line.
+
+**Reset today** forgets the selected system's imported journal for today: it removes the Studio state, extracted bundle, generated scenario and inbox archive, but leaves the mbox alone. Click **Import mbox** afterwards to extract and import today's attachment again. The command is also available directly:
+
+```bash
+python3 journal_inbox.py --reset --system 00:e0:27:5b:31:40
+```
+
+In the **Batch** panel, the add and remove controls are one row, **+ Batch -**.
 
 ### Send a bundle now
 

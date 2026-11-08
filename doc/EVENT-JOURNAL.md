@@ -140,7 +140,7 @@ detail.
 
 ## Importing and generating a scenario
 
-RBR Studio carries two stdlib-only tools. `tools/rbr-studio/journal_import.py` copies one day and the map snapshots it references into a transport-neutral bundle from a local directory or mounted share. `tools/rbr-studio/journal_to_scenario.py` turns a bundle (or a raw day plus `--map`) into an ordinary scenario JSON for the existing runner. Both accept a window with `--from`/`--to`, and the converter drops repeated sensor readings and duplicate room states, seeds the state that existed before the window, and writes controller steps plus visible expectations. It does not replay recorded UI requests as taps; their controller effects are included, but the gesture itself is not recoverable from the controller's side.
+RBR Studio carries two stdlib-only tools. `tools/rbr-studio/journal_import.py` copies one day and the map snapshots it references into a transport-neutral bundle from a local directory or mounted share. `tools/rbr-studio/journal_to_scenario.py` turns a bundle (or a raw day plus `--map`) into an ordinary scenario JSON for the existing runner. `tools/rbr-studio/journal_mbox.py` extracts valid bundles from an mbox mailbox into the Studio inbox when the mail client keeps the messages rather than saving attachments. Both accept a window with `--from`/`--to`, and the converter drops repeated sensor readings and duplicate room states, seeds the state that existed before the window, and writes controller steps plus visible expectations. It does not replay recorded UI requests as taps; their controller effects are included, but the gesture itself is not recoverable from the controller's side.
 
 The Studio's **Import journal…** button runs `tools/rbr-studio/journal_ingest.py`, which accepts a bundle, a raw day or a local journal root, chains the importer and converter, and adds the result to the **Journal** group. Everything reads local files; no SSH or other network access to the controller is needed.
 
@@ -196,6 +196,7 @@ RBR Studio scans a mail-filter folder at startup with `journal_inbox.py`. The fo
 ## Tests
 
 - `tools/rbr-studio/tests/journal_check.py` — local import, bundle archive round-trip, mail-inbox import and deduplication, duplicate suppression, value formatting and scenario validation.
+- `tools/rbr-studio/tests/mbox_check.py` — mbox attachment extraction into the per-MAC inbox, duplicate suppression, manifest-MAC fallback and opt-in removal.
 - `tests/unit/journal_export_test.py` — daily export modes, retention, bundle compatibility, the `reports/heatlog` rows and the email opt-in, flag overrides and attachment.
 - `tests/unit/eventlog_test.py` — the writer: local date paths, midnight and year boundaries, compact JSONL, cross-midnight batches, map content addressing, skipped invalid events and batch deletion.
 - `tests/unit/journal_test.py` — extracts the controller's Journal* block and runs it through AllSpeak with a real `eventlog.py`, proving the event order, the provenance field, the map snapshot and the batch writer together.

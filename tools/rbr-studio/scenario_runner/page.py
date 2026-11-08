@@ -206,23 +206,25 @@ class PageDriver:
 
     # ── clock ────────────────────────────────────────────────────────────────
 
-    def advance_to(self, when):
+    def advance_to(self, when, speed=None):
         """Move the virtual clock to `when`.
 
         With no speed this jumps in 50 s slices, as fast as the page allows.
         With a demo speed it advances 10 s of scenario time per slice and sleeps
         the corresponding real time, so the page's poll, clock tick and
-        heartbeat are visible.
+        heartbeat are visible. A step may pass its own speed so the pre-marker
+        part of a demo can run at zero while the rest keeps the chosen pace.
         """
         if when is None:
             return
+        effective = self.speed if speed is None else speed
         delta_ms = int((when - self.current).total_seconds() * 1000)
         if delta_ms <= 0:
             self.current = when
             return
         remaining = delta_ms
-        if self.speed and self.speed > 0:
-            if self.speed == 1:
+        if effective and effective > 0:
+            if effective == 1:
                 # At 1x the fake clock is already flowing in real time. Sleeping
                 # the gap advances it exactly once; fast_forwarding as well
                 # would advance every slice twice and drift the UI clock ahead.
@@ -231,11 +233,11 @@ class PageDriver:
                 pace_slice = 10_000
                 while remaining > pace_slice:
                     self.page.clock.fast_forward(pace_slice)
-                    time.sleep(pace_slice / (1000.0 * self.speed))
+                    time.sleep(pace_slice / (1000.0 * effective))
                     remaining -= pace_slice
                 if remaining > 0:
                     self.page.clock.fast_forward(remaining)
-                    time.sleep(remaining / (1000.0 * self.speed))
+                    time.sleep(remaining / (1000.0 * effective))
         else:
             while remaining > CLOCK_SLICE_MS:
                 self.page.clock.fast_forward(CLOCK_SLICE_MS)

@@ -163,17 +163,23 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
             driver.page.evaluate("v => { window.__rbr.refreshReply = v; }", refresh)
 
         steps = prepared.scenario.get("steps", [])
+        marker = next((i for i, step in enumerate(steps) if step.get("marker")), None)
+        if marker is not None:
+            events.emit("log", stepId=steps[marker].get("id"), level="info", source="runner",
+                        message=f"marker at {steps[marker].get('id')}: earlier steps run at maximum speed")
         for index, step in enumerate(steps):
             step_id = step.get("id", f"step-{index + 1}")
             actor = ACTOR.get(next(key for key in ACTOR if key in step), "other")
+            fast = marker is not None and index < marker
+            step_speed = 0 if fast else speed
             driver.current_step = step_id
             events.emit("step.started", stepId=step_id, index=index + 1,
                         at=step.get("at"), actor=actor)
             step_started = time.time()
             step_failure = None
             try:
-                driver.advance_to(prepared.step_times[index])
-                _execute(driver, prepared, step, speed)
+                driver.advance_to(prepared.step_times[index], speed=step_speed)
+                _execute(driver, prepared, step, step_speed)
             except Exception as exc:  # noqa: BLE001 - this is the failure boundary
                 failed = True
                 detail = str(exc)
@@ -210,8 +216,8 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
             else:
                 events.emit("step.finished", stepId=step_id, status="passed", durationMs=duration)
                 if not jsonl:
-                    print(f"  ✓ {step_id:<4} {step.get('at', ''):<6} {_summary(step, speed)}")
-                if step_pause_ms > 0:
+                    print(f"  ✓ {step_id:<4} {step.get('at', ''):<6} {_summary(step, step_speed)}")
+                if step_pause_ms > 0 and not fast:
                     time.sleep(step_pause_ms / 1000.0)
 
         if collapse_polls and poll_count:
