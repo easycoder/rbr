@@ -390,6 +390,79 @@ class JournalToolsTests(unittest.TestCase):
                  scenario_library.TRASH, scenario_library.INDEX,
                  scenario_library.SEED_FLAG, scenario_library.EXAMPLES) = old
 
+    def test_duplicate_for_room_keeps_global_and_one_room(self):
+        with tempfile.TemporaryDirectory(prefix="rbr-room-copy-") as tmp:
+            tmp_path = pathlib.Path(tmp)
+            local = tmp_path / "fixtures" / "local"
+            scenarios = local / "scenarios"
+            old = (scenario_library.LOCAL, scenario_library.SCENARIOS,
+                   scenario_library.TRASH, scenario_library.INDEX,
+                   scenario_library.SEED_FLAG, scenario_library.EXAMPLES)
+            scenario_library.LOCAL = local
+            scenario_library.SCENARIOS = scenarios
+            scenario_library.TRASH = local / ".trash"
+            scenario_library.INDEX = scenarios / "index.json"
+            scenario_library.SEED_FLAG = local / ".examples-seeded"
+            scenario_library.EXAMPLES = STUDIO / "docs" / "examples"
+            try:
+                source = tmp_path / "wide.json"
+                source.write_text(json.dumps({
+                    "schemaVersion": 1,
+                    "name": "Wide day",
+                    "clock": {"start": "2026-11-06T08:00:00+00:00"},
+                    "home": {"map": make_base_map(), "profile": "Weekday"},
+                    "rooms": {"Kitchen": "Kitchen", "Office": "Office",
+                              "Outside": "Outside"},
+                    "steps": [
+                        {"id": "s1", "at": "08:00",
+                         "controller": {"room": "Kitchen", "set": {"temperature": 1900}}},
+                        {"id": "s2", "at": "08:01",
+                         "controller": {"room": "Office", "set": {"temperature": 2000}}},
+                        {"id": "s3", "at": "08:01",
+                         "expect": {"target": "room.Office.temp", "contains": "20.0"}},
+                        {"id": "s4", "at": "08:01",
+                         "expect": {"target": "summary.title", "visible": True}},
+                        {"id": "s5", "at": "08:02",
+                         "controller": {"room": "Outside", "set": {"temperature": 800}}},
+                        {"id": "s6", "at": "08:03",
+                         "expect": {"target": "room.Kitchen.temp", "contains": "19.0"}},
+                        {"id": "s7", "at": "08:04", "ui": {"tap": "room.Kitchen.rest"}},
+                        {"id": "s8", "at": "08:05", "ui": {"tap": "room.Office.rest"}},
+                        {"id": "s9", "at": "08:06",
+                         "expectWire": {"request": "Operating Mode",
+                                        "match": {"Room": "Kitchen"}}},
+                        {"id": "s10", "at": "08:07",
+                         "expectWire": {"request": "Update Profiles"}},
+                        {"id": "s11", "at": "08:08", "connection": {"action": "drop"}},
+                        {"id": "s12", "at": "08:09", "delay": 0.1},
+                        {"id": "s13", "at": "08:10",
+                         "ui": {"tap": "devices.room.Office.edit"}},
+                        {"id": "s14", "at": "08:11",
+                         "ui": {"tap": "devices.room.Kitchen.edit"}},
+                        {"id": "s15", "at": "08:12", "controller": {"raw": "{}"}},
+                    ],
+                }, indent=2) + "\n", encoding="utf-8")
+
+                entry = scenario_library.duplicate(
+                    source, name="Office only", group="Unsorted", room="Office")
+                copied = scenarios / entry["path"]
+                data = json.loads(copied.read_text(encoding="utf-8"))
+                self.assertEqual([step["id"] for step in data["steps"]],
+                                 ["s1", "s2", "s3", "s4", "s5", "s6", "s7",
+                                  "s8", "s9", "s10"])
+                self.assertEqual(data["name"], "Office only")
+                self.assertIn("Filtered copy", data["description"])
+                brief = copied.with_name(copied.stem + ".brief.md")
+                self.assertIn("Filtered copy", brief.read_text(encoding="utf-8"))
+                prepare(copied, REPO)
+                with self.assertRaises(SystemExit):
+                    scenario_library.duplicate(
+                        source, name="Bad room", group="Unsorted", room="Cellar")
+            finally:
+                (scenario_library.LOCAL, scenario_library.SCENARIOS,
+                 scenario_library.TRASH, scenario_library.INDEX,
+                 scenario_library.SEED_FLAG, scenario_library.EXAMPLES) = old
+
     def test_ingest_helper_generates_a_draft_without_touching_the_library(self):
         bundle = pathlib.Path(self._tmp.name) / "bundle"
         run("journal_import.py", "--source", str(self.root), "--day", DAY,

@@ -4,7 +4,7 @@ Status: design, 2026-11-05. The v0 Python runner in `scenario_runner/`
 implements validation, the controller stub, semantic targets, the virtual
 clock and artefacts, and runs both reference scenarios. The AllSpeak/PySide
 shell (`studio.allspeak`) uses the graphics `table`, `logpane`, `panes` and
-`tabs` and the `process` domain; Run is wired to `scenario_runner`, and Demo
+`tabs` and the `process` domain; Run is wired to `scenario_runner`, and Show
 adds headed, paced playback with collapsed poll logging.
 
 ## 1. Purpose
@@ -22,7 +22,7 @@ The two reference scenarios are:
    the controller holds the advance; at 18:00 it clears it and at 18:30 reports
    21.9 °C. The UI must stop showing the advance and show the new reading.
 
-`docs/examples/delay.json` is a short third example: it demonstrates the `delay` step, which holds a state for the viewer in a paced demo.
+`docs/examples/delay.json` is a short third example: it demonstrates the `delay` step, which holds a state for the viewer in a paced Show.
 
 The second is the interesting one: it spans hours. The runner therefore owns a
 **virtual clock**; a scenario is never bounded by wall-clock time.
@@ -148,8 +148,13 @@ A scenario is one JSON file, validated by `scenario.schema.json`.
 
 Every step has `id`, `at`, an optional `note`, `disabled` and `timeoutMs`, plus
 exactly one action. A step may also carry `"marker": true`; at most one step in a
-scenario may do so. In a demo the steps before that marker run at maximum speed
-and the marker and later steps use the selected speed.
+scenario may do so. In a Show run the marker is a **breakpoint**: the runner
+folds the controller steps before it into the base map, sets the clock to the
+marker and starts there, then pauses after the marker. **Step** advances one
+step and **Show** again continues automatically at the selected speed. A run
+without the breakpoint flags still uses the marker as a fast-forward point:
+earlier steps run at maximum speed, the marker and later steps use the selected
+speed.
 
 | Key | Meaning |
 | --- | --- |
@@ -159,7 +164,7 @@ and the marker and later steps use the selected speed.
 | `expectWire` | assert the newest outbound request (action and fields) |
 | `waitFor` | wait for a DOM condition, bounded |
 | `connection` | drop, reconnect, or emit an MQTT error |
-| `delay` | hold the current state for real seconds; honoured only in a paced demo (`--speed > 0`), skipped in a normal run; does not advance scenario time |
+| `delay` | hold the current state for real seconds; honoured only in a paced Show (`--speed > 0`), skipped in a normal run; does not advance scenario time |
 
 ### Library, groups and batches (v0)
 
@@ -281,19 +286,21 @@ There are three clocks and they must not be confused:
 | --- | --- | --- |
 | scenario time | step `at` | when events happen, what the user sees |
 | browser time | Playwright clock | `Date`, timers, the UI's 10 s poll and projections |
-| wall time | host | step timeouts and demo `delay` steps |
+| wall time | host | step timeouts and Show `delay` steps |
 
-The runner sets the browser clock from scenario time before each step and never waits for real seconds, except for an explicit `delay` step in a paced demo; a normal run skips it. The UI's own projections (schedule subline,
+The runner sets the browser clock from scenario time before each step and never waits for real seconds, except for an explicit `delay` step in a paced Show; a normal run skips it. The UI's own projections (schedule subline,
 boost countdown, advance expiry) then change deterministically.
 
-A demo run can opt into **paced time**: `--speed N` advances 10-second virtual
+A Show run can opt into **paced time**: `--speed N` advances 10-second virtual
 slices with a real sleep proportional to N (1 is real time; 120 turns three
 hours into 90 seconds), `--headed` opens the PWA window, and
 `--step-pause-ms` holds each passed step for a moment. A `delay` step is real seconds, unscaled; a normal run skips it. `--collapse-polls`
 suppresses the per-poll `Requesting map: refresh` events in the live stream and
 emits `refresh ×50` summaries plus a final total; the full console remains in
-the run's `console.log`. The shell exposes this as its **Demo** button and
+the run's `console.log`. The shell exposes this as its **Show** button and
 speed selector; **Run** stays headless and as fast as possible.
+
+For a breakpoint, `--fold-to-marker` applies every pre-marker controller step to the base map in Python, sets `clock.start` to the marker and starts the loop there. Pre-marker `ui`, expectation, wire, connection and delay steps are skipped; only the map-changing controller events are replayed. This is the safe start: the room (and every other room) is already initialised, so deleting or bypassing the earlier events cannot leave a card without a reading. `--pause-at-marker` emits `run.paused` after the marker and waits for `{"command":"step"}` or `{"command":"continue"}` on stdin. A `step` jumps the virtual clock to the next step at maximum speed and pauses again; `continue` uses the selected Show speed. The run's `scenario.json` snapshot is the trimmed scenario, with the folded map.
 
 **Clock spike (settled 2026-11-05):** the pinned runtime's `wait N ticks` does
 yield to Playwright's clock, but one multi-hour `fastForward` lets the poll run
@@ -350,10 +357,16 @@ The window is the target in `docs/MOCKUP.html`.
 - **Right:** inspector for the selected step — actor, target picker (filtered to
   valid targets and rooms), value editors, timeout, note, and
   **Insert expectation**.
-- **Bottom:** Run / Run from here / Stop, headless/headed, device preset, clock
+- **Bottom:** Run / Show / Step / Stop, headless/headed, device preset, clock
   range; then the log panel with Steps, Wire, Console and Artefacts tabs.
   Clicking a failure selects its row and shows expected/actual, the screenshot
-  and the wire traffic since the previous step.
+  and the wire traffic since the previous step. **Step** advances one step while
+  Show is paused at a breakpoint, and **Space** is bound to the same action. The
+  Step button stays enabled so the shortcut always owns Space; a `Stepping` flag
+  ignores a repeat while a step is in flight, so a second press cannot fall
+  through to another focused button. **Show** again resumes automatic advance.
+  The row of the step just taken is selected, scrolled into view and shown in
+  the Inspector; the playback buttons and the Mark cell carry tooltips.
 
 The timeline view shows the same steps as lanes (Controller, UI, Wire, Expect)
 against scenario time. It is a different reading of one model, not a second
@@ -448,6 +461,7 @@ MQTT itself. The runner is a subprocess and speaks to a stubbed page.
   not weaken them; the two reference scenarios are the cross-check between the
   Python and Node drivers.
 - The PySide shell gets a smoke test for load → validate → run → render a log.
+- `tests/show_check.py` drives the fold/breakpoint/step protocol with a stub page driver, so it needs the runner venv but no browser.
 
 ## 15. Roadmap
 

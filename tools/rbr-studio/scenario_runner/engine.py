@@ -110,13 +110,99 @@ def _write(path, text):
     path.write_text(text, encoding="utf-8")
 
 
+def _append_description(scenario, note):
+    description = scenario.get("description")
+    if isinstance(description, str) and description.strip():
+        scenario["description"] = description.rstrip() + " " + note
+    else:
+        scenario["description"] = note
+
+
+def _fold_to_marker(prepared, steps, marker):
+    """Apply the controller steps before `marker` to the base map.
+
+    Returns `(start_index, folded, warning)`. This is the safe start for a
+    breakpoint: the map the browser receives is the state just before the
+    marker, without replaying a day of events through the page. A step that
+    cannot be folded (a raw payload that is not a map, or a bad room/profile)
+    becomes the start so it still runs in the browser.
+    """
+    folded = 0
+    for index in range(marker):
+        controller = steps[index].get("controller")
+        if not isinstance(controller, dict):
+            continue  # UI and expectation steps do not change the map
+        try:
+            raw = _apply_controller(prepared.base_map, prepared.aliases,
+                                    prepared.profile_idx, controller)
+        except Exception as exc:  # noqa: BLE001 - report the start, do not crash
+            return index, folded, (
+                f"cannot fold {steps[index].get('id')} ({exc}); starting there")
+        if raw is not None:
+            try:
+                payload = json.loads(raw)
+            except (TypeError, ValueError):
+                return index, folded, (
+                    f"cannot fold the raw payload at {steps[index].get('id')}; starting there")
+            if not isinstance(payload, dict) or not ("rooms" in payload or "profiles" in payload):
+                return index, folded, (
+                    f"cannot fold the raw payload at {steps[index].get('id')}; starting there")
+            prepared.base_map.clear()
+            prepared.base_map.update(payload)
+        folded += 1
+    return marker, folded, None
+
+
+def _await_command(commands):
+    """Block for one of the playback commands, ignoring unknown lines."""
+    if commands is None:
+        return "continue"
+    while True:
+        command = commands.next()
+        if not isinstance(command, dict):
+            continue
+        name = command.get("command")
+        if name in ("step", "continue", "cancel", "eof"):
+            return name
+
+
 def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, run_dir=None,
-                 speed=0, collapse_polls=False, step_pause_ms=0, end_pause_ms=0):
+                 speed=0, collapse_polls=False, step_pause_ms=0, end_pause_ms=0,
+                 fold_to_marker=False, pause_at_marker=False, commands=None):
     """Run one scenario. Returns a process exit code (0 pass, 1 fail)."""
     from .protocol import Events
     events = events or Events(jsonl)
 
     prepared = prepare(scenario_path, repo)
+    steps = prepared.scenario.get("steps", [])
+    marker = next((i for i, step in enumerate(steps) if step.get("marker")), None)
+    trim = None
+    trim_warning = None
+    if fold_to_marker and marker is not None:
+        start_index, folded, trim_warning = _fold_to_marker(prepared, steps, marker)
+        trimmed_steps = steps[start_index:]
+        trimmed_times = prepared.step_times[start_index:]
+        if trimmed_steps and trimmed_times:
+            prepared.start = trimmed_times[0]
+            prepared.step_times = trimmed_times
+            prepared.scenario["steps"] = trimmed_steps
+            prepared.scenario.setdefault("home", {})["map"] = prepared.base_map
+            prepared.scenario.setdefault("clock", {})["start"] = prepared.start.isoformat(timespec="seconds")
+            _append_description(
+                prepared.scenario,
+                f"Show: folded {folded} controller step(s) and skipped {start_index} "
+                f"pre-breakpoint step(s); started at {trimmed_steps[0].get('id')} "
+                f"({trimmed_steps[0].get('at')}).")
+            trim = {
+                "folded": folded,
+                "skipped": start_index,
+                "startIndex": start_index + 1,
+                "startStepId": trimmed_steps[0].get("id"),
+                "markerStepId": steps[marker].get("id"),
+            }
+            marker = marker - start_index
+            steps = trimmed_steps
+
     directory = _run_dir(prepared, run_dir)
     started = time.time()
     environment = _environment(prepared, repo, headless)
@@ -126,16 +212,28 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
     _write(directory / "base-map.json", json.dumps(prepared.base_map, indent=2, ensure_ascii=False) + "\n")
     _write(directory / "environment.json", json.dumps(environment, indent=2) + "\n")
 
-    events.emit("run.started", runId=run_id,
-                scenario={"name": prepared.scenario.get("name"), "path": str(prepared.path)},
-                environment=environment)
+    started_fields = {
+        "runId": run_id,
+        "scenario": {"name": prepared.scenario.get("name"), "path": str(prepared.path)},
+        "environment": environment,
+    }
+    if trim is not None:
+        started_fields["trim"] = trim
+    events.emit("run.started", **started_fields)
+    if trim is not None:
+        events.emit("log", stepId=trim["startStepId"], level="info", source="runner",
+                    message=(f"Show start: folded {trim['folded']} controller step(s) "
+                             f"and skipped {trim['skipped']} pre-breakpoint step(s); "
+                             f"starting at {trim['startStepId']}"))
+    if trim_warning:
+        events.emit("log", stepId=None, level="warn", source="runner", message=trim_warning)
 
     poll_count = 0
 
     def on_console(entry):
         nonlocal poll_count
         text = entry["text"]
-        # A demo run would otherwise fill the log with one line per 10 s poll.
+        # A Show run would otherwise fill the log with one line per 10 s poll.
         # The full console is still written to the run's console.log.
         if collapse_polls and "Requesting map: refresh" in text:
             poll_count += 1
@@ -153,6 +251,7 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
         on_console=on_console, speed=speed)
     results = []
     failed = False
+    cancelled = False
     failure = None
     duration_ms = 0
 
@@ -162,16 +261,30 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
         if refresh in ("empty", "full", "none"):
             driver.page.evaluate("v => { window.__rbr.refreshReply = v; }", refresh)
 
-        steps = prepared.scenario.get("steps", [])
-        marker = next((i for i, step in enumerate(steps) if step.get("marker")), None)
         if marker is not None:
-            events.emit("log", stepId=steps[marker].get("id"), level="info", source="runner",
-                        message=f"marker at {steps[marker].get('id')}: earlier steps run at maximum speed")
+            if pause_at_marker:
+                message = (f"breakpoint at {steps[marker].get('id')}: "
+                           "Show pauses after this step; Step advances one step")
+            else:
+                message = (f"marker at {steps[marker].get('id')}: "
+                           "earlier steps run at maximum speed")
+            events.emit("log", stepId=steps[marker].get("id"), level="info",
+                        source="runner", message=message)
+        auto = True
         for index, step in enumerate(steps):
+            if commands is not None:
+                pending = commands.poll()
+                while pending is not None:
+                    if pending.get("command") == "cancel":
+                        cancelled = True
+                    pending = commands.poll()
+                if cancelled:
+                    break
             step_id = step.get("id", f"step-{index + 1}")
             actor = ACTOR.get(next(key for key in ACTOR if key in step), "other")
             fast = marker is not None and index < marker
-            step_speed = 0 if fast else speed
+            manual = pause_at_marker and marker is not None and not auto
+            step_speed = 0 if fast or manual else speed
             driver.current_step = step_id
             events.emit("step.started", stepId=step_id, index=index + 1,
                         at=step.get("at"), actor=actor)
@@ -220,6 +333,21 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
                 if step_pause_ms > 0 and not fast:
                     time.sleep(step_pause_ms / 1000.0)
 
+            if pause_at_marker and marker is not None and index >= marker:
+                if index == marker:
+                    auto = False
+                if not auto and index + 1 < len(steps):
+                    next_step = steps[index + 1]
+                    events.emit("run.paused", stepId=step_id, index=index + 1,
+                                nextStepId=next_step.get("id"),
+                                reason="marker" if index == marker else "step")
+                    action = _await_command(commands)
+                    if action in ("continue", "eof"):
+                        auto = True
+                    elif action == "cancel":
+                        cancelled = True
+                        break
+
         if collapse_polls and poll_count:
             events.emit("log", stepId=None, level="info", source="console",
                         message=f"refresh polls: {poll_count} (collapsed)")
@@ -236,7 +364,7 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
         failure = {"message": f"the run could not start: {exc}"}
         duration_ms = int((time.time() - started) * 1000)
     finally:
-        # A demo can leave the final state on screen for a moment before the
+        # A Show run can leave the final state on screen for a moment before the
         # headed browser window disappears. Normal runs leave this at zero.
         if end_pause_ms > 0 and driver.browser is not None:
             time.sleep(end_pause_ms / 1000.0)
@@ -248,7 +376,7 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
         trace_path = directory / "trace.zip"
         driver.stop(failure=failure, trace_path=trace_path)
         _write(directory / "result.json", json.dumps({
-            "status": "failed" if failed else "passed",
+            "status": "cancelled" if cancelled else ("failed" if failed else "passed"),
             "scenario": prepared.scenario.get("name"),
             "runId": run_id,
             "durationMs": duration_ms,
@@ -261,7 +389,7 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
         if trace_path.exists():
             events.emit("artifact", kind="trace", path=str(trace_path))
 
-    status = "failed" if failed else "passed"
+    status = "cancelled" if cancelled else ("failed" if failed else "passed")
     events.emit("run.finished", status=status, passed=sum(1 for item in results if item["status"] == "passed"),
                 failed=sum(1 for item in results if item["status"] == "failed"),
                 durationMs=duration_ms,
@@ -275,7 +403,7 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
         print(f"artefacts: {directory}")
         if failure:
             print(f"failure: {failure.get('message')}")
-    return 0 if not failed else 1
+    return 0 if status == "passed" else 1
 
 
 def _expected(step):
@@ -314,7 +442,7 @@ def _summary(step, speed=0):
             if key == "connection":
                 return step[key].get("action", "connection")
             if key == "delay":
-                suffix = "" if speed and speed > 0 else " (Demo only, skipped)"
+                suffix = "" if speed and speed > 0 else " (Show only, skipped)"
                 return f"wait {step[key]} s{suffix}"
     return ""
 
@@ -368,14 +496,13 @@ def _execute(driver, prepared, step, speed=0):
     raise ScenarioError("step has no executable action")
 
 
-def _controller(driver, prepared, controller):
-    base_map = prepared.base_map
+def _apply_controller(base_map, aliases, profile_idx, controller):
+    """Apply one controller step to the map; return a raw payload when it is raw."""
     room_name = controller.get("room")
-    room_name = prepared.aliases.get(room_name, room_name)
+    room_name = aliases.get(room_name, room_name)
 
     if "raw" in controller and "set" not in controller and "state" not in controller:
-        driver.push_raw(controller["raw"])
-        return
+        return controller["raw"]
 
     if "set" in controller:
         index = targets.identity_index(base_map, room_name)
@@ -384,13 +511,21 @@ def _controller(driver, prepared, controller):
 
     if "state" in controller:
         state = controller["state"]
-        profile = state.get("profile", prepared.profile_idx)
+        profile = state.get("profile", profile_idx)
         if isinstance(profile, str):
             profile = targets.profile_index(base_map, profile)
         profile_record = base_map["profiles"][profile]
         room_state = profile_record.setdefault("rooms", {}).setdefault(room_name, {})
         for key, value in state.get("set", {}).items():
             room_state[key] = value
+    return None
 
+
+def _controller(driver, prepared, controller):
+    raw = _apply_controller(prepared.base_map, prepared.aliases,
+                            prepared.profile_idx, controller)
+    if raw is not None:
+        driver.push_raw(raw)
+        return
     if controller.get("push", True):
-        driver.push_map(base_map)
+        driver.push_map(prepared.base_map)

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "name": "Demo pause on the Kitchen card",
-  "description": "The Kitchen reports 19.0 °C, the scenario holds that state for two real seconds, then reports 21.0 °C. The delay is honoured in a paced Demo and skipped in a normal run.",
+  "description": "The Kitchen reports 19.0 °C, the scenario holds that state for two real seconds, then reports 21.0 °C. The delay is honoured in Show mode and skipped in a normal run.",
   "clock": {
     "start": "2026-11-05T08:00:00Z",
     "timeZone": "Europe/London"

@@ -83,7 +83,7 @@ def prepare_library():
 
 
 def cleanup_library():
-    for entry in (TEST_ENTRY, TEST_ENTRY_2):
+    for entry in (TEST_ENTRY, TEST_ENTRY_2) + tuple(EXTRA_ENTRIES):
         try:
             if entry:
                 library.remove(library.SCENARIOS / entry["path"])
@@ -124,8 +124,10 @@ def cleanup_library():
 
 
 TEST_ENTRY, TEST_ENTRY_2 = prepare_library()
+EXTRA_ENTRIES = []
 
 from PySide6.QtCore import QTimer  # noqa: E402
+from PySide6.QtGui import QShortcut  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit, QTableWidgetSelectionRange  # noqa: E402
 from allspeak.as_program import Program  # noqa: E402
 
@@ -280,6 +282,26 @@ def click_run():
               "the mbox button is enabled when a mailbox is configured")
         check(widget(program, "ResetJournalBtn").isEnabled(),
               "the reset button is enabled when a system is selected")
+        check(widget(program, "ShowBtn").text() == "Show",
+              "the paced playback button is labelled Show")
+        check(widget(program, "StepBtn").text() == "Step" and
+              widget(program, "StepBtn").isEnabled(),
+              "the Step button stays enabled so Space is always consumed")
+        check(widget(program, "ShowBtn").toolTip() ==
+              "Headed, paced playback; a Mark marker starts at the breakpoint and pauses.",
+              "Show explains the breakpoint in its tooltip")
+        check(widget(program, "StepBtn").toolTip() ==
+              "Advance one step while Show is paused at a breakpoint (Space).",
+              "Step explains manual advance and Space in its tooltip")
+        shortcuts = widget(program, "StepBtn").findChildren(QShortcut)
+        check(any(shortcut.key().toString() == "Space" for shortcut in shortcuts),
+              "Space is bound to the Step button")
+        widget(program, "StepBtn").click()
+        app.processEvents()
+        check(widget(program, "Win").isVisible(),
+              "Step without a Show leaves the window open")
+        check("Start a Show to use Step" in widget(program, "Log").toPlainText(),
+              "Step explains that a Show is needed")
         check(widget(program, "AddBatchBtn").text() == "+" and
               widget(program, "RemoveBatchBtn").text() == "-",
               "the batch add/remove buttons are condensed")
@@ -358,6 +380,8 @@ def click_run():
         check("Shell duplicate" in [scenarios.item(i).text()
                                     for i in range(scenarios.count())],
               "the duplicate is listed in the current group")
+        check(steps.item(0, 1).toolTip() == "Breakpoint: Show pauses here",
+              "the Mark cell explains the breakpoint")
         steps.cellClicked.emit(0, 1)
         app.processEvents()
         check(steps.item(0, 1).text() == "●",
@@ -396,6 +420,34 @@ def click_run():
         check(steps.rowCount() == 0, "the remaining row can be deleted")
         check(widget(program, "DeleteScenarioBtn").isEnabled(),
               "a library scenario can be deleted")
+        original_row = next(i for i in range(scenarios.count())
+                            if scenarios.item(i).text() == TEST_NAME)
+        scenarios.setCurrentRow(original_row)
+        scenarios.itemClicked.emit(scenarios.item(original_row))
+        app.processEvents()
+        check(steps.rowCount() == 3, "the original scenario is ready for the room copy")
+        QTimer.singleShot(300, lambda: fill_duplicate("Office"))
+        QTimer.singleShot(600, lambda: fill_duplicate("Office global copy"))
+        widget(program, "DuplicateRoomBtn").click()
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            app.processEvents()
+            time.sleep(0.05)
+            if widget(program, "StatusLabel").text() == "Duplicate for room complete":
+                break
+        check(widget(program, "StatusLabel").text() == "Duplicate for room complete",
+              "Duplicate for room completes")
+        check("Office global copy" in [scenarios.item(i).text()
+                                       for i in range(scenarios.count())],
+              "the room copy is listed in the current group")
+        check(steps.rowCount() == 3,
+              "the room copy keeps the scenario's global steps")
+        check("Filtered copy" in value(program, "Brief"),
+              "the room copy's brief records the filter")
+        copied_path = value(program, "ScenarioPath")
+        if copied_path.startswith("fixtures/local/scenarios/"):
+            EXTRA_ENTRIES.append(
+                {"path": copied_path[len("fixtures/local/scenarios/"):]})
         widget(program, "RefreshScenariosBtn").click()
         app.processEvents()
         check(widget(program, "DeleteScenarioBtn").isEnabled(),

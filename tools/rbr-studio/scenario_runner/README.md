@@ -27,7 +27,7 @@ python3 -m venv .venv
 .venv/bin/python -m scenario_runner --scenario docs/examples/advance.json --headed
 .venv/bin/python -m scenario_runner --scenario docs/examples/advance.json --jsonl
 
-# demo playback: headed, paced, collapsed polls
+# Show playback: headed, paced, collapsed polls
 .venv/bin/python -m scenario_runner --scenario docs/examples/advance.json \
     --headed --speed 120 --collapse-polls --step-pause-ms 300
 ```
@@ -81,7 +81,7 @@ Polling is therefore exercised at a reduced cadence during big jumps, not at
 the real 10-second cadence. A scenario that needs the exact cadence will need a
 separate "run timers" mode; the scenarios here do not.
 
-## Demo playback
+## Show playback
 
 `--speed N` plays the virtual clock at N scenario seconds per real second:
 `1` is real time, `120` turns a three-hour gap into 90 seconds, `300` into 36.
@@ -92,14 +92,18 @@ moment. `--collapse-polls` suppresses the per-poll `Requesting map: refresh`
 log events and emits a `refresh ×50` summary every fifty, plus a final total;
 the full console is still written to the run's `console.log`.
 
-The shell uses these together for its **Demo** button; **Run** stays headless
+The shell uses these together for its **Show** button; **Run** stays headless
 and as fast as possible.
 
 A step may carry `"marker": true`, and at most one step in a scenario may do so.
-In a demo, every step before the marker runs at maximum speed and skips the
-`--step-pause-ms` pause; the marker step and every step after it use `--speed`.
-A normal run ignores the marker because it is already as fast as possible. The
-Studio's **Mark** column sets or clears the marker on a library scenario.
+`--fold-to-marker` applies the controller steps before the marker to the base
+map in Python, sets the clock to the marker and starts there; `--pause-at-marker`
+then stops after the marker and reads `{"command":"step"}` and
+`{"command":"continue"}` from stdin. The Studio's **Show** sends both flags, so
+a long journal scenario reaches its breakpoint without replaying its history
+through the page. **Step** advances one step and **Show** again continues. A
+normal run ignores the breakpoint because it is already as fast as possible.
+The Studio's **Mark** column sets or clears the marker on a library scenario.
 
 ## Not in v0
 

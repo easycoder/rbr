@@ -95,7 +95,7 @@
         "delay": {
           "type": "number",
           "minimum": 0,
-          "description": "Real seconds to hold the current state in a paced demo run (--speed > 0). Ignored in normal runs. This does not advance scenario time."
+          "description": "Real seconds to hold the current state in a paced Show run (--speed > 0). Ignored in normal runs. This does not advance scenario time."
         },
 
         "controller": {

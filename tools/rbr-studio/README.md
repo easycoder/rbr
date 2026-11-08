@@ -55,13 +55,27 @@ This uses the system `allspeak`/`pyside6`, not the runner venv; the Run and
 Validate buttons use the venv created above. Run it from this directory so the
 app's example paths and `.venv/bin/python` resolve.
 
-**Demo** runs the selected scenario headed — the PWA window opens — with a five-second pause at the end before the browser closes, the
+**Show** runs the selected scenario headed — the PWA window opens — with a five-second pause at the end before the browser closes, the
 virtual clock paced at the speed selector (1×, 60×, 120× or 300× scenario
 seconds per real second), a 300 ms pause after each step, and repeated refresh
 polls collapsed to `refresh ×50` / `refresh polls: N` summaries in Console. The
-full console remains in the run's `console.log`. If a step carries the **Mark**
-marker, every step before it runs at maximum speed and the marker and later
-steps use the selected speed. Run stays headless and as fast as possible.
+full console remains in the run's `console.log`.
+
+A **Mark** marker is a breakpoint. Before starting, Show folds every controller
+step before the marker into the base map in Python, sets the clock to the
+marker and starts there; the page therefore begins with every room already
+initialised, without replaying the day through the browser. Pre-marker UI
+actions and expectations are skipped; only controller events are folded. Show pauses after
+the marker. **Step** jumps the virtual clock to the next step instantly,
+executes it, selects its row and scrolls it into view; the Inspector follows the
+selection. **Space** is bound to the same Step action, so a paused Show can be
+advanced from the keyboard. The Step button stays enabled so the shortcut
+always consumes Space; a repeat while a step is in flight is ignored, and a
+press outside a paused Show says so in the log instead of reaching another
+control. **Show** again sends continue and restores automatic stepping at the
+selected speed. A scenario without a marker runs as before. Run stays headless
+and as fast as possible. The Show, Step and Run buttons carry tooltips, as does
+the Mark cell of every row.
 
 Headless check (starts the shell, switches scenario, runs Advance, inspects the
 table and logs):
@@ -70,7 +84,12 @@ table and logs):
 QT_QPA_PLATFORM=offscreen python3 tests/studio-shell-check.py
 python3 tests/journal_check.py
 python3 tests/package_check.py
+.venv/bin/python tests/show_check.py
 ```
+
+`tests/show_check.py` drives the runner's fold/breakpoint/step protocol with a
+stub page driver, so it needs the runner venv (for the `playwright` import) but
+no browser.
 
 ## Real system maps
 
@@ -106,7 +125,7 @@ The public `docs/examples` fixtures remain synthetic.
 
 Scenarios live under `fixtures/local/scenarios/<group>/` and each may have a sibling `<stem>.brief.md`. `index.json` drives the shell. Selecting a scenario loads its brief into the sidebar editor, so **Draft scenario** edits the existing scenario with that brief as context. **New scenario** asks for the destination group (defaulting to the current library group, or `Unsorted` from All/Local), clears the table and brief, and opens the editor; **Delete scenario** opens a confirmation popup; accepting moves the scenario and its brief into `fixtures/local/.trash/`.
 
-The right-hand Inspector has **Duplicate…** and **Rename…** tools. Duplicate asks for a name and copies the scenario and its brief into the library; Rename updates a library scenario's display name. Public examples are never renamed in place; duplicate one first.
+The right-hand Inspector has **Duplicate…**, **Duplicate for room…** and **Rename…** tools. Duplicate asks for a name and copies the scenario and its brief into the library; **Duplicate for room…** asks for a room and then a name, and the copy keeps only global steps (summary, sheet, profile and wire actions, raw pushes, connections and delays) plus the nominated room's steps. The outdoor sensor is kept as global context because it shows in the summary rather than a room card. Use it to turn a day-long journal scenario into a focused copy for one room; the description and brief record how many steps were dropped. Rename updates a library scenario's display name. Public examples are never renamed in place; duplicate one first.
 
 The table uses AllSpeak's native multi-selection (`set selection of Steps to multiple`). Use Ctrl/Shift-click or drag to select one or more rows; **Delete rows** asks for confirmation and removes the selected steps from a library scenario. Cell editing and row insertion will use the same Tools row. The **Mark** column is clickable: it sets the scenario's single fast-forward marker on that step, or clears it when clicked again. The marker is stored as `marker: true` and is only writable on library scenarios; duplicate a public example first.
 

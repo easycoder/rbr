@@ -30,7 +30,8 @@ label Clock
 pushbutton ValidateBtn
 pushbutton StopBtn
 pushbutton RunBtn
-pushbutton DemoBtn
+pushbutton ShowBtn
+pushbutton StepBtn
 pushbutton QuitBtn
 pushbutton RefreshBtn
 pushbutton ColumnsBtn
@@ -69,6 +70,7 @@ pushbutton EditBriefBtn
 dialog BriefDlg
 dialog NewScenarioGroupDlg
 dialog DuplicateDlg
+dialog RoomFilterDlg
 dialog RenameDlg
 dialog DeleteRowsDlg
 dialog DeleteConfirmDlg
@@ -98,6 +100,7 @@ pushbutton CopyPathBtn
 pushbutton RefreshScenariosBtn
 pushbutton DeleteScenarioBtn
 pushbutton DuplicateBtn
+pushbutton DuplicateRoomBtn
 pushbutton RenameBtn
 pushbutton DeleteRowsBtn
 
@@ -136,6 +139,8 @@ variable PromptPath
 variable Edited
 variable Command
 variable Running
+variable Paused
+variable Stepping
 variable Pace
 variable SpeedValue
 variable Refreshing
@@ -150,6 +155,7 @@ variable Grouping
 variable DraftGroup
 variable DeleteConfirmed
 variable DuplicateName
+variable DuplicateRoom
 variable RenameName
 variable Librarying
 variable LibraryAction
@@ -295,6 +301,7 @@ variable Expectation
 variable Detail
 variable Sub
 variable RowIndex
+variable ResultText
 variable Count
 variable StepId
 variable RunStatus
@@ -342,6 +349,8 @@ variable WindowH
 !! JSON; the process handlers are registered before Run can start anything.
 !!
 !! A startup scan of the mail-filter folder adds any emailed journal bundle to the Journal group before the list is built, so a day the controller posted overnight is present when the window opens.
+!!
+!! The Step button also carries the Space shortcut, so a paused Show can be advanced from the keyboard.
 Setup:
     init graphics
 
@@ -364,7 +373,8 @@ Setup:
     create ValidateBtn text `Validate` size 10
     create StopBtn text `Stop` size 10
     create RunBtn text `▶ Run` size 10
-    create DemoBtn text `Demo` size 10
+    create ShowBtn text `Show` size 10
+    create StepBtn text `Step` size 10
     create QuitBtn text `Quit` size 10
     create RefreshBtn text `Refresh map` size 12
     create ColumnsBtn text `Columns…` size 10
@@ -374,6 +384,10 @@ Setup:
     set the color of Clock to `#666666`
     set the color of SpeedLabel to `#666666`
     disable StopBtn
+    set the tooltip of RunBtn to `Headless run as fast as possible; a marker only fast-forwards.`
+    set the tooltip of ShowBtn to `Headed, paced playback; a Mark marker starts at the breakpoint and pauses.`
+    set the tooltip of StepBtn to `Advance one step while Show is paused at a breakpoint (Space).`
+    set the tooltip of SpeedBox to `Scenario seconds per real second for Show.`
 
     add Brand to ToolbarRow
     add spacer size 12 to ToolbarRow
@@ -387,7 +401,8 @@ Setup:
     add ValidateBtn to ToolbarRow
     add StopBtn to ToolbarRow
     add RunBtn to ToolbarRow
-    add DemoBtn to ToolbarRow
+    add ShowBtn to ToolbarRow
+    add StepBtn to ToolbarRow
     add QuitBtn to ToolbarRow
     add spacer size 12 to ToolbarRow
     add Toolbar to Root
@@ -541,6 +556,7 @@ Setup:
     create Inspector readonly cols 36 rows 20
     create ToolsRow type QVBoxLayout
     create DuplicateBtn text `Duplicate…` size 10
+    create DuplicateRoomBtn text `Duplicate for room…` size 10
     create RenameBtn text `Rename…` size 10
     create DeleteRowsBtn text `Delete rows` size 10
     disable RenameBtn
@@ -550,6 +566,7 @@ Setup:
     add InspectorTitle to InspectorCol
     add InspectorSub to InspectorCol
     add DuplicateBtn to ToolsRow
+    add DuplicateRoomBtn to ToolsRow
     add RenameBtn to ToolsRow
     add DeleteRowsBtn to ToolsRow
     add ToolsRow to InspectorCol
@@ -580,7 +597,8 @@ Setup:
     set the layout of Win to Root
 
     on click RunBtn go to RunClicked
-    on click DemoBtn go to DemoClicked
+    on click ShowBtn go to ShowClicked
+    on click StepBtn go to StepButtonClicked
     on click RefreshBtn go to RefreshClicked
     on click ColumnsBtn go to ColumnsClicked
     on click ColumnsApplyBtn go to ColumnsApplyClicked
@@ -610,6 +628,7 @@ Setup:
     on click DeleteScenarioBtn go to DeleteScenarioClicked
     on click JournalBtn go to JournalClicked
     on click DuplicateBtn go to DuplicateClicked
+    on click DuplicateRoomBtn go to DuplicateRoomClicked
     on click RenameBtn go to RenameClicked
     on click DeleteRowsBtn go to DeleteRowsClicked
     on click QuitBtn go to QuitClicked
@@ -649,7 +668,10 @@ Setup:
     gosub to LoadScenario
 
     show Win
+    set the shortcut of StepBtn to Space
     put 0 into Running
+    put 0 into Paused
+    put 1 into Stepping
     put 0 into Drafting
     put 0 into Deleting
     put 0 into Journaling
@@ -672,8 +694,8 @@ Idle:
         gosub to TrimStepsLog
     end
     go to Idle
-!! @hash 05a11e6f
-!! @verified 222c8394
+!! @hash e3161117
+!! @verified e3161117
 !!!
 
 !! Keep the Steps log to its newest 2000 lines.
@@ -744,7 +766,7 @@ LoadStudioSettings:
         end
     end
     return
-!! @hash 7a028803
+!! @hash f86bdb69
 !! @verified 7a028803
 !!!
 
@@ -819,7 +841,7 @@ LoadSystemSettings:
     select FirstSystemName in SystemBox
     gosub to SystemChanged
     return
-!! @hash 42f947ef
+!! @hash 8fe94682
 !! @verified 42f947ef
 !!!
 
@@ -882,14 +904,14 @@ MboxClicked:
     disable ResetJournalBtn
     disable RunBtn
     disable ValidateBtn
-    disable DemoBtn
+    disable ShowBtn
     disable RefreshBtn
     disable RefreshScenariosBtn
     put 1 into Mailboxing
     start Mailboxer command Command
     return
-!! @hash 731a948a
-!! @verified 731a948a
+!! @hash 89d66369
+!! @verified 89d66369
 !!!
 
 !! Add the helper's `JOURNAL <file>` lines to the available-journals list.
@@ -923,7 +945,7 @@ MailboxerDone:
     enable ResetJournalBtn
     enable RunBtn
     enable ValidateBtn
-    enable DemoBtn
+    enable ShowBtn
     enable RefreshBtn
     enable RefreshScenariosBtn
     if the exit code of Mailboxer is 0
@@ -937,8 +959,8 @@ MailboxerDone:
     end
     else set the text of StatusLabel to `Mbox import failed`
     return
-!! @hash 6d3ba5f8
-!! @verified 6d3ba5f8
+!! @hash 54744d1f
+!! @verified 54744d1f
 !!!
 
 !! Forget today's imported journal so it can be imported again.
@@ -1050,7 +1072,7 @@ ApplyColumns:
     set column widths of Steps to ColumnWidths
     set stretch column of Steps to 4
     return
-!! @hash
+!! @hash 56bec3b7
 !! @verified
 !!!
 
@@ -1058,7 +1080,7 @@ ApplyColumns:
 ColumnsClicked:
     show ColumnsWin
     return
-!! @hash
+!! @hash 1103bd12
 !! @verified
 !!!
 
@@ -1097,7 +1119,7 @@ ColumnsApplyClicked:
     set the text of StatusLabel to `Columns applied`
     set the cursor of Win to arrow
     return
-!! @hash
+!! @hash 4407afce
 !! @verified
 !!!
 
@@ -1105,7 +1127,7 @@ ColumnsApplyClicked:
 ColumnsCloseClicked:
     close ColumnsWin
     return
-!! @hash
+!! @hash ea367698
 !! @verified
 !!!
 
@@ -1147,6 +1169,8 @@ LoadScenario:
     if HomeSpec has entry `profile` put entry `profile` of HomeSpec into ProfileName
     reset Selection
     disable DeleteRowsBtn
+    put 0 into Paused
+    put 1 into Stepping
     put `[]` into Rows
     put `[]` into StepIds
     put `[]` into StepDetails
@@ -1213,15 +1237,23 @@ LoadScenario:
         set the text of InspectorSub to ``
         set the text of Inspector to `Select a step to inspect it.`
     end
-    if ScenarioPath is not empty enable DuplicateBtn
-    else disable DuplicateBtn
+    if ScenarioPath is not empty
+    begin
+        enable DuplicateBtn
+        enable DuplicateRoomBtn
+    end
+    else
+    begin
+        disable DuplicateBtn
+        disable DuplicateRoomBtn
+    end
     if position of `fixtures/local/scenarios/` in ScenarioPath is greater than -1 enable RenameBtn
     else disable RenameBtn
     set the text of StatusLabel to `Loaded ` cat ScenarioPath
     set the cursor of Win to arrow
     return
-!! @hash a8d1ce77
-!! @verified a8d1ce77
+!! @hash b087a4db
+!! @verified b087a4db
 !!!
 
 !! Turn one step into the table's six display cells and the inspector line.
@@ -1386,7 +1418,7 @@ DescribeStep:
         put `delay` into Actor
         put `Delay` into ActorLabel
         put `—` into Target
-        put `wait ` cat entry `delay` of Step cat ` s (Demo)` into Action
+        put `wait ` cat entry `delay` of Step cat ` s (Show)` into Action
         put `—` into Expectation
     end
     else
@@ -1403,8 +1435,8 @@ DescribeStep:
         if entry `note` of Step is not empty put Detail cat ` — ` cat entry `note` of Step into Detail
     end
     return
-!! @hash a32874bd
-!! @verified a32874bd
+!! @hash be68afb2
+!! @verified be68afb2
 !!!
 
 !! Append every field of the current controller set to the Action column.
@@ -1429,78 +1461,89 @@ AppendFields:
 !! @verified ec01e69e
 !!!
 
-!! Tint the actor cells by kind and mark the result cells as waiting.
+!! Paint each step row's actor, result and Mark-column styling.
+!!
+!! `PaintRow` restores one row's semantic colours; `PaintRows` walks the table after a load. Reading the result cell keeps a passed or failed row's colour when a row is repainted.
+PaintRow:
+    put item RowIndex of ActorTokens into Actor
+    if Actor is `controller` set cell colour Steps RowIndex 3 to `#2F75B5` `#E6EFF7`
+    else if Actor is `ui` set cell colour Steps RowIndex 3 to `#D95A24` `#FDF0EA`
+    else if Actor is `expect` set cell colour Steps RowIndex 3 to `#6B4FA1` `#F0ECF9`
+    else if Actor is `wire` set cell colour Steps RowIndex 3 to `#0F7B6C` `#E5F4F1`
+    else if Actor is `delay` set cell colour Steps RowIndex 3 to `#8A6D3B` `#F7F1E3`
+    else set cell colour Steps RowIndex 3 to `#666666` `#F0F1F3`
+    set cell colour Steps RowIndex 1 to `#D95A24` `#FDF0EA`
+    set cell alignment Steps RowIndex 1 to center
+    set cell tooltip Steps RowIndex 1 to `Breakpoint: Show pauses here`
+    put the cell RowIndex ResultCol of Steps into ResultText
+    if ResultText is `✓` set cell colour Steps RowIndex ResultCol to `#2E7D32`
+    else if ResultText is `✗` set cell colour Steps RowIndex ResultCol to `#C0392B`
+    else set cell colour Steps RowIndex ResultCol to `#C9CBD1`
+    set cell alignment Steps RowIndex ResultCol to center
+    put item RowIndex of StatusValues into StatusValue
+    put item RowIndex of RelayValues into RelayValue
+    put 5 into FieldCol
+    put 0 into FieldIndex
+    while FieldIndex is less than the elements of ActionFields
+    begin
+        index ActionFields to FieldIndex
+        put trim ActionFields into Field
+        set cell alignment Steps RowIndex FieldCol to center
+        if Field is `S`
+        begin
+            if StatusValue is `good` set cell colour Steps RowIndex FieldCol to `#2E7D32`
+            else if StatusValue is `warn` set cell colour Steps RowIndex FieldCol to `#C58B00`
+            else if StatusValue is `fail` set cell colour Steps RowIndex FieldCol to `#C0392B`
+            set cell tooltip Steps RowIndex FieldCol to `Status`
+        end
+        else if Field is `M`
+        begin
+            set cell tooltip Steps RowIndex FieldCol to `Mode`
+        end
+        else if Field is `T`
+        begin
+            set cell tooltip Steps RowIndex FieldCol to `Temperature`
+        end
+        else if Field is `H`
+        begin
+            set cell tooltip Steps RowIndex FieldCol to `Humidity`
+        end
+        else if Field is `B`
+        begin
+            set cell tooltip Steps RowIndex FieldCol to `Battery`
+        end
+        else if Field is `P`
+        begin
+            set cell tooltip Steps RowIndex FieldCol to `Period`
+        end
+        else if Field is `A`
+        begin
+            set cell tooltip Steps RowIndex FieldCol to `Advance`
+        end
+        else if Field is `R`
+        begin
+            if RelayValue is `on` set cell colour Steps RowIndex FieldCol to `#2F75B5`
+            else if RelayValue is `off` set cell colour Steps RowIndex FieldCol to `#666666`
+            set cell tooltip Steps RowIndex FieldCol to `Relay`
+        end
+        add 1 to FieldCol
+        add 1 to FieldIndex
+    end
+    put item RowIndex of StepDetails into Detail
+    set cell tooltip Steps RowIndex 4 to Detail
+    return
+
 PaintRows:
     put 0 into RowIndex
     while RowIndex is less than the count of ActorTokens
     begin
-        put item RowIndex of ActorTokens into Actor
-        if Actor is `controller` set cell colour Steps RowIndex 3 to `#2F75B5` `#E6EFF7`
-        else if Actor is `ui` set cell colour Steps RowIndex 3 to `#D95A24` `#FDF0EA`
-        else if Actor is `expect` set cell colour Steps RowIndex 3 to `#6B4FA1` `#F0ECF9`
-        else if Actor is `wire` set cell colour Steps RowIndex 3 to `#0F7B6C` `#E5F4F1`
-        else if Actor is `delay` set cell colour Steps RowIndex 3 to `#8A6D3B` `#F7F1E3`
-        else set cell colour Steps RowIndex 3 to `#666666` `#F0F1F3`
-        set cell colour Steps RowIndex 1 to `#D95A24` `#FDF0EA`
-        set cell alignment Steps RowIndex 1 to center
-        set cell colour Steps RowIndex ResultCol to `#C9CBD1`
-        set cell alignment Steps RowIndex ResultCol to center
-        put item RowIndex of StatusValues into StatusValue
-        put item RowIndex of RelayValues into RelayValue
-        put 5 into FieldCol
-        put 0 into FieldIndex
-        while FieldIndex is less than the elements of ActionFields
-        begin
-            index ActionFields to FieldIndex
-            put trim ActionFields into Field
-            set cell alignment Steps RowIndex FieldCol to center
-            if Field is `S`
-            begin
-                if StatusValue is `good` set cell colour Steps RowIndex FieldCol to `#2E7D32`
-                else if StatusValue is `warn` set cell colour Steps RowIndex FieldCol to `#C58B00`
-                else if StatusValue is `fail` set cell colour Steps RowIndex FieldCol to `#C0392B`
-                set cell tooltip Steps RowIndex FieldCol to `Status`
-            end
-            else if Field is `M`
-            begin
-                set cell tooltip Steps RowIndex FieldCol to `Mode`
-            end
-            else if Field is `T`
-            begin
-                set cell tooltip Steps RowIndex FieldCol to `Temperature`
-            end
-            else if Field is `H`
-            begin
-                set cell tooltip Steps RowIndex FieldCol to `Humidity`
-            end
-            else if Field is `B`
-            begin
-                set cell tooltip Steps RowIndex FieldCol to `Battery`
-            end
-            else if Field is `P`
-            begin
-                set cell tooltip Steps RowIndex FieldCol to `Period`
-            end
-            else if Field is `A`
-            begin
-                set cell tooltip Steps RowIndex FieldCol to `Advance`
-            end
-            else if Field is `R`
-            begin
-                if RelayValue is `on` set cell colour Steps RowIndex FieldCol to `#2F75B5`
-                else if RelayValue is `off` set cell colour Steps RowIndex FieldCol to `#666666`
-                set cell tooltip Steps RowIndex FieldCol to `Relay`
-            end
-            add 1 to FieldCol
-            add 1 to FieldIndex
-        end
-        put item RowIndex of StepDetails into Detail
-        set cell tooltip Steps RowIndex 4 to Detail
+        gosub to PaintRow
         increment RowIndex
     end
     return
-!! @hash 899d2a2a
-!! @verified 899d2a2a
+
+!! @hash 70ffe891
+!! @verified 70ffe891
 !!!
 
 !! Load the group selector from the manifest; All/Local precede the library's own folders.
@@ -1595,6 +1638,7 @@ NewScenarioClicked:
     set the text of BriefPreview to `No brief yet — Edit brief to write one.`
     disable DeleteScenarioBtn
     disable DuplicateBtn
+    disable DuplicateRoomBtn
     disable RenameBtn
     disable DeleteRowsBtn
     reset Selection
@@ -1715,6 +1759,11 @@ ScenarioPicked:
 DeleteRowsClicked:
     put the selection of Steps into Selection
     if the count of Selection is 0 return
+    if Running
+    begin
+        append `A run is in progress; stop it before editing rows.` to Log
+        return
+    end
     if position of `fixtures/local/scenarios/` in ScenarioPath is -1
     begin
         append `Duplicate this scenario before editing its rows.` to Log
@@ -1776,15 +1825,19 @@ DeleteRowsClicked:
     gosub to SetDeleteButton
     set the text of StatusLabel to `Deleted ` cat DeletedCount cat ` row(s)`
     return
-!! @hash 96492828
-!! @verified
+!! @hash 1ff9bf8c
+!! @verified 1ff9bf8c
 !!!
 
 !! Selecting a step fills the inspector from the parallel detail list.
 StepSelected:
     put the selection of Steps into Selection
-    if the count of Selection is greater than 0 enable DeleteRowsBtn
-    else disable DeleteRowsBtn
+    if Running disable DeleteRowsBtn
+    else
+    begin
+        if the count of Selection is greater than 0 enable DeleteRowsBtn
+        else disable DeleteRowsBtn
+    end
     put the selected row of Steps into RowIndex
     if RowIndex is less than 0 return
     put item RowIndex of StepIds into StepId
@@ -1794,14 +1847,14 @@ StepSelected:
     set the text of InspectorSub to Sub
     set the text of Inspector to Detail
     return
-!! @hash 9bbe0657
-!! @verified bdd712f7
+!! @hash 75413251
+!! @verified 75413251
 !!!
 
 !! Toggle the one fast-forward marker by clicking the Mark cell.
 !!
 !! The marker is stored on the step as `marker: true`; a second marker is never
-!! kept. Demo runs every step before the marker at maximum speed, then the
+!! kept. Show runs every step before the marker at maximum speed, then the
 !! marker and all later steps at the selected speed. Public examples are
 !! read-only, so they must be duplicated before a marker can be set.
 StepClicked:
@@ -1809,6 +1862,11 @@ StepClicked:
     put the clicked column of Steps into ClickedColumn
     if ClickedColumn is not 1 return
     if ClickedRow is less than 0 return
+    if Running
+    begin
+        append `A run is in progress; stop it before changing the marker.` to Log
+        return
+    end
     if ScenarioPath is empty return
     if position of `fixtures/local/scenarios/` in ScenarioPath is -1
     begin
@@ -1842,14 +1900,14 @@ StepClicked:
     if MarkerWas is 0 set the text of StatusLabel to `Marker set`
     else set the text of StatusLabel to `Marker cleared`
     return
-!! @hash e354fe79
-!! @verified e354fe79
+!! @hash 97fbcbfb
+!! @verified 97fbcbfb
 !!!
 
 !! Start a run: clear the logs, mark the state, and hand the command to the
 !! process domain. The runner's default --repo is the checkout containing it.
 !!
-!! Run is headless and as fast as the page allows. Demo uses the same start
+!! Run is headless and as fast as the page allows. Show uses the same start
 !! path with --headed, a paced clock, a short pause after each step and
 !! collapsed polls; the speed selector chooses scenario seconds per real
 !! second (120 turns the three-hour gap into 90 seconds).
@@ -1861,18 +1919,54 @@ RunClicked:
 !! @verified ef5c6419
 !!!
 
-!! Demo: a headed, paced run with the speed selector.
-DemoClicked:
+!! Show: a headed, paced run with the speed selector, and Step at a breakpoint.
+!!
+!! With a marker, Show asks the runner to fold the steps before it into the base map, start at the marker and pause after it. The Step button advances one step while paused; Show again sends continue and restores automatic advance.
+ShowClicked:
+    if Running
+    begin
+        if Paused
+        begin
+            put 0 into Paused
+            put 1 into Stepping
+            disable ShowBtn
+            set the text of StatusLabel to `Show resuming`
+            write `{"command":"continue"}` to Runner
+            return
+        end
+        append `A run is already in progress.` to Log
+        return
+    end
     put the current of SpeedBox into SpeedValue
     if SpeedValue is empty put `120` into SpeedValue
     put `--headed --collapse-polls --step-pause-ms 300 --end-pause-ms 5000 --speed ` cat SpeedValue into Pace
+    put Pace cat ` --fold-to-marker --pause-at-marker` into Pace
     gosub to StartRun
     return
-!! @hash ab8052c7
-!! @verified 482783d6
+
+StepButtonClicked:
+    if not Running
+    begin
+        append `Start a Show to use Step.` to Log
+        return
+    end
+    if Stepping return
+    if not Paused
+    begin
+        append `Show is not paused at a breakpoint.` to Log
+        return
+    end
+    put 1 into Stepping
+    put 0 into Paused
+    disable ShowBtn
+    set the text of StatusLabel to `Stepping…`
+    write `{"command":"step"}` to Runner
+    return
+!! @hash da1a55c2
+!! @verified da1a55c2
 !!!
 
-!! Shared start for Run and Demo.
+!! Shared start for Run and Show.
 StartRun:
     if Running
     begin
@@ -1902,6 +1996,8 @@ StartRun:
     if ScenarioPath is empty return
     if file `.venv/bin/python` exists
     begin
+        put 0 into Paused
+        put 1 into Stepping
         clear Log
         clear WireLog
         clear ConsoleLog
@@ -1913,12 +2009,12 @@ StartRun:
         end
         else
         begin
-            append `Demo ` cat ScenarioPath cat ` at ` cat SpeedValue cat `×` to Log
-            set the text of StatusLabel to `Demo ` cat ScenarioPath
+            append `Show ` cat ScenarioPath cat ` at ` cat SpeedValue cat `×` to Log
+            set the text of StatusLabel to `Show ` cat ScenarioPath
         end
         disable RunBtn
         disable ValidateBtn
-        disable DemoBtn
+        disable ShowBtn
         disable RefreshBtn
         disable RefreshScenariosBtn
         disable DraftBtn
@@ -1935,8 +2031,8 @@ StartRun:
         set the text of StatusLabel to `Runner venv missing`
     end
     return
-!! @hash daa94db2
-!! @verified daa94db2
+!! @hash 76911d2c
+!! @verified 76911d2c
 !!!
 
 !! Validate without launching a browser.
@@ -1976,7 +2072,7 @@ ValidateClicked:
         set the text of StatusLabel to `Validating ` cat ScenarioPath
         disable RunBtn
         disable ValidateBtn
-        disable DemoBtn
+        disable ShowBtn
         disable RefreshBtn
         disable RefreshScenariosBtn
         disable DraftBtn
@@ -1988,8 +2084,8 @@ ValidateClicked:
     end
     else append `Runner venv missing.` to Log
     return
-!! @hash 01209228
-!! @verified 01209228
+!! @hash eeaf9a06
+!! @verified eeaf9a06
 !!!
 
 !! Refresh the local map: run snapshot-map.py, add the Local system scenario if
@@ -2017,7 +2113,7 @@ RefreshClicked:
         set the text of StatusLabel to `Refreshing map…`
         disable RunBtn
         disable ValidateBtn
-        disable DemoBtn
+        disable ShowBtn
         disable RefreshBtn
         disable RefreshScenariosBtn
         disable DraftBtn
@@ -2031,8 +2127,8 @@ RefreshClicked:
         set the text of StatusLabel to `No map.json`
     end
     return
-!! @hash 2b880350
-!! @verified 2b880350
+!! @hash a07ea4fe
+!! @verified a07ea4fe
 !!!
 
 RefresherLine:
@@ -2053,7 +2149,7 @@ RefresherDone:
     put 0 into Refreshing
     enable RunBtn
     enable ValidateBtn
-    enable DemoBtn
+    enable ShowBtn
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable DraftBtn
@@ -2143,7 +2239,7 @@ JournalClicked:
     disable JournalBtn
     disable RunBtn
     disable ValidateBtn
-    disable DemoBtn
+    disable ShowBtn
     disable RefreshBtn
     disable RefreshScenariosBtn
     disable DeleteScenarioBtn
@@ -2151,8 +2247,8 @@ JournalClicked:
     put empty into JournalPath
     start Journaler command Command
     return
-!! @hash 1f8f5534
-!! @verified 1f8f5534
+!! @hash ffc1964c
+!! @verified ffc1964c
 !!!
 !! Track the helper's output and remember the scenario path it reports.
 JournalerLine:
@@ -2179,7 +2275,7 @@ JournalerDone:
     enable JournalBtn
     enable RunBtn
     enable ValidateBtn
-    enable DemoBtn
+    enable ShowBtn
     enable RefreshBtn
     enable RefreshScenariosBtn
     gosub to SetDeleteButton
@@ -2197,7 +2293,7 @@ JournalerDone:
     end
     else set the text of StatusLabel to `Journal import failed`
     return
-!! @hash 905595c5
+!! @hash 6d96ebd2
 !!!
 
 !! Open the brief editor. The native multiline dialog is the text area; OK
@@ -2345,7 +2441,7 @@ DeleteScenarioClicked:
         set the text of StatusLabel to `Deleting…`
         disable RunBtn
         disable ValidateBtn
-        disable DemoBtn
+        disable ShowBtn
         disable RefreshBtn
         disable RefreshScenariosBtn
         disable DraftBtn
@@ -2356,13 +2452,13 @@ DeleteScenarioClicked:
     end
     else append `Only scenarios in the local library can be deleted.` to Log
     return
-!! @hash 2899a4cc
-!! @verified a10d392b
+!! @hash 684ee048
+!! @verified 684ee048
 !!!
 
-!! Duplicate or rename the selected scenario through the library helper.
+!! Duplicate, narrow or rename the selected scenario through the library helper.
 !!
-!! These are the first editing tools; row insertion, row deletion and cell editing will use the same right-hand Tools row. Duplicate copies the brief and keeps the new scenario in the selected real group; rename is limited to library scenarios so public examples are never altered.
+!! These are the first editing tools; row insertion, row deletion and cell editing will use the same right-hand Tools row. Duplicate copies the brief and keeps the new scenario in the selected real group; Duplicate for room makes a second copy holding only global steps and those for one nominated room, which is how a day-long journal scenario becomes readable when one room is under investigation; rename is limited to library scenarios so public examples are never altered.
 DuplicateClicked:
     if Librarying return
     if ScenarioPath is empty return
@@ -2374,6 +2470,32 @@ DuplicateClicked:
     if DuplicateName is empty return
     put `Duplicate` into LibraryAction
     put `.venv/bin/python scenario_library.py duplicate --path "` cat ScenarioPath cat `" --name "` cat DuplicateName cat `"` into Command
+    if CurrentGroup is not empty
+    begin
+        if CurrentGroup is not `All`
+        begin
+            if CurrentGroup is not `Local` put Command cat ` --group "` cat CurrentGroup cat `"` into Command
+        end
+    end
+    gosub to StartLibrary
+    return
+
+DuplicateRoomClicked:
+    if Librarying return
+    if ScenarioPath is empty return
+    put empty into DuplicateRoom
+    create RoomFilterDlg on Win type lineedit title `Duplicate for room` prompt `Room to keep (name or alias); global steps stay (blank to cancel)` value DuplicateRoom
+    show RoomFilterDlg
+    put RoomFilterDlg into DuplicateRoom
+    if DuplicateRoom is empty return
+    if Name is empty put `Scenario` into DuplicateName
+    else put Name cat ` — ` cat DuplicateRoom into DuplicateName
+    create DuplicateDlg on Win type lineedit title `Duplicate for room` prompt `Name for the filtered copy` value DuplicateName
+    show DuplicateDlg
+    put DuplicateDlg into DuplicateName
+    if DuplicateName is empty return
+    put `Duplicate for room` into LibraryAction
+    put `.venv/bin/python scenario_library.py duplicate --path "` cat ScenarioPath cat `" --name "` cat DuplicateName cat `" --room "` cat DuplicateRoom cat `"` into Command
     if CurrentGroup is not empty
     begin
         if CurrentGroup is not `All`
@@ -2407,6 +2529,7 @@ StartLibrary:
     put 1 into Librarying
     put empty into LibraryPath
     disable DuplicateBtn
+    disable DuplicateRoomBtn
     disable RenameBtn
     disable DeleteScenarioBtn
     set the text of StatusLabel to LibraryAction cat `…`
@@ -2430,6 +2553,7 @@ LibrarianError:
 LibrarianDone:
     put 0 into Librarying
     enable DuplicateBtn
+    enable DuplicateRoomBtn
     if the exit code of Librarian is 0
     begin
         put CurrentGroup into KeepGroup
@@ -2452,8 +2576,8 @@ LibrarianDone:
     end
     put empty into LibraryAction
     return
-!! @hash c1c15521
-!! @verified c1c15521
+!! @hash 89033cd3
+!! @verified 89033cd3
 !!!
 
 !! Draft with the configured provider. The helper reads the brief on stdin,
@@ -2491,7 +2615,7 @@ DraftClicked:
         set the text of StatusLabel to `Drafting…`
         disable RunBtn
         disable ValidateBtn
-        disable DemoBtn
+        disable ShowBtn
         disable RefreshBtn
         disable RefreshScenariosBtn
         disable DeleteScenarioBtn
@@ -2518,8 +2642,8 @@ DraftClicked:
     end
     else append `Runner venv missing: run the setup in tools/rbr-studio/README.md.` to Log
     return
-!! @hash 940a3464
-!! @verified 940a3464
+!! @hash 0f90f160
+!! @verified 0f90f160
 !!!
 
 !! Copy the path of the prompt written by the last Draft, using the
@@ -2557,7 +2681,7 @@ DrafterDone:
     put 0 into Drafting
     enable RunBtn
     enable ValidateBtn
-    enable DemoBtn
+    enable ShowBtn
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable DraftBtn
@@ -2629,7 +2753,7 @@ DeleterDone:
     put 0 into Deleting
     enable RunBtn
     enable ValidateBtn
-    enable DemoBtn
+    enable ShowBtn
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable DraftBtn
@@ -2816,7 +2940,7 @@ RunBatchClicked:
     set the text of StatusLabel to `Batch running…`
     disable RunBtn
     disable ValidateBtn
-    disable DemoBtn
+    disable ShowBtn
     disable RefreshBtn
     disable RefreshScenariosBtn
     disable NewScenarioBtn
@@ -2832,8 +2956,8 @@ RunBatchClicked:
     put 1 into Batching
     start Batcher command Command
     return
-!! @hash 2c9eb0c3
-!! @verified 2c9eb0c3
+!! @hash 679f78fd
+!! @verified 679f78fd
 !!!
 
 BatcherLine:
@@ -2854,7 +2978,7 @@ BatcherDone:
     put 0 into Batching
     enable RunBtn
     enable ValidateBtn
-    enable DemoBtn
+    enable ShowBtn
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable NewScenarioBtn
@@ -2939,7 +3063,7 @@ SaveStudioSettings:
     set entry `columns` of StudioSettings to ColumnText
     save StudioSettings to `fixtures/local/studio-settings.json`
     return
-!! @hash b402cdeb
+!! @hash 42de85b5
 !! @verified b402cdeb
 !!!
 
@@ -2980,10 +3104,35 @@ RunnerLine:
     begin
         if Event has entry `path` append entry `path` of Event to ArtifactsLog
     end
+    else if Kind is `run.paused` gosub to PauseRun
     else if Kind is `run.finished` gosub to FinishRun
     return
-!! @hash 3bdde279
-!! @verified 3bdde279
+!! @hash ed92e6ab
+!! @verified ed92e6ab
+!!!
+
+!! Pause at a breakpoint: enable Step and Show, and mark the new row.
+PauseRun:
+    put 1 into Paused
+    put 0 into Stepping
+    enable ShowBtn
+    enable StepBtn
+    if Event has entry `stepId`
+    begin
+        put entry `stepId` of Event into StepId
+        gosub to FindStep
+        if RowIndex is not -1
+        begin
+            select row RowIndex of Steps
+            scroll to row RowIndex of Steps
+        end
+        set the text of StatusLabel to `Paused at ` cat StepId
+        append `paused at ` cat StepId to Log
+    end
+    else set the text of StatusLabel to `Paused`
+    return
+!! @hash cdb5da0b
+!! @verified cdb5da0b
 !!!
 
 !! stderr is a separate event, and is red in both logs.
@@ -3003,17 +3152,19 @@ RunnerDone:
     append `runner exit code ` cat ExitCode to Log
     enable RunBtn
     enable ValidateBtn
-    enable DemoBtn
+    enable ShowBtn
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable DraftBtn
     gosub to SetDeleteButton
     disable StopBtn
+    put 1 into Stepping
+    put 0 into Paused
     put 0 into Running
     if the text of StatusLabel is `Stopping…` set the text of StatusLabel to `Stopped`
     return
-!! @hash 3f6cfed9
-!! @verified d9cbf02d
+!! @hash 22dcb23e
+!! @verified 22dcb23e
 !!!
 
 !! Find the table row for StepId; RowIndex is -1 when it is absent.
@@ -3056,7 +3207,7 @@ MarkStep:
         end
     end
     return
-!! @hash 75ff05e7
+!! @hash 2cdb5a13
 !! @verified 75ff05e7
 !!!
 
@@ -3071,12 +3222,14 @@ FinishRun:
     append `run ` cat RunStatus cat ` (` cat Passed cat ` passed, ` cat Failed cat ` failed)` to Log
     enable RunBtn
     enable ValidateBtn
-    enable DemoBtn
+    enable ShowBtn
     enable RefreshBtn
     enable RefreshScenariosBtn
     enable DraftBtn
     gosub to SetDeleteButton
     disable StopBtn
+    put 1 into Stepping
+    put 0 into Paused
     put 0 into Running
     if Event has entry `artifacts`
     begin
@@ -3084,6 +3237,6 @@ FinishRun:
         if Artifacts has entry `dir` append `artefacts: ` cat entry `dir` of Artifacts to ArtifactsLog
     end
     return
-!! @hash f2f70702
-!! @verified 575d6f01
+!! @hash 0eb04c23
+!! @verified 0eb04c23
 !!!

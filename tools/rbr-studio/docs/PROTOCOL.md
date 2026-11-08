@@ -13,13 +13,20 @@ python -m scenario_runner \
   [--headless|--headed] \
   [--device phone|desktop] \
   [--from STEP_ID] \
+  [--fold-to-marker] \
+  [--pause-at-marker] \
   [--validate-only]
 ```
 
 `--repo` is the checkout being tested. It defaults to the repository containing
 the runner. `--from` runs from a step onward, still using the scenario's clock
-and base map. `--validate-only` resolves schema, targets and rooms, emits
-`validation.issue` events, and finishes without launching Chromium.
+and base map. `--fold-to-marker` applies the controller steps before the
+scenario's marker to the base map in Python, sets the clock to the marker and
+starts there, so a long journal scenario does not replay its history through
+the page. `--pause-at-marker` stops after the marker and waits for `step` or
+`continue` on stdin. Both are used by the Studio's **Show** button; a normal
+**Run** uses neither. `--validate-only` resolves schema, targets and rooms,
+emits `validation.issue` events, and finishes without launching Chromium.
 
 Exit codes: `0` all steps passed, `1` a step failed, `2` invalid scenario or
 configuration, `3` runner error (browser launch, crash).
@@ -36,11 +43,18 @@ Every event carries `v` and `event`.
    "timeZone":"Europe/London","headless":true}}
 ```
 
+When `--fold-to-marker` trimmed the run, `run.started` also carries `trim`:
+
+```json
+{"v":1,"event":"run.started","trim":{"folded":143,"skipped":159,"startIndex":160,
+ "startStepId":"s160","markerStepId":"s160"}}
+```
+
 ```json
 {"v":1,"event":"step.started","stepId":"s5","index":5,"at":"15:00","actor":"ui"}
 ```
 
-The `actor` is one of `controller`, `ui`, `expect`, `wire`, `connection` or `delay`. A `delay` step is a paced-demo pause and is skipped in a normal run.
+The `actor` is one of `controller`, `ui`, `expect`, `wire`, `connection` or `delay`. A `delay` step is a paced Show pause and is skipped in a normal run.
 
 ```json
 {"v":1,"event":"step.finished","stepId":"s5","status":"passed","durationMs":38}
@@ -53,6 +67,15 @@ The `actor` is one of `controller`, `ui`, `expect`, `wire`, `connection` or `del
    "actual":{"request":"Operating Mode","fields":{"Room":"Office","advance":"none"}},
    "artifacts":["screenshots/s6.png","wire.jsonl"]}}
 ```
+
+```json
+{"v":1,"event":"run.paused","stepId":"s160","index":160,
+ "nextStepId":"s161","reason":"marker"}
+```
+
+`run.paused` follows the `step.finished` of the breakpoint (or of a step
+advanced with `step`). The Studio enables **Step** and **Show**, and highlights
+the row named by `stepId`.
 
 ```json
 {"v":1,"event":"log","stepId":"s5","level":"info","source":"wire",
@@ -87,10 +110,16 @@ One line per command on stdin:
 
 ```json
 {"command":"cancel"}
+{"command":"step"}
+{"command":"continue"}
 ```
 
-Cancellation stops after the current step, writes the artefacts it has, emits
-`run.finished` with `status: "cancelled"` and exits `1`.
+`step` jumps the virtual clock to the next step at maximum speed, executes it
+and leaves the run paused after it; `continue` restores automatic stepping at
+the Show speed. `cancel` stops after the current
+step, writes the artefacts it has, emits `run.finished` with
+`status: "cancelled"` and exits `1`. A closed stdin is treated as `continue`, so
+a paused run cannot hang when its client goes away.
 
 ## Rules
 

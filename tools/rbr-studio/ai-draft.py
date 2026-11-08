@@ -147,7 +147,7 @@ def target_catalogue():
         "  ui.tap {target}; ui.select {target, value}; ui.fill {target, value}; ui.scroll {target, dx, dy}",
         "  expect {target, contains|text|notContains|visible|hidden|value|count}",
         "  expectWire {request, match}; waitFor {target, text|...}; connection {action: drop|reconnect|error}",
-        "  delay {seconds} (real time; Demo only, normal runs skip it)",
+        "  delay {seconds} (real time; Show only, normal runs skip it)",
     ])
 
 
@@ -163,7 +163,7 @@ def instructions(summary, editing):
         "The runner will set home.map and home.profile, but keep them in the JSON:",
         "home.map = \"../home.json\", home.profile = " + json.dumps(summary["active_profile"]) + ".",
         "Use HH:MM step times in ascending order and stable step ids (s1, s2, ...).",
-        "A delay step holds the current state for real seconds in a paced Demo and is skipped in normal runs; use it only to make a demo readable.",
+        "A delay step holds the current state for real seconds in a paced Show and is skipped in normal runs; use it only to make the Show readable.",
         "Every controller event that should be observed needs an explicit expect",
         "or expectWire after it. The controller is a map, not a brain: if a",
         "schedule boundary or advance expiry changes the UI, that must be an",

@@ -210,10 +210,10 @@ class PageDriver:
         """Move the virtual clock to `when`.
 
         With no speed this jumps in 50 s slices, as fast as the page allows.
-        With a demo speed it advances 10 s of scenario time per slice and sleeps
+        With a Show speed it advances 10 s of scenario time per slice and sleeps
         the corresponding real time, so the page's poll, clock tick and
         heartbeat are visible. A step may pass its own speed so the pre-marker
-        part of a demo can run at zero while the rest keeps the chosen pace.
+        part of a Show run can run at zero while the rest keeps the chosen pace.
         """
         if when is None:
             return

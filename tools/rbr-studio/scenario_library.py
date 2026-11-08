@@ -12,6 +12,8 @@ files to `fixtures/local/.trash/` rather than unlinking them.
     python3 scenario_library.py add --path fixtures/local/drafts/office.json \
         --group "Office" --brief-file fixtures/local/drafts/office.brief.md
     python3 scenario_library.py group --name "Schedules"
+    python3 scenario_library.py duplicate --path fixtures/local/scenarios/journal/day.json \
+        --name "Office only" --room Office
     python3 scenario_library.py remove --path fixtures/local/scenarios/office/office.json
 
 `add` copies a file from outside the library into the group folder, rewrites a
@@ -204,8 +206,152 @@ def seed_examples(force=False):
     return created
 
 
-def duplicate(path, name=None, group=None):
-    """Copy a scenario (and its brief) into the library as a new entry."""
+GLOBAL_ROOMS = ("Outside",)
+
+
+def _scenario_aliases(data):
+    aliases = data.get("rooms")
+    if not isinstance(aliases, dict):
+        return {}
+    return {str(alias): str(name) for alias, name in aliases.items()
+            if isinstance(name, str)}
+
+
+def _scenario_map(data, source=None):
+    """Return the base map when it is inline or a readable sibling file."""
+    home = data.get("home")
+    if not isinstance(home, dict):
+        return None
+    value = home.get("map")
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value).expanduser()
+    if not path.is_absolute() and source is not None:
+        path = Path(source).resolve().parent / path
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def _room_names(data, source=None):
+    aliases = _scenario_aliases(data)
+    names = set(aliases) | set(aliases.values())
+    base = _scenario_map(data, source)
+    if isinstance(base, dict):
+        for room in base.get("rooms", []) or []:
+            if isinstance(room, dict) and isinstance(room.get("name"), str):
+                names.add(room["name"])
+    return names
+
+
+def _canonical_room(name, aliases):
+    return aliases.get(name, name)
+
+
+def _target_rooms(target, aliases):
+    """Room names named by a semantic target, or an empty set for a global one."""
+    if not isinstance(target, str):
+        return set()
+    parts = target.split(".")
+    if len(parts) >= 3 and parts[0] == "room":
+        return {_canonical_room(parts[1], aliases)}
+    if len(parts) >= 4 and parts[0] == "devices" and parts[1] == "room":
+        return {_canonical_room(".".join(parts[2:-1]), aliases)}
+    return set()
+
+
+def step_room_refs(step, aliases):
+    """Canonical room names a step names; an empty set means a global step."""
+    if not isinstance(step, dict):
+        return set()
+    refs = set()
+    controller = step.get("controller")
+    if isinstance(controller, dict):
+        room = controller.get("room")
+        if isinstance(room, str) and room:
+            refs.add(_canonical_room(room, aliases))
+    ui = step.get("ui")
+    if isinstance(ui, dict):
+        if "tap" in ui:
+            refs |= _target_rooms(ui.get("tap"), aliases)
+        for key in ("select", "fill", "scroll"):
+            entry = ui.get(key)
+            if isinstance(entry, dict):
+                refs |= _target_rooms(entry.get("target"), aliases)
+    for key in ("expect", "waitFor"):
+        entry = step.get(key)
+        if isinstance(entry, dict):
+            refs |= _target_rooms(entry.get("target"), aliases)
+    wire = step.get("expectWire")
+    if isinstance(wire, dict):
+        for key in ("match", "notMatch"):
+            entry = wire.get(key)
+            if isinstance(entry, dict):
+                for field in ("Room", "room"):
+                    if isinstance(entry.get(field), str):
+                        refs.add(_canonical_room(entry[field], aliases))
+    return refs
+
+
+def renumber_steps(data):
+    """Give a scenario's steps sequential ids, so a filtered copy has no gaps."""
+    steps = data.get("steps")
+    if not isinstance(steps, list):
+        return data
+    for index, step in enumerate(steps, start=1):
+        if isinstance(step, dict):
+            step["id"] = f"s{index}"
+    return data
+
+
+def filter_to_room(data, room, source=None):
+    """Keep global steps and steps naming `room`; return (data, kept, total).
+
+    A global step is one that names no room at all: summary and sheet actions,
+    profile or wire-level checks, `raw` pushes, connections and delays. The
+    outdoor sensor is kept as global context because it appears in the summary
+    rather than a room card. Kept steps are renumbered because the dropped
+    steps would otherwise leave gaps in the id sequence.
+    """
+    if not isinstance(data, dict):
+        raise SystemExit("scenario_library.py: the scenario must be a JSON object")
+    aliases = _scenario_aliases(data)
+    name = (room or "").strip()
+    if not name:
+        raise SystemExit("scenario_library.py: a room name is required")
+    canonical = _canonical_room(name, aliases)
+    known = _room_names(data, source)
+    if known and canonical not in known:
+        raise SystemExit(
+            f"scenario_library.py: no room named {name!r} in the scenario "
+            f"(known: {', '.join(sorted(known, key=str.lower))})")
+    steps = data.get("steps")
+    if not isinstance(steps, list):
+        raise SystemExit("scenario_library.py: the scenario has no steps[]")
+    global_rooms = set(GLOBAL_ROOMS)
+    kept = []
+    for step in steps:
+        refs = step_room_refs(step, aliases)
+        if not refs or canonical in refs or refs & global_rooms:
+            kept.append(step)
+    if not kept:
+        raise SystemExit(
+            f"scenario_library.py: no steps name {canonical!r} and the scenario has no global steps")
+    data["steps"] = kept
+    renumber_steps(data)
+    return data, len(kept), len(steps)
+
+
+def duplicate(path, name=None, group=None, room=None):
+    """Copy a scenario (and its brief) into the library as a new entry.
+
+    With `room`, the copy keeps only global steps and those naming that room or
+    the outdoor sensor, which makes a day-long journal scenario readable when
+    one room is under investigation.
+    """
     source = Path(path).resolve()
     data = read_json(source)
     if not isinstance(data, dict):
@@ -219,14 +365,29 @@ def duplicate(path, name=None, group=None):
         else:
             group = UNSORTED
     data["name"] = name
+    note = None
+    if room:
+        data, kept, total = filter_to_room(data, room, source)
+        note = (f"Filtered copy: global steps (including the outdoor sensor) "
+                f"and steps for {room.strip()} only ({kept} of {total} steps).")
+        description = data.get("description")
+        if isinstance(description, str) and description.strip():
+            data["description"] = description.rstrip() + " " + note
+        else:
+            data["description"] = note
     draft_dir = LOCAL / "drafts"
     draft_dir.mkdir(parents=True, exist_ok=True)
     draft = draft_dir / f"_duplicate-{slug(name)}.json"
     draft.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     brief = source.with_name(source.stem + ".brief.md")
     try:
-        entry = add(draft, name=name, group=group,
-                    brief=brief.read_text(encoding="utf-8") if brief.exists() else data.get("description"))
+        if brief.exists():
+            brief_text = brief.read_text(encoding="utf-8")
+            if note:
+                brief_text = brief_text.rstrip() + "\n\n" + note
+        else:
+            brief_text = data.get("description")
+        entry = add(draft, name=name, group=group, brief=brief_text)
     finally:
         draft.unlink(missing_ok=True)
     return entry
@@ -323,6 +484,9 @@ def main():
     duplicate_parser.add_argument("--path", required=True)
     duplicate_parser.add_argument("--name")
     duplicate_parser.add_argument("--group")
+    duplicate_parser.add_argument(
+        "--room",
+        help="keep global steps and those naming this room (or alias) only")
 
     rename_parser = sub.add_parser("rename", help="rename a library scenario")
     rename_parser.add_argument("--path", required=True)
@@ -347,7 +511,7 @@ def main():
     elif args.command == "group":
         print(json.dumps({"group": add_group(args.name)}, indent=2, ensure_ascii=False))
     elif args.command == "duplicate":
-        entry = duplicate(args.path, args.name, args.group)
+        entry = duplicate(args.path, args.name, args.group, args.room)
         print(json.dumps(entry, indent=2, ensure_ascii=False))
         print(f"SCENARIO_PATH=fixtures/local/scenarios/{entry['path']}")
     elif args.command == "rename":
