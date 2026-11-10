@@ -67,6 +67,7 @@ def main(argv=None):
     parser.add_argument("--to", dest="end", help="window end (HH:MM or ISO)")
     parser.add_argument("--name", help="scenario name")
     parser.add_argument("--group", default="Journal", help="library group (default: Journal)")
+    parser.add_argument("--system", help="controller MAC the journal belongs to")
     parser.add_argument("--timezone", default="Europe/London")
     parser.add_argument("--map", help="base map for a raw journal without snapshots")
     parser.add_argument("--no-add", action="store_true", help="generate the draft but do not add it to the library")
@@ -118,7 +119,8 @@ def main(argv=None):
 
     if args.no_add:
         return 0
-    entry = scenario_library.add(draft, name=name, group=args.group)
+    entry = scenario_library.add(draft, name=name, group=args.group,
+                                 system=args.system, day=day)
     path = pathlib.Path("fixtures") / "local" / "scenarios" / entry["path"]
     print(f"SCENARIO_PATH={path.as_posix()}")
     return 0

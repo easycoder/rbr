@@ -1,20 +1,15 @@
 # What to do
 
-- **Restart RBR Studio** (`./run-studio.sh`). The Studio's `.venv` has been upgraded to `allspeak-ai 2611082058`, which supplies the keyboard shortcut.
-- Open a scenario with a **Mark** marker and press **Show**. Show folds the steps before the marker into the base map, starts at the marker and pauses there; **Step** or **Space** advances one step, and **Show** again resumes the selected pace.
-- No controller, PWA or deploy step is needed.
+- Restart RBR Studio and reload the 9 November journal scenarios. The PWA lines now name the event they carry — Advance, Cancel Advance, Schedule, Calendar, Boost, System Name, and the rest of the controller's request types — and the two schedule saves say what changed.
+- Other journal days re-convert if you want the same; existing scenarios without the new field fall back to their labels.
 
 # What changed
 
-- **Safe start:** `--fold-to-marker` replays every pre-breakpoint controller step into the base map in Python, sets the clock to the marker and starts there. The selected room (and every other room) is already initialised, so no earlier events need to reach the browser. The source scenario is untouched; the run snapshot is trimmed and the log reports `folded N controller step(s) and skipped M pre-breakpoint step(s)`.
-- **Breakpoint:** the marker now pauses a Show run after it executes. The runner emits `run.paused`; the Studio enables **Step** and **Show**, selects the step's row, scrolls it into view and shows it in the Inspector.
-- **Step:** jumps the virtual clock to the next step instantly, executes it and pauses again. **Space** is bound to the same action with `set the shortcut of StepBtn to Space`. The Step button now stays enabled so the shortcut always consumes Space; a `Stepping` flag ignores a rapid repeat, and a press outside a paused Show logs `Start a Show to use Step.` instead of falling through to another button. **Show** again sends `continue`, restoring automatic advance at the speed selector.
-- The runner gains `--fold-to-marker`, `--pause-at-marker`, `step` / `continue` stdin commands and the `run.paused` event. Pre-breakpoint UI actions and expectations are skipped; only controller events are folded.
-- The Show, Step and Run buttons and the Mark cell carry tooltips. Row selection and scrolling use the new AllSpeak `select row` / `scroll to row` and `set the tooltip of` statements; the row-selection request is completed in `REQUESTS.md`.
+- `journal_to_scenario.py` writes `user.event` from the controller request: **Operating Mode** → Advance, Cancel Advance, Boost, Target or Mode; **Update Profiles** → Schedule (schedule screen), Calendar (profiles/calendar screen) or Update Profiles; **Select Profile** → Calendar; **System Name**, **Request Relay**, **Add Room**, **Update Rooms**, **Room Override**, **Backup**, **Backup Now**, **Journal Now** and **Test** keep their names.
+- The table's Event column uses the event; the actor is PWA; older scenarios without `event` map their labels to the same names.
+- A schedule save's label names the changed period and temperature. In the Sunroom, `s131` is **Schedule saved — Weekend 17:00–19:00: 22.5 → 22.0 °C** and `s133` is **22.0 → 22.5 °C**. The Advance at `s75` is unchanged.
+- The scenario schema accepts `user.event`; the 9 November full-day and Sunroom scenarios are regenerated.
 
 # Try it
 
-- Use the **Bedroom 1** journal scenario and its marker at `s160`; Show should log the fold, pause after `s160`, and Step through the rest.
-- `tools/rbr-studio/.venv/bin/python tools/rbr-studio/tests/show_check.py`
-- `python3 tools/rbr-studio/tests/journal_check.py`
-- `cd tools/rbr-studio && QT_QPA_PLATFORM=offscreen python3 tests/studio-shell-check.py`
+- The Sunroom: `s75` PWA/Sunroom/**Advance**, `s131` and `s133` PWA/Sunroom/**Schedule** with the changed period in the label, and `s136` PWA/Sunroom/**Cancel Advance**. The full day has five user steps.

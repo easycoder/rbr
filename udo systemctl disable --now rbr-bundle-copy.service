@@ -1,0 +1,2 @@
+ExecStart={ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 /home/graham/dev/rbr/rbr-bundle-copy.py --config /home/graham/dev/rbr/rbr-bundle-copy.conf ; ignore_errors=no ; start_time=[Mon 2026-11-09 21:44:53 GMT] ; stop_time=[n/a] ; pid=957600 ; code=(null) ; status=0/0 }
+FragmentPath=/etc/systemd/system/rbr-bundle-copy.service

@@ -5,7 +5,8 @@ implements validation, the controller stub, semantic targets, the virtual
 clock and artefacts, and runs both reference scenarios. The AllSpeak/PySide
 shell (`studio.allspeak`) uses the graphics `table`, `logpane`, `panes` and
 `tabs` and the `process` domain; Run is wired to `scenario_runner`, and Show
-adds headed, paced playback with collapsed poll logging.
+adds paced playback in the embedded viewer, fed by a CDP screencast, with
+collapsed poll logging.
 
 ## 1. Purpose
 
@@ -150,8 +151,9 @@ Every step has `id`, `at`, an optional `note`, `disabled` and `timeoutMs`, plus
 exactly one action. A step may also carry `"marker": true`; at most one step in a
 scenario may do so. In a Show run the marker is a **breakpoint**: the runner
 folds the controller steps before it into the base map, sets the clock to the
-marker and starts there, then pauses after the marker. **Step** advances one
-step and **Show** again continues automatically at the selected speed. A run
+marker and starts there, then pauses after the marker. **Step** pauses a
+running Show at the current step; while paused, each Step advances one step and
+**Run** continues automatically at the selected speed. A run
 without the breakpoint flags still uses the marker as a fast-forward point:
 earlier steps run at maximum speed, the marker and later steps use the selected
 speed.
@@ -159,18 +161,21 @@ speed.
 | Key | Meaning |
 | --- | --- |
 | `controller` | change map state and/or push a full map; `raw` sends a malformed payload |
+| `user` | record a UI request in the table; the Event names the request type (Advance, Boost, Calendar, System Name, …); no page or map change; the controller effects follow as controller steps |
 | `ui` | tap, select, fill or scroll a semantic target |
 | `expect` | assert DOM state: text, contains, visible, hidden, value, count, geometry |
 | `expectWire` | assert the newest outbound request (action and fields) |
 | `waitFor` | wait for a DOM condition, bounded |
 | `connection` | drop, reconnect, or emit an MQTT error |
-| `delay` | hold the current state for real seconds; honoured only in a paced Show (`--speed > 0`), skipped in a normal run; does not advance scenario time |
+| `delay` | hold the current state for real seconds; honoured only in a paced Show (`--speed > 0`); skipped at Max (`--speed 0`) and in a normal run; does not advance scenario time |
+
+A `user` step records a request that came from a person, from the journal's `ui.request`. It carries the action, the event (the request type, such as Advance, Boost, Calendar or System Name), a short label, the room and the page's screen/control/gesture; the Event column shows the event, the actor is PWA, and the label is in the detail. A schedule save's label names the changed period and temperature. It is executed as a no-op, because the controller saw the request, not the gesture. The controller steps that follow are its effects. `journal_to_scenario.py` writes one for every UI request, and a room-filtered copy keeps the ones naming its room.
 
 ### Library, groups and batches (v0)
 
 The local library is a directory of group folders under `fixtures/local/scenarios/`; `index.json` records each scenario's display name, group, path and brief path. A `<stem>.brief.md` sits beside its scenario. Selecting a scenario loads its brief, and an edit sends both the current scenario and the current brief to the drafter. New clears the editor; Delete moves the scenario and brief to `.trash`.
 
-Groups are real folders and the shell's group selector filters the scenario list; New group creates an empty folder. A batch is a list of scenario paths in the shell's BATCH panel: add the selected scenario, remove entries, and Run batch. `batch_runner.py` runs each scenario as a normal `scenario_runner` run, sequentially, and writes a record under `fixtures/local/batches/`. Parallel runs and saved named batch definitions are later.
+Groups are real folders and the shell's group selector filters the scenario list; New group creates an empty folder. A duplicate is a new working scenario: it is listed immediately under its name and remains in the Journal week list even when the source day is older; the loaded scenario is pinned under its own name when the filter hides it; a public example is never pinned as a list entry, and a missing saved scenario falls back to a library scenario in its group before the public example. A batch is a list of scenario paths in the shell's BATCH panel: add the selected scenario, remove entries, and Run batch. `batch_runner.py` runs each scenario as a normal `scenario_runner` run, sequentially, and writes a record under `fixtures/local/batches/`. Parallel runs and saved named batch definitions are later.
 
 `at` accepts `HH:MM`, `HH:MM:SS` or an ISO date-time. Steps are executed in
 file order; `at` may only move forward unless the scenario sets
@@ -292,15 +297,17 @@ The runner sets the browser clock from scenario time before each step and never 
 boost countdown, advance expiry) then change deterministically.
 
 A Show run can opt into **paced time**: `--speed N` advances 10-second virtual
-slices with a real sleep proportional to N (1 is real time; 120 turns three
-hours into 90 seconds), `--headed` opens the PWA window, and
+slices with a real sleep proportional to N (1 is real time; 300 turns three
+hours into about 36 seconds; `--speed 0` is **Max**, with no virtual-time waits
+and only the per-step pause), `--view` streams the page to the Studio's embedded
+viewer (and `--headed` still opens a window for manual debugging), and
 `--step-pause-ms` holds each passed step for a moment. A `delay` step is real seconds, unscaled; a normal run skips it. `--collapse-polls`
 suppresses the per-poll `Requesting map: refresh` events in the live stream and
 emits `refresh ×50` summaries plus a final total; the full console remains in
 the run's `console.log`. The shell exposes this as its **Show** button and
 speed selector; **Run** stays headless and as fast as possible.
 
-For a breakpoint, `--fold-to-marker` applies every pre-marker controller step to the base map in Python, sets `clock.start` to the marker and starts the loop there. Pre-marker `ui`, expectation, wire, connection and delay steps are skipped; only the map-changing controller events are replayed. This is the safe start: the room (and every other room) is already initialised, so deleting or bypassing the earlier events cannot leave a card without a reading. `--pause-at-marker` emits `run.paused` after the marker and waits for `{"command":"step"}` or `{"command":"continue"}` on stdin. A `step` jumps the virtual clock to the next step at maximum speed and pauses again; `continue` uses the selected Show speed. The run's `scenario.json` snapshot is the trimmed scenario, with the folded map.
+For a breakpoint, `--fold-to-marker` applies every pre-marker controller step to the base map in Python, sets `clock.start` to the marker and starts the loop there. Pre-marker `ui`, `user`, expectation, wire, connection and delay steps are skipped; only the map-changing controller events are replayed. This is the safe start: the room (and every other room) is already initialised, so deleting or bypassing the earlier events cannot leave a card without a reading. `--pause-at-marker` emits `run.paused` after the marker and waits for `{"command":"step"}` or `{"command":"continue"}` on stdin. A `step` jumps the virtual clock to the next step at maximum speed and pauses again; `continue` uses the selected Show speed. The run's `scenario.json` snapshot is the trimmed scenario, with the folded map.
 
 **Clock spike (settled 2026-11-05):** the pinned runtime's `wait N ticks` does
 yield to Playwright's clock, but one multi-hour `fastForward` lets the poll run
@@ -347,26 +354,15 @@ layout drift that a static catalogue cannot.
 
 ## 10. Builder UX
 
-The window is the target in `docs/MOCKUP.html`.
+The window is a tabbed main panel. `docs/MOCKUP.html` is the earlier single-pane wireframe; its field descriptions still apply, but the layout below is the one that ships.
 
-- **Left:** scenarios (folders/tags), New, and the AI draft panel.
-- **Centre:** the step table, with a table/timeline toggle. Columns: `#`, time,
-  actor, target, action/value, expectation, result, note. Actor colour and icon;
-  icon plus label, never icon alone. Rows reorder by drag; inserting above/below,
-  duplicate, disable and delete are row actions.
-- **Right:** inspector for the selected step — actor, target picker (filtered to
-  valid targets and rooms), value editors, timeout, note, and
-  **Insert expectation**.
-- **Bottom:** Run / Show / Step / Stop, headless/headed, device preset, clock
-  range; then the log panel with Steps, Wire, Console and Artefacts tabs.
-  Clicking a failure selects its row and shows expected/actual, the screenshot
-  and the wire traffic since the previous step. **Step** advances one step while
-  Show is paused at a breakpoint, and **Space** is bound to the same action. The
-  Step button stays enabled so the shortcut always owns Space; a `Stepping` flag
-  ignores a repeat while a step is in flight, so a second press cannot fall
-  through to another focused button. **Show** again resumes automatic advance.
-  The row of the step just taken is selected, scrolled into view and shown in
-  the Inspector; the playback buttons and the Mark cell carry tooltips.
+- **Header:** the system selector, **Refresh map**, the clock and **Quit**. The scenario title and any run error sit on the row below it, so both working tabs show them.
+- **Scenarios tab — left:** the library (`Group`, the scenario list, **More…**), journal import, the AI draft panel and the batch list, plus **Duplicate…**, **Duplicate for room…**, **Rename…** and **Delete rows**. The two-column left panel leaves the table the rest of the width.
+- **Scenarios tab — right:** the step table with **Columns…**, **Validate**, **Run** and **Stop** above it, and the shared log panel below the table. Columns: `#`, time, actor, target, **event**, action/value, expectation, result, note. The Mark column is hidden here; it is a Show-only control.
+- **Show tab:** the same table on the left with the Mark column visible and **Speed**, **Columns…**, **Run**, **Step** and **Stop** above it, the log panel below the table, and the embedded viewer on the right filling the tab's height. The Actor, Target and Event columns read as a story: `PWA` / `Sunroom` / `Advance` for a user request, `Controller` / `Sunroom` / `Relay` for a relay change, and `Controller` / `Sunroom` / `Sensor` for a sensor reading. The viewer's width follows its height at `viewerAspect` (width ÷ height, default 0.462; a decimal or a per-mille integer) from `studio-config.json`; the log panel is below the table only. Clicking a failure selects its row and shows expected/actual, the screenshot and the wire traffic since the previous step. **Step** pauses a running Show at the current step, then advances one step per press while paused, and **Space** is bound to the same action. The Step button stays enabled so the shortcut always owns Space; a `PausePending` flag ignores a repeat while a pause is on its way, and `Stepping` ignores one while a step is in flight, so a second press cannot fall through to another focused button. **Run** again resumes automatic advance. **Stop** sends a cancel, so the runner finishes the current step, closes the browser and exits; a second Stop click kills the runner if a step is stuck.
+- **Shared bottom panel:** Log, Wire, Console, Artifacts and the selected step's **Step** details. It moves with the table, so it sits under the table in either working tab and a Show keeps its console and artefacts beside the table.
+- **Statistics tab:** a placeholder for the heating statistics the journal bundles already carry.
+- The table is one widget moved between the two working tabs, so one selection and one result path serve both. The playback buttons and the Mark cell carry tooltips.
 
 The timeline view shows the same steps as lanes (Controller, UI, Wire, Expect)
 against scenario time. It is a different reading of one model, not a second

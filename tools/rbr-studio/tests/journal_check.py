@@ -350,9 +350,53 @@ class JournalToolsTests(unittest.TestCase):
         expects = [step["expect"] for step in scenario["steps"] if "expect" in step]
         self.assertIn({"target": "room.Kitchen.temp", "contains": "18.4"}, expects)
         self.assertIn({"target": "room.Kitchen.subline", "contains": "(A)"}, expects)
+        users = [step["user"] for step in scenario["steps"] if "user" in step]
+        self.assertEqual(len(users), 1, users)
+        self.assertEqual(users[0]["action"], "Operating Mode")
+        self.assertEqual(users[0]["event"], "Advance")
+        self.assertEqual(users[0]["room"], "Kitchen")
+        self.assertEqual(users[0]["label"], "Advance")
+        filtered, kept, total = scenario_library.filter_to_room(
+            json.loads(json.dumps(scenario)), "Kitchen")
+        self.assertLess(kept, total)
+        self.assertEqual([step["user"]["room"] for step in filtered["steps"]
+                          if "user" in step], ["Kitchen"],
+                         "the room filter keeps the Kitchen user step")
         self.assertEqual(scenario["home"]["profile"], "Weekday")
         self.assertEqual(scenario["clock"]["timeZone"], "Europe/London")
         prepare(out, REPO)
+
+    def test_user_events_name_the_request_type(self):
+        events = [
+            (("Operating Mode", {"control": "advance"}, {"advance": "A"}), "Advance"),
+            (("Operating Mode", {"control": "advance"}, {"advance": "-"}), "Cancel Advance"),
+            (("Operating Mode", {"control": "boost"}, {"Mode": "boost"}), "Boost"),
+            (("Operating Mode", {"control": "target"}, {"target": 2250}), "Target"),
+            (("Select Profile", {"screen": "profiles"}, {}), "Calendar"),
+            (("Update Profiles", {"screen": "profiles"}, {}), "Calendar"),
+            (("Update Profiles", {"screen": "schedule"}, {}), "Schedule"),
+            (("System Name", {}, {}), "System Name"),
+            (("Backup Now", {}, {}), "Backup Now"),
+        ]
+        for args, expected in events:
+            with self.subTest(args=args):
+                self.assertEqual(journal_to_scenario._user_event(*args), expected)
+
+    def test_schedule_change_names_the_changed_period(self):
+        previous = [{"name": "Weekday", "rooms": {"Sunroom": {"periods": [
+            {"on": "17:00", "off": "19:00", "temp": "22.0"},
+            {"on": "19:00", "off": "23:00", "temp": "23.0"},
+        ]}}}]
+        profiles = [{"name": "Weekday", "rooms": {"Sunroom": {"periods": [
+            {"on": "17:00", "off": "19:00", "temp": "22.5"},
+            {"on": "19:00", "off": "23:00", "temp": "23.0"},
+        ]}}}]
+        self.assertEqual(
+            journal_to_scenario._schedule_change(profiles, previous, "Sunroom"),
+            "Weekday 17:00–19:00: 22.0 → 22.5 °C")
+        self.assertEqual(
+            journal_to_scenario._schedule_change(previous, previous, "Sunroom"),
+            "no change")
 
     def test_source_kind_recognises_local_inputs(self):
         self.assertEqual(journal_ingest._source_kind("/data/rbr-heating/events")[0], "root")
@@ -440,6 +484,11 @@ class JournalToolsTests(unittest.TestCase):
                         {"id": "s14", "at": "08:11",
                          "ui": {"tap": "devices.room.Kitchen.edit"}},
                         {"id": "s15", "at": "08:12", "controller": {"raw": "{}"}},
+                        {"id": "s16", "at": "08:13", "marker": True,
+                         "controller": {"room": "Outside", "set": {"status": "warn"}}},
+                        {"id": "s17", "at": "08:14",
+                         "controller": {"room": "Outside",
+                                        "state": {"set": {"mode": "off", "target": 0}}}},
                     ],
                 }, indent=2) + "\n", encoding="utf-8")
 
@@ -449,7 +498,13 @@ class JournalToolsTests(unittest.TestCase):
                 data = json.loads(copied.read_text(encoding="utf-8"))
                 self.assertEqual([step["id"] for step in data["steps"]],
                                  ["s1", "s2", "s3", "s4", "s5", "s6", "s7",
-                                  "s8", "s9", "s10"])
+                                  "s8", "s9", "s10", "s11"])
+                outside = [step["controller"] for step in data["steps"]
+                           if step.get("controller", {}).get("room") == "Outside"]
+                self.assertEqual([item.get("set") for item in outside],
+                                 [{"temperature": 800}, {"status": "warn"}])
+                self.assertEqual([step["id"] for step in data["steps"]
+                                  if step.get("marker")], ["s11"])
                 self.assertEqual(data["name"], "Office only")
                 self.assertIn("Filtered copy", data["description"])
                 brief = copied.with_name(copied.stem + ".brief.md")

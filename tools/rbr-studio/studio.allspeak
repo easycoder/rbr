@@ -19,31 +19,56 @@ script RBRStudio
 
 use graphics
 use process
+load plugin Studio_UI from studio_ui.py
 
 window Win
 layout Root
-panel Toolbar
-layout ToolbarRow
+panel Header
+layout HeaderRow
+layout TitleRow
+label ErrorLabel
 label Brand
 label Env
 label Clock
 pushbutton ValidateBtn
 pushbutton StopBtn
+pushbutton StopBtnShow
 pushbutton RunBtn
 pushbutton ShowBtn
 pushbutton StepBtn
 pushbutton QuitBtn
 pushbutton RefreshBtn
 pushbutton ColumnsBtn
+pushbutton ColumnsBtnShow
 label SpeedLabel
 combobox SpeedBox
 
-panes Work
-panes Vert
-panel Sidebar
-layout SidebarCol
+tabs MainTabs
+panes ScenariosSplit
+panel ScenariosLeft
+layout ScenariosLeftCol
+layout LibraryCol
+layout ToolsCol
+panel ScenariosRight
+layout ScenariosRightCol
+layout ScenariosBar
+layout ScenariosTableCol
+panes ShowSplit
+panel ShowPage
+layout ShowPageCol
+panel ShowLeft
+layout ShowLeftCol
+layout ShowBar
+layout ShowTableCol
+panel ShowRightPage
+layout ShowRightCol
+panel ShowView
+layout ShowViewCol
+panel StatsPanel
+layout StatsCol
+label StatsLabel
+
 layout DraftRow
-layout ToolsRow
 layout BatchRow
 label SystemLabel
 combobox SystemBox
@@ -82,6 +107,14 @@ pushbutton ColumnsCloseBtn
 layout ColumnsLayout
 panel ColumnsBody
 layout ColumnsBodyLayout
+window BrowseWin
+layout BrowseLayout
+label BrowseHint
+listbox BrowseYears
+label BrowseScenariosLabel
+listbox BrowseScenarios
+pushbutton BrowseOpenBtn
+pushbutton BrowseCloseBtn
 checkbox ColS
 checkbox ColM
 checkbox ColT
@@ -98,20 +131,20 @@ label AiLabel
 pushbutton DraftBtn
 pushbutton CopyPathBtn
 pushbutton RefreshScenariosBtn
+pushbutton MoreBtn
 pushbutton DeleteScenarioBtn
 pushbutton DuplicateBtn
 pushbutton DuplicateRoomBtn
 pushbutton RenameBtn
 pushbutton DeleteRowsBtn
 
-panel Editor
-layout EditorCol
 label Title
 label Meta
 table Steps
+viewpane ViewPane
 
-panel InspectorPane
-layout InspectorCol
+panel StepPane
+layout StepLayout
 label InspectorTitle
 label InspectorSub
 multiline Inspector
@@ -141,6 +174,8 @@ variable Command
 variable Running
 variable Paused
 variable Stepping
+variable PausePending
+variable Stopping
 variable Pace
 variable SpeedValue
 variable Refreshing
@@ -237,6 +272,43 @@ variable GroupName
 variable BriefRel
 variable LibGroup
 variable LibBrief
+variable LibVisible
+variable LibRecent
+variable LibSystem
+variable CurrentShown
+variable CurrentName
+list CurrentKeys
+variable CurrentKeyI
+variable CurrentKeyName
+variable CurrentText
+dictionary CurrentData
+list FallbackList
+variable FallbackI
+dictionary FallbackEntry
+variable FallbackRel
+variable FallbackPath
+list BrowseList
+dictionary BrowseNames
+dictionary BrowseBriefs
+dictionary BrowseGroups
+variable BrowseText
+dictionary BrowseData
+variable BrowseI
+variable BrowseCount
+dictionary BrowseEntry
+variable BrowseGroup
+variable BrowseInclude
+variable BrowseSystem
+variable BrowseDate
+variable BrowseYearValue
+variable BrowseYearMax
+variable BrowseYearMin
+variable BrowseYearScan
+variable BrowseYearFound
+variable BrowseYearText
+variable BrowseYear
+variable BrowseName
+variable BrowsePath
 list LibGroups
 variable LibGroupCount
 variable LibGroupI
@@ -275,6 +347,8 @@ variable FieldKey
 variable FieldValue
 variable PushFlag
 dictionary UI
+dictionary UserAction
+variable UserOrigin
 dictionary Expect
 dictionary Wire
 variable LineText
@@ -296,15 +370,21 @@ variable AtShort
 variable Actor
 variable ActorLabel
 variable Target
+variable TargetValue
+variable EventLabel
 variable Action
 variable Expectation
 variable Detail
 variable Sub
 variable RowIndex
 variable ResultText
+variable ViewURL
 variable Count
 variable StepId
 variable RunStatus
+variable RunError
+variable FailureText
+dictionary FailureFields
 variable Passed
 variable Failed
 variable Name
@@ -320,9 +400,14 @@ dictionary Artifacts
 list Rows
 list ColumnWidths
 list ColumnLabels
+list TableWidths
 variable ResultCol
 variable ExpectationCol
 variable FieldCol
+variable TableCondensed
+variable WidthIndex
+variable WidthValue
+variable TabIndex
 list RowValues
 list StepIds
 list StepDetails
@@ -337,6 +422,11 @@ variable SavedScenario
 variable SavedSource
 variable SavedDay
 variable SavedRange
+variable SavedTab
+variable SavedScenariosSplit
+variable SavedShowSplit
+variable SplitSizes
+variable ViewerAspect
 variable WindowX
 variable WindowY
 variable WindowW
@@ -344,77 +434,132 @@ variable WindowH
 
 !! Build the window and load the first scenario.
 !!
-!! The layout is the mockup's four regions: a toolbar, three side-by-side
-!! panes, and the log tabs below them. The table is seeded from the scenario
-!! JSON; the process handlers are registered before Run can start anything.
+!! The layout is a tabbed main panel: a header with the system selector, Refresh map, the clock and Quit; the scenario title and error row; then Scenarios, Show and Statistics, with the shared log panel below them. The table is seeded from the scenario JSON; the process handlers are registered before Run can start anything.
 !!
 !! A startup scan of the mail-filter folder adds any emailed journal bundle to the Journal group before the list is built, so a day the controller posted overnight is present when the window opens.
 !!
 !! The Step button also carries the Space shortcut, so a paused Show can be advanced from the keyboard.
+!!
+!! Every pushbutton carries a short tooltip describing its action; the speed selector explains Show pacing.
 Setup:
     init graphics
 
     gosub to LoadStudioSettings
     create Win title `RBR Studio` at WindowX WindowY size WindowW WindowH
     create Root type QVBoxLayout
-    create Toolbar
-    create ToolbarRow type QHBoxLayout
-    set the layout of Toolbar to ToolbarRow
+    create Header
+    create HeaderRow type QHBoxLayout
+    set the layout of Header to HeaderRow
 
     create Brand text `RBR Studio` size 18
     create Env text `rbr · new-ui · 390 × 844` size 28
     create Clock text `clock —` size 18
+    create SystemLabel text `SYSTEM` size 12
+    create SystemBox
+    create RefreshBtn text `Refresh map` size 12
+    create QuitBtn text `Quit` size 10
     create SpeedLabel text `Speed` size 8
     create SpeedBox
-    add `120` to SpeedBox
+    add `Max` to SpeedBox
     add `300` to SpeedBox
     add `60` to SpeedBox
     add `1` to SpeedBox
     create ValidateBtn text `Validate` size 10
     create StopBtn text `Stop` size 10
+    create StopBtnShow text `Stop` size 10
     create RunBtn text `▶ Run` size 10
-    create ShowBtn text `Show` size 10
+    create ShowBtn text `▶ Run` size 10
     create StepBtn text `Step` size 10
-    create QuitBtn text `Quit` size 10
-    create RefreshBtn text `Refresh map` size 12
     create ColumnsBtn text `Columns…` size 10
+    create ColumnsBtnShow text `Columns…` size 10
+    create Title text `Loading…` size 60
+    create Meta text `` size 40
+    create ErrorLabel text `` size 20
 
     set the style of Brand to `font-size:15px;font-weight:600;`
     set the color of Env to `#666666`
     set the color of Clock to `#666666`
     set the color of SpeedLabel to `#666666`
+    set the style of SystemLabel to `font-size:9px;font-weight:700;color:#999999;`
+    set the style of Title to `font-size:16px;font-weight:600;`
+    set the color of Meta to `#666666`
+    set the style of ErrorLabel to `color:#C0392B;font-weight:600;`
     disable StopBtn
-    set the tooltip of RunBtn to `Headless run as fast as possible; a marker only fast-forwards.`
-    set the tooltip of ShowBtn to `Headed, paced playback; a Mark marker starts at the breakpoint and pauses.`
-    set the tooltip of StepBtn to `Advance one step while Show is paused at a breakpoint (Space).`
-    set the tooltip of SpeedBox to `Scenario seconds per real second for Show.`
+    disable StopBtnShow
 
-    add Brand to ToolbarRow
-    add spacer size 12 to ToolbarRow
-    add Env to ToolbarRow
-    add stretch to ToolbarRow
-    add SpeedLabel to ToolbarRow
-    add SpeedBox to ToolbarRow
-    add Clock to ToolbarRow
-    add RefreshBtn to ToolbarRow
-    add ColumnsBtn to ToolbarRow
-    add ValidateBtn to ToolbarRow
-    add StopBtn to ToolbarRow
-    add RunBtn to ToolbarRow
-    add ShowBtn to ToolbarRow
-    add StepBtn to ToolbarRow
-    add QuitBtn to ToolbarRow
-    add spacer size 12 to ToolbarRow
-    add Toolbar to Root
+    add Brand to HeaderRow
+    add spacer size 12 to HeaderRow
+    add Env to HeaderRow
+    add stretch to HeaderRow
+    add SystemLabel to HeaderRow
+    add SystemBox to HeaderRow
+    add RefreshBtn to HeaderRow
+    add Clock to HeaderRow
+    add QuitBtn to HeaderRow
+    add Header to Root
 
-    create Work orientation horizontal
-    create Vert orientation vertical
+    create TitleRow type QHBoxLayout
+    add Title to TitleRow
+    add Meta to TitleRow
+    add stretch to TitleRow
+    add ErrorLabel to TitleRow
+    add TitleRow to Root
 
-    create Sidebar
-    create SidebarCol type QVBoxLayout
-    set the layout of Sidebar to SidebarCol
-    create SystemLabel text `SYSTEM` size 12
-    create SystemBox
+    create MainTabs
+    create ScenariosSplit orientation horizontal
+    create ScenariosLeft
+    create ScenariosLeftCol type QHBoxLayout
+    set the layout of ScenariosLeft to ScenariosLeftCol
+    create LibraryCol type QVBoxLayout
+    create ToolsCol type QVBoxLayout
+    add LibraryCol to ScenariosLeftCol
+    add ToolsCol to ScenariosLeftCol
+    create ScenariosRight
+    create ScenariosRightCol type QVBoxLayout
+    set the layout of ScenariosRight to ScenariosRightCol
+    create ScenariosBar type QHBoxLayout
+    create ScenariosTableCol type QVBoxLayout
+    add ScenariosBar to ScenariosRightCol
+    add ScenariosTableCol to ScenariosRightCol
+    add ScenariosLeft to ScenariosSplit
+    add ScenariosRight to ScenariosSplit
+    set sizes of ScenariosSplit to `[430,900]`
+    add ScenariosSplit to MainTabs as `Scenarios`
+
+    create ShowPage
+    create ShowPageCol type QVBoxLayout
+    set the layout of ShowPage to ShowPageCol
+    create ShowBar type QHBoxLayout
+    add ShowBar to ShowPageCol
+    create ShowSplit orientation horizontal
+    create ShowLeft
+    create ShowLeftCol type QVBoxLayout
+    set the layout of ShowLeft to ShowLeftCol
+    create ShowTableCol type QVBoxLayout
+    add ShowTableCol to ShowLeftCol
+    create ShowRightPage
+    create ShowRightCol type QVBoxLayout
+    set the layout of ShowRightPage to ShowRightCol
+    create ShowView
+    create ShowViewCol type QVBoxLayout
+    set the layout of ShowView to ShowViewCol
+    create ViewPane
+    place ViewPane in ShowViewCol
+    add ShowView to ShowRightCol
+    add ShowLeft to ShowSplit
+    add ShowRightPage to ShowSplit
+    set sizes of ShowSplit to `[900,330]`
+    add ShowSplit to ShowPageCol
+    add ShowPage to MainTabs as `Show`
+
+    create StatsPanel
+    create StatsCol type QVBoxLayout
+    set the layout of StatsPanel to StatsCol
+    create StatsLabel text `Statistics — coming soon` size 24
+    set the color of StatsLabel to `#666666`
+    add StatsLabel to StatsCol
+    add StatsPanel to MainTabs as `Statistics`
+
     create MboxBtn text `Import mbox` size 10
     create ResetJournalBtn text `Reset today` size 10
     create JournalListLabel text `AVAILABLE JOURNALS` size 12
@@ -450,60 +595,64 @@ Setup:
     add RemoveBatchBtn to BatchRow
     create RunBatchBtn text `Run batch` size 12
     create RefreshScenariosBtn text `↻ Scenarios` size 10
+    create MoreBtn text `More…` size 10
     create DeleteScenarioBtn text `Delete scenario` size 12
     disable DeleteScenarioBtn
     set the style of GroupLabel to `font-size:9px;font-weight:700;color:#999999;`
-    set the style of SystemLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the style of JournalListLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the style of BatchLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the style of ScenariosLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the style of AiLabel to `font-size:9px;font-weight:700;color:#999999;`
     set the color of BriefPreview to `#666666`
-    add SystemLabel to SidebarCol
-    add SystemBox to SidebarCol
-    add MboxBtn to SidebarCol
-    add ResetJournalBtn to SidebarCol
-    add JournalListLabel to SidebarCol
-    add JournalList to SidebarCol
-    add spacer size 10 to SidebarCol
-    add GroupLabel to SidebarCol
-    add GroupBox to SidebarCol
-    add NewGroupBtn to SidebarCol
-    add NewScenarioBtn to SidebarCol
-    add ScenariosLabel to SidebarCol
-    add Scenarios to SidebarCol
-    add JournalBtn to SidebarCol
-    add RefreshScenariosBtn to SidebarCol
-    add DeleteScenarioBtn to SidebarCol
-    add spacer size 10 to SidebarCol
-    add AiLabel to SidebarCol
-    add BriefPreview to SidebarCol
-    add EditBriefBtn to SidebarCol
-    add DraftRow to SidebarCol
-    add spacer size 10 to SidebarCol
-    add BatchLabel to SidebarCol
-    add BatchList to SidebarCol
-    add BatchRow to SidebarCol
-    add RunBatchBtn to SidebarCol
-    add stretch to SidebarCol
-    add Sidebar to Work
 
-    create Editor
-    create EditorCol type QVBoxLayout
-    set the layout of Editor to EditorCol
-    create Title text `Loading…` size 60
-    create Meta text `` size 40
+    add GroupLabel to LibraryCol
+    add GroupBox to LibraryCol
+    add NewGroupBtn to LibraryCol
+    add NewScenarioBtn to LibraryCol
+    add ScenariosLabel to LibraryCol
+    add Scenarios to LibraryCol
+    add MoreBtn to LibraryCol
+    add JournalBtn to LibraryCol
+    add RefreshScenariosBtn to LibraryCol
+    add DeleteScenarioBtn to LibraryCol
+    add stretch to LibraryCol
+
+    add MboxBtn to ToolsCol
+    add ResetJournalBtn to ToolsCol
+    add JournalListLabel to ToolsCol
+    add JournalList to ToolsCol
+    add spacer size 10 to ToolsCol
+    add AiLabel to ToolsCol
+    add BriefPreview to ToolsCol
+    add EditBriefBtn to ToolsCol
+    add DraftRow to ToolsCol
+    add spacer size 10 to ToolsCol
+    add BatchLabel to ToolsCol
+    add BatchList to ToolsCol
+    add BatchRow to ToolsCol
+    add RunBatchBtn to ToolsCol
+    add stretch to ToolsCol
+
     create Steps
-    set the style of Title to `font-size:16px;font-weight:600;`
-    set the color of Meta to `#666666`
     set columns of Steps to `["#","Mark","Time","Actor","Target","S","M","T","H","B","P","A","R","Expectation","Result"]`
     set selection of Steps to multiple
     set column widths of Steps to `[32,26,55,95,150,36,36,36,36,36,36,36,36,220,40]`
     set stretch column of Steps to 4
-    add Title to EditorCol
-    add Meta to EditorCol
-    add stretch Steps to EditorCol
-    add Editor to Work
+
+    add ColumnsBtn to ScenariosBar
+    add ValidateBtn to ScenariosBar
+    add RunBtn to ScenariosBar
+    add StopBtn to ScenariosBar
+    add stretch to ScenariosBar
+    add Steps to ScenariosTableCol
+
+    add SpeedLabel to ShowBar
+    add SpeedBox to ShowBar
+    add ColumnsBtnShow to ShowBar
+    add ShowBtn to ShowBar
+    add StepBtn to ShowBar
+    add StopBtnShow to ShowBar
+    add stretch to ShowBar
 
     create ColumnsWin title `Columns` at 500 200 size 380 420
     create ColumnsLayout type QVBoxLayout
@@ -532,6 +681,25 @@ Setup:
     add ColumnsApplyBtn to ColumnsLayout
     add ColumnsCloseBtn to ColumnsLayout
     set the layout of ColumnsWin to ColumnsLayout
+
+    create BrowseWin title `More scenarios` at 500 200 size 420 520
+    create BrowseLayout type QVBoxLayout
+    create BrowseHint text `Choose a year, then a scenario.` size 12
+    create BrowseYears
+    set the height of BrowseYears to 120
+    create BrowseScenariosLabel text `SCENARIOS` size 12
+    set the style of BrowseScenariosLabel to `font-size:9px;font-weight:700;color:#999999;`
+    create BrowseScenarios
+    create BrowseOpenBtn text `Open` size 10
+    create BrowseCloseBtn text `Close` size 10
+    disable BrowseOpenBtn
+    add BrowseHint to BrowseLayout
+    add BrowseYears to BrowseLayout
+    add BrowseScenariosLabel to BrowseLayout
+    add BrowseScenarios to BrowseLayout
+    add BrowseOpenBtn to BrowseLayout
+    add BrowseCloseBtn to BrowseLayout
+    set the layout of BrowseWin to BrowseLayout
     put 0 into FieldIndex
     while FieldIndex is less than the elements of ActionFields
     begin
@@ -548,47 +716,42 @@ Setup:
         add 1 to FieldIndex
     end
 
-    create InspectorPane
-    create InspectorCol type QVBoxLayout
-    set the layout of InspectorPane to InspectorCol
+    create StepPane
+    create StepLayout type QVBoxLayout
+    set the layout of StepPane to StepLayout
     create InspectorTitle text `STEP —` size 14
     create InspectorSub text `` size 20
-    create Inspector readonly cols 36 rows 20
-    create ToolsRow type QVBoxLayout
-    create DuplicateBtn text `Duplicate…` size 10
-    create DuplicateRoomBtn text `Duplicate for room…` size 10
-    create RenameBtn text `Rename…` size 10
-    create DeleteRowsBtn text `Delete rows` size 10
+    create Inspector readonly
+    create DuplicateBtn text `Duplicate…`
+    create DuplicateRoomBtn text `Duplicate for room…`
+    create RenameBtn text `Rename…`
+    create DeleteRowsBtn text `Delete rows`
     disable RenameBtn
     disable DeleteRowsBtn
     set the style of InspectorTitle to `font-size:12px;font-weight:600;`
     set the color of InspectorSub to `#666666`
-    add InspectorTitle to InspectorCol
-    add InspectorSub to InspectorCol
-    add DuplicateBtn to ToolsRow
-    add DuplicateRoomBtn to ToolsRow
-    add RenameBtn to ToolsRow
-    add DeleteRowsBtn to ToolsRow
-    add ToolsRow to InspectorCol
-    add stretch Inspector to InspectorCol
-    add InspectorPane to Work
-
-    set sizes of Work to `[230,900,180]`
+    add InspectorTitle to StepLayout
+    add InspectorSub to StepLayout
+    add stretch Inspector to StepLayout
+    add DuplicateBtn to LibraryCol
+    add DuplicateRoomBtn to LibraryCol
+    add RenameBtn to LibraryCol
+    add DeleteRowsBtn to LibraryCol
 
     create LogTabs
     create Log
     create WireLog
     create ConsoleLog
     create ArtifactsLog
-    add Log to LogTabs as `Steps`
+    add Log to LogTabs as `Log`
     add WireLog to LogTabs as `Wire`
     add ConsoleLog to LogTabs as `Console`
     add ArtifactsLog to LogTabs as `Artifacts`
+    add StepPane to LogTabs as `Step`
     set current tab of LogTabs to 0
-    add Work to Vert
-    add LogTabs to Vert
-    set sizes of Vert to `[590,190]`
-    add Vert to Root
+    set the height of LogTabs to 180
+    add LogTabs to ScenariosRightCol
+    add MainTabs to Root
 
     create StatusLabel text `Ready` size 80
     set the background color of StatusLabel to `#FDF0EA`
@@ -596,15 +759,52 @@ Setup:
     add StatusLabel to Root
     set the layout of Win to Root
 
+    set the tooltip of ValidateBtn to `Validate the scenario without launching the browser.`
+    set the tooltip of StopBtn to `Stop after the current step; a second click kills the runner.`
+    set the tooltip of StopBtnShow to `Stop after the current step; a second click kills the runner.`
+    set the tooltip of RunBtn to `Headless run as fast as possible; a marker only fast-forwards.`
+    set the tooltip of ShowBtn to `Paced run in the embedded viewer; a Mark marker starts at the breakpoint and pauses.`
+    set the tooltip of StepBtn to `Pause a running Show at the current step, or advance one step while paused (Space).`
+    set the tooltip of QuitBtn to `Close RBR Studio; any running child process is stopped.`
+    set the tooltip of RefreshBtn to `Rebuild the Local system map and starter scenario from map.json beside the Studio. Update that file first; this is not a live controller feed.`
+    set the tooltip of ColumnsBtn to `Choose which action columns the Steps table shows.`
+    set the tooltip of ColumnsBtnShow to `Choose which action columns the Steps table shows.`
+    set the tooltip of MboxBtn to `List journal bundles in the configured mailbox.`
+    set the tooltip of ResetJournalBtn to `Reset today's journal import for the selected system.`
+    set the tooltip of NewScenarioBtn to `Start a new scenario; asks for its group.`
+    set the tooltip of NewGroupBtn to `Create an empty scenario group.`
+    set the tooltip of AddBatchBtn to `Add the selected scenario to the batch.`
+    set the tooltip of RemoveBatchBtn to `Remove the selected entry from the batch.`
+    set the tooltip of RunBatchBtn to `Run every scenario in the batch in order.`
+    set the tooltip of JournalBtn to `Import a journal bundle, raw day or local journal root as a scenario.`
+    set the tooltip of EditBriefBtn to `Edit the brief used by Draft scenario.`
+    set the tooltip of DraftBtn to `Draft or revise the scenario with the configured provider.`
+    set the tooltip of CopyPathBtn to `Copy the generated prompt path; available after Draft scenario creates one.`
+    set the tooltip of RefreshScenariosBtn to `Reload the scenario list from the library index.`
+    set the tooltip of DeleteScenarioBtn to `Move the selected scenario and its brief to the trash.`
+    set the tooltip of DuplicateBtn to `Copy the selected scenario and its brief into the library.`
+    set the tooltip of DuplicateRoomBtn to `Copy the selected scenario keeping global steps and one room's steps.`
+    set the tooltip of RenameBtn to `Rename the selected library scenario.`
+    set the tooltip of DeleteRowsBtn to `Delete the selected steps from a library scenario.`
+    set the tooltip of MoreBtn to `Browse earlier scenarios by year.`
+    set the tooltip of BrowseOpenBtn to `Load the selected scenario.`
+    set the tooltip of BrowseCloseBtn to `Close the scenario browser.`
+    set the tooltip of ColumnsApplyBtn to `Apply the column selection.`
+    set the tooltip of ColumnsCloseBtn to `Close the column chooser.`
+    set the tooltip of SpeedBox to `Max runs as fast as the viewer allows; the other values are scenario seconds per real second.`
+
     on click RunBtn go to RunClicked
     on click ShowBtn go to ShowClicked
     on click StepBtn go to StepButtonClicked
     on click RefreshBtn go to RefreshClicked
     on click ColumnsBtn go to ColumnsClicked
+    on click ColumnsBtnShow go to ColumnsClicked
     on click ColumnsApplyBtn go to ColumnsApplyClicked
     on click ColumnsCloseBtn go to ColumnsCloseClicked
     on click ValidateBtn go to ValidateClicked
     on click StopBtn go to StopClicked
+    on click StopBtnShow go to StopClicked
+    on select MainTabs go to MainTabChanged
     on select GroupBox go to GroupChanged
     on select SystemBox go to SystemChanged
     on click MboxBtn go to MboxClicked
@@ -625,6 +825,11 @@ Setup:
     on click CopyPathBtn go to CopyPathClicked
     on click DraftBtn go to DraftClicked
     on click RefreshScenariosBtn go to RefreshScenariosClicked
+    on click MoreBtn go to MoreClicked
+    on select BrowseYears go to BrowseYearPicked
+    on select BrowseScenarios go to BrowseScenarioPicked
+    on click BrowseOpenBtn go to BrowseOpenClicked
+    on click BrowseCloseBtn go to BrowseCloseClicked
     on click DeleteScenarioBtn go to DeleteScenarioClicked
     on click JournalBtn go to JournalClicked
     on click DuplicateBtn go to DuplicateClicked
@@ -661,8 +866,12 @@ Setup:
     system `python3 scenario_library.py seed-examples --quiet`
     system `python3 journal_inbox.py --scan --quiet`
     gosub to LoadSystemSettings
+    set the aspect of ViewPane to ViewerAspect
     gosub to LoadGroups
     gosub to RestoreStudioSettings
+    put the current tab of MainTabs into TabIndex
+    if TabIndex is 1 put 0 into TableCondensed
+    else put 1 into TableCondensed
     gosub to ApplyColumns
     gosub to BuildScenarioList
     gosub to LoadScenario
@@ -671,6 +880,8 @@ Setup:
     set the shortcut of StepBtn to Space
     put 0 into Running
     put 0 into Paused
+    put 0 into PausePending
+    put 0 into Stopping
     put 1 into Stepping
     put 0 into Drafting
     put 0 into Deleting
@@ -694,8 +905,8 @@ Idle:
         gosub to TrimStepsLog
     end
     go to Idle
-!! @hash e3161117
-!! @verified e3161117
+!! @hash 43638a0b
+!! @verified 43638a0b
 !!!
 
 !! Keep the Steps log to its newest 2000 lines.
@@ -740,6 +951,10 @@ LoadStudioSettings:
     put empty into SavedSource
     put empty into SavedDay
     put empty into SavedRange
+    put empty into SavedTab
+    put empty into SavedScenariosSplit
+    put empty into SavedShowSplit
+    put 462 into ViewerAspect
     put `S,M,T,R` into ActionFields
     split ActionFields on `,`
     if file `fixtures/local/studio-settings.json` exists
@@ -755,6 +970,9 @@ LoadStudioSettings:
         if StudioSettings has entry `source` put entry `source` of StudioSettings into SavedSource
         if StudioSettings has entry `day` put entry `day` of StudioSettings into SavedDay
         if StudioSettings has entry `range` put entry `range` of StudioSettings into SavedRange
+        if StudioSettings has entry `tab` put entry `tab` of StudioSettings into SavedTab
+        if StudioSettings has entry `scenariosSplit` put entry `scenariosSplit` of StudioSettings into SavedScenariosSplit
+        if StudioSettings has entry `showSplit` put entry `showSplit` of StudioSettings into SavedShowSplit
         if StudioSettings has entry `columns`
         begin
             put entry `columns` of StudioSettings into ColumnText
@@ -766,8 +984,8 @@ LoadStudioSettings:
         end
     end
     return
-!! @hash f86bdb69
-!! @verified 7a028803
+!! @hash e4aafe10
+!! @verified e4aafe10
 !!!
 
 !! Load system names and mailbox paths from studio-config.json.
@@ -828,6 +1046,10 @@ LoadSystemSettings:
             add 1 to SystemI
         end
     end
+    if SystemConfig has entry `viewerAspect`
+    begin
+        put entry `viewerAspect` of SystemConfig into ViewerAspect
+    end
     if SystemBox is empty
     begin
         add `(no systems configured)` to SystemBox
@@ -841,8 +1063,8 @@ LoadSystemSettings:
     select FirstSystemName in SystemBox
     gosub to SystemChanged
     return
-!! @hash 8fe94682
-!! @verified 42f947ef
+!! @hash e9fb2142
+!! @verified e9fb2142
 !!!
 
 !! Resolve the selected system name to its MAC and configured mailbox.
@@ -870,9 +1092,10 @@ SystemChanged:
         enable MboxBtn
         set the text of StatusLabel to `System: ` cat SelectedSystemName
     end
+    gosub to BuildScenarioList
     return
-!! @hash 8aa9a150
-!! @verified 8aa9a150
+!! @hash af0550a5
+!! @verified af0550a5
 !!!
 
 !! Extract the selected system's mailbox and list its newest journals.
@@ -1018,18 +1241,55 @@ RestoreStudioSettings:
     end
     if ScenarioPath is empty
     begin
+        if LibData has entry `scenarios`
+        begin
+            put entry `scenarios` of LibData into FallbackList
+            put 0 into FallbackI
+            while FallbackI is less than the count of FallbackList
+            begin
+                put item FallbackI of FallbackList into FallbackEntry
+                if FallbackEntry has entry `path`
+                begin
+                    put `fixtures/local/scenarios/` cat entry `path` of FallbackEntry into FallbackPath
+                    if file FallbackPath exists
+                    begin
+                        if ScenarioPath is empty put FallbackPath into ScenarioPath
+                        if SavedGroup is not empty
+                        begin
+                            if SavedGroup is not `All`
+                            begin
+                                if entry `group` of FallbackEntry is SavedGroup put FallbackPath into ScenarioPath
+                            end
+                        end
+                    end
+                end
+                add 1 to FallbackI
+            end
+        end
+    end
+    if ScenarioPath is empty
+    begin
         put `fixtures/local/scenarios/examples/advance-at-15-00.json` into ScenarioPath
         if file ScenarioPath does not exist put `docs/examples/advance.json` into ScenarioPath
     end
     if SavedSource is not empty put SavedSource into JournalSource
     if SavedDay is not empty put SavedDay into JournalDay
     if SavedRange is not empty put SavedRange into JournalRange
+    if SavedScenariosSplit is not empty set sizes of ScenariosSplit to SavedScenariosSplit
+    if SavedShowSplit is not empty set sizes of ShowSplit to SavedShowSplit
+    if SavedTab is not empty
+    begin
+        add 0 to SavedTab
+        if SavedTab is less than 0 put 0 into SavedTab
+        if SavedTab is greater than 2 put 0 into SavedTab
+        set current tab of MainTabs to SavedTab
+    end
     return
-!! @hash cec83c0b
-!! @verified cec83c0b
+!! @hash edddcc5b
+!! @verified edddcc5b
 !!!
 
-!! Set the Action-field column widths from the saved selection.
+!! Set the table's columns and the Action-field widths from the saved selection.
 !!
 !! The table always carries all eight short column headers; unselected ones get width 0, so switching the selection does not rebuild the row model.
 ApplyColumns:
@@ -1045,6 +1305,8 @@ ApplyColumns:
     append 95 to ColumnWidths
     append `Target` to ColumnLabels
     append 150 to ColumnWidths
+    append `Event` to ColumnLabels
+    append 90 to ColumnWidths
     put 0 into FieldIndex
     while FieldIndex is less than the elements of ActionFields
     begin
@@ -1069,11 +1331,60 @@ ApplyColumns:
     append `Result` to ColumnLabels
     append 40 to ColumnWidths
     set columns of Steps to ColumnLabels
-    set column widths of Steps to ColumnWidths
+    gosub to SetTableWidths
     set stretch column of Steps to 4
     return
-!! @hash 56bec3b7
-!! @verified
+!! @hash 60f327fb
+!! @verified 60f327fb
+!!!
+
+!! Hide the Mark column when the Scenarios tab shows the table.
+!!
+!! The table keeps every column so its indexes and the Mark/Result handlers do
+!! not move; the condensed view is a zero width rather than a different column
+!! set. The Show tab restores the Mark width. This is called on a tab change and
+!! after the column chooser builds ColumnWidths.
+SetTableWidths:
+    reset TableWidths
+    put 0 into WidthIndex
+    while WidthIndex is less than the count of ColumnWidths
+    begin
+        put item WidthIndex of ColumnWidths into WidthValue
+        append WidthValue to TableWidths
+        add 1 to WidthIndex
+    end
+    set column widths of Steps to TableWidths
+    if TableCondensed is 1 hide column 1 of Steps
+    else show column 1 of Steps
+    return
+!! @hash 86ee6758
+!! @verified 86ee6758
+!!!
+
+!! Move the one Steps table to the tab that is showing.
+!!
+!! Scenarios needs the table for editing and its Mark column is a Show-only
+!! control; Show needs the full table beside the viewer. The table is moved
+!! rather than copied so there is one selection, one result path and one set of
+!! rows. The statistics placeholder leaves the table where it was.
+MainTabChanged:
+    put the current tab of MainTabs into TabIndex
+    if TabIndex is 1
+    begin
+        put 0 into TableCondensed
+        add Steps to ShowTableCol
+        add LogTabs to ShowLeftCol
+    end
+    else
+    begin
+        put 1 into TableCondensed
+        add Steps to ScenariosTableCol
+        add LogTabs to ScenariosRightCol
+    end
+    gosub to SetTableWidths
+    return
+!! @hash 90ea4b18
+!! @verified 90ea4b18
 !!!
 
 !! Open the Action-column chooser.
@@ -1081,7 +1392,7 @@ ColumnsClicked:
     show ColumnsWin
     return
 !! @hash 1103bd12
-!! @verified
+!! @verified 1103bd12
 !!!
 
 !! Apply the checked Action columns and persist the choice.
@@ -1120,7 +1431,7 @@ ColumnsApplyClicked:
     set the cursor of Win to arrow
     return
 !! @hash 4407afce
-!! @verified
+!! @verified 4407afce
 !!!
 
 !! Close the column chooser without changing the selection.
@@ -1128,7 +1439,7 @@ ColumnsCloseClicked:
     close ColumnsWin
     return
 !! @hash ea367698
-!! @verified
+!! @verified ea367698
 !!!
 
 !! Load the scenario file and seed the table from its steps.
@@ -1138,6 +1449,9 @@ ColumnsCloseClicked:
 !! ids for the runner's events and the actor token for the cell colour are kept
 !! in parallel lists — the table is read-only, the inspector is the editor.
 LoadScenario:
+    put empty into RunError
+    set the text of ErrorLabel to ``
+    set the tooltip of ErrorLabel to ``
     set the text of StatusLabel to `Working…`
     set the cursor of Win to wait
     load ScenarioText from ScenarioPath
@@ -1192,6 +1506,7 @@ LoadScenario:
         append AtShort to RowValues
         append ActorLabel to RowValues
         append Target to RowValues
+        append EventLabel to RowValues
         put 0 into FieldIndex
         while FieldIndex is less than the elements of ActionFields
         begin
@@ -1252,11 +1567,11 @@ LoadScenario:
     set the text of StatusLabel to `Loaded ` cat ScenarioPath
     set the cursor of Win to arrow
     return
-!! @hash b087a4db
-!! @verified b087a4db
+!! @hash 6be2dfa2
+!! @verified 6be2dfa2
 !!!
 
-!! Turn one step into the table's six display cells and the inspector line.
+!! Turn one step into the table's display cells and the inspector line.
 !!
 !! This mirrors the runner's own summary in Python, but only for the fields
 !! the examples use. Unknown shapes fall back to the actor and target, which is
@@ -1272,6 +1587,8 @@ DescribeStep:
     end
     if the length of At is greater than 18 put from 11 to 19 of At into AtShort
     put empty into Target
+    put empty into TargetValue
+    put empty into EventLabel
     put empty into Action
     put empty into Expectation
     put empty into Detail
@@ -1318,6 +1635,7 @@ DescribeStep:
                 if Fields has entry `mode` put entry `mode` of Fields into ModeValue
                 if Fields has entry `period` put entry `period` of Fields into PeriodValue
                 if Fields has entry `advance` put entry `advance` of Fields into AdvanceValue
+                if Fields has entry `target` put entry `target` of Fields into TargetValue
                 gosub to AppendFields
             end
         end
@@ -1337,6 +1655,16 @@ DescribeStep:
         if RelayValue is `on` set entry `R` of ActionValues to `●`
         else if RelayValue is `off` set entry `R` of ActionValues to `○`
         else set entry `R` of ActionValues to RelayValue
+        if AdvanceValue is `A` put `Advance` into EventLabel
+        else if AdvanceValue is `-` put `Cancel Advance` into EventLabel
+        else if ModeValue is not empty put `Mode` into EventLabel
+        else if PeriodValue is not empty put `Period` into EventLabel
+        else if RelayValue is not empty put `Relay` into EventLabel
+        else if TemperatureValue is not empty or HumidityValue is not empty or BatteryValue is not empty put `Sensor` into EventLabel
+        else if StatusValue is not empty put `Status` into EventLabel
+        else if TargetValue is not empty put `Target` into EventLabel
+        else if Controller has entry `raw` put `Raw payload` into EventLabel
+        else put `Update` into EventLabel
         put 1 into PushFlag
         if Controller has entry `push`
         begin
@@ -1358,7 +1686,7 @@ DescribeStep:
     else if Step has entry `ui`
     begin
         put `ui` into Actor
-        put `UI` into ActorLabel
+        put `PWA` into ActorLabel
         put entry `ui` of Step into UI
         put `—` into Expectation
         if UI has entry `tap` put entry `tap` of UI into Target
@@ -1376,6 +1704,53 @@ DescribeStep:
             put `fill ` cat entry `value` of Fields into Action
         end
         if UI has entry `scroll` put entry `scroll` of UI into Target
+        if UI has entry `tap` put `Tap` into EventLabel
+        if UI has entry `select` put `Select` into EventLabel
+        if UI has entry `fill` put `Fill` into EventLabel
+        if UI has entry `scroll` put `Scroll` into EventLabel
+    end
+    else if Step has entry `user`
+    begin
+        put `user` into Actor
+        put `PWA` into ActorLabel
+        put entry `user` of Step into UserAction
+        put entry `room` of UserAction into Target
+        put entry `label` of UserAction into Action
+        if Action is empty put entry `action` of UserAction into Action
+        if UserAction has entry `event` put entry `event` of UserAction into EventLabel
+        else if Action is `Advance on` put `Advance` into EventLabel
+        else if Action is `Advance` put `Advance` into EventLabel
+        else if Action is `Advance cancelled` put `Cancel Advance` into EventLabel
+        else if Action is `Schedule saved` put `Schedule` into EventLabel
+        else if Action is `Calendar saved` put `Calendar` into EventLabel
+        else if Action is `Boost` put `Boost` into EventLabel
+        else if Action is `Mode boost` put `Boost` into EventLabel
+        else if Action is `Mode off` put `Mode` into EventLabel
+        else if Action is `Mode on` put `Mode` into EventLabel
+        else if Action is `Mode timed` put `Mode` into EventLabel
+        else if Action is `Profiles updated` put `Update Profiles` into EventLabel
+        else if Action is `Profile selected` put `Calendar` into EventLabel
+        else if Action is `Room added` put `Add Room` into EventLabel
+        else if Action is `Rooms updated` put `Update Rooms` into EventLabel
+        else if Action is `One-off override` put `Room Override` into EventLabel
+        else if Action is `System renamed` put `System Name` into EventLabel
+        else if Action is `Request relay set` put `Request Relay` into EventLabel
+        else if Action is `Backup setting` put `Backup` into EventLabel
+        else if Action is `Backup started` put `Backup Now` into EventLabel
+        else if Action is `Journal exported` put `Journal Now` into EventLabel
+        else if Action is `Test request` put `Test` into EventLabel
+        else if UserAction has entry `action` put entry `action` of UserAction into EventLabel
+        else put Action into EventLabel
+        put empty into UserOrigin
+        if UserAction has entry `screen` put entry `screen` of UserAction into UserOrigin
+        if UserAction has entry `control`
+        begin
+            if UserOrigin is empty put entry `control` of UserAction into UserOrigin
+            else put UserOrigin cat `/` cat entry `control` of UserAction into UserOrigin
+        end
+        if UserOrigin is not empty put UserOrigin into Action
+        else put empty into Action
+        put `—` into Expectation
     end
     else if Step has entry `expect`
     begin
@@ -1384,6 +1759,7 @@ DescribeStep:
         put entry `expect` of Step into Expect
         put entry `target` of Expect into Target
         put `—` into Action
+        put `Check` into EventLabel
         put empty into Expectation
         if Expect has entry `contains` put `contains ` cat entry `contains` of Expect into Expectation
         if Expect has entry `text` put `text = ` cat entry `text` of Expect into Expectation
@@ -1400,6 +1776,7 @@ DescribeStep:
         put entry `expectWire` of Step into Wire
         put entry `request` of Wire into Target
         put `—` into Action
+        put `Expect wire` into EventLabel
         put empty into Expectation
         if Wire has entry `match` put `match` into Expectation
         if Expectation is empty put `any` into Expectation
@@ -1411,6 +1788,7 @@ DescribeStep:
         put entry `waitFor` of Step into Wire
         put entry `target` of Wire into Target
         put `—` into Action
+        put `Wait` into EventLabel
         put entry `state` of Wire into Expectation
     end
     else if Step has entry `delay`
@@ -1418,6 +1796,7 @@ DescribeStep:
         put `delay` into Actor
         put `Delay` into ActorLabel
         put `—` into Target
+        put `Delay` into EventLabel
         put `wait ` cat entry `delay` of Step cat ` s (Show)` into Action
         put `—` into Expectation
     end
@@ -1425,18 +1804,19 @@ DescribeStep:
     begin
         put `connection` into Actor
         put `Connection` into ActorLabel
+        put `Connection` into EventLabel
         put `—` into Action
         put `—` into Expectation
     end
     if RoomAliases has entry Target put entry Target of RoomAliases into Target
-    put Id cat `  ` cat At cat `  ` cat ActorLabel cat `  ` cat Target cat `  ` cat Action into Detail
+    put Id cat `  ` cat At cat `  ` cat ActorLabel cat `  ` cat Target cat `  ` cat EventLabel cat `  ` cat Action into Detail
     if Step has entry `note`
     begin
         if entry `note` of Step is not empty put Detail cat ` — ` cat entry `note` of Step into Detail
     end
     return
-!! @hash be68afb2
-!! @verified be68afb2
+!! @hash ef7abd1e
+!! @verified ef7abd1e
 !!!
 
 !! Append every field of the current controller set to the Action column.
@@ -1469,6 +1849,7 @@ PaintRow:
     if Actor is `controller` set cell colour Steps RowIndex 3 to `#2F75B5` `#E6EFF7`
     else if Actor is `ui` set cell colour Steps RowIndex 3 to `#D95A24` `#FDF0EA`
     else if Actor is `expect` set cell colour Steps RowIndex 3 to `#6B4FA1` `#F0ECF9`
+    else if Actor is `user` set cell colour Steps RowIndex 3 to `#B23A48` `#FBE9EC`
     else if Actor is `wire` set cell colour Steps RowIndex 3 to `#0F7B6C` `#E5F4F1`
     else if Actor is `delay` set cell colour Steps RowIndex 3 to `#8A6D3B` `#F7F1E3`
     else set cell colour Steps RowIndex 3 to `#666666` `#F0F1F3`
@@ -1482,7 +1863,7 @@ PaintRow:
     set cell alignment Steps RowIndex ResultCol to center
     put item RowIndex of StatusValues into StatusValue
     put item RowIndex of RelayValues into RelayValue
-    put 5 into FieldCol
+    put 6 into FieldCol
     put 0 into FieldIndex
     while FieldIndex is less than the elements of ActionFields
     begin
@@ -1531,6 +1912,7 @@ PaintRow:
     end
     put item RowIndex of StepDetails into Detail
     set cell tooltip Steps RowIndex 4 to Detail
+    set cell tooltip Steps RowIndex 5 to Detail
     return
 
 PaintRows:
@@ -1542,8 +1924,8 @@ PaintRows:
     end
     return
 
-!! @hash 70ffe891
-!! @verified 70ffe891
+!! @hash f2c9f8b2
+!! @verified f2c9f8b2
 !!!
 
 !! Load the group selector from the manifest; All/Local precede the library's own folders.
@@ -1570,7 +1952,7 @@ LoadGroups:
     end
     return
 !! @hash 8930e270
-!! @verified 9f165528
+!! @verified 8930e270
 !!!
 
 GroupChanged:
@@ -1586,7 +1968,7 @@ GroupChanged:
     set the text of StatusLabel to `Group ` cat CurrentGroup
     return
 !! @hash
-!! @verified 9f165528
+!! @verified 8930e270
 !!!
 
 NewScenarioClicked:
@@ -1646,7 +2028,7 @@ NewScenarioClicked:
     gosub to EditBriefClicked
     return
 !! @hash
-!! @verified 9f165528
+!! @verified 8930e270
 !!!
 
 !! Rebuild the scenario list: the local system, then the library, including the seeded Examples group.
@@ -1657,6 +2039,7 @@ BuildScenarioList:
     put json `{}` into LibraryPaths
     put json `{}` into LibraryNames
     put json `{}` into BriefPaths
+    put 0 into CurrentShown
     put CurrentGroup into GroupName
     if GroupName is empty put `All` into GroupName
     if GroupName is `All` or GroupName is `Local`
@@ -1665,12 +2048,51 @@ BuildScenarioList:
         begin
             add `Local system` to Scenarios
             set entry `Local system` of ExamplePaths to `fixtures/local/smoke.json`
+            if ScenarioPath is not empty
+            begin
+                if ScenarioPath is `fixtures/local/smoke.json` put 1 into CurrentShown
+            end
         end
     end
     gosub to LoadLibrary
+    if ScenarioPath is not empty
+    begin
+        if file ScenarioPath exists
+        begin
+            if CurrentShown is 0
+            begin
+                if position of `fixtures/local/scenarios/` in ScenarioPath is not -1
+                begin
+                put empty into CurrentName
+                put the keys of LibraryNames into CurrentKeys
+                put 0 into CurrentKeyI
+                while CurrentKeyI is less than the count of CurrentKeys
+                begin
+                    put item CurrentKeyI of CurrentKeys into CurrentKeyName
+                    if entry CurrentKeyName of LibraryNames is ScenarioPath
+                    begin
+                        if CurrentName is empty put CurrentKeyName into CurrentName
+                    end
+                    add 1 to CurrentKeyI
+                end
+                if CurrentName is empty
+                begin
+                    load CurrentText from ScenarioPath
+                    put json CurrentText into CurrentData
+                    if CurrentData has entry `name` put entry `name` of CurrentData into CurrentName
+                end
+                if CurrentName is empty put `Current scenario` into CurrentName
+                if ExamplePaths has entry CurrentName put CurrentName cat ` (current)` into CurrentName
+                add CurrentName to Scenarios
+                set entry CurrentName of ExamplePaths to ScenarioPath
+                set entry CurrentName of LibraryNames to ScenarioPath
+                end
+            end
+        end
+    end
     return
-!! @hash 3141ddff
-!! @verified f8fcc98c
+!! @hash d868eac7
+!! @verified d868eac7
 !!!
 
 !! Append the library manifest to the scenario list.
@@ -1695,20 +2117,273 @@ LoadLibrary:
                 if LibEntry has entry `brief` put `fixtures/local/scenarios/` cat entry `brief` of LibEntry into LibBrief
                 if ExamplePaths has entry LibName put LibName cat ` (local)` into LibName
                 set entry LibName of LibraryNames to LibFull
+                put 0 into LibVisible
                 if GroupName is `All` or LibGroup is GroupName
+                begin
+                    put 1 into LibVisible
+                    if LibGroup is `Journal`
+                    begin
+                        put 0 into LibRecent
+                        if LibEntry has entry `recent` put entry `recent` of LibEntry into LibRecent
+                        if not LibRecent put 0 into LibVisible
+                        put empty into LibSystem
+                        if LibEntry has entry `system` put entry `system` of LibEntry into LibSystem
+                        if SelectedSystemMac is not empty
+                        begin
+                            if LibSystem is not SelectedSystemMac put 0 into LibVisible
+                        end
+                    end
+                end
+                if LibVisible
                 begin
                     add LibName to Scenarios
                     set entry LibName of ExamplePaths to LibFull
                     set entry LibFull of LibraryPaths to 1
                     if LibBrief is not empty set entry LibFull of BriefPaths to LibBrief
+                    if ScenarioPath is not empty
+                    begin
+                        if LibFull is ScenarioPath put 1 into CurrentShown
+                    end
                 end
                 add 1 to LibI
             end
         end
     end
     return
-!! @hash ebf2916d
-!! @verified 1e17961b
+!! @hash b1911086
+!! @verified b1911086
+!!!
+
+!! Browse the whole library by year when the week list is not enough.
+!!
+!! The window respects the group selector and, for Journal entries, the selected
+!! system, but ignores the week filter: its purpose is the older days the main
+!! list hides. Opening a scenario loads it directly; the main list pins it as
+!! "Current scenario" if it is not one of the visible entries.
+MoreClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it before browsing.` to Log
+        return
+    end
+    if Drafting
+    begin
+        append `A draft is in progress; stop it before browsing.` to Log
+        return
+    end
+    if Deleting
+    begin
+        append `A delete is in progress; wait for it.` to Log
+        return
+    end
+    if Refreshing
+    begin
+        append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    put CurrentGroup into GroupName
+    if GroupName is empty put `All` into GroupName
+    gosub to BuildBrowse
+    show BrowseWin
+    return
+!! @hash 930156bc
+!! @verified 930156bc
+!!!
+
+!! Fill the browser's year list from the index, newest year first.
+BuildBrowse:
+    clear BrowseYears
+    clear BrowseScenarios
+    reset BrowseNames
+    reset BrowseBriefs
+    reset BrowseGroups
+    disable BrowseOpenBtn
+    put 0 into BrowseYearMax
+    put 9999 into BrowseYearMin
+    put `[]` into BrowseList
+    if file `fixtures/local/scenarios/index.json` exists
+    begin
+        load BrowseText from `fixtures/local/scenarios/index.json`
+        put json BrowseText into BrowseData
+        if BrowseData has entry `scenarios` put entry `scenarios` of BrowseData into BrowseList else put `[]` into BrowseList
+    end
+    put the count of BrowseList into BrowseCount
+    put 0 into BrowseI
+    while BrowseI is less than BrowseCount
+    begin
+        put item BrowseI of BrowseList into BrowseEntry
+        gosub to BrowseEntryIncluded
+        if BrowseInclude
+        begin
+            gosub to BrowseEntryDate
+            if BrowseDate is not empty
+            begin
+                put left 4 of BrowseDate into BrowseYearValue
+                add 0 to BrowseYearValue
+                if BrowseYearValue is greater than BrowseYearMax put BrowseYearValue into BrowseYearMax
+                if BrowseYearValue is less than BrowseYearMin put BrowseYearValue into BrowseYearMin
+            end
+        end
+        add 1 to BrowseI
+    end
+    if BrowseYearMax is less than BrowseYearMin
+    begin
+        add `No scenarios` to BrowseYears
+        set the text of StatusLabel to `No scenarios to browse in this group`
+        return
+    end
+    put BrowseYearMax into BrowseYearScan
+    add 1 to BrowseYearScan
+    while BrowseYearScan is greater than BrowseYearMin
+    begin
+        subtract 1 from BrowseYearScan
+        put 0 into BrowseI
+        put 0 into BrowseYearFound
+        while BrowseI is less than BrowseCount
+        begin
+            put item BrowseI of BrowseList into BrowseEntry
+            gosub to BrowseEntryIncluded
+            if BrowseInclude
+            begin
+                gosub to BrowseEntryDate
+                if BrowseDate is not empty
+                begin
+                    put left 4 of BrowseDate into BrowseYearValue
+                    add 0 to BrowseYearValue
+                    if BrowseYearValue is BrowseYearScan put 1 into BrowseYearFound
+                end
+            end
+            add 1 to BrowseI
+        end
+        if BrowseYearFound
+        begin
+            put BrowseYearScan cat empty into BrowseYearText
+            add BrowseYearText to BrowseYears
+        end
+    end
+    return
+!! @hash 178425e1
+!! @verified 178425e1
+!!!
+
+!! Does the current BrowseEntry pass the group and system filters?
+BrowseEntryIncluded:
+    put 1 into BrowseInclude
+    put entry `group` of BrowseEntry into BrowseGroup
+    if GroupName is not `All`
+    begin
+        if BrowseGroup is not GroupName put 0 into BrowseInclude
+    end
+    if BrowseGroup is `Journal`
+    begin
+        put empty into BrowseSystem
+        if BrowseEntry has entry `system` put entry `system` of BrowseEntry into BrowseSystem
+        if SelectedSystemMac is not empty
+        begin
+            if BrowseSystem is not SelectedSystemMac put 0 into BrowseInclude
+        end
+    end
+    return
+!! @hash b0de785d
+!! @verified b0de785d
+!!!
+
+!! The date of the current BrowseEntry, preferring the journal day.
+BrowseEntryDate:
+    put empty into BrowseDate
+    if BrowseEntry has entry `day` put entry `day` of BrowseEntry into BrowseDate
+    else if BrowseEntry has entry `created` put entry `created` of BrowseEntry into BrowseDate
+    return
+!! @hash 54c59c22
+!! @verified 54c59c22
+!!!
+
+!! List the scenarios in the chosen year.
+BrowseYearPicked:
+    put the current item in BrowseYears into BrowseYear
+    if BrowseYear is `No scenarios` return
+    clear BrowseScenarios
+    reset BrowseNames
+    reset BrowseBriefs
+    disable BrowseOpenBtn
+    put 0 into BrowseI
+    while BrowseI is less than BrowseCount
+    begin
+        put item BrowseI of BrowseList into BrowseEntry
+        gosub to BrowseEntryIncluded
+        if BrowseInclude
+        begin
+            gosub to BrowseEntryDate
+            if BrowseDate is not empty
+            begin
+                put left 4 of BrowseDate into BrowseYearValue
+                if BrowseYearValue is BrowseYear
+                begin
+                    put entry `name` of BrowseEntry into BrowseName
+                    put entry `group` of BrowseEntry into BrowseGroup
+                    if BrowseNames has entry BrowseName put BrowseName cat ` (` cat BrowseGroup cat `)` into BrowseName
+                    add BrowseName to BrowseScenarios
+                    put `fixtures/local/scenarios/` cat entry `path` of BrowseEntry into BrowsePath
+                    set entry BrowseName of BrowseNames to BrowsePath
+                    set entry BrowseName of BrowseGroups to BrowseGroup
+                    if BrowseEntry has entry `brief` set entry BrowseName of BrowseBriefs to `fixtures/local/scenarios/` cat entry `brief` of BrowseEntry
+                end
+            end
+        end
+        add 1 to BrowseI
+    end
+    if the count of BrowseScenarios is 0 add `No scenarios` to BrowseScenarios
+    return
+!! @hash 11aeab17
+!! @verified 11aeab17
+!!!
+
+!! Enable Open only when a real scenario is selected.
+BrowseScenarioPicked:
+    put the current item in BrowseScenarios into BrowseName
+    if BrowseName is empty return
+    if BrowseName is `No scenarios` disable BrowseOpenBtn
+    else enable BrowseOpenBtn
+    return
+!! @hash 1cbb340b
+!! @verified 1cbb340b
+!!!
+
+!! Load the browsed scenario into the Studio.
+BrowseOpenClicked:
+    if Running
+    begin
+        append `A run is in progress; stop it before opening a scenario.` to Log
+        return
+    end
+    put the current item in BrowseScenarios into BrowseName
+    if BrowseName is empty return
+    if BrowseName is `No scenarios` return
+    if BrowseNames does not have entry BrowseName return
+    put entry BrowseName of BrowseNames into ScenarioPath
+    put BrowseName into SelectedName
+    put 0 into SelectedIsLibrary
+    if position of `fixtures/local/scenarios/` in ScenarioPath is greater than -1 put 1 into SelectedIsLibrary
+    put empty into DraftGroup
+    put empty into PromptPath
+    disable CopyPathBtn
+    if BrowseBriefs has entry BrowseName set entry ScenarioPath of BriefPaths to entry BrowseName of BrowseBriefs
+    close BrowseWin
+    gosub to LoadScenario
+    gosub to SetDeleteButton
+    gosub to BuildScenarioList
+    set the text of StatusLabel to `Loaded ` cat ScenarioPath
+    return
+!! @hash 8cac3e1b
+!! @verified 8cac3e1b
+!!!
+
+!! Close the scenario browser without loading anything.
+BrowseCloseClicked:
+    close BrowseWin
+    return
+!! @hash 185583df
+!! @verified 185583df
 !!!
 
 !! Selecting a scenario loads its steps and replaces the table.
@@ -1750,7 +2425,7 @@ ScenarioPicked:
     end
     return
 !! @hash 9bfc8ab0
-!! @verified e240cd6c
+!! @verified 9bfc8ab0
 !!!
 
 !! Delete selected rows from a library scenario.
@@ -1829,7 +2504,7 @@ DeleteRowsClicked:
 !! @verified 1ff9bf8c
 !!!
 
-!! Selecting a step fills the inspector from the parallel detail list.
+!! Selecting a step fills the shared step details from the parallel detail list.
 StepSelected:
     put the selection of Steps into Selection
     if Running disable DeleteRowsBtn
@@ -1908,9 +2583,10 @@ StepClicked:
 !! process domain. The runner's default --repo is the checkout containing it.
 !!
 !! Run is headless and as fast as the page allows. Show uses the same start
-!! path with --headed, a paced clock, a short pause after each step and
-!! collapsed polls; the speed selector chooses scenario seconds per real
-!! second (120 turns the three-hour gap into 90 seconds).
+!! path with --view, a paced clock, a short pause after each step and
+!! collapsed polls; the speed selector chooses Max (no virtual-time waits,
+!! just the per-step pause that lets the viewer keep up) or scenario seconds
+!! per real second (300 turns the three-hour gap into about 36 seconds).
 RunClicked:
     put empty into Pace
     gosub to StartRun
@@ -1919,7 +2595,7 @@ RunClicked:
 !! @verified ef5c6419
 !!!
 
-!! Show: a headed, paced run with the speed selector, and Step at a breakpoint.
+!! Show: a streamed, paced run with the speed selector, and Step at a breakpoint.
 !!
 !! With a marker, Show asks the runner to fold the steps before it into the base map, start at the marker and pause after it. The Step button advances one step while paused; Show again sends continue and restores automatic advance.
 ShowClicked:
@@ -1938,8 +2614,9 @@ ShowClicked:
         return
     end
     put the current of SpeedBox into SpeedValue
-    if SpeedValue is empty put `120` into SpeedValue
-    put `--headed --collapse-polls --step-pause-ms 300 --end-pause-ms 5000 --speed ` cat SpeedValue into Pace
+    if SpeedValue is empty put `Max` into SpeedValue
+    if SpeedValue is `Max` put `0` into SpeedValue
+    put `--view --collapse-polls --step-pause-ms 300 --speed ` cat SpeedValue into Pace
     put Pace cat ` --fold-to-marker --pause-at-marker` into Pace
     gosub to StartRun
     return
@@ -1950,20 +2627,28 @@ StepButtonClicked:
         append `Start a Show to use Step.` to Log
         return
     end
-    if Stepping return
-    if not Paused
+    if Paused
     begin
-        append `Show is not paused at a breakpoint.` to Log
+        if Stepping return
+        put 1 into Stepping
+        put 0 into Paused
+        disable ShowBtn
+        set the text of StatusLabel to `Stepping…`
+        write `{"command":"step"}` to Runner
         return
     end
-    put 1 into Stepping
-    put 0 into Paused
-    disable ShowBtn
-    set the text of StatusLabel to `Stepping…`
+    if Pace is empty
+    begin
+        append `Step pauses a running Show; this is a headless run.` to Log
+        return
+    end
+    if PausePending return
+    put 1 into PausePending
+    set the text of StatusLabel to `Pausing…`
     write `{"command":"step"}` to Runner
     return
-!! @hash da1a55c2
-!! @verified da1a55c2
+!! @hash 5a624435
+!! @verified 5a624435
 !!!
 
 !! Shared start for Run and Show.
@@ -1996,7 +2681,12 @@ StartRun:
     if ScenarioPath is empty return
     if file `.venv/bin/python` exists
     begin
+        put empty into RunError
+        set the text of ErrorLabel to ``
+        set the tooltip of ErrorLabel to ``
         put 0 into Paused
+        put 0 into PausePending
+        put 0 into Stopping
         put 1 into Stepping
         clear Log
         clear WireLog
@@ -2011,6 +2701,8 @@ StartRun:
         begin
             append `Show ` cat ScenarioPath cat ` at ` cat SpeedValue cat `×` to Log
             set the text of StatusLabel to `Show ` cat ScenarioPath
+            put empty into ViewURL
+            clear ViewPane
         end
         disable RunBtn
         disable ValidateBtn
@@ -2020,6 +2712,7 @@ StartRun:
         disable DraftBtn
         disable DeleteScenarioBtn
         enable StopBtn
+        enable StopBtnShow
         put 1 into Running
         put `.venv/bin/python -m scenario_runner --scenario ` cat ScenarioPath cat ` --jsonl` into Command
         if Pace is not empty put Command cat ` ` cat Pace into Command
@@ -2031,8 +2724,8 @@ StartRun:
         set the text of StatusLabel to `Runner venv missing`
     end
     return
-!! @hash 76911d2c
-!! @verified 76911d2c
+!! @hash d4449b25
+!! @verified d4449b25
 !!!
 
 !! Validate without launching a browser.
@@ -2078,14 +2771,15 @@ ValidateClicked:
         disable DraftBtn
         disable DeleteScenarioBtn
         enable StopBtn
+        enable StopBtnShow
         put 1 into Running
         put `.venv/bin/python -m scenario_runner --scenario ` cat ScenarioPath cat ` --jsonl --validate-only` into Command
         start Runner command Command
     end
     else append `Runner venv missing.` to Log
     return
-!! @hash eeaf9a06
-!! @verified eeaf9a06
+!! @hash 78e5af72
+!! @verified 78e5af72
 !!!
 
 !! Refresh the local map: run snapshot-map.py, add the Local system scenario if
@@ -2135,14 +2829,14 @@ RefresherLine:
     append the line of Refresher to Log
     return
 !! @hash
-!! @verified 2b880350
+!! @verified a07ea4fe
 !!!
 
 RefresherError:
     append the stderr line of Refresher to Log with color `#B00020`
     return
 !! @hash
-!! @verified 2b880350
+!! @verified a07ea4fe
 !!!
 
 RefresherDone:
@@ -2174,7 +2868,7 @@ RefresherDone:
     else set the text of StatusLabel to `Map refresh failed`
     return
 !! @hash
-!! @verified 2b880350
+!! @verified a07ea4fe
 !!!
 
 !! Ask for a journal source, day and window, then import it into the library.
@@ -2231,6 +2925,7 @@ JournalClicked:
     end
     put `.venv/bin/python journal_ingest.py --source "` cat JournalSource cat `"` into Command
     if JournalDay is not empty put Command cat ` --day ` cat JournalDay into Command
+    if SelectedSystemMac is not empty put Command cat ` --system "` cat SelectedSystemMac cat `"` into Command
     if JournalFrom is not empty put Command cat ` --from ` cat JournalFrom into Command
     if JournalTo is not empty put Command cat ` --to ` cat JournalTo into Command
     if file `map.json` exists put Command cat ` --map map.json` into Command
@@ -2247,8 +2942,8 @@ JournalClicked:
     put empty into JournalPath
     start Journaler command Command
     return
-!! @hash ffc1964c
-!! @verified ffc1964c
+!! @hash b27f79b8
+!! @verified b27f79b8
 !!!
 !! Track the helper's output and remember the scenario path it reports.
 JournalerLine:
@@ -2358,6 +3053,7 @@ RefreshScenariosClicked:
         return
     end
     put ScenarioPath into KeepPath
+    if file `.venv/bin/python` exists system `.venv/bin/python scenario_library.py refresh`
     gosub to BuildScenarioList
     if KeepPath is not empty
     begin
@@ -2375,8 +3071,8 @@ RefreshScenariosClicked:
     gosub to SetDeleteButton
     set the text of StatusLabel to `Scenarios refreshed`
     return
-!! @hash 63fbb72e
-!! @verified a91e8520
+!! @hash e1d245d8
+!! @verified e1d245d8
 !!!
 
 !! Enable Delete only for a real local-library scenario.
@@ -2398,9 +3094,10 @@ SetDeleteButton:
         if LibraryPaths has entry ScenarioPath set DeleteAllowed
         else if PathPos is not less than 0 set DeleteAllowed
     end
+    if ScenarioPath is `fixtures/local/smoke.json` put 1 into DeleteAllowed
     if DeleteAllowed enable DeleteScenarioBtn
     return
-!! @hash 77ebcfca
+!! @hash 3c894338
 !!!
 !! Delete a library scenario after a confirmation popup; it moves to .trash.
 DeleteScenarioClicked:
@@ -2422,6 +3119,24 @@ DeleteScenarioClicked:
     if Refreshing
     begin
         append `The map is being refreshed; wait for it.` to Log
+        return
+    end
+    if ScenarioPath is `fixtures/local/smoke.json`
+    begin
+        put `Remove the generated Local system snapshot? Refresh map recreates it.` into RequestText
+        create DeleteConfirmDlg on Win type confirm title `Remove Local system` prompt RequestText
+        show DeleteConfirmDlg
+        put DeleteConfirmDlg into DeleteConfirmed
+        if DeleteConfirmed is false
+        begin
+            set the text of StatusLabel to `Delete cancelled`
+            return
+        end
+        system `.venv/bin/python snapshot-map.py --remove`
+        put empty into ScenarioPath
+        gosub to BuildScenarioList
+        disable DeleteScenarioBtn
+        set the text of StatusLabel to `Local system removed`
         return
     end
     if DeleteAllowed
@@ -2447,13 +3162,14 @@ DeleteScenarioClicked:
         disable DraftBtn
         disable DeleteScenarioBtn
         enable StopBtn
+        enable StopBtnShow
         put 1 into Deleting
         start Deleter command `.venv/bin/python scenario_library.py remove --path ` cat ScenarioPath
     end
     else append `Only scenarios in the local library can be deleted.` to Log
     return
-!! @hash 684ee048
-!! @verified 684ee048
+!! @hash ffbb35b0
+!! @verified ffbb35b0
 !!!
 
 !! Duplicate, narrow or rename the selected scenario through the library helper.
@@ -2563,8 +3279,8 @@ LibrarianDone:
             select KeepGroup in GroupBox
             put GroupBox into CurrentGroup
         end
-        gosub to BuildScenarioList
         if LibraryPath is not empty and file LibraryPath exists put LibraryPath into ScenarioPath
+        gosub to BuildScenarioList
         gosub to LoadScenario
         gosub to SetDeleteButton
         set the text of StatusLabel to LibraryAction cat ` complete`
@@ -2576,8 +3292,8 @@ LibrarianDone:
     end
     put empty into LibraryAction
     return
-!! @hash 89033cd3
-!! @verified 89033cd3
+!! @hash 92408cff
+!! @verified 92408cff
 !!!
 
 !! Draft with the configured provider. The helper reads the brief on stdin,
@@ -2622,6 +3338,7 @@ DraftClicked:
         disable DraftBtn
         disable CopyPathBtn
         enable StopBtn
+        enable StopBtnShow
         put 1 into Drafting
         put `.venv/bin/python ai-draft.py` into Command
         if ScenarioPath is not empty
@@ -2642,8 +3359,8 @@ DraftClicked:
     end
     else append `Runner venv missing: run the setup in tools/rbr-studio/README.md.` to Log
     return
-!! @hash 0f90f160
-!! @verified 0f90f160
+!! @hash 303f327b
+!! @verified 303f327b
 !!!
 
 !! Copy the path of the prompt written by the last Draft, using the
@@ -2686,6 +3403,7 @@ DrafterDone:
     enable RefreshScenariosBtn
     enable DraftBtn
     disable StopBtn
+    disable StopBtnShow
     put empty into LastStatus
     if file `fixtures/local/drafts/last.json` exists
     begin
@@ -2758,6 +3476,7 @@ DeleterDone:
     enable RefreshScenariosBtn
     enable DraftBtn
     disable StopBtn
+    disable StopBtnShow
     disable DeleteScenarioBtn
     if the exit code of Deleter is 0
     begin
@@ -2964,14 +3683,14 @@ BatcherLine:
     append the line of Batcher to Log
     return
 !! @hash
-!! @verified 2c9eb0c3
+!! @verified 679f78fd
 !!!
 
 BatcherError:
     append the stderr line of Batcher to Log with color `#B00020`
     return
 !! @hash
-!! @verified 2c9eb0c3
+!! @verified 679f78fd
 !!!
 
 BatcherDone:
@@ -2991,12 +3710,13 @@ BatcherDone:
     enable RunBatchBtn
     gosub to SetDeleteButton
     disable StopBtn
+    disable StopBtnShow
     if the exit code of Batcher is 0 set the text of StatusLabel to `Batch passed`
     else set the text of StatusLabel to `Batch failed`
     append `batch exit code ` cat the exit code of Batcher to Log
     return
 !! @hash
-!! @verified 2c9eb0c3
+!! @verified 679f78fd
 !!!
 
 !! Ask the child to end. The exit event still arrives.
@@ -3021,13 +3741,20 @@ StopClicked:
     end
     if Running
     begin
+        if Stopping
+        begin
+            set the text of StatusLabel to `Killing the run…`
+            stop Runner
+            return
+        end
+        put 1 into Stopping
         set the text of StatusLabel to `Stopping…`
-        stop Runner
+        write `{"command":"cancel"}` to Runner
     end
     else append `No run in progress.` to Log
     return
-!! @hash aac6b50d
-!! @verified aac6b50d
+!! @hash 98925c0d
+!! @verified 98925c0d
 !!!
 
 !! Stop any child before the window goes.
@@ -3042,7 +3769,7 @@ WinClosed:
     if Librarying stop Librarian
     return
 !! @hash ea0f2c50
-!! @verified 67e8e021
+!! @verified ea0f2c50
 !!!
 
 !! Save the geometry and the last-used Studio values while the window still exists.
@@ -3061,10 +3788,16 @@ SaveStudioSettings:
     set entry `range` of StudioSettings to JournalRange
     join ActionFields with `,` into ColumnText
     set entry `columns` of StudioSettings to ColumnText
+    put the current tab of MainTabs into TabIndex
+    set entry `tab` of StudioSettings to TabIndex
+    measure sizes of ScenariosSplit into SplitSizes
+    set entry `scenariosSplit` of StudioSettings to SplitSizes
+    measure sizes of ShowSplit into SplitSizes
+    set entry `showSplit` of StudioSettings to SplitSizes
     save StudioSettings to `fixtures/local/studio-settings.json`
     return
-!! @hash 42de85b5
-!! @verified b402cdeb
+!! @hash c4d74467
+!! @verified c4d74467
 !!!
 
 !! Close the Studio; the close handler writes the settings before the window goes.
@@ -3072,7 +3805,7 @@ QuitClicked:
     close Win
     return
 !! @hash e944b197
-!! @verified
+!! @verified e944b197
 !!!
 
 !! A stdout line from the runner: raw JSON to the wire log, parsed events to
@@ -3092,6 +3825,11 @@ RunnerLine:
         if RowIndex is not -1 set cell Steps RowIndex ResultCol to `…`
     end
     else if Kind is `step.finished` gosub to MarkStep
+    else if Kind is `view`
+    begin
+        put entry `url` of Event into ViewURL
+        set the source of ViewPane to ViewURL
+    end
     else if Kind is `log`
     begin
         put entry `source` of Event into Source
@@ -3107,14 +3845,15 @@ RunnerLine:
     else if Kind is `run.paused` gosub to PauseRun
     else if Kind is `run.finished` gosub to FinishRun
     return
-!! @hash ed92e6ab
-!! @verified ed92e6ab
+!! @hash ab865838
+!! @verified ab865838
 !!!
 
 !! Pause at a breakpoint: enable Step and Show, and mark the new row.
 PauseRun:
     put 1 into Paused
     put 0 into Stepping
+    put 0 into PausePending
     enable ShowBtn
     enable StepBtn
     if Event has entry `stepId`
@@ -3131,8 +3870,8 @@ PauseRun:
     end
     else set the text of StatusLabel to `Paused`
     return
-!! @hash cdb5da0b
-!! @verified cdb5da0b
+!! @hash 94fac4da
+!! @verified 94fac4da
 !!!
 
 !! stderr is a separate event, and is red in both logs.
@@ -3150,6 +3889,18 @@ RunnerError:
 RunnerDone:
     put the exit code of Runner into ExitCode
     append `runner exit code ` cat ExitCode to Log
+    if ExitCode is not 0
+    begin
+        if the text of ErrorLabel is empty
+        begin
+            if position of `cancelled` in the text of StatusLabel is -1
+            begin
+                put `Runner failed (exit ` cat ExitCode cat `)` into FailureText
+                set the text of ErrorLabel to FailureText
+                set the tooltip of ErrorLabel to FailureText
+            end
+        end
+    end
     enable RunBtn
     enable ValidateBtn
     enable ShowBtn
@@ -3158,13 +3909,16 @@ RunnerDone:
     enable DraftBtn
     gosub to SetDeleteButton
     disable StopBtn
+    disable StopBtnShow
     put 1 into Stepping
     put 0 into Paused
+    put 0 into PausePending
+    put 0 into Stopping
     put 0 into Running
     if the text of StatusLabel is `Stopping…` set the text of StatusLabel to `Stopped`
     return
-!! @hash 22dcb23e
-!! @verified 22dcb23e
+!! @hash 6f3c1bab
+!! @verified 6f3c1bab
 !!!
 
 !! Find the table row for StepId; RowIndex is -1 when it is absent.
@@ -3201,14 +3955,23 @@ MarkStep:
             append LineText to Log with color `#B00020`
             if Event has entry `failure`
             begin
-                put entry `failure` of Event into Fields
-                if Fields has entry `message` append entry `message` of Fields to Log with color `#B00020`
+                put entry `failure` of Event into FailureFields
+                if FailureFields has entry `message`
+                begin
+                    append entry `message` of FailureFields to Log with color `#B00020`
+                    if RunError is empty
+                    begin
+                        put entry `message` of FailureFields into RunError
+                        set the text of ErrorLabel to RunError
+                        set the tooltip of ErrorLabel to RunError
+                    end
+                end
             end
         end
     end
     return
-!! @hash 2cdb5a13
-!! @verified 75ff05e7
+!! @hash 28e8e7be
+!! @verified 28e8e7be
 !!!
 
 !! Finish a run: status line, buttons and the artefacts path.
@@ -3220,6 +3983,22 @@ FinishRun:
     else if RunStatus is `invalid` set the text of StatusLabel to `validation invalid`
     else set the text of StatusLabel to `run ` cat RunStatus cat ` · ` cat Passed cat ` passed · ` cat Failed cat ` failed`
     append `run ` cat RunStatus cat ` (` cat Passed cat ` passed, ` cat Failed cat ` failed)` to Log
+    put empty into FailureText
+    if Event has entry `failure`
+    begin
+        put entry `failure` of Event into FailureFields
+        if FailureFields has entry `message` put entry `message` of FailureFields into FailureText
+    end
+    if FailureText is empty put RunError into FailureText
+    if FailureText is empty
+    begin
+        if RunStatus is `failed` put `Run failed` into FailureText
+    end
+    if FailureText is not empty
+    begin
+        set the text of ErrorLabel to FailureText
+        set the tooltip of ErrorLabel to FailureText
+    end
     enable RunBtn
     enable ValidateBtn
     enable ShowBtn
@@ -3228,8 +4007,11 @@ FinishRun:
     enable DraftBtn
     gosub to SetDeleteButton
     disable StopBtn
+    disable StopBtnShow
     put 1 into Stepping
     put 0 into Paused
+    put 0 into PausePending
+    put 0 into Stopping
     put 0 into Running
     if Event has entry `artifacts`
     begin
@@ -3237,6 +4019,6 @@ FinishRun:
         if Artifacts has entry `dir` append `artefacts: ` cat entry `dir` of Artifacts to ArtifactsLog
     end
     return
-!! @hash 0eb04c23
-!! @verified 0eb04c23
+!! @hash 155263e8
+!! @verified 155263e8
 !!!

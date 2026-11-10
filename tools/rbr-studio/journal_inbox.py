@@ -332,7 +332,8 @@ def scan(inbox=None, journal_dir=None, drafts_dir=None, state_path=None,
             if result.returncode != 0:
                 detail = (result.stderr or result.stdout or "").strip().splitlines()
                 raise RuntimeError(detail[-1] if detail else f"exit {result.returncode}")
-            entry = scenario_library.add(draft, name=name, group=group)
+            entry = scenario_library.add(draft, name=name, group=group,
+                                         system=mac or system, day=day)
         except (Exception, SystemExit) as exc:  # noqa: BLE001 - keep the bundle, report it
             # Do not leave a half-imported folder behind: a corrected bundle
             # for the same day must be able to take the same target path.

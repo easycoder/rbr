@@ -12,9 +12,11 @@ AllSpeak graphics/process domains.
 
 import json
 import os
+import re
 import sys
 import tempfile
 import time
+from datetime import date
 from pathlib import Path
 
 STUDIO = Path(__file__).resolve().parents[1]
@@ -30,6 +32,14 @@ TEST_NAME_2 = "Shell brief two"
 TEST_BRIEF = "Brief for the shell check. Keep the summary title visible."
 TEST_SOURCE = library.LOCAL / "drafts" / "shell-brief.json"
 TEST_SOURCE_2 = library.LOCAL / "drafts" / "shell-brief-two.json"
+USER_NAME = "Shell user step"
+USER_SOURCE = library.LOCAL / "drafts" / "shell-user.json"
+TEST_MAC = "00:e0:27:5b:31:40"
+OTHER_MAC = "00:00:00:00:00:01"
+OLD_JOURNAL_NAME = "Shell old journal"
+RECENT_JOURNAL_NAME = "Shell recent journal"
+OTHER_JOURNAL_NAME = "Shell other system journal"
+DUP_ROOM_NAME = "Shell Sunroom copy"
 CONFIG = STUDIO / "ai-config.json"
 CONFIG_BACKUP = CONFIG.read_text(encoding="utf-8") if CONFIG.exists() else None
 CONFIG.write_text('{"provider": "prompt"}\n', encoding="utf-8")
@@ -38,6 +48,7 @@ SETTINGS_BACKUP = SETTINGS.read_text(encoding="utf-8") if SETTINGS.exists() else
 SETTINGS.write_text(json.dumps({
     "x": 55, "y": 66, "width": 1000, "height": 700,
     "group": "All",
+    "tab": 1,
     "scenario": "fixtures/local/scenarios/examples/advance-at-15-00.json",
     "source": "docs/examples", "day": "2026-11-06", "range": "14:00-19:00",
 }), encoding="utf-8")
@@ -47,18 +58,27 @@ TEST_CONFIG = library.LOCAL / "shell-check-config.json"
 TEST_CONFIG.parent.mkdir(parents=True, exist_ok=True)
 TEST_CONFIG.write_text(json.dumps({
     "systems": {"00:e0:27:5b:31:40": "Home"},
+    "viewerAspect": 0.5,
     "mailboxes": {"00:e0:27:5b:31:40": str(STUDIO / "fixtures" / "local" / "shell-check.mbox")},
 }), encoding="utf-8")
 CONFIG_POINTER = library.LOCAL / "studio-config-path"
 CONFIG_POINTER_BACKUP = CONFIG_POINTER.read_text(encoding="utf-8") if CONFIG_POINTER.exists() else None
 CONFIG_POINTER.write_text(str(TEST_CONFIG), encoding="utf-8")
 
+ADVANCE_ENTRY = None
+
 
 def prepare_library():
+    global ADVANCE_ENTRY
     index = library.load_index()
     for item in list(index["scenarios"]):
-        if item.get("group") == TEST_GROUP:
+        if item.get("group") == TEST_GROUP or item.get("name") in (
+                OLD_JOURNAL_NAME, RECENT_JOURNAL_NAME, OTHER_JOURNAL_NAME, DUP_ROOM_NAME):
             library.remove(library.SCENARIOS / item["path"])
+    advance = library.SCENARIOS / "examples" / "advance-at-15-00.json"
+    if not advance.exists():
+        ADVANCE_ENTRY = library.add(library.EXAMPLES / "advance.json",
+                                    name="Advance at 15:00", group="Examples")
     TEST_SOURCE.parent.mkdir(parents=True, exist_ok=True)
     TEST_SOURCE.write_text(json.dumps({
         "schemaVersion": 1,
@@ -78,17 +98,56 @@ def prepare_library():
     data = json.loads(TEST_SOURCE.read_text(encoding="utf-8"))
     data["name"] = TEST_NAME_2
     TEST_SOURCE_2.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-    return (library.add(TEST_SOURCE, name=TEST_NAME, group=TEST_GROUP, brief=TEST_BRIEF),
-            library.add(TEST_SOURCE_2, name=TEST_NAME_2, group=TEST_GROUP, brief=TEST_BRIEF))
+    USER_SOURCE.write_text(json.dumps({
+        "schemaVersion": 1,
+        "name": USER_NAME,
+        "description": "A recorded UI request followed by a controller effect.",
+        "clock": {"start": "2026-11-05T08:00:00Z", "timeZone": "Europe/London"},
+        "home": {"map": "../home.json", "profile": "Weekday"},
+        "steps": [
+            {"id": "u1", "at": "2026-11-05T08:00:30+00:00",
+             "user": {"action": "Operating Mode", "event": "Advance",
+                      "label": "Advance on", "room": "Kitchen", "screen": "home",
+                      "control": "advance", "gesture": "tap", "advance": "A", "seq": 1},
+             "note": "seq 1: UI request — Advance on (home/advance/tap)"},
+            {"id": "s2", "at": "2026-11-05T08:01:00+00:00",
+             "expect": {"target": "summary.title", "visible": True}},
+        ],
+    }, indent=2) + "\n", encoding="utf-8")
+    entries = [library.add(TEST_SOURCE, name=TEST_NAME, group=TEST_GROUP, brief=TEST_BRIEF),
+               library.add(TEST_SOURCE_2, name=TEST_NAME_2, group=TEST_GROUP, brief=TEST_BRIEF)]
+    library.add(USER_SOURCE, name=USER_NAME, group=TEST_GROUP)
+    today = date.today().isoformat()
+    entries.append(library.add(TEST_SOURCE, name=OLD_JOURNAL_NAME, group="Journal",
+                               system=TEST_MAC, day="2020-01-01"))
+    entries.append(library.add(TEST_SOURCE, name=RECENT_JOURNAL_NAME, group="Journal",
+                               system=TEST_MAC, day=today))
+    entries.append(library.add(TEST_SOURCE, name=OTHER_JOURNAL_NAME, group="Journal",
+                               system=OTHER_MAC, day=today))
+    return entries
 
 
 def cleanup_library():
-    for entry in (TEST_ENTRY, TEST_ENTRY_2) + tuple(EXTRA_ENTRIES):
+    global ADVANCE_ENTRY
+    for entry in (TEST_ENTRY, TEST_ENTRY_2) + tuple(JOURNAL_ENTRIES) + tuple(EXTRA_ENTRIES):
         try:
             if entry:
                 library.remove(library.SCENARIOS / entry["path"])
         except (SystemExit, FileNotFoundError):
             pass
+    try:
+        index = library.load_index()
+        for item in list(index["scenarios"]):
+            if item.get("group") == TEST_GROUP or item.get("name") == DUP_ROOM_NAME:
+                library.remove(library.SCENARIOS / item["path"])
+    except (SystemExit, FileNotFoundError):
+        pass
+    if ADVANCE_ENTRY:
+        try:
+            library.remove(library.SCENARIOS / ADVANCE_ENTRY["path"])
+        except (SystemExit, FileNotFoundError):
+            pass
+        ADVANCE_ENTRY = None
     try:
         index = library.load_index()
         index["groups"] = [group for group in index.get("groups", []) if group != TEST_GROUP]
@@ -97,6 +156,7 @@ def cleanup_library():
         pass
     TEST_SOURCE.unlink(missing_ok=True)
     TEST_SOURCE_2.unlink(missing_ok=True)
+    USER_SOURCE.unlink(missing_ok=True)
     if CONFIG_BACKUP is None:
         CONFIG.unlink(missing_ok=True)
     else:
@@ -123,7 +183,7 @@ def cleanup_library():
             pass
 
 
-TEST_ENTRY, TEST_ENTRY_2 = prepare_library()
+TEST_ENTRY, TEST_ENTRY_2, *JOURNAL_ENTRIES = prepare_library()
 EXTRA_ENTRIES = []
 
 from PySide6.QtCore import QTimer  # noqa: E402
@@ -282,17 +342,26 @@ def click_run():
               "the mbox button is enabled when a mailbox is configured")
         check(widget(program, "ResetJournalBtn").isEnabled(),
               "the reset button is enabled when a system is selected")
-        check(widget(program, "ShowBtn").text() == "Show",
-              "the paced playback button is labelled Show")
+        check(widget(program, "ShowBtn").text() == "▶ Run",
+              "the Show tab's paced run button is labelled Run")
         check(widget(program, "StepBtn").text() == "Step" and
               widget(program, "StepBtn").isEnabled(),
               "the Step button stays enabled so Space is always consumed")
         check(widget(program, "ShowBtn").toolTip() ==
-              "Headed, paced playback; a Mark marker starts at the breakpoint and pauses.",
-              "Show explains the breakpoint in its tooltip")
+              "Paced run in the embedded viewer; a Mark marker starts at the breakpoint and pauses.",
+              "the paced run explains the breakpoint in its tooltip")
         check(widget(program, "StepBtn").toolTip() ==
-              "Advance one step while Show is paused at a breakpoint (Space).",
-              "Step explains manual advance and Space in its tooltip")
+              "Pause a running Show at the current step, or advance one step while paused (Space).",
+              "Step explains pausing and manual advance in its tooltip")
+        check(widget(program, "RefreshBtn").toolTip().startswith(
+                  "Rebuild the Local system map"),
+              "Refresh map explains that it rebuilds the local snapshot")
+        source = (STUDIO / "studio.allspeak").read_text(encoding="utf-8")
+        buttons = re.findall(r"^pushbutton (\w+)$", source, re.MULTILINE)
+        check(len(buttons) >= 20, f"the source declares the Studio buttons ({len(buttons)})")
+        for name in buttons:
+            check(bool(widget(program, name).toolTip()),
+                  f"{name} has a tooltip")
         shortcuts = widget(program, "StepBtn").findChildren(QShortcut)
         check(any(shortcut.key().toString() == "Space" for shortcut in shortcuts),
               "Space is bound to the Step button")
@@ -302,6 +371,43 @@ def click_run():
               "Step without a Show leaves the window open")
         check("Start a Show to use Step" in widget(program, "Log").toPlainText(),
               "Step explains that a Show is needed")
+        for name in ("DuplicateBtn", "DuplicateRoomBtn", "RenameBtn", "DeleteRowsBtn"):
+            check(widget(program, name).width() > 100,
+                  f"{name} sits in the Scenarios left panel")
+        tabs = widget(program, "MainTabs")
+        check(tabs.count() == 3, "the main panel has Scenarios, Show and Statistics tabs")
+        check([tabs.tabText(i) for i in range(tabs.count())] == ["Scenarios", "Show", "Statistics"],
+              "the main tabs are named")
+        check(tabs.currentIndex() == 1, "the Studio opens on the saved Show tab")
+        check(not widget(program, "Steps").isColumnHidden(1),
+              "the first Show visit shows the Mark column")
+        tabs.setCurrentIndex(0)
+        app.processEvents()
+        check(widget(program, "Steps").isVisible(), "the table is visible on Scenarios")
+        check(widget(program, "Steps").isColumnHidden(1),
+              "the Scenarios tab hides the Mark column")
+        tabs.setCurrentIndex(1)
+        app.processEvents()
+        check(not widget(program, "Steps").isColumnHidden(1),
+              "the Show tab shows the Mark column")
+        check(widget(program, "ViewPane").isVisible(), "the Show tab shows the view pane")
+        for _ in range(5):
+            app.processEvents()
+            time.sleep(0.05)
+        pane = widget(program, "ViewPane")
+        log = widget(program, "LogTabs")
+        check(pane.height() >= widget(program, "Steps").height() + log.height() - 12,
+              "the viewer fills the Show tab, including the space beside the log")
+        check(abs(pane.width() - int(pane.height() * 0.5)) <= 4,
+              f"the viewer follows viewerAspect ({pane.width()}x{pane.height()})")
+        check(abs(log.width() - widget(program, "Steps").width()) <= 30,
+              "the log panel sits under the table, not under the viewer")
+        check(widget(program, "LogTabs").isVisible(),
+              "the log panel stays visible on either tab")
+        tabs.setCurrentIndex(0)
+        app.processEvents()
+        check(widget(program, "Steps").isColumnHidden(1),
+              "returning to Scenarios hides the Mark column again")
         check(widget(program, "AddBatchBtn").text() == "+" and
               widget(program, "RemoveBatchBtn").text() == "-",
               "the batch add/remove buttons are condensed")
@@ -341,9 +447,10 @@ def click_run():
             scenarios.itemClicked.emit(scenarios.item(advance))
             app.processEvents()
         check(steps.rowCount() == 13, "selecting Advance restores 13 rows")
-        check(steps.horizontalHeaderItem(5).text() == "S" and
-              steps.horizontalHeaderItem(7).text() == "T",
-              "the default action columns are S, M, T and R")
+        check(steps.horizontalHeaderItem(5).text() == "Event" and
+              steps.horizontalHeaderItem(6).text() == "S" and
+              steps.horizontalHeaderItem(8).text() == "T",
+              "the Event column precedes the default action columns")
 
         groups = widget(program, "GroupBox")
         group_names = [groups.itemText(i) for i in range(groups.count())]
@@ -355,8 +462,69 @@ def click_run():
         check(widget(program, "StatusLabel").text() == "Group " + TEST_GROUP,
               "selecting a group filters the scenario list")
         office_names = [scenarios.item(i).text() for i in range(scenarios.count())]
-        check("Advance at 15:00" not in office_names, "examples are hidden in a library group")
+        check("Delay demo" not in office_names and "Kitchen temperature" not in office_names,
+              "other examples are hidden in a library group")
+        check("Advance at 15:00" in office_names,
+              "the current example is pinned under its name")
         check(TEST_NAME in office_names, "the library scenario is listed")
+        journal_index = next((i for i in range(groups.count())
+                              if groups.itemText(i) == "Journal"), -1)
+        check(journal_index >= 0, "the Journal group is in the selector")
+        groups.setCurrentIndex(journal_index)
+        app.processEvents()
+        journal_names = [scenarios.item(i).text() for i in range(scenarios.count())]
+        check(OLD_JOURNAL_NAME not in journal_names,
+              "the week filter hides an old journal")
+        check(RECENT_JOURNAL_NAME in journal_names,
+              "the week filter keeps a recent journal")
+        check(OTHER_JOURNAL_NAME not in journal_names,
+              "the system filter hides another system's journal")
+        widget(program, "MoreBtn").click()
+        app.processEvents()
+        years = widget(program, "BrowseYears")
+        year_texts = [years.item(i).text() for i in range(years.count())]
+        check("2020" in year_texts, "More lists an older year")
+        year_row = year_texts.index("2020")
+        years.setCurrentRow(year_row)
+        years.itemClicked.emit(years.item(year_row))
+        app.processEvents()
+        browsed = widget(program, "BrowseScenarios")
+        brow_names = [browsed.item(i).text() for i in range(browsed.count())]
+        check(OLD_JOURNAL_NAME in brow_names, "More lists the old journal")
+        brow_row = brow_names.index(OLD_JOURNAL_NAME)
+        browsed.setCurrentRow(brow_row)
+        browsed.itemClicked.emit(browsed.item(brow_row))
+        app.processEvents()
+        check(widget(program, "BrowseOpenBtn").isEnabled(),
+              "Open is enabled by a selected scenario")
+        widget(program, "BrowseOpenBtn").click()
+        app.processEvents()
+        check(value(program, "ScenarioPath").endswith(JOURNAL_ENTRIES[0]["path"]),
+              "opening a browsed scenario sets its path")
+        check(steps.rowCount() == 3, "opening a browsed scenario loads its steps")
+        check(not widget(program, "BrowseWin").isVisible(),
+              "opening a browsed scenario closes the browser")
+        check(OLD_JOURNAL_NAME in [scenarios.item(i).text()
+                                   for i in range(scenarios.count())],
+              "the browsed old journal is pinned under its name")
+        QTimer.singleShot(300, lambda: fill_duplicate("Sunroom"))
+        QTimer.singleShot(600, lambda: fill_duplicate(DUP_ROOM_NAME))
+        widget(program, "DuplicateRoomBtn").click()
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            app.processEvents()
+            time.sleep(0.05)
+            if widget(program, "StatusLabel").text() == "Duplicate for room complete":
+                break
+        check(widget(program, "StatusLabel").text() == "Duplicate for room complete",
+              "duplicating an old journal for a room completes")
+        dup_names = [scenarios.item(i).text() for i in range(scenarios.count())]
+        check(DUP_ROOM_NAME in dup_names,
+              "the room copy of an old journal is listed immediately")
+        check("Current scenario" not in dup_names,
+              "the room copy is listed under its own name")
+        groups.setCurrentIndex(office)
+        app.processEvents()
         office_row = next(i for i in range(scenarios.count())
                           if scenarios.item(i).text() == TEST_NAME)
         scenarios.setCurrentRow(office_row)
@@ -517,6 +685,34 @@ def click_run():
             scenarios.itemClicked.emit(scenarios.item(advance))
             app.processEvents()
         check(steps.rowCount() == 13, "returning to All restores Advance")
+        user_row = next((i for i in range(scenarios.count())
+                         if scenarios.item(i).text() == USER_NAME), -1)
+        check(user_row >= 0, "the user-step scenario is listed")
+        if user_row >= 0:
+            scenarios.setCurrentRow(user_row)
+            scenarios.itemClicked.emit(scenarios.item(user_row))
+            app.processEvents()
+            check(steps.rowCount() == 2, "the user scenario seeds two rows")
+            check(steps.item(0, 3).text() == "PWA",
+                  "the user step is acted by the PWA")
+            check(steps.item(0, 4).text() == "Kitchen",
+                  "the user step names its room")
+            check(steps.item(0, 5).text() == "Advance",
+                  "the user step's event is Advance")
+            check("UI request — Advance on" in steps.item(0, 4).toolTip(),
+                  "the user step's detail records the request")
+            advance = next((i for i in range(scenarios.count())
+                            if scenarios.item(i).text() == "Advance at 15:00"), -1)
+            if advance >= 0:
+                scenarios.setCurrentRow(advance)
+                scenarios.itemClicked.emit(scenarios.item(advance))
+                app.processEvents()
+            check(steps.rowCount() == 13, "returning to Advance after the user-step check")
+        all_names = [scenarios.item(i).text() for i in range(scenarios.count())]
+        check(OLD_JOURNAL_NAME not in all_names,
+              "the week filter applies in All")
+        check(RECENT_JOURNAL_NAME in all_names,
+              "a recent journal is listed in All")
         widget(program, "AddBatchBtn").click()
         app.processEvents()
         batch = widget(program, "BatchList")
@@ -561,7 +757,9 @@ def inspect():
     print(f"  ..    status={status!r}")
     check("run passed" in status or "validation valid" in status,
           f"the run reports success ({status!r})")
-    results = [steps.item(row, 10).text() for row in range(steps.rowCount())]
+    check(widget(program, "ErrorLabel").text() == "",
+          "a passing run leaves the title row clear")
+    results = [steps.item(row, 11).text() for row in range(steps.rowCount())]
     check(all(mark == "✓" for mark in results),
           f"all 13 result cells are ticks ({results})")
     check("run passed" in log, "the readable log carries the run summary")
@@ -591,6 +789,10 @@ if state.get("prompt_path"):
 saved = json.loads(SETTINGS.read_text(encoding="utf-8")) if SETTINGS.exists() else {}
 check(saved.get("x") is not None and saved.get("width") is not None,
       "closing the Studio writes window geometry")
+check(saved.get("tab") == 0, "closing the Studio keeps the active tab")
+split = saved.get("scenariosSplit")
+check(isinstance(split, list) and len(split) == 2,
+      "closing the Studio keeps the splitter sizes")
 check(saved.get("group") == "All", "closing the Studio keeps the selected group")
 check(saved.get("scenario") == "fixtures/local/scenarios/examples/advance-at-15-00.json",
       "closing the Studio keeps the selected scenario")

@@ -1,0 +1,21 @@
+[Unit]
+Description=Copy RBR journal bundles from incoming email into yearly folders
+Documentation=file:///home/graham/dev/rbr/rbr-bundle-copy.py
+
+[Service]
+Type=simple
+# Runs as the user that owns the mail folder and the archive. Adjust this, the
+# ExecStart path and the paths in the config named by --config to match the
+# machine. The service schedules itself from run_at, so there is no timer.
+User=graham
+Group=graham
+WorkingDirectory=/home/graham/dev/rbr
+ExecStart=/usr/bin/python3 /home/graham/dev/rbr/rbr-bundle-copy.py --config /home/graham/dev/rbr/rbr-bundle-copy.conf
+Restart=on-failure
+RestartSec=5min
+SyslogIdentifier=rbr-bundle-copy
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

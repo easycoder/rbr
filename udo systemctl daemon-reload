@@ -1,0 +1,12 @@
+Nov 09 21:44:53 graham-minibookx systemd[1]: Stopping rbr-bundle-copy.service - Copy RBR journal bundles from incoming email into yearly folders...
+Nov 09 21:44:53 graham-minibookx systemd[1]: rbr-bundle-copy.service: Deactivated successfully.
+Nov 09 21:44:53 graham-minibookx systemd[1]: Stopped rbr-bundle-copy.service - Copy RBR journal bundles from incoming email into yearly folders.
+Nov 09 21:44:53 graham-minibookx systemd[1]: Started rbr-bundle-copy.service - Copy RBR journal bundles from incoming email into yearly folders.
+Nov 09 21:44:53 graham-minibookx rbr-bundle-copy[957600]: 2026-11-09T21:44:53 rbr-bundle-copy: watching /home/graham/.thunderbird/rbof2nva.default-release-1/ImapMail/imap.dreamhost.com/INBOX.sbd/RBR.sbd/Bundles.sbd/QED6; copying to /home/graham/RBR-journal/<YYYY>; daily at 05:00
+Nov 09 21:44:53 graham-minibookx rbr-bundle-copy[957600]: 2026-11-09T21:44:53 rbr-bundle-copy: started after today's run time; running a catch-up pass
+Nov 09 21:44:53 graham-minibookx rbr-bundle-copy[957600]: 2026-11-09T21:44:53 rbr-bundle-copy: reading mbox /home/graham/.thunderbird/rbof2nva.default-release-1/ImapMail/imap.dreamhost.com/INBOX.sbd/RBR.sbd/Bundles.sbd/QED6
+Nov 09 21:44:53 graham-minibookx rbr-bundle-copy[957600]: 2026-11-09T21:44:53 rbr-bundle-copy: already present 2026/QED6-20-2026-11-07-165442.tar.gz
+Nov 09 21:44:53 graham-minibookx rbr-bundle-copy[957600]: 2026-11-09T21:44:53 rbr-bundle-copy: already present 2026/QED6-20-2026-11-07.tar.gz
+Nov 09 21:44:53 graham-minibookx rbr-bundle-copy[957600]: 2026-11-09T21:44:53 rbr-bundle-copy: already present 2026/QED6-20-2026-11-08.tar.gz
+Nov 09 21:44:53 graham-minibookx rbr-bundle-copy[957600]: 2026-11-09T21:44:53 rbr-bundle-copy: 3 message(s), 0 copied, 3 already present, 0 not a journal bundle
+Nov 09 21:44:53 graham-minibookx rbr-bundle-copy[957600]: 2026-11-09T21:44:53 rbr-bundle-copy: next run 2026-11-10 05:00

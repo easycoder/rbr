@@ -109,6 +109,108 @@ def _map_profile_index(base_map: dict, profile) -> int | None:
     return None
 
 
+def _user_label(action: str, source: dict, payload: dict) -> str:
+    """A short human label for a UI request, from its action and source."""
+    control = source.get("control") or ""
+    screen = source.get("screen") or ""
+    if action == "Operating Mode":
+        if control == "advance":
+            value = payload.get("advance")
+            if value == "A":
+                return "Advance on"
+            if value == "-":
+                return "Advance cancelled"
+            return "Advance"
+        if control == "boost" or str(payload.get("Mode") or payload.get("mode") or "").lower() == "boost":
+            return "Boost"
+        if control == "target" or payload.get("target") is not None:
+            return "Target"
+        mode = payload.get("Mode") or payload.get("mode")
+        if mode:
+            return f"Mode {mode}"
+        return "Operating mode"
+    if action == "Update Profiles":
+        if screen == "schedule":
+            return "Schedule saved"
+        if screen in ("profiles", "profile", "calendar"):
+            return "Calendar saved"
+        return "Profiles updated"
+    labels = {
+        "Add Room": "Room added",
+        "Update Rooms": "Rooms updated",
+        "Select Profile": "Profile selected",
+        "Room Override": "One-off override",
+        "System Name": "System renamed",
+        "Request Relay": "Request relay set",
+        "Backup": "Backup setting",
+        "Backup Now": "Backup started",
+        "Journal Now": "Journal exported",
+        "Test": "Test request",
+    }
+    return labels.get(action, action or "UI request")
+
+
+def _user_event(action: str, source: dict, payload: dict) -> str:
+    """The request type a UI action carries, for the Event column."""
+    control = (source.get("control") or "").lower()
+    screen = (source.get("screen") or "").lower()
+    mode = payload.get("Mode") or payload.get("mode") or ""
+    if action == "Operating Mode":
+        if control == "advance":
+            return "Cancel Advance" if payload.get("advance") == "-" else "Advance"
+        if control == "boost" or str(mode).lower() == "boost":
+            return "Boost"
+        if control == "target" or payload.get("target") is not None:
+            return "Target"
+        return "Mode"
+    if action == "Update Profiles":
+        if screen == "schedule":
+            return "Schedule"
+        if screen in ("profiles", "profile", "calendar"):
+            return "Calendar"
+        return "Update Profiles"
+    if action == "Select Profile":
+        return "Calendar"
+    return action or "UI request"
+
+
+def _schedule_change(profiles, previous, room):
+    """Summarise the room's schedule changes between two profile lists."""
+    if not profiles or not previous or not room:
+        return ""
+    before = {profile.get("name"): profile for profile in previous if isinstance(profile, dict)}
+    changes = []
+    for profile in profiles:
+        if not isinstance(profile, dict):
+            continue
+        name = profile.get("name") or "profile"
+        old_profile = before.get(name)
+        if not old_profile:
+            continue
+        old_room = (old_profile.get("rooms") or {}).get(room) or {}
+        new_room = (profile.get("rooms") or {}).get(room) or {}
+        old_periods = old_room.get("periods") or []
+        new_periods = new_room.get("periods") or []
+        old_by = {(period.get("on"), period.get("off")): period
+                  for period in old_periods if isinstance(period, dict)}
+        new_by = {(period.get("on"), period.get("off")): period
+                  for period in new_periods if isinstance(period, dict)}
+        for key, new in new_by.items():
+            old = old_by.get(key)
+            label = f"{name} {key[0]}–{key[1]}"
+            if old is None:
+                changes.append(f"{label}: added at {new.get('temp')} °C")
+                continue
+            if old.get("temp") != new.get("temp"):
+                changes.append(f"{label}: {old.get('temp')} → {new.get('temp')} °C")
+            if old.get("enabled", True) != new.get("enabled", True):
+                changes.append(f"{label}: {'enabled' if new.get('enabled', True) else 'disabled'}")
+        for key in old_by:
+            if key not in new_by:
+                changes.append(f"{name} {key[0]}–{key[1]}: removed")
+    return "; ".join(changes) if changes else "no change"
+
+
 def _base_map(args, events: list[dict], start: _datetime.datetime, bundle) -> tuple[dict, dict]:
     """Return (map, session event) using the latest map snapshot at or before start."""
     session = next((event for event in events if event.get("type") == "session.start"), {})
@@ -175,6 +277,7 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
 
     base, session = _base_map(args, events, start, bundle)
     base = copy.deepcopy(base)
+    schedule_profiles = copy.deepcopy(base.get("profiles", []))
     profile = args.profile or (session.get("data") or {}).get("profile")
     profile_index = _map_profile_index(base, profile)
     if profile is None and isinstance(base.get("profile"), int):
@@ -213,6 +316,37 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
         if note:
             step["note"] = note
         steps.append(step)
+
+    def add_user(room, at, action, source, payload, seq, label=None):
+        source = source or {}
+        payload = payload or {}
+        if not label:
+            label = _user_label(action, source, payload)
+        event = _user_event(action, source, payload)
+        user = {"action": action, "event": event, "label": label}
+        if room:
+            user["room"] = room
+        for key in ("screen", "control", "gesture"):
+            value = source.get(key)
+            if value:
+                user[key] = value
+        for key, field in (("advance", "advance"), ("mode", "Mode"),
+                           ("target", "Target"), ("profile", "Profile"),
+                           ("kind", "kind"), ("time", "time")):
+            value = payload.get(field)
+            if value is not None:
+                user[key] = value
+        if seq is not None:
+            user["seq"] = seq
+        note = f"seq {seq or '?'}: UI request — {event}"
+        if label and label != event:
+            note += f" ({label})"
+        origin = "/".join(str(source.get(key)) for key in ("screen", "control", "gesture")
+                          if source.get(key))
+        if origin:
+            note += f" ({origin})"
+        steps.append({"id": _step_id(len(steps) + 1), "at": _iso(at),
+                      "user": user, "note": note})
 
     # Seed the state that existed before the window. The base map may be a
     # session or plan snapshot from before the first event; these rows make the
@@ -308,6 +442,20 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
             last_state[room] = data
         elif kind == "ui.request":
             request_count += 1
+            payload = data.get("payload") or {}
+            source = data.get("source") or payload.get("Source") or {}
+            action = payload.get("Action") or data.get("action") or "UI request"
+            request_room = data.get("room") or source.get("room") or payload.get("Room")
+            request_label = None
+            if action == "Update Profiles":
+                change = _schedule_change(payload.get("profiles"), schedule_profiles, request_room)
+                if change:
+                    prefix = "Schedule saved" if (source.get("screen") or "") == "schedule" else "Calendar saved"
+                    request_label = f"{prefix} — {change}"
+                if payload.get("profiles"):
+                    schedule_profiles = copy.deepcopy(payload["profiles"])
+            add_user(request_room, stamp, action, source, payload, event.get("seq"),
+                     label=request_label)
         elif kind == "plan.snapshot" and stamp > start:
             snapshot_after_start = True
         elif kind == "profile.change":
@@ -317,7 +465,7 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
     if snapshot_after_start:
         warnings.append("a plan snapshot after the window start was not replayed; structural edits need a base map at that point")
     if request_count:
-        warnings.append(f"{request_count} UI request(s) were recorded but not replayed as UI actions; their controller effects are included")
+        warnings.append(f"{request_count} UI request(s) are shown as user steps but not replayed as taps; their controller effects are included")
     if profile_changed:
         warnings.append("a profile change was not replayed as an active-profile change; narrow the window or add a profile step")
     if window_events == 0:

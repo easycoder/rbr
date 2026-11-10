@@ -36,60 +36,33 @@ The package deliberately carries no `fixtures/local`, real `map.json`, `ai-confi
 
 ## The shell
 
-`studio.allspeak` is the AllSpeak/PySide6 shell, built from the graphics
-domain's own `table`, `logpane`, `panes` and `tabs`. It loads the example
-scenarios; Run starts `scenario_runner` through the `process` domain, updates
-the Result column from `step.finished`, and streams the JSONL into the Steps,
-Wire, Console and Artifacts tabs. The Steps tab keeps its newest 2000 lines;
-the trim runs from the shell's idle loop once a second, so a long run does
-not grow the log without bound. A trim rewrites the text and therefore loses
-the per-line colours of the lines it keeps. Validate uses `--validate-only`;
-Stop terminates the child.
+`studio.allspeak` is the AllSpeak/PySide6 shell. The main area is a tab set: **Scenarios** holds the library list, the scenario table and its editing tools; **Show** holds the same table beside the embedded viewer; **Statistics** is a placeholder. A shared header carries the system selector, **Refresh map**, the clock and **Quit**, and the scenario title (with any run error) sits above the tabs. The bottom log panel (Log, Wire, Console, Artifacts and the selected step's details) sits under the table in each working tab, not under the viewer.
+
+It loads the library scenarios; **Run** starts `scenario_runner` headless through the `process` domain, updates the Result column from `step.finished`, and streams JSONL into the shared log tabs. The Steps tab keeps its newest 2000 lines; the trim runs from the shell's idle loop once a second, so a long run does not grow the log without bound. A trim rewrites the text and therefore loses the per-line colours of the lines it keeps. **Validate** uses `--validate-only`; **Stop** asks the run to cancel after the current step (a second click kills the runner), so Playwright's Node driver and the browser close cleanly.
 
 ```bash
 cd tools/rbr-studio
 allspeak studio.allspeak
 ```
 
-This uses the system `allspeak`/`pyside6`, not the runner venv; the Run and
-Validate buttons use the venv created above. Run it from this directory so the
-app's example paths and `.venv/bin/python` resolve.
+This uses the system `allspeak`/`pyside6`, not the runner venv; Run and Validate use the venv created above. Run it from this directory so the app's example paths and `.venv/bin/python` resolve. `studio.allspeak` loads `studio_ui.py`, the plugin that provides the view pane, the column hide/show helpers and the splitter-size reader.
 
-**Show** runs the selected scenario headed — the PWA window opens — with a five-second pause at the end before the browser closes, the
-virtual clock paced at the speed selector (1×, 60×, 120× or 300× scenario
-seconds per real second), a 300 ms pause after each step, and repeated refresh
-polls collapsed to `refresh ×50` / `refresh polls: N` summaries in Console. The
-full console remains in the run's `console.log`.
+**Show** runs the selected scenario headless and streams the page into the Show tab's viewer at the speed selector (**Max**, 300×, 60× or 1×; Max runs as fast as the viewer allows, paced by the 300 ms per-step pause; the others are scenario seconds per real second), with a 300 ms pause after each step and repeated refresh polls collapsed to `refresh ×50` / `refresh polls: N` in Console. The runner opens a CDP screencast and serves the newest JPEG at a local `/__studio/frame.jpg`; the pane keeps the last frame after the run. The viewer fills the Show tab's height beside the table and log; its width follows that height at `viewerAspect` (width ÷ height, default 0.462; `0.5` gives 18:9; a decimal or a per-mille integer such as `500`) from `studio-config.json`; the log panel is under the table only, so nothing sits under the viewer. The full console remains in the run's `console.log`.
 
-A **Mark** marker is a breakpoint. Before starting, Show folds every controller
-step before the marker into the base map in Python, sets the clock to the
-marker and starts there; the page therefore begins with every room already
-initialised, without replaying the day through the browser. Pre-marker UI
-actions and expectations are skipped; only controller events are folded. Show pauses after
-the marker. **Step** jumps the virtual clock to the next step instantly,
-executes it, selects its row and scrolls it into view; the Inspector follows the
-selection. **Space** is bound to the same Step action, so a paused Show can be
-advanced from the keyboard. The Step button stays enabled so the shortcut
-always consumes Space; a repeat while a step is in flight is ignored, and a
-press outside a paused Show says so in the log instead of reaching another
-control. **Show** again sends continue and restores automatic stepping at the
-selected speed. A scenario without a marker runs as before. Run stays headless
-and as fast as possible. The Show, Step and Run buttons carry tooltips, as does
-the Mark cell of every row.
+A **Mark** marker is a breakpoint. Before starting, Show folds every controller step before the marker into the base map in Python, sets the clock to the marker and starts there; the page therefore begins with every room already initialised, without replaying the day through the browser. Pre-marker UI actions, user requests and expectations are skipped; only controller events are folded. Show pauses after the marker. **Step** pauses a running Show at the current step and waits for **Step** (advance one) or **Run** (continue). While paused, each Step press jumps the virtual clock to the next step instantly, executes it, selects its row and scrolls it into view; the shared step-details tab follows the selection. **Space** is bound to the same Step action, so a running Show can be paused and a paused one advanced from the keyboard. The Step button stays enabled so the shortcut always consumes Space; a repeat while a pause is pending or a step is in flight is ignored, and a press on a headless Run says so in the log instead of reaching another control. **Run** in the Show tab again sends continue and restores automatic stepping at the selected speed. A scenario without a marker runs as before. Run stays headless and as fast as possible. The Show, Step and Run buttons carry tooltips, as does the Mark cell of every row; a failed run puts its message beside the scenario title.
 
-Headless check (starts the shell, switches scenario, runs Advance, inspects the
-table and logs):
+Headless checks (start the shell, run Advance, inspect the table and logs; the plugin and the runner frame stream separately):
 
 ```bash
 QT_QPA_PLATFORM=offscreen python3 tests/studio-shell-check.py
 python3 tests/journal_check.py
 python3 tests/package_check.py
 .venv/bin/python tests/show_check.py
+.venv/bin/python tests/view_check.py
+QT_QPA_PLATFORM=offscreen python3 tests/view_pane_check.py
 ```
 
-`tests/show_check.py` drives the runner's fold/breakpoint/step protocol with a
-stub page driver, so it needs the runner venv (for the `playwright` import) but
-no browser.
+`tests/show_check.py` and `tests/view_check.py` need the runner venv (for the `playwright` import); `show_check` uses a stub page driver and no browser, while `view_check` starts Chromium to prove the frame endpoint. `tests/view_pane_check.py` loads the plugin under AllSpeak and needs no browser.
 
 ## Real system maps
 
@@ -121,21 +94,23 @@ after rooms or schedules change. The copy is disk-shaped, so the script adds
 adds in its reply; the page reads the result like any other controller map.
 The public `docs/examples` fixtures remain synthetic.
 
+**When to click Refresh map.** Only after replacing `map.json` beside the Studio with a newer copy from the controller. It reads that file, rebuilds `fixtures/local/home.json` and the **Local system** starter (`fixtures/local/smoke.json`), and reloads Local system if it is selected. It does not fetch from the controller or broker, and it does not change a journal or library scenario's own `home.map`; re-import or regenerate those instead. If the map is somewhere else, run `python3 snapshot-map.py --source /path/to/map.json` directly.
+
 ## Scenario library, groups and batches
 
 Scenarios live under `fixtures/local/scenarios/<group>/` and each may have a sibling `<stem>.brief.md`. `index.json` drives the shell. Selecting a scenario loads its brief into the sidebar editor, so **Draft scenario** edits the existing scenario with that brief as context. **New scenario** asks for the destination group (defaulting to the current library group, or `Unsorted` from All/Local), clears the table and brief, and opens the editor; **Delete scenario** opens a confirmation popup; accepting moves the scenario and its brief into `fixtures/local/.trash/`.
 
-The right-hand Inspector has **Duplicate…**, **Duplicate for room…** and **Rename…** tools. Duplicate asks for a name and copies the scenario and its brief into the library; **Duplicate for room…** asks for a room and then a name, and the copy keeps only global steps (summary, sheet, profile and wire actions, raw pushes, connections and delays) plus the nominated room's steps. The outdoor sensor is kept as global context because it shows in the summary rather than a room card. Use it to turn a day-long journal scenario into a focused copy for one room; the description and brief record how many steps were dropped. Rename updates a library scenario's display name. Public examples are never renamed in place; duplicate one first.
+The Scenarios tab's left panel has **Duplicate…**, **Duplicate for room…**, **Rename…** and **Delete rows** tools. Duplicate asks for a name and copies the scenario and its brief into the library; the copy is treated as a new working scenario, so it appears in the list immediately under its name and stays in the Journal week list even when the source day is older. **Duplicate for room…** asks for a room and then a name, and the copy keeps only global steps (summary, sheet, profile and wire actions, raw pushes, connections and delays) plus the nominated room's steps and the outdoor temperature readings. Other `Outside` status, relay and mode events are dropped. The marked step is always kept, so the breakpoint survives even when it sits on an `Outside` event. Use it to turn a day-long journal scenario into a focused copy for one room; the description and brief record how many steps were dropped. Rename updates a library scenario's display name. Public examples are never renamed in place; duplicate one first.
 
-The table uses AllSpeak's native multi-selection (`set selection of Steps to multiple`). Use Ctrl/Shift-click or drag to select one or more rows; **Delete rows** asks for confirmation and removes the selected steps from a library scenario. Cell editing and row insertion will use the same Tools row. The **Mark** column is clickable: it sets the scenario's single fast-forward marker on that step, or clears it when clicked again. The marker is stored as `marker: true` and is only writable on library scenarios; duplicate a public example first.
+The table uses AllSpeak's native multi-selection (`set selection of Steps to multiple`). Use Ctrl/Shift-click or drag to select one or more rows; **Delete rows** asks for confirmation and removes the selected steps from a library scenario. Cell editing and row insertion will use the same Tools row. The **Mark** column is clickable in the Show tab: it sets the scenario's single fast-forward marker on that step, or clears it when clicked again. The marker is stored as `marker: true` and is only writable on library scenarios; duplicate a public example first.
 
-The wordy Action column has been replaced by short selectable fields: **S** status, **M** mode, **T** temperature, **H** humidity, **B** battery, **P** period, **A** advance and **R** relay. **Columns…** opens a checkbox window; the default is **S, M, T, R**. The choice is saved in `fixtures/local/studio-settings.json` and restored at startup. Status is a coloured dot, relay is a filled/open circle, and the numeric fields are plain values; the full names appear in the chooser and on the cells' tooltips. Mode uses **T** timed, **A** advance, **B** boost, **O** on and **X** off; all Action columns are centre-aligned. The table and Inspector are in a movable splitter, so the Inspector can be narrowed when its space is not needed.
+The table carries an **Event** column after **Target** — `PWA` / `Sunroom` / `Advance`, `Controller` / `Sunroom` / `Relay`, `Controller` / `Sunroom` / `Sensor` — so Actor, Target and Event read as a story. The wordy Action column has been replaced by short selectable fields: **S** status, **M** mode, **T** temperature, **H** humidity, **B** battery, **P** period, **A** advance and **R** relay. **Columns…** opens a checkbox window; the default is **S, M, T, R**. The Event column is always present; the Action fields can be hidden. The choice is saved in `fixtures/local/studio-settings.json` and restored at startup. Status is a coloured dot, relay is a filled/open circle, and the numeric fields are plain values; the full names appear in the chooser and on the cells' tooltips. Mode uses **T** timed, **A** advance, **B** boost, **O** on and **X** off; all Action columns are centre-aligned. The table is one widget moved between the Scenarios and Show tabs: Scenarios shows it with the Mark column hidden, Show shows every column. One row model, one selection and one result path serve both. The selected step's details are the **Step** tab in the shared bottom panel.
 
-The Studio remembers its window position and size, last selected group and scenario, and the last local journal source, journal day and time range. It writes them to `fixtures/local/studio-settings.json` when the window closes, including through the **Quit** button in the toolbar; a missing or stale setting falls back safely.
+The Studio remembers its window position and size, the active tab and splitter sizes, the last selected group and scenario, and the last local journal source, journal day and time range. It writes them to `fixtures/local/studio-settings.json` when the window closes, including through the **Quit** button in the toolbar; a missing or stale setting falls back safely.
 
-The three public examples are seeded into the **Examples** group as ordinary library scenarios on first start (`scenario_library.py seed-examples`, run by the shell). They are deletable copies; the public files remain in `docs/examples` for the README and tests. The seed marker is `fixtures/local/.examples-seeded`, so deleting an example does not bring it back on the next start; remove the marker or run `seed-examples --force` to restore it. **Local system** is still a generated snapshot and remains read-only.
+The three public examples are seeded into the **Examples** group as ordinary library scenarios on first start (`scenario_library.py seed-examples`, run by the shell). They are deletable copies; the public files remain in `docs/examples` for the README and tests. The seed marker is `fixtures/local/.examples-seeded`, so deleting an example does not bring it back on the next start; remove the marker or run `seed-examples --force` to restore it. **Local system** is a generated snapshot; **Delete** removes it, and **Refresh map** recreates it.
 
-The **Group** selector filters the library to one folder; **New group** creates another. The examples and the Local system snapshot are available under **All**, **Examples** and **Local**. A new draft goes into the selected library group, or `Unsorted` from All.
+The **Group** selector filters the library to one folder; **New group** creates another. The examples and the Local system snapshot are available under **All**, **Examples** and **Local**. The Journal group shows the last seven days for the selected system; **Examples**, **Local** and the loaded scenario are pinned under their own names, and **More…** opens a year browser for older scenarios. A new draft goes into the selected library group, or `Unsorted` from All.
 
 The **BATCH** panel is a working list: select a scenario and press **+ Batch**, remove an entry with **- Batch**, then **Run batch**. It runs each scenario in order through `batch_runner.py`, writes a record under `fixtures/local/batches/`, and appends each scenario's normal output to the log. The batch list is deliberately simple: a saved, named batch library comes later.
 
@@ -153,7 +128,7 @@ python3 journal_to_scenario.py --bundle fixtures/local/journal/qed6-2026-11-06  
 
 For a local source, `journal_import.py --heatlog-root DIR` copies the day's heating CSVs into `reports/heatlog/` as well; when the source directory is named `events`, its parent is used automatically.
 
-A bundle contains `manifest.json`, `events/YYYY/MM/YYYY-MM-DD.jsonl`, the `maps/` snapshots the day references, and — when heat logging is enabled — the day's `reports/heatlog/<room>/YYYY/MM/DD.csv` files. It is the transport-neutral unit; the same bundle can come from a local copy, a downloaded archive, an email attachment or the RBR cloud. The heating CSVs give a future statistics view the same day's outcomes without a second transfer; `journal_to_scenario.py` ignores them. `journal_to_scenario.py` uses the latest map snapshot at or before the window start, seeds the state that existed before the window, drops unchanged sensor readings and duplicate room states, and writes controller steps plus visible expectations. It does not replay UI requests as taps: the controller saw the request, not the gesture. The controller effects are included.
+A bundle contains `manifest.json`, `events/YYYY/MM/YYYY-MM-DD.jsonl`, the `maps/` snapshots the day references, and — when heat logging is enabled — the day's `reports/heatlog/<room>/YYYY/MM/DD.csv` files. It is the transport-neutral unit; the same bundle can come from a local copy, a downloaded archive, an email attachment or the RBR cloud. The heating CSVs give a future statistics view the same day's outcomes without a second transfer; `journal_to_scenario.py` ignores them. `journal_to_scenario.py` uses the latest map snapshot at or before the window start, seeds the state that existed before the window, drops unchanged sensor readings and duplicate room states, and writes controller steps, visible expectations and a **user step** for every recorded UI request. A user step names the request event in the Event column — *Advance*, *Cancel Advance*, *Boost*, *Calendar*, *Schedule*, *System Name*, and the other controller request types — carries a human label (*Advance on*, *Schedule saved*, …), names the room and the page control, and is executed as a no-op — the controller saw the request, not the gesture; the controller effects follow as ordinary controller steps. A schedule save's label names the changed period and temperature, e.g. *Weekend 17:00–19:00: 22.5 → 22.0 °C*.
 
 The Studio's **Import journal…** button runs `journal_ingest.py`, which chains those two tools and adds the result to the **Journal** group. The source prompt accepts a bundle, a raw `.jsonl`, or a local journal root; the day and window are optional when the source already names them. Everything reads local files, so the Studio needs no network access to the controller.
 
@@ -188,6 +163,7 @@ The sidebar starts with a **System** selector, filled from the `systems` map in 
 ```json
 {
   "journalInbox": "~/RBR-journal",
+  "viewerAspect": 0.462,
   "systems": {
     "00:e0:27:5b:31:40": "Home"
   },

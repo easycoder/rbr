@@ -40,6 +40,7 @@ mkdir -p "$PACKAGE" "$OUT_DIR"
 
 FILES=(
     studio.allspeak
+    studio_ui.py
     ai-draft.py
     batch_runner.py
     configure-studio.py

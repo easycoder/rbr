@@ -38,11 +38,12 @@ class StubPage:
 class StubDriver:
     instances = []
 
-    def __init__(self, prepared, repo, headless, on_console=None, speed=0):
+    def __init__(self, prepared, repo, headless, on_console=None, speed=0, view=False):
         self.prepared = prepared
         self.page = StubPage()
         self.page_errors = []
         self.console_lines = []
+        self.view_url = None
         self.browser = object()
         self.maps = []
         self.raws = []
@@ -95,6 +96,38 @@ class StubDriver:
 
     def scroll(self, target, delta, timeout):
         return None
+
+
+class CancelAfterStepCommands:
+    """A cancel that arrives after the first step; the run should stop there."""
+
+    def __init__(self):
+        self.polls = 0
+
+    def poll(self):
+        self.polls += 1
+        if self.polls == 2:
+            return {"command": "cancel"}
+        return None
+
+    def next(self):
+        return {"command": "eof"}
+
+
+class StepOnceCommands:
+    """A Step click during the run, then Run once the pause lands."""
+
+    def __init__(self):
+        self.polls = 0
+
+    def poll(self):
+        self.polls += 1
+        if self.polls == 1:
+            return {"command": "step"}
+        return None
+
+    def next(self):
+        return {"command": "continue"}
 
 
 class FakeCommands:
@@ -165,6 +198,13 @@ def make_scenario():
     }
 
 
+class FailingDriver(StubDriver):
+    """A driver whose expectation always fails, for the failure report."""
+
+    def assert_expect(self, expect, timeout):
+        raise AssertionError("summary.title is not visible")
+
+
 class ShowCheck(unittest.TestCase):
     def setUp(self):
         StubDriver.instances.clear()
@@ -233,6 +273,87 @@ class ShowCheck(unittest.TestCase):
         self.assertEqual(len(finished), 1)
         self.assertEqual(finished[0]["status"], "passed")
         self.assertEqual(finished[0]["passed"], 3)
+
+    def test_cancel_after_a_step_stops_the_run(self):
+        commands = CancelAfterStepCommands()
+        with mock.patch.object(engine, "PageDriver", StubDriver):
+            code = engine.run_scenario(
+                self.scenario, REPO, headless=True, jsonl=True,
+                events=self.capture, run_dir=self.root / "cancel",
+                commands=commands)
+        self.assertEqual(code, 1)
+        finished = [event for event in self.capture.events
+                    if event["event"] == "run.finished"]
+        self.assertEqual(finished[0]["status"], "cancelled")
+        started = [event["stepId"] for event in self.capture.events
+                   if event["event"] == "step.started"]
+        self.assertEqual(started, ["s1"])
+        passed = [event for event in self.capture.events
+                  if event["event"] == "step.finished" and event["status"] == "passed"]
+        self.assertEqual([event["stepId"] for event in passed], ["s1"])
+
+    def test_step_during_a_run_pauses_at_the_current_step(self):
+        commands = StepOnceCommands()
+        with mock.patch.object(engine, "PageDriver", StubDriver):
+            code = engine.run_scenario(
+                self.scenario, REPO, headless=True, jsonl=True,
+                events=self.capture, run_dir=self.root / "step-pause",
+                commands=commands)
+        self.assertEqual(code, 0)
+        paused = [event for event in self.capture.events
+                  if event["event"] == "run.paused"]
+        self.assertEqual(len(paused), 1)
+        self.assertEqual(paused[0]["stepId"], "s1")
+        self.assertEqual(paused[0]["nextStepId"], "s2")
+        self.assertEqual(paused[0]["reason"], "step")
+
+    def test_user_step_is_reported_but_not_executed(self):
+        scenario = make_scenario()
+        scenario["steps"].insert(3, {
+            "id": "u1", "at": "2026-11-07T03:30:00+00:00",
+            "user": {"action": "Operating Mode", "label": "Advance on",
+                     "room": "Bedroom 1", "screen": "home",
+                     "control": "advance", "gesture": "tap",
+                     "advance": "A", "seq": 8038},
+        })
+        path = self.root / "user.json"
+        path.write_text(json.dumps(scenario, indent=2) + "\n", encoding="utf-8")
+        with mock.patch.object(engine, "PageDriver", StubDriver):
+            code = engine.run_scenario(
+                path, REPO, headless=True, jsonl=True,
+                events=self.capture, run_dir=self.root / "user",
+                speed=120, fold_to_marker=True, pause_at_marker=True,
+                commands=self.commands)
+        self.assertEqual(code, 0)
+        started = [event for event in self.capture.events
+                   if event["event"] == "step.started"]
+        user = next(event for event in started if event["stepId"] == "u1")
+        self.assertEqual(user["actor"], "user")
+        passed = [event for event in self.capture.events
+                  if event["event"] == "step.finished" and event["status"] == "passed"]
+        self.assertIn("u1", [event["stepId"] for event in passed])
+        self.assertEqual(StubDriver.instances[0].raws, [])
+
+    def test_a_failed_step_reports_its_message_on_finish(self):
+        failing = self.root / "failing.json"
+        failing.write_text(json.dumps({
+            "schemaVersion": 1,
+            "name": "Failing",
+            "clock": {"start": "2026-11-07T01:00:00Z", "timeZone": "UTC"},
+            "home": {"map": make_map(), "profile": "Weekday"},
+            "steps": [{"id": "f1", "at": "2026-11-07T01:00:00+00:00",
+                       "expect": {"target": "summary.title", "visible": True}}],
+        }, indent=2) + "\n", encoding="utf-8")
+        with mock.patch.object(engine, "PageDriver", FailingDriver):
+            code = engine.run_scenario(
+                failing, REPO, headless=True, jsonl=True,
+                events=self.capture, run_dir=self.root / "fail")
+        self.assertEqual(code, 1)
+        finished = [event for event in self.capture.events
+                    if event["event"] == "run.finished"]
+        self.assertEqual(len(finished), 1)
+        self.assertEqual(finished[0]["status"], "failed")
+        self.assertIn("summary.title", finished[0]["failure"]["message"])
 
 
 if __name__ == "__main__":

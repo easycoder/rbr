@@ -19,6 +19,8 @@ def main(argv=None):
     parser.add_argument("--repo", default=str(Path(__file__).resolve().parents[3]),
                         help="RBR checkout to test (default: the repository containing this runner)")
     parser.add_argument("--headed", action="store_true", help="show the browser")
+    parser.add_argument("--view", action="store_true",
+                        help="stream the page as JPEG frames for the Studio view pane")
     parser.add_argument("--speed", type=float, default=0,
                         help="play the virtual clock at N scenario seconds per real second; 0 = as fast as possible")
     parser.add_argument("--collapse-polls", action="store_true",
@@ -54,7 +56,10 @@ def main(argv=None):
 
         if not (repo / "new-ui" / "index.html").exists():
             raise ScenarioError(f"{repo} does not look like an RBR checkout (no new-ui/index.html)")
-        commands = CommandReader().start() if args.pause_at_marker else None
+        # Every Studio run reads playback commands, so Stop can ask for a
+        # graceful cancel instead of killing the process under Playwright's
+        # Node driver (which then fails with EPIPE while its pipe closes).
+        commands = CommandReader().start()
         return run_scenario(scenario, repo, headless=not args.headed,
                             jsonl=args.jsonl, events=events, run_dir=args.run_dir,
                             speed=args.speed, collapse_polls=args.collapse_polls,
@@ -62,7 +67,7 @@ def main(argv=None):
                             end_pause_ms=args.end_pause_ms,
                             fold_to_marker=args.fold_to_marker,
                             pause_at_marker=args.pause_at_marker,
-                            commands=commands)
+                            commands=commands, view=args.view)
     except ScenarioError as exc:
         message = str(exc)
         for line in message.splitlines():

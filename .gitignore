@@ -24,6 +24,7 @@ __pycache__/
 node_modules/
 package-lock.json
 desktop/config.json
+rbr-bundle-copy.conf.example
 
 # Playwright output — browser traces, failure screenshots and the HTML report.
 test-results/

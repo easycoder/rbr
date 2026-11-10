@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from . import targets
 from .errors import ScenarioError
 
-ALLOWED_STEP_ACTIONS = ("controller", "ui", "expect", "expectWire", "waitFor", "connection", "delay")
+ALLOWED_STEP_ACTIONS = ("controller", "user", "ui", "expect", "expectWire", "waitFor", "connection", "delay")
 DEFAULT_STEP_TIMEOUT_MS = 5000
 
 
@@ -177,6 +177,16 @@ def _validate_step(step, index, prepared, ids, issues):
                 issues.append(f"{where}.controller: raw cannot be combined with set or state")
         if "push" in controller and not isinstance(controller["push"], bool):
             issues.append(f"{where}.controller.push: true or false")
+
+    elif action == "user":
+        user = step["user"]
+        if not isinstance(user, dict):
+            issues.append(f"{where}.user: not an object")
+            return
+        if not isinstance(user.get("action"), str) or not user["action"]:
+            issues.append(f"{where}.user.action: a string is required")
+        if user.get("room") is not None and not isinstance(user["room"], str):
+            issues.append(f"{where}.user.room: a string is required")
 
     elif action == "ui":
         ui = step["ui"]

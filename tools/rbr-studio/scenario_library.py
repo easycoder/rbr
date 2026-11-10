@@ -27,7 +27,7 @@ import os
 import re
 import shutil
 import sys
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -39,6 +39,7 @@ UNSORTED = "Unsorted"
 EXAMPLES = HERE / "docs" / "examples"
 EXAMPLES_GROUP = "Examples"
 SEED_FLAG = LOCAL / ".examples-seeded"
+JOURNAL_SEEN = LOCAL / "journal" / "inbox-seen.json"
 
 
 def slug(text):
@@ -52,6 +53,74 @@ def read_json(path, default=None):
         return default
     except json.JSONDecodeError as exc:
         raise SystemExit(f"{path}: invalid JSON: {exc}")
+
+
+def _seen_by_scenario():
+    """Scenario path -> the inbox record that imported it (MAC and day)."""
+    data = read_json(JOURNAL_SEEN, {})
+    seen = {}
+    if isinstance(data, dict):
+        for record in data.values():
+            if isinstance(record, dict) and record.get("scenario"):
+                seen[str(record["scenario"])] = record
+    return seen
+
+
+def _file_date(path):
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime).date().isoformat()
+    except OSError:
+        return None
+
+
+def _backfill_metadata(data):
+    """Fill system and date on entries written before those fields existed.
+
+    Journal entries can recover both from the inbox's own record; anything else
+    gets the scenario file's modification date, which is what the year browser
+    and the week filter have to work with. This runs on load and is a no-op once
+    every entry carries a date.
+    """
+    changed = False
+    cutoff = datetime.now().date() - timedelta(days=6)
+    seen = _seen_by_scenario()
+    for item in data["scenarios"]:
+        if not isinstance(item, dict):
+            continue
+        rel = item.get("path")
+        record = seen.get(str(rel)) if rel else None
+        if record:
+            if not item.get("system"):
+                system = record.get("mac") or record.get("system")
+                if system:
+                    item["system"] = str(system)
+                    changed = True
+            if not item.get("day") and record.get("day"):
+                item["day"] = str(record["day"])
+                changed = True
+        if not item.get("day") and not item.get("created"):
+            created = _file_date(SCENARIOS / rel) if rel else None
+            if created:
+                item["created"] = created
+                changed = True
+        entry_date = item.get("day") or item.get("created")
+        recent = False
+        if entry_date:
+            try:
+                recent = date.fromisoformat(str(entry_date)) >= cutoff
+            except ValueError:
+                recent = False
+        # A working copy is new even when it carries an older journal day; the
+        # week list should show the copy its author just made.
+        if item.get("duplicate") and item.get("created"):
+            try:
+                recent = date.fromisoformat(str(item["created"])) >= cutoff
+            except ValueError:
+                pass
+        if item.get("recent") != recent:
+            item["recent"] = recent
+            changed = True
+    return changed
 
 
 def load_index():
@@ -69,6 +138,8 @@ def load_index():
             changed = True
     if UNSORTED not in data["groups"]:
         data["groups"].append(UNSORTED)
+        changed = True
+    if _backfill_metadata(data):
         changed = True
     data["groups"] = sorted(set(data["groups"]), key=str.lower)
     if changed:
@@ -111,7 +182,8 @@ def _relocated_map(data, source, target):
     return data
 
 
-def add(path, name=None, group=UNSORTED, brief=None):
+def add(path, name=None, group=UNSORTED, brief=None, system=None, day=None,
+        duplicate=False):
     """Make `path` a library scenario and return its manifest entry."""
     source = Path(path).resolve()
     data = read_json(source)
@@ -148,6 +220,15 @@ def add(path, name=None, group=UNSORTED, brief=None):
     }
     if brief_rel:
         entry["brief"] = brief_rel
+    if system:
+        entry["system"] = str(system)
+    if day:
+        entry["day"] = str(day)
+    if duplicate:
+        entry["duplicate"] = True
+        entry["created"] = datetime.now().date().isoformat()
+    elif not day:
+        entry["created"] = datetime.now().date().isoformat()
 
     index = load_index()
     if group not in index["groups"]:
@@ -206,7 +287,7 @@ def seed_examples(force=False):
     return created
 
 
-GLOBAL_ROOMS = ("Outside",)
+OUTDOOR_ROOMS = ("Outside",)
 
 
 def _scenario_aliases(data):
@@ -281,6 +362,11 @@ def step_room_refs(step, aliases):
             entry = ui.get(key)
             if isinstance(entry, dict):
                 refs |= _target_rooms(entry.get("target"), aliases)
+    user = step.get("user")
+    if isinstance(user, dict):
+        room = user.get("room")
+        if isinstance(room, str) and room:
+            refs.add(_canonical_room(room, aliases))
     for key in ("expect", "waitFor"):
         entry = step.get(key)
         if isinstance(entry, dict):
@@ -307,14 +393,43 @@ def renumber_steps(data):
     return data
 
 
+def _is_temperature_step(step):
+    """True when the step's room-specific effect is a temperature reading."""
+    controller = step.get("controller")
+    if isinstance(controller, dict):
+        fields = set()
+        if isinstance(controller.get("set"), dict):
+            fields |= set(controller["set"])
+        state = controller.get("state")
+        if isinstance(state, dict) and isinstance(state.get("set"), dict):
+            fields |= set(state["set"])
+        if "temperature" in fields:
+            return True
+    for key in ("expect", "waitFor"):
+        entry = step.get(key)
+        if isinstance(entry, dict):
+            target = entry.get("target")
+            if isinstance(target, str) and target.split(".")[-1] in ("temp", "temperature"):
+                return True
+    wire = step.get("expectWire")
+    if isinstance(wire, dict):
+        for key in ("match", "notMatch"):
+            entry = wire.get(key)
+            if isinstance(entry, dict) and "temperature" in entry:
+                return True
+    return False
+
+
 def filter_to_room(data, room, source=None):
     """Keep global steps and steps naming `room`; return (data, kept, total).
 
     A global step is one that names no room at all: summary and sheet actions,
     profile or wire-level checks, `raw` pushes, connections and delays. The
-    outdoor sensor is kept as global context because it appears in the summary
-    rather than a room card. Kept steps are renumbered because the dropped
-    steps would otherwise leave gaps in the id sequence.
+    outdoor pseudo-room is kept only for temperature readings; its relay,
+    status and mode events are dropped. A step carrying the marker is always
+    kept, because it is the breakpoint and dropping it would lose the place to
+    stop. Kept steps are renumbered because the dropped steps would otherwise
+    leave gaps in the id sequence.
     """
     if not isinstance(data, dict):
         raise SystemExit("scenario_library.py: the scenario must be a JSON object")
@@ -331,11 +446,15 @@ def filter_to_room(data, room, source=None):
     steps = data.get("steps")
     if not isinstance(steps, list):
         raise SystemExit("scenario_library.py: the scenario has no steps[]")
-    global_rooms = set(GLOBAL_ROOMS)
+    outdoor_rooms = set(OUTDOOR_ROOMS)
     kept = []
     for step in steps:
         refs = step_room_refs(step, aliases)
-        if not refs or canonical in refs or refs & global_rooms:
+        if step.get("marker"):
+            kept.append(step)  # the breakpoint is a control, not room data
+        elif not refs or canonical in refs:
+            kept.append(step)
+        elif refs & outdoor_rooms and _is_temperature_step(step):
             kept.append(step)
     if not kept:
         raise SystemExit(
@@ -348,9 +467,10 @@ def filter_to_room(data, room, source=None):
 def duplicate(path, name=None, group=None, room=None):
     """Copy a scenario (and its brief) into the library as a new entry.
 
-    With `room`, the copy keeps only global steps and those naming that room or
-    the outdoor sensor, which makes a day-long journal scenario readable when
-    one room is under investigation.
+    With `room`, the copy keeps only global steps and those naming that room,
+    plus outdoor temperature changes. Other outdoor status/relay/mode events are
+    dropped, except the marked step, which is the breakpoint. This makes a
+    day-long journal scenario readable when one room is under investigation.
     """
     source = Path(path).resolve()
     data = read_json(source)
@@ -368,8 +488,9 @@ def duplicate(path, name=None, group=None, room=None):
     note = None
     if room:
         data, kept, total = filter_to_room(data, room, source)
-        note = (f"Filtered copy: global steps (including the outdoor sensor) "
-                f"and steps for {room.strip()} only ({kept} of {total} steps).")
+        note = (f"Filtered copy: global steps, outdoor temperature changes, "
+                f"and steps for {room.strip()} only ({kept} of {total} steps; "
+                f"the marked step is kept).")
         description = data.get("description")
         if isinstance(description, str) and description.strip():
             data["description"] = description.rstrip() + " " + note
@@ -380,6 +501,12 @@ def duplicate(path, name=None, group=None, room=None):
     draft = draft_dir / f"_duplicate-{slug(name)}.json"
     draft.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     brief = source.with_name(source.stem + ".brief.md")
+    source_entry = None
+    if SCENARIOS in source.parents:
+        rel = source.relative_to(SCENARIOS).as_posix()
+        source_entry = next(
+            (item for item in load_index()["scenarios"] if item.get("path") == rel),
+            None)
     try:
         if brief.exists():
             brief_text = brief.read_text(encoding="utf-8")
@@ -387,7 +514,10 @@ def duplicate(path, name=None, group=None, room=None):
                 brief_text = brief_text.rstrip() + "\n\n" + note
         else:
             brief_text = data.get("description")
-        entry = add(draft, name=name, group=group, brief=brief_text)
+        entry = add(draft, name=name, group=group, brief=brief_text,
+                    system=(source_entry or {}).get("system"),
+                    day=(source_entry or {}).get("day"),
+                    duplicate=True)
     finally:
         draft.unlink(missing_ok=True)
     return entry
@@ -466,6 +596,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("list", help="print the library manifest")
+    sub.add_parser("refresh", help="recompute dates and the recent flag, then save")
     seed_parser = sub.add_parser("seed-examples", help="copy the public examples into the library")
     seed_parser.add_argument("--force", action="store_true", help="run even if the seed marker exists")
     seed_parser.add_argument("--quiet", action="store_true", help="suppress the summary")
@@ -486,7 +617,7 @@ def main():
     duplicate_parser.add_argument("--group")
     duplicate_parser.add_argument(
         "--room",
-        help="keep global steps and those naming this room (or alias) only")
+        help="keep global steps, outdoor temperature changes, the marked step, and those naming this room (or alias)")
 
     rename_parser = sub.add_parser("rename", help="rename a library scenario")
     rename_parser.add_argument("--path", required=True)
@@ -498,6 +629,8 @@ def main():
     args = parser.parse_args()
     if args.command == "list":
         print(json.dumps(load_index(), indent=2, ensure_ascii=False))
+    elif args.command == "refresh":
+        load_index()
     elif args.command == "seed-examples":
         created = seed_examples(args.force)
         if not args.quiet:

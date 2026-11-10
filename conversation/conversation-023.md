@@ -144,3 +144,65 @@ The Step button is now always enabled, so its Space shortcut always owns the key
 The shell check now asserts the Step button is enabled, that a Step click without a Show leaves the window open, and that it logs the reason. The shell check passes; `show_check` 5 tests and `journal_check` 13 tests pass under `python -m unittest`; `asdoc-check` reports 0 errors; `git diff --check` is clean.
 
 I could not reproduce the key routing offscreen because an offscreen window is never active, so the check verifies the button/shortcut state and the no-Show guard rather than the real focus path. Restart RBR Studio and try a single Space and a rapid double Space. If it still closes, capture the terminal output from `run-studio.sh`; that would point at the shortcut not being active in the real window rather than at the handler.
+
+## 21:30
+
+The 4 buttons, Duplicate ... Delete rows, can be expanded to the same width as the text panel below them
+
+**Assistant**
+
+Done. The four buttons had a `size` cap that limited their width, and they sat in a nested layout with its own default margin. I removed the `size` caps and added the buttons directly to the Inspector column, so they share its content width with the text panel.
+
+The panel itself had a fixed 36-column width that was wider than the column and overflowed it. I removed that fixed width too, so the panel and the four buttons now fill exactly the same width; dragging the splitter widens both together.
+
+The shell check now asserts all four buttons match the Inspector text panel width. In the 1000 px offscreen test both are 144 px; in a wider real window both grow together. The shell check passes, `show_check` 5 tests and `journal_check` 13 tests pass under `python -m unittest`, `asdoc-check` reports 0 errors, and `git diff --check` is clean. Restart RBR Studio; no controller or PWA change is needed.
+
+## 21:35
+
+I'm still not understanding when I might need to click Refresh map. Please explain
+
+**Assistant**
+
+Refresh map is not a live connection. It is a one-way rebuild from a file you put beside the Studio.
+
+It reads `tools/rbr-studio/map.json`, fills the fields the controller adds at reply time, and writes `fixtures/local/home.json` (the Local system map) and `fixtures/local/smoke.json` (the Local system starter scenario). If **Local system** is selected, it reloads it; otherwise select **Local system** to load the new map.
+
+Click it when:
+
+- You have copied a newer `map.json` from the controller into `tools/rbr-studio/`.
+- Rooms, schedules or devices have changed on the controller and you have a new map file. The button does not fetch the file for you.
+- You want the **Local system** starter to reflect the current map before authoring a new scenario.
+
+You do not need it when:
+
+- You are working on a journal or library scenario: it carries its own `home.map`, and Refresh map will not change it. Re-import or regenerate that scenario instead.
+- You have not replaced `map.json`; it rebuilds the same snapshot.
+- You expect live data; it does not contact the controller or broker.
+
+If the map is somewhere else, run `python3 snapshot-map.py --source /path/to/map.json` directly; the button always reads `map.json` beside the Studio.
+
+I added a tooltip to **Refresh map** and a “When to click Refresh map” paragraph to the README. No controller or PWA change; restart to see the tooltip.
+
+## 21:38
+
+Please provide tooltips for all buttons
+
+**Assistant**
+
+Added tooltips to all 27 declared pushbuttons, covering the toolbar, sidebar, batch controls, Inspector tools and the Columns window, plus the speed selector. The wording names the action and, where useful, the precondition: Copy path is available after a draft, Rename applies to library scenarios, Delete rows removes the selected steps.
+
+The shell check now parses the `pushbutton` declarations in `studio.allspeak` and verifies every one has a non-empty tooltip, so a future button without one fails the check. It passes, as do `show_check` (5 tests), `journal_check` (13 tests), `asdoc-check` (0 errors) and `git diff --check`.
+
+The only visible buttons not covered are the standard OK/Cancel buttons inside the generic dialogs; those are created by the AllSpeak runtime and are not declared widgets, so there is no symbol to attach a tooltip to. Restart RBR Studio to see the tooltips; no controller or PWA change is needed.
+
+## 15:49
+
+Looking at scenario Journal 2026-11-07 — QED6 — Bedroom 1, I think the only thing of interest from Outside is the change in temperature. When duplicating for room, can you trim off the other Outside events.
+
+**Assistant**
+
+Done. **Duplicate for room…** now keeps only the outdoor temperature readings; other `Outside` status, relay and mode events are dropped. A step carrying the **Mark** marker is always kept, because it is the breakpoint and dropping it would lose the place to stop.
+
+I also trimmed the existing **Journal 2026-11-07 — QED6 — Bedroom 1** copy in place: 174 steps became 109, with 8 outdoor temperature readings and one marked `Outside` status at `07:57:21`. The marker moved from `s60` to `s36` because the kept steps were renumbered; it is the same event. The description and brief now record the new count. The unfiltered journal scenario is untouched.
+
+If you want no `Outside` status events at all, move the marker onto a Bedroom 1 step before duplicating; the marked step is the only exception. The `journal_check` test now includes an `Outside` status/state step and a marker, and checks the trim and the marker. It passes, as do the 5 `show_check` tests, the runner's `--validate-only` (109 steps) and `git diff --check`. Restart or reselect the scenario to see the trimmed copy; no controller or PWA change is needed.

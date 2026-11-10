@@ -18,6 +18,7 @@ from .validate import prepare
 
 ACTOR = {
     "controller": "controller",
+    "user": "user",
     "ui": "ui",
     "expect": "expect",
     "expectWire": "wire",
@@ -168,7 +169,7 @@ def _await_command(commands):
 
 def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, run_dir=None,
                  speed=0, collapse_polls=False, step_pause_ms=0, end_pause_ms=0,
-                 fold_to_marker=False, pause_at_marker=False, commands=None):
+                 fold_to_marker=False, pause_at_marker=False, commands=None, view=False):
     """Run one scenario. Returns a process exit code (0 pass, 1 fail)."""
     from .protocol import Events
     events = events or Events(jsonl)
@@ -248,7 +249,7 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
 
     driver = PageDriver(
         prepared, repo, headless,
-        on_console=on_console, speed=speed)
+        on_console=on_console, speed=speed, view=view)
     results = []
     failed = False
     cancelled = False
@@ -257,6 +258,8 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
 
     try:
         driver.start()
+        if driver.view_url:
+            events.emit("view", url=driver.view_url)
         refresh = prepared.defaults.get("refreshReply", "empty")
         if refresh in ("empty", "full", "none"):
             driver.page.evaluate("v => { window.__rbr.refreshReply = v; }", refresh)
@@ -271,19 +274,23 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
             events.emit("log", stepId=steps[marker].get("id"), level="info",
                         source="runner", message=message)
         auto = True
+        pause_after_step = False
         for index, step in enumerate(steps):
             if commands is not None:
                 pending = commands.poll()
                 while pending is not None:
-                    if pending.get("command") == "cancel":
+                    name = pending.get("command")
+                    if name == "cancel":
                         cancelled = True
+                    elif name == "step":
+                        pause_after_step = True
                     pending = commands.poll()
                 if cancelled:
                     break
             step_id = step.get("id", f"step-{index + 1}")
             actor = ACTOR.get(next(key for key in ACTOR if key in step), "other")
             fast = marker is not None and index < marker
-            manual = pause_at_marker and marker is not None and not auto
+            manual = not auto
             step_speed = 0 if fast or manual else speed
             driver.current_step = step_id
             events.emit("step.started", stepId=step_id, index=index + 1,
@@ -333,20 +340,42 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
                 if step_pause_ms > 0 and not fast:
                     time.sleep(step_pause_ms / 1000.0)
 
+            if commands is not None:
+                pending = commands.poll()
+                while pending is not None:
+                    name = pending.get("command")
+                    if name == "cancel":
+                        cancelled = True
+                    elif name == "step":
+                        pause_after_step = True
+                    pending = commands.poll()
+                if cancelled:
+                    break
+
+            pause_now = False
+            if pause_after_step:
+                pause_now = True
+                pause_after_step = False
             if pause_at_marker and marker is not None and index >= marker:
                 if index == marker:
                     auto = False
-                if not auto and index + 1 < len(steps):
-                    next_step = steps[index + 1]
-                    events.emit("run.paused", stepId=step_id, index=index + 1,
-                                nextStepId=next_step.get("id"),
-                                reason="marker" if index == marker else "step")
-                    action = _await_command(commands)
-                    if action in ("continue", "eof"):
-                        auto = True
-                    elif action == "cancel":
-                        cancelled = True
-                        break
+                if not auto:
+                    pause_now = True
+            if pause_now and index + 1 < len(steps):
+                next_step = steps[index + 1]
+                events.emit("run.paused", stepId=step_id, index=index + 1,
+                            nextStepId=next_step.get("id"),
+                            reason="marker" if (marker is not None and index == marker) else "step")
+                action = _await_command(commands)
+                if action in ("continue", "eof"):
+                    auto = True
+                    pause_after_step = False
+                elif action == "step":
+                    auto = False
+                    pause_after_step = True
+                elif action == "cancel":
+                    cancelled = True
+                    break
 
         if collapse_polls and poll_count:
             events.emit("log", stepId=None, level="info", source="console",
@@ -390,12 +419,22 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
             events.emit("artifact", kind="trace", path=str(trace_path))
 
     status = "cancelled" if cancelled else ("failed" if failed else "passed")
-    events.emit("run.finished", status=status, passed=sum(1 for item in results if item["status"] == "passed"),
-                failed=sum(1 for item in results if item["status"] == "failed"),
-                durationMs=duration_ms,
-                artifacts={"dir": str(directory), "result": str(directory / "result.json"),
-                           "wire": str(directory / "wire.jsonl"), "console": str(directory / "console.log"),
-                           **({"trace": str(directory / "trace.zip")} if (directory / "trace.zip").exists() else {})})
+    finished = {
+        "status": status,
+        "passed": sum(1 for item in results if item["status"] == "passed"),
+        "failed": sum(1 for item in results if item["status"] == "failed"),
+        "durationMs": duration_ms,
+        "artifacts": {
+            "dir": str(directory),
+            "result": str(directory / "result.json"),
+            "wire": str(directory / "wire.jsonl"),
+            "console": str(directory / "console.log"),
+            **({"trace": str(directory / "trace.zip")} if (directory / "trace.zip").exists() else {}),
+        },
+    }
+    if failure:
+        finished["failure"] = failure
+    events.emit("run.finished", **finished)
 
     if not jsonl:
         print()
@@ -407,14 +446,14 @@ def run_scenario(scenario_path, repo, headless=True, jsonl=False, events=None, r
 
 
 def _expected(step):
-    for key in ("expect", "expectWire", "waitFor", "connection", "ui", "controller"):
+    for key in ("expect", "expectWire", "waitFor", "connection", "user", "ui", "controller"):
         if key in step:
             return step[key]
     return None
 
 
 def _summary(step, speed=0):
-    for key in ("controller", "ui", "expect", "expectWire", "waitFor", "connection", "delay"):
+    for key in ("controller", "user", "ui", "expect", "expectWire", "waitFor", "connection", "delay"):
         if key in step:
             if key == "controller":
                 controller = step[key]
@@ -426,6 +465,9 @@ def _summary(step, speed=0):
                 if "state" in controller:
                     parts.append("state " + ", ".join(f"{k} = {v}" for k, v in controller["state"].get("set", {}).items()))
                 return "; ".join(parts) or "push"
+            if key == "user":
+                user = step[key]
+                return user.get("label") or user.get("action") or "UI request"
             if key == "ui":
                 action, value = next(iter(step[key].items()))
                 if isinstance(value, str):
@@ -452,6 +494,10 @@ def _execute(driver, prepared, step, speed=0):
     if controller is not None:
         _controller(driver, prepared, controller)
         return
+
+    user = step.get("user")
+    if user is not None:
+        return  # recorded, not replayed: the controller effect is a later step
 
     ui = step.get("ui")
     if ui is not None:

@@ -1,5 +1,6 @@
 """Browser side: static server, CDN routes, MQTT stub, clock and locators."""
 
+import base64
 import hashlib
 import json
 import os
@@ -29,7 +30,33 @@ VIEWPORT = {"width": 390, "height": 844}
 CLOCK_SLICE_MS = 50_000
 
 
+class FrameStore:
+    """The newest JPEG from the screencast, readable from the server thread.
+
+    A Show run can open a CDP screencast and publish each frame here; the
+    Studio's view pane polls the local endpoint for it. The lock is only to
+    keep a poll from reading a half-written frame while the Playwright thread
+    is replacing it.
+    """
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._data = None
+        self._seq = 0
+
+    def set(self, data):
+        with self._lock:
+            self._data = data
+            self._seq += 1
+
+    def get(self):
+        with self._lock:
+            return self._data, self._seq
+
+
 class _Handler(SimpleHTTPRequestHandler):
+    frames = None
+
     def log_message(self, *args):
         pass
 
@@ -45,8 +72,26 @@ class _Handler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _frame(self):
+        data, seq = (None, 0)
+        if self.frames is not None:
+            data, seq = self.frames.get()
+        if not data:
+            self.send_response(204)
+            self.send_header("X-Frame-Seq", str(seq))
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("X-Frame-Seq", str(seq))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self):
         path = urlsplit(self.path).path
+        if path == "/__studio/frame.jpg":
+            return self._frame()
         if path == "/new-ui/credentials.json":
             return self._json({
                 "broker": "broker.invalid",
@@ -59,8 +104,12 @@ class _Handler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
 
-def start_server(repo):
-    handler = partial(_Handler, directory=str(repo))
+def start_server(repo, frames=None):
+    class Handler(_Handler):
+        pass
+
+    Handler.frames = frames
+    handler = partial(Handler, directory=str(repo))
     server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -103,12 +152,16 @@ def stub_source():
 
 
 class PageDriver:
-    def __init__(self, prepared, repo, headless, on_console=None, speed=0):
+    def __init__(self, prepared, repo, headless, on_console=None, speed=0, view=False):
         self.prepared = prepared
         self.repo = Path(repo)
         self.headless = headless
         self.speed = speed
         self.on_console = on_console
+        self.view = view
+        self.frames = FrameStore()
+        self.view_url = None
+        self.cdp = None
         self.server = None
         self.port = None
         self.pw = None
@@ -124,7 +177,7 @@ class PageDriver:
     # ── lifecycle ────────────────────────────────────────────────────────────
 
     def start(self):
-        self.server, self.port = start_server(self.repo)
+        self.server, self.port = start_server(self.repo, self.frames)
         runtime_url, runtime_body = runtime_source(self.repo)
 
         self.pw = sync_playwright().start()
@@ -166,8 +219,49 @@ class PageDriver:
             errors = "\n".join(self.page_errors[-5:])
             raise ScenarioError(
                 f"the home screen did not build ({exc}).\nconsole:\n{console}\npage errors:\n{errors}")
+        if self.view:
+            self._start_view()
+
+    def _start_view(self):
+        """Publish the page as a JPEG stream for the Studio's view pane.
+
+        The frames are JPEG because that is what CDP's screencast produces;
+        the local endpoint is what the pane polls. A failed start here must not
+        fail the run: the run is the point, the view is a convenience.
+        """
+        try:
+            self.cdp = self.context.new_cdp_session(self.page)
+            self.cdp.on("Page.screencastFrame", self._on_frame)
+            self.cdp.send("Page.startScreencast", {
+                "format": "jpeg",
+                "quality": 70,
+                "maxWidth": VIEWPORT["width"],
+                "maxHeight": VIEWPORT["height"],
+                "everyNthFrame": 1,
+            })
+            self.view_url = f"http://127.0.0.1:{self.port}/__studio/frame.jpg"
+        except PlaywrightError:
+            self.cdp = None
+            self.view_url = None
+
+    def _on_frame(self, event):
+        try:
+            self.frames.set(base64.b64decode(event["data"]))
+        except Exception:
+            return
+        try:
+            if self.cdp is not None:
+                self.cdp.send("Page.screencastFrameAck", {"sessionId": event["sessionId"]})
+        except PlaywrightError:
+            pass
 
     def stop(self, failure=None, trace_path=None):
+        try:
+            if self.cdp is not None:
+                self.cdp.send("Page.stopScreencast")
+        except PlaywrightError:
+            pass
+        self.cdp = None
         try:
             if self.context is not None:
                 if failure and trace_path:

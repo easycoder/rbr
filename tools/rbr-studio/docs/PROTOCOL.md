@@ -97,12 +97,25 @@ the row named by `stepId`.
 ```
 
 ```json
+{"v":1,"event":"view","url":"http://127.0.0.1:39411/__studio/frame.jpg"}
+```
+
+A `--view` run emits `view` once, after the page has started, for the Studio's
+embedded pane. The URL serves the newest JPEG from a CDP screencast, or `204`
+until the first frame exists; it answers only while the runner is alive. The
+Studio keeps the last frame after the run ends.
+
+```json
 {"v":1,"event":"run.finished","status":"failed","passed":5,"failed":1,
- "durationMs":6820,"artifacts":{"dir":"runs/...","result":"result.json",
+ "durationMs":6820,"failure":{"message":"no Operating Mode request matched"},
+ "artifacts":{"dir":"runs/...","result":"result.json",
  "trace":"trace.zip","wire":"wire.jsonl","console":"console.log"}}
 ```
 
-`run.finished.status` is `passed`, `failed`, `cancelled` or `invalid`.
+`run.finished.status` is `passed`, `failed`, `cancelled` or `invalid`. A failed
+run carries `failure`, the same shape as a failed `step.finished`; the Studio
+shows its message beside the scenario title. A successful or cancelled finish
+has no `failure`.
 
 ## Commands (app → runner)
 
@@ -114,11 +127,14 @@ One line per command on stdin:
 {"command":"continue"}
 ```
 
-`step` jumps the virtual clock to the next step at maximum speed, executes it
-and leaves the run paused after it; `continue` restores automatic stepping at
-the Show speed. `cancel` stops after the current
+`step` while the run is automatic pauses it after the current step; while
+paused, it jumps the virtual clock to the next step at maximum speed, executes
+it and leaves the run paused after it. `continue` restores automatic stepping
+at the Show speed. The Studio reads commands on every run, so **Stop** can send
+`cancel` rather than killing the process; the runner stops after the current
 step, writes the artefacts it has, emits `run.finished` with
-`status: "cancelled"` and exits `1`. A closed stdin is treated as `continue`, so
+`status: "cancelled"` and exits `1`. A second Stop click kills the runner if a
+step does not yield. A closed stdin is treated as `continue`, so
 a paused run cannot hang when its client goes away.
 
 ## Rules

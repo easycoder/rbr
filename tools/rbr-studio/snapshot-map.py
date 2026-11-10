@@ -134,11 +134,21 @@ def starter_scenario(base, idx, active, room):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--remove", action="store_true",
+                        help="remove the generated Local system scenario")
     parser.add_argument("--source", default=str(DEFAULT_SOURCE),
                         help="map.json to copy (default: map.json beside snapshot-map.py)")
     parser.add_argument("--out", default=str(DEFAULT_OUT), help="destination fixture")
     parser.add_argument("--no-scenario", action="store_true", help="copy the map only; do not generate smoke.json")
     args = parser.parse_args()
+    if args.remove:
+        scenario_path = DEFAULT_OUT.parent / "smoke.json"
+        try:
+            scenario_path.unlink()
+            print(f"removed {scenario_path}")
+        except FileNotFoundError:
+            print(f"no {scenario_path}")
+        return 0
 
     source = Path(args.source).resolve()
     if not source.exists():

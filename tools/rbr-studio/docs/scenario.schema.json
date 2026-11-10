@@ -139,6 +139,27 @@
           ]
         },
 
+        "user": {
+          "type": "object",
+          "description": "A recorded UI request, shown in the table but not replayed; its controller effects follow as controller steps.",
+          "additionalProperties": false,
+          "required": ["action"],
+          "properties": {
+            "action": { "type": "string", "minLength": 1 },
+            "event": { "type": "string", "description": "The request type the Event column names, e.g. Advance, Boost, Calendar, System Name." },
+            "label": { "type": "string" },
+            "room": { "type": "string" },
+            "screen": { "type": "string" },
+            "control": { "type": "string" },
+            "gesture": { "type": "string" },
+            "advance": { "type": "string" },
+            "mode": { "type": "string" },
+            "target": { "type": ["string", "number"] },
+            "profile": { "type": ["string", "integer"] },
+            "seq": { "type": "integer" }
+          }
+        },
+
         "ui": {
           "type": "object",
           "additionalProperties": false,
@@ -245,6 +266,7 @@
       },
       "oneOf": [
         { "required": ["controller"] },
+        { "required": ["user"] },
         { "required": ["ui"] },
         { "required": ["expect"] },
         { "required": ["expectWire"] },

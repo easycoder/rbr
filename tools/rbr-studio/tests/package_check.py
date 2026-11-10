@@ -44,7 +44,7 @@ class PackageTests(unittest.TestCase):
                 self.assertFalse(any(name.startswith("fixtures/") for name in names))
                 self.assertNotIn("map.json", names)
                 self.assertNotIn("ai-config.json", names)
-            for required in ("studio.allspeak", "run-studio.sh", "configure-studio.py",
+            for required in ("studio.allspeak", "studio_ui.py", "run-studio.sh", "configure-studio.py",
                              "journal_inbox.py", "journal_import.py", "journal_bundle.py",
                              "journal_mbox.py", "scenario_library.py", "requirements-studio.txt",
                              "scenario_runner/__main__.py", "docs/examples/advance.json",
