@@ -111,6 +111,35 @@ class ExportTests(unittest.TestCase):
         finally:
             opened.close()
 
+    def test_bundle_starts_from_the_map_in_force_before_the_day(self):
+        # A schedule edit on the day itself must not become the map the whole
+        # day starts from: the bundle carries the previous day's last map as
+        # its base, plus the day's own snapshots.
+        day_dir = self.root / "2026" / "11"
+        prior = {"name": "Prior", "profile": 0, "rooms": [], "profiles": [{"name": "Weekday", "rooms": {}}]}
+        prior_raw = json.dumps(prior, sort_keys=True, separators=(",", ":")).encode()
+        prior_digest = __import__("hashlib").sha256(prior_raw).hexdigest()
+        (self.root / "maps" / f"{prior_digest}.json").write_bytes(prior_raw)
+        start = int(dt.datetime(2026, 11, 5, 12, 0, tzinfo=dt.timezone.utc).timestamp() * 1000)
+        (day_dir / "2026-11-05.jsonl").write_text(json.dumps({
+            "v": 1, "tsMs": start, "seq": 1, "type": "plan.snapshot",
+            "data": {"mapHash": prior_digest, "reason": "ui:reply"},
+            "ts": "2026-11-05T12:00:00+00:00", "tzOffsetMinutes": 0,
+        }) + "\n", encoding="utf-8")
+
+        archive, manifest = journal_export.export_day(
+            self.root, self.day, self.out / "with-base", mode="scenario", keep=0)
+        hashes = [row["hash"] for row in manifest["maps"]]
+        self.assertEqual(hashes[0], prior_digest)
+        self.assertIn(self.digest, hashes)
+        self.assertEqual(manifest["baseMapHash"], prior_digest)
+        opened = journal_bundle.open_bundle(archive)
+        try:
+            self.assertEqual(opened.load_map(prior_digest)["name"], "Prior")
+            self.assertEqual(opened.load_map(self.digest)["name"], "Test")
+        finally:
+            opened.close()
+
     def test_scenario_mode_drops_repeated_sensor_values_and_preserves_bundle(self):
         archive, manifest = journal_export.export_day(
             self.root, self.day, self.out, mode="scenario", keep=2)

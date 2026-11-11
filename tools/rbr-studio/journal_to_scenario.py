@@ -24,6 +24,7 @@ Examples:
 from __future__ import annotations
 
 import argparse
+import bisect
 import copy
 import datetime as _datetime
 import json
@@ -212,7 +213,15 @@ def _schedule_change(profiles, previous, room):
 
 
 def _base_map(args, events: list[dict], start: _datetime.datetime, bundle) -> tuple[dict, dict]:
-    """Return (map, session event) using the latest map snapshot at or before start."""
+    """Return (map, session event) using the map in force at the window start.
+
+    The map in force at the start is the latest snapshot at or before it. A
+    bundle also names that map in `baseMapHash` when the start map predates the
+    day (the exporter copies the last snapshot before the day), which is what
+    keeps a morning step on the schedule that was actually running then rather
+    than the day's last edited one. With neither, the earliest snapshot of the
+    day is the least-wrong base.
+    """
     session = next((event for event in events if event.get("type") == "session.start"), {})
     if args.map:
         base = json.loads(pathlib.Path(args.map).expanduser().read_text(encoding="utf-8"))
@@ -224,28 +233,23 @@ def _base_map(args, events: list[dict], start: _datetime.datetime, bundle) -> tu
         if event.get("type") in ("session.start", "plan.snapshot") and data.get("mapHash"):
             if int(event.get("tsMs") or 0) <= start_ms:
                 candidates.append(event)
-    if not candidates:
-        candidates = [event for event in events
-                      if (event.get("data") or {}).get("mapHash")]
-    if not candidates:
-        # A bundle exported from a day with no map change carries the map in
-        # force at midnight, named by the manifest, rather than an event
-        # reference. A hand-built bundle with exactly one map is the same case.
+    if candidates:
+        chosen = max(candidates, key=lambda event: (event.get("tsMs") or 0, event.get("seq") or 0))
+        digest = (chosen.get("data") or {})["mapHash"]
+    else:
         digest = bundle.manifest.get("baseMapHash")
         if not digest:
             rows = bundle.manifest.get("maps") or []
             if len(rows) == 1:
                 digest = rows[0].get("hash")
-        if digest:
-            try:
-                base = bundle.load_map(digest)
-            except FileNotFoundError:
+        if not digest:
+            daily = [event for event in events
+                     if (event.get("data") or {}).get("mapHash")]
+            if not daily:
                 raise SystemExit(
-                    f"journal_to_scenario.py: bundle is missing map {digest}; pass --map")
-            return base, session
-        raise SystemExit("journal_to_scenario.py: no map snapshot in the journal; pass --map")
-    chosen = max(candidates, key=lambda event: (event.get("tsMs") or 0, event.get("seq") or 0))
-    digest = (chosen.get("data") or {})["mapHash"]
+                    "journal_to_scenario.py: no map snapshot in the journal; pass --map")
+            chosen = min(daily, key=lambda event: (event.get("tsMs") or 0, event.get("seq") or 0))
+            digest = (chosen.get("data") or {})["mapHash"]
     try:
         base = bundle.load_map(digest)
     except FileNotFoundError:
@@ -273,6 +277,58 @@ def _step_id(index: int) -> str:
 
 def _iso(stamp: _datetime.datetime) -> str:
     return stamp.isoformat(timespec="seconds")
+
+
+def _tenths(value: int) -> str:
+    """A heatlog temperature (tenths of a degree) as the UI's one-decimal text."""
+    return f"{value / 10:.1f}"
+
+
+def _load_heatlogs(bundle) -> dict[str, list[tuple[int, int, int]]]:
+    """Per-room heatlog rows from the bundle: (epoch minute, target, actual).
+
+    The heatlog is the controller's own record of the *effective* target it
+    used — the schedule's period temperature, an advance's shifted target or
+    the background temperature — which the room-state events do not carry.
+    Rows are written on change only, so the last row at or before a step is
+    the target in force at that step.
+    """
+    rows: dict[str, list[tuple[int, int, int]]] = {}
+    for item in (bundle.manifest.get("reports") or []):
+        if item.get("kind") != "heatlog":
+            continue
+        room = str(item.get("room") or "").strip()
+        relative = item.get("path")
+        if not room or not relative:
+            continue
+        try:
+            text = (bundle.root / relative).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        entries = []
+        for line in text.splitlines():
+            parts = line.strip().split(",")
+            if len(parts) < 4:
+                continue
+            try:
+                minute, target, actual = int(parts[0]), int(parts[1]), int(parts[2])
+            except ValueError:
+                continue
+            entries.append((minute, target, actual))
+        if entries:
+            entries.sort()
+            rows[room] = entries
+    return rows
+
+
+def _heatlog_at(heatlogs, room: str, at: _datetime.datetime):
+    """The heatlog row in force at `at`, or None when the room has no log."""
+    entries = heatlogs.get(room)
+    if not entries:
+        return None
+    minute = int(at.timestamp() // 60)
+    index = bisect.bisect_right(entries, (minute, 10 ** 9, 10 ** 9)) - 1
+    return entries[index] if index >= 0 else None
 
 
 def build_scenario(args, bundle, events: list[dict]) -> dict:
@@ -310,6 +366,7 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
     reverse_alias = {name: alias for alias, name in aliases.items()}
 
     steps = []
+    heatlogs = _load_heatlogs(bundle)
 
     def add_controller(room, at, identity=None, state=None, note=None):
         action = {"room": room}
@@ -321,6 +378,11 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
                 entry["profile"] = profile
             action["state"] = entry
         step = {"id": _step_id(len(steps) + 1), "at": _iso(at), "controller": action}
+        # The heatlog's target is the effective one the controller compared
+        # against, so show it beside the step that made a relay decision.
+        point = _heatlog_at(heatlogs, room, at)
+        if point is not None:
+            step["context"] = {"target": _tenths(point[1]), "actual": _tenths(point[2])}
         if note:
             step["note"] = note
         steps.append(step)
@@ -398,7 +460,6 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
     warnings = []
     window_events = 0
     request_count = 0
-    snapshot_after_start = False
     profile_changed = False
 
     for event, stamp in dated:
@@ -472,13 +533,33 @@ def build_scenario(args, bundle, events: list[dict]) -> dict:
             add_user(request_room, stamp, action, source, payload, event.get("seq"),
                      label=request_label)
         elif kind == "plan.snapshot" and stamp > start:
-            snapshot_after_start = True
+            # A plan snapshot is a full map the controller sent when the plan
+            # changed (a schedule edit, say). Replaying it at its time is what
+            # keeps the UI's schedule right after the edit instead of showing
+            # the day's last edited map for the whole day.
+            digest = data.get("mapHash")
+            if digest:
+                try:
+                    snapshot = bundle.load_map(digest)
+                except FileNotFoundError:
+                    warnings.append(
+                        f"bundle is missing map {digest}; the plan change at "
+                        f"{stamp.isoformat()} was not replayed")
+                else:
+                    steps.append({
+                        "id": _step_id(len(steps) + 1),
+                        "at": _iso(stamp),
+                        "controller": {
+                            "raw": json.dumps(snapshot, ensure_ascii=False,
+                                              separators=(",", ":")),
+                            "adopt": True,
+                        },
+                        "note": f"seq {event.get('seq')}: plan snapshot",
+                    })
         elif kind == "profile.change":
             profile = data.get("toName") or data.get("to") or profile
             profile_changed = True
 
-    if snapshot_after_start:
-        warnings.append("a plan snapshot after the window start was not replayed; structural edits need a base map at that point")
     if request_count:
         warnings.append(f"{request_count} UI request(s) are shown as user steps but not replayed as taps; their controller effects are included")
     if profile_changed:

@@ -132,7 +132,7 @@ def _validate_step(step, index, prepared, ids, issues):
         if not isinstance(controller, dict):
             issues.append(f"{where}.controller: not an object")
             return
-        unknown = set(controller) - {"room", "set", "state", "raw", "push"}
+        unknown = set(controller) - {"room", "set", "state", "raw", "push", "adopt"}
         if unknown:
             issues.append(f"{where}.controller: unknown fields {sorted(unknown)}")
         has = [key for key in ("set", "state", "raw") if key in controller]
@@ -175,6 +175,10 @@ def _validate_step(step, index, prepared, ids, issues):
                 issues.append(f"{where}.controller.raw: a string is required")
             if "set" in controller or "state" in controller:
                 issues.append(f"{where}.controller: raw cannot be combined with set or state")
+        if "adopt" in controller and not isinstance(controller["adopt"], bool):
+            issues.append(f"{where}.controller.adopt: true or false")
+        if controller.get("adopt") and "raw" not in controller:
+            issues.append(f"{where}.controller.adopt: raw is required")
         if "push" in controller and not isinstance(controller["push"], bool):
             issues.append(f"{where}.controller.push: true or false")
 

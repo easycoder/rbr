@@ -377,6 +377,10 @@ variable EventLabel
 variable Action
 variable Expectation
 variable Detail
+dictionary StepContext
+variable ContextText
+variable ContextTarget
+variable ContextActual
 variable Sub
 variable RowIndex
 variable ResultText
@@ -1620,7 +1624,8 @@ DescribeStep:
         put `controller` into Actor
         put `Controller` into ActorLabel
         put entry `controller` of Step into Controller
-        put entry `room` of Controller into Target
+        put `—` into Target
+        if Controller has entry `room` put entry `room` of Controller into Target
         put empty into Action
         if Controller has entry `set`
         begin
@@ -1661,7 +1666,8 @@ DescribeStep:
         if RelayValue is `on` set entry `R` of ActionValues to `●`
         else if RelayValue is `off` set entry `R` of ActionValues to `○`
         else set entry `R` of ActionValues to RelayValue
-        if AdvanceValue is `A` put `Advance` into EventLabel
+        if Controller has entry `adopt` put `Plan snapshot` into EventLabel
+        else if AdvanceValue is `A` put `Advance` into EventLabel
         else if AdvanceValue is `-` put `Cancel Advance` into EventLabel
         else if ModeValue is not empty put `Mode` into EventLabel
         else if PeriodValue is not empty put `Period` into EventLabel
@@ -1676,9 +1682,10 @@ DescribeStep:
         begin
             if entry `push` of Controller is false put 0 into PushFlag
         end
+        if Controller has entry `adopt` put `full map push` into Action
+        else if Controller has entry `raw` put `raw payload` into Action
         if Controller has entry `raw`
         begin
-            put `raw payload` into Action
             put 0 into PushFlag
         end
         if PushFlag is 1
@@ -1820,9 +1827,24 @@ DescribeStep:
     begin
         if entry `note` of Step is not empty put Detail cat ` — ` cat entry `note` of Step into Detail
     end
+    if Step has entry `context`
+    begin
+        put entry `context` of Step into StepContext
+        if StepContext has entry `target`
+        begin
+            put entry `target` of StepContext into ContextTarget
+            put `target at the time: ` cat ContextTarget cat ` °C` into ContextText
+            if StepContext has entry `actual`
+            begin
+                put entry `actual` of StepContext into ContextActual
+                put ContextText cat ` (reading ` cat ContextActual cat ` °C)` into ContextText
+            end
+            put Detail cat newline cat ContextText into Detail
+        end
+    end
     return
-!! @hash ef7abd1e
-!! @verified ef7abd1e
+!! @hash 25d1cf20
+!! @verified 25d1cf20
 !!!
 
 !! Append every field of the current controller set to the Action column.

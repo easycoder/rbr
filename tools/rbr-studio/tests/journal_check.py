@@ -572,6 +572,62 @@ class JournalToolsTests(unittest.TestCase):
         self.assertGreaterEqual(len(scenario["steps"]), 2)
         prepare(out, REPO)
 
+    def test_controller_steps_carry_the_heatlog_target_at_their_time(self):
+        # The room-state event does not carry the effective target; the
+        # heatlog does, so a relay decision can be read from the Step tab.
+        bundle = pathlib.Path(self._tmp.name) / "context-bundle"
+        heatlog = pathlib.Path(self._tmp.name) / "context-heatlog"
+        day_dir = heatlog / "Kitchen" / "2026" / "11"
+        day_dir.mkdir(parents=True)
+        minute = int(dt.datetime(2026, 11, 6, 11, 1, tzinfo=dt.timezone.utc).timestamp() // 60)
+        (day_dir / "06.csv").write_text(f"{minute},207,205,p\n", encoding="utf-8")
+        run("journal_import.py", "--source", str(self.root), "--day", DAY,
+            "--dest", str(bundle), "--heatlog-root", str(heatlog))
+        out = pathlib.Path(self._tmp.name) / "context.json"
+        run("journal_to_scenario.py", "--bundle", str(bundle), "--out", str(out))
+        scenario = json.loads(out.read_text())
+        prepare(out, REPO)
+        states = [step for step in scenario["steps"]
+                  if (step.get("controller") or {}).get("room") == "Kitchen"
+                  and "state" in (step.get("controller") or {})]
+        self.assertTrue(states)
+        self.assertEqual(states[-1].get("context"),
+                         {"target": "20.7", "actual": "20.5"})
+        self.assertIsNone(journal_to_scenario._heatlog_at(
+            {"Kitchen": [(minute, 207, 205)]}, "Kitchen",
+            dt.datetime(2026, 11, 6, 11, 0, tzinfo=dt.timezone.utc)))
+        self.assertEqual(journal_to_scenario._heatlog_at(
+            {"Kitchen": [(minute, 207, 205)]}, "Kitchen",
+            dt.datetime(2026, 11, 6, 11, 1, tzinfo=dt.timezone.utc)),
+            (minute, 207, 205))
+
+    def test_plan_snapshot_after_the_start_is_replayed_as_a_map_push(self):
+        # A schedule edit mid-day is a plan.snapshot with the new full map;
+        # the scenario must push it at that time and adopt it as the base for
+        # later state pushes, not keep the opening schedule all day.
+        day_file = self.root / "2026" / "11" / f"{DAY}.jsonl"
+        events = [json.loads(line) for line in day_file.read_text(encoding="utf-8").splitlines()
+                  if line.strip()]
+        start_ms = int(dt.datetime(2026, 11, 6, 11, 2, tzinfo=dt.timezone.utc).timestamp() * 1000)
+        events.append({"v": 1, "tsMs": start_ms, "seq": 9, "type": "plan.snapshot",
+                       "data": {"mapHash": self.digest, "reason": "ui:reply"},
+                       "ts": "2026-11-06T11:02:00+00:00", "tzOffsetMinutes": 0})
+        day_file.write_text(
+            "".join(json.dumps(event, separators=(",", ":")) + "\n" for event in events),
+            encoding="utf-8")
+        bundle = pathlib.Path(self._tmp.name) / "snapshot-bundle"
+        run("journal_import.py", "--source", str(self.root), "--day", DAY,
+            "--dest", str(bundle))
+        out = pathlib.Path(self._tmp.name) / "snapshot.json"
+        run("journal_to_scenario.py", "--bundle", str(bundle), "--out", str(out))
+        scenario = json.loads(out.read_text())
+        prepare(out, REPO)
+        adopted = [step for step in scenario["steps"]
+                   if (step.get("controller") or {}).get("adopt")]
+        self.assertEqual(len(adopted), 1)
+        payload = json.loads(adopted[0]["controller"]["raw"])
+        self.assertEqual(payload["name"], "Test home")
+
     def test_bundle_without_a_map_event_uses_the_manifest_base_map(self):
         # A day with no map change has no mapHash event; the exporter names the
         # map in force in the manifest, and the converter must use it.

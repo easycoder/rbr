@@ -2,9 +2,9 @@
 """journal-export.py - make a compact scenario bundle from one journal day.
 
 Runs on the controller. Reads <journal-root>/<YYYY>/<MM>/<YYYY-MM-DD>.jsonl,
-copies the map snapshots it references (or the last snapshot before the day,
-when the map did not change that day), drops repeated sensor readings that did
-not change value, and writes a tar.gz bundle in the same format as the
+copies the map snapshots it references and the last snapshot before the day
+(the map in force at midnight), drops repeated sensor readings that did not
+change value, and writes a tar.gz bundle in the same format as the
 RBR Studio importer:
 
     <journal-root>/exports/<system>-<YYYY-MM-DD>.tar.gz
@@ -227,14 +227,13 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False,
             value = (event.get("data") or {}).get("mapHash")
             if value and value not in hashes:
                 hashes.append(value)
-        # A day with no snapshot of its own still needs the map it started
-        # with. The last one before the day is that map, because a change
-        # would have written a plan.snapshot into this day's journal.
-        fallback_map = ""
-        if not hashes:
-            fallback_map = last_map_before(root, day)
-            if fallback_map:
-                hashes.append(fallback_map)
+        # The map in force at the start of the day is the base the Studio
+        # begins from. A day whose first snapshot comes later (a schedule edit
+        # at 15:59, say) must not use that later map as its base, or the UI
+        # shows the edited schedule for the whole morning.
+        base_map = last_map_before(root, day)
+        if base_map and base_map not in hashes:
+            hashes.insert(0, base_map)
         map_rows = []
         for digest in hashes:
             source_map = root / "maps" / f"{digest}.json"
@@ -277,7 +276,7 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False,
             "system": session_data.get("system"),
             "profile": session_data.get("profile"),
             "profileIndex": session_data.get("profileIndex"),
-            "baseMapHash": session_data.get("mapHash") or fallback_map or None,
+            "baseMapHash": base_map or session_data.get("mapHash"),
             "tzOffsetMinutes": first.get("tzOffsetMinutes"),
             "maps": map_rows,
             "reports": report_rows,

@@ -88,7 +88,8 @@ def prepare_library():
         "home": {"map": "../home.json", "profile": "Weekday"},
         "steps": [
             {"id": "s1", "at": "2026-11-05T08:00:00+00:00",
-             "expect": {"target": "summary.title", "visible": True}},
+             "expect": {"target": "summary.title", "visible": True},
+             "context": {"target": "22.0", "actual": "22.4"}},
             {"id": "s2", "at": "2026-11-05T08:01:00+00:00",
              "expect": {"target": "summary.title", "visible": True}},
             {"id": "s3", "at": "2026-11-05T08:02:00+00:00",
@@ -547,6 +548,10 @@ def click_run():
         check(steps.item(0, 2).text() == "08:00:00",
               "the Time column shows the event time, not the full ISO timestamp")
         check(steps.rowCount() == 3, "the temporary scenario has three rows")
+        steps.selectRow(0)
+        app.processEvents()
+        check("target at the time: 22.0" in widget(program, "Inspector").toPlainText(),
+              "the Step tab shows the heatlog target at the step's time")
         QTimer.singleShot(300, lambda: fill_duplicate("Shell duplicate"))
         widget(program, "DuplicateBtn").click()
         deadline = time.time() + 10

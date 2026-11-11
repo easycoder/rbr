@@ -135,3 +135,66 @@ Done. The Scenarios tab now has a vertical page: the library/table splitter on t
 `studio.allspeak` gained `ScenariosPage`/`ScenariosPageCol`; `LogTabs` is added there instead of `ScenariosRightCol`, and `MainTabChanged` returns it there when Scenarios is selected.
 
 Verified in the real shell, offscreen: the log is 976 px of the 986 px page, and all four buttons measure above its top edge. `tests/studio-shell-check.py` now asserts both, and it passes. `README.md`, `docs/SPEC.md` and `DIFF.md` describe the layout.
+
+## 15:05
+
+Can you explain: at step 92 of Journal 26-11-0 -QED6 - Sunroom, what caused the relay to turn off?
+
+**Assistant**
+
+The relay turned off because the Sunroom's temperature reached its effective target, not because of a schedule boundary or a fault.
+
+- Step 92 (`s92`) is journal seq 8434, 11:05:37: `room.state` for the Sunroom with `relay: "off"`.
+- It follows seq 8433, the Sunroom thermometer reading of 22.4 °C (2240).
+- At 10:00:18 the PWA had armed an **Advance** on the Sunroom (`advance: A`, `advanceuntil` 17:00). From background, Advance targets the next period's temperature. The heatlog records the target from 10:00 as **22.0 °C** (target tenths 220), so that was the period's temperature in force then.
+- `SetRelay` for a linked timed room turns the relay on only when `TempDecision < Target`. At 11:05 the reading was 22.4 °C, which is not below 22.0, so the controller set the relay off; `request.relay Demand off` follows at 11:05:40. The preceding reading at 10:49 was 21.4 °C, which is why the relay had been on. It came back on at 12:05 when the room had cooled to 21.8 °C.
+
+The `room.state.target` field says 23, but that is the persisted room target (the last period's 23.0 °C), not the effective target used for the relay decision; the heatlog's 22.0 is the effective one. The Studio's schedule shows 22.5 because the scenario's base map is the day's last map snapshot, taken after a 15:54/15:59 schedule edit that raised the period temperature from 22.0 to 22.5; at 11:05 the schedule still had 22.0.
+
+## 15:16
+
+Is it possible to make the decision visible in the Step tab, to help avoid confusion of this kind? There's nothing in the steps that says what the target actually was at that time.
+
+**Assistant**
+
+Yes — the heatlog has exactly that, so I have put it on each controller step.
+
+`journal_to_scenario.py` now reads the bundle's `reports/heatlog` CSVs and adds `context: {"target": "22.0", "actual": "22.4"}` to every controller step, using the last heatlog row at or before that step's time. The heatlog is the controller's own record of the effective target — the period temperature, a shifted advance target, or the background — which the room-state event does not carry. `DescribeStep` renders it on a second line in the Step tab (and in the row tooltip): `target at the time: 22.0 °C (reading 22.4 °C)`. The runner ignores the field.
+
+I regenerated the 2026-11-09 Sunroom scenario from its bundle (201 steps, same ids), so step `s92` now reads:
+
+    s92  2026-11-09T11:05:37+00:00  Controller  Sunroom  Relay  relay = off ↑ — seq 8434: room state
+    target at the time: 22.0 °C (reading 22.4 °C)
+
+which makes the reason visible: 22.4 °C was not below the effective 22.0 °C target.
+
+Verified: the converter test asserts the context, the shell check asserts the Step tab line, `journal_check.py` passes (18 tests), the Studio shell check passes, the scenario validates, and a probe against the real scenario selected `s92` and read the two-line detail. Other journal scenarios gain the line when they are re-imported or re-converted. `README.md`, `docs/SPEC.md` and `DIFF.md` describe the field.
+
+## 15:28
+
+At step 93, the heating in Sunroom is now off, but the target in the UI is showing 22.5, not 22.0, which looks like an error. If I understood correctly that's because the schedule was later changed, but should it not be using the schedule in the map that was current at the time?
+
+**Assistant**
+
+Yes — it should, and it now does. You were right about the cause: the scenario's base map was the day's **last** map snapshot (after the 15:54 schedule edit), not the map in force when the day began. A whole-day window has no snapshot at or before 00:00, so the converter fell back to the latest one, and the mid-day plan snapshots were never replayed. The map actually in force at 11:05 was the 11-08 map, whose 17:00–19:00 period is 22.0.
+
+Three changes:
+- The base map is the map in force at the window start: the latest snapshot at or before it, else the bundle's `baseMapHash` (the exporter now always carries the previous day's last snapshot for this), else the earliest snapshot of the day.
+- `plan.snapshot` events inside the day are emitted as full-map controller pushes with `adopt: true`; the runner replaces its base map with the adopted map before pushing, so later state pushes keep the new schedule instead of reverting to the opening map.
+- Regenerated the full 2026-11-09 scenario (1004 steps) and the Sunroom copy (203 steps). At `s92` the Sunroom subline is `22.0°→19:00 (A)`, agreeing with the Step tab's 22.0 target; `s132` (the 15:59 plan snapshot) flips it to `22.5°→19:00 (A)`, and `s133`, the state push after it, keeps 22.5.
+
+Verified with the real page: the runner executed the scenario to `s92`, `s132` and `s133` and read the Sunroom subline at each. Exporter tests are 13/13, the journal suite 19/19, and both scenarios validate.
+
+The existing 11-09 archive in the inbox predates the exporter fix, so a Reset today → Import would re-extract that old bundle; re-export the day with the updated `journal-export.py` first if you need a fresh import. Deploy that file to the controller for future days.
+
+## 15:40
+
+Startup error: [run-studio.sh output ending in Runtime Error: Key 'room' not found in Controller]
+
+**Assistant**
+
+That was the new plan-snapshot steps. They are controller steps with no room — `controller: {raw, adopt}` — and `DescribeStep` read `controller.room` unconditionally, so loading a scenario containing one raised the error at startup. It now defaults the Target to `—` when a controller step has no room, and labels an adopt step `Plan snapshot` / `full map push` instead of putting the whole map into the Action column.
+
+Verified by starting the Studio offscreen with your current settings: the Sunroom scenario loads 203 rows, and selecting `s132` shows `Controller  —  Plan snapshot  full map push — seq 10271: plan snapshot` with no runtime error. The Studio shell check still passes, and the doc-block checker is clean.
+
+`DIFF.md` is updated. The plan-snapshot/base-map behaviour is unchanged: `s92` still shows `22.0°→19:00 (A)` in the subline and the Step tab, and `s132` flips it to 22.5.

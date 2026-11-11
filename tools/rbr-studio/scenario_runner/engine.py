@@ -571,6 +571,17 @@ def _controller(driver, prepared, controller):
     raw = _apply_controller(prepared.base_map, prepared.aliases,
                             prepared.profile_idx, controller)
     if raw is not None:
+        # A plan snapshot is the controller's full map at a change; adopting it
+        # keeps every later map push on the new schedule instead of reverting
+        # to the scenario's opening map.
+        if controller.get("adopt"):
+            try:
+                payload = json.loads(raw)
+            except (TypeError, ValueError):
+                payload = None
+            if isinstance(payload, dict) and ("rooms" in payload or "profiles" in payload):
+                prepared.base_map.clear()
+                prepared.base_map.update(payload)
         driver.push_raw(raw)
         return
     if controller.get("push", True):

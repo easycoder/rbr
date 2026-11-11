@@ -160,7 +160,7 @@ speed.
 
 | Key | Meaning |
 | --- | --- |
-| `controller` | change map state and/or push a full map; `raw` sends a malformed payload |
+| `controller` | change map state and/or push a full map; `raw` sends a malformed payload, or `adopt` makes a full map the new base |
 | `user` | record a UI request in the table; the Event names the request type (Advance, Boost, Calendar, System Name, …); no page or map change; the controller effects follow as controller steps |
 | `ui` | tap, select, fill or scroll a semantic target |
 | `expect` | assert DOM state: text, contains, visible, hidden, value, count, geometry |
@@ -201,6 +201,21 @@ the whole map, so a reading and a schedule transition can share one row.
 
 `raw` sends exactly the given text and is how negative scenarios are written:
 a truncated map, `profiles: null`, duplicate room names, an unknown relay state.
+
+A controller step may also carry `context` with the controller's effective
+`target` and the `actual` reading at that moment, as one-decimal strings taken
+from the day's heatlog (`{"target": "22.0", "actual": "22.4"}`). The room-state
+event records the persisted room target, not the target the relay decision was
+made against, so the Step tab shows this on a second line; it is informational
+and the runner ignores it.
+
+The scenario's base map is the map in force at the window start: the latest
+snapshot at or before it, or the bundle's `baseMapHash` when that map predates
+the day. A `plan.snapshot` inside the window is emitted as a controller step
+whose `raw` is the snapshot's full map and whose `adopt` is true; the runner
+replaces its base map with that map before pushing it, so the state steps after
+a schedule edit keep the new schedule. `adopt` is ignored for a payload that is
+not a full map (a malformed negative-test push).
 
 The runner also implements the **protocol-level** replies any controller gives,
 and nothing else:
