@@ -114,8 +114,8 @@ Studio keeps the last frame after the run ends.
 
 `run.finished.status` is `passed`, `failed`, `cancelled` or `invalid`. A failed
 run carries `failure`, the same shape as a failed `step.finished`; the Studio
-shows its message beside the scenario title. A successful or cancelled finish
-has no `failure`.
+shows a warning indicator beside the scenario title and puts the message in the
+Log. A successful or cancelled finish has no `failure`.
 
 ## Commands (app → runner)
 

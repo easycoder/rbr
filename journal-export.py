@@ -2,7 +2,8 @@
 """journal-export.py - make a compact scenario bundle from one journal day.
 
 Runs on the controller. Reads <journal-root>/<YYYY>/<MM>/<YYYY-MM-DD>.jsonl,
-copies the map snapshots it references, drops repeated sensor readings that did
+copies the map snapshots it references (or the last snapshot before the day,
+when the map did not change that day), drops repeated sensor readings that did
 not change value, and writes a tar.gz bundle in the same format as the
 RBR Studio importer:
 
@@ -72,6 +73,45 @@ def resolve_root(cli_root):
 
 def day_path(root, day):
     return root / f"{day.year:04d}" / f"{day.month:02d}" / f"{day.isoformat()}.jsonl"
+
+
+def last_map_before(root, day):
+    """The newest map hash in a journal day before `day`, or "".
+
+    A day whose journal has no `mapHash` event — the controller booted earlier
+    and the map did not change — still needs a base map for the Studio. The
+    last snapshot before the day is the map in force at midnight, so copying
+    it makes the bundle stand alone. Days are visited newest first and the
+    search stops at the first one that has a snapshot.
+    """
+    root = pathlib.Path(root)
+    candidates = sorted(root.glob("[0-9][0-9][0-9][0-9]/[0-9][0-9]/*.jsonl"), reverse=True)
+    for path in candidates:
+        try:
+            file_day = datetime.date.fromisoformat(path.stem)
+        except ValueError:
+            continue
+        if file_day >= day:
+            continue
+        latest = None
+        try:
+            with path.open(encoding="utf-8", errors="replace") as handle:
+                for line in handle:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    digest = (event.get("data") or {}).get("mapHash")
+                    if not digest:
+                        continue
+                    key = (event.get("tsMs") or 0, event.get("seq") or 0)
+                    if latest is None or key > latest[0]:
+                        latest = (key, digest)
+        except OSError:
+            continue
+        if latest:
+            return latest[1]
+    return ""
 
 
 def _last_sensor(changed, event):
@@ -187,6 +227,14 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False,
             value = (event.get("data") or {}).get("mapHash")
             if value and value not in hashes:
                 hashes.append(value)
+        # A day with no snapshot of its own still needs the map it started
+        # with. The last one before the day is that map, because a change
+        # would have written a plan.snapshot into this day's journal.
+        fallback_map = ""
+        if not hashes:
+            fallback_map = last_map_before(root, day)
+            if fallback_map:
+                hashes.append(fallback_map)
         map_rows = []
         for digest in hashes:
             source_map = root / "maps" / f"{digest}.json"
@@ -229,7 +277,7 @@ def export_day(root, day, out, mode="scenario", keep=DEFAULT_KEEP, force=False,
             "system": session_data.get("system"),
             "profile": session_data.get("profile"),
             "profileIndex": session_data.get("profileIndex"),
-            "baseMapHash": session_data.get("mapHash"),
+            "baseMapHash": session_data.get("mapHash") or fallback_map or None,
             "tzOffsetMinutes": first.get("tzOffsetMinutes"),
             "maps": map_rows,
             "reports": report_rows,

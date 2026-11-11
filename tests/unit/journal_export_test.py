@@ -84,6 +84,33 @@ class ExportTests(unittest.TestCase):
     def tearDown(self):
         self._tmp.cleanup()
 
+    def test_day_without_a_map_snapshot_carries_the_last_known_map(self):
+        # The controller booted on an earlier day and the map did not change,
+        # so this day's journal has no mapHash event of its own. The bundle
+        # must still carry the map in force at midnight.
+        day_dir = self.root / "2026" / "11"
+        start = int(dt.datetime(2026, 11, 7, 0, 0, tzinfo=dt.timezone.utc).timestamp() * 1000)
+        events = [
+            {"v": 1, "tsMs": start, "seq": 10, "type": "room.state",
+             "data": {"room": "Kitchen", "mode": "timed", "relay": "off"},
+             "ts": "2026-11-07T00:00:00+00:00", "tzOffsetMinutes": 0},
+            {"v": 1, "tsMs": start + 60000, "seq": 11, "type": "sensor.reading",
+             "data": {"room": "Kitchen", "sensor": "k", "temp": 1850, "humidity": 50, "battery": 90},
+             "ts": "2026-11-07T00:01:00+00:00", "tzOffsetMinutes": 0},
+        ]
+        (day_dir / "2026-11-07.jsonl").write_text(
+            "".join(json.dumps(event, separators=(",", ":")) + "\n" for event in events),
+            encoding="utf-8")
+        archive, manifest = journal_export.export_day(
+            self.root, dt.date(2026, 11, 7), self.out / "no-map", mode="scenario", keep=0)
+        self.assertEqual([row["hash"] for row in manifest["maps"]], [self.digest])
+        self.assertEqual(manifest["baseMapHash"], self.digest)
+        opened = journal_bundle.open_bundle(archive)
+        try:
+            self.assertEqual(opened.load_map(self.digest)["name"], "Test")
+        finally:
+            opened.close()
+
     def test_scenario_mode_drops_repeated_sensor_values_and_preserves_bundle(self):
         archive, manifest = journal_export.export_day(
             self.root, self.day, self.out, mode="scenario", keep=2)

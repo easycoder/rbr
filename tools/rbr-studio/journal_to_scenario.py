@@ -228,6 +228,21 @@ def _base_map(args, events: list[dict], start: _datetime.datetime, bundle) -> tu
         candidates = [event for event in events
                       if (event.get("data") or {}).get("mapHash")]
     if not candidates:
+        # A bundle exported from a day with no map change carries the map in
+        # force at midnight, named by the manifest, rather than an event
+        # reference. A hand-built bundle with exactly one map is the same case.
+        digest = bundle.manifest.get("baseMapHash")
+        if not digest:
+            rows = bundle.manifest.get("maps") or []
+            if len(rows) == 1:
+                digest = rows[0].get("hash")
+        if digest:
+            try:
+                base = bundle.load_map(digest)
+            except FileNotFoundError:
+                raise SystemExit(
+                    f"journal_to_scenario.py: bundle is missing map {digest}; pass --map")
+            return base, session
         raise SystemExit("journal_to_scenario.py: no map snapshot in the journal; pass --map")
     chosen = max(candidates, key=lambda event: (event.get("tsMs") or 0, event.get("seq") or 0))
     digest = (chosen.get("data") or {})["mapHash"]

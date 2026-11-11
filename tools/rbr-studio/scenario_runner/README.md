@@ -92,8 +92,7 @@ moment. `--collapse-polls` suppresses the per-poll `Requesting map: refresh`
 log events and emits a `refresh ×50` summary every fifty, plus a final total;
 the full console is still written to the run's `console.log`.
 
-The shell uses these together for its **Show** button; **Run** stays headless
-and as fast as possible.
+The shell uses these together for its **Show** button. **Run** uses `--collapse-polls --step-pause-ms 300` as well, without `--view` or the speed selector, so its live log arrives in small batches; only `--fold-to-marker` and `--pause-at-marker` remain Show-only, because Run has no breakpoint to honour.
 
 A step may carry `"marker": true`, and at most one step in a scenario may do so.
 `--fold-to-marker` applies the controller steps before the marker to the base

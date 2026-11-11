@@ -17,7 +17,9 @@ mbox alone so the attachment can be extracted again.
 The folder defaults to `~/RBR-journal`, and the scan includes its per-system subfolders (the mail filter can save each system's attachments under `~/RBR-journal/<MAC>/`). A `studio-config.json` beside this script (written by `configure-studio.py`) can name another folder and can map a MAC to a useful system name; a one-line `fixtures/local/journal-inbox` file overrides the folder, so the setting lives beside the rest of the Studio's machine-local data. Imported bundles are kept in `fixtures/local/journal/<MAC-or-system>-<day>/`, and `fixtures/local/journal/inbox-seen.json` remembers every archive it has handled (by SHA-256), so scanning again is a no-op.
 
 A bundle that cannot be read is recorded as failed rather than retried on every
-start; a corrected file has a different hash and is picked up then.
+start; a corrected file has a different hash and is picked up then. The one
+exception is a day with no map snapshot of its own: it is retried once an
+earlier bundle can supply the map, which is what new exports carry directly.
 """
 
 from __future__ import annotations
@@ -189,6 +191,47 @@ def _existing_bundle(journal_dir: pathlib.Path, day: str, system,
     return None
 
 
+_DATE_SUFFIX = re.compile(r"(\d{4}-\d{2}-\d{2})$")
+
+
+def _fallback_map(journal_dir: pathlib.Path, day: str):
+    """The newest map from an earlier full-day bundle, or None.
+
+    A day whose journal has no map change carries no snapshot of its own, so
+    the map in force is the last one imported before it. Only full-day bundle
+    directories are considered; a partial bundle's key ends in its time, not
+    its day. The manifest lists maps in the order they first appeared, so its
+    last row is the newest one.
+    """
+    if not journal_dir.is_dir():
+        return None
+    best = None
+    for candidate in journal_dir.iterdir():
+        if not candidate.is_dir():
+            continue
+        match = _DATE_SUFFIX.search(candidate.name)
+        if not match or match.group(1) >= str(day):
+            continue
+        rows = []
+        try:
+            manifest = json.loads((candidate / "manifest.json").read_text(encoding="utf-8"))
+            rows = manifest.get("maps") or []
+        except (OSError, ValueError):
+            rows = []
+        path = None
+        if rows:
+            digest = rows[-1].get("hash")
+            if digest:
+                path = candidate / "maps" / f"{digest}.json"
+        if path is None or not path.is_file():
+            maps = sorted((candidate / "maps").glob("*.json"))
+            path = maps[-1] if maps else None
+        if path is not None and path.is_file():
+            if best is None or match.group(1) > best[0]:
+                best = (match.group(1), path)
+    return best[1] if best else None
+
+
 def reset(system, day=None, inbox=None, journal_dir=None, drafts_dir=None,
           state_path=None, config=None, quiet=False) -> list[dict]:
     """Forget one system's imported journal for a day, ready for a fresh import.
@@ -282,8 +325,17 @@ def scan(inbox=None, journal_dir=None, drafts_dir=None, state_path=None,
     handled = []
     for archive in _archives(inbox):
         digest = journal_bundle.sha256_file(archive)
-        if digest in state:
-            continue
+        prior = state.get(digest)
+        if prior is not None:
+            # A bundle recorded as failed is not retried, with one exception:
+            # the day had no map snapshot and a newer importer can now supply
+            # the map from the previous bundle. Other failures stay recorded.
+            retry = (prior.get("status") == "failed"
+                     and "no map snapshot" in str(prior.get("error") or ""))
+            if not retry:
+                continue
+            if not prior.get("day") or _fallback_map(journal_dir, prior["day"]) is None:
+                continue
         record = {
             "archive": archive.name,
             "sha256": digest,
@@ -328,6 +380,10 @@ def scan(inbox=None, journal_dir=None, drafts_dir=None, state_path=None,
             draft = drafts_dir / f"journal-{key}-{day}.json"
             command = [sys.executable, str(HERE / "journal_to_scenario.py"),
                        "--bundle", str(target), "--out", str(draft), "--name", name]
+            if not any((target / "maps").glob("*.json")):
+                fallback = _fallback_map(journal_dir, day)
+                if fallback is not None:
+                    command.extend(["--map", str(fallback)])
             result = subprocess.run(command, cwd=HERE, capture_output=True, text=True)
             if result.returncode != 0:
                 detail = (result.stderr or result.stdout or "").strip().splitlines()

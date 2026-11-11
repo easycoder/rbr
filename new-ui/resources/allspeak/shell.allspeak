@@ -772,12 +772,25 @@ RequestMap:
 !! Briefly tint the topbar heartbeat dot to confirm a fresh reply arrived.
 !!
 !! Pulsing on RECEIVE rather than send means a dead-but-not-yet-detected WebSocket (common after a phone wake-up) shows up as the dot going quiet — an honest signal — instead of false-positive pulses from a send that "succeeded" into a closed socket. Called from OnMapReceived for every reply (full map or empty heartbeat ping), since either proves the round-trip is alive.
+!!
+!! The clear is forked, not awaited. Waiting here parks OnMapReceived with the payload still in ReceivedMessage, and a poll's empty reply arriving during that wait overwrites it — so the map is read as a heartbeat and dropped. Measured 2026-11-11: a map followed 100 ms later by an empty payload left the room card on its old value, and the same race failed one step in a thousand of the 9 November journal. The dot is all the wait is for, so a forked task holds the tint without widening the window.
+!!
+!! That task ends with `stop`, not `return`. A fork is a fresh run with no frame of its own, so its `return` pops the caller's — in demo mode the first map is applied inside the bootstrap's `gosub` chain, and the pop ended BuildHomeScreen early, leaving OpenAboutSheet to run before the sheet chrome existed (measured 2026-11-11 by the demo-mode spec).
 PulseHeartbeat:
 	set style `background-color` of HeartbeatDot to `var(--color-accent)`
+	fork to PulseHeartbeatClear
+	return
+!! @hash bf54602c
+!! @verified bf54602c
+!!!
+
+!! Clear the heartbeat dot after its tint.
+PulseHeartbeatClear:
 	wait 50 ticks
 	set style `background-color` of HeartbeatDot to `rgba(0,0,0,0.18)`
-	return
-!! @hash 2ad91a5c
+	stop
+!! @hash 726256dc
+!! @verified 726256dc
 !!!
 !! Fired by `on mqtt message`. Routes incoming controller payloads into the right render path: BuildHomeScreen for the first one, RefreshHomeScreen thereafter.
 !!

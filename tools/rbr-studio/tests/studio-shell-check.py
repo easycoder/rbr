@@ -186,7 +186,7 @@ def cleanup_library():
 TEST_ENTRY, TEST_ENTRY_2, *JOURNAL_ENTRIES = prepare_library()
 EXTRA_ENTRIES = []
 
-from PySide6.QtCore import QTimer  # noqa: E402
+from PySide6.QtCore import QPoint, QTimer  # noqa: E402
 from PySide6.QtGui import QShortcut  # noqa: E402
 from PySide6.QtWidgets import QApplication, QLineEdit, QPlainTextEdit, QTableWidgetSelectionRange  # noqa: E402
 from allspeak.as_program import Program  # noqa: E402
@@ -386,6 +386,18 @@ def click_run():
         check(widget(program, "Steps").isVisible(), "the table is visible on Scenarios")
         check(widget(program, "Steps").isColumnHidden(1),
               "the Scenarios tab hides the Mark column")
+        for _ in range(5):
+            app.processEvents()
+            time.sleep(0.05)
+        page = widget(program, "ScenariosPage")
+        log = widget(program, "LogTabs")
+        check(abs(log.width() - page.width()) <= 30,
+              f"the Scenarios log spans the page ({log.width()} of {page.width()})")
+        log_top = log.mapToGlobal(QPoint(0, 0)).y()
+        for name in ("DuplicateBtn", "DuplicateRoomBtn", "RenameBtn", "DeleteRowsBtn"):
+            button = widget(program, name)
+            check(button.mapToGlobal(QPoint(0, button.height())).y() <= log_top + 2,
+                  f"{name} sits above the Scenarios log")
         tabs.setCurrentIndex(1)
         app.processEvents()
         check(not widget(program, "Steps").isColumnHidden(1),

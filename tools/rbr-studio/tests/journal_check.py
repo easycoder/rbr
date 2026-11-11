@@ -328,6 +328,32 @@ class JournalToolsTests(unittest.TestCase):
             drafts_dir=pathlib.Path(self._tmp.name) / "drafts",
             state_path=state, quiet=True), [])
 
+    def test_fallback_map_uses_the_newest_earlier_full_day_bundle(self):
+        journal = pathlib.Path(self._tmp.name) / "fallback-journal"
+        digests = {"2026-11-08": "1" * 64, "2026-11-09": "2" * 64,
+                   "2026-11-10": "3" * 64}
+        for day, digest in digests.items():
+            bundle = journal / f"00-e0-27-5b-31-40-{day}"
+            (bundle / "maps").mkdir(parents=True)
+            (bundle / "maps" / f"{digest}.json").write_text("{}", encoding="utf-8")
+            (bundle / "manifest.json").write_text(
+                json.dumps({"day": day, "maps": [{"hash": digest}]}), encoding="utf-8")
+        # A partial bundle's key ends in its time, not its day, and is ignored.
+        partial = journal / "00-e0-27-5b-31-40-2026-11-10-12-34-56"
+        (partial / "maps").mkdir(parents=True)
+        (partial / "maps" / f"{'4' * 64}.json").write_text("{}", encoding="utf-8")
+        (partial / "manifest.json").write_text(
+            json.dumps({"day": "2026-11-10", "partial": True,
+                        "maps": [{"hash": "4" * 64}]}), encoding="utf-8")
+
+        self.assertIsNone(journal_inbox._fallback_map(journal, "2026-11-08"))
+        self.assertEqual(
+            journal_inbox._fallback_map(journal, "2026-11-09"),
+            journal / "00-e0-27-5b-31-40-2026-11-08" / "maps" / f"{'1' * 64}.json")
+        self.assertEqual(
+            journal_inbox._fallback_map(journal, "2026-11-11"),
+            journal / "00-e0-27-5b-31-40-2026-11-10" / "maps" / f"{'3' * 64}.json")
+
     def test_converter_suppresses_duplicates_and_formats_values(self):
         bundle = pathlib.Path(self._tmp.name) / "bundle"
         run("journal_import.py", "--source", str(self.root), "--day", DAY,
@@ -542,6 +568,28 @@ class JournalToolsTests(unittest.TestCase):
         out = pathlib.Path(self._tmp.name) / "raw.json"
         run("journal_to_scenario.py", "--journal", str(self.root / "2026" / "11" / f"{DAY}.jsonl"),
             "--map", str(map_path), "--from", "11:00", "--to", "12:00", "--out", str(out))
+        scenario = json.loads(out.read_text())
+        self.assertGreaterEqual(len(scenario["steps"]), 2)
+        prepare(out, REPO)
+
+    def test_bundle_without_a_map_event_uses_the_manifest_base_map(self):
+        # A day with no map change has no mapHash event; the exporter names the
+        # map in force in the manifest, and the converter must use it.
+        bundle = pathlib.Path(self._tmp.name) / "base-map-bundle"
+        run("journal_import.py", "--source", str(self.root), "--day", DAY,
+            "--dest", str(bundle))
+        manifest = json.loads((bundle / "manifest.json").read_text())
+        events_path = bundle / "events" / "2026" / "11" / f"{DAY}.jsonl"
+        events = [json.loads(line) for line in events_path.read_text().splitlines() if line.strip()]
+        for event in events:
+            (event.get("data") or {}).pop("mapHash", None)
+        events_path.write_text(
+            "".join(json.dumps(event, separators=(",", ":")) + "\n" for event in events),
+            encoding="utf-8")
+        manifest["baseMapHash"] = self.digest
+        (bundle / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        out = pathlib.Path(self._tmp.name) / "base-map.json"
+        run("journal_to_scenario.py", "--bundle", str(bundle), "--out", str(out))
         scenario = json.loads(out.read_text())
         self.assertGreaterEqual(len(scenario["steps"]), 2)
         prepare(out, REPO)
