@@ -42,6 +42,16 @@
     --color-chip-heat-bg:    var(--color-accent-8);
     --color-chip-heat-fg:    var(--color-accent);
 
+    /* Room-pill backgrounds. Blue and orange are their state colour mixed
+       three-quarters of the way to white; the neutral default is the same mix
+       of the default border. The Off tint is lighter still, so an Off room
+       recedes behind a Timed room rather than gaining weight from its grey
+       text and border. */
+    --color-pill-bg-blue:    #CBDCEC;
+    --color-pill-bg-orange:  #F9DACC;
+    --color-pill-bg-grey:    #F5F5F5;
+    --color-pill-bg-default: #EEEEEE;
+
     --color-border-hairline:     #ECECEC;
     --color-border-divider:      #F0F0F0;
     --color-border-divider-soft: #F3F3F3;

@@ -1,8 +1,8 @@
 {
-    "#doc": "System type & name sheet — heating type (Boiler / Heat Pump) and the system display name. Save ships System Name + a systemType field on the map. Renders as a sibling sheet inside sheet-content.",
+    "#doc": "System sheet — heating type, display name and the maximum time a room may stay in On. Save ships System Name with systemType and onmax fields on the map. Renders as a sibling sheet inside sheet-content.",
     "#element": "div",
     "@id": "system-sheet",
-    "#": ["$Tagline", "$NameBlock", "$TypeBlock", "$Buttons"],
+    "#": ["$Tagline", "$NameBlock", "$TypeBlock", "$MaxOnBlock", "$Buttons"],
 
     "$Tagline": {
         "#element": "div",
@@ -10,7 +10,7 @@
         "font-size": "13px",
         "font-weight": "400",
         "color": "var(--color-text-secondary)",
-        "#content": "Name the system and pick the heating type. Save to apply, Cancel to discard."
+        "#content": "Name the system, pick the heating type and cap how long a room may stay On. Save to apply, Cancel to discard."
     },
 
     "$NameBlock": {
@@ -90,6 +90,46 @@
                 "cursor": "pointer",
                 "#content": "$Label"
             }
+        }
+    },
+
+    "$MaxOnBlock": {
+        "#doc": "System-wide cap on how long a room may stay in On. Always On preserves the old behaviour; 4–12 hours makes On expire back to the mode the room was in before On. The options are filled by shell.allspeak so they stay in one place.",
+        "#element": "div",
+        "margin-top": "14px",
+        "#": ["$MaxOnLabel", "$MaxOnSelect", "$MaxOnHint"],
+
+        "$MaxOnLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "Maximum time in On"
+        },
+
+        "$MaxOnSelect": {
+            "#element": "select",
+            "@id": "system-sheet-max-on",
+            "width": "100%",
+            "padding": "10px 12px",
+            "border": "1px solid var(--color-border-hairline)",
+            "border-radius": "10px",
+            "background": "var(--color-surface-card)",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "color": "var(--color-text-primary)",
+            "box-sizing": "border-box"
+        },
+
+        "$MaxOnHint": {
+            "#element": "div",
+            "margin-top": "6px",
+            "font-size": "11px",
+            "color": "var(--color-text-muted)",
+            "#content": "When the limit is reached the room returns to the mode it was in before On. Always On keeps the old behaviour."
         }
     },
 

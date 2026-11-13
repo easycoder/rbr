@@ -56,6 +56,7 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 | File | Needed when |
 |---|---|
 | `simulator.allspeak` | Simulation mode — only if a file named `sim` exists (see `controller.allspeak` init) |
+| `rbr-doctor.py` | A service is down, the UI sits on "Reconnecting...", or the box is not updating. Run `sudo python3 rbr-doctor.py > rbr-doctor.txt` for one read-only report: services, timers, the controller journal, state-file freshness, broker round-trip and the Linux environment |
 | `zigbee-config.json` | Optional — the bridge works without it, falling back to `localhost:1883` / port 8889. `rbr-setup.sh` creates it with broker details. |
 | `server.allspeak` | Running the AllSpeak dev server on the controller: `allspeak server.allspeak [port]`, or `allspeak viz [port]` to open the visualiser as well. `server.allspeak` must be kept current — a copy from before 2026-10-12 answers `503 Server handler not ready` to every request and reports nothing; refresh it with `curl -fsS https://allspeak.ai/code/server.allspeak -o server.allspeak` |
 | `.htaccess` | Only if Apache serves this directory (ignored by `http.server`) |

@@ -111,6 +111,7 @@ TARBALL_FILES = [
     "rbr_mail.py",
     "rbr-restore.py",
     "heatwatch.py",
+    "rbr-doctor.py",
     "VERSION",
 ]
 

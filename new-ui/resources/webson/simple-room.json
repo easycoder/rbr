@@ -1,0 +1,724 @@
+{
+    "#doc": "Simple-view room card. A single room, one screen, with larger type, wider spacing and a 2x2 mode grid. It deliberately keeps the same element IDs as room-row.json (room-/I/-name, room-/I/-mode-timed, ...) so RenderRoom, PaintExpansion and every existing action routine work unchanged. /I/ is substituted with the room's list index.",
+    "#element": "div",
+    "@id": "room-/I/-card",
+    "box-sizing": "border-box",
+    "background": "var(--color-surface-card)",
+    "border-radius": "20px",
+    "box-shadow": "var(--shadow-card-raised)",
+    "display": "flex",
+    "flex-direction": "column",
+    "flex": "1 1 auto",
+    "min-height": "0",
+    "#": ["$Rest", "$Expansion", "$Home"],
+
+    "$Rest": {
+        "#doc": "The card header. It carries the same id as the compact row's tap target so the existing room-wiring code can attach it; ToggleExpansion is a no-op while the simple room page is open.",
+        "#element": "div",
+        "@id": "room-/I/-rest",
+        "box-sizing": "border-box",
+        "padding": "22px 20px 18px 20px",
+        "display": "flex",
+        "align-items": "center",
+        "gap": "16px",
+        "cursor": "default",
+        "user-select": "none",
+        "#": ["$Chip", "$TextBlock", "$TempBlock"],
+
+        "$Chip": {
+            "#element": "div",
+            "@id": "room-/I/-chip",
+            "width": "56px",
+            "height": "56px",
+            "border-radius": "18px",
+            "background": "var(--color-chip-ok-bg)",
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+            "flex-shrink": "0",
+            "#": "$ChipIcon",
+
+            "$ChipIcon": {
+                "#element": "div",
+                "@id": "room-/I/-chip-icon",
+                "width": "26px",
+                "height": "26px",
+                "background-color": "var(--color-chip-ok-fg)",
+                "mask": "url(resources/icon/clock.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/clock.svg) center/contain no-repeat"
+            }
+        },
+
+        "$TextBlock": {
+            "#element": "div",
+            "display": "flex",
+            "flex-direction": "column",
+            "flex": "1",
+            "gap": "3px",
+            "min-width": "0",
+            "#": ["$NameRow", "$TagRow", "$Subline", "$WarnRow"],
+
+            "$NameRow": {
+                "#element": "div",
+                "display": "flex",
+                "align-items": "center",
+                "min-width": "0",
+                "#": ["$Name"],
+
+                "$Name": {
+                    "#element": "div",
+                    "@id": "room-/I/-name",
+                    "font-size": "26px",
+                    "font-weight": "600",
+                    "letter-spacing": "-0.4px",
+                    "color": "var(--color-text-primary)",
+                    "min-width": "0",
+                    "overflow": "hidden",
+                    "text-overflow": "ellipsis",
+                    "white-space": "nowrap"
+                }
+            },
+
+            "$TagRow": {
+                "#element": "div",
+                "display": "flex",
+                "align-items": "center",
+                "gap": "8px",
+                "min-width": "0",
+                "#": ["$HeatingTag", "$OfflineTag"],
+
+                "$HeatingTag": {
+                    "#element": "div",
+                    "@id": "room-/I/-heating-tag",
+                    "display": "none",
+                    "align-items": "center",
+                    "gap": "4px",
+                    "font-size": "13px",
+                    "font-weight": "600",
+                    "color": "var(--color-accent)",
+                    "#": ["$Flame", "$Label"],
+
+                    "$Flame": {
+                        "#element": "div",
+                        "@id": "room-/I/-heating-icon",
+                        "width": "14px",
+                        "height": "14px",
+                        "background-color": "var(--color-accent)",
+                        "mask": "url(resources/icon/flame.svg) center/contain no-repeat",
+                        "-webkit-mask": "url(resources/icon/flame.svg) center/contain no-repeat"
+                    },
+                    "$Label": {
+                        "#element": "span",
+                        "@id": "room-/I/-heating-label",
+                        "#content": "heating"
+                    }
+                },
+
+                "$OfflineTag": {
+                    "#element": "div",
+                    "@id": "room-/I/-offline-tag",
+                    "display": "none",
+                    "align-items": "center",
+                    "gap": "4px",
+                    "font-size": "13px",
+                    "font-weight": "500",
+                    "color": "var(--color-status-warn)",
+                    "#": ["$WifiSlash", "$Label"],
+
+                    "$WifiSlash": {
+                        "#element": "div",
+                        "width": "14px",
+                        "height": "14px",
+                        "background-color": "var(--color-status-warn)",
+                        "mask": "url(resources/icon/offline.svg) center/contain no-repeat",
+                        "-webkit-mask": "url(resources/icon/offline.svg) center/contain no-repeat"
+                    },
+                    "$Label": {
+                        "#element": "span",
+                        "#content": "offline"
+                    }
+                }
+            },
+
+            "$Subline": {
+                "#element": "div",
+                "@id": "room-/I/-subline",
+                "font-size": "16px",
+                "font-weight": "500",
+                "color": "var(--color-text-secondary)",
+                "white-space": "nowrap",
+                "overflow": "hidden",
+                "text-overflow": "ellipsis"
+            },
+
+            "$WarnRow": {
+                "#element": "div",
+                "@id": "room-/I/-warn-row",
+                "display": "none",
+                "align-items": "center",
+                "gap": "5px",
+                "margin-top": "3px",
+                "min-width": "0",
+                "font-size": "14px",
+                "font-weight": "500",
+                "color": "var(--color-status-warn)",
+                "#": ["$WarnIcon", "$WarnText"],
+
+                "$WarnIcon": {
+                    "#element": "div",
+                    "width": "13px",
+                    "height": "13px",
+                    "flex-shrink": "0",
+                    "background-color": "var(--color-status-warn)",
+                    "mask": "url(resources/icon/warning.svg) center/contain no-repeat",
+                    "-webkit-mask": "url(resources/icon/warning.svg) center/contain no-repeat"
+                },
+
+                "$WarnText": {
+                    "#element": "span",
+                    "@id": "room-/I/-warn-text",
+                    "flex": "1",
+                    "min-width": "0",
+                    "white-space": "nowrap",
+                    "overflow": "hidden",
+                    "text-overflow": "ellipsis"
+                }
+            }
+        },
+
+        "$TempBlock": {
+            "#element": "div",
+            "display": "flex",
+            "flex-direction": "column",
+            "align-items": "flex-end",
+            "flex-shrink": "0",
+            "#": ["$CurrentRow", "$Setpoint"],
+
+            "$CurrentRow": {
+                "#element": "div",
+                "display": "flex",
+                "align-items": "baseline",
+                "#": ["$Temp", "$Unit"],
+
+                "$Temp": {
+                    "#element": "span",
+                    "@id": "room-/I/-temp",
+                    "font-size": "42px",
+                    "font-weight": "500",
+                    "letter-spacing": "-1.5px",
+                    "color": "var(--color-text-primary)"
+                },
+
+                "$Unit": {
+                    "#element": "span",
+                    "font-size": "16px",
+                    "font-weight": "500",
+                    "color": "var(--color-text-muted)",
+                    "margin-left": "3px",
+                    "#content": "°C"
+                }
+            },
+
+            "$Setpoint": {
+                "#element": "div",
+                "@id": "room-/I/-setpoint",
+                "font-size": "13px",
+                "color": "var(--color-text-muted)",
+                "margin-top": "3px"
+            }
+        }
+    },
+
+    "$Expansion": {
+        "#element": "div",
+        "@id": "room-/I/-expansion",
+        "display": "flex",
+        "flex-direction": "column",
+        "flex": "1 1 auto",
+        "min-height": "0",
+        "overflow-y": "auto",
+        "justify-content": "space-between",
+        "padding": "0 20px 8px 20px",
+        "border-top": "1px solid var(--color-border-divider-soft)",
+        "#": ["$ModeBlock", "$TargetBlock", "$AdvanceBlock", "$BoostBlock", "$MoreBlock"],
+
+        "$ModeBlock": {
+            "#element": "div",
+            "flex-shrink": "0",
+            "#": ["$ModeLabel", "$ModePill"],
+
+            "$ModeLabel": {
+                "#element": "div",
+                "margin": "18px 0 10px 0",
+                "font-size": "13px",
+                "font-weight": "600",
+                "letter-spacing": "0.5px",
+                "color": "var(--color-text-meta)",
+                "text-transform": "uppercase",
+                "#content": "Mode"
+            },
+            "$ModePill": {
+                "#element": "div",
+                "background": "var(--color-surface-sunk)",
+                "padding": "6px",
+                "border-radius": "16px",
+                "display": "grid",
+                "grid-template-columns": "1fr 1fr",
+                "gap": "8px",
+                "#": ["$Timed", "$Boost", "$On", "$Off"],
+
+                "$Timed": {
+                    "#element": "button",
+                    "@id": "room-/I/-mode-timed",
+                    "box-sizing": "border-box",
+                    "min-height": "56px",
+                    "padding": "14px 10px",
+                    "border": "0",
+                    "border-radius": "12px",
+                    "background": "transparent",
+                    "color": "var(--color-text-muted)",
+                    "font-family": "inherit",
+                    "font-size": "18px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "Timed"
+                },
+                "$Boost": {
+                    "#element": "button",
+                    "@id": "room-/I/-mode-boost",
+                    "box-sizing": "border-box",
+                    "min-height": "56px",
+                    "padding": "14px 10px",
+                    "border": "0",
+                    "border-radius": "12px",
+                    "background": "transparent",
+                    "color": "var(--color-text-muted)",
+                    "font-family": "inherit",
+                    "font-size": "18px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "Boost"
+                },
+                "$On": {
+                    "#element": "button",
+                    "@id": "room-/I/-mode-on",
+                    "box-sizing": "border-box",
+                    "min-height": "56px",
+                    "padding": "14px 10px",
+                    "border": "0",
+                    "border-radius": "12px",
+                    "background": "transparent",
+                    "color": "var(--color-text-muted)",
+                    "font-family": "inherit",
+                    "font-size": "18px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "On"
+                },
+                "$Off": {
+                    "#element": "button",
+                    "@id": "room-/I/-mode-off",
+                    "box-sizing": "border-box",
+                    "min-height": "56px",
+                    "padding": "14px 10px",
+                    "border": "0",
+                    "border-radius": "12px",
+                    "background": "transparent",
+                    "color": "var(--color-text-muted)",
+                    "font-family": "inherit",
+                    "font-size": "18px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "Off"
+                }
+            }
+        },
+
+        "$TargetBlock": {
+            "#element": "div",
+            "@id": "room-/I/-target-block",
+            "flex-shrink": "0",
+            "#": ["$TargetLabel", "$TargetRow"],
+
+            "$TargetLabel": {
+                "#element": "div",
+                "margin": "20px 0 10px 0",
+                "font-size": "13px",
+                "font-weight": "600",
+                "letter-spacing": "0.5px",
+                "color": "var(--color-text-meta)",
+                "text-transform": "uppercase",
+                "#content": "Target"
+            },
+            "$TargetRow": {
+                "#element": "div",
+                "display": "flex",
+                "gap": "12px",
+                "align-items": "stretch",
+                "#": ["$Minus", "$Tile", "$Plus"],
+
+                "$Minus": {
+                    "#element": "button",
+                    "@id": "room-/I/-target-minus",
+                    "box-sizing": "border-box",
+                    "width": "68px",
+                    "height": "68px",
+                    "border-radius": "34px",
+                    "background": "var(--color-surface-card)",
+                    "border": "0",
+                    "cursor": "pointer",
+                    "box-shadow": "var(--shadow-step-btn)",
+                    "color": "var(--color-accent)",
+                    "font-size": "30px",
+                    "font-weight": "400",
+                    "font-family": "inherit",
+                    "flex-shrink": "0",
+                    "padding": "0",
+                    "#content": "−"
+                },
+                "$Tile": {
+                    "#element": "div",
+                    "flex": "1",
+                    "padding": "16px 8px",
+                    "background": "var(--color-accent-10)",
+                    "border": "1px solid var(--color-accent-20)",
+                    "border-radius": "16px",
+                    "display": "flex",
+                    "flex-direction": "column",
+                    "align-items": "center",
+                    "justify-content": "center",
+                    "#": ["$NumberRow", "$Caption"],
+
+                    "$NumberRow": {
+                        "#element": "div",
+                        "display": "flex",
+                        "align-items": "baseline",
+                        "#": ["$Number", "$Unit"],
+
+                        "$Number": {
+                            "#element": "span",
+                            "@id": "room-/I/-target-value",
+                            "font-size": "40px",
+                            "font-weight": "500",
+                            "letter-spacing": "-1.2px",
+                            "color": "var(--color-text-primary)"
+                        },
+                        "$Unit": {
+                            "#element": "span",
+                            "font-size": "18px",
+                            "font-weight": "500",
+                            "color": "var(--color-accent)",
+                            "margin-left": "4px",
+                            "#content": "°C"
+                        }
+                    },
+                    "$Caption": {
+                        "#element": "div",
+                        "font-size": "14px",
+                        "font-weight": "400",
+                        "color": "var(--color-text-secondary)",
+                        "margin-top": "4px",
+                        "#content": "Target temperature"
+                    }
+                },
+                "$Plus": {
+                    "#element": "button",
+                    "@id": "room-/I/-target-plus",
+                    "box-sizing": "border-box",
+                    "width": "68px",
+                    "height": "68px",
+                    "border-radius": "34px",
+                    "background": "var(--color-surface-card)",
+                    "border": "0",
+                    "cursor": "pointer",
+                    "box-shadow": "var(--shadow-step-btn)",
+                    "color": "var(--color-accent)",
+                    "font-size": "30px",
+                    "font-weight": "400",
+                    "font-family": "inherit",
+                    "flex-shrink": "0",
+                    "padding": "0",
+                    "#content": "+"
+                }
+            }
+        },
+
+        "$AdvanceBlock": {
+            "#element": "div",
+            "@id": "room-/I/-advance-block",
+            "flex": "1 1 auto",
+            "width": "100%",
+            "align-self": "stretch",
+            "min-height": "0",
+            "display": "flex",
+            "align-items": "center",
+            "justify-content": "center",
+            "#": ["$AdvanceBtn"],
+
+            "$AdvanceBtn": {
+                "#element": "button",
+                "@id": "room-/I/-advance-btn",
+                "box-sizing": "border-box",
+                "width": "min(64vw, 240px)",
+                "max-width": "100%",
+                "aspect-ratio": "1 / 1",
+                "flex-shrink": "0",
+                "margin": "0 auto",
+                "padding": "20px",
+                "border": "1px solid var(--color-text-disabled)",
+                "border-radius": "18px",
+                "background": "var(--color-surface-sunk)",
+                "color": "var(--color-text-primary)",
+                "font-family": "inherit",
+                "font-size": "40px",
+                "font-weight": "500",
+                "cursor": "pointer",
+                "text-align": "center",
+                "white-space": "pre-line",
+                "line-height": "1.2",
+                "display": "flex",
+                "align-items": "center",
+                "justify-content": "center",
+                "#content": "Advance"
+            }
+        },
+
+        "$BoostBlock": {
+            "#element": "div",
+            "@id": "room-/I/-boost-block",
+            "flex-shrink": "0",
+            "#": ["$BoostLabel", "$BoostGrid"],
+
+            "$BoostLabel": {
+                "#element": "div",
+                "margin": "20px 0 10px 0",
+                "font-size": "13px",
+                "font-weight": "600",
+                "letter-spacing": "0.5px",
+                "color": "var(--color-text-meta)",
+                "text-transform": "uppercase",
+                "#content": "Boost"
+            },
+            "$BoostGrid": {
+                "#element": "div",
+                "display": "grid",
+                "grid-template-columns": "1fr 1fr",
+                "gap": "8px",
+                "#": ["$BoostOff", "$Boost30", "$Boost1h", "$Boost2h"],
+
+                "$BoostOff": {
+                    "#element": "button",
+                    "@id": "room-/I/-boost-off",
+                    "box-sizing": "border-box",
+                    "min-height": "54px",
+                    "padding": "14px 10px",
+                    "background": "var(--color-surface-card)",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "12px",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "17px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "Off"
+                },
+                "$Boost30": {
+                    "#element": "button",
+                    "@id": "room-/I/-boost-30",
+                    "box-sizing": "border-box",
+                    "min-height": "54px",
+                    "padding": "14px 10px",
+                    "background": "var(--color-surface-card)",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "12px",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "17px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "30 min"
+                },
+                "$Boost1h": {
+                    "#element": "button",
+                    "@id": "room-/I/-boost-1h",
+                    "box-sizing": "border-box",
+                    "min-height": "54px",
+                    "padding": "14px 10px",
+                    "background": "var(--color-surface-card)",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "12px",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "17px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "1 hr"
+                },
+                "$Boost2h": {
+                    "#element": "button",
+                    "@id": "room-/I/-boost-2h",
+                    "box-sizing": "border-box",
+                    "min-height": "54px",
+                    "padding": "14px 10px",
+                    "background": "var(--color-surface-card)",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "12px",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "17px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "2 hr"
+                }
+            }
+        },
+
+        "$MoreBlock": {
+            "#doc": "The room's secondary actions. Three equal-width buttons in one row rather than three full-width strips; each label is two lines. The override reminder, when armed, sits beneath the row.",
+            "#element": "div",
+            "flex-shrink": "0",
+            "#": ["$ActionRow", "$OverrideRow"],
+
+            "$ActionRow": {
+                "#element": "div",
+                "display": "flex",
+                "gap": "8px",
+                "align-items": "stretch",
+                "#": ["$EditScheduleBtn", "$SpecialBtn", "$InfoBtn"],
+
+                "$EditScheduleBtn": {
+                    "#element": "button",
+                    "@id": "room-/I/-edit-schedule",
+                    "box-sizing": "border-box",
+                    "flex": "1 1 0",
+                    "min-width": "0",
+                    "aspect-ratio": "1 / 1",
+                    "padding": "12px 6px",
+                    "border": "1px solid var(--color-text-disabled)",
+                    "border-radius": "14px",
+                    "background": "var(--color-surface-sunk)",
+                    "cursor": "pointer",
+                    "font-family": "inherit",
+                    "font-size": "16px",
+                    "font-weight": "500",
+                    "color": "var(--color-text-primary)",
+                    "text-align": "center",
+                    "white-space": "pre-line",
+                    "line-height": "1.2",
+                    "display": "flex",
+                    "align-items": "center",
+                    "justify-content": "center",
+                    "#content": "Edit\nschedule"
+                },
+                "$SpecialBtn": {
+                    "#element": "button",
+                    "@id": "room-/I/-special-btn",
+                    "box-sizing": "border-box",
+                    "flex": "1 1 0",
+                    "min-width": "0",
+                    "aspect-ratio": "1 / 1",
+                    "padding": "12px 6px",
+                    "border": "1px solid var(--color-text-disabled)",
+                    "border-radius": "14px",
+                    "background": "var(--color-surface-sunk)",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "16px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "text-align": "center",
+                    "white-space": "pre-line",
+                    "line-height": "1.2",
+                    "display": "flex",
+                    "align-items": "center",
+                    "justify-content": "center",
+                    "#content": "Special\nactions"
+                },
+                "$InfoBtn": {
+                    "#element": "button",
+                    "@id": "room-/I/-info-btn",
+                    "@aria-label": "Room details",
+                    "box-sizing": "border-box",
+                    "flex": "1 1 0",
+                    "min-width": "0",
+                    "aspect-ratio": "1 / 1",
+                    "padding": "12px 6px",
+                    "border": "1px solid var(--color-text-disabled)",
+                    "border-radius": "14px",
+                    "background": "var(--color-surface-sunk)",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "16px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "text-align": "center",
+                    "white-space": "pre-line",
+                    "line-height": "1.2",
+                    "display": "flex",
+                    "align-items": "center",
+                    "justify-content": "center",
+                    "#content": "Room\ndetails"
+                }
+            },
+
+            "$OverrideRow": {
+                "#element": "div",
+                "@id": "room-/I/-override-row",
+                "display": "none",
+                "align-items": "center",
+                "gap": "8px",
+                "margin-top": "10px",
+                "#": ["$OverrideText", "$OverrideCancel"],
+
+                "$OverrideText": {
+                    "#element": "div",
+                    "@id": "room-/I/-override-text",
+                    "flex": "1",
+                    "min-width": "0",
+                    "font-size": "15px",
+                    "font-weight": "500",
+                    "color": "var(--color-accent)"
+                },
+                "$OverrideCancel": {
+                    "#element": "button",
+                    "@id": "room-/I/-override-cancel",
+                    "box-sizing": "border-box",
+                    "flex-shrink": "0",
+                    "padding": "10px 14px",
+                    "border": "1px solid var(--color-border-hairline)",
+                    "border-radius": "10px",
+                    "background": "var(--color-surface-card)",
+                    "color": "var(--color-text-primary)",
+                    "font-family": "inherit",
+                    "font-size": "15px",
+                    "font-weight": "500",
+                    "cursor": "pointer",
+                    "#content": "Cancel"
+                }
+            }
+        }
+    },
+
+    "$Home": {
+        "#doc": "The way out of the single-room page. The card fills the screen and this button is its fixed bottom edge, below the scrolling controls.",
+        "#element": "button",
+        "@id": "simple-room-home",
+        "@aria-label": "Back to the room list",
+        "box-sizing": "border-box",
+        "width": "100%",
+        "flex-shrink": "0",
+        "padding": "20px 16px",
+        "margin": "8px 0 0 0",
+        "border": "0",
+        "border-radius": "0 0 20px 20px",
+        "background": "var(--color-accent)",
+        "color": "#FFFFFF",
+        "font-family": "inherit",
+        "font-size": "20px",
+        "font-weight": "600",
+        "cursor": "pointer",
+        "text-align": "center",
+        "box-shadow": "0 -6px 16px -8px rgba(0,0,0,0.3)",
+        "#content": "Home"
+    }
+}

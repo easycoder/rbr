@@ -55,6 +55,7 @@ tools/rbr-studio/.venv/bin/python tools/rbr-studio/tests/show_check.py # Show fo
 tools/rbr-studio/.venv/bin/python tools/rbr-studio/tests/view_check.py # frame endpoint and a live --view run (starts Chromium)
 QT_QPA_PLATFORM=offscreen python3 tools/rbr-studio/tests/view_pane_check.py # the Studio's view-pane plugin and its frame fetch
 python3 -m unittest tests/unit/journal_export_test.py # controller-side compact journal export
+python3 -m unittest tests/unit/doctor_test.py         # the doctor's journal signature and MQTT probe contract
 ```
 
 The browser suite is separate, because it needs a browser:
@@ -202,6 +203,8 @@ The point of the doc-block convention is to force close reading; reporting what 
 ## Diagnostics while debugging
 
 Reach for a log before reaching for a theory. `log` writes to the browser console, and the same line prints in the terminal runtime, so a script can tell you what it is actually doing rather than what you assume it is doing.
+
+When the controller itself is suspect, run `sudo python3 rbr-doctor.py > rbr-doctor.txt` first. It is read-only apart from a 100-second throwaway MQTT sender: it reports every service and timer, the controller journal and the one signature that matters (a session that logged `Subscribed to topic` with no `Load the system map` after it has connected but never started, and the UI shows "Reconnecting..."), state-file freshness, a live round-trip to the controller, and the Linux environment (failed units, duplicate launch mechanisms, broker sockets, inodes, swap, interface errors, pending reboot, error-priority journal lines). It explains a refused journal read rather than leaving `No entries` to be misread.
 
 The reason to prefer a log over a dialog box is not that it is cheap — it is that it is **copyable**. A copied line can be quoted into a conversation, a bug report or a commit message, compared against earlier output, and read by somebody else; a dialog box leaves you to paraphrase it from memory, and that is where wrong ideas take hold. Be liberal with them, and cheerful about intrusive ones — they are not permanent. Remove each one once the question it was asked has an answer, and have each line name its own subject (`rooms: 8  relays: 3`) so the copy still makes sense on its own.
 

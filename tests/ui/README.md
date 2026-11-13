@@ -87,4 +87,9 @@ tests/ui/schedule.spec.js     period start moves, stop follows, saved request
 tests/ui/profiles.spec.js     a rename carries the calendar's day names
 tests/ui/devices.spec.js      a room rename keeps that room's own wiring
 tests/ui/map-mid-edit.spec.js a map pushed mid-edit is held, then applied
+tests/ui/simple-view.spec.js  the reduced home, its profile pill, single-room page and Home
+tests/ui/room-colours.spec.js the name/temperature colours, pill borders and icons for off, on, timed and Off rooms
+tests/ui/simple-badges.spec.js battery warnings and the frost badge on the simple home
+tests/ui/demand-flame.spec.js the flame beside the heartbeat dot, and when it is absent
+tests/ui/system.spec.js     the system-wide maximum time in On
 ```

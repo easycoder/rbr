@@ -113,7 +113,7 @@ CONTROLLER_FILES=(controller.allspeak deviceControl.allspeak simulator.allspeak 
                   diagnose.allspeak zigbee-bridge.py zigbee-pair.py zigbee-mesh.py \
                   rbr-dashboard.py heatlog.py eventlog.py journal-export.py dashboard.txt rbr-updater.py \
                   rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py rbr_mail.py \
-                  rbr-restore.py rbr-setup.sh)
+                  rbr-restore.py rbr-setup.sh rbr-doctor.py)
 
 # Versioned controller tarball for the standalone updater (rbr-updater.py).
 # Contains the controller runtime files with a VERSION stamp embedded;
@@ -158,6 +158,7 @@ upload_heat() {
        "$LOCAL/deviceControl.allspeak" \
        "$LOCAL/simulator.allspeak" \
        "$LOCAL/diagnose.allspeak" \
+       "$LOCAL/rbr-doctor.py" \
        "$LOCAL/rbr-controller.tar.gz" \
        "$LOCAL/rbr-controller.zip" \
        "$LOCAL/get-controller.sh" \
@@ -191,7 +192,7 @@ build_controller_zip() {
         controller.allspeak deviceControl.allspeak simulator.allspeak diagnose.allspeak zigbee-bridge.py \
         zigbee-pair.py zigbee-mesh.py rbr-dashboard.py heatlog.py eventlog.py journal-export.py dashboard.txt \
         rbr-updater.py rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py rbr_mail.py \
-        rbr-restore.py rbr-setup.sh VERSION)
+        rbr-restore.py rbr-setup.sh rbr-doctor.py VERSION)
     rm -rf "$BUILD_DIR"
     echo "  → $LOCAL/rbr-controller.zip (version $(cat "$LOCAL/version"))"
 }

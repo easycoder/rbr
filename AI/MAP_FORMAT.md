@@ -10,6 +10,7 @@ This is the primary configuration file that drives the controller's behaviour.
 map.json
 ├── name                — system name
 ├── request             — demand-relay name
+├── onmax               — system-wide maximum time in On: "always" or 4–12 hours
 ├── profile             — index of the selected profile
 ├── calendar, calendar-data
 ├── rooms[]             — the shared room list: identity, once for the system
@@ -28,7 +29,7 @@ map.json
 │       ├── target      — fallback target temperature (°C)
 │       ├── events[]    — timed schedule: [{until: "HH:MM", temp: "N.N"}, ...]
 │       ├── periods[]   — current timed schedule: [{on: "HH:MM", off: "HH:MM", temp: "N.N", enabled: true|false}, ...]
-│       ├── advance, period, prevmode, until, boostperiod — scheduling state the controller maintains
+│       ├── advance, period, prevmode, until, boostperiod, onuntil, onprevmode — scheduling state the controller maintains
 │       └── (no identity fields: those live in `rooms`)
 ├── overrides (optional) — one-off schedule tweaks, keyed by room name
 └── calendar (optional)  — maps day names to profile names
@@ -45,6 +46,12 @@ The join is the room **name**. It used to be an array index, which meant that tw
 
 The controller merges the two halves into one flat record per room for its processing cycle, and splits them again before writing the map or sending it to a UI. Every routine in between sees exactly what it saw before the split.
 
+### `onmax` — maximum time in On
+
+`onmax` is a map-root setting, not a room or profile field: one value governs the whole system. It is either `"always"` (no cap) or an integer number of hours from 4 to 12. A map with no `onmax` behaves as Always On, so an older map or a hand-written one keeps the old behaviour; a fresh default map written by the controller starts at 12 hours.
+
+When a room enters `on`, the controller records the mode it was in as `onprevmode` and, when the cap is finite, the deadline as `onuntil` in that room's profile state. At the deadline it clears both, returns the room to `onprevmode` (or to Timed when the previous mode was boost or not recoverable), and sends a map update. If the setting is reduced while a room is already On, the next cycle clamps the existing deadline; setting it to Always On removes the deadline. `onuntil` and `onprevmode` are controller-maintained scheduling state: do not hand-edit them.
+
 ### What a UI sends
 
 An `Update Profiles` request carries both halves — `rooms[]` (identity) and `profiles[]` (schedule state) — plus the selected `profile` and the calendar fields. The controller takes only the seven identity fields a UI owns (`relays`, `sensor`, `trv`, `linked`, `relayfails`, `protect`, `ptemp`) from `rooms`, keeping its own readings and derived status for every room it already knew: a page is reporting state from a few seconds ago, and its temperatures must not win. Names absent from the incoming list are deleted; names not seen before are added.
@@ -54,6 +61,8 @@ A room with a `trv` has no relays. The controller commands the valve's `system_m
 A TRV room's `sensor` is also the temperature the valve is told to use. When `sensor` names a separate thermometer (`"sensor": "LR-HT"`, `"trv": "LR-Rad"`), the controller selects the valve's remote temperature input and feeds it that thermometer's reading, so the valve modulates on the room sensor rather than on the temperature at the radiator. When `sensor` is the valve's own friendly name, the valve keeps its internal sensor. A separate thermometer is refreshed when its reading changes, at most once every five minutes, and always accompanies a setpoint or mode command.
 
 `Update Rooms` replaces the identity list on its own, for a client that edits wiring without touching schedules.
+
+A `System Name` request carries `name`, `systemType` and `onmax`; the controller stores `onmax` on the map root.
 
 `profiles[].rooms` must be an object keyed by room name. A list means the sender is a UI that predates the split, and the controller **rejects the request and leaves the running map alone** rather than emptying the room set and stopping the heating. The log says so.
 
@@ -85,6 +94,8 @@ An **absent flag means enabled**, so existing maps (and any period written by ha
 - Keep MAC addresses and relay identifiers exactly as found
 - `events` must be ordered by `until` time, earliest first
 - `mode` values are strictly: `timed`, `boost`, `advance`, `on`, `off`
+- `onmax` is `"always"` or an integer from 4 to 12; omit it to mean Always On
+- Do not hand-edit `onuntil` or `onprevmode`; the controller maintains them while a room is in On
 - Temperature values in `events[].temp` are strings (e.g. `"21.0"`), `target` is a number
 - `periods[].enabled` is a boolean; omit it to mean enabled, or set `false` to switch a period off
 - Do not remove runtime fields (`relay`, `advance`, `boost`, `status`, `timestamp`, etc.) — the controller writes these

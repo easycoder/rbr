@@ -1,5 +1,5 @@
 {
-    "#doc": "MenuSheet content — three rows in a bordered card plus a small footer caption. Uses a $Row template with $ID/$Label/$Sub variables. Profiles & schedules are reached from the home screen's profile pill (not the menu).",
+    "#doc": "MenuSheet content — the view switch and profiles route, followed by the system, device and service rows in a bordered card plus a small footer caption. Uses a $Row template with $ID/$Label/$Sub variables.",
     "#element": "div",
     "@id": "menu-sheet",
     "#": ["$Card", "$Footer"],
@@ -11,12 +11,24 @@
         "border-radius": "14px",
         "margin-top": "10px",
         "overflow": "hidden",
-        "#": ["$Row1", "$Row2", "$Row3", "$Row4", "$Row5"],
+        "#": ["$Row0", "$RowProfiles", "$Row1", "$Row2", "$Row3", "$Row4", "$Row5"],
 
+        "$Row0": {
+            "$ID": "menu-row-view",
+            "$Label": "Simple view",
+            "$Sub": "Off — larger room buttons, one room at a time",
+            "#": ["$Row"]
+        },
+        "$RowProfiles": {
+            "$ID": "menu-row-profiles",
+            "$Label": "Profiles & schedules",
+            "$Sub": "Profile names, the calendar and per-room times",
+            "#": ["$Row"]
+        },
         "$Row1": {
             "$ID": "menu-row-system",
-            "$Label": "System type & name",
-            "$Sub": "",
+            "$Label": "System",
+            "$Sub": "Name, type and maximum time On",
             "#": ["$Row"]
         },
         "$Row2": {

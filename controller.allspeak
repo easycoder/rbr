@@ -192,6 +192,11 @@
     variable LastBackupInfoText
     variable Action
     variable Mode
+    variable OnMax
+    variable OnDeadline
+    variable OnUntil
+    variable OnExpired
+    variable OnPrev
     variable Value
     variable Value2
     variable ThermometerUpdate
@@ -352,7 +357,7 @@
     variable TrvWasRunning
     variable TrvSeen
     variable TrvAge
-!! @hash 9f90aeda
+!! @hash c63578c2
 !! @verified 85d32787
 !!!
 !! Basic initialisation.
@@ -951,11 +956,12 @@ LoadMap:
         set entry `calendar` of Map to `off`
         set entry `calendar-data` of Map to `[]`
         set entry `name` of Map to `New System`
+        set entry `onmax` of Map to 12
     end
     gosub to EnsureSharedRooms
     set MapHasChanged
     return
-!! @hash ad046dc3
+!! @hash f6e9c05a
 !! @verified e3869999
 !!!
 !! Publish the backup setting and last-run status into the map for the Backups sheet.
@@ -1282,6 +1288,8 @@ CommitRooms:
             if CRRoom has entry `advanceuntil` set entry `advanceuntil` of CRState to entry `advanceuntil` of CRRoom
             if CRRoom has entry `prevmode` set entry `prevmode` of CRState to entry `prevmode` of CRRoom
             if CRRoom has entry `until` set entry `until` of CRState to entry `until` of CRRoom
+            if CRRoom has entry `onuntil` set entry `onuntil` of CRState to entry `onuntil` of CRRoom
+            if CRRoom has entry `onprevmode` set entry `onprevmode` of CRState to entry `onprevmode` of CRRoom
             if CRRoom has entry `boostperiod` set entry `boostperiod` of CRState to entry `boostperiod` of CRRoom
             set entry CRName of CRStates to CRState
             increment CRIdx
@@ -1291,7 +1299,7 @@ CommitRooms:
         set entry `profiles` of Map to Profiles
     end
     return
-!! @hash 882dea5c
+!! @hash 3835b8e7
 !!!
 !! Merge an identity list sent by the UI into Map.rooms.
 !!
@@ -1629,12 +1637,78 @@ PeriodHeatGrace:
 !! @hash a3e52277
 !! @verified a3e52277
 !!!
+!! Resolve the system On cap into an absolute deadline from now.
+!!
+!! `Map.onmax` is `always` (or absent) for no cap, otherwise 4–12 hours. The value is clamped here as well as in the sheet, so a hand-edited map cannot shorten the cap below four hours or extend it beyond twelve. Output `OnDeadline` is 0 when there is no cap.
+OnDeadlineFromNow:
+    put 0 into OnDeadline
+    put `always` into OnMax
+    if Map has entry `onmax` put entry `onmax` of Map into OnMax
+    if OnMax is empty return
+    if OnMax is `always` return
+    put the value of OnMax into OnMax
+    if OnMax is less than 4 put 4 into OnMax
+    if OnMax is greater than 12 put 12 into OnMax
+    multiply OnMax by 3600000
+    put OnMax into OnDeadline
+    add now to OnDeadline
+    return
+!! @hash 470037a2
+!!!
+!! Start the On clock from the system setting.
+!!
+!! Called when a room enters On. A finite cap records `onuntil`; Always On clears any deadline left from a previous setting. The deadline is persisted with the plan, so a controller restart does not restart the clock.
+SetOnDeadline:
+    gosub to OnDeadlineFromNow
+    if OnDeadline is 0
+    begin
+        if Room has entry `onuntil` delete entry `onuntil` of Room
+        return
+    end
+    set entry `onuntil` of Room to OnDeadline
+    return
+!! @hash 47202da2
+!!!
+!! Enforce the system On cap on the current room.
+!!
+!! Runs while the room is in On. It starts a missing deadline, clamps an existing one when the cap has been reduced, and sets OnExpired when the deadline has passed. `OnDeadline` is 0 for Always On, which removes any stale deadline and never expires.
+CheckOnLimit:
+    clear OnExpired
+    gosub to OnDeadlineFromNow
+    if OnDeadline is 0
+    begin
+        if Room has entry `onuntil` delete entry `onuntil` of Room
+        return
+    end
+    if Room has entry `onuntil`
+    begin
+        put entry `onuntil` of Room into OnUntil
+        if OnUntil is greater than OnDeadline set entry `onuntil` of Room to OnDeadline
+    end
+    else set entry `onuntil` of Room to OnDeadline
+    put entry `onuntil` of Room into OnUntil
+    if OnUntil is not greater than now set OnExpired
+    return
+!! @hash 86f83a28
+!!!
+!! Resolve the mode to return to when On expires.
+!!
+!! `onprevmode` is the mode the room was in when On began. Boost cannot be resumed because its timing state was cleared when On began, so it and any unknown value fall back to Timed; Timed and Off are returned as they are.
+OnReturnMode:
+    put `timed` into OnPrev
+    if Room has entry `onprevmode` put entry `onprevmode` of Room into OnPrev
+    if OnPrev is `boost` put `timed` into OnPrev
+    if OnPrev is not `timed`
+        if OnPrev is not `off` put `timed` into OnPrev
+    return
+!! @hash b16128bc
+!!!
 !! Run one control cycle for a single room: read its current temperature, apply the active mode to derive a target, send a relay command to the device controller, and store the outcome on the Room dictionary for the UI.
 !!
 !! Mode handling:
 !! `timed` consults the room's schedule via FindCurrentPeriod and ApplyPeriodsAdvance.
 !!
-!! `on` uses the room's stored target.
+!! `on` uses the room's stored target until the system On cap is reached; it then returns to the mode the room was in before On (Timed when that mode is boost or otherwise not recoverable).
 !!
 !! `boost` runs at the boost target until either the `until` timestamp expires or the natural period rolls over (then auto-reverts to prevmode).
 !!
@@ -1741,6 +1815,26 @@ ProcessRoom:
     if Mode is `timed` gosub to FindCurrentPeriod
     else if Mode is `on`
     begin
+        gosub to CheckOnLimit
+        if OnExpired
+        begin
+            ! Return to the mode that was running before On. OnReturnMode
+            ! resolves a boost (whose timing state was cleared) and any
+            ! unknown value to the schedule.
+            gosub to OnReturnMode
+            set entry `mode` of Room to OnPrev
+            delete entry `onuntil` of Room
+            delete entry `onprevmode` of Room
+            gosub to ForceUpdate
+            put entry `mode` of Room into Mode
+            if Mode is `timed` gosub to FindCurrentPeriod
+            else
+            begin
+                set Mode to `off`
+                set RelayState to `off`
+            end
+            go to BoostDone
+        end
         put entry `target` of Room into Temp
         gosub to ConvertTempToInt
         put Temp into Target
@@ -1845,7 +1939,7 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash 1b81ae80
+!! @hash e691e34f
 !! @verified 9c87d092
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
@@ -3281,6 +3375,8 @@ ResolveRoomFromMessage:
 !!
 !! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (replaces the shared room identity list, used by add/delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites the shared room list, the profiles list and the optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), `Backup` (save the monthly email setting), `Backup Now` (email a monthly archive immediately), `Journal Now` (export today's events up to now and email them), and `Test`.
 !!
+!! `System Name` also carries `onmax`, the system-wide maximum time in On. Entering `on` records `onprevmode` (the mode to return to) and, when the cap is finite, `onuntil`; leaving On clears both, and ProcessRoom returns the room to `onprevmode` when the deadline passes.
+!!
 !! Operating Mode handles all four modes plus advance and boost duration parsing (accepts a raw integer minutes, or `B<n>` form like `B30`). `advance` is a desired state: the PWA sends `A` or `-` and it is applied as-is, so a retried or duplicated request cannot flip the wrong way; older clients sending `yes` still toggle. Arming an advance records `advanceuntil`, the schedule change it is aiming at; leaving Timed drops the flag and the deadline with it. Switching out of boost (boost -> off/timed/on) clears the boost-tracking fields (`until`, `prevmode`, `boostperiod`) so the map doesn't carry zombie state across profile views. After mutating the map most actions call ForceUpdate so the change is visible to all UIs immediately.
 !!
 !! Room Override carries `op` (`set`, the default, or `clear`) plus, for a set, `kind` (`start` with a `time` of HH:MM, or `skip`). It is a one-day schedule tweak stored outside `profiles` — see SetRoomOverride — and is not a mode change, so a room in `on`/`off`/`boost` keeps that mode and the override applies when the room returns to `timed`.
@@ -3357,6 +3453,16 @@ ProcessUIRequest:
             return
         end
         set entry `name` of Map to Value
+        if Message has entry `onmax`
+        begin
+            put entry `onmax` of Message into Value
+            if Value is `always` set entry `onmax` of Map to `always`
+            else
+            begin
+                put the value of Value into OnMax
+                set entry `onmax` of Map to OnMax
+            end
+        end
         log `Set the system name to ` cat entry `name` of Map
         gosub to ForceUpdate
         set JournalPlanChanged
@@ -3530,6 +3636,20 @@ ProcessUIRequest:
             delete entry `prevmode` of Room
             delete entry `boostperiod` of Room
         end
+        if Mode is `on`
+        begin
+            if Value2 is not `on`
+            begin
+                if Value2 is empty put `timed` into Value2
+                set entry `onprevmode` of Room to Value2
+                gosub to SetOnDeadline
+            end
+        end
+        else if Value2 is `on`
+        begin
+            if Room has entry `onuntil` delete entry `onuntil` of Room
+            if Room has entry `onprevmode` delete entry `onprevmode` of Room
+        end
         set entry `mode` of Room to Mode
         if Mode is not `timed`
         begin
@@ -3661,7 +3781,7 @@ ProcessUIRequest:
         system background `python3 journal-export.py --now --email-now`
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash 1a3b523f
+!! @hash ccc40951
 !! @verified 1a3b523f
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).

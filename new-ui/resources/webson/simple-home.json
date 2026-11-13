@@ -1,0 +1,111 @@
+{
+    "#doc": "Simple-view home button. One large, full-width row per room carrying only the room name and its current temperature — the deliberately reduced home screen the hamburger's 'Simple view' option switches to. /I/ is substituted with the room's list index.",
+    "#element": "button",
+    "@id": "simple-room-/I/",
+    "box-sizing": "border-box",
+    "flex": "1 1 0",
+    "min-height": "0",
+    "width": "100%",
+    "padding": "12px 22px",
+    "margin": "0",
+    "border": "1.5px solid var(--color-text-disabled)",
+    "border-radius": "18px",
+    "background": "var(--color-pill-bg-default, #EEEEEE)",
+    "box-shadow": "var(--shadow-card)",
+    "display": "flex",
+    "align-items": "center",
+    "justify-content": "space-between",
+    "gap": "16px",
+    "cursor": "pointer",
+    "text-align": "left",
+    "font-family": "inherit",
+    "#": ["$Chip", "$Name", "$TempBlock"],
+
+    "$Chip": {
+        "#element": "div",
+        "@id": "simple-room-/I/-chip",
+        "width": "48px",
+        "height": "48px",
+        "border-radius": "14px",
+        "background": "transparent",
+        "display": "flex",
+        "align-items": "center",
+        "justify-content": "center",
+        "flex-shrink": "0",
+        "#": "$ChipIcon",
+
+        "$ChipIcon": {
+            "#element": "div",
+            "@id": "simple-room-/I/-chip-icon",
+            "width": "24px",
+            "height": "24px",
+            "background-color": "var(--color-chip-ok-fg)",
+            "mask": "url(resources/icon/clock.svg) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/clock.svg) center/contain no-repeat"
+        }
+    },
+
+    "$Name": {
+        "#element": "div",
+        "@id": "simple-room-/I/-name",
+        "flex": "1",
+        "font-size": "24px",
+        "font-weight": "600",
+        "letter-spacing": "-0.3px",
+        "color": "var(--color-text-primary)",
+        "min-width": "0",
+        "overflow": "hidden",
+        "text-overflow": "ellipsis",
+        "white-space": "nowrap"
+    },
+
+    "$TempBlock": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "column",
+        "align-items": "flex-end",
+        "flex-shrink": "0",
+        "#": ["$Battery", "$CurrentRow"],
+
+        "$Battery": {
+            "#element": "div",
+            "@id": "simple-room-/I/-battery",
+            "@role": "img",
+            "@aria-label": "Battery warning",
+            "width": "34px",
+            "height": "14px",
+            "margin-bottom": "4px",
+            "background-image": "url(resources/icon/battery-low.png)",
+            "background-size": "contain",
+            "background-position": "center",
+            "background-repeat": "no-repeat",
+            "display": "none",
+            "flex-shrink": "0"
+        },
+
+        "$CurrentRow": {
+            "#element": "div",
+            "display": "flex",
+            "align-items": "baseline",
+            "#": ["$Temp", "$Unit"]
+        },
+
+        "$Temp": {
+            "#element": "span",
+            "@id": "simple-room-/I/-temp",
+            "font-size": "34px",
+            "font-weight": "500",
+            "letter-spacing": "-1px",
+            "color": "var(--color-text-primary)"
+        },
+
+        "$Unit": {
+            "#element": "span",
+            "font-size": "16px",
+            "font-weight": "500",
+            "color": "var(--color-text-muted)",
+            "margin-left": "3px",
+            "#content": "°C"
+        }
+    }
+}

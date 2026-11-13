@@ -47,6 +47,7 @@ rbr-updater.py
 rbr-watchdog.sh
 heatwatch.py       rbr-mapbackup.py   rbr-backup.py
 rbr_mail.py        rbr-setup.sh       rbr-restore.py
+rbr-doctor.py
 VERSION
 ```
 

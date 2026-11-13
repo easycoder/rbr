@@ -76,7 +76,7 @@
     },
 
     "$Heartbeat": {
-        "#doc": "Pulses on every map-request the UI sends to the controller, so a stalled poll loop (e.g. tab backgrounded by the OS) is visible at a glance. Tapping forces an immediate refresh — escape hatch when the loop has been throttled.",
+        "#doc": "Pulses on every map-request the UI sends to the controller, so a stalled poll loop (e.g. tab backgrounded by the OS) is visible at a glance. Tapping forces an immediate refresh — escape hatch when the loop has been throttled. The flame beside the dot appears while the demand relay is on; it is positioned outside the 24px button so showing it never moves the dot.",
         "#element": "button",
         "@id": "top-bar-heartbeat",
         "@aria-label": "Refresh now",
@@ -89,9 +89,29 @@
         "display": "flex",
         "align-items": "center",
         "justify-content": "center",
+        "position": "relative",
         "cursor": "pointer",
         "flex-shrink": "0",
-        "#": "$Dot",
+        "#": ["$Flame", "$Dot"],
+
+        "$Flame": {
+            "#doc": "Demand relay on. Hidden on a system with no request relay configured, and while nothing is calling for heat. Positioned to the left of the dot, outside the button box, so the dot stays put.",
+            "#element": "div",
+            "@id": "top-bar-demand-flame",
+            "@role": "img",
+            "@aria-label": "Demand relay on",
+            "position": "absolute",
+            "top": "50%",
+            "right": "20px",
+            "transform": "translateY(-50%)",
+            "width": "13px",
+            "height": "13px",
+            "background-color": "var(--color-accent)",
+            "mask": "url(resources/icon/flame.svg) center/contain no-repeat",
+            "-webkit-mask": "url(resources/icon/flame.svg) center/contain no-repeat",
+            "visibility": "hidden",
+            "pointer-events": "none"
+        },
 
         "$Dot": {
             "#element": "div",

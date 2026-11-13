@@ -13,8 +13,22 @@
 	div AppRoot
 	div TopBarHolder
 	div MainHolder
+	div LayoutFooter
+	button SimpleRoomBtn
+	div SimpleRoomChip
+	div SimpleRoomChipIcon
+	div SimpleRoomName
+	div SimpleRoomTemp
+	div SimpleRoomBattery
+	button SimpleProfilePill
+	div SimpleProfileName
+	div SimpleProfileOutsideBlock
+	div SimpleProfileOutside
+	div SimpleProfileFrost
+	button SimpleHomeBtn
 	div SystemId
 	button HeartbeatBtn
+	div HeartbeatFlame
 	div HeartbeatDot
 	button HouseMark
 	div AboutSheetEl
@@ -55,6 +69,9 @@
 	button MenuRowOutside
 	button MenuRowBackups
 	button MenuRowJournal
+	button MenuRowView
+	button MenuRowProfiles
+	div MenuViewSub
 	div BackupSheetEl
 	div BackupEmailEl
 	div BackupLastEl
@@ -77,6 +94,7 @@
 	div DeviceEditorSheetEl
 	div SystemSheetEl
 	input SystemSheetName
+	select SystemSheetMaxOn
 	button SystemSheetTypeBoiler
 	button SystemSheetTypeHeatPump
 	button SystemSheetSaveBtn
@@ -138,6 +156,9 @@
 	variable SheetWebson
 	variable MenuWebson
 	variable RoomRowText
+	variable SimpleHomeWebson
+	variable SimpleRoomWebson
+	variable SimpleProfileWebson
 	variable RoomsList
 	variable Room
 	variable RoomHasTrvSetpoint
@@ -145,7 +166,26 @@
 	variable RoomCount
 	variable RowText
 	variable IndexStr
+	variable SimpleMode
+	variable SimpleRoomIndex
+	variable SummaryBuilt
+	variable ViewSetting
 	variable Mode
+	variable RoomTextColour
+	variable RoomBorderColour
+	variable RoomBackgroundColour
+	variable BatteryIconUrl
+	variable BatteryLevel
+	variable ColourMode
+	variable ColourRadiatorOn
+	variable ChipSensor
+	variable ChipOffline
+	variable ChipPartial
+	variable ChipBoost
+	variable ChipMode
+	variable ChipAdvance
+	variable ChipCalling
+	variable ChipInPeriod
 	variable TempVal
 	variable TargetTemp
 	variable NextTime
@@ -366,6 +406,7 @@
 	div WarnRow
 	div WarnTextEl
 	variable BoostText
+	variable BoostTickPaint
 	variable BoostTickI
 	variable BoostTickRoom
 	variable BoostTickUntil
@@ -410,6 +451,9 @@
 	variable SystemSheetWebson
 	variable EditingSystemName
 	variable EditingSystemType
+	variable EditingOnMax
+	variable MaxOnOptions
+	variable MaxOnHour
 	variable SystemType
 
 !	Backups sheet state. BackupInfo is the controller's Map.backup (the
@@ -435,6 +479,11 @@
 !	`requestRelayChanged: yes|no` flag, and OpenDeviceEditor ships a
 !	`Request Relay` uirequest only when the flag is yes.
 	variable RequestRelay
+!	DemandOn is the derived answer behind the flame beside the heartbeat
+!	dot: the system has a request relay and one of the two things that
+!	fire it is happening (a room calling, or frost protection). The map
+!	carries the relay's name only, so the UI derives the state.
+	variable DemandOn
 
 !	Outside sheet state. The outside thermometer lives in the legacy "room
 !	with empty relays" slot of every profile; sensor name and frost-trigger
@@ -462,7 +511,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash b886614a
+!! @hash 1d034b2f
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -516,6 +565,7 @@
 	if FirstMapAttempts is greater than 0 set the content of SystemId to `Reconnecting…`
 
 	attach HeartbeatBtn to `top-bar-heartbeat`
+	attach HeartbeatFlame to `top-bar-demand-flame`
 	attach HeartbeatDot to `top-bar-heartbeat-dot`
 	on click HeartbeatBtn gosub to RequestMap
 
@@ -595,6 +645,17 @@
 	set element 9 of MonthNames to `Oct`
 	set element 10 of MonthNames to `Nov`
 	set element 11 of MonthNames to `Dec`
+
+!	Options for the system-wide On cap. Built once so the System sheet and
+!	any future reader share the same values. `always` keeps the old
+!	behaviour; the controller clamps anything else to 4–12 hours.
+	put `<option value="always">Always On</option>` into MaxOnOptions
+	put 4 into MaxOnHour
+	while MaxOnHour is less than 13
+	begin
+		put MaxOnOptions cat `<option value="` cat MaxOnHour cat `">` cat MaxOnHour cat ` hours</option>` into MaxOnOptions
+		increment MaxOnHour
+	end
 
 !	MQTT credentials. The broker / port / username / password are shared
 !	across all customers and served by credentials.php (which reads from
@@ -704,7 +765,7 @@ NoCredentialsFile:
 !	left to retry.
 	fork to FirstMapWatchdog
 	stop
-!! @hash 68e427eb
+!! @hash d002ea93
 !!!
 !! First-render path: fired by `on mqtt connect`. Sets the Prompt to `first` so the controller sends a full map (rather than the empty-payload heartbeat used for refreshes), then forks a watchdog and parks.
 !!
@@ -791,6 +852,31 @@ PulseHeartbeatClear:
 	stop
 !! @hash 726256dc
 !! @verified 726256dc
+!!!
+!! Show the flame beside the heartbeat dot while the demand relay is on.
+!!
+!! The map names the demand relay (`request`) but does not say whether it is
+!! firing, so the UI derives that from the two things the controller fires it
+!! for: any room calling for heat (a room's relay going on is exactly what sets
+!! HeatingRequested before ProcessRequestRelay reads it) and frost protection,
+!! which fires it with no room calling. A system with no request relay has
+!! nothing to report, so the flame stays away however many rooms heat on their
+!! own valves.
+!!
+!! Called from ComputeSummaryStats because both home screens share the top bar
+!! and both run that: the full home through PaintSummary, the simple home
+!! through its own refresh.
+PaintDemandFlame:
+	clear DemandOn
+	if RequestRelay is not empty
+	begin
+		if HeatingCount is greater than 0 set DemandOn
+		if FrostActive set DemandOn
+	end
+	if DemandOn set style `visibility` of HeartbeatFlame to `visible`
+	else set style `visibility` of HeartbeatFlame to `hidden`
+	return
+!! @hash de0307b0
 !!!
 !! Fired by `on mqtt message`. Routes incoming controller payloads into the right render path: BuildHomeScreen for the first one, RefreshHomeScreen thereafter.
 !!
@@ -1054,93 +1140,26 @@ MapPollTask:
 	end
 !! @hash beb328fa
 !!!
-!! One-shot home-screen builder. Runs on the first non-empty map, never again — subsequent updates go through RefreshHomeScreen.
+!! First non-empty map builder. Runs once; subsequent updates go through RefreshHomeScreen.
 !!
-!! Two render passes plus sheet chrome. Pass 1: SummaryCard into MainHolder (rendered first so it sits visually on top of the room list). Pass 2: each RoomRow into MainHolder via the room-row.json template, with `/I/` substituted for the room index — every row's element IDs include this index so each handler can recover its row via `the index of X`.
+!! It reads the device's stored view choice, delegates the main column to BuildActiveHome (the full summary-plus-rooms home or the reduced simple home), then builds the sheet chrome once into AppRoot. Each sheet (Menu, Profile, Schedule, Device, System, Outside, Info, About) is rendered into SheetContent and starts at display:none; HideAllSheets is the single chokepoint that prevents one sheet bleeding through another.
 !!
-!! Sheet chrome (sheet.json) is rendered once into AppRoot; each subsequent sheet (Menu, Profile, Schedule, Device, System, Outside, Info, About) is rendered into SheetContent and starts at display:none. HideAllSheets is the single chokepoint that prevents one sheet bleeding through another.
-!!
-!! Every indexed per-row variable (RestRow, InfoBtn, ExpansionEl, ModeTimedBtn, etc.) MUST be pre-sized with `set the elements of X to RoomCount` before any `index X to N` for N > 0 — the array has to be allocated first, otherwise the index call raises "out of range".
+!! The per-row handle arrays are sized by PrepareRoomRowHandles, called from both home builders, because the simple room page reuses the same indexed handles as a compact row. The view can be switched later by ToggleSimpleView, which rebuilds only MainHolder.
 !!
 !! Forks BackgroundTick, BoostTick and ClockTick at the end so the gradient, per-room boost countdowns and the summary clock keep ticking independently of map pushes.
 BuildHomeScreen:
 	set BuildingHome
-!	First-pass summary stats from the freshly-built RoomsList.
-	gosub to ComputeSummaryStats
+!	The view choice belongs to the device, not the system: a carer turns it
+!	on once for this browser and it survives reloads. Read it before the
+!	first render so the right home is built.
+	get ViewSetting from storage as `rbr-simple-view`
+	if ViewSetting is `on` set SimpleMode
+	else clear SimpleMode
+	put -1 into SimpleRoomIndex
 
-!	Render SummaryCard into the main column (before the rooms so it sits on top).
 	attach MainHolder to `layout-main`
-	rest get SummaryWebson from `resources/webson/summary-card.json?v=` cat now
-		or go to LoadFailed
-	render SummaryWebson in MainHolder
-
-	attach SummaryTitle to `summary-title`
-	attach SummarySubtitle to `summary-subtitle`
-	attach SummaryOutside to `summary-outside`
-	attach SummaryOutsideFrost to `summary-outside-frost`
-	attach SummaryToday to `summary-today`
-	attach SummaryProfileName to `summary-profile-name`
-	attach SummaryChip to `summary-chip`
-	attach SummaryChipIcon to `summary-chip-icon`
-	attach SummaryDot to `summary-chip-dot`
-
-	gosub to PaintSummary
-
-!	Profile pill click — open ProfileSheet (wired below, after sheet chrome
-!	is built; the attach here just binds the element so styling/listeners
-!	hook into the right DOM node).
-	attach ProfilePill to `summary-profile-pill`
-
-!	Second pass — render each RoomRow.
-	rest get RoomRowText from `resources/webson/room-row.json?v=` cat now
-		or go to LoadFailed
-
-	put -1 into ExpandedIndex
-
-	put -1 into BoostPanelOpenIndex
-!	Pre-size every indexed per-row variable. Without this, `index X to N`
-!	for N > 0 raises "out of range" — the array has to be allocated first.
-	set the elements of RestRow to RoomCount
-	set the elements of InfoBtn to RoomCount
-	set the elements of ExpansionEl to RoomCount
-	set the elements of TargetBlockEl to RoomCount
-	set the elements of TargetValueEl to RoomCount
-	set the elements of BoostBlockEl to RoomCount
-	set the elements of ModeTimedBtn to RoomCount
-	set the elements of ModeBoostBtn to RoomCount
-	set the elements of ModeOnBtn to RoomCount
-	set the elements of ModeOffBtn to RoomCount
-	set the elements of TargetMinusBtn to RoomCount
-	set the elements of TargetPlusBtn to RoomCount
-	set the elements of Boost30Btn to RoomCount
-	set the elements of Boost1hBtn to RoomCount
-	set the elements of Boost2hBtn to RoomCount
-	set the elements of BoostOffBtn to RoomCount
-	set the elements of AdvanceBlockEl to RoomCount
-	set the elements of AdvanceBtn to RoomCount
-	set the elements of EditScheduleBtn to RoomCount
-	set the elements of SpecialBtn to RoomCount
-	set the elements of OverrideRow to RoomCount
-	set the elements of OverrideTextEl to RoomCount
-	set the elements of OverrideCancelBtn to RoomCount
-
-	put 0 into RoomIndex
-	while RoomIndex is less than RoomCount
-	begin
-		put RoomRowText into RowText
-		put `` cat RoomIndex into IndexStr
-		replace `/I/` with IndexStr in RowText
-		render RowText in MainHolder
-
-		put element RoomIndex of RoomsList into Room
-		gosub to RenderRoom
-
-!		Sensor rows have no info button, no expansion, no interactions.
-		put property `sensor` of Room into Sensor
-		if Sensor is `no` gosub to WireRoomInteractions
-
-		increment RoomIndex
-	end
+	attach LayoutFooter to `layout-footer`
+	gosub to BuildActiveHome
 
 !	Sheet chrome — once, into AppRoot. Container is position:fixed so parent
 !	doesn't matter visually, but keeping it under AppRoot keeps the DOM tidy.
@@ -1204,6 +1223,11 @@ BuildHomeScreen:
 	on click MenuRowBackups gosub to OpenBackupSheet
 	attach MenuRowJournal to `menu-row-journal`
 	on click MenuRowJournal gosub to OpenJournalSheet
+	attach MenuRowView to `menu-row-view`
+	attach MenuViewSub to `menu-row-view-sub`
+	on click MenuRowView gosub to ToggleSimpleView
+	attach MenuRowProfiles to `menu-row-profiles`
+	on click MenuRowProfiles gosub to OpenProfileSheet
 
 !	Hook up the top-bar menu button now that the sheet is ready.
 	attach MenuButton to `top-bar-menu-btn`
@@ -1212,12 +1236,12 @@ BuildHomeScreen:
 		gosub to HideAllSheets
 		set style `display` of MenuSheetEl to `block`
 		set the content of SheetTitleEl to `Menu`
+!		The view row says what tapping it will do, not what the view is
+!		currently called: "On" means tapping returns to the full view.
+		if SimpleMode set the content of MenuViewSub to `On — one room at a time`
+		else set the content of MenuViewSub to `Off — larger room buttons, one room at a time`
 		gosub to OpenSheet
 	end
-
-!	Profile pill opens the combined ProfileSheet. Snapshot of state is taken
-!	at open time; all changes batch through Save / discard via Cancel.
-	on click ProfilePill gosub to OpenProfileSheet
 
 !	Profile sheet module — owns the sheet DOM (profile list, calendar header,
 !	day grid, per-day pickers) and its editing flow. Loaded after sheet-content
@@ -1253,14 +1277,15 @@ BuildHomeScreen:
 !	can hide it when another sheet opens.
 	attach DeviceEditorSheetEl to `device-editor-sheet`
 
-!	System type & name sheet — opened from the menu's "System type & name"
-!	row. Edits the map's name + systemType fields.
+!	System sheet — opened from the menu's "System" row. Edits the map's
+!	name, systemType and system-wide maximum On duration.
 	rest get SystemSheetWebson from `resources/webson/system-sheet.json?v=` cat now
 		or go to LoadFailed
 	render SystemSheetWebson in SheetContent
 	attach SystemSheetEl to `system-sheet`
 	set style `display` of SystemSheetEl to `none`
 	attach SystemSheetName to `system-sheet-name`
+	attach SystemSheetMaxOn to `system-sheet-max-on`
 	attach SystemSheetTypeBoiler to `system-sheet-type-boiler`
 	attach SystemSheetTypeHeatPump to `system-sheet-type-heatpump`
 	attach SystemSheetSaveBtn to `system-sheet-save-btn`
@@ -1279,6 +1304,7 @@ BuildHomeScreen:
 		gosub to PaintSystemSheetType
 	end
 	on change SystemSheetName set SheetDirty
+	on change SystemSheetMaxOn set SheetDirty
 	on click SystemSheetSaveBtn gosub to SaveSystemSheet
 	on click SystemSheetCancelBtn gosub to RequestCloseSheet
 
@@ -1387,14 +1413,391 @@ BuildHomeScreen:
 
 	clear BuildingHome
 	return
-!! @hash 5884e175
+!! @hash 5a618554
+!!!
+!! Choose and build the home screen for the current view mode.
+!!
+!! The full home is the summary card plus every room row; the simple home is one large button per room. Both write into MainHolder and can be rebuilt after a switch, which is why the template text is cached rather than fetched only once.
+BuildActiveHome:
+	if SimpleMode gosub to BuildSimpleHome
+	else gosub to BuildFullHome
+	return
+!! @hash 56df98db
+!!!
+!! Build the full home into MainHolder: summary card, then one RoomRow per room.
+!!
+!! Called on the first map and again whenever the user leaves the simple view. The summary is deliberately rebuilt and re-attached here rather than reused, because switching views clears MainHolder; SummaryBuilt records whether those handles currently point at live DOM so PaintSummary and ClockTick stay safe in simple mode.
+BuildFullHome:
+	clear MainHolder
+	clear SummaryBuilt
+!	Restore the layout the full home expects (the simple view may have set a
+!	narrower padding and gap on the same container, and hidden the footer).
+	set style `padding` of MainHolder to `var(--space-page-top) var(--space-page-x) var(--space-page-x) var(--space-page-x)`
+	set style `gap` of MainHolder to `var(--space-row-gap)`
+	set style `display` of LayoutFooter to `block`
+!	First-pass summary stats from the freshly-built RoomsList.
+	gosub to ComputeSummaryStats
+
+!	Render SummaryCard into the main column (before the rooms so it sits on top).
+	if SummaryWebson is empty
+	begin
+		rest get SummaryWebson from `resources/webson/summary-card.json?v=` cat now
+			or go to LoadFailed
+	end
+	render SummaryWebson in MainHolder
+
+	attach SummaryTitle to `summary-title`
+	attach SummarySubtitle to `summary-subtitle`
+	attach SummaryOutside to `summary-outside`
+	attach SummaryOutsideFrost to `summary-outside-frost`
+	attach SummaryToday to `summary-today`
+	attach SummaryProfileName to `summary-profile-name`
+	attach SummaryChip to `summary-chip`
+	attach SummaryChipIcon to `summary-chip-icon`
+	attach SummaryDot to `summary-chip-dot`
+	set SummaryBuilt
+
+	gosub to PaintSummary
+
+!	Profile pill opens the combined ProfileSheet. The handler has to be
+!	registered again after a view switch, because this is a fresh element.
+	attach ProfilePill to `summary-profile-pill`
+	on click ProfilePill gosub to OpenProfileSheet
+
+!	Second pass — render each RoomRow.
+	if RoomRowText is empty
+	begin
+		rest get RoomRowText from `resources/webson/room-row.json?v=` cat now
+			or go to LoadFailed
+	end
+
+	put -1 into ExpandedIndex
+	put -1 into BoostPanelOpenIndex
+	gosub to PrepareRoomRowHandles
+
+	put 0 into RoomIndex
+	while RoomIndex is less than RoomCount
+	begin
+		put RoomRowText into RowText
+		put `` cat RoomIndex into IndexStr
+		replace `/I/` with IndexStr in RowText
+		render RowText in MainHolder
+
+		put element RoomIndex of RoomsList into Room
+		gosub to RenderRoom
+
+!		Sensor rows have no info button, no expansion, no interactions.
+		put property `sensor` of Room into Sensor
+		if Sensor is `no` gosub to WireRoomInteractions
+
+		increment RoomIndex
+	end
+	return
+!! @hash 8d3a1155
+!!!
+!! Allocate every indexed per-row handle array for the current RoomCount.
+!!
+!! Both home builders call this: the full home needs the arrays for every row, and the simple room page reuses the same handles for its single card. `index X to N` raises "out of range" on an unallocated array, so this must run before any render or wire pass.
+PrepareRoomRowHandles:
+	set the elements of RestRow to RoomCount
+	set the elements of InfoBtn to RoomCount
+	set the elements of ExpansionEl to RoomCount
+	set the elements of TargetBlockEl to RoomCount
+	set the elements of TargetValueEl to RoomCount
+	set the elements of BoostBlockEl to RoomCount
+	set the elements of ModeTimedBtn to RoomCount
+	set the elements of ModeBoostBtn to RoomCount
+	set the elements of ModeOnBtn to RoomCount
+	set the elements of ModeOffBtn to RoomCount
+	set the elements of TargetMinusBtn to RoomCount
+	set the elements of TargetPlusBtn to RoomCount
+	set the elements of Boost30Btn to RoomCount
+	set the elements of Boost1hBtn to RoomCount
+	set the elements of Boost2hBtn to RoomCount
+	set the elements of BoostOffBtn to RoomCount
+	set the elements of AdvanceBlockEl to RoomCount
+	set the elements of AdvanceBtn to RoomCount
+	set the elements of EditScheduleBtn to RoomCount
+	set the elements of SpecialBtn to RoomCount
+	set the elements of OverrideRow to RoomCount
+	set the elements of OverrideTextEl to RoomCount
+	set the elements of OverrideCancelBtn to RoomCount
+	return
+!! @hash 7ffb1fe8
+!!!
+!! Build the simple home: a full-height room pill per room, then the profile pill.
+!!
+!! This is the reduced home screen for a resident who should not have to read the full card list. It still uses RoomsList, so a map push is reflected by RefreshSimpleHome without rebuilding the pills.
+!!
+!! The room pills and the bottom profile/outside pill are flex siblings that share the available height, so the reduced home fills the device and leaves only a narrow background border. A room pill opens OpenSimpleRoom; the profile pill opens OpenProfileSheet.
+BuildSimpleHome:
+	clear MainHolder
+	clear SummaryBuilt
+!	The reduced home is a stack of full-height pills. A narrow padding and
+!	gap leave only a background border between them. The bottom is flush:
+!	the profile bar reaches the bottom edge with no border or margin below.
+	set style `padding` of MainHolder to `8px 8px 0 8px`
+	set style `gap` of MainHolder to `6px`
+	set style `display` of LayoutFooter to `none`
+	put -1 into ExpandedIndex
+	put -1 into BoostPanelOpenIndex
+	if SimpleHomeWebson is empty
+	begin
+		rest get SimpleHomeWebson from `resources/webson/simple-home.json?v=` cat now
+			or go to LoadFailed
+	end
+
+	gosub to PrepareRoomRowHandles
+	set the elements of SimpleRoomBtn to RoomCount
+	set the elements of SimpleRoomName to RoomCount
+	set the elements of SimpleRoomTemp to RoomCount
+
+	put 0 into RoomIndex
+	while RoomIndex is less than RoomCount
+	begin
+		put SimpleHomeWebson into RowText
+		put `` cat RoomIndex into IndexStr
+		replace `/I/` with IndexStr in RowText
+		render RowText in MainHolder
+
+		index SimpleRoomBtn to RoomIndex
+		attach SimpleRoomBtn to `simple-room-` cat IndexStr
+		on click SimpleRoomBtn
+		begin
+			put the index of SimpleRoomBtn into ClickIndex
+			gosub to OpenSimpleRoom
+		end
+		gosub to PaintSimpleRoomButton
+		increment RoomIndex
+	end
+
+!	The bottom pill shows frost protection when the summary's rule says it
+!	is active: the controller's flag if present, otherwise outside at or
+!	below the trigger with no room calling for heat.
+	gosub to ComputeSummaryStats
+
+!	The profile/outside pill sits at the bottom of the room list and opens
+!	the profile editor.
+	if SimpleProfileWebson is empty
+	begin
+		rest get SimpleProfileWebson from `resources/webson/simple-profile-pill.json?v=` cat now
+			or go to LoadFailed
+	end
+	render SimpleProfileWebson in MainHolder
+	attach SimpleProfilePill to `simple-profile-pill`
+	on click SimpleProfilePill gosub to OpenProfileSheet
+	attach SimpleProfileName to `simple-profile-name`
+	attach SimpleProfileOutsideBlock to `simple-profile-outside-block`
+	attach SimpleProfileOutside to `simple-profile-outside`
+	gosub to PaintSimpleProfilePill
+
+	if SystemName is not empty set the content of SystemId to SystemName
+	return
+!! @hash aa65e945
+!!!
+!! Apply the shared chip choice to a simple-home pill's icon.
+!!
+!! The icon and its tint are chosen by ResolveChipStyle, the same routine the full room card uses. The pill has no icon tile: the container is transparent, so the glyph sits directly on the pill's tinted background. Only the full room card keeps its chip tile.
+PaintSimpleRoomIcon:
+	gosub to ResolveChipStyle
+	attach SimpleRoomChip to `simple-room-` cat IndexStr cat `-chip`
+	set style `background` of SimpleRoomChip to `transparent`
+	attach SimpleRoomChipIcon to `simple-room-` cat IndexStr cat `-chip-icon`
+	set style `background-color` of SimpleRoomChipIcon to ChipFg
+	put `url(` cat ChipIconUrl cat `) center/contain no-repeat` into MaskCss
+	set style `mask` of SimpleRoomChipIcon to MaskCss
+	set style `-webkit-mask` of SimpleRoomChipIcon to MaskCss
+	return
+!! @hash b39707cd
+!!!
+!! Paint one simple-home button from RoomsList[RoomIndex].
+!!
+!! Only the name, temperature, icon, border and background change on a refresh; the button's shape is static. An empty temperature is shown as an em dash.
+PaintSimpleRoomButton:
+	put element RoomIndex of RoomsList into Room
+	gosub to ResolveRoomStateColour
+	attach SimpleRoomBtn to `simple-room-` cat IndexStr
+	set style `border-color` of SimpleRoomBtn to RoomBorderColour
+	set style `background` of SimpleRoomBtn to RoomBackgroundColour
+	gosub to PaintSimpleRoomIcon
+	attach SimpleRoomName to `simple-room-` cat IndexStr cat `-name`
+	set the content of SimpleRoomName to property `name` of Room
+	set style `color` of SimpleRoomName to RoomTextColour
+	attach SimpleRoomTemp to `simple-room-` cat IndexStr cat `-temp`
+	put property `temp` of Room into TempVal
+	if TempVal is empty set the content of SimpleRoomTemp to `—`
+	else set the content of SimpleRoomTemp to TempVal
+	set style `color` of SimpleRoomTemp to RoomTextColour
+
+!	Battery warning above the temperature. The controller's batteryLow flag
+!	is the threshold (above zero and below 21); within that, a reading at or
+!	below five per cent uses the "empty" artwork. A missing reading is not a
+!	warning.
+	attach SimpleRoomBattery to `simple-room-` cat IndexStr cat `-battery`
+	put empty into BatteryIconUrl
+	if property `batteryLow` of Room is `yes` put `resources/icon/battery-low.png` into BatteryIconUrl
+	if BatteryIconUrl is not empty
+	begin
+		put property `battery` of Room into BatteryLevel
+		if BatteryLevel is not empty
+		begin
+			add 0 to BatteryLevel
+			if BatteryLevel is not greater than 5 put `resources/icon/battery-empty.png` into BatteryIconUrl
+		end
+		set style `display` of SimpleRoomBattery to `block`
+		set style `background-image` of SimpleRoomBattery to `url(` cat BatteryIconUrl cat `)`
+		if BatteryIconUrl is `resources/icon/battery-empty.png`
+			set attribute `aria-label` of SimpleRoomBattery to `Battery empty`
+		else set attribute `aria-label` of SimpleRoomBattery to `Battery low`
+	end
+	else set style `display` of SimpleRoomBattery to `none`
+	return
+!! @hash 74019653
+!!!
+!! Paint the bottom profile/outside pill from the current map state.
+!!
+!! The profile name is always shown. The outside half appears only when an outside thermometer is configured; without one the pill is the profile editor's entry point alone. A configured sensor with no reading yet shows an em dash rather than a misleading zero.
+PaintSimpleProfilePill:
+	if ActiveProfileName is not empty set the content of SimpleProfileName to ActiveProfileName
+	else set the content of SimpleProfileName to `—`
+	if OutsideSensor is not empty
+	begin
+		set style `display` of SimpleProfileOutsideBlock to `flex`
+		if OutsideTemp is empty set the content of SimpleProfileOutside to `—`
+		else set the content of SimpleProfileOutside to OutsideTemp
+	end
+	else set style `display` of SimpleProfileOutsideBlock to `none`
+	attach SimpleProfileFrost to `simple-profile-frost`
+	if FrostActive set style `display` of SimpleProfileFrost to `block`
+	else set style `display` of SimpleProfileFrost to `none`
+	return
+!! @hash d8b85494
+!!!
+!! Refresh the simple home's buttons in place after a map push.
+!!
+!! No structure changes while RoomCount is stable, as in the full refresh, so each button is repainted from its room and the top bar's system name is kept current. A room added or removed through the Devices sheet rebuilds the list instead of painting past the end of the button array. The bottom profile/outside pill is repainted too, so a changed profile or a new outside reading appears without a rebuild.
+RefreshSimpleHome:
+	if the elements of SimpleRoomBtn is not RoomCount
+	begin
+		gosub to BuildSimpleHome
+		return
+	end
+	put 0 into RoomIndex
+	while RoomIndex is less than RoomCount
+	begin
+		put `` cat RoomIndex into IndexStr
+		gosub to PaintSimpleRoomButton
+		increment RoomIndex
+	end
+	gosub to ComputeSummaryStats
+	gosub to PaintSimpleProfilePill
+	if SystemName is not empty set the content of SystemId to SystemName
+	return
+!! @hash 5b2693ba
+!!!
+!! Open one room's single-room page from the simple home.
+!!
+!! The page is rendered from simple-room.json, whose element IDs are the same as the compact row's. That is what lets RenderRoom, PaintExpansion, WireRoomInteractions and every action routine work here untouched. The Home button at the bottom of the card returns to the room list.
+OpenSimpleRoom:
+	put ClickIndex into SimpleRoomIndex
+	put ClickIndex into RoomIndex
+	put `` cat RoomIndex into IndexStr
+	clear MainHolder
+	clear SummaryBuilt
+	if SimpleRoomWebson is empty
+	begin
+		rest get SimpleRoomWebson from `resources/webson/simple-room.json?v=` cat now
+			or go to LoadFailed
+	end
+	put SimpleRoomWebson into RowText
+	replace `/I/` with IndexStr in RowText
+	render RowText in MainHolder
+
+	gosub to PrepareRoomRowHandles
+	put element RoomIndex of RoomsList into Room
+	gosub to RenderRoom
+	put property `sensor` of Room into Sensor
+	if Sensor is `no`
+	begin
+		gosub to WireRoomInteractions
+		gosub to PaintExpansion
+	end
+	attach SimpleHomeBtn to `simple-room-home`
+	on click SimpleHomeBtn gosub to CloseSimpleRoom
+	return
+!! @hash 4f52a756
+!!!
+!! Refresh the open single-room page after a map push.
+!!
+!! Re-renders the card's content and repaints the control block so a controller-side change (a boost expiring, a mode changed on the legacy UI) reaches the larger card immediately. If the selected room has gone from the map, it falls back to the room list rather than painting a stale index.
+RefreshSimpleRoom:
+	if SimpleRoomIndex is less than 0 return
+	if SimpleRoomIndex is not less than RoomCount
+	begin
+		put -1 into SimpleRoomIndex
+		gosub to BuildSimpleHome
+		return
+	end
+	put SimpleRoomIndex into ClickIndex
+	put ClickIndex into RoomIndex
+	put `` cat RoomIndex into IndexStr
+	put element RoomIndex of RoomsList into Room
+	gosub to RenderRoom
+	gosub to PaintExpansion
+	return
+!! @hash 312fd65d
+!!!
+!! Return from a single-room page to the simple room list.
+!!
+!! Rebuilds the list from RoomsList rather than unhiding a cached copy, so the temperatures shown are the ones the last map left behind and no stale DOM is resurrected.
+CloseSimpleRoom:
+	put -1 into SimpleRoomIndex
+	gosub to BuildSimpleHome
+	return
+!! @hash 75697d52
+!!!
+!! Switch between the full and simple home screens from the hamburger.
+!!
+!! The choice is stored per device: it is a statement about who uses this phone, not about the heating system, so it does not travel in the map. Switching clears any open expansion or boost-configuring panel and rebuilds MainHolder in the new shape; the sheet chrome, MQTT loop and ticks are left alone.
+ToggleSimpleView:
+	if SimpleMode
+	begin
+		clear SimpleMode
+		put `off` into storage as `rbr-simple-view`
+	end
+	else
+	begin
+		set SimpleMode
+		put `on` into storage as `rbr-simple-view`
+	end
+	put -1 into SimpleRoomIndex
+	put -1 into ExpandedIndex
+	put -1 into BoostPanelOpenIndex
+	gosub to HideAllSheets
+	gosub to CloseSheet
+	gosub to BuildActiveHome
+	return
+!! @hash 9276a1b2
 !!!
 !! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
+!!
+!! In simple mode it refreshes either the reduced room list or the open single-room page, and has no summary card to repaint. An open Info sheet is still repainted in both modes.
 !!
 !! Assumes RoomCount is unchanged from the initial build — adding or removing rooms takes a Save through the Devices sheet plus a fresh map, and the controller-side handler currently sends a full new map (which OnMapReceived treats as a refresh, not a first-build). If RoomCount changes silently the indexed per-row variables will be the wrong size.
 !!
 !! If a room's expansion panel is open, repaint its inner controls so a controller-side change (e.g. the legacy UI changed mode for that room) propagates immediately rather than waiting for the user to close-and-reopen the expansion. Same logic for an open Info sheet.
 RefreshHomeScreen:
+	if SimpleMode
+	begin
+		if SimpleRoomIndex is less than 0 gosub to RefreshSimpleHome
+		else gosub to RefreshSimpleRoom
+		if InfoSheetOpen
+		begin
+			put element InfoSheetRoomIdx of RoomsList into Room
+			gosub to PaintInfoSheet
+		end
+		return
+	end
 	put 0 into RoomIndex
 	while RoomIndex is less than RoomCount
 	begin
@@ -1416,7 +1819,7 @@ RefreshHomeScreen:
 		gosub to PaintInfoSheet
 	end
 	return
-!! @hash d559715a
+!! @hash 7128c536
 !!!
 !! Parse TempStr ("HH:MM" or "H:MM") into minutes-since-midnight; output via TempTenths (the variable name is historic — it carries minutes here, not tenths). Empty / malformed input yields 0.
 ParseTimeMinutes:
@@ -1534,10 +1937,18 @@ BoostTick:
 								set property `boost` of BoostTickRoom to BoostText
 								set property `boostRemaining` of BoostTickRoom to BoostTickRemaining
 								set element BoostTickI of RoomsList to BoostTickRoom
-								put BoostTickRoom into Room
-								put BoostTickI into RoomIndex
-								put `` cat RoomIndex into IndexStr
-								gosub to RenderRoom
+!	In simple mode the card for a room exists only while that room is the
+!	open single-room page; the home list carries no countdown.
+								clear BoostTickPaint
+								if not SimpleMode set BoostTickPaint
+								else if SimpleRoomIndex is BoostTickI set BoostTickPaint
+								if BoostTickPaint
+								begin
+									put BoostTickRoom into Room
+									put BoostTickI into RoomIndex
+									put `` cat RoomIndex into IndexStr
+									gosub to RenderRoom
+								end
 							end
 						end
 					end
@@ -1546,7 +1957,7 @@ BoostTick:
 			end
 		end
 	end
-!! @hash 15347efe
+!! @hash 61a8da7a
 !!!
 !! Forked once on first build. Refreshes the summary card's date/time every 30 seconds so the clock stays current between map pushes.
 !!
@@ -1555,10 +1966,13 @@ ClockTick:
 	while true
 	begin
 		wait 30 seconds
-		gosub to FormatTodayString
-		set the content of SummaryToday to TempStr
+		if SummaryBuilt
+		begin
+			gosub to FormatTodayString
+			set the content of SummaryToday to TempStr
+		end
 	end
-!! @hash 611d60f2
+!! @hash 9fce8678
 !!!
 !! Open / close the bottom sheet. CSS transitions handle the motion; the code just flips opacity, transform, and the root's pointer-events. CloseSheet is the mirror image.
 OpenSheet:
@@ -1773,6 +2187,9 @@ WireRoomInteractions:
 !!!
 !! Toggle the expansion panel for the row at ClickIndex. Only one expansion can be open at a time; if a different row's panel is already open, close it first. Also drops any in-flight Boost-configuring panel state from the previously-open row.
 ToggleExpansion:
+!	The single-room page keeps its controls open; its header is not a
+!	tap-to-expand row.
+	if SimpleMode return
 	if ExpandedIndex is not -1
 	begin
 		index ExpansionEl to ExpandedIndex
@@ -1792,7 +2209,7 @@ ToggleExpansion:
 	put ClickIndex into ExpandedIndex
 	gosub to PaintExpansion
 	return
-!! @hash e736fc0c
+!! @hash 18640de6
 !!!
 !! Paint the expansion controls for room ClickIndex. Three boost-related UI states drive visibility / highlight:
 !!
@@ -1872,9 +2289,17 @@ PaintExpansion:
 			if Advance is `-`
 			begin
 				if AdvanceNextTime is empty set style `display` of AdvanceBlockEl to `none`
+				else
+				begin
+					if SimpleMode set style `display` of AdvanceBlockEl to `flex`
+					else set style `display` of AdvanceBlockEl to `block`
+				end
+			end
+			else
+			begin
+				if SimpleMode set style `display` of AdvanceBlockEl to `flex`
 				else set style `display` of AdvanceBlockEl to `block`
 			end
-			else set style `display` of AdvanceBlockEl to `block`
 			index AdvanceBtn to ClickIndex
 			gosub to PaintAdvanceBtn
 		end
@@ -1898,7 +2323,7 @@ PaintExpansion:
 		if BoostState is `configuring` gosub to ActivateBoostOff
 	end
 	return
-!! @hash 0cd454d8
+!! @hash cf2230eb
 !!!
 !! Mode-button and boost-button styling helpers. Reset routines blank every button's selected look; Activate<X> routines apply the "lit" look (card background, drop shadow, primary text, weight 600) to one specific button. The buttons are already at the right slot via the `index` calls in PaintExpansion.
 !!
@@ -2376,13 +2801,14 @@ SyncCurrentRoomBoostUntil:
 	return
 !! @hash 8c0581fa
 !!!
-!! Style the Advance button for the current Advance value. Active state ("Cancel the advance") gets the accent-tinted treatment; inactive state ("Advance to next schedule period (HH:MM)") gets the plain card surface. Reads the Advance and AdvanceNextTime globals; caller must `index AdvanceBtn to ClickIndex` first.
+!! Style the Advance button for the current Advance value. Active state ("Cancel the advance") gets the accent-tinted treatment; inactive state ("Advance to next schedule period (HH:MM)") gets the plain card surface in the full view and the light-grey/mid-grey button face in the simple room page. Reads the Advance and AdvanceNextTime globals; caller must `index AdvanceBtn to ClickIndex` first.
 !!
 !! AdvanceNextTime is the HH:MM the system would skip to when Advance is engaged from the current state — sourced from Room.nextTime by PaintExpansion, which has the live projection. After a local toggle the projection becomes stale for ~10s until the next map push reconciles, but the inactive→active flip hides the time in the label so the user doesn't see the stale value.
 PaintAdvanceBtn:
 	if Advance is `A`
 	begin
-		set the content of AdvanceBtn to `Cancel the advance`
+		if SimpleMode set the content of AdvanceBtn to `Cancel` cat newline cat `advance`
+		else set the content of AdvanceBtn to `Cancel the advance`
 		set style `background` of AdvanceBtn to `var(--color-accent-10)`
 		set style `border` of AdvanceBtn to `1.5px solid var(--color-accent)`
 		set style `color` of AdvanceBtn to `var(--color-accent)`
@@ -2390,16 +2816,26 @@ PaintAdvanceBtn:
 	end
 	else
 	begin
-		if AdvanceNextTime is empty
-			set the content of AdvanceBtn to `Advance to next schedule period`
-		else set the content of AdvanceBtn to `Advance to next schedule period (` cat AdvanceNextTime cat `)`
-		set style `background` of AdvanceBtn to `var(--color-surface-card)`
-		set style `border` of AdvanceBtn to `1px solid var(--color-border-hairline)`
+		if SimpleMode
+		begin
+			if AdvanceNextTime is empty set the content of AdvanceBtn to `Advance`
+			else set the content of AdvanceBtn to `Advance` cat newline cat AdvanceNextTime
+		end
+		else
+		begin
+			if AdvanceNextTime is empty
+				set the content of AdvanceBtn to `Advance to next schedule period`
+			else set the content of AdvanceBtn to `Advance to next schedule period (` cat AdvanceNextTime cat `)`
+		end
+		if SimpleMode set style `background` of AdvanceBtn to `var(--color-surface-sunk)`
+		else set style `background` of AdvanceBtn to `var(--color-surface-card)`
+		if SimpleMode set style `border` of AdvanceBtn to `1px solid var(--color-text-disabled)`
+		else set style `border` of AdvanceBtn to `1px solid var(--color-border-hairline)`
 		set style `color` of AdvanceBtn to `var(--color-text-primary)`
 		set style `font-weight` of AdvanceBtn to `500`
 	end
 	return
-!! @hash f222c162
+!! @hash 77953a0f
 !!!
 !! Lowercase the Title-case Mode (Timed/On/Off/Boost) into ModeForServer (timed/on/off/boost) for the controller's payload format. Reads the global Mode variable in, writes ModeForServer out — callers must `put <newmode> into Mode` first.
 LowercaseModeForServer:
@@ -2723,22 +3159,33 @@ ClearSpecialOverride:
 	return
 !! @hash d82d8dfa
 !!!
-!! Open the system type & name sheet from the menu's "System" row.
+!! Open the system sheet from the menu's "System" row.
 !!
-!! Snapshots SystemName and SystemType into the Editing* vars, paints the type-pill highlight, swaps the visible sheet. The controller's existing System Name handler picks up `name`; `systemType` is included as an additional map-root field that the controller currently just preserves, ready for future fuel-aware logic (Boiler vs Heat Pump scheduling differs in optimisation targets).
+!! Snapshots SystemName, SystemType and the system-wide On cap into the Editing* vars, paints the type-pill highlight, fills the On-cap options, and swaps the visible sheet. The controller's System Name handler picks up `name`, `systemType` and `onmax` as map-root fields.
 OpenSystemSheet:
 	if not SheetsReady return
 	put SystemName into EditingSystemName
 	put SystemType into EditingSystemType
 	if EditingSystemType is empty put `Boiler` into EditingSystemType
+	put `always` into EditingOnMax
+	if Map has entry `onmax` put `` cat property `onmax` of Map into EditingOnMax
 	set the content of SystemSheetName to EditingSystemName
+	set the content of SystemSheetMaxOn to MaxOnOptions
+	if EditingOnMax is `always` set default of SystemSheetMaxOn to `Always On`
+	else
+	begin
+		put the value of EditingOnMax into EditingOnMax
+		if EditingOnMax is less than 4 put 4 into EditingOnMax
+		if EditingOnMax is greater than 12 put 12 into EditingOnMax
+		set default of SystemSheetMaxOn to `` cat EditingOnMax cat ` hours`
+	end
 	gosub to PaintSystemSheetType
 	gosub to HideAllSheets
 	set style `display` of SystemSheetEl to `block`
-	set the content of SheetTitleEl to `System type & name`
+	set the content of SheetTitleEl to `System`
 	gosub to OpenSheet
 	return
-!! @hash 04506dc0
+!! @hash ef4fdefb
 !!!
 !! Paint and activation helpers for the Boiler / Heat Pump type pill. Reset blanks both pills; Activate<X> applies the lit look (card background, drop shadow, weight 600) to the matching pill.
 PaintSystemSheetType:
@@ -2773,19 +3220,32 @@ ActivateSystemTypeHeatPump:
 	return
 !! @hash f78e46ed
 !!!
-!! Save the system type & name edits. Writes the new fields into Map locally, refreshes the summary, then ships a single `System Name` uirequest carrying both `name` and `systemType` as map-root fields.
+!! Save the system sheet edits. Writes the new fields into Map locally, refreshes the summary, then ships a single `System Name` uirequest carrying `name`, `systemType` and `onmax` as map-root fields.
 SaveSystemSheet:
 	put the content of SystemSheetName into EditingSystemName
+	put the selected index of SystemSheetMaxOn into EditingOnMax
+	if EditingOnMax is less than 0 put 0 into EditingOnMax
+	if EditingOnMax is 0 put `always` into EditingOnMax
+	else
+	begin
+		add 3 to EditingOnMax
+		put `` cat EditingOnMax into EditingOnMax
+	end
 	set property `name` of Map to EditingSystemName
 	set property `systemType` of Map to EditingSystemType
+	set property `onmax` of Map to EditingOnMax
 	put EditingSystemName into SystemName
 	put EditingSystemType into SystemType
 	gosub to PaintSummary
+!	PaintSummary keeps the top-bar name current in the full view; simple mode
+!	has no summary card, so repeat the one line there.
+	if SystemName is not empty set the content of SystemId to SystemName
 
 	put `{}` into Result
 	set property `Action` of Result to `System Name`
 	set property `name` of Result to EditingSystemName
 	set property `systemType` of Result to EditingSystemType
+	set property `onmax` of Result to EditingOnMax
 	set GestureScreen to `system`
 	set GestureControl to `save`
 	set GestureGesture to `tap`
@@ -2793,7 +3253,7 @@ SaveSystemSheet:
 	gosub to PostUiRequest
 	gosub to CloseSheet
 	return
-!! @hash 3a63e275
+!! @hash 85fad933
 !!!
 !! Open the Backups sheet from the menu's Backups row.
 !!
@@ -3163,6 +3623,8 @@ AttachGestureSource:
 	set GestureGesture to empty
 	set GestureRoom to empty
 	return
+!! @hash 2d001566
+!!!
 !! Derive a screen/control/gesture label from the request payload, for handlers that do not set one explicitly.
 DefaultGestureSource:
 	set GestureGesture to `tap`
@@ -3215,6 +3677,8 @@ DefaultGestureSource:
 		set GestureControl to `backup-now`
 	end
 	return
+!! @hash 3ff46025
+!!!
 !! Ship the Result JSON object to the controller as a `uirequest`.
 !!
 !! Optimistic pattern: every caller has already mutated local state to reflect the change. On send failure we just bump a consecutive-failure counter; the next refresh will reconcile the controller's view (or the user can reload the page).
@@ -3247,7 +3711,7 @@ PostUiRequest:
 		put 0 into ConsecutiveSendFailures
 	end
 	return
-!! @hash 23aa8c9d
+!! @hash e8be1281
 !!!
 !! Build and ship an `Update Profiles` uirequest. Callers set the four Payload* inputs first: PayloadProfiles (the profiles array), PayloadActiveProfileIdx (the active profile index), PayloadCalendarOnFlag (set/cleared), and PayloadCalendarData (the calendar-data array, or empty to omit).
 !!
@@ -3421,13 +3885,17 @@ ComputeSummaryStats:
 		put HeatingCount cat ` rooms calling for heat` into TitleText
 		put HeatingNames into SubtitleText
 	end
+	gosub to PaintDemandFlame
 	return
-!! @hash e3b38fee
+!! @hash f54ef1aa
 !!!
-!! Push the aggregates from ComputeSummaryStats into the SummaryCard DOM. Element vars must already be attached (BuildHomeScreen does this once at startup).
+!! Push the aggregates from ComputeSummaryStats into the SummaryCard DOM. Element vars must already be attached (BuildFullHome does this each time it builds the full home).
+!!
+!! Returns immediately when there is no summary card on screen (simple mode), so every caller can stay unconditional.
 !!
 !! Also refreshes today's date and time, the active profile name, and the system ID — all of which depend on live data and so can't be set during synchronous startup. The frost-active badge in the outside row toggles inline-block vs none. The summary chip background/icon swap heat vs neutral based on HeatingCount.
 PaintSummary:
+	if not SummaryBuilt return
 	set the content of SummaryTitle to TitleText
 	set the content of SummarySubtitle to SubtitleText
 	set the content of SummaryOutside to OutsideText
@@ -3470,7 +3938,7 @@ PaintSummary:
 		set style `display` of SummaryDot to `block`
 	end
 	return
-!! @hash c76b663e
+!! @hash 3380731b
 !!!
 !! Build today's date and the current time as "Tue 20 Oct 09:19" into TempStr. Uses DayNames / MonthNames lookup tables built once during synchronous startup, and the browser's own date keywords — this runtime has no `datime` — so ClockTick can refresh it between map pushes. Both time fields are zero-padded.
 FormatTodayString:
@@ -3508,7 +3976,47 @@ TenthsToString:
 	return
 !! @hash 3855d409
 !!!
+!! Choose the state colours for a room's name, temperature, pill border and pill background.
+!!
+!! Blue means the radiator is off and orange means it is on. A Timed room is coloured only inside an actual heating period; between periods it is black. An Off room is mid-grey because it is deliberately out of the system. Every other state is black. The pill border adopts the text colour; the background is that colour mixed three-quarters of the way to white, with the neutral default grey when the text is black.
+ResolveRoomStateColour:
+	put property `mode` of Room into ColourMode
+	clear ColourRadiatorOn
+	if property `valve` of Room is `heat` set ColourRadiatorOn
+	else if property `valve` of Room is `idle` clear ColourRadiatorOn
+	else if property `calling` of Room is `yes` set ColourRadiatorOn
+	if property `unwired` of Room is `yes` clear ColourRadiatorOn
+
+	put `var(--color-text-primary)` into RoomTextColour
+	if ColourMode is `Off` put `var(--color-text-muted)` into RoomTextColour
+	else if ColourMode is `Timed`
+	begin
+		if property `nextPrefix` of Room is not `BG `
+		begin
+			if property `nextTime` of Room is not empty
+			begin
+				if ColourRadiatorOn put `var(--color-accent)` into RoomTextColour
+				else put `#2F75B5` into RoomTextColour
+			end
+		end
+	end
+	else if ColourMode is `On` or ColourMode is `Boost`
+	begin
+		if ColourRadiatorOn put `var(--color-accent)` into RoomTextColour
+		else put `#2F75B5` into RoomTextColour
+	end
+	if RoomTextColour is `var(--color-text-primary)` put `var(--color-text-disabled)` into RoomBorderColour
+	else put RoomTextColour into RoomBorderColour
+	if RoomBorderColour is `var(--color-accent)` put `var(--color-pill-bg-orange, #F9DACC)` into RoomBackgroundColour
+	else if RoomBorderColour is `#2F75B5` put `var(--color-pill-bg-blue, #CBDCEC)` into RoomBackgroundColour
+	else if RoomBorderColour is `var(--color-text-muted)` put `var(--color-pill-bg-grey, #F5F5F5)` into RoomBackgroundColour
+	else put `var(--color-pill-bg-default, #EEEEEE)` into RoomBackgroundColour
+	return
+!! @hash 1fc87f80
+!!!
 !! Render the contents of one room row. Caller must set RoomIndex, IndexStr, and Room first; the per-row DOM has already been built by BuildHomeScreen's render-loop, so this is content-only updates (room name, heating tag, offline tag, subline, temperature, chip styling).
+!!
+!! The room name and current temperature share the state colour chosen by ResolveRoomStateColour: blue for a radiator off, orange for one on, grey in Off mode, and black in a Timed gap.
 !!
 !! The subline summarises the room's current schedule context:
 !!
@@ -3541,6 +4049,7 @@ RenderRoom:
     put property `name` of Room into NameText
     put property `advance` of Room into Advance
 	if Advance is empty put `-` into Advance
+	gosub to ResolveRoomStateColour
 
 	clear CallingForHeat
 	if property `calling` of Room is `yes` set CallingForHeat
@@ -3550,8 +4059,7 @@ RenderRoom:
 
 	attach RoomName to `room-` cat IndexStr cat `-name`
 	set the content of RoomName to NameText
-	if CallingForHeat set style `color` of RoomName to `var(--color-accent)`
-	else set style `color` of RoomName to `#2F75B5`
+	set style `color` of RoomName to RoomTextColour
 
 !	The tag tells the truth the room card is for. A relay room shows "heating"
 !	when RBR is calling, as before. A room with a valve shows the valve's own
@@ -3683,8 +4191,7 @@ RenderRoom:
 	attach TempEl to `room-` cat IndexStr cat `-temp`
 	if TempVal is empty set the content of TempEl to `—`
 	else set the content of TempEl to TempVal
-	if Offline is `yes` set style `color` of TempEl to `var(--color-text-disabled)`
-	else set style `color` of TempEl to `var(--color-text-primary)`
+	set style `color` of TempEl to RoomTextColour
 
 !	Setpoint slot left empty pending a more useful per-room secondary value.
 !	Element kept attached so the layout slot is reserved.
@@ -3700,71 +4207,13 @@ RenderRoom:
 
 	gosub to ApplyChipStyle
 	return
-!! @hash 73f05ac3
+!! @hash 543fc3f6
 !!!
-!! Decide the chip background / foreground / icon-url and apply them.
+!! Decide the chip background / foreground / icon-url and apply them to a room row's chip.
 !!
-!! Priority order: sensor (outdoor) → offline → boost-active → Off → On → calling-for-heat → default (Timed, not heating). Boost is detected via BoostVal (the "N mins left" string) rather than Mode so it can layer over Off or Timed even when the controller's mode hasn't yet rolled to `boost`.
-!!
-!! The icon is rendered as a CSS mask so the same SVG can be tinted via background-color — both `mask` and `-webkit-mask` are set for cross-browser support.
+!! The choice itself lives in ResolveChipStyle so the simple home's pills use the same icons. The icon is rendered as a CSS mask so one artwork can be tinted via background-color; both `mask` and `-webkit-mask` are set for cross-browser support.
 ApplyChipStyle:
-	put `var(--color-chip-ok-bg)` into ChipBg
-	put `var(--color-chip-ok-fg)` into ChipFg
-	put `resources/icon/clock.svg` into ChipIconUrl
-
-	if Sensor is `yes`
-	begin
-		put `var(--color-chip-neutral-bg)` into ChipBg
-		put `var(--color-chip-neutral-fg)` into ChipFg
-		put `resources/icon/sensor.svg` into ChipIconUrl
-	end
-	else if Offline is `yes`
-	begin
-		put `var(--color-chip-warn-bg)` into ChipBg
-		put `var(--color-chip-warn-fg)` into ChipFg
-		put `resources/icon/offline.svg` into ChipIconUrl
-	end
-	else if PartialFail is `yes`
-	begin
-!		Partial relay failure: the room still heats from its working relay,
-!		so it keeps its normal temperature styling but wears the amber chip
-!		with a warning icon, and the subline names the relay (warnMessage).
-		put `var(--color-chip-warn-bg)` into ChipBg
-		put `var(--color-chip-warn-fg)` into ChipFg
-		put `resources/icon/warning.svg` into ChipIconUrl
-	end
-	else if BoostVal is not empty
-	begin
-		put `var(--color-chip-heat-bg)` into ChipBg
-		put `var(--color-chip-heat-fg)` into ChipFg
-		put `resources/icon/boost.svg` into ChipIconUrl
-	end
-	else if Mode is `Off`
-	begin
-		put `var(--color-chip-neutral-bg)` into ChipBg
-		put `var(--color-chip-neutral-fg)` into ChipFg
-		put `resources/icon/off.svg` into ChipIconUrl
-	end
-	else if Mode is `On`
-	begin
-		put `var(--color-chip-heat-bg)` into ChipBg
-		put `var(--color-chip-heat-fg)` into ChipFg
-		put `resources/icon/on.svg` into ChipIconUrl
-	end
-	else if Mode is `Timed` and Advance is `A`
-	begin
-!		Advance is a Timed-mode override, not a separate mode. The chip
-!		carries an A so the override is visible without opening the card.
-		put `var(--color-chip-heat-bg)` into ChipBg
-		put `var(--color-chip-heat-fg)` into ChipFg
-		put `resources/icon/advance.svg` into ChipIconUrl
-	end
-	else if CallingForHeat
-	begin
-		put `var(--color-chip-heat-bg)` into ChipBg
-		put `var(--color-chip-heat-fg)` into ChipFg
-	end
-
+	gosub to ResolveChipStyle
 	attach Chip to `room-` cat IndexStr cat `-chip`
 	set style `background` of Chip to ChipBg
 
@@ -3774,7 +4223,106 @@ ApplyChipStyle:
 	set style `mask` of ChipIcon to MaskCss
 	set style `-webkit-mask` of ChipIcon to MaskCss
 	return
-!! @hash 982a249d
+!! @hash 7188825f
+!!!
+!! Choose the chip background, foreground and icon for a room.
+!!
+!! Priority order: sensor → offline → partial relay failure → Off → an active boost → On → Boost → Timed (Advance A, then the running man inside a schedule period, otherwise the clock) → calling for heat → the clock default. Off wins over a stale boost string so an Off room always carries the Off icon.
+!!
+!! The basic icons are the existing ones; the additions are the orange running man inside a Timed period and the orange plus for Boost and On. The running man is a PNG mask (its black pixels are opaque), so the surrounding background-color tints it orange like the SVGs.
+ResolveChipStyle:
+	put `var(--color-chip-ok-bg)` into ChipBg
+	put `var(--color-chip-ok-fg)` into ChipFg
+	put `resources/icon/clock.svg` into ChipIconUrl
+
+	put property `sensor` of Room into ChipSensor
+	put property `offline` of Room into ChipOffline
+	put property `partial` of Room into ChipPartial
+	put property `boost` of Room into ChipBoost
+	put property `mode` of Room into ChipMode
+	put property `advance` of Room into ChipAdvance
+	if ChipAdvance is empty put `-` into ChipAdvance
+	clear ChipCalling
+	if property `calling` of Room is `yes` set ChipCalling
+	if property `unwired` of Room is `yes` clear ChipCalling
+	clear ChipInPeriod
+	if ChipMode is `Timed`
+	begin
+		if property `nextPrefix` of Room is not `BG `
+		begin
+			if property `nextTime` of Room is not empty set ChipInPeriod
+		end
+	end
+
+	if ChipSensor is `yes`
+	begin
+		put `var(--color-chip-neutral-bg)` into ChipBg
+		put `var(--color-chip-neutral-fg)` into ChipFg
+		put `resources/icon/sensor.svg` into ChipIconUrl
+	end
+	else if ChipOffline is `yes`
+	begin
+		put `var(--color-chip-warn-bg)` into ChipBg
+		put `var(--color-chip-warn-fg)` into ChipFg
+		put `resources/icon/offline.svg` into ChipIconUrl
+	end
+	else if ChipPartial is `yes`
+	begin
+!		Partial relay failure: the room still heats from its working relay,
+!		so it keeps its normal temperature styling but wears the amber chip
+!		with a warning icon, and the subline names the relay (warnMessage).
+		put `var(--color-chip-warn-bg)` into ChipBg
+		put `var(--color-chip-warn-fg)` into ChipFg
+		put `resources/icon/warning.svg` into ChipIconUrl
+	end
+	else if ChipMode is `Off`
+	begin
+		put `var(--color-chip-neutral-bg)` into ChipBg
+		put `var(--color-chip-neutral-fg)` into ChipFg
+		put `resources/icon/off.svg` into ChipIconUrl
+	end
+	else if ChipBoost is not empty
+	begin
+		put `var(--color-chip-heat-bg)` into ChipBg
+		put `var(--color-chip-heat-fg)` into ChipFg
+		put `resources/icon/plus.svg` into ChipIconUrl
+	end
+	else if ChipMode is `On`
+	begin
+		put `var(--color-chip-heat-bg)` into ChipBg
+		put `var(--color-chip-heat-fg)` into ChipFg
+		put `resources/icon/plus.svg` into ChipIconUrl
+	end
+	else if ChipMode is `Boost`
+	begin
+		put `var(--color-chip-heat-bg)` into ChipBg
+		put `var(--color-chip-heat-fg)` into ChipFg
+		put `resources/icon/plus.svg` into ChipIconUrl
+	end
+	else if ChipMode is `Timed`
+	begin
+		if ChipAdvance is `A`
+		begin
+!			Advance is a Timed-mode override, not a separate mode. The chip
+!			carries an A so the override is visible without opening the card.
+			put `var(--color-chip-heat-bg)` into ChipBg
+			put `var(--color-chip-heat-fg)` into ChipFg
+			put `resources/icon/advance.svg` into ChipIconUrl
+		end
+		else if ChipInPeriod
+		begin
+			put `var(--color-chip-heat-bg)` into ChipBg
+			put `var(--color-chip-heat-fg)` into ChipFg
+			put `resources/icon/run.png` into ChipIconUrl
+		end
+	end
+	else if ChipCalling
+	begin
+		put `var(--color-chip-heat-bg)` into ChipBg
+		put `var(--color-chip-heat-fg)` into ChipFg
+	end
+	return
+!! @hash 6e644123
 !!!
 !! Terminal failure handler. Reached via `or go to LoadFailed` from every `rest get` template fetch in the bootstrap region — a missing or malformed Webson template means the UI can't render, so we alert and stop rather than limping on with broken state.
 LoadFailed:

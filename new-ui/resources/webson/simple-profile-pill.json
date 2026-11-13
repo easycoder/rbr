@@ -1,0 +1,134 @@
+{
+    "#doc": "Simple-view bottom bar. Shows the active profile and, when an outside thermometer is configured, its reading; tapping it opens the profile editor. It is not a room pill: it spans the full width, has square corners and an opaque logo-row surface, sits flush against the bottom edge and bookends the room pills against the top bar.",
+    "#element": "button",
+    "@id": "simple-profile-pill",
+    "@aria-label": "Profile and outside temperature",
+    "box-sizing": "border-box",
+    "flex": "1 1 0",
+    "min-height": "0",
+    "width": "calc(100% + 16px)",
+    "padding": "14px 18px",
+    "margin": "0 -8px 0 -8px",
+    "border": "0",
+    "border-top": "1px solid rgba(0,0,0,0.1)",
+    "border-radius": "0",
+    "background": "var(--color-surface-card)",
+    "box-shadow": "0 -1px 8px rgba(0,0,0,0.06)",
+    "display": "flex",
+    "align-items": "center",
+    "gap": "12px",
+    "cursor": "pointer",
+    "text-align": "left",
+    "font-family": "inherit",
+    "#": ["$Cal", "$ProfileBlock", "$Spacer", "$OutsideBlock"],
+
+    "$Cal": {
+        "#element": "div",
+        "width": "20px",
+        "height": "20px",
+        "background-color": "var(--color-text-secondary)",
+        "mask": "url(resources/icon/calendar.svg) center/contain no-repeat",
+        "-webkit-mask": "url(resources/icon/calendar.svg) center/contain no-repeat",
+        "flex-shrink": "0"
+    },
+
+    "$ProfileBlock": {
+        "#element": "div",
+        "display": "flex",
+        "flex-direction": "column",
+        "gap": "3px",
+        "min-width": "0",
+        "#": ["$ProfileLabel", "$ProfileName"],
+
+        "$ProfileLabel": {
+            "#element": "div",
+            "font-size": "12px",
+            "font-weight": "600",
+            "letter-spacing": "0.4px",
+            "text-transform": "uppercase",
+            "color": "var(--color-text-muted)",
+            "#content": "Profile"
+        },
+
+        "$ProfileName": {
+            "#element": "div",
+            "@id": "simple-profile-name",
+            "font-size": "24px",
+            "font-weight": "600",
+            "letter-spacing": "-0.3px",
+            "color": "var(--color-text-primary)",
+            "min-width": "0",
+            "overflow": "hidden",
+            "text-overflow": "ellipsis",
+            "white-space": "nowrap"
+        }
+    },
+
+    "$Spacer": {
+        "#element": "div",
+        "flex": "1"
+    },
+
+    "$OutsideBlock": {
+        "#element": "div",
+        "@id": "simple-profile-outside-block",
+        "display": "flex",
+        "flex-direction": "column",
+        "align-items": "flex-end",
+        "gap": "3px",
+        "flex-shrink": "0",
+        "#": ["$OutsideLabel", "$OutsideValue"],
+
+        "$OutsideLabel": {
+            "#element": "div",
+            "font-size": "12px",
+            "font-weight": "600",
+            "letter-spacing": "0.4px",
+            "text-transform": "uppercase",
+            "color": "var(--color-text-muted)",
+            "#content": "Outside"
+        },
+
+        "$OutsideValue": {
+            "#element": "div",
+            "display": "flex",
+            "align-items": "baseline",
+            "#": ["$OutsideFrost", "$OutsideNumber", "$OutsideUnit"],
+
+            "$OutsideFrost": {
+                "#element": "div",
+                "@id": "simple-profile-frost",
+                "@role": "img",
+                "@aria-label": "Frost protection active",
+                "width": "16px",
+                "height": "16px",
+                "align-self": "center",
+                "margin-right": "6px",
+                "background-color": "var(--color-accent)",
+                "mask": "url(resources/icon/snowflake.svg) center/contain no-repeat",
+                "-webkit-mask": "url(resources/icon/snowflake.svg) center/contain no-repeat",
+                "display": "none",
+                "flex-shrink": "0"
+            },
+
+            "$OutsideNumber": {
+                "#element": "span",
+                "@id": "simple-profile-outside",
+                "font-size": "34px",
+                "font-weight": "500",
+                "letter-spacing": "-1px",
+                "color": "var(--color-text-primary)",
+                "white-space": "nowrap"
+            },
+
+            "$OutsideUnit": {
+                "#element": "span",
+                "font-size": "16px",
+                "font-weight": "500",
+                "color": "var(--color-text-muted)",
+                "margin-left": "3px",
+                "#content": "°C"
+            }
+        }
+    }
+}
