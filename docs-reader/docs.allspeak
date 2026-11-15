@@ -1,6 +1,6 @@
 !! Room By Room documentation reader — the page served at /docs.
 !!
-!! Nothing is copied to this site. The reader fetches the Markdown from the public repository at runtime, so the repository holds the only copy of the documentation, and the site shows whatever `main` holds within about five minutes of a commit. Rendering is done by this runtime's own markdown renderer — the one the `docs/` tree is written for, which is why a paragraph there is a single unbroken line.
+!! The Markdown is part of this site. `deploy.sh` and the deploy workflow copy the whole of `docs/` beside this reader, and the reader fetches each page from there as it is read, so the documentation and the page that shows it are published together and nothing is fetched from the repository at runtime. Rendering is done by this runtime's own markdown renderer — the one the `docs/` tree is written for, which is why a paragraph there is a single unbroken line.
 !!
 !! The page list comes out of `docs/README.md`. That file is the documentation's own map, so its `[Title](path.md)` links, in the order they appear, are the reading order, the titles and the Prev/Next sequence. A document added to the README appears here with nothing else to change.
 !!
@@ -38,7 +38,6 @@
 !! The scratch is grouped by the section that owns it, because AllSpeak has no locals and two sections sharing a name is a fault with no symptom until it bites. It has bitten here already: the link walker read the README in one pass and stopped after a single page, because it handed `Remains` to the path resolver and got back the resolver's leftovers. So each parser owns its names — `Remains`, `Head`, `Lead`, `Tail`, `Pos`, `Cut` belong to the link walker; `Path`, `Piece`, `At`, `Kept` to the path resolver, which is called from inside the walker and so may share nothing with it; `Rest`, `Row`, `Carried`, `Leftovers`, `Mark` to the status line; and `HashAt`, `SlashAt`, `Ahead` and `NextNo` are one position each, in the section that needs it — which is what keeps a toolbar handler from borrowing the walker's `Pos` the way this script first did, harmlessly but for no better reason than that the two never run at once. `Snippet` is the one name deliberately reused, for a single value passed across a section boundary, so nothing may be assumed to survive inside it.
     variable Layout
     variable Base
-    variable Mirror
     variable Repo
     variable Pages
     variable PagesCount
@@ -90,12 +89,12 @@
     variable SlashAt
     variable Ahead
     variable NextNo
-!! @hash 1508079f
-!! @verified 1508079f
+!! @hash bf55661d
+!! @verified bf55661d
 !!!
 !! Boot: render the layout, wire the controls, build the page list, and open the requested page.
 !!
-!! The two sources are set here and used everywhere afterwards. `Base` is the repository's own file service and `Mirror` the same files from a CDN; the mirror exists because GitHub's raw host is the one a corporate proxy is most likely to refuse, and a documentation site that goes blank on those networks is worse than one that is a few minutes stale. Neither carries a cache-buster: GitHub answers with a five-minute lifetime of its own, and asking for a fresh copy every time would spend the reader's patience to save at most that.
+!! `Base` is the site's own root. The reader is served from `/docs/`, and every page it opens is the matching file below that directory — `docs/README.md` becomes `/docs/README.md` — so the paths keep the shape they have in the repository but are read from this site rather than from GitHub. `Repo` stays the public repository, because the source link and the notice for a missing page point at the file a reader can inspect or report.
 !!
 !! The handlers are registered before the `stop`, because a handler registered after a script's linear flow has stopped is never registered at all.
     attach AppRoot to `app` or begin
@@ -132,22 +131,21 @@
     on click NextButton gosub to GoOn
     on click NavTrigger gosub to FollowLink
 
-    put `https://raw.githubusercontent.com/easycoder/rbr/main/` into Base
-    put `https://cdn.jsdelivr.net/gh/easycoder/rbr@main/` into Mirror
+    put `/` into Base
     put `https://github.com/easycoder/rbr` into Repo
 
     gosub to BuildIndex
     gosub to PublishSlugs
     gosub to OpenAddress
     stop
-!! @hash dffac053
-!! @verified dffac053
+!! @hash d6ff1550
+!! @verified d6ff1550
 !!!
-!! Fetch one file from the repository, with a mirror behind it.
+!! Fetch one file from this site.
 !!
-!! `Source` is the path within the repository and `Raw` comes back holding the text, with `Failure` empty on success and the primary attempt's error on failure. `Failure` keeps that first error deliberately: it is what tells a 404 — the document is named but not written — from a host we could not reach, and the distinction is the whole difference between "this page is not ready yet" and "something is wrong". The mirror's own error is of no use to a reader, so it is discarded.
+!! `Source` is the path within the deployed documentation — `docs/README.md` for the contents page, `docs/<slug>.md` for a document — and `Raw` comes back holding the text, with `Failure` empty on success and the error on failure. `Failure` is what tells a 404 — the document is named but not written — from a source that could not be reached, and the distinction is the whole difference between "this page is not ready yet" and "something is wrong".
 !!
-!! The two attempts are written with `or` and a jump rather than `on failure`, and that is not a matter of taste. The AllSpeak build this site pins does not continue after an `on failure` clause — it stops the thread exactly as `or` does — so the documented "substitute and continue" form ends the fetch and leaves the reader with a blank page where the notice about an unwritten document belongs. Measured 2026-10-16: against the pinned bundle the statement after the clause never runs; against the current build at allspeak.ai it does. `or begin … go to … end` says the same thing and works on both, and it is the shape the controller scripts in this repository already use.
+!! The failed fetch is written with `or` and a jump rather than `on failure`, and that is not a matter of taste. The AllSpeak build this site pins does not continue after an `on failure` clause — it stops the thread exactly as `or` does — so the documented "substitute and continue" form ends the fetch and leaves the reader with a blank page where the notice about an unwritten document belongs. Measured 2026-10-16: against the pinned bundle the statement after the clause never runs; against the current build at allspeak.ai it does. `or begin … go to … end` says the same thing and works on both, and it is the shape the controller scripts in this repository already use.
 !!
 !! An empty body is treated as a failure by the caller, since a document that arrives but is empty has not arrived.
 Fetch:
@@ -155,18 +153,13 @@ Fetch:
     put empty into Failure
     rest get Raw from Base cat Source or begin
         put the error into Failure
-        go to FetchMirror
+        go to FetchDone
     end
     return
-FetchMirror:
-    rest get Raw from Mirror cat Source or begin
-        put empty into Raw
-        return
-    end
-    put empty into Failure
+FetchDone:
     return
-!! @hash acdd54e3
-!! @verified acdd54e3
+!! @hash eb7171e0
+!! @verified eb7171e0
 !!!
 !! Build the page list from the documentation's own README.
 !!
@@ -384,8 +377,14 @@ ShowContents:
 !!!
 !! Open a page: fetch it, show it, and set the toolbar, the heading and the address to match.
 !!
-!! Failure to fetch is not an error dialog. It is either a document named in the README but not yet written or a source that could not be reached, and ShowMissing says which. `NowFolder` is derived here from the slug itself, because it is what the links in the page just fetched will resolve against.
+!! Failure to fetch is not an error dialog. It is either a document named in the README but not yet written or a source that could not be reached, and ShowMissing says which. The page's position and folder are recorded before the fetch, so a missing page still has the right address and toolbar neighbours; `NowFolder` is also what the links in a page that did arrive resolve against.
 ShowPage:
+    put Slug into NowSlug
+    put the position of the last `/` in NowSlug into SlashAt
+    if SlashAt is greater than -1 put left SlashAt of NowSlug into NowFolder
+    else put empty into NowFolder
+    gosub to FindPage
+    put Mention into NowNo
     put `docs/` cat Slug cat `.md` into Source
     gosub to Fetch
     if Raw is empty
@@ -395,18 +394,12 @@ ShowPage:
     end
     gosub to SplitStatus
     gosub to ShowText
-    gosub to FindPage
-    put Mention into NowNo
-    put Slug into NowSlug
-    put the position of the last `/` in NowSlug into SlashAt
-    if SlashAt is greater than -1 put left SlashAt of NowSlug into NowFolder
-    else put empty into NowFolder
     set the content of RouteOut to NowSlug
     gosub to SetToolbar
     scroll to 0
     return
-!! @hash a13815fc
-!! @verified a13815fc
+!! @hash 6fe8bdec
+!! @verified 6fe8bdec
 !!!
 !! Put a document into the reading pane: the text, its status band, and the notice out of the way.
 ShowText:
@@ -463,7 +456,7 @@ CheckLine:
 !!!
 !! Report a document that could not be shown, saying which of the two reasons it was.
 !!
-!! A 404 from both sources means the README names a document that has not been written yet, which is the ordinary state of a tree being worked through; anything else means the source could not be reached. Both offer the file on GitHub, since the raw Markdown is the honest fallback. The address keeps the slug so the link can still be shared and will work once the document exists.
+!! A 404 from both sources means the README names a document that has not been written yet, which is the ordinary state of a tree being worked through; anything else means the source could not be reached. Both offer the file on GitHub, since the raw Markdown is the honest fallback. The address keeps the slug so the link can still be shared and will work once the document exists; the caller has already recorded `NowSlug` and `NowNo`, so Previous and Next still walk from the missing page rather than from whatever page was on screen before it.
 ShowMissing:
     set style `display` of Content to `none`
     set the content of Content to empty
@@ -472,7 +465,7 @@ ShowMissing:
     if Failure includes `404`
         put `This document is listed in the contents but has not been written yet.` into Snippet
     else
-        put `The documentation could not be loaded just now. Every page is read from the repository as you open it, so this is a problem reaching it rather than a problem with the page.` into Snippet
+        put `The documentation could not be loaded just now. Every page is read from this site as you open it, so this is a problem reaching it rather than a problem with the page.` into Snippet
     set the content of NoticeText to Snippet
     set the content of NoticeLink to `Open the file on GitHub`
     set attribute `href` of NoticeLink to Repo cat `/blob/main/` cat Source
@@ -481,8 +474,8 @@ ShowMissing:
     gosub to SetToolbar
     scroll to 0
     return
-!! @hash 96ba3bba
-!! @verified 96ba3bba
+!! @hash 581146bb
+!! @verified 581146bb
 !!!
 !! Report a link that is not a page of this reader.
 !!

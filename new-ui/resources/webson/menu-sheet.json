@@ -14,9 +14,9 @@
         "#": ["$Row0", "$RowProfiles", "$Row1", "$Row2", "$Row3", "$Row4", "$Row5"],
 
         "$Row0": {
-            "$ID": "menu-row-view",
-            "$Label": "Simple view",
-            "$Sub": "Off — larger room buttons, one room at a time",
+            "$ID": "menu-row-appearance",
+            "$Label": "Appearance",
+            "$Sub": "The look and feel of this app",
             "#": ["$Row"]
         },
         "$RowProfiles": {
@@ -28,7 +28,7 @@
         "$Row1": {
             "$ID": "menu-row-system",
             "$Label": "System",
-            "$Sub": "Name, type and maximum time On",
+            "$Sub": "Name, type and maximum on duration",
             "#": ["$Row"]
         },
         "$Row2": {

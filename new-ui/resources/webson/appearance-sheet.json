@@ -1,0 +1,191 @@
+{
+    "#doc": "Appearance sheet — the view style and the page background. Both are device-local: they say how this phone should look, not how the system should heat, so they live in browser storage rather than the map. The swatch grid is rendered and wired by shell.allspeak from one palette list.",
+    "#element": "div",
+    "@id": "appearance-sheet",
+    "#": ["$Tagline", "$ViewBlock", "$ColourBlock", "$TimeBlock", "$Buttons"],
+
+    "$Tagline": {
+        "#element": "div",
+        "margin-top": "2px",
+        "font-size": "13px",
+        "font-weight": "400",
+        "color": "var(--color-text-secondary)",
+        "#content": "How the app looks on this phone. These choices are kept in this browser, not on the controller."
+    },
+
+    "$ViewBlock": {
+        "#element": "div",
+        "margin-top": "14px",
+        "#": ["$ViewLabel", "$ViewPill"],
+
+        "$ViewLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "View"
+        },
+
+        "$ViewPill": {
+            "#element": "div",
+            "background": "var(--color-surface-sunk)",
+            "padding": "4px",
+            "border-radius": "12px",
+            "display": "grid",
+            "grid-template-columns": "1fr 1fr",
+            "gap": "6px",
+            "#": ["$BtnDetailed", "$BtnSimplified"],
+
+            "$BtnDetailed":   { "$ID": "appearance-sheet-view-detailed",   "$Label": "Detailed",   "#": ["$ViewBtn"] },
+            "$BtnSimplified": { "$ID": "appearance-sheet-view-simplified", "$Label": "Simplified", "#": ["$ViewBtn"] },
+
+            "$ViewBtn": {
+                "#element": "button",
+                "@id": "$ID",
+                "padding": "10px 6px",
+                "border": "0",
+                "border-radius": "9px",
+                "background": "transparent",
+                "color": "var(--color-text-muted)",
+                "font-family": "inherit",
+                "font-size": "13px",
+                "font-weight": "500",
+                "cursor": "pointer",
+                "#content": "$Label"
+            }
+        }
+    },
+
+    "$ColourBlock": {
+        "#element": "div",
+        "margin-top": "16px",
+        "#": ["$ColourLabel", "$SwatchGrid", "$HexField", "$ColourNote"],
+
+        "$ColourLabel": {
+            "#element": "div",
+            "margin-bottom": "6px",
+            "font-size": "var(--type-section-label-size)",
+            "font-weight": "var(--type-section-label-weight)",
+            "letter-spacing": "var(--type-section-label-track)",
+            "color": "var(--color-text-meta)",
+            "text-transform": "uppercase",
+            "#content": "Background colour"
+        },
+
+        "$SwatchGrid": {
+            "#doc": "A 5 × 2 grid. Empty in the layout: shell.allspeak renders the ten buttons from its palette list and attaches each one, so the colours are stated in one place only.",
+            "#element": "div",
+            "@id": "appearance-sheet-swatches",
+            "display": "grid",
+            "grid-template-columns": "repeat(5, 1fr)",
+            "gap": "8px"
+        },
+
+        "$HexField": {
+            "#element": "input",
+            "@id": "appearance-sheet-hex",
+            "@type": "text",
+            "@spellcheck": "false",
+            "@autocomplete": "off",
+            "@placeholder": "#808000",
+            "width": "100%",
+            "margin-top": "10px",
+            "padding": "10px 12px",
+            "border": "1px solid var(--color-border-hairline)",
+            "border-radius": "10px",
+            "background": "var(--color-surface-card)",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "color": "var(--color-text-primary)",
+            "box-sizing": "border-box"
+        },
+
+        "$ColourNote": {
+            "#element": "div",
+            "@id": "appearance-sheet-note",
+            "margin-top": "6px",
+            "font-size": "11px",
+            "color": "var(--color-text-muted)",
+            "#content": "Pick a swatch, or type any hex value such as #808000."
+        }
+    },
+
+    "$TimeBlock": {
+        "#element": "div",
+        "margin-top": "16px",
+        "padding": "14px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "14px",
+        "display": "flex",
+        "align-items": "center",
+        "gap": "12px",
+        "#": ["$TimeText", "$TimeSpacer", "$TimeBox"],
+
+        "$TimeText": {
+            "#element": "div",
+            "display": "flex",
+            "flex-direction": "column",
+            "min-width": "0",
+
+            "$TimeLabel": {
+                "#element": "div",
+                "font-size": "15px",
+                "font-weight": "500",
+                "color": "var(--color-text-primary)",
+                "#content": "Time-based changes"
+            },
+            "$TimeSub": {
+                "#element": "div",
+                "font-size": "12px",
+                "font-weight": "400",
+                "color": "var(--color-text-muted)",
+                "margin-top": "2px",
+                "#content": "The background warms and darkens through the day"
+            }
+        },
+
+        "$TimeSpacer": {
+            "#element": "div",
+            "flex": "1"
+        },
+
+        "$TimeBox": {
+            "#element": "input",
+            "@id": "appearance-sheet-time",
+            "@type": "checkbox",
+            "width": "22px",
+            "height": "22px",
+            "margin": "0",
+            "flex-shrink": "0",
+            "cursor": "pointer",
+            "accent-color": "var(--color-accent)"
+        }
+    },
+
+    "$Buttons": {
+        "#element": "div",
+        "margin-top": "20px",
+        "display": "flex",
+        "gap": "10px",
+        "#": ["$DoneBtn"],
+
+        "$DoneBtn": {
+            "#element": "button",
+            "@id": "appearance-sheet-done-btn",
+            "flex": "1",
+            "padding": "12px",
+            "border-radius": "12px",
+            "background": "var(--color-accent)",
+            "border": "1px solid var(--color-accent)",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "600",
+            "color": "white",
+            "#content": "Done"
+        }
+    }
+}

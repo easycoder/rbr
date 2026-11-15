@@ -24,7 +24,7 @@
 //   - Every other cross-origin request (the MQTT broker WebSocket) is
 //     pass-through — no caching, no interception.
 
-const CACHE_VERSION = 'rbr-v1-2611131924';
+const CACHE_VERSION = 'rbr-v1-2611151633';
 const CACHE_NAME = `rbr-cache-${CACHE_VERSION}`;
 
 // The bare URLs: index.html pins the runtime with a `?v=` query, and matching
@@ -55,7 +55,6 @@ const APP_SHELL = [
     './resources/webson/room-row.json',
     './resources/webson/simple-home.json',
     './resources/webson/simple-room.json',
-    './resources/webson/simple-profile-pill.json',
     './resources/webson/sheet.json',
     './resources/webson/menu-sheet.json',
     './resources/webson/journal-sheet.json',
@@ -66,9 +65,11 @@ const APP_SHELL = [
     './resources/webson/schedule-period.json',
     './resources/webson/sched-profile-pill.json',
     './resources/webson/about-sheet.json',
+    './resources/webson/systems-row.json',
     './resources/webson/device-editor.json',
     './resources/webson/device-room-pill.json',
     './resources/webson/system-sheet.json',
+    './resources/webson/appearance-sheet.json',
     './resources/webson/outside-sheet.json',
     './resources/webson/info-sheet.json',
     './demo-map.json',

@@ -1,5 +1,5 @@
 {
-    "#doc": "System sheet — heating type, display name and the maximum time a room may stay in On. Save ships System Name with systemType and onmax fields on the map. Renders as a sibling sheet inside sheet-content.",
+    "#doc": "System sheet — heating type, display name and the maximum on duration for a room. Save ships System Name with systemType and onmax fields on the map. Renders as a sibling sheet inside sheet-content.",
     "#element": "div",
     "@id": "system-sheet",
     "#": ["$Tagline", "$NameBlock", "$TypeBlock", "$MaxOnBlock", "$Buttons"],
@@ -10,7 +10,7 @@
         "font-size": "13px",
         "font-weight": "400",
         "color": "var(--color-text-secondary)",
-        "#content": "Name the system, pick the heating type and cap how long a room may stay On. Save to apply, Cancel to discard."
+        "#content": "Name the system, pick the heating type and set the maximum on duration. Save to apply, Cancel to discard."
     },
 
     "$NameBlock": {
@@ -107,7 +107,7 @@
             "letter-spacing": "var(--type-section-label-track)",
             "color": "var(--color-text-meta)",
             "text-transform": "uppercase",
-            "#content": "Maximum time in On"
+            "#content": "Maximum on duration"
         },
 
         "$MaxOnSelect": {
@@ -129,7 +129,7 @@
             "margin-top": "6px",
             "font-size": "11px",
             "color": "var(--color-text-muted)",
-            "#content": "When the limit is reached the room returns to the mode it was in before On. Always On keeps the old behaviour."
+            "#content": "When the duration is reached the room returns to the mode it was in before On. Always On keeps the old behaviour."
         }
     },
 

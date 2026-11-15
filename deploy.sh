@@ -2,15 +2,16 @@
 # Deploy RBR web UI + controller files to rbrheating.com.
 #
 # Layout on the server:
-#   /                   <- the site's own page (a holding page that names the
-#                          product and links to the app), plus the PHP endpoints
-#                          the app needs: credentials.php and auth.php, with
-#                          .htaccess. The legacy UI that used to live here, and
-#                          its /resources/ tree and /new-ui/ copy, are gone —
+#   /                   <- the site's own page: the marketing home page
+#                          (index.html, with styles.css, script.js and
+#                          assets/ beside it), plus the PHP endpoints the app
+#                          needs: credentials.php and auth.php, with .htaccess.
+#                          The legacy UI that used to live here, and its
+#                          /resources/ tree and /new-ui/ copy, are gone —
 #                          removed 2026-10-17 with the rest of the retirement.
 #   /docs/              <- documentation reader — the page, the script and the
-#                          layout. The documentation itself is fetched from the
-#                          public repository at runtime, never copied here.
+#                          layout — with a copy of every page under docs/. The
+#                          reader fetches them from this site as they are read.
 #   /dist/              <- pinned AllSpeak runtime, written by pin-allspeak.sh
 #                          (not by this script)
 #
@@ -84,22 +85,51 @@ echo "Deploying RBR to ${REMOTE}..."
 # Note what is NOT here any more: the legacy UI's index.html and its
 # resources/ tree. The root page is now the product's own — see index.html —
 # and the app is served from /heat/ alone.
+#
+# index.html is the marketing home page; styles.css, script.js and assets/ are
+# its own files and sit beside it at the root.
+#
+# `assets` has NO trailing slash: with several sources rsync copies the
+# *contents* of a trailing-slash directory into the destination, which put the
+# hero image at the site root and left /assets/living-room-hero.jpg a 404.
 rsync -rvz --no-perms -e "$SSH_OPTS" \
     "$LOCAL/index.html" \
+    "$LOCAL/styles.css" \
+    "$LOCAL/script.js" \
+    "$LOCAL/assets" \
     "$LOCAL/favicon.ico" \
     "$LOCAL/auth.php" \
     "$LOCAL/credentials.php" \
     "$LOCAL/.htaccess" \
     "$REMOTE/"
 
-# The documentation reader: the whole of /docs on the site — the page, the
-# script and the layout. The documentation itself is NOT here and is never
-# copied. The reader fetches the Markdown from the public repository at
-# runtime, so docs/ in this repository stays the only copy of it.
-echo "Deploying docs-reader/ to /docs/..."
+# Two files from the page's staging period are now dead: /home.html was the
+# temporary address the page was developed at, and the first upload left a
+# copy of the hero image at the site root instead of in /assets/. Rsync never
+# deletes, so remove them by name rather than adding --delete to a directory
+# that also holds files this script does not own. `rm -f` keeps this safe to
+# run on every deploy.
+REMOTE_HOST="${REMOTE%%:*}"
+REMOTE_PATH="${REMOTE#*:}"
+$SSH_OPTS "$REMOTE_HOST" "rm -f '$REMOTE_PATH/home.html' '$REMOTE_PATH/living-room-hero.jpg'"
+
+# The documentation reader and the documentation itself, published together at
+# /docs: the page, the script, the layout and the brand mark, with the whole
+# docs/ tree copied beside them. The reader reads those pages from this site as
+# they are opened, so a documentation change is published by running this
+# script (or the deploy workflow) rather than by pushing to main.
+#
+# One staging directory keeps `--delete` from treating the reader and the
+# documentation as two trees that should replace each other.
+echo "Deploying docs-reader/ and docs/ to /docs/..."
+DOCS_BUILD="$(mktemp -d)"
+trap 'rm -rf "$DOCS_BUILD"' EXIT
+cp -R "$LOCAL/docs-reader/." "$DOCS_BUILD/"
+cp -R "$LOCAL/docs/." "$DOCS_BUILD/"
 rsync -rvz --no-perms --delete -e "$SSH_OPTS" \
-    "$LOCAL/docs-reader/" \
+    "$DOCS_BUILD/" \
     "$REMOTE/docs/"
+rm -rf "$DOCS_BUILD"
 
 # Controller AllSpeak source files, the update tarball and the install pack all
 # go into /heat/ — see upload_heat() below. The old root copies are left on the
@@ -113,7 +143,7 @@ CONTROLLER_FILES=(controller.allspeak deviceControl.allspeak simulator.allspeak 
                   diagnose.allspeak zigbee-bridge.py zigbee-pair.py zigbee-mesh.py \
                   rbr-dashboard.py heatlog.py eventlog.py journal-export.py dashboard.txt rbr-updater.py \
                   rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py rbr_mail.py \
-                  rbr-restore.py rbr-setup.sh rbr-doctor.py)
+                  rbr-restore.py rbr-setup.sh rbr-doctor.py rbr-mail-test.py)
 
 # Versioned controller tarball for the standalone updater (rbr-updater.py).
 # Contains the controller runtime files with a VERSION stamp embedded;
@@ -189,10 +219,7 @@ build_controller_zip() {
     done
     cp "$LOCAL/version" "$BUILD_DIR/VERSION"
     (cd "$BUILD_DIR" && zip -q "$LOCAL/rbr-controller.zip" \
-        controller.allspeak deviceControl.allspeak simulator.allspeak diagnose.allspeak zigbee-bridge.py \
-        zigbee-pair.py zigbee-mesh.py rbr-dashboard.py heatlog.py eventlog.py journal-export.py dashboard.txt \
-        rbr-updater.py rbr-watchdog.sh heatwatch.py rbr-mapbackup.py rbr-backup.py rbr_mail.py \
-        rbr-restore.py rbr-setup.sh rbr-doctor.py VERSION)
+        "${CONTROLLER_FILES[@]}" VERSION)
     rm -rf "$BUILD_DIR"
     echo "  → $LOCAL/rbr-controller.zip (version $(cat "$LOCAL/version"))"
 }
@@ -232,7 +259,8 @@ Reminders:
 - The documentation reader at /docs follows the AllSpeak build pinned at
   /dist/allspeak.js. After a pin, bump the ?v= in docs-reader/index.html as
   well as the one in index.html, or a browser can hold the old runtime.
-- The reader's documentation pages are not deployed with it. They come from
-  https://raw.githubusercontent.com/easycoder/rbr/main/docs/ as they are read,
-  so a documentation change needs only a commit and a push — no deploy.
+- The reader's pages are deployed with it, from docs/, so a documentation
+  change reaches /docs/ only when this script (or the deploy workflow) runs.
+  The page list still comes from docs/README.md, so adding a document means
+  adding it to that map as well.
 EOF

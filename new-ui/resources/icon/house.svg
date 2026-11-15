@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M3 10.5 L12 3 L21 10.5"/>
-  <path d="M5 9 V20 H19 V9"/>
-  <path d="M10 20 V14 H14 V20"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <!-- The website's brand mark: a house outline with three rising heat waves.
+       Same paths and colours as .brand-mark in the site's stylesheet. -->
+  <path d="M7 29 32 7l25 22v28H7Z" stroke="#12345A"/>
+  <path d="M23 27c-5 7 5 8 0 17M32 27c-5 7 5 8 0 17M41 27c-5 7 5 8 0 17" stroke="#F47716"/>
 </svg>

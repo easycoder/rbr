@@ -61,11 +61,16 @@ jobs:
             new-ui/ \
             rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/heat/
 
-      - name: Deploy documentation reader
+      - name: Deploy documentation reader and pages
         run: |
-          # The reader only. The documentation itself is fetched from the
-          # public repository as it is read and is never copied to the site.
+          # The reader and the documentation it shows, in one tree: the reader
+          # fetches the pages from /docs/ as they are read, so docs/ is copied
+          # beside it rather than left to be fetched from the repository.
+          DOCS_BUILD="$(mktemp -d)"
+          cp -R docs-reader/. "$DOCS_BUILD/"
+          cp -R docs/. "$DOCS_BUILD/"
           rsync -avz --no-perms --delete \
             -e "ssh -i ~/.ssh/id_ed25519" \
-            docs-reader/ \
+            "$DOCS_BUILD/" \
             rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/docs/
+          rm -rf "$DOCS_BUILD"

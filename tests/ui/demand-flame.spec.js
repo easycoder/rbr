@@ -10,7 +10,7 @@
 // spec below also checks the simple home keeps it.
 
 const { test, expect } = require('@playwright/test');
-const { openApp, pushMap, waitForHome } = require('./support/harness');
+const { openApp, pushMap, waitForHome, chooseView } = require('./support/harness');
 const MAP = require('./fixtures/map.json');
 
 function demandMap({ request, heating, frost }) {
@@ -74,8 +74,7 @@ test('the simple home keeps the flame current', async ({ page }) => {
   await openApp(page);
   await pushMap(page, demandMap({ request: true, heating: true, frost: false }));
   await waitForHome(page);
-  await page.locator('#top-bar-menu-btn').click();
-  await page.locator('#menu-row-view').click();
+  await chooseView(page, 'simplified');
   await expect(page.locator('#simple-room-0')).toBeVisible();
 
   const flame = page.locator('#top-bar-demand-flame');

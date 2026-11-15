@@ -22,16 +22,40 @@
         "margin": "0 0 1.1em",
         "padding": "0 0 0.6em",
         "border-bottom": "1px solid #e2e2e2",
-        "#": ["$Brand", "$Spacer", "$Nav", "$SourceLink"],
+        "#": ["$Brand", "$PageTitle", "$Spacer", "$Nav", "$SourceLink"],
 
         "$Brand": {
             "#element": "a",
             "@href": "/",
-            "#content": "Room By Room",
-            "font-weight": "600",
-            "font-size": "1.05em",
+            "display": "flex",
+            "align-items": "center",
+            "gap": "0.45em",
             "color": "#0b5cad",
-            "text-decoration": "none"
+            "text-decoration": "none",
+            "#": ["$BrandMark", "$BrandName"],
+
+            "$BrandMark": {
+                "#element": "img",
+                "@src": "house.svg",
+                "@alt": "",
+                "width": "26px",
+                "height": "26px"
+            },
+
+            "$BrandName": {
+                "#element": "span",
+                "#content": "Room By Room Heating",
+                "font-weight": "600",
+                "font-size": "1.05em"
+            }
+        },
+
+        "$PageTitle": {
+            "#doc": "The page's own title, beside the product name: this is a documentation page, not the product's home page.",
+            "#element": "div",
+            "#content": "Documentation",
+            "font-size": "0.95em",
+            "color": "#5a6672"
         },
 
         "$Spacer": {

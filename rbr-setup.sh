@@ -567,9 +567,17 @@ PY
 
 # Ask for the mail settings, using what the existing file has as defaults. An
 # empty mail server means "no email": write the placeholders, as before.
+#
+# An empty answer cannot clear a setting here, because a default is offered and
+# Enter takes it — and whitespace does not either, since `read` trims it to
+# empty before the default is applied. So `-` is the answer that means "no
+# value": at the server prompt it turns email off on a re-run, and in the
+# fields with defaults it clears the stored value. A `-` is safe as a sentinel
+# because none of these settings can legitimately be one.
 ask_mail_settings() {
     MAIL_CONFIGURED=1
-    MAIL_SERVER="$(prompt_value "  Mail server (SMTP host — empty to skip email)" "mail server" "${DEFAULT_MAIL_SERVER:-}")"
+    MAIL_SERVER="$(prompt_value "  Mail server (SMTP host — empty or '-' to skip email)" "mail server" "${DEFAULT_MAIL_SERVER:-}")"
+    [[ "$MAIL_SERVER" == "-" ]] && MAIL_SERVER=""
     if [[ -z "${MAIL_SERVER//[[:space:]]/}" ]]; then
         MAIL_SERVER="smtp.example.com"
         MAIL_LOGIN="noreply@rbrheating.com"
@@ -581,14 +589,19 @@ ask_mail_settings() {
         return
     fi
     MAIL_PORT="$(prompt_value "  Mail port (465 = implicit TLS, 587 = STARTTLS)" "mail port" "${DEFAULT_MAIL_PORT:-465}")"
+    [[ "$MAIL_PORT" == "-" ]] && MAIL_PORT=465
     if [[ ! "$MAIL_PORT" =~ ^[0-9]+$ ]]; then
         echo "  ⚠ '$MAIL_PORT' is not a port number — using 465."
         MAIL_PORT=465
     fi
     MAIL_LOGIN="$(prompt_value "  Mail login (usually the From: address)" "mail login" "${DEFAULT_MAIL_LOGIN:-}")"
-    MAIL_PASSWORD="$(prompt_secret "  Mail password" "${DEFAULT_MAIL_PASSWORD:-}")"
+    [[ "$MAIL_LOGIN" == "-" ]] && MAIL_LOGIN=""
+    MAIL_PASSWORD="$(prompt_secret "  Mail password ('-' clears it)" "${DEFAULT_MAIL_PASSWORD:-}")"
+    [[ "$MAIL_PASSWORD" == "-" ]] && MAIL_PASSWORD=""
     MAIL_FROM="$(prompt_value "  Mail From: address" "mail from" "${DEFAULT_MAIL_FROM:-$MAIL_LOGIN}")"
-    MAIL_TO="$(prompt_value "  Fallback recipient for emailed backups (empty = the registered address)" "mail to" "${DEFAULT_MAIL_TO:-}")"
+    [[ "$MAIL_FROM" == "-" ]] && MAIL_FROM=""
+    MAIL_TO="$(prompt_value "  Fallback recipient for emailed backups (empty or '-' = the registered address)" "mail to" "${DEFAULT_MAIL_TO:-}")"
+    [[ "$MAIL_TO" == "-" ]] && MAIL_TO=""
     if [[ -z "${MAIL_LOGIN//[[:space:]]/}" || -z "$MAIL_PASSWORD" ]]; then
         MAIL_CONFIGURED=0
         echo "  ⚠ Mail login and password are empty — the controller cannot send until"
@@ -638,8 +651,9 @@ if (( EXISTING_CREDENTIALS && ! UPDATE_MAIL )); then
     [[ "$CRED_PORT" =~ ^[0-9]+$ ]] || CRED_PORT=1883
 else
     if (( UPDATE_MAIL )); then
-        echo "  Pressing Enter keeps the value already in the file. The mail password"
-        echo "  is not echoed; an empty answer keeps the stored one."
+        echo "  Pressing Enter keeps the value already in the file; type - to clear"
+        echo "  one (at the mail server, that turns email off). The mail password is"
+        echo "  not echoed; an empty answer keeps the stored one, - clears it."
         CRED_BROKER="$(cred_field broker)"
         CRED_PORT="$(cred_field port)"
         CRED_BROKER="${CRED_BROKER:-localhost}"
@@ -1030,7 +1044,8 @@ PY
     [[ "${JOURNAL_ANSWER,,}" =~ ^y ]] && JOURNAL_ENABLED=1
     JOURNAL_TO=""
     if (( JOURNAL_ENABLED )); then
-        JOURNAL_TO="$(prompt_value "  Journal recipient (empty = the address registered in the app)" "journal recipient" "$JOURNAL_ADDRESS")"
+        JOURNAL_TO="$(prompt_value "  Journal recipient (empty or '-' = the address registered in the app)" "journal recipient" "$JOURNAL_ADDRESS")"
+        [[ "$JOURNAL_TO" == "-" ]] && JOURNAL_TO=""
         JOURNAL_MAIL_SERVER="$(mail_default mail_server "$(cred_field mail_server)")"
         if [[ -z "$JOURNAL_MAIL_SERVER" ]]; then
             echo "  ⚠ No usable mail server is configured in $RBR_DIR/credentials."

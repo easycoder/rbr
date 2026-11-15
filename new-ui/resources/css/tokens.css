@@ -20,7 +20,10 @@
     --color-accent-20:            #E86A3333;   /* 20% alpha — target-tile border */
     --color-accent-tinted-shadow: rgba(232,106,51,0.25);
 
-    --color-text-primary:   #1A1A1A;
+    /* The ink is the deep navy of the website's home page rather than black:
+       it carries the same weight on the pale pill tints and ties the app to
+       the site it ships with. */
+    --color-text-primary:   #12345A;
     --color-text-secondary: #666666;
     --color-text-muted:     #999999;
     --color-text-meta:      #AAAAAA;
@@ -43,14 +46,17 @@
     --color-chip-heat-fg:    var(--color-accent);
 
     /* Room-pill backgrounds. Blue and orange are their state colour mixed
-       three-quarters of the way to white; the neutral default is the same mix
-       of the default border. The Off tint is lighter still, so an Off room
-       recedes behind a Timed room rather than gaining weight from its grey
-       text and border. */
+       three-quarters of the way to white; the neutral default (a Timed room
+       between periods, whose text is black) is its neutral border mixed
+       half-way, so the fill still reads as grey against the page gradient on
+       a phone.
+       An Off room wears that same neutral pill, background and border both,
+       and is told apart by its fainter text alone — a tint of its own, paler
+       or darker, only made it the pill the eye went to first. */
     --color-pill-bg-blue:    #CBDCEC;
     --color-pill-bg-orange:  #F9DACC;
     --color-pill-bg-grey:    #F5F5F5;
-    --color-pill-bg-default: #EEEEEE;
+    --color-pill-bg-default: #DDDDDD;
 
     --color-border-hairline:     #ECECEC;
     --color-border-divider:      #F0F0F0;

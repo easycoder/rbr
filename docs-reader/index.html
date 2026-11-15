@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Room By Room — documentation</title>
-  <meta name="description" content="Room By Room product documentation: what the system is, what it costs, how it is fitted and how it is run. Read directly from the project's own repository.">
+  <title>Documentation — Room By Room Heating</title>
+  <meta name="description" content="Room By Room Heating documentation: what the system is, what it costs, how it is fitted and how it is run.">
   <link rel="icon" href="../favicon.ico" type="image/x-icon">
   <script type="text/javascript" src="https://rbrheating.com/dist/allspeak.js?v=2610161200"></script>
   <style>
@@ -45,6 +45,15 @@
     #content a:hover { text-decoration: underline; }
     #content code { background: #f0f0f0; padding: 0.1em 0.35em; border-radius: 3px; font-size: 0.92em; }
     #content pre { margin: 1em 0; }
+    /* Screenshots are wider than the reading pane on purpose; fit them to it. */
+    #content img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 1.2em auto;
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+    }
     #content pre code { background: transparent; padding: 0; font-size: inherit; }
     /* A wide table scrolls inside the pane rather than pushing the page sideways. */
     #content table {
@@ -134,6 +143,8 @@
       });
 
       var lastRoute = null;
+      var routeWatched = false;
+      var contentWatched = false;
 
       // The AllSpeak script publishes the page now showing into #route-out, and
       // the address bar follows it so that every page can be linked to and
@@ -153,21 +164,64 @@
       }
 
       function watchRoute() {
+        if (routeWatched) return true;
         var out = byId('route-out');
         if (!out) return false;
         new MutationObserver(mirrorRoute).observe(out, { childList: true, characterData: true, subtree: true });
+        routeWatched = true;
+        return true;
+      }
+
+      // The runtime's Markdown renderer has no image syntax: `![alt](path)`
+      // arrives as a paragraph containing a literal "!" and a link to the
+      // image. Turn that pair into an <img> so the manual can carry its
+      // screenshots. A normal link has no "!" in front of it, and a link to
+      // something that is not an image file is left alone.
+      function upgradeImages() {
+        var content = byId('content');
+        if (!content) return;
+        var links = content.querySelectorAll('a[href]');
+        for (var i = links.length - 1; i >= 0; i--) {
+          var link = links[i];
+          var href = link.getAttribute('href');
+          if (!/\.(png|jpe?g|gif|webp|svg)(?:[?#]|$)/i.test(href)) continue;
+          var para = link.parentNode;
+          if (!para || para.tagName !== 'P') continue;
+          var before = link.previousSibling;
+          if (!before || before.nodeType !== 3) continue;
+          if (before.data.replace(/\s+$/, '') !== '!') continue;
+          var image = document.createElement('img');
+          image.setAttribute('src', href);
+          image.setAttribute('alt', link.textContent);
+          image.setAttribute('loading', 'lazy');
+          if (para.childNodes.length === 2) para.parentNode.replaceChild(image, para);
+          else {
+            para.replaceChild(image, link);
+            before.data = before.data.replace(/!\s*$/, '');
+          }
+        }
+      }
+
+      function watchContent() {
+        if (contentWatched) return true;
+        var content = byId('content');
+        if (!content) return false;
+        new MutationObserver(upgradeImages).observe(content, { childList: true, subtree: true });
+        contentWatched = true;
+        upgradeImages();
         return true;
       }
 
       // The reading pane and the bridge elements do not exist yet at
       // DOMContentLoaded: the AllSpeak runtime renders them from its own `load`
       // handler, which runs after this event. So every lookup is made on use, and
-      // the one thing that needs an element up front — watching the route — waits
-      // for that element to appear rather than for a number of milliseconds.
+      // the two things that need an element up front — watching the route and
+      // upgrading image links in the pane — wait for those elements to appear
+      // rather than for a number of milliseconds.
       function begin() {
-        if (watchRoute()) return;
+        if (watchRoute() && watchContent()) return;
         var boot = new MutationObserver(function () {
-          if (watchRoute()) boot.disconnect();
+          if (watchRoute() && watchContent()) boot.disconnect();
         });
         boot.observe(document.body, { childList: true, subtree: true });
       }

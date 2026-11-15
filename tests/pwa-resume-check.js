@@ -187,6 +187,9 @@ async function main() {
       window.TextDecoder = TextDecoder;
       try {
         window.localStorage.setItem('dev-mac', '00:11:22:33:44:55');
+        // The detailed home: a device with no stored view choice now gets the
+        // simplified one.
+        window.localStorage.setItem('rbr-simple-view', 'off');
         // Seed the first-map counter so the watchdog reaches the post-cap path
         // on its first tick, where the old code stopped for good.
         window.localStorage.setItem('first-map-attempts', '3');

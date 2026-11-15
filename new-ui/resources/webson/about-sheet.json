@@ -1,5 +1,5 @@
 {
-    "#doc": "About sheet — tabbed marketing + manual surface. Auto-opens on first visit when there are no credentials; tap the house mark in the top bar to re-open. Tabs are 'About' (marketing pitch with feature list and a 'Set up my system' CTA) and 'Manual' (placeholder).",
+    "#doc": "About sheet — tabbed marketing + systems surface. Auto-opens on first visit when there are no credentials; tap the house mark in the top bar to re-open. 'About' is the marketing pitch with a 'Set up my system' CTA; 'Manual' is an external link to /docs/; 'Systems' lists the installations this device can manage and offers add, select and remove.",
     "#element": "div",
     "@id": "about-sheet",
     "#": ["$Tabs", "$Bodies"],
@@ -11,7 +11,7 @@
         "padding": "4px",
         "background": "rgba(0,0,0,0.04)",
         "border-radius": "10px",
-        "#": ["$TabAbout", "$TabManual"],
+        "#": ["$TabAbout", "$TabManual", "$TabSystems"],
 
         "$TabAbout": {
             "#element": "button",
@@ -30,8 +30,11 @@
             "#content": "About"
         },
         "$TabManual": {
-            "#element": "button",
+            "#element": "a",
             "@id": "about-tab-manual",
+            "@href": "/docs/",
+            "@target": "_blank",
+            "@rel": "noopener noreferrer",
             "flex": "1",
             "padding": "8px",
             "border": "none",
@@ -42,14 +45,31 @@
             "font-size": "14px",
             "font-weight": "500",
             "color": "var(--color-text-muted)",
+            "text-align": "center",
+            "text-decoration": "none",
             "#content": "Manual"
+        },
+        "$TabSystems": {
+            "#element": "button",
+            "@id": "about-tab-systems",
+            "flex": "1",
+            "padding": "8px",
+            "border": "none",
+            "border-radius": "8px",
+            "background": "transparent",
+            "cursor": "pointer",
+            "font-family": "inherit",
+            "font-size": "14px",
+            "font-weight": "500",
+            "color": "var(--color-text-muted)",
+            "#content": "Systems"
         }
     },
 
     "$Bodies": {
         "#element": "div",
         "margin-top": "16px",
-        "#": ["$AboutBody", "$ManualBody"],
+        "#": ["$AboutBody", "$SystemsBody"],
 
         "$AboutBody": {
             "#element": "div",
@@ -70,8 +90,7 @@
                     "width": "52px",
                     "height": "52px",
                     "border-radius": "14px",
-                    "background": "var(--color-accent)",
-                    "box-shadow": "var(--shadow-house-mark)",
+                    "background": "transparent",
                     "display": "flex",
                     "align-items": "center",
                     "justify-content": "center",
@@ -82,8 +101,8 @@
                         "#element": "img",
                         "@src": "resources/icon/house.svg",
                         "@alt": "",
-                        "width": "30px",
-                        "height": "30px",
+                        "width": "52px",
+                        "height": "52px",
                         "pointer-events": "none"
                     }
                 },
@@ -193,18 +212,69 @@
             }
         },
 
-        "$ManualBody": {
+        "$SystemsBody": {
             "#element": "div",
-            "@id": "about-body-manual",
+            "@id": "about-body-systems",
             "display": "none",
-            "padding": "20px",
-            "border-radius": "12px",
-            "background": "var(--color-surface-card)",
-            "border": "1px solid var(--color-border-hairline)",
-            "text-align": "center",
-            "color": "var(--color-text-secondary)",
-            "font-size": "13px",
-            "#content": "User manual coming soon."
+            "#": ["$SystemsIntro", "$SystemsList", "$SystemsEmpty", "$SystemsAdd", "$SystemsNote"],
+
+            "$SystemsIntro": {
+                "#element": "div",
+                "font-size": "13px",
+                "line-height": "1.5",
+                "color": "var(--color-text-secondary)",
+                "margin-bottom": "12px",
+                "#content": "Systems this device can manage. Each one is kept separately here; adding a system needs its MAC address and system password."
+            },
+
+            "$SystemsList": {
+                "#element": "div",
+                "@id": "about-systems-list",
+                "display": "flex",
+                "flex-direction": "column",
+                "gap": "8px",
+                "margin-bottom": "12px"
+            },
+
+            "$SystemsEmpty": {
+                "#element": "div",
+                "@id": "about-systems-empty",
+                "display": "none",
+                "padding": "16px",
+                "border-radius": "12px",
+                "background": "var(--color-surface-card)",
+                "border": "1px solid var(--color-border-hairline)",
+                "text-align": "center",
+                "color": "var(--color-text-secondary)",
+                "font-size": "13px",
+                "margin-bottom": "12px",
+                "#content": "No systems on this device yet."
+            },
+
+            "$SystemsAdd": {
+                "#element": "button",
+                "@id": "about-systems-add",
+                "width": "100%",
+                "padding": "12px",
+                "border-radius": "12px",
+                "background": "var(--color-accent)",
+                "border": "1px solid var(--color-accent)",
+                "cursor": "pointer",
+                "font-family": "inherit",
+                "font-size": "14px",
+                "font-weight": "600",
+                "color": "white",
+                "#content": "Add a system"
+            },
+
+            "$SystemsNote": {
+                "#element": "p",
+                "margin": "12px 0 0 0",
+                "font-size": "11px",
+                "line-height": "1.5",
+                "color": "var(--color-text-muted)",
+                "#content": "The name you enter is the label for this device's list; the controller's own system name is set in System. Removing a system only forgets it here — it does not delete the installation."
+            }
         }
     }
 }

@@ -2,22 +2,22 @@
 //
 //   node tests/docs-reader-check.js
 //
-// The reader is two halves that talk through the DOM, and its pages come from a
-// public repository, so nothing here can be checked by reading the source. This
-// drives the real page in a DOM with the real runtime and the real documentation:
-// it builds the page list from docs/README.md, clicks links the markdown renderer
-// produced, works the toolbar, opens a page by address, and follows a link that
-// climbs out of the documentation tree.
+// The reader is two halves that talk through the DOM, and its pages are read from
+// this site as they are opened, so nothing here can be checked by reading the
+// source. This drives the real page in a DOM with the real runtime and the real
+// documentation: it builds the page list from docs/README.md, clicks links the
+// markdown renderer produced, works the toolbar, opens a page by address, and
+// follows a link that climbs out of the documentation tree.
 //
-// It needs jsdom (a devDependency) and network access to raw.githubusercontent.com
-// — the reader fetches its Markdown from there at runtime, which is the whole
-// point of it. A failure to reach the repository shows up as a failed check
-// rather than as a silent pass.
+// It needs jsdom (a devDependency) and network access for the AllSpeak runtime
+// pinned at rbrheating.com/dist/allspeak.js. The Markdown itself is served from
+// this repository by the local static server, exactly as deploy.sh copies it to
+// /docs/ on the site, so a missing file fails here rather than in production.
 //
-// **It tests the published documentation, not the working tree.** The reader reads
-// `main`, so a document written here is invisible to this check — and to the site —
-// until it is committed and pushed. That is why the page list is checked for its
-// order and for a floor rather than for an exact count.
+// **It tests the working tree.** A document written here is visible to this check
+// as soon as its file exists and the README names it. The page list is still
+// checked for its order and for a floor rather than for an exact count, so that
+// adding a document does not require editing this file.
 //
 // What it does NOT check is anything visual: fonts, spacing, how a table looks on
 // a phone. That needs a real browser, which is what the Playwright specs in this
@@ -81,6 +81,7 @@ function serve() {
 // after load, so the page list appearing is what says the reader has started.
 async function open(base, hash, runtimeErrors) {
   const errors = [];
+  const fetches = [];
   const virtualConsole = new VirtualConsole();
   virtualConsole.sendTo(console, { omitJSDOMErrors: true });
   const dom = await JSDOM.fromURL(base + 'docs-reader/' + (hash || ''), {
@@ -91,7 +92,11 @@ async function open(base, hash, runtimeErrors) {
     beforeParse(window) {
       // jsdom has no fetch, and no innerText — and the AllSpeak loader reads its
       // own bootstrap <pre> with innerText.
-      window.fetch = (url, opts) => globalThis.fetch(new URL(url, window.location.href).href, opts);
+      window.fetch = (url, opts) => {
+        const href = new URL(url, window.location.href).href;
+        fetches.push(href);
+        return globalThis.fetch(href, opts);
+      };
       Object.defineProperty(window.HTMLElement.prototype, 'innerText', {
         get() { return this.textContent; },
         set(v) { this.textContent = v; },
@@ -116,7 +121,7 @@ async function open(base, hash, runtimeErrors) {
     await sleep(500);
   }
   return {
-    w, d, errors,
+    w, d, errors, fetches,
     text, html,
     title: () => (/<h1[^>]*>(.*?)<\/h1>/.exec(html('#content')) || [])[1],
     click: el => el.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true })),
@@ -140,11 +145,21 @@ async function main() {
   {
     const p = await open(base);
     const slugs = p.text('#known-slugs').trim().split('\n');
-    // The reader reads `main`, so this list is what the site would show, not what
-    // the working tree holds: a document written here appears only once it is
-    // pushed. It only ever grows, so the count is a floor and the order is the
-    // assertion — the first document, the last, and nothing lost along the way.
+    // The reader is served from this repository's docs/ tree, so this is the
+    // working tree's own list. It only ever grows, so the count is a floor and
+    // the order is the assertion — the first document, the last, and nothing
+    // lost along the way.
     check('the page list is built from the README (at least 29 documents)', slugs.length >= 29, slugs.length);
+    check('the README is read from this site, not from GitHub',
+      p.fetches.includes(base + 'docs/README.md'), p.fetches.join(' '));
+    check('no documentation page is fetched from a CDN',
+      !p.fetches.some(url => /raw\.githubusercontent\.com|cdn\.jsdelivr\.net/.test(url)),
+      p.fetches.join(' '));
+    check('the browser title names the product and the page',
+      p.d.title === 'Documentation — Room By Room Heating', p.d.title);
+    check('the top bar carries the product name and the page title',
+      /Room By Room Heating/.test(p.text('#top-bar')) && /Documentation/.test(p.text('#top-bar')),
+      p.text('#top-bar'));
     check('the reading order starts at concept/00', slugs[0] === 'concept/00-the-experience-is-the-product', slugs[0]);
     check('the reading order ends at the glossary', slugs[slugs.length - 1] === 'appendix/glossary', slugs[slugs.length - 1]);
     check('every slug in the list is unique', new Set(slugs).size === slugs.length);
@@ -227,6 +242,36 @@ async function main() {
     p.w.close();
   }
 
+  console.log('\n== a missing page keeps its place in the list ==');
+  {
+    const p = await open(base, '#operation/01-the-interface');
+    await settled(p, () => p.text('#route-out') === 'operation/01-the-interface');
+    p.click(p.d.querySelector('#next-button'));
+    await settled(p, () => p.text('#route-out') === 'operation/02-modes-schedules-profiles');
+    check('next opens the following listed page even though it is unwritten',
+      /has not been written yet/.test(p.text('#notice-text')), JSON.stringify(p.text('#notice-text')));
+    check('the address keeps the missing page', p.w.location.hash === '#operation/02-modes-schedules-profiles',
+      p.w.location.hash);
+    p.click(p.d.querySelector('#prev-button'));
+    await settled(p, () => p.text('#route-out') === 'operation/01-the-interface');
+    check('previous returns to the page before the missing one', p.title() === 'The interface', p.title());
+    check('the address follows back', p.w.location.hash === '#operation/01-the-interface', p.w.location.hash);
+
+    // A chain of missing pages must still walk correctly in both directions.
+    p.click(p.d.querySelector('#next-button'));
+    await settled(p, () => p.text('#route-out') === 'operation/02-modes-schedules-profiles');
+    p.click(p.d.querySelector('#next-button'));
+    await settled(p, () => p.text('#route-out') === 'operation/03-managing-many-systems');
+    check('next walks from one missing page to the next', p.w.location.hash === '#operation/03-managing-many-systems',
+      p.w.location.hash);
+    p.click(p.d.querySelector('#prev-button'));
+    await settled(p, () => p.text('#route-out') === 'operation/02-modes-schedules-profiles');
+    check('previous walks back through the missing page', p.w.location.hash === '#operation/02-modes-schedules-profiles',
+      p.w.location.hash);
+    check('the page logged no errors or warnings', p.errors.length === 0, p.errors.join(' | '));
+    p.w.close();
+  }
+
   console.log('\n== a document the README names but that is not written ==');
   {
     const p = await open(base, '#installation/01-installing-the-controller');
@@ -276,6 +321,20 @@ async function main() {
     p.click(external);
     await sleep(500);
     check('the reader leaves it to the browser', defaultPrevented === false, defaultPrevented);
+    check('the page logged no errors or warnings', p.errors.length === 0, p.errors.join(' | '));
+    p.w.close();
+  }
+
+  console.log('\n== screenshots in the manual ==');
+  {
+    const p = await open(base, '#operation/01-the-interface');
+    await settled(p, () => p.d.querySelectorAll('#content img').length >= 5, 25000);
+    const images = [...p.d.querySelectorAll('#content img')];
+    check('the manual renders its screenshots', images.length >= 5, images.length);
+    check('the screenshots are the manual\'s own files',
+      images.every(img => /^\/docs\/operation\/images\/[^/]+\.png$/.test(img.getAttribute('src'))),
+      images.map(img => img.getAttribute('src')).join(' '));
+    check('the screenshots carry alt text', images.every(img => !!img.getAttribute('alt')));
     check('the page logged no errors or warnings', p.errors.length === 0, p.errors.join(' | '));
     p.w.close();
   }

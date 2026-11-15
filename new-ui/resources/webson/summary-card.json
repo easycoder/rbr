@@ -59,7 +59,7 @@
             "#element": "div",
             "min-width": "0",
             "flex": "1",
-            "#": ["$Title", "$Subtitle"],
+            "#": ["$Title"],
 
             "$Title": {
                 "#element": "div",
@@ -68,18 +68,6 @@
                 "font-weight": "var(--type-summary-title-weight)",
                 "letter-spacing": "var(--type-summary-title-track)",
                 "color": "var(--color-text-primary)"
-            },
-
-            "$Subtitle": {
-                "#element": "div",
-                "@id": "summary-subtitle",
-                "font-size": "12px",
-                "font-weight": "400",
-                "color": "var(--color-text-muted)",
-                "margin-top": "2px",
-                "white-space": "nowrap",
-                "overflow": "hidden",
-                "text-overflow": "ellipsis"
             }
         }
     },

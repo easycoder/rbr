@@ -9,7 +9,7 @@
 // built here so the result does not depend on the wall clock.
 
 const { test, expect } = require('@playwright/test');
-const { openApp, pushMap, waitForHome } = require('./support/harness');
+const { openApp, pushMap, waitForHome, chooseView } = require('./support/harness');
 const MAP = require('./fixtures/map.json');
 
 function room(name, battery) {
@@ -71,8 +71,7 @@ test('the simple home shows battery warnings and frost protection', async ({ pag
   await openApp(page);
   await pushMap(page, badgeMap());
   await waitForHome(page);
-  await page.locator('#top-bar-menu-btn').click();
-  await page.locator('#menu-row-view').click();
+  await chooseView(page, 'simplified');
   await expect(page.locator('#simple-room-0')).toBeVisible();
 
   // Low: the low artwork, above the temperature.
@@ -88,9 +87,10 @@ test('the simple home shows battery warnings and frost protection', async ({ pag
   // A healthy battery shows nothing.
   await expect(page.locator('#simple-room-2-battery')).toBeHidden();
 
-  // Outside 5.0 C with a 10 C frost trigger and no room calling.
-  await expect(page.locator('#simple-profile-outside')).toHaveText('5.0');
-  await expect(page.locator('#simple-profile-frost')).toBeVisible();
+  // Outside 5.0 C with a 10 C frost trigger and no room calling: the
+  // banner's outside reading carries the snowflake.
+  await expect(page.locator('#top-bar-outside')).toHaveText('5.0');
+  await expect(page.locator('#top-bar-outside-frost')).toBeVisible();
 
   expect(pageErrors).toEqual([]);
 });

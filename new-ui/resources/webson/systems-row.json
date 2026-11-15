@@ -1,0 +1,88 @@
+{
+    "#doc": "One row in the About sheet's Systems list. The row shows the device's own label and the MAC; Select makes it current, Remove forgets it on this device. /I/ is replaced with the system index per render.",
+    "#element": "div",
+    "@id": "system-row-/I/",
+    "padding": "10px",
+    "border": "1px solid var(--color-border-hairline)",
+    "border-radius": "12px",
+    "background": "var(--color-surface-card)",
+    "display": "flex",
+    "align-items": "center",
+    "gap": "8px",
+    "#": ["$Info", "$Select", "$Rename", "$Delete"],
+
+    "$Info": {
+        "#element": "div",
+        "flex": "1",
+        "min-width": "0",
+        "#": ["$Name", "$Mac"],
+
+        "$Name": {
+            "#element": "div",
+            "@id": "system-row-/I/-name",
+            "font-size": "14px",
+            "font-weight": "600",
+            "color": "var(--color-text-primary)",
+            "white-space": "nowrap",
+            "overflow": "hidden",
+            "text-overflow": "ellipsis"
+        },
+
+        "$Mac": {
+            "#element": "div",
+            "@id": "system-row-/I/-mac",
+            "font-size": "11px",
+            "color": "var(--color-text-muted)",
+            "margin-top": "2px",
+            "white-space": "nowrap",
+            "overflow": "hidden",
+            "text-overflow": "ellipsis"
+        }
+    },
+
+    "$Select": {
+        "#element": "button",
+        "@id": "system-row-/I/-select",
+        "font": "inherit",
+        "font-size": "12px",
+        "padding": "8px 10px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "8px",
+        "background": "transparent",
+        "color": "var(--color-accent)",
+        "cursor": "pointer",
+        "flex-shrink": "0"
+    },
+
+    "$Rename": {
+        "#element": "button",
+        "@id": "system-row-/I/-rename",
+        "@aria-label": "Rename this system in this device's list",
+        "font": "inherit",
+        "font-size": "12px",
+        "padding": "8px 8px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "8px",
+        "background": "transparent",
+        "color": "var(--color-text-secondary)",
+        "cursor": "pointer",
+        "flex-shrink": "0",
+        "#content": "Rename"
+    },
+
+    "$Delete": {
+        "#element": "button",
+        "@id": "system-row-/I/-delete",
+        "@aria-label": "Remove this system from this device",
+        "font": "inherit",
+        "font-size": "12px",
+        "padding": "8px 10px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "8px",
+        "background": "transparent",
+        "color": "var(--color-status-warn)",
+        "cursor": "pointer",
+        "flex-shrink": "0",
+        "#content": "Remove"
+    }
+}

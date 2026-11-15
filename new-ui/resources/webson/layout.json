@@ -1,5 +1,6 @@
 {
     "#doc": "Outer page layout: top-bar container, main scroll area, footer.",
+    "@id": "layout-frame",
     "display": "flex",
     "flex-direction": "column",
     "min-height": "100vh",

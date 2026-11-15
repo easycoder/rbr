@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#E86A33"/>
-  <g transform="translate(128 128) scale(10.6667)">
-    <path d="M3 10.5 L12 3 L21 10.5 L21 20 L3 20 Z" fill="#FFFFFF"/>
-    <path d="M10 20 V14 H14 V20 Z" fill="#E86A33"/>
+  <!-- Installable app icon: the website's house-and-heat mark on white. The
+       mark is 384 of 512px, inside the maskable safe zone. -->
+  <rect width="512" height="512" fill="#FFFFFF"/>
+  <g transform="translate(64 64) scale(6)" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 29 32 7l25 22v28H7Z" stroke="#12345A"/>
+    <path d="M23 27c-5 7 5 8 0 17M32 27c-5 7 5 8 0 17M41 27c-5 7 5 8 0 17" stroke="#F47716"/>
   </g>
 </svg>

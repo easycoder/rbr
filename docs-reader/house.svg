@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+  <!-- The website's brand mark, beside the product name on the documentation
+       page. Same paths and colours as .brand-mark in the site's stylesheet. -->
+  <path d="M7 29 32 7l25 22v28H7Z" stroke="#12345A"/>
+  <path d="M23 27c-5 7 5 8 0 17M32 27c-5 7 5 8 0 17M41 27c-5 7 5 8 0 17" stroke="#F47716"/>
+</svg>

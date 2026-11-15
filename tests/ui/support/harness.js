@@ -14,6 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { expect } = require('@playwright/test');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const UI = path.join(ROOT, 'new-ui');
@@ -42,9 +43,11 @@ function getRuntime() {
 
 const MAC = '00:11:22:33:44:55';
 
-function stubSource(mac) {
+function stubSource(mac, fresh) {
   const source = fs.readFileSync(path.join(__dirname, 'browser-stub.js'), 'utf8');
-  return source.replaceAll('__RBR_TEST_MAC__', JSON.stringify(mac));
+  return source
+    .replaceAll('__RBR_TEST_MAC__', JSON.stringify(mac))
+    .replaceAll('__RBR_TEST_FRESH__', JSON.stringify(!!fresh));
 }
 
 // Install routes and the stub, load the page, wait for the shell to get as far
@@ -80,7 +83,7 @@ async function openPage(page, options) {
     }));
   }
 
-  await page.addInitScript({ content: stubSource(demo ? '' : MAC) });
+  await page.addInitScript({ content: stubSource(demo ? '' : MAC, options && options.freshView) });
   await page.goto('/new-ui/index.html');
 
   if (demo) {
@@ -97,8 +100,8 @@ async function openPage(page, options) {
   await page.waitForFunction(() => !!window.__rbr && window.__rbr.connected === true, null, { timeout: 30000 });
 }
 
-async function openApp(page) {
-  return openPage(page, { demo: false });
+async function openApp(page, options) {
+  return openPage(page, { demo: false, freshView: !!(options && options.freshView) });
 }
 
 async function openDemo(page) {
@@ -149,6 +152,18 @@ async function waitForHome(page) {
   await page.waitForFunction(() => !!document.getElementById('special-time-sheet'), null, { timeout: 30000 });
 }
 
+// Switch the home between the detailed and simplified shapes through the
+// Appearance sheet, which is where the choice lives now. Done closes the sheet
+// and the choice stays in force.
+async function chooseView(page, which) {
+  await page.locator('#top-bar-menu-btn').click();
+  await page.locator('#menu-row-appearance').click();
+  await expect(page.locator('#appearance-sheet')).toBeVisible();
+  await page.locator(`#appearance-sheet-view-${which}`).click();
+  await page.locator('#appearance-sheet-done-btn').click();
+  await expect(page.locator('#sheet-root')).toHaveCSS('pointer-events', 'none');
+}
+
 // The three sheet entry points the shell actually uses.
 async function openSchedule(page, roomIndex) {
   await page.locator(`#room-${roomIndex}-rest`).click();
@@ -187,6 +202,7 @@ function answerDialogs(page) {
 
 module.exports = {
   openApp,
+  chooseView,
   openDemo,
   pushMap,
   pushRaw,

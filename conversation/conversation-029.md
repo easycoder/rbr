@@ -249,3 +249,114 @@ Done on the simple room page: the Advance label is 40px, twice the 20px it was. 
 The full room view's Advance button is unchanged at 14px — its label is a sentence ("Advance to next schedule period (18:00)") in a compact row, where doubling would wrap it to three lines. Say the word if that one should grow as well.
 
 `tests/ui/simple-view.spec.js` now pins the 40px size and checks the widest label line still fits inside the padding box; the simple-view spec passes 2/2. Deploy the PWA; no controller change.
+
+## 10:10
+
+On my mobile phone the background grey colour of a room pill is hard to see when the room is Timed and between periods. Can we try a darker shade, closer to 50/50 instead of 75/25.
+
+**Assistant**
+
+The Timed-gap pill is now a true mid-grey mix rather than a 25% tint:
+
+- `--color-pill-bg-default` went from `#EEEEEE` to `#DDDDDD` — that is the pill's neutral border (`#BBBBBB`) mixed **50/50** with white instead of 75/25. The blue and orange pills keep their three-quarters mix; only the black-text (Timed, between periods) case was changed, as you asked.
+- The two fallbacks that mirror the token (`shell.allspeak`'s palette and `simple-home.json`'s template default) carry `#DDDDDD` too, so a stale stylesheet still gets the new grey.
+- The Off pill stays `#F5F5F5`, still lighter, so an Off room continues to recede behind a Timed one.
+- Bumped the `tokens.css` `?v=` pin and the service-worker cache version so the phone actually fetches the new stylesheet.
+- `room-colours.spec.js` now expects `rgb(221, 221, 221)` for the Timed-gap pill; that spec, `simple-badges` and the service-worker check pass. DIFF.md is updated.
+
+If `#DDDDDD` is still too pale in daylight, the next step is to mix toward the black text instead (about `#8C8C8C`) — say the word and I'll try that.
+
+## 11:33
+
+I commissioned a website design; the results is at various/website.zip. I would like to use this as the home page of rbrheating.com instead of the placeholder we currently have.
+The page links are arbitrary; I don't know if they will serve or will need to be changed, but we can address these later.
+We should start by building it not as /index.html but as /home.html, and develop it from there.
+
+**Assistant**
+
+The commissioned page is now in the repo as `home.html`, developed at the site root beside the existing placeholder.
+
+**Files**
+- `home.html` — the design's markup, unchanged except two `<head>` lines: a `favicon.ico` link and `<meta name="robots" content="noindex">` (staging guard; remove when it becomes the real home page).
+- `styles.css`, `script.js`, `assets/living-room-hero.jpg` — alongside it, exactly as the designer packaged them, so the page runs from any static server and the eventual rename `home.html` → `index.html` needs no other change.
+- `deploy.sh` — uploads those four to the site root; `/index.html` is left exactly as it is.
+- `doc/CONTROLLER-FILES.md` — lists the new files as cloud-server-only.
+
+Links are untouched: the nav is in-page anchors and contact is `mailto:hello@example.com`. Google Fonts (Nunito Sans) is the one external dependency; the stylesheet has Arial as fallback.
+
+**Verified** in Chromium against a local static server at 1440×900 and 390×844: hero image and font load, no failed requests, no horizontal overflow, mobile menu opens/closes and updates `aria-expanded`, every anchor resolves, footer year 2026. `bash -n deploy.sh` passes.
+
+Nothing is committed. Run `./deploy.sh` and review at `https://rbrheating.com/home.html`; when you're happy, the switch is the rename plus deleting the `noindex` line.
+
+One housekeeping note: `conversation-029.md` is still headed 2026-11-13; say the word if you'd like today split into a new file.
+
+## 13:07
+
+The design of the home screen needs some updates. One is to change all black text to the dark blue used in the website's new /home screen. The other is to move the Profile pill to the top, under the banner. A reviewer has expressed a preference for keeping the date and time, but not the System Firing row. Can we start by creating a single banner containing the existing banner, date/time, a Profile button and the outside temperature? It should be compact but not cramped. Then the rooms with their gradient background occupy the rest of the screen.
+
+**Assistant**
+
+The banner is in place on the simple home.
+
+- The top bar is now one card, inset 8px from the page edges with an 18px radius and sticky 8px from the top, so the time-of-day gradient shows around it. Its second row holds the date and time on the left; on the right, a Profile pill button (calendar glyph + the active profile's name, opening the profile editor) and the outside temperature with the frost snowflake. The bottom profile pill is gone, and the room pills now fill the rest of the screen down to the 8px border.
+- The banner measures about 110px on the home and stays under the 140px the spec allows; on the single-room page the second row hides, as the bottom pill never appeared there, and that is what keeps the room card on one screen (measured: card 80–836, no overflow).
+- All black text is the website's navy: `--color-text-primary` is now `#12345A` (the `--navy` from `home.html`/`styles.css`) instead of `#1A1A1A`, app-wide.
+- The reviewer's note is applied to the full home: its summary card keeps the title and the date/time, and the "System firing" subtitle row is removed (element and all its writers).
+- Bumped the `tokens.css` pin and the service-worker cache version, since the stylesheet and the banner both changed.
+
+Full Playwright suite 14/14, PWA compile check 12/12, service-worker check 22/22. Deploy the PWA and reload the phone; no controller change. Note DIFF.md now carries both this and the website's home-page work.
+
+## 13:24
+
+Another comment; the room pills are visually too dominant. Can they be narrowed - we'll start with 10%.
+
+**Assistant**
+
+The room pills are now 90% of the list width and centred, so a strip of the time-of-day gradient frames each room on both sides — 337px of the 374px list at a 390px viewport, 18.7px clear either side of the pill inside the 8px page border. Their height is unchanged (they still share the space under the banner).
+
+That is one `width` value in `new-ui/resources/webson/simple-home.json`, with `margin: 0 auto` keeping them centred; 80% or 85% is a one-line change if 10% is not enough.
+
+`simple-view.spec.js` now pins the 90% width and the equal left/right inset; `simple-view` and `room-colours` pass (3/3). Deploy the PWA and reload the phone to judge it.
+
+## 13:43
+
+Still something not quite right. We think it's that the room pills are too tall. Reduce their heights by 10% so they have more space between them.
+
+**Assistant**
+
+Each room pill is now 90% of its fair share of the column, and the leftover tenth becomes space between the pills: at 390x844 a pill is 313px instead of 348px, and the gap between two pills is 76px instead of 6px. The last pill still sits on the bottom border, so the column reads as separate cards rather than one slab.
+
+That ratio cannot be done in CSS alone (it has to divide by the room count), so `BuildSimpleHome` computes the height as `calc((100% - gaps) * 0.9 / rooms)`; `simple-home.json` no longer lets the pill grow, and `layout.json` gained an `@id` so the simple home can pin its frame to `100vh` — a percentage height only resolves against a definite one. The full home releases the height again so its room list still scrolls. The dial is the `0.9` in that calc.
+
+Two traps worth recording: the arithmetic has to be written with the dialect's verbs (`decrement` / `multiply … by`), not `(RoomCount - 1) * 6`, which the compiler rejects; and the frame's `attach` had to move below the layout render.
+
+`simple-view.spec.js` pins the 90% height and the wider gap; whole Playwright suite 14/14, compile check 12/12. Deploy the PWA and reload the phone.
+
+## 13:50
+
+The new website design has a logo of a house outline with rising heat inside. I'd like that to be our standard logo on the PWA too.
+
+**Assistant**
+
+The website's mark is now the PWA's logo everywhere it appears.
+
+- `resources/icon/house.svg` is the site's artwork exactly: the house outline in navy `#12345A` with three orange `#F47716` heat waves, the same paths and stroke weights as `.brand-mark` in the site's stylesheet. It stands on white rather than on a tile, as it does in the site header — the banner's button and the About sheet's header both lost their orange square and the shadow.
+- The installable icon matches: `app-icon.svg` is the mark on a white 512 tile, and `icons/icon-192.png` / `icon-512.png` are regenerated from it with Chromium, so the home-screen icon, the apple-touch icon and the manifest all agree.
+- Checked in the browser at 390x844: the banner mark, the About sheet mark and the 512 icon all render correctly; `demo-mode`, `simple-view` and `smoke` pass (4/4), service-worker check 22/22.
+- Service-worker cache version bumped. A phone that already has the PWA installed may keep the old home-screen icon until its icon cache turns over — removing and re-adding the shortcut is the sure way to see the new one.
+
+One loose end: `--shadow-house-mark` in `tokens.css` is now unused, left in place in case a raised mark comes back.
+
+## 18:37
+
+A small cosmetic point; the spaces above the top room pill and below the bottom one should be the same height as those between the pills.
+
+**Assistant**
+
+Every space in the column is now the same height — above the first pill, between the pills and below the last. At 390x844 that is about 64px each, where it was 8px at the ends and 76px between; the pills take the height that leaves, about 255px each instead of 313px, since keeping the gaps and squaring the ends can only come out of the pills.
+
+The column now uses `space-evenly` with no fixed gap, and `BuildSimpleHome` sets the pill height to `100% / (5n+1) * 4`: n pills plus four quarters per space fill the column, so every space is a quarter of a pill and the rule holds whatever the room count. The height still has to be computed in the shell because it divides by the number of rooms.
+
+`simple-view.spec.js` now measures the three spaces and the pill-to-space ratio rather than a 90% share. `simple-view`, `room-colours`, `simple-badges`, `demand-flame` and `demo-mode` pass (7/7), compile check 12/12, doc hashes clean. Deploy the PWA and reload the phone.
+
+If the pills now look too small, the dial is the `4` in that calc — `3` leaves half-pill spaces and larger pills, `5` the reverse.

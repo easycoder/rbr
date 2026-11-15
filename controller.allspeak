@@ -199,6 +199,9 @@
     variable OnPrev
     variable Value
     variable Value2
+    variable TypeText
+    variable SystemTypeOut
+    variable SystemNameApplied
     variable ThermometerUpdate
     dictionary ZigbeeTemps
     dictionary ZigbeeTemp
@@ -357,7 +360,7 @@
     variable TrvWasRunning
     variable TrvSeen
     variable TrvAge
-!! @hash c63578c2
+!! @hash 4d06a624
 !! @verified 85d32787
 !!!
 !! Basic initialisation.
@@ -956,12 +959,13 @@ LoadMap:
         set entry `calendar` of Map to `off`
         set entry `calendar-data` of Map to `[]`
         set entry `name` of Map to `New System`
+        set entry `systemType` of Map to `Boiler`
         set entry `onmax` of Map to 12
     end
     gosub to EnsureSharedRooms
     set MapHasChanged
     return
-!! @hash f6e9c05a
+!! @hash b6a1d216
 !! @verified e3869999
 !!!
 !! Publish the backup setting and last-run status into the map for the Backups sheet.
@@ -3364,7 +3368,55 @@ ResolveRoomFromMessage:
     end
     set RoomIndex to -1
     return
-!! @hash 4e68554c
+!! Apply a `System Name` request to the map: the system's name, its heating type and the system-wide On cap.
+!!
+!! Sets `SystemNameApplied` only when the request carried a usable name, because the caller broadcasts only on success — the missing-name path has to leave the map and the other UIs alone. `systemType` is optional and is stored as the canonical label (`Boiler` or `Heat Pump`, either case accepted, plus `heatpump`); a value that is neither is refused by name rather than silently rewritten to `Boiler`, so a malformed request cannot change a setting it did not mean. `onmax` keeps its old handling: the text `always`, or a number of hours the sheet clamps.
+!!
+!! Appendix
+!!
+!! §1 The heating type was ignored here for as long as the field existed: the PWA sent `systemType` in every `System Name` request and this handler stored only `name` and `onmax`, so the next map left the sheet with no type and it reopened on Boiler. Reported 2026-11-15. `tests/unit/system_type_test.py` holds the contract.
+ApplySystemName:
+    clear SystemNameApplied
+    if Message has entry `System Name` put entry `System Name` of Message into Value
+    else if Message has entry `name` put entry `name` of Message into Value
+    else
+    begin
+        log `UIRequest rejected: System Name needs System Name/name`
+        return
+    end
+    set entry `name` of Map to Value
+    if Message has entry `systemType` ! §1
+    begin
+        put entry `systemType` of Message into Value
+        gosub to NormaliseSystemType
+        if SystemTypeOut is empty log `UIRequest rejected: systemType must be Boiler or Heat Pump`
+        else set entry `systemType` of Map to SystemTypeOut
+    end
+    if Message has entry `onmax`
+    begin
+        put entry `onmax` of Message into Value
+        if Value is `always` set entry `onmax` of Map to `always`
+        else
+        begin
+            put the value of Value into OnMax
+            set entry `onmax` of Map to OnMax
+        end
+    end
+    log `Set the system name to ` cat entry `name` of Map
+    set SystemNameApplied
+    return
+
+!! Normalise a heating type into `SystemTypeOut`, or empty when it is not one.
+!!
+!! The System sheet sends the label it shows (`Boiler` or `Heat Pump`); the aliases keep a hand-written request or an older client working, and the empty result is what lets ApplySystemName refuse the value instead of guessing.
+NormaliseSystemType:
+    put empty into SystemTypeOut
+    put lowercase Value into TypeText
+    if TypeText is `boiler` put `Boiler` into SystemTypeOut
+    else if TypeText is `heat pump` put `Heat Pump` into SystemTypeOut
+    else if TypeText is `heatpump` put `Heat Pump` into SystemTypeOut
+    return
+!! @hash 215ab4e4
 !! @verified 4e68554c
 !!!
 !! Dispatch a `uirequest` MQTT message to the appropriate map mutation.
@@ -3373,7 +3425,7 @@ ResolveRoomFromMessage:
 !!
 !! Action names are normalised so the UI can be upgraded incrementally — `request`, `addroom`, `rooms`, `system name`, etc. all map to their canonical forms.
 !!
-!! Supported actions: `System Name` (renames the system), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (replaces the shared room identity list, used by add/delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites the shared room list, the profiles list and the optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), `Backup` (save the monthly email setting), `Backup Now` (email a monthly archive immediately), `Journal Now` (export today's events up to now and email them), and `Test`.
+!! Supported actions: `System Name` (renames the system, sets its heating type and the system-wide On cap — see ApplySystemName), `Request Relay` (sets the boiler-request relay name), `Add Room` (appends a room spec), `Update Rooms` (replaces the shared room identity list, used by add/delete/reorder), `Select Profile` (switches active profile), `Update Profiles` (rewrites the shared room list, the profiles list and the optional calendar), `Operating Mode` (per-room mode change), `Room Override` (arms or clears a one-off schedule tweak for a room), `Backup` (save the monthly email setting), `Backup Now` (email a monthly archive immediately), `Journal Now` (export today's events up to now and email them), and `Test`.
 !!
 !! `System Name` also carries `onmax`, the system-wide maximum time in On. Entering `on` records `onprevmode` (the mode to return to) and, when the cap is finite, `onuntil`; leaving On clears both, and ProcessRoom returns the room to `onprevmode` when the deadline passes.
 !!
@@ -3445,27 +3497,12 @@ ProcessUIRequest:
     end
     else if Action is `System Name`
     begin
-        if Message has entry `System Name` put entry `System Name` of Message into Value
-        else if Message has entry `name` put entry `name` of Message into Value
-        else
+        gosub to ApplySystemName
+        if SystemNameApplied
         begin
-            log `UIRequest rejected: System Name needs System Name/name`
-            return
+            gosub to ForceUpdate
+            set JournalPlanChanged
         end
-        set entry `name` of Map to Value
-        if Message has entry `onmax`
-        begin
-            put entry `onmax` of Message into Value
-            if Value is `always` set entry `onmax` of Map to `always`
-            else
-            begin
-                put the value of Value into OnMax
-                set entry `onmax` of Map to OnMax
-            end
-        end
-        log `Set the system name to ` cat entry `name` of Map
-        gosub to ForceUpdate
-        set JournalPlanChanged
     end
     else if Action is `Request Relay`
     begin
@@ -3781,7 +3818,7 @@ ProcessUIRequest:
         system background `python3 journal-export.py --now --email-now`
     end
     else log `UIRequest rejected: unsupported action ` cat Action
-!! @hash ccc40951
+!! @hash 5de3ef56
 !! @verified 1a3b523f
 !!!
 !! Push to every connected UI. If MapHasChanged the full map is sent; otherwise an empty payload goes out as a heartbeat reply (the UI uses any reply to keep its alive indicator green and its stall watchdog quiet).

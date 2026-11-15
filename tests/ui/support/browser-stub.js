@@ -24,9 +24,23 @@
 
 var RBR_TEST_MAC = __RBR_TEST_MAC__;
 
+// Most specs are about something other than the view, and they click the
+// detailed home's rows. A device with no stored view choice now gets the
+// simplified home (the default for a new installation), so this stub marks the
+// device as one that has opted into the detailed view. The appearance spec asks
+// for `fresh`, which removes the key, to see what a first-time visitor gets.
+var RBR_TEST_FRESH = __RBR_TEST_FRESH__;
+
 try {
   if (RBR_TEST_MAC) window.localStorage.setItem('dev-mac', RBR_TEST_MAC);
   else window.localStorage.removeItem('dev-mac');
+  // Seed once, on the first load of this tab: a spec that changes the view must
+  // see its own choice survive a reload rather than being reset here.
+  if (!window.sessionStorage.getItem('rbr-test-view-seeded')) {
+    window.sessionStorage.setItem('rbr-test-view-seeded', '1');
+    if (RBR_TEST_FRESH) window.localStorage.removeItem('rbr-simple-view');
+    else window.localStorage.setItem('rbr-simple-view', 'off');
+  }
 } catch (e) {
   /* storage blocked; the shell will fall into demo mode and the test will say so */
 }

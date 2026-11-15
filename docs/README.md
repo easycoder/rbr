@@ -4,7 +4,7 @@ RBR turns the radiators already in a house into a system that heats each room to
 
 These pages describe RBR as a **product**, for the people who might specify it, fit it, run it or maintain it. For how the software works inside, see the engineering documents in `doc/` and `AI/` — this tree links to them rather than repeating them.
 
-> **Audience:** all · **Status:** draft · **Last verified:** 2026-10-25
+> **Audience:** all · **Status:** draft · **Last verified:** 2026-11-15
 
 ## Where to start
 
@@ -91,7 +91,7 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 
 | Document | Purpose | Status |
 |---|---|---|
-| 01-the-interface.md | The phone app, adding a system, the home screen | To write |
+| [01-the-interface.md](operation/01-the-interface.md) | The phone app, the simplified home, colour and modes, Advance, Boost and Special actions | **Draft** |
 | 02-modes-schedules-profiles.md | Timed, boost, advance, on, off; profiles and the calendar | To write |
 | 03-managing-many-systems.md | Estate administration for a housing provider | To write |
 | 04-troubleshooting.md | What to try when something looks wrong | To write |
@@ -102,7 +102,7 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 |---|---|---|---|
 | [01-architecture.md](technical/01-architecture.md) | The parts, the message flow, and how many brokers | `AI/ARCHITECTURE.md` | **Draft** |
 | 02-map-format.md | The map file | `AI/MAP_FORMAT.md` | To write |
-| 03-device-control-and-bridge.md | Relays, thermometers, the Zigbee bridge | `deviceControl.allspeak`, `zigbee-bridge.py` | To write |
+| 03-device-control-and-bridge.md | Relays, thermometers, the Zigbee bridge | `deviceControl.allspeak`, `zigbee-bridge.py`, `doc/SENSOR-REPORTING.md` | To write |
 | 04-updates-and-deployment.md | How code reaches a controller | `doc/UPDATE-MECHANISM.md` | To write |
 | 05-heating-data.md | The heating log format | `doc/HEATING-DATA.md` | To write |
 | 06-controller-files.md | The file manifest | `doc/CONTROLLER-FILES.md` | To write |
@@ -128,6 +128,7 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 - **One paragraph, one line.** A prose paragraph is a single unbroken line, however long — never hard-wrapped at a fixed width, and each list item is a single line too. These files are copied into a Doclet structure for viewing, which turns each source line into an HTML paragraph, so a hard-wrapped paragraph would arrive as a column of one-line paragraphs. Headings, tables, blockquotes and code fences keep their own line structure.
 - **Four audiences.** Concept (industry), preparation and installation (installer), operation (operator), technical (developer). Keep a document inside one layer and cross-link, rather than blending.
 - **Testing is cross-cutting.** The [UI testing strategy](testing/01-ui-test-strategy.md) is for the same developer audience, but it sits outside the four-layer sequence because it describes assurance rather than architecture.
+- **Screenshots.** Keep them beside the page that uses them, under a directory such as `operation/images/`, and reference them with the absolute `/docs/...` path. The reader turns the Markdown image syntax into an `<img>` because the runtime's Markdown renderer has no image syntax of its own.
 - **Plain words in the concept layer.** The concept documents avoid implementation names — no AllSpeak, no MQTT, no Zigbee2MQTT, no Webson — and define a term once in the [glossary](appendix/glossary.md) rather than assuming it. The preparation and installation documents are for the people doing the work, so they name the tools and commands they ask the reader to use; the rule there is that each tool is explained in a clause when it first appears, so no document depends on the reader already knowing it.
 - **One document, one job.** Cross-link; do not duplicate. Where a fact already lives elsewhere in the repository, link to it as the source of truth rather than copying it.
 - **Callouts.** Warnings and traps use blockquotes in bold, as in the existing install guide — the naming rule and the dongle-siting note are hard-won and should survive the move intact.
@@ -146,4 +147,4 @@ This tree links into `doc/` and `AI/` for detail. Those two remain the source of
 
 ## Status
 
-The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md), and the technical layer its first two, [Architecture](technical/01-architecture.md) and [Events and the journal](technical/07-events-and-the-journal.md); the rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet. The testing layer has its first page, [UI testing strategy](testing/01-ui-test-strategy.md); it is deliberately an outline and will grow into the full UI test strategy.
+The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md); the operation layer its first, [The interface](operation/01-the-interface.md); and the technical layer its first two, [Architecture](technical/01-architecture.md) and [Events and the journal](technical/07-events-and-the-journal.md). The rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet. The testing layer has its first page, [UI testing strategy](testing/01-ui-test-strategy.md); it is deliberately an outline and will grow into the full UI test strategy.

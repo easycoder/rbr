@@ -11,8 +11,12 @@
 // the last section reloads the page and proves it survived.
 
 const { test, expect } = require('@playwright/test');
-const { openApp, pushMap, waitForHome, lastRequest } = require('./support/harness');
+const { openApp, pushMap, waitForHome, lastRequest, chooseView } = require('./support/harness');
 const MAP = require('./fixtures/map.json');
+
+// The harness marks this device as one that chose Detailed, so the assertions
+// that click full-view rows keep working; chooseView switches through the
+// Appearance sheet.
 
 test('simple view: toggle, one-room page, action and Home', async ({ page }) => {
   const pageErrors = [];
@@ -22,17 +26,12 @@ test('simple view: toggle, one-room page, action and Home', async ({ page }) => 
   await pushMap(page, MAP);
   await waitForHome(page);
 
-  // The full view is the default, and it is what every other spec sees.
+  // This device has stored the detailed view, which is what every other spec
+  // sees; a fresh install starts simplified and is covered by appearance.spec.js.
   await expect(page.locator('#summary-title')).toBeVisible();
   await expect(page.locator('#simple-room-0')).toHaveCount(0);
 
-  // The hamburger carries the switch. "Off" is what tapping it will do —
-  // turning the simple view on.
-  await page.locator('#top-bar-menu-btn').click();
-  await expect(page.locator('#menu-row-view')).toBeVisible();
-  await expect(page.locator('#menu-row-view-sub')).toContainText('Off');
-  await page.locator('#menu-row-view').click();
-  await expect(page.locator('#menu-sheet')).toBeHidden();
+  await chooseView(page, 'simplified');
 
   // Reduced home: name and temperature only, one button per room, no summary.
   await expect(page.locator('#simple-room-0')).toBeVisible();
@@ -42,19 +41,63 @@ test('simple view: toggle, one-room page, action and Home', async ({ page }) => 
   await expect(page.locator('#summary-title')).toHaveCount(0);
   await expect(page.locator('#room-0-name')).toHaveCount(0);
 
-  // Bottom pill: active profile and, because the fixture has an outside
-  // thermometer, its reading. All three pills share the height left by the
-  // title bar and the page's narrow border.
-  await expect(page.locator('#simple-profile-pill')).toBeVisible();
-  await expect(page.locator('#simple-profile-name')).toHaveText('Weekday');
-  await expect(page.locator('#simple-profile-outside')).toHaveText('5.0');
-  const pillHeights = await page.evaluate(() => ['simple-room-0', 'simple-room-1', 'simple-profile-pill']
-    .map(id => Math.round(document.getElementById(id).getBoundingClientRect().height)));
-  expect(Math.max(...pillHeights) - Math.min(...pillHeights)).toBeLessThan(5);
-  expect(pillHeights[0]).toBeGreaterThan(150);
+  // The banner's second row carries the date and time, the Profile button
+  // and — because the fixture has an outside thermometer — its reading.
+  await expect(page.locator('#top-bar-info')).toBeVisible();
+  await expect(page.locator('#top-bar-date')).not.toBeEmpty();
+  await expect(page.locator('#top-bar-profile')).toBeVisible();
+  await expect(page.locator('#top-bar-profile-name')).toHaveText('Weekday');
+  await expect(page.locator('#top-bar-outside')).toHaveText('5.0');
 
-  // The pill opens the profile editor and Cancel returns to the room list.
-  await page.locator('#simple-profile-pill').click();
+  // The banner is compact — it leaves most of the screen to the rooms — and
+  // the last room pill runs to the bottom border below it.
+  const bannerHeight = await page.locator('#top-bar').evaluate(el => el.getBoundingClientRect().height);
+  expect(bannerHeight).toBeLessThan(140);
+  const roomHeights = await page.evaluate(() => ['simple-room-0', 'simple-room-1']
+    .map(id => Math.round(document.getElementById(id).getBoundingClientRect().height)));
+  expect(Math.max(...roomHeights) - Math.min(...roomHeights)).toBeLessThan(3);
+  expect(roomHeights[0]).toBeGreaterThan(250);
+
+  // Pills are 90% of the list width and centred, so the gradient frames each
+  // room on both sides instead of the pills forming one solid column.
+  const pillBox = await page.locator('#simple-room-0').evaluate(el => {
+    const box = el.getBoundingClientRect();
+    const parent = el.parentElement.getBoundingClientRect();
+    return {
+      width: box.width,
+      available: parent.width - parseFloat(getComputedStyle(el.parentElement).paddingLeft)
+        - parseFloat(getComputedStyle(el.parentElement).paddingRight),
+      left: box.left - parent.left,
+      right: parent.right - box.right,
+    };
+  });
+  expect(pillBox.width / pillBox.available).toBeCloseTo(0.9, 2);
+  expect(Math.abs(pillBox.left - pillBox.right)).toBeLessThan(2);
+
+  // Every space in the column is the same height — above the first pill,
+  // between the pills and below the last — and each is a quarter of a pill.
+  const shares = await page.evaluate(() => {
+    const main = document.getElementById('layout-main');
+    const cs = getComputedStyle(main);
+    const box = main.getBoundingClientRect();
+    const top = box.top + parseFloat(cs.paddingTop);
+    const bottom = box.bottom - parseFloat(cs.paddingBottom);
+    const a = document.getElementById('simple-room-0').getBoundingClientRect();
+    const b = document.getElementById('simple-room-1').getBoundingClientRect();
+    return {
+      above: a.top - top,
+      between: b.top - a.bottom,
+      below: bottom - b.bottom,
+      height: a.height,
+    };
+  });
+  expect(Math.abs(shares.above - shares.between)).toBeLessThan(2);
+  expect(Math.abs(shares.below - shares.between)).toBeLessThan(2);
+  expect(shares.between / shares.height).toBeCloseTo(0.25, 1);
+
+  // The Profile button opens the profile editor and Cancel returns to the
+  // room list.
+  await page.locator('#top-bar-profile').click();
   await expect(page.locator('#profile-sheet')).toBeVisible();
   await page.locator('#profile-cancel-btn').click();
   await expect(page.locator('#sheet-root')).toHaveCSS('pointer-events', 'none');
@@ -72,12 +115,16 @@ test('simple view: toggle, one-room page, action and Home', async ({ page }) => 
   await expect(page.locator('#room-0-target-block')).toBeHidden();
   await expect(page.locator('#simple-room-home')).toBeVisible();
 
-  // The card fills the screen, with the action row above the Home button.
+  // The card fills the screen below the banner, with the action row above
+  // the Home button. The banner drops its date/profile/outside row here —
+  // those belong to the room list — which is what keeps the card on one
+  // screen.
+  await expect(page.locator('#top-bar-info')).toBeHidden();
   const cardBox = await page.locator('#room-0-card').evaluate(el => {
     const box = el.getBoundingClientRect();
     return { top: Math.round(box.top), bottom: Math.round(box.bottom), height: Math.round(box.height) };
   });
-  expect(cardBox.bottom).toBe(844);
+  expect(cardBox.bottom).toBe(844 - 8);
   expect(cardBox.height).toBeGreaterThan(700);
 
   // Edit schedule, Special actions and Room details are one row of equal
@@ -165,18 +212,17 @@ test('simple view: toggle, one-room page, action and Home', async ({ page }) => 
   await page.locator('#simple-room-home').click();
   await expect(page.locator('#simple-room-0')).toBeVisible();
   await expect(page.locator('#simple-room-home')).toHaveCount(0);
-  await expect(page.locator('#simple-profile-pill')).toBeVisible();
+  await expect(page.locator('#top-bar-profile')).toBeVisible();
+  await expect(page.locator('#top-bar-info')).toBeVisible();
 
   // Switching back rebuilds the full view and restores its own page padding.
-  await page.locator('#top-bar-menu-btn').click();
-  await page.locator('#menu-row-view').click();
+  await chooseView(page, 'detailed');
   await expect(page.locator('#summary-title')).toBeVisible();
-  await expect(page.locator('#simple-profile-pill')).toHaveCount(0);
+  await expect(page.locator('#top-bar-info')).toBeHidden();
   expect(await page.locator('#layout-main').evaluate(el => getComputedStyle(el).paddingTop)).toBe('14px');
 
   // Return to the simple view for the reload check.
-  await page.locator('#top-bar-menu-btn').click();
-  await page.locator('#menu-row-view').click();
+  await chooseView(page, 'simplified');
   await expect(page.locator('#simple-room-0')).toBeVisible();
 
   // Reload proves the choice is remembered on this device.
@@ -201,12 +247,11 @@ test('simple view: the bottom pill omits the outside reading without a sensor', 
   await openApp(page);
   await pushMap(page, noOutside);
   await waitForHome(page);
-  await page.locator('#top-bar-menu-btn').click();
-  await page.locator('#menu-row-view').click();
+  await chooseView(page, 'simplified');
 
-  await expect(page.locator('#simple-profile-pill')).toBeVisible();
-  await expect(page.locator('#simple-profile-name')).toHaveText('Weekday');
-  await expect(page.locator('#simple-profile-outside-block')).toBeHidden();
+  await expect(page.locator('#top-bar-profile')).toBeVisible();
+  await expect(page.locator('#top-bar-profile-name')).toHaveText('Weekday');
+  await expect(page.locator('#top-bar-outside-block')).toBeHidden();
 
   expect(pageErrors).toEqual([]);
 });

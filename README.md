@@ -9,7 +9,7 @@ The interface is a web app, so a phone is the only device anyone has to install.
 Three parts, plus the hardware between them:
 
 1. **The controller** — a small Linux mini-PC in the house, running `controller.allspeak` under the AllSpeak runtime. It holds the plan (rooms, schedules, profiles), reads the thermometers, and switches each room's heating. Everything a controller needs is a plain file; see `doc/CONTROLLER-FILES.md`.
-2. **The site** — `rbrheating.com`, which serves the web app at `/heat/`, the PHP endpoints it calls (`credentials.php`, `auth.php`), the controller update bundle, and the documentation reader at `/docs`. `deploy.sh` is what publishes it.
+2. **The site** — `rbrheating.com`, which serves the web app at `/heat/`, the PHP endpoints it calls (`credentials.php`, `auth.php`), the controller update bundle, and the documentation reader at `/docs` with a copy of `docs/` beside it. `deploy.sh` is what publishes it.
 3. **The web app** — `new-ui/`, a browser PWA written in AllSpeak's JavaScript dialect. It is the only user interface: it renders the map it is given, and hands every gesture back to the controller over MQTT.
 
 Between the controller and the radiators sit Zigbee thermometers and relays, with Zigbee2MQTT and a small HTTP bridge (`zigbee-bridge.py`) in between. A relay at the boiler asks it to fire only when some room actually wants heat.

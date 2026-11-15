@@ -11,6 +11,7 @@
 	script Shell
 
 	div AppRoot
+	div LayoutFrame
 	div TopBarHolder
 	div MainHolder
 	div LayoutFooter
@@ -20,23 +21,34 @@
 	div SimpleRoomName
 	div SimpleRoomTemp
 	div SimpleRoomBattery
-	button SimpleProfilePill
-	div SimpleProfileName
-	div SimpleProfileOutsideBlock
-	div SimpleProfileOutside
-	div SimpleProfileFrost
 	button SimpleHomeBtn
 	div SystemId
 	button HeartbeatBtn
 	div HeartbeatFlame
 	div HeartbeatDot
+	div TopBarInfo
+	div TopBarDate
+	button TopBarProfileBtn
+	div TopBarProfileName
+	div TopBarOutsideBlock
+	div TopBarOutside
+	div TopBarOutsideFrost
 	button HouseMark
 	div AboutSheetEl
 	button AboutTabAbout
-	button AboutTabManual
+	a AboutTabManual
+	button AboutTabSystems
 	div AboutBodyAbout
-	div AboutBodyManual
+	div AboutBodySystems
 	button AboutCtaSetup
+	div SystemsList
+	div SystemsEmpty
+	button SystemsAddBtn
+	div SystemsRowName
+	div SystemsRowMac
+	button SystemsRowSelect
+	button SystemsRowRename
+	button SystemsRowDelete
 	div RoomName
 	div HeatingTag
 	div HeatingTagIcon
@@ -48,7 +60,6 @@
 	div Chip
 	div ChipIcon
 	div SummaryTitle
-	div SummarySubtitle
 	div SummaryChip
 	div SummaryChipIcon
 	div SummaryDot
@@ -69,9 +80,8 @@
 	button MenuRowOutside
 	button MenuRowBackups
 	button MenuRowJournal
-	button MenuRowView
+	button MenuRowAppearance
 	button MenuRowProfiles
-	div MenuViewSub
 	div BackupSheetEl
 	div BackupEmailEl
 	div BackupLastEl
@@ -99,6 +109,15 @@
 	button SystemSheetTypeHeatPump
 	button SystemSheetSaveBtn
 	button SystemSheetCancelBtn
+	div AppearanceSheetEl
+	div AppearanceSwatchGrid
+	button AppearanceViewDetailed
+	button AppearanceViewSimplified
+	button AppearanceSwatch
+	input AppearanceHexField
+	div AppearanceNoteEl
+	input AppearanceTimeBox
+	button AppearanceDoneBtn
 	div OutsideSheetEl
 	input OutsideSheetSensor
 	input OutsideSheetFrost
@@ -158,18 +177,78 @@
 	variable RoomRowText
 	variable SimpleHomeWebson
 	variable SimpleRoomWebson
-	variable SimpleProfileWebson
 	variable RoomsList
 	variable Room
 	variable RoomHasTrvSetpoint
 	variable RoomIndex
 	variable RoomCount
+	variable PillDivisor
+	variable PillHeight
 	variable RowText
 	variable IndexStr
 	variable SimpleMode
 	variable SimpleRoomIndex
 	variable SummaryBuilt
 	variable ViewSetting
+
+!	Appearance. The view style and the page background are device-local
+!	choices held in browser storage, so none of this travels in the map.
+!	`BgTimeChanges` is `on` unless the user turned the time-of-day gradient
+!	off; `BgBaseHex` is the colour the gradient is built from.
+	variable AppearanceWebson
+	variable BgPalette
+	variable BgBaseHex
+	variable BgTimeChanges
+	variable BgSavedHex
+	variable BgSavedTime
+	variable BgTopHex
+	variable BgMidHex
+	variable BgBotHex
+	variable BgWhite
+	variable BgNightTop
+	variable BgNightMid
+	variable BgNightBot
+	variable SwatchIdx
+	variable SwatchHex
+	variable SwatchHtml
+	variable HexDigits
+	variable HexIn
+	variable HexWork
+	variable HexOk
+	variable HexLen
+	variable HexChar
+	variable HexNibble
+	variable HexHi
+variable HexScan
+	variable HexLo
+	variable HexR
+	variable HexG
+	variable HexB
+	variable HexOut
+	variable RgbValue
+	variable RgbHex
+	variable RgbHexR
+	variable RgbHexG
+	variable RgbHexB
+	variable RgbHexHi
+	variable RgbHexLo
+	variable MixA
+	variable MixB
+	variable MixPctA
+	variable MixPctB
+	variable MixRa
+	variable MixGa
+	variable MixBa
+	variable MixRb
+	variable MixGb
+	variable MixBb
+	variable MixR
+	variable MixG
+	variable MixBCh
+	variable MixT
+	variable MixOut
+	variable TimeBoxValue
+	variable HexFieldText
 	variable Mode
 	variable RoomTextColour
 	variable RoomBorderColour
@@ -226,7 +305,6 @@
 	variable AvgDec
 	variable OutsideText
 	variable TitleText
-	variable SubtitleText
 	variable SummaryTitleHeat
 	variable ProfileName
 
@@ -296,9 +374,6 @@
 !	Time-of-day background.
 	variable Hour
 	variable LastHour
-	variable GTop
-	variable GMid
-	variable GBot
 	variable BgValue
 	variable Glow
 
@@ -311,6 +386,26 @@
 	variable Token
 	variable Response
 	variable MAC
+!	The systems this device manages. `SystemsData` is the array from storage; `MAC`
+!	and `Token` are the current entry's values, copied out at boot for the credential
+!	fetch and MQTT connection. `SystemsCurrentMac` is what names the current entry.
+	variable SystemsJson
+	variable SystemsData
+	variable SystemsCount
+	variable SystemsIdx
+	variable SystemsFindMac
+	variable SystemsFound
+	variable SystemsEntry
+	variable SystemsCurrentMac
+	variable SystemsRowTemplate
+	variable SystemsRowText
+	variable SystemsRowIdxStr
+	variable SystemsName
+	variable SystemsMac
+	variable SystemsToken
+	variable SystemsAddName
+	variable SystemsAddMac
+	variable SystemsAddPassword
 	variable MyID
 	topic ServerTopic
 	topic MyTopic
@@ -511,7 +606,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash 1d034b2f
+!! @hash 35b93d6a
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -538,12 +633,30 @@
 	run ModuleSrc as MapToRoomsModule
 
 	set style `min-height` of AppRoot to `100vh`
+!	The Appearance palette and the hex digits have to exist before the first
+!	gradient is mixed, so they are set up ahead of the stored choices.
+	put `[]` into BgPalette
+	set element 0 of BgPalette to `#E86A33`
+	set element 1 of BgPalette to `#B98A3E`
+	set element 2 of BgPalette to `#808000`
+	set element 3 of BgPalette to `#6E8B5A`
+	set element 4 of BgPalette to `#4F7F7B`
+	set element 5 of BgPalette to `#5C7A99`
+	set element 6 of BgPalette to `#7A6E9E`
+	set element 7 of BgPalette to `#9C6B72`
+	set element 8 of BgPalette to `#8A7A6A`
+	set element 9 of BgPalette to `#C2A36B`
+	put `0123456789ABCDEF` into HexDigits
+	gosub to LoadAppearance
 	gosub to ApplyBackground
 
 !	Outer three-zone layout.
 	rest get LayoutWebson from `resources/webson/layout.json?v=` cat now
 		or go to LoadFailed
 	render LayoutWebson in AppRoot
+!	The layout frame is the simple home's fixed-height column: the pills take
+!	a percentage of its height, which only resolves against a definite one.
+	attach LayoutFrame to `layout-frame`
 
 !	TopBar.
 	attach TopBarHolder to `layout-topbar`
@@ -568,6 +681,19 @@
 	attach HeartbeatFlame to `top-bar-demand-flame`
 	attach HeartbeatDot to `top-bar-heartbeat-dot`
 	on click HeartbeatBtn gosub to RequestMap
+
+!	The banner's second row is part of the shared top bar but only the
+!	simple home shows it: the full view's summary card carries the same
+!	readouts. It is attached here, once, so a view switch only toggles
+!	its display and repaints it.
+	attach TopBarInfo to `top-bar-info`
+	attach TopBarDate to `top-bar-date`
+	attach TopBarProfileBtn to `top-bar-profile`
+	attach TopBarProfileName to `top-bar-profile-name`
+	attach TopBarOutsideBlock to `top-bar-outside-block`
+	attach TopBarOutside to `top-bar-outside`
+	attach TopBarOutsideFrost to `top-bar-outside-frost`
+	on click TopBarProfileBtn gosub to OpenProfileSheet
 
 !	Tab resume — when the OS un-throttles a backgrounded tab, the MQTT
 !	WebSocket may have been silently torn down by the OS or network.
@@ -668,14 +794,10 @@
 !	credentials.php isn't reachable.
 	no cache
 
-!	The system's identity and the token that proves we own it. Both are read before the
-!	fetch, because the endpoint answers only a request that carries them.
-	get MAC from storage as `dev-mac`
-	if MAC is `null` put empty into MAC
-	if MAC is `undefined` put empty into MAC
-	get Token from storage as `dev-token`
-	if Token is `null` put empty into Token
-	if Token is `undefined` put empty into Token
+!	The systems this device manages, and the current one's identity and token. Both are
+!	read before the fetch, because the endpoint answers only a request that carries
+!	them. LoadSystems migrates the single dev-mac / dev-token pair from older builds.
+	gosub to LoadSystems
 
 	rest get Credentials from `credentials.json`
 		or go to TryServerCredentials
@@ -765,7 +887,7 @@ NoCredentialsFile:
 !	left to retry.
 	fork to FirstMapWatchdog
 	stop
-!! @hash d002ea93
+!! @hash c6e99f6e
 !!!
 !! First-render path: fired by `on mqtt connect`. Sets the Prompt to `first` so the controller sends a full map (rather than the empty-payload heartbeat used for refreshes), then forks a watchdog and parks.
 !!
@@ -844,7 +966,6 @@ PulseHeartbeat:
 !! @hash bf54602c
 !! @verified bf54602c
 !!!
-
 !! Clear the heartbeat dot after its tint.
 PulseHeartbeatClear:
 	wait 50 ticks
@@ -1150,11 +1271,13 @@ MapPollTask:
 BuildHomeScreen:
 	set BuildingHome
 !	The view choice belongs to the device, not the system: a carer turns it
-!	on once for this browser and it survives reloads. Read it before the
-!	first render so the right home is built.
+!	off once for this browser and it survives reloads. Read it before the
+!	first render so the right home is built. A fresh install has no stored
+!	choice, and that is the simplified view — the detailed one is what a
+!	device opts into.
 	get ViewSetting from storage as `rbr-simple-view`
-	if ViewSetting is `on` set SimpleMode
-	else clear SimpleMode
+	if ViewSetting is `off` clear SimpleMode
+	else set SimpleMode
 	put -1 into SimpleRoomIndex
 
 	attach MainHolder to `layout-main`
@@ -1223,9 +1346,8 @@ BuildHomeScreen:
 	on click MenuRowBackups gosub to OpenBackupSheet
 	attach MenuRowJournal to `menu-row-journal`
 	on click MenuRowJournal gosub to OpenJournalSheet
-	attach MenuRowView to `menu-row-view`
-	attach MenuViewSub to `menu-row-view-sub`
-	on click MenuRowView gosub to ToggleSimpleView
+	attach MenuRowAppearance to `menu-row-appearance`
+	on click MenuRowAppearance gosub to OpenAppearanceSheet
 	attach MenuRowProfiles to `menu-row-profiles`
 	on click MenuRowProfiles gosub to OpenProfileSheet
 
@@ -1236,10 +1358,6 @@ BuildHomeScreen:
 		gosub to HideAllSheets
 		set style `display` of MenuSheetEl to `block`
 		set the content of SheetTitleEl to `Menu`
-!		The view row says what tapping it will do, not what the view is
-!		currently called: "On" means tapping returns to the full view.
-		if SimpleMode set the content of MenuViewSub to `On — one room at a time`
-		else set the content of MenuViewSub to `Off — larger room buttons, one room at a time`
 		gosub to OpenSheet
 	end
 
@@ -1308,6 +1426,30 @@ BuildHomeScreen:
 	on click SystemSheetSaveBtn gosub to SaveSystemSheet
 	on click SystemSheetCancelBtn gosub to RequestCloseSheet
 
+!	Appearance sheet — opened from the menu's top row. The view style and the
+!	page background are device-local, applied as they are chosen, so this sheet
+!	has no Save: Done simply closes what is already in force.
+	rest get AppearanceWebson from `resources/webson/appearance-sheet.json?v=` cat now
+		or go to LoadFailed
+	render AppearanceWebson in SheetContent
+	attach AppearanceSheetEl to `appearance-sheet`
+	set style `display` of AppearanceSheetEl to `none`
+	attach AppearanceSwatchGrid to `appearance-sheet-swatches`
+	gosub to BuildAppearanceSwatches
+	attach AppearanceViewDetailed to `appearance-sheet-view-detailed`
+	attach AppearanceViewSimplified to `appearance-sheet-view-simplified`
+	attach AppearanceHexField to `appearance-sheet-hex`
+	attach AppearanceNoteEl to `appearance-sheet-note`
+	attach AppearanceTimeBox to `appearance-sheet-time`
+	attach AppearanceDoneBtn to `appearance-sheet-done-btn`
+
+	on click AppearanceViewDetailed gosub to ChooseDetailedView
+	on click AppearanceViewSimplified gosub to ChooseSimplifiedView
+	on click AppearanceSwatch gosub to ChooseAppearanceSwatch
+	on change AppearanceHexField gosub to ApplyAppearanceHex
+	on change AppearanceTimeBox gosub to ToggleAppearanceTime
+	on click AppearanceDoneBtn gosub to CloseAppearanceSheet
+
 !	Outside thermometer + frost protection sheet — opened from the menu's
 !	"Outside thermometer" row. Edits the sensor and ptemp on the legacy
 !	"room with empty relays" slot of every profile.
@@ -1347,13 +1489,20 @@ BuildHomeScreen:
 	set style `display` of AboutSheetEl to `none`
 	attach AboutTabAbout to `about-tab-about`
 	attach AboutTabManual to `about-tab-manual`
+	attach AboutTabSystems to `about-tab-systems`
 	attach AboutBodyAbout to `about-body-about`
-	attach AboutBodyManual to `about-body-manual`
+	attach AboutBodySystems to `about-body-systems`
 	attach AboutCtaSetup to `about-cta-setup`
+	attach SystemsList to `about-systems-list`
+	attach SystemsEmpty to `about-systems-empty`
+	attach SystemsAddBtn to `about-systems-add`
+	rest get SystemsRowTemplate from `resources/webson/systems-row.json?v=` cat now
+		or go to LoadFailed
 
 	on click AboutTabAbout gosub to ShowAboutTabAbout
-	on click AboutTabManual gosub to ShowAboutTabManual
-	on click AboutCtaSetup gosub to SetupMySystem
+	on click AboutTabSystems gosub to ShowAboutTabSystems
+	on click SystemsAddBtn gosub to AddSystem
+	on click AboutCtaSetup gosub to AddSystem
 
 	attach HouseMark to `top-bar-mark`
 	on click HouseMark gosub to OpenAboutSheet
@@ -1413,7 +1562,7 @@ BuildHomeScreen:
 
 	clear BuildingHome
 	return
-!! @hash 5a618554
+!! @hash 4c632580
 !!!
 !! Choose and build the home screen for the current view mode.
 !!
@@ -1432,9 +1581,13 @@ BuildFullHome:
 	clear SummaryBuilt
 !	Restore the layout the full home expects (the simple view may have set a
 !	narrower padding and gap on the same container, and hidden the footer).
+	set style `height` of LayoutFrame to `auto`
 	set style `padding` of MainHolder to `var(--space-page-top) var(--space-page-x) var(--space-page-x) var(--space-page-x)`
 	set style `gap` of MainHolder to `var(--space-row-gap)`
+	set style `justify-content` of MainHolder to `flex-start`
 	set style `display` of LayoutFooter to `block`
+!	The summary card carries the date, profile and outside reading here.
+	set style `display` of TopBarInfo to `none`
 !	First-pass summary stats from the freshly-built RoomsList.
 	gosub to ComputeSummaryStats
 
@@ -1447,7 +1600,6 @@ BuildFullHome:
 	render SummaryWebson in MainHolder
 
 	attach SummaryTitle to `summary-title`
-	attach SummarySubtitle to `summary-subtitle`
 	attach SummaryOutside to `summary-outside`
 	attach SummaryOutsideFrost to `summary-outside-frost`
 	attach SummaryToday to `summary-today`
@@ -1493,7 +1645,7 @@ BuildFullHome:
 		increment RoomIndex
 	end
 	return
-!! @hash 8d3a1155
+!! @hash 861b2140
 !!!
 !! Allocate every indexed per-row handle array for the current RoomCount.
 !!
@@ -1533,12 +1685,29 @@ PrepareRoomRowHandles:
 BuildSimpleHome:
 	clear MainHolder
 	clear SummaryBuilt
-!	The reduced home is a stack of full-height pills. A narrow padding and
-!	gap leave only a background border between them. The bottom is flush:
-!	the profile bar reaches the bottom edge with no border or margin below.
-	set style `padding` of MainHolder to `8px 8px 0 8px`
-	set style `gap` of MainHolder to `6px`
+!	The reduced home is a stack of pills under the banner, which now carries
+!	the profile and outside reading. An even border all round lets the
+!	gradient show around them.
+!
+!	Every space in the column is the same height — above the first pill, between
+!	the pills and below the last — because a column with generous gaps but a
+!	pill hard against the banner reads as a mistake. space-evenly makes the
+!	spaces equal; the pill height is then whatever is left, computed here
+!	because it divides by the room count and CSS cannot.
+!
+!	The height is 4/(5n+1) of the column: that leaves n+1 equal spaces each a
+!	quarter of a pill's height (n pills plus 4n+4 quarters fill the column). It
+!	is written as `100% / (5n+1) * 4` to stay in integer arithmetic.
+	set style `height` of LayoutFrame to `100vh`
+	set style `padding` of MainHolder to `8px 8px 8px 8px`
+	set style `gap` of MainHolder to `0px`
+	set style `justify-content` of MainHolder to `space-evenly`
 	set style `display` of LayoutFooter to `none`
+	set style `display` of TopBarInfo to `flex`
+	put RoomCount into PillDivisor
+	multiply PillDivisor by 5
+	increment PillDivisor
+	put `calc(100% / ` cat PillDivisor cat ` * 4)` into PillHeight
 	put -1 into ExpandedIndex
 	put -1 into BoostPanelOpenIndex
 	if SimpleHomeWebson is empty
@@ -1562,6 +1731,7 @@ BuildSimpleHome:
 
 		index SimpleRoomBtn to RoomIndex
 		attach SimpleRoomBtn to `simple-room-` cat IndexStr
+		set style `height` of SimpleRoomBtn to PillHeight
 		on click SimpleRoomBtn
 		begin
 			put the index of SimpleRoomBtn into ClickIndex
@@ -1571,29 +1741,15 @@ BuildSimpleHome:
 		increment RoomIndex
 	end
 
-!	The bottom pill shows frost protection when the summary's rule says it
-!	is active: the controller's flag if present, otherwise outside at or
-!	below the trigger with no room calling for heat.
+!	The banner's second row shows the date and time, the Profile button and
+!	the outside reading, with the frost badge when the summary's rule says
+!	protection is active.
 	gosub to ComputeSummaryStats
-
-!	The profile/outside pill sits at the bottom of the room list and opens
-!	the profile editor.
-	if SimpleProfileWebson is empty
-	begin
-		rest get SimpleProfileWebson from `resources/webson/simple-profile-pill.json?v=` cat now
-			or go to LoadFailed
-	end
-	render SimpleProfileWebson in MainHolder
-	attach SimpleProfilePill to `simple-profile-pill`
-	on click SimpleProfilePill gosub to OpenProfileSheet
-	attach SimpleProfileName to `simple-profile-name`
-	attach SimpleProfileOutsideBlock to `simple-profile-outside-block`
-	attach SimpleProfileOutside to `simple-profile-outside`
-	gosub to PaintSimpleProfilePill
+	gosub to PaintBannerInfo
 
 	if SystemName is not empty set the content of SystemId to SystemName
 	return
-!! @hash aa65e945
+!! @hash 021e0aa1
 !!!
 !! Apply the shared chip choice to a simple-home pill's icon.
 !!
@@ -1654,24 +1810,25 @@ PaintSimpleRoomButton:
 	return
 !! @hash 74019653
 !!!
-!! Paint the bottom profile/outside pill from the current map state.
+!! Paint the banner's second row: date and time, active profile name, outside reading, frost badge.
 !!
-!! The profile name is always shown. The outside half appears only when an outside thermometer is configured; without one the pill is the profile editor's entry point alone. A configured sensor with no reading yet shows an em dash rather than a misleading zero.
-PaintSimpleProfilePill:
-	if ActiveProfileName is not empty set the content of SimpleProfileName to ActiveProfileName
-	else set the content of SimpleProfileName to `—`
+!! The profile name is always shown. The outside half appears only when an outside thermometer is configured; without one the Profile button is the profile editor's entry point alone. A configured sensor with no reading yet shows an em dash rather than a misleading zero. The frost snowflake follows FrostActive — the controller's flag if present, otherwise outside at or below the trigger with no room calling.
+PaintBannerInfo:
+	gosub to FormatTodayString
+	set the content of TopBarDate to TempStr
+	if ActiveProfileName is not empty set the content of TopBarProfileName to ActiveProfileName
+	else set the content of TopBarProfileName to `—`
 	if OutsideSensor is not empty
 	begin
-		set style `display` of SimpleProfileOutsideBlock to `flex`
-		if OutsideTemp is empty set the content of SimpleProfileOutside to `—`
-		else set the content of SimpleProfileOutside to OutsideTemp
+		set style `display` of TopBarOutsideBlock to `flex`
+		if OutsideTemp is empty set the content of TopBarOutside to `—`
+		else set the content of TopBarOutside to OutsideTemp
 	end
-	else set style `display` of SimpleProfileOutsideBlock to `none`
-	attach SimpleProfileFrost to `simple-profile-frost`
-	if FrostActive set style `display` of SimpleProfileFrost to `block`
-	else set style `display` of SimpleProfileFrost to `none`
+	else set style `display` of TopBarOutsideBlock to `none`
+	if FrostActive set style `display` of TopBarOutsideFrost to `block`
+	else set style `display` of TopBarOutsideFrost to `none`
 	return
-!! @hash d8b85494
+!! @hash 713d2b2b
 !!!
 !! Refresh the simple home's buttons in place after a map push.
 !!
@@ -1690,10 +1847,10 @@ RefreshSimpleHome:
 		increment RoomIndex
 	end
 	gosub to ComputeSummaryStats
-	gosub to PaintSimpleProfilePill
+	gosub to PaintBannerInfo
 	if SystemName is not empty set the content of SystemId to SystemName
 	return
-!! @hash 5b2693ba
+!! @hash 07498eaf
 !!!
 !! Open one room's single-room page from the simple home.
 !!
@@ -1709,6 +1866,9 @@ OpenSimpleRoom:
 		rest get SimpleRoomWebson from `resources/webson/simple-room.json?v=` cat now
 			or go to LoadFailed
 	end
+!	The banner's second row belongs to the room list, as the bottom pill
+!	did: the single-room page needs the height for its controls.
+	set style `display` of TopBarInfo to `none`
 	put SimpleRoomWebson into RowText
 	replace `/I/` with IndexStr in RowText
 	render RowText in MainHolder
@@ -1725,7 +1885,7 @@ OpenSimpleRoom:
 	attach SimpleHomeBtn to `simple-room-home`
 	on click SimpleHomeBtn gosub to CloseSimpleRoom
 	return
-!! @hash 4f52a756
+!! @hash 47143f36
 !!!
 !! Refresh the open single-room page after a map push.
 !!
@@ -1756,28 +1916,29 @@ CloseSimpleRoom:
 	return
 !! @hash 75697d52
 !!!
-!! Switch between the full and simple home screens from the hamburger.
+!! Switch the home between the detailed and simplified shapes, keeping the Appearance sheet open.
 !!
-!! The choice is stored per device: it is a statement about who uses this phone, not about the heating system, so it does not travel in the map. Switching clears any open expansion or boost-configuring panel and rebuilds MainHolder in the new shape; the sheet chrome, MQTT loop and ticks are left alone.
-ToggleSimpleView:
-	if SimpleMode
-	begin
-		clear SimpleMode
-		put `off` into storage as `rbr-simple-view`
-	end
-	else
-	begin
-		set SimpleMode
-		put `on` into storage as `rbr-simple-view`
-	end
+!! The choice is stored per device: it is a statement about who uses this phone, not about the heating system, so it does not travel in the map. Switching clears any open expansion or boost-configuring panel and rebuilds MainHolder in the new shape; the sheet chrome, MQTT loop and ticks are left alone, and the sheet stays up because these are live choices rather than a form with a Save. The simplified home is one large button per room and no summary card.
+ChooseDetailedView:
+	clear SimpleMode
+	put `off` into storage as `rbr-simple-view`
+	gosub to SwitchHomeShape
+	return
+
+ChooseSimplifiedView:
+	set SimpleMode
+	put `on` into storage as `rbr-simple-view`
+	gosub to SwitchHomeShape
+	return
+
+SwitchHomeShape:
 	put -1 into SimpleRoomIndex
 	put -1 into ExpandedIndex
 	put -1 into BoostPanelOpenIndex
-	gosub to HideAllSheets
-	gosub to CloseSheet
 	gosub to BuildActiveHome
+	gosub to PaintAppearanceView
 	return
-!! @hash 9276a1b2
+!! @hash 1e0019c7
 !!!
 !! Refresh path on every subsequent map push. Re-renders every room in place via RenderRoom and recomputes the summary.
 !!
@@ -1835,58 +1996,297 @@ ParseTimeMinutes:
 	return
 !! @hash 3a38eab5
 !!!
-!! Pick the time-of-day gradient stops by hour bucket and apply both a linear gradient and a soft white radial glow to AppRoot in one stacked background.
+!! Read the device's appearance choices — the page colour and whether the background still follows the time of day — before the first paint.
 !!
-!! Six hour buckets: 0–6 (night/early-morning), 6–10 (dawn), 10–15 (midday), 15–19 (afternoon), 19–22 (sunset), 22+ (night). Cards and sheets sit in front via normal CSS stacking.
+!! Both live in browser storage beside the view choice, because they say how this phone should look rather than how the system should heat. A stored colour is accepted only if it parses, so a hand-edited or half-written value falls back to the app's own orange instead of leaving a broken gradient.
+LoadAppearance:
+	put `#E86A33` into BgBaseHex
+	get BgSavedHex from storage as `rbr-bg-colour`
+	if BgSavedHex is not empty
+	begin
+		put BgSavedHex into HexIn
+		gosub to HexToRgb
+		if HexOk
+		begin
+			gosub to RgbToHex
+			put HexOut into BgBaseHex
+		end
+	end
+	put `on` into BgTimeChanges
+	get BgSavedTime from storage as `rbr-bg-time`
+	if BgSavedTime is `off` put `off` into BgTimeChanges
+	return
+!! @hash 80b688cc
+!!!
+!! Pick the gradient stops for the chosen background colour and apply both a linear gradient and a soft white radial glow to AppRoot in one stacked background.
+!!
+!! Six hour buckets: 0–6 (night/early-morning), 6–10 (dawn), 10–15 (midday), 15–19 (afternoon), 19–22 (sunset), 22+ (night). Each bucket is the one background colour mixed a fixed distance towards white — or, at night, towards the night navy — so every colour in the Appearance palette keeps the same shape of day. With time-based changes off, the **afternoon** stops are used at every hour: they carry the most of the chosen colour of any daytime bucket, so a frozen background still looks like that colour rather than the near-white the midday stops become.
 !!
 !! `background-attachment: fixed` keeps the gradient anchored to the viewport when the room list scrolls, which costs nothing on modern mobile.
+!!
+!! Appendix
+!!
+!! §1 The stops are computed from `BgBaseHex` rather than listed here. A literal list per bucket would have had to be repeated for each of the ten palette colours, which is how a palette and its gradient drift apart; this way a colour is one entry in `BgPalette` and the buckets follow it. The percentages are the distances the old fixed palette sat at from its own warm orange, so the default colour still reads like the gradient it replaced.
 ApplyBackground:
 	put the hour into Hour
-	put `#FDF6EC` into GTop
-	put `#FBEEDD` into GMid
-	put `#F5E2C9` into GBot
-	if Hour is less than 6
-	begin
-		put `#1E2238` into GTop
-		put `#2D2A3E` into GMid
-		put `#433048` into GBot
-	end
-	else if Hour is less than 10
-	begin
-		put `#FFE8D4` into GTop
-		put `#FFD3B0` into GMid
-		put `#F5B994` into GBot
-	end
-	else if Hour is less than 15
-	begin
-		put `#FDF6EC` into GTop
-		put `#FBEEDD` into GMid
-		put `#F5E2C9` into GBot
-	end
-	else if Hour is less than 19
-	begin
-		put `#FFE1C2` into GTop
-		put `#F7B88A` into GMid
-		put `#E88A5B` into GBot
-	end
-	else if Hour is less than 22
-	begin
-		put `#F0A877` into GTop
-		put `#B66B56` into GMid
-		put `#5A3A52` into GBot
-	end
-	else
-	begin
-		put `#1E2238` into GTop
-		put `#2D2A3E` into GMid
-		put `#433048` into GBot
-	end
+	gosub to PaintBackgroundStops ! §1
 	put `radial-gradient(ellipse at 50% -20%, rgba(255,255,255,0.5) 0%, transparent 70%)` into Glow
-	put Glow cat `, linear-gradient(180deg, ` cat GTop cat ` 0%, ` cat GMid cat ` 45%, ` cat GBot cat ` 100%)` into BgValue
+	put Glow cat `, linear-gradient(180deg, ` cat BgTopHex cat ` 0%, ` cat BgMidHex cat ` 45%, ` cat BgBotHex cat ` 100%)` into BgValue
 	set style `background` of AppRoot to BgValue
 	set style `background-attachment` of AppRoot to `fixed`
 	return
-!! @hash da4604ae
+!! @hash 3cb9bd84
+!!!
+!! Work out the three gradient stops for the current `Hour` from `BgBaseHex` and `BgTimeChanges`.
+!!
+!! `MixPctA` is how much of `BgBaseHex` survives the mix, so a smaller number is paler. Sunset's bottom stop is mixed towards black instead of white, because a sunset that ended on the colour itself would be a flat bright block rather than dusk.
+PaintBackgroundStops:
+	put BgBaseHex into MixA
+	put `#FFFFFF` into BgWhite
+	put `#1E2238` into BgNightTop
+	put `#2D2A3E` into BgNightMid
+	put `#433048` into BgNightBot
+	if BgTimeChanges is `off`
+	begin
+		gosub to PaintAfternoonStops
+		return
+	end
+	if Hour is less than 6
+	begin
+		put BgNightTop into MixB
+		put 15 into MixPctA
+		gosub to MixHex
+		put MixOut into BgTopHex
+		put BgNightMid into MixB
+		put 12 into MixPctA
+		gosub to MixHex
+		put MixOut into BgMidHex
+		put BgNightBot into MixB
+		put 9 into MixPctA
+		gosub to MixHex
+		put MixOut into BgBotHex
+	end
+	else if Hour is less than 10
+	begin
+		put BgWhite into MixB
+		put 12 into MixPctA
+		gosub to MixHex
+		put MixOut into BgTopHex
+		put 26 into MixPctA
+		gosub to MixHex
+		put MixOut into BgMidHex
+		put 44 into MixPctA
+		gosub to MixHex
+		put MixOut into BgBotHex
+	end
+	else if Hour is less than 15
+		gosub to PaintMiddayStops
+	else if Hour is less than 19 gosub to PaintAfternoonStops
+	else if Hour is less than 22
+	begin
+		put BgWhite into MixB
+		put 32 into MixPctA
+		gosub to MixHex
+		put MixOut into BgTopHex
+		put 70 into MixPctA
+		gosub to MixHex
+		put MixOut into BgMidHex
+		put `#000000` into MixB
+		put 60 into MixPctA
+		gosub to MixHex
+		put MixOut into BgBotHex
+	end
+	else
+	begin
+		put BgNightTop into MixB
+		put 15 into MixPctA
+		gosub to MixHex
+		put MixOut into BgTopHex
+		put BgNightMid into MixB
+		put 12 into MixPctA
+		gosub to MixHex
+		put MixOut into BgMidHex
+		put BgNightBot into MixB
+		put 9 into MixPctA
+		gosub to MixHex
+		put MixOut into BgBotHex
+	end
+	return
+!! @hash cc85ffd7
+!!!
+!! The midday and afternoon stops; the afternoon set is also the fixed background when time-based changes are off.
+PaintMiddayStops:
+	put BgWhite into MixB
+	put 7 into MixPctA
+	gosub to MixHex
+	put MixOut into BgTopHex
+	put 14 into MixPctA
+	gosub to MixHex
+	put MixOut into BgMidHex
+	put 24 into MixPctA
+	gosub to MixHex
+	put MixOut into BgBotHex
+	return
+
+PaintAfternoonStops:
+	put BgWhite into MixB
+	put 14 into MixPctA
+	gosub to MixHex
+	put MixOut into BgTopHex
+	put 36 into MixPctA
+	gosub to MixHex
+	put MixOut into BgMidHex
+	put 64 into MixPctA
+	gosub to MixHex
+	put MixOut into BgBotHex
+	return
+
+!! @hash 3856f23e
+!!!
+!! Mix two hex colours: `MixPctA` per cent of `MixA`, the rest `MixB`, into `MixOut`.
+!!
+!! Both inputs are rounded to whole RGB channels through HexToRgb and rebuilt by RgbToHex, so the output is always a plain `#RRGGBB`.
+MixHex:
+	put MixA into HexIn
+	gosub to HexToRgb
+	put HexR into MixRa
+	put HexG into MixGa
+	put HexB into MixBa
+	put MixB into HexIn
+	gosub to HexToRgb
+	put HexR into MixRb
+	put HexG into MixGb
+	put HexB into MixBb
+	subtract MixPctA from 100 giving MixPctB
+	multiply MixRa by MixPctA giving MixR
+	multiply MixRb by MixPctB giving MixT
+	add MixT to MixR
+	divide MixR by 100
+	multiply MixGa by MixPctA giving MixG
+	multiply MixGb by MixPctB giving MixT
+	add MixT to MixG
+	divide MixG by 100
+	multiply MixBa by MixPctA giving MixBCh
+	multiply MixBb by MixPctB giving MixT
+	add MixT to MixBCh
+	divide MixBCh by 100
+	put MixR into HexR
+	put MixG into HexG
+	put MixBCh into HexB
+	gosub to RgbToHex
+	put HexOut into MixOut
+	return
+!! @hash e5946078
+!!!
+!! Parse `HexIn` into `HexR`, `HexG` and `HexB`; `HexOk` says whether it was a colour at all.
+!!
+!! Accepts `#RRGGBB`, `RRGGBB`, `#RGB` and `RGB`, in either case, and ignores surrounding spaces. Anything else — a word, five digits, a character that is not 0–9/A–F — leaves `HexOk` clear, and the caller keeps the colour it already had.
+!!
+!! Appendix
+!!
+!! §1 `character N of` counts from zero in this runtime, which is not what the reference prose implies. Measured against the pinned build on 2026-11-15: `character 0 of `0123456789ABCDEF`` is `0` and `character 15 of` it is `F`. Decoding is therefore pairs 0–1, 2–3, 4–5.
+HexToRgb:
+	clear HexOk
+	put uppercase HexIn into HexWork
+	replace ` ` with `` in HexWork
+	if left 1 of HexWork is `#` put from 1 of HexWork into HexWork
+	put the length of HexWork into HexLen
+	if HexLen is 3
+	begin
+		put character 0 of HexWork into HexChar
+		gosub to HexNibbleOf
+		if HexNibble is less than 0 return
+		put HexNibble into HexR
+		multiply HexR by 17
+		put character 1 of HexWork into HexChar
+		gosub to HexNibbleOf
+		if HexNibble is less than 0 return
+		put HexNibble into HexG
+		multiply HexG by 17
+		put character 2 of HexWork into HexChar
+		gosub to HexNibbleOf
+		if HexNibble is less than 0 return
+		put HexNibble into HexB
+		multiply HexB by 17
+		set HexOk
+		return
+	end
+	if HexLen is not 6 return
+	put character 0 of HexWork into HexChar ! §1
+	gosub to HexNibbleOf
+	put HexNibble into HexHi
+	put character 1 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexLo
+	if HexHi is less than 0 return
+	if HexLo is less than 0 return
+	multiply HexHi by 16
+	add HexLo to HexHi
+	put HexHi into HexR
+	put character 2 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexHi
+	put character 3 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexLo
+	if HexHi is less than 0 return
+	if HexLo is less than 0 return
+	multiply HexHi by 16
+	add HexLo to HexHi
+	put HexHi into HexG
+	put character 4 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexHi
+	put character 5 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexLo
+	if HexHi is less than 0 return
+	if HexLo is less than 0 return
+	multiply HexHi by 16
+	add HexLo to HexHi
+	put HexHi into HexB
+	set HexOk
+	return
+!! @hash 42dc588b
+!!!
+!! Value of the single hex digit in `HexChar`, into `HexNibble`; `-1` when it is not one.
+!!
+!! A scan of `HexDigits` rather than arithmetic, because `the value of` reads decimal text only and would take `A3` for `0`.
+HexNibbleOf:
+	put -1 into HexNibble
+	put 0 into HexScan
+	while HexScan is less than 16
+	begin
+		if character HexScan of HexDigits is HexChar put HexScan into HexNibble
+		increment HexScan
+	end
+	return
+!! @hash 7ce90da1
+!!!
+!! Build `#RRGGBB` in `HexOut` from `HexR`, `HexG` and `HexB`.
+RgbToHex:
+	put HexR into RgbValue
+	gosub to RgbByteHex
+	put RgbHex into RgbHexR
+	put HexG into RgbValue
+	gosub to RgbByteHex
+	put RgbHex into RgbHexG
+	put HexB into RgbValue
+	gosub to RgbByteHex
+	put RgbHex into RgbHexB
+	put `#` cat RgbHexR cat RgbHexG cat RgbHexB into HexOut
+	return
+!! @hash 947baae9
+!!!
+!! Two uppercase hex digits for the byte in `RgbValue`, into `RgbHex`.
+RgbByteHex:
+	divide RgbValue by 16 giving RgbHexHi
+	put RgbValue modulo 16 into RgbHexLo
+	put character RgbHexHi of HexDigits into RgbHexHi
+	put character RgbHexLo of HexDigits into RgbHexLo
+	put RgbHexHi cat RgbHexLo into RgbHex
+	return
+!! @hash 240696e9
 !!!
 !! Forked once on first build. Polls `the hour` once a minute and re-applies ApplyBackground if the hour bucket changed. A minute is fine — bucket boundaries don't need sub-minute precision and a one-minute lag at the transition is invisible to the user.
 BackgroundTick:
@@ -1966,13 +2366,11 @@ ClockTick:
 	while true
 	begin
 		wait 30 seconds
-		if SummaryBuilt
-		begin
-			gosub to FormatTodayString
-			set the content of SummaryToday to TempStr
-		end
+		gosub to FormatTodayString
+		set the content of TopBarDate to TempStr
+		if SummaryBuilt set the content of SummaryToday to TempStr
 	end
-!! @hash 9fce8678
+!! @hash 48522987
 !!!
 !! Open / close the bottom sheet. CSS transitions handle the motion; the code just flips opacity, transform, and the root's pointer-events. CloseSheet is the mirror image.
 OpenSheet:
@@ -2028,13 +2426,14 @@ HideAllSheets:
 	set style `display` of ScheduleSheetEl to `none`
 	set style `display` of DeviceEditorSheetEl to `none`
 	set style `display` of SystemSheetEl to `none`
+	set style `display` of AppearanceSheetEl to `none`
 	set style `display` of OutsideSheetEl to `none`
 	set style `display` of InfoSheetEl to `none`
 	set style `display` of AboutSheetEl to `none`
 	set style `display` of SpecialSheetEl to `none`
 	set style `display` of SpecialTimeSheetEl to `none`
 	return
-!! @hash ef79ac0f
+!! @hash b4aad520
 !!!
 !! Wire every interactive element of a single room row. Called once per non-sensor row from the BuildHomeScreen render loop, with RoomIndex pre-set to the row being wired.
 !!
@@ -3159,9 +3558,161 @@ ClearSpecialOverride:
 	return
 !! @hash d82d8dfa
 !!!
+!! Open the Appearance sheet from the menu's top row.
+!!
+!! Both sections are live: a tap on the view pill rebuilds the home behind the sheet, and a colour or the time checkbox repaints the page background at once. Nothing here is sent to the controller, because neither choice is about the heating system.
+OpenAppearanceSheet:
+	if not SheetsReady return
+	gosub to PaintAppearanceSheet
+	gosub to HideAllSheets
+	set style `display` of AppearanceSheetEl to `block`
+	set the content of SheetTitleEl to `Appearance`
+	gosub to OpenSheet
+	return
+!! @hash a5ab3517
+!!!
+!! Close the Appearance sheet. Everything in it is already in force, so there is nothing to confirm.
+CloseAppearanceSheet:
+	gosub to CloseSheet
+	return
+!! @hash 9eee7da8
+!!!
+!! Paint the whole sheet from the stored choices: the view pill, the swatch ring, the hex field, the time checkbox and the note.
+PaintAppearanceSheet:
+	gosub to PaintAppearanceView
+	gosub to PaintAppearanceSwatchRing
+	set the content of AppearanceHexField to BgBaseHex
+	if BgTimeChanges is `on` set attribute `checked` of AppearanceTimeBox to `checked`
+	else remove attribute `checked` of AppearanceTimeBox
+	set the content of AppearanceNoteEl to `Pick a swatch, or type any hex value such as #808000.`
+	return
+!! @hash 1912f699
+!!!
+!! Light the view pill's current half and mute the other.
+PaintAppearanceView:
+	set style `background` of AppearanceViewDetailed to `transparent`
+	set style `color` of AppearanceViewDetailed to `var(--color-text-muted)`
+	set style `font-weight` of AppearanceViewDetailed to `500`
+	set style `box-shadow` of AppearanceViewDetailed to `none`
+	set style `background` of AppearanceViewSimplified to `transparent`
+	set style `color` of AppearanceViewSimplified to `var(--color-text-muted)`
+	set style `font-weight` of AppearanceViewSimplified to `500`
+	set style `box-shadow` of AppearanceViewSimplified to `none`
+	if SimpleMode
+	begin
+		set style `background` of AppearanceViewSimplified to `var(--color-surface-card)`
+		set style `color` of AppearanceViewSimplified to `var(--color-text-primary)`
+		set style `font-weight` of AppearanceViewSimplified to `600`
+		set style `box-shadow` of AppearanceViewSimplified to `0 1px 3px rgba(0,0,0,0.08)`
+	end
+	else
+	begin
+		set style `background` of AppearanceViewDetailed to `var(--color-surface-card)`
+		set style `color` of AppearanceViewDetailed to `var(--color-text-primary)`
+		set style `font-weight` of AppearanceViewDetailed to `600`
+		set style `box-shadow` of AppearanceViewDetailed to `0 1px 3px rgba(0,0,0,0.08)`
+	end
+	return
+!! @hash d3e43402
+!!!
+!! Render the ten swatch buttons from `BgPalette` into the empty grid, then attach each one so a tap reports its own index.
+!!
+!! The buttons carry no text, so the hex itself is their accessible name. They are rendered here rather than written into the Webson layout because the palette is the one list of colours the gradient code also reads: two copies would drift, and the copy a person taps is the one they would trust.
+BuildAppearanceSwatches:
+	put empty into SwatchHtml
+	put 0 into SwatchIdx
+	while SwatchIdx is less than 10
+	begin
+		put element SwatchIdx of BgPalette into SwatchHex
+		put SwatchHtml cat `<button type="button" id="appearance-sheet-swatch-` cat SwatchIdx cat `" aria-label="` cat SwatchHex cat `" title="` cat SwatchHex cat `" style="height:44px;padding:0;border:0;border-radius:12px;background:` cat SwatchHex cat `;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08)"></button>` into SwatchHtml
+		increment SwatchIdx
+	end
+	set the content of AppearanceSwatchGrid to SwatchHtml
+	set the elements of AppearanceSwatch to 10
+	put 0 into SwatchIdx
+	while SwatchIdx is less than 10
+	begin
+		index AppearanceSwatch to SwatchIdx
+		attach AppearanceSwatch to `appearance-sheet-swatch-` cat SwatchIdx
+		increment SwatchIdx
+	end
+	return
+!! @hash 9a9b41fe
+!!!
+!! Ring the swatch holding the chosen colour and leave the rest unringed.
+PaintAppearanceSwatchRing:
+	put 0 into SwatchIdx
+	while SwatchIdx is less than 10
+	begin
+		index AppearanceSwatch to SwatchIdx
+		put element SwatchIdx of BgPalette into SwatchHex
+		if SwatchHex is BgBaseHex set style `box-shadow` of AppearanceSwatch to `inset 0 0 0 1px rgba(0,0,0,0.08), 0 0 0 3px #12345A`
+		else set style `box-shadow` of AppearanceSwatch to `inset 0 0 0 1px rgba(0,0,0,0.08)`
+		increment SwatchIdx
+	end
+	return
+!! @hash ec01f6ca
+!!!
+!! Take the colour of the swatch that was tapped, remember it on this device and repaint the background.
+ChooseAppearanceSwatch:
+	put the index of AppearanceSwatch into SwatchIdx
+	put element SwatchIdx of BgPalette into BgBaseHex
+	put BgBaseHex into storage as `rbr-bg-colour`
+	gosub to PaintAppearanceSwatchRing
+	set the content of AppearanceHexField to BgBaseHex
+	set the content of AppearanceNoteEl to `Pick a swatch, or type any hex value such as #808000.`
+	gosub to ApplyBackground
+	return
+!! @hash c2c7129b
+!!!
+!! Take the hex typed into the field, or say why it cannot be used.
+!!
+!! The field is checked on change rather than on every keystroke: a half-typed `#8080` is not an error yet, and repainting the page for each character would flash. A rejected value leaves the current colour alone, so the note is the only thing that changes.
+ApplyAppearanceHex:
+	put AppearanceHexField into HexFieldText
+	put HexFieldText into HexIn
+	gosub to HexToRgb
+	if not HexOk
+	begin
+		set the content of AppearanceNoteEl to `That is not a hex colour. Use six digits, such as #808000.`
+		return
+	end
+	gosub to RgbToHex
+	put HexOut into BgBaseHex
+	set the content of AppearanceHexField to BgBaseHex
+	put BgBaseHex into storage as `rbr-bg-colour`
+	gosub to PaintAppearanceSwatchRing
+	set the content of AppearanceNoteEl to `Pick a swatch, or type any hex value such as #808000.`
+	gosub to ApplyBackground
+	return
+!! @hash 455fb3ca
+!!!
+!! Follow the time-based-changes checkbox: remember it and repaint the background either way.
+ToggleAppearanceTime:
+	put AppearanceTimeBox into TimeBoxValue
+	if TimeBoxValue
+	begin
+		put `on` into BgTimeChanges
+		put `on` into storage as `rbr-bg-time`
+	end
+	else
+	begin
+		put `off` into BgTimeChanges
+		put `off` into storage as `rbr-bg-time`
+	end
+	gosub to ApplyBackground
+	return
+!! @hash 35e1d319
+!!!
 !! Open the system sheet from the menu's "System" row.
 !!
 !! Snapshots SystemName, SystemType and the system-wide On cap into the Editing* vars, paints the type-pill highlight, fills the On-cap options, and swaps the visible sheet. The controller's System Name handler picks up `name`, `systemType` and `onmax` as map-root fields.
+!!
+!! Appendix
+!!
+!! §1 `set default of` selects an option by its **value**, not by the text a person reads, and leaves the selection where it was when nothing matches — so the list's first option stays chosen. Handing it the label (`8 hours`) reopened the sheet on Always On however the map was set, which made a saved cap look forgotten and quietly revert on the next Save. The option values are `always` and `4`…`12`.
+!!
+!! §2 A cap that is present but empty means no cap to the controller (`OnDeadlineFromNow` returns without a deadline), so the sheet reads it as Always On instead of clamping an empty value up to four hours.
 OpenSystemSheet:
 	if not SheetsReady return
 	put SystemName into EditingSystemName
@@ -3169,15 +3720,18 @@ OpenSystemSheet:
 	if EditingSystemType is empty put `Boiler` into EditingSystemType
 	put `always` into EditingOnMax
 	if Map has entry `onmax` put `` cat property `onmax` of Map into EditingOnMax
+	! §2
+	if EditingOnMax is empty put `always` into EditingOnMax
 	set the content of SystemSheetName to EditingSystemName
 	set the content of SystemSheetMaxOn to MaxOnOptions
-	if EditingOnMax is `always` set default of SystemSheetMaxOn to `Always On`
+	! §1
+	if EditingOnMax is `always` set default of SystemSheetMaxOn to `always`
 	else
 	begin
 		put the value of EditingOnMax into EditingOnMax
 		if EditingOnMax is less than 4 put 4 into EditingOnMax
 		if EditingOnMax is greater than 12 put 12 into EditingOnMax
-		set default of SystemSheetMaxOn to `` cat EditingOnMax cat ` hours`
+		set default of SystemSheetMaxOn to `` cat EditingOnMax
 	end
 	gosub to PaintSystemSheetType
 	gosub to HideAllSheets
@@ -3185,7 +3739,7 @@ OpenSystemSheet:
 	set the content of SheetTitleEl to `System`
 	gosub to OpenSheet
 	return
-!! @hash ef4fdefb
+!! @hash 0501be99
 !!!
 !! Paint and activation helpers for the Boiler / Heat Pump type pill. Reset blanks both pills; Activate<X> applies the lit look (card background, drop shadow, weight 600) to the matching pill.
 PaintSystemSheetType:
@@ -3365,7 +3919,6 @@ OpenJournalSheet:
 !! @hash 0485f5b2
 !! @verified 0485f5b2
 !!!
-
 !! Ask the controller for today's journal bundle up to now.
 !!
 !! The export is background work on the controller: it flushes the pending journal, writes a partial bundle and emails it. The sheet reports the request and stays open; there is no reply to wait for.
@@ -3383,7 +3936,6 @@ SendJournalNow:
 !! @hash 8709919e
 !! @verified 8709919e
 !!!
-
 !! Open the Outside thermometer + frost protection sheet from the menu's Outside row.
 !!
 !! The outside thermometer is the room in the shared room list with empty relays — one identity record, not a slot in every profile. Its `sensor`, `protect` and `ptemp` are written once, by name, when the sheet is saved. FrostActive (used by the summary card) is derived per refresh from the controller's `frostActive` flag if present, else computed locally (outside temp ≤ trigger AND no rooms calling).
@@ -3511,13 +4063,100 @@ OpenDeviceEditor:
 	return
 !! @hash eacfd06c
 !!!
-!! Panic-button handler for stranded credentials. Wipes the stored MAC and reloads — useful when a typo has stranded the page on connect.
+!! Load the systems this device manages, migrating the single-system pair from older builds.
 !!
-!! Broker / username / password now come from credentials.php so they're not in localStorage to clear. Older keys (dev-broker / dev-username / dev-password) from the prior four-prompt setup are also cleared, so an upgraded install ends up tidy. Wired to the hamburger button before BuildHomeScreen runs — once the menu sheet is built, the hamburger gets re-bound to open the menu.
+!! `rbr-systems` is a JSON array of `{name, mac, token}`; `rbr-current-mac` names the one the app is connected to. Older builds kept one identity in `dev-mac` and `dev-token`: the first run of this build turns that pair into the first entry, so an upgraded device keeps its system and every later read comes from the list. A current MAC that is not in the list (an entry removed in another tab, or a hand-edited store) falls back to the first entry; with no entries at all the device boots into demo mode.
+LoadSystems:
+	put empty into SystemsJson
+	get SystemsJson from storage as `rbr-systems`
+	if SystemsJson is `null` put empty into SystemsJson
+	if SystemsJson is `undefined` put empty into SystemsJson
+	put empty into SystemsData
+	if SystemsJson is not empty put json of SystemsJson into SystemsData
+	if SystemsData is empty
+	begin
+		get MAC from storage as `dev-mac`
+		get Token from storage as `dev-token`
+		if MAC is `null` put empty into MAC
+		if MAC is `undefined` put empty into MAC
+		if Token is `null` put empty into Token
+		if Token is `undefined` put empty into Token
+		if MAC is empty
+		begin
+			put empty into SystemsCurrentMac
+			return
+		end
+		set SystemsData to array
+		set SystemsEntry to object
+		set property `name` of SystemsEntry to `My system`
+		set property `mac` of SystemsEntry to MAC
+		set property `token` of SystemsEntry to Token
+		json add SystemsEntry to SystemsData
+		put MAC into SystemsCurrentMac
+		gosub to SaveSystems
+		return
+	end
+	get SystemsCurrentMac from storage as `rbr-current-mac`
+	if SystemsCurrentMac is `null` put empty into SystemsCurrentMac
+	if SystemsCurrentMac is `undefined` put empty into SystemsCurrentMac
+	put SystemsCurrentMac into SystemsFindMac
+	gosub to FindSystem
+	if SystemsFound is less than 0
+	begin
+		put element 0 of SystemsData into SystemsEntry
+		put property `mac` of SystemsEntry into SystemsCurrentMac
+		put SystemsCurrentMac into SystemsFindMac
+		gosub to FindSystem
+	end
+	put empty into MAC
+	put empty into Token
+	if SystemsFound is greater than -1
+	begin
+		put element SystemsFound of SystemsData into SystemsEntry
+		put property `mac` of SystemsEntry into MAC
+		put property `token` of SystemsEntry into Token
+	end
+	return
+!! @hash a897a936
+!!!
+
+!! Write the systems list and the current MAC back to browser storage.
+SaveSystems:
+	put the json of SystemsData into SystemsJson
+	put SystemsJson into storage as `rbr-systems`
+	put SystemsCurrentMac into storage as `rbr-current-mac`
+	return
+!! @hash 63363f95
+!!!
+
+!! Look up `SystemsFindMac` in `SystemsData`, leaving its position in `SystemsFound` or -1.
+FindSystem:
+	put -1 into SystemsFound
+	if SystemsData is empty return
+	put 0 into SystemsIdx
+	while SystemsIdx is less than the json count of SystemsData
+	begin
+		put element SystemsIdx of SystemsData into SystemsEntry
+		if property `mac` of SystemsEntry is SystemsFindMac
+		begin
+			put SystemsIdx into SystemsFound
+			return
+		end
+		increment SystemsIdx
+	end
+	return
+!! @hash 3f0802dd
+!!!
+
+!! Panic-button handler for stranded credentials. Clears every system on this device and reloads.
+!!
+!! This is the fallback wired to the hamburger before BuildHomeScreen runs, so it only fires while the page cannot build its menu — a typo, a dead connection, or a page stranded before its first map. Once the app is running, systems are removed one at a time from About → Systems. The broker, username and password no longer live here; the older keys from the four-prompt setup are cleared too, so an upgraded device ends up tidy.
 ResetCredentialsAndReload:
 	clear ConfirmFlag
-	if confirm `Reset stored MAC and reload? You'll be prompted to re-enter it.` set ConfirmFlag
+	if confirm `Remove every system from this device and reload?` set ConfirmFlag
 	if not ConfirmFlag return
+	put empty into storage as `rbr-systems`
+	put empty into storage as `rbr-current-mac`
 	put empty into storage as `dev-broker`
 	put empty into storage as `dev-username`
 	put empty into storage as `dev-password`
@@ -3525,11 +4164,11 @@ ResetCredentialsAndReload:
 	put empty into storage as `dev-token`
 	location the location
 	return
-!! @hash 6ffee20f
+!! @hash 6458b300
 !!!
-!! Open the About sheet. Auto-opened in demo mode (no credentials yet) so first-time visitors see what RBR is; otherwise reachable via tap-on-the-house-mark in the topbar at any time.
+!! Open the About sheet, where the Manual link and the Systems list live.
 !!
-!! The "Set up my system" CTA is only revealed in demo mode — existing users with credentials don't see a setup prompt that doesn't apply to them. Sheet defaults to the About tab; the Manual tab is selectable via the tab pills below the header.
+!! Auto-opened in demo mode (no credentials yet) so first-time visitors see what RBR is; otherwise reachable by tapping the house mark in the top bar at any time. The "Set up my system" CTA is only revealed in demo mode — existing users have the Systems tab instead. The Manual control is an ordinary link to `/docs/`, not a tab body, so it leaves the app for the documentation page. The Systems tab is local to this device and lists every system it can manage.
 OpenAboutSheet:
 	gosub to HideAllSheets
 	set style `display` of AboutSheetEl to `block`
@@ -3541,63 +4180,238 @@ OpenAboutSheet:
 	return
 !! @hash 12cdf0fa
 !!!
+
 !! About-sheet tab swappers. Active tab pill gets the surface-card background + drop shadow + bold; inactive gets transparent. Body visibility follows.
 ShowAboutTabAbout:
 	set style `display` of AboutBodyAbout to `block`
-	set style `display` of AboutBodyManual to `none`
+	set style `display` of AboutBodySystems to `none`
 	set style `background` of AboutTabAbout to `var(--color-surface-card)`
 	set style `box-shadow` of AboutTabAbout to `0 1px 3px rgba(0,0,0,0.08)`
 	set style `color` of AboutTabAbout to `var(--color-text-primary)`
 	set style `font-weight` of AboutTabAbout to `600`
-	set style `background` of AboutTabManual to `transparent`
-	set style `box-shadow` of AboutTabManual to `none`
-	set style `color` of AboutTabManual to `var(--color-text-muted)`
-	set style `font-weight` of AboutTabManual to `500`
+	set style `background` of AboutTabSystems to `transparent`
+	set style `box-shadow` of AboutTabSystems to `none`
+	set style `color` of AboutTabSystems to `var(--color-text-muted)`
+	set style `font-weight` of AboutTabSystems to `500`
 	return
 
-ShowAboutTabManual:
+ShowAboutTabSystems:
 	set style `display` of AboutBodyAbout to `none`
-	set style `display` of AboutBodyManual to `block`
+	set style `display` of AboutBodySystems to `block`
 	set style `background` of AboutTabAbout to `transparent`
 	set style `box-shadow` of AboutTabAbout to `none`
 	set style `color` of AboutTabAbout to `var(--color-text-muted)`
 	set style `font-weight` of AboutTabAbout to `500`
-	set style `background` of AboutTabManual to `var(--color-surface-card)`
-	set style `box-shadow` of AboutTabManual to `0 1px 3px rgba(0,0,0,0.08)`
-	set style `color` of AboutTabManual to `var(--color-text-primary)`
-	set style `font-weight` of AboutTabManual to `600`
+	set style `background` of AboutTabSystems to `var(--color-surface-card)`
+	set style `box-shadow` of AboutTabSystems to `0 1px 3px rgba(0,0,0,0.08)`
+	set style `color` of AboutTabSystems to `var(--color-text-primary)`
+	set style `font-weight` of AboutTabSystems to `600`
+	gosub to RenderSystemsList
 	return
-!! @hash c5aac8db
+!! @hash d3ff10ab
 !!!
-!! "Set up my system" CTA: pair this browser with a controller.
+
+!! Render the managed systems into the About sheet's list, one row each.
 !!
-!! The MAC says which system we are; the system password proves we own it. The password is not kept — it is exchanged once for a token, and the token is what the credentials endpoint accepts from then on. Both are stored in localStorage and picked up on the next page load via `location the location`.
-SetupMySystem:
-	put prompt `Enter your controller's MAC address` cat newline cat `(printed on the device, format aa:bb:cc:dd:ee:ff):` into MAC
-	if MAC is empty return
-	if MAC is `null` return
-	if MAC is `undefined` return
-	put prompt `Enter the system password` cat newline cat `(the one shown when the system was registered):` into Password
-	if Password is empty return
-	if Password is `null` return
-	if Password is `undefined` return
+!! The list is local to this device. Select makes a row current and reloads; the current row's button reads Current and is disabled. Remove forgets the row here and does not touch the installation or the server entry. The name is escaped before it is put into the row because `set the content of` writes markup.
+RenderSystemsList:
+	clear SystemsList
+	put the json count of SystemsData into SystemsCount
+	if SystemsCount is less than 1
+	begin
+		set style `display` of SystemsEmpty to `block`
+		return
+	end
+	set style `display` of SystemsEmpty to `none`
+	set the elements of SystemsRowName to SystemsCount
+	set the elements of SystemsRowMac to SystemsCount
+	set the elements of SystemsRowSelect to SystemsCount
+	set the elements of SystemsRowRename to SystemsCount
+	set the elements of SystemsRowDelete to SystemsCount
+	put 0 into SystemsIdx
+	while SystemsIdx is less than SystemsCount
+	begin
+		put element SystemsIdx of SystemsData into SystemsEntry
+		put SystemsRowTemplate into SystemsRowText
+		put `` cat SystemsIdx into SystemsRowIdxStr
+		replace `/I/` with SystemsRowIdxStr in SystemsRowText
+		render SystemsRowText in SystemsList
 
-	rest post `{"mac":"` cat MAC cat `","password":"` cat Password cat `"}` to `/verify` giving Response
-		or go to PairFailed
-	if Response is empty go to PairFailed
-	if property `ok` of Response is not true go to PairFailed
-	put property `token` of Response into Token
-	if Token is empty go to PairFailed
+		index SystemsRowName to SystemsIdx
+		attach SystemsRowName to `system-row-` cat SystemsRowIdxStr cat `-name`
+		put property `name` of SystemsEntry into SystemsName
+		replace `&` with `&amp;` in SystemsName
+		replace `<` with `&lt;` in SystemsName
+		replace `>` with `&gt;` in SystemsName
+		set the content of SystemsRowName to SystemsName
 
-	put MAC into storage as `dev-mac`
-	put Token into storage as `dev-token`
+		index SystemsRowMac to SystemsIdx
+		attach SystemsRowMac to `system-row-` cat SystemsRowIdxStr cat `-mac`
+		set the content of SystemsRowMac to property `mac` of SystemsEntry
+
+		index SystemsRowSelect to SystemsIdx
+		attach SystemsRowSelect to `system-row-` cat SystemsRowIdxStr cat `-select`
+		if property `mac` of SystemsEntry is MAC
+		begin
+			set the content of SystemsRowSelect to `Current`
+			disable SystemsRowSelect
+			set style `color` of SystemsRowName to `var(--color-accent)`
+		end
+		else
+		begin
+			set the content of SystemsRowSelect to `Select`
+			enable SystemsRowSelect
+		end
+
+		index SystemsRowRename to SystemsIdx
+		attach SystemsRowRename to `system-row-` cat SystemsRowIdxStr cat `-rename`
+
+		index SystemsRowDelete to SystemsIdx
+		attach SystemsRowDelete to `system-row-` cat SystemsRowIdxStr cat `-delete`
+
+		on click SystemsRowSelect
+		begin
+			put the index of SystemsRowSelect into SystemsIdx
+			gosub to SelectSystem
+		end
+		on click SystemsRowRename
+		begin
+			put the index of SystemsRowRename into SystemsIdx
+			gosub to RenameSystem
+		end
+		on click SystemsRowDelete
+		begin
+			put the index of SystemsRowDelete into SystemsIdx
+			gosub to DeleteSystem
+		end
+		increment SystemsIdx
+	end
+	return
+!! @hash 6012456f
+!!!
+
+!! Make the clicked system current and reload on it.
+!!
+!! The MQTT client, map and sheet state are all built for one system at boot; switching in place would mean tearing them down. A reload is the same path pairing already uses, and it is what makes the current system's name appear everywhere.
+SelectSystem:
+	put element SystemsIdx of SystemsData into SystemsEntry
+	put property `mac` of SystemsEntry into SystemsMac
+	if SystemsMac is MAC return
+	put SystemsMac into SystemsCurrentMac
+	gosub to SaveSystems
+	location the location
+	return
+!! @hash 934b0d46
+!!!
+
+!! Change the local label of a system without touching its identity or the server.
+!!
+!! The name is only the label this device's list shows; the MAC, token and the controller's own system name are untouched. The list is repainted in place, so the sheet stays open.
+RenameSystem:
+	put element SystemsIdx of SystemsData into SystemsEntry
+	put property `name` of SystemsEntry into SystemsName
+	put prompt `Rename ` cat SystemsName cat ` for this device's list:` into SystemsName
+	if SystemsName is `null` return
+	if SystemsName is `undefined` return
+	put trim SystemsName into SystemsName
+	if SystemsName is empty return
+	set property `name` of SystemsEntry to SystemsName
+	set element SystemsIdx of SystemsData to SystemsEntry
+	gosub to SaveSystems
+	gosub to RenderSystemsList
+	return
+!! @hash 646f03eb
+!!!
+
+!! Forget a system on this device, never on the server.
+!!
+!! Removing the current system picks the first remaining one and reloads; removing the last one clears the identity and reloads into demo mode. Removing another system only repaints the list, so the sheet stays where it was.
+DeleteSystem:
+	put element SystemsIdx of SystemsData into SystemsEntry
+	put property `name` of SystemsEntry into SystemsName
+	put property `mac` of SystemsEntry into SystemsMac
+	clear ConfirmFlag
+	if confirm `Remove ` cat SystemsName cat ` from this device? The installation itself is not changed.` set ConfirmFlag
+	if not ConfirmFlag return
+	json delete element SystemsIdx of SystemsData
+	if SystemsMac is not MAC
+	begin
+		gosub to SaveSystems
+		gosub to RenderSystemsList
+		return
+	end
+	if SystemsData is empty
+	begin
+		put empty into SystemsCurrentMac
+		gosub to SaveSystems
+		put empty into storage as `dev-mac`
+		put empty into storage as `dev-token`
+		location the location
+		return
+	end
+	put element 0 of SystemsData into SystemsEntry
+	put property `mac` of SystemsEntry into SystemsMac
+	put SystemsMac into SystemsCurrentMac
+	gosub to SaveSystems
+	location the location
+	return
+!! @hash 4620d865
+!!!
+
+!! Add one system to this device's list, or update its token if it is already there.
+!!
+!! The name is the label this list shows and need not be the controller's own system name. The MAC and system password are the pair the existing pairing flow used; `/verify` exchanges them for that system's token. The account must already be provisioned on the web host — this does not create a `rbr-users.json` entry — and a successful add selects the new system and reloads.
+AddSystem:
+	put prompt `Name this system for your list` into SystemsAddName
+	if SystemsAddName is `null` return
+	if SystemsAddName is `undefined` return
+	put trim SystemsAddName into SystemsAddName
+	if SystemsAddName is empty return
+	put prompt `Enter your controller's MAC address` cat newline cat `(printed on the device, format aa:bb:cc:dd:ee:ff):` into SystemsAddMac
+	if SystemsAddMac is `null` return
+	if SystemsAddMac is `undefined` return
+	put trim SystemsAddMac into SystemsAddMac
+	put lowercase SystemsAddMac into SystemsAddMac
+	if SystemsAddMac is empty return
+	put prompt `Enter the system password` cat newline cat `(the one shown when the system was provisioned):` into SystemsAddPassword
+	if SystemsAddPassword is empty return
+	if SystemsAddPassword is `null` return
+	if SystemsAddPassword is `undefined` return
+
+	rest post `{"mac":"` cat SystemsAddMac cat `","password":"` cat SystemsAddPassword cat `"}` to `/verify` giving Response
+		or go to AddSystemFailed
+	if Response is empty go to AddSystemFailed
+	if property `ok` of Response is not true go to AddSystemFailed
+	put property `token` of Response into SystemsToken
+	if SystemsToken is empty go to AddSystemFailed
+
+	put SystemsAddMac into SystemsMac
+	put SystemsMac into SystemsFindMac
+	gosub to FindSystem
+	if SystemsFound is greater than -1
+	begin
+		put element SystemsFound of SystemsData into SystemsEntry
+		set property `name` of SystemsEntry to SystemsAddName
+		set property `token` of SystemsEntry to SystemsToken
+		set element SystemsFound of SystemsData to SystemsEntry
+	end
+	else
+	begin
+		set SystemsEntry to object
+		set property `name` of SystemsEntry to SystemsAddName
+		set property `mac` of SystemsEntry to SystemsMac
+		set property `token` of SystemsEntry to SystemsToken
+		json add SystemsEntry to SystemsData
+	end
+	put SystemsMac into SystemsCurrentMac
+	gosub to SaveSystems
 	location the location
 	return
 
-PairFailed:
-	alert `That MAC and password were not accepted. Check the system password that was shown when the controller was registered, and the MAC printed on the device.`
+AddSystemFailed:
+	alert `That MAC and password were not accepted. Check the system password that was shown when the system was provisioned, and the MAC printed on the device.`
 	return
-!! @hash 6a01cdc4
+!! @hash 194ddc15
 !!!
 !! Attach the user's gesture provenance to Result.Source before it is sent.
 !!
@@ -3807,7 +4621,7 @@ ComputeCallingDiff:
 	return
 !! @hash d04ce3fd
 !!!
-!! Walk RoomsList and recompute the SummaryCard aggregates. Sets HeatingCount, HeatingNames, OutsideText, TitleText, SubtitleText — all consumed by PaintSummary.
+!! Walk RoomsList and recompute the SummaryCard aggregates. Sets HeatingCount, HeatingNames, OutsideText and TitleText — all consumed by PaintSummary.
 !!
 !! OutsideTemp is owned by MapToRooms (extracted from the outdoor sensor entry which is filtered out of RoomsList) — we don't reset it here.
 !!
@@ -3868,26 +4682,22 @@ ComputeSummaryStats:
 	if FrostActive
 	begin
 		put `Frost protection active` into TitleText
-		put `Demand relay firing` into SubtitleText
 	end
 	else if HeatingCount is 0
 	begin
 		put `Nothing calling for heat` into TitleText
-		put `System idle` into SubtitleText
 	end
 	else if HeatingCount is 1
 	begin
 		put HeatingNames cat ` is calling for heat` into TitleText
-		put `System firing` into SubtitleText
 	end
 	else
 	begin
 		put HeatingCount cat ` rooms calling for heat` into TitleText
-		put HeatingNames into SubtitleText
 	end
 	gosub to PaintDemandFlame
 	return
-!! @hash f54ef1aa
+!! @hash 7c12b976
 !!!
 !! Push the aggregates from ComputeSummaryStats into the SummaryCard DOM. Element vars must already be attached (BuildFullHome does this each time it builds the full home).
 !!
@@ -3897,7 +4707,6 @@ ComputeSummaryStats:
 PaintSummary:
 	if not SummaryBuilt return
 	set the content of SummaryTitle to TitleText
-	set the content of SummarySubtitle to SubtitleText
 	set the content of SummaryOutside to OutsideText
 
 !	Match the room card: a heat call-out takes the same accent colour as
@@ -3938,7 +4747,7 @@ PaintSummary:
 		set style `display` of SummaryDot to `block`
 	end
 	return
-!! @hash 3380731b
+!! @hash 827af359
 !!!
 !! Build today's date and the current time as "Tue 20 Oct 09:19" into TempStr. Uses DayNames / MonthNames lookup tables built once during synchronous startup, and the browser's own date keywords — this runtime has no `datime` — so ClockTick can refresh it between map pushes. Both time fields are zero-padded.
 FormatTodayString:
@@ -3978,7 +4787,11 @@ TenthsToString:
 !!!
 !! Choose the state colours for a room's name, temperature, pill border and pill background.
 !!
-!! Blue means the radiator is off and orange means it is on. A Timed room is coloured only inside an actual heating period; between periods it is black. An Off room is mid-grey because it is deliberately out of the system. Every other state is black. The pill border adopts the text colour; the background is that colour mixed three-quarters of the way to white, with the neutral default grey when the text is black.
+!! Blue means the radiator is off and orange means it is on. A Timed room is coloured only inside an actual heating period; between periods it is black. An Off room is deliberately out of the system, and is shown by its fainter text alone: it wears the same neutral pill — background and border — as a Timed room between periods. Every other state is black. The pill border adopts the text colour, except the neutral default when the text is black or the muted grey of Off — those take the neutral border, and the background is the neutral default. The blue and orange tints are their own colour mixed three-quarters of the way to white.
+!!
+!! Appendix
+!!
+!! §1 An Off room once had a tint of its own, first a paler one and then a dark one; both drew the eye more than the neutral pill did, which is the opposite of what an out-of-system room should do. The faint text is the whole signal now, so the two greys are deliberately the same pill: pill 0 and pill 3 in `tests/ui/room-colours.spec.js` are asserted to match on border and background.
 ResolveRoomStateColour:
 	put property `mode` of Room into ColourMode
 	clear ColourRadiatorOn
@@ -4005,18 +4818,18 @@ ResolveRoomStateColour:
 		if ColourRadiatorOn put `var(--color-accent)` into RoomTextColour
 		else put `#2F75B5` into RoomTextColour
 	end
-	if RoomTextColour is `var(--color-text-primary)` put `var(--color-text-disabled)` into RoomBorderColour
+!	§1
+	if RoomTextColour is `var(--color-text-primary)` or RoomTextColour is `var(--color-text-muted)` put `var(--color-text-disabled)` into RoomBorderColour
 	else put RoomTextColour into RoomBorderColour
 	if RoomBorderColour is `var(--color-accent)` put `var(--color-pill-bg-orange, #F9DACC)` into RoomBackgroundColour
 	else if RoomBorderColour is `#2F75B5` put `var(--color-pill-bg-blue, #CBDCEC)` into RoomBackgroundColour
-	else if RoomBorderColour is `var(--color-text-muted)` put `var(--color-pill-bg-grey, #F5F5F5)` into RoomBackgroundColour
-	else put `var(--color-pill-bg-default, #EEEEEE)` into RoomBackgroundColour
+	else put `var(--color-pill-bg-default, #DDDDDD)` into RoomBackgroundColour
 	return
-!! @hash 1fc87f80
+!! @hash be4a61ab
 !!!
 !! Render the contents of one room row. Caller must set RoomIndex, IndexStr, and Room first; the per-row DOM has already been built by BuildHomeScreen's render-loop, so this is content-only updates (room name, heating tag, offline tag, subline, temperature, chip styling).
 !!
-!! The room name and current temperature share the state colour chosen by ResolveRoomStateColour: blue for a radiator off, orange for one on, grey in Off mode, and black in a Timed gap.
+!! The room name and current temperature share the state colour chosen by ResolveRoomStateColour: blue for a radiator off, orange for one on, faint grey in Off mode, and black in a Timed gap.
 !!
 !! The subline summarises the room's current schedule context:
 !!

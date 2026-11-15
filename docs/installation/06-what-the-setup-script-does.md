@@ -18,7 +18,7 @@ sudo ./rbr-setup.sh
 Four things are worth settling first, because the script reads them, derives from them, or bluntly tells you about them:
 
 - **Plug the Zigbee coordinator in first.** The script looks for the dongle as it starts and uses what it finds to write the device-name rule and Zigbee2MQTT's `port:` setting. Attaching it afterwards leaves both as placeholders that have to be corrected by hand. Keep the dongle on a USB extension lead, clear of metalwork.
-- **Have the MQTT password to hand.** It is the `password` field from your RBR credentials, and you will be prompted for it.
+- **Have the MQTT password to hand.** It is the broker account's password from your RBR credentials, not the six-digit system password, and you will be prompted for it.
 - **Know the controller's MAC address, or accept the default.** The script offers the MAC of the interface carrying the default route; this address becomes the controller's identity on the message topics, so it is worth checking rather than accepting blindly.
 - **The user that owns the directory is the user everything runs as.** The script does not create an account; it takes the owner of the controller directory (normally your login) and installs every service to run as that user.
 
@@ -105,14 +105,14 @@ Rather than leaving the mail settings as placeholders, the step asks for the fil
 |---|---|---|
 | MQTT broker host | `localhost` | This machine's Mosquitto. |
 | MQTT broker port | `1883` | |
-| Mail server (SMTP host) | — (empty skips email) | Pressing Enter here leaves the mail settings as placeholders. |
-| Mail port | `465` | 465 is implicit TLS; use 587 for STARTTLS providers. |
+| Mail server (SMTP host) | the stored value on a re-run | `-` skips email and leaves the mail settings as placeholders; so does Enter when no server is stored yet. |
+| Mail port | `465` | 465 is implicit TLS; use 587 for STARTTLS providers. `-` restores `465`. |
 | Mail login | — | Usually the same as the From: address. |
-| Mail password | — | Not echoed. |
+| Mail password | — | Not echoed; `-` clears a stored one. |
 | Mail From: address | the mail login | |
-| Fallback recipient for emailed backups | — (empty) | Used only when no address is registered; stored as `mail_to`. |
+| Fallback recipient for emailed backups | the stored value on a re-run | Used only when no address is registered; stored as `mail_to`; `-` clears it. |
 
-The broker account is not asked again: it is the MQTT username and password supplied at the start. Leaving the mail server empty writes the placeholders the script has always written (`smtp.example.com`, an empty password) and says so; the email features then need completing by hand. The answers are written with a JSON writer, so a quote or backslash in a password cannot corrupt the file.
+On a re-run the stored value is offered as the default, so pressing Enter keeps it and an empty answer cannot clear it — whitespace cannot either, because the shell trims it to empty before the default is applied. Type `-` at a mail question to clear that setting; at the server question that means "no email". That turns off the controller's own verification and recovery mail; the monthly backup and the journal export merge in `credentials.php`'s mail settings wherever the local file is empty, so they can still send if the cloud copy is usable. The broker account is not asked again: it is the MQTT username and password supplied at the start. Leaving the mail server empty writes the placeholders the script has always written (`smtp.example.com`, an empty password) and says so; the email features then need completing by hand. The answers are written with a JSON writer, so a quote or backslash in a password cannot corrupt the file.
 
 ### Step 5b — Where the heating records live
 
@@ -182,6 +182,7 @@ The script starts Zigbee2MQTT and the bridge explicitly (the others were started
 ## What it does not do
 
 - **Install AllSpeak.** Deliberate; see above.
+- **Create the system's account.** `rbr-users.json` lives on the web host, one level above the document root, and the controller has no access to it. On that host, after the MAC is known, run `./provision-system.py --mac <MAC> --email <owner> --write`. It creates or repairs the entry, tests the broker login, and prints the six-digit system password. See `doc/PROVISIONING.md`; the account is not created by registration in the app alone, because the broker `credentials` block has no web endpoint.
 - **Pair your Zigbee devices.** That is the next step of the install, and it is interactive.
 - **Finish email settings you skipped.** The mail settings are asked for in Step 5; pressing Enter at the mail server leaves the placeholders, and the emailed backup and the verification/recovery mails need real `mail_*` values.
 - **Configure the machine's firmware.** Coming back after a power cut depends on the BIOS/UEFI "restore after power loss" setting, which no Linux can set. The operating-system half — every service enabled, so the stack returns without a login — is what this script provides.

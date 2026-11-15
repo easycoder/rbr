@@ -186,6 +186,9 @@ async function main() {
       window.TextEncoder = TextEncoder;
       window.TextDecoder = TextDecoder;
       try { window.localStorage.setItem('dev-mac', '00:11:22:33:44:55'); } catch (e) { /* no storage */ }
+      // These checks drive the detailed home's own rows; a device with no
+      // stored view choice now gets the simplified one.
+      try { window.localStorage.setItem('rbr-simple-view', 'off'); } catch (e) { /* no storage */ }
     }
   });
   const d = dom.window.document;

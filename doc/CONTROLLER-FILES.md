@@ -57,6 +57,7 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 |---|---|
 | `simulator.allspeak` | Simulation mode — only if a file named `sim` exists (see `controller.allspeak` init) |
 | `rbr-doctor.py` | A service is down, the UI sits on "Reconnecting...", or the box is not updating. Run `sudo python3 rbr-doctor.py > rbr-doctor.txt` for one read-only report: services, timers, the controller journal, state-file freshness, broker round-trip and the Linux environment |
+| `rbr-mail-test.py` | Mail is failing, or `credentials` and `credentials.php` seem to disagree. Sends one test message using the same settings resolution as the backup and journal export, and prints where each value came from; `--show` reports without sending. It needs `rbr_mail.py`, which ships beside it |
 | `zigbee-config.json` | Optional — the bridge works without it, falling back to `localhost:1883` / port 8889. `rbr-setup.sh` creates it with broker details. |
 | `server.allspeak` | Running the AllSpeak dev server on the controller: `allspeak server.allspeak [port]`, or `allspeak viz [port]` to open the visualiser as well. `server.allspeak` must be kept current — a copy from before 2026-10-12 answers `503 Server handler not ready` to every request and reports nothing; refresh it with `curl -fsS https://allspeak.ai/code/server.allspeak -o server.allspeak` |
 | `.htaccess` | Only if Apache serves this directory (ignored by `http.server`) |
@@ -69,7 +70,7 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 | `.chat-version` | Chat is a server-side web app |
 | `.gitignore`, `.stignore` | Repo hygiene for the dev machine |
 | `.venv/` | Services use the system `python3`; not required |
-| `deploy.sh`, `index.html`, `new-ui/`, `.htaccess`, `auth.php`, `credentials.php` | Cloud server (pushed by `deploy.sh`) |
+| `deploy.sh`, `index.html`, `styles.css`, `script.js`, `assets/`, `new-ui/`, `.htaccess`, `auth.php`, `credentials.php` | Cloud server (pushed by `deploy.sh`) |
 | `tests/`, `doc/`, `docs/`, `desktop/`, `design/`, `AI/`, `conversation/`, `node_modules/` | Dev machine |
 
 ## Backups ##

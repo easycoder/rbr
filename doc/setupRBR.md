@@ -8,7 +8,7 @@ Here are the steps to be taken to set up a new RBR system.
 >
 > **Updates:** automatic code updates are handled by the standalone updater (`rbr-updater.py` + hourly systemd timer, installed by `rbr-setup.sh`) pulling a versioned tarball from rbrheating.com — see [UPDATE-MECHANISM.md](UPDATE-MECHANISM.md).
 >
-> **Re-running setup:** `rbr-setup.sh` is safe to run again for a repair. It leaves an existing `credentials` untouched — including the mail settings — unless you answer `y` to its mail-settings question, which updates only those fields and keeps the previous file as `credentials.bak`. It uses an existing `.mac_override` as the default MAC. If the MQTT username or password changes, edit `credentials` by hand (or delete it and re-run) so the controller can reach the local broker.
+> **Re-running setup:** `rbr-setup.sh` is safe to run again for a repair. It leaves an existing `credentials` untouched — including the mail settings — unless you answer `y` to its mail-settings question, which updates only those fields and keeps the previous file as `credentials.bak`; type `-` at a mail question to clear that stored value, which at the mail server means "no email". It uses an existing `.mac_override` as the default MAC. If the MQTT username or password changes, edit `credentials` by hand (or delete it and re-run) so the controller can reach the local broker.
 >
 > **Data safety:** `rbr-mapbackup.py` (2-minute timer, also installed by `rbr-setup.sh`) keeps the last 10 valid `map.json` revisions in `map-history/` and restores the newest good one if the live file is ever left unreadable — a power cut mid-save can truncate it, because AllSpeak's `save` is not atomic. Separately, `rbr-backup.timer` writes a complete archive on the first of every month into `backup/` (plan, credentials and the Zigbee2MQTT data, including the network key); **Menu → Backups** can email a copy to the registered address. After a fresh install, `sudo python3 rbr-restore.py <archive>` puts it back; see [CONTROLLER-FILES.md](CONTROLLER-FILES.md#backups).
 
@@ -42,7 +42,7 @@ sudo ./rbr-setup.sh
 cat .mac_override
 ```
 
-The system password is not on the box. It is a six-digit code generated when the system is first registered in the UI (step 8) and shown once at that moment, so write it down then. `~/rbr/credentials` looks like it should hold it and does not: that is the MQTT password, a different and longer secret, and it will be rejected here.
+The system password is not on the box. It is a six-digit code generated on the web host when the system's account is provisioned in step 8, and it is shown once at that moment, so write it down then. `~/rbr/credentials` looks like it should hold it and does not: that is the MQTT password, a different and longer secret, and it will be rejected here.
 
 If it is lost there are two ways back. The site's `recover` endpoint issues a fresh one for the MAC plus the email address the system was registered with:
 
@@ -53,9 +53,15 @@ curl -s -X POST https://rbrheating.com/recover \
 ```
 
 and the plaintext is also in `rbr-users.json` on the hosting server, one level above the web root, where it can be read directly.
-8. In your mobile phone user interface (https://rbrheating.com/heat/), tap the hamburger icon in the top right and select System Manager from the menu. If you're a new user you will have to register; just follow the instructions.
-   > **Registering is not the same as being provisioned.** Registration creates the record and its six-digit password; the broker account the app connects with is a separate field that no web endpoint creates. A system registered only through the UI pairs successfully and then sits in demo mode with no error to explain it. Provision the system on the web host first — see [PROVISIONING.md](PROVISIONING.md) — or ask for it to be done, and it will hand back the MAC and password to use here.
-9. Click the Add button to add your new system and use the MAC and password you obtained in step 7. Select the system by its name and tap OK to return to the main user interface.
+8. Provision the system's account on the web host. `rbr-setup.sh` installs the controller; it does not create the system's entry in `rbr-users.json`. That file lives on the web host, one level above the document root, outside the controller and its deployment. On that host, as the account that owns the file, run:
+```
+cd /home/rbrheating
+./provision-system.py --mac <MAC> --email <owner> --write
+```
+It creates or repairs the entry, tests the broker login, and prints the six-digit system password for a new entry. Write that password down with the MAC. [PROVISIONING.md](PROVISIONING.md) records every field and what the tool refuses to write.
+
+   > **Registration is not provisioning.** A system registered through the app alone gets a password but no `credentials` block; `credentials.php` refuses it and the app falls into demo mode with nothing to explain why. The provisioning tool is what supplies the broker account. `rbr-setup.sh` deliberately cannot do this: it runs on the customer's controller and has no access to the web host's account file.
+9. In the PWA (https://rbrheating.com/heat/), tap the house mark to open the About sheet, choose the **Systems** tab and tap **Add a system**. Enter the name you want this device's list to show, then the MAC and the system password from step 8. The app stores each system separately and selects the new one as current; the name here is the list label, while the controller's own system name is set later under **System**. A first system can also be added with the About sheet's **Set up my system** button.
 10. Commission the Zigbee devices. The setup script (step 6) installed and enabled Zigbee2MQTT with the coordinator dongle auto-detected; make sure it is running, then pair the devices one by one:
 ```
 sudo systemctl start zigbee2mqtt      # already enabled — start it if not running
@@ -89,7 +95,7 @@ sudo systemctl status zigbee2mqtt     # should show active (running)
     - `sudo journalctl -u controller.service -f` — the controller's own log.
     - `curl -s http://127.0.0.1:8889/health` — bridge health, including `setFailures`. Localhost only, by design: that port can also switch relays.
 
-    > **"No recent change" is normal.** Many thermometers report on a ~60-minute heartbeat, or sooner if the temperature moves. A reading older than 45 minutes counts as missing, so the controller holds that room's relay off until a fresh one arrives and the UI shows the last known value with a soft warning. The exception is the first 30 minutes of a scheduled period, which start the heat from the last known value — a period lost to a reporting gap is worse than heating briefly on an old reading — and if the thermometer still has not reported when those 30 minutes are up, the heat goes off. Either way that is deliberate — a room cools gently rather than heating without feedback — and it clears itself.
+    > **"No recent change" is normal.** Many thermometers report on a ~60-minute heartbeat, or sooner if the temperature moves. A reading older than 45 minutes counts as missing, so the controller holds that room's relay off until a fresh one arrives and the UI shows the last known value with a soft warning. The exception is the first 30 minutes of a scheduled period, which start the heat from the last known value — a period lost to a reporting gap is worse than heating briefly on an old reading — and if the thermometer still has not reported when those 30 minutes are up, the heat goes off. Either way that is deliberate — a room cools gently rather than heating without feedback — and it clears itself. Where a room should report more often than its sensor does by default, `doc/SENSOR-REPORTING.md` gives the Zigbee2MQTT commands to read and set the interval, and the wake-up caveat for battery devices.
 
     > **For unattended operation, check the firmware.** Set the BIOS/UEFI "Restore AC Power Loss" (also "AC Back" / "After Power Failure") to **Power On**, and disable **ErP/EuP Ready**, which can block automatic power-on. Nothing in the OS can read or set this, so test it by cutting mains, restoring it and watching the machine come up by itself. The OS half is already handled: every service is enabled, so the whole stack returns without a login. After any outage, confirm `map.json` survived — `allspeak diagnose.allspeak` says whether it is present and lists the rooms; the map keeper repairs a truncated one within a couple of minutes of boot.
 
@@ -99,8 +105,9 @@ The UI lives at <https://rbrheating.com/heat/>; the older page at the site root 
 
 The broker now carries each system in two accounts: the bridge on the box, whose password never leaves that box, and the account the UI pages use, which is fenced to that system's MAC and is handed out only to a paired device.
 
-- **Pairing.** Open the UI and it shows the demo home until paired. "Set up my system" (in the About sheet) asks for the system's MAC and its password, then keeps a token in localStorage as `dev-token` and reloads connected.
-- **The system password** is the six-digit code shown once when the system is registered in the UI — not the MQTT password in `~/rbr/credentials`, which is a common and costly confusion. The endpoint checks it before issuing that token, so treat it as the system's secret rather than a note in a repo. Lost ones can be reissued by the `recover` endpoint given the MAC and the registration email, or read from `rbr-users.json` on the hosting server.
+- **Provisioning is a web-host step.** `rbr-setup.sh` does not create the `rbr-users.json` entry. On the web host, run `./provision-system.py --mac <MAC> --email <owner> --write` after the controller's MAC is known; it creates or repairs the entry, tests the broker login, and prints the six-digit system password. See `doc/PROVISIONING.md`.
+- **Pairing.** Open the UI and it shows the demo home until a system is selected. **About → Systems → Add a system** asks for a name for this device's list, the MAC and the system password, then keeps the token with that system and reloads connected. A second system is added the same way; **Select** switches between them, **Rename** changes the label in this device's list, and **Remove** forgets one on this device. The name in that list is a label for the device, not the controller's own system name.
+- **The system password** is the six-digit code generated by `provision-system.py` when the account is created — not the MQTT password in `~/rbr/credentials`, which is a common and costly confusion. The endpoint checks it before issuing a token, so treat it as the system's secret rather than a note in a repo. Lost ones can be reissued by the `recover` endpoint given the MAC and the registration email, or read from `rbr-users.json` on the hosting server.
 - **The bridge's account** (`rbr-bridge`) is what mosquitto bridges with; its credentials belong only in `/etc/mosquitto/conf.d/rbr-local.conf` on the box, and nowhere else.
 - **A fresh controller with no local `credentials` file** fetches its mail settings from `credentials.php`, which now requires a token. Without one the fetch fails, and the install silently runs without mail settings.
 - **A second system needs its own fence.** `credentials.php` serves one account per host, and the ACL gives `#` only to the bridge account, so a new system's MAC has to be granted its own topics (or be given its own account and credentials block) before its UI will work.

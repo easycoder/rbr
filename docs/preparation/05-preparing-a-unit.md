@@ -33,7 +33,7 @@ Wire each room to the sensor and relays by the names just created, and set the d
 
 ## Recording what the household will need
 
-Two things have to leave here written down, because the household cannot use the system without them: the controller's address, and its password. Those are the pair of values entered when the house is added to the interface, and recovering them later means going back to the machine.
+Two things have to leave here written down, because the household cannot use the system without them: the controller's MAC address, and its system password. The password is not on the controller: it is created on the web host when the unit's account is provisioned with `provision-system.py` (see `doc/PROVISIONING.md`) and shown once at that moment. Those are the pair of values entered when the house is added to the interface; `rbr-setup.sh` installs the controller but does not create the account, and recovering the pair later means going back to the machine and the web host.
 
 Worth keeping alongside them: the room names as built, and any device whose name does not follow the convention — because that is the list somebody will want when a part is replaced in three years.
 
@@ -56,7 +56,8 @@ Those steps, and the checks that go with them, are in the installation section. 
 | The demand relay named as the plan's `request` field says | Otherwise nothing drives the boiler |
 | Every room wired to its sensor and its devices | A room with no sensor is a room held off |
 | A schedule set for every room | A room with no schedule has nothing to follow |
-| The controller's address and password recorded | The household cannot add the house without them |
+| The controller's MAC and system password recorded | The household cannot add the house without them |
+| The unit's account provisioned on the web host | `provision-system.py` supplies the broker credentials the app needs |
 | Room names, and any devices named off-convention, recorded | For whoever replaces a part in three years |
 
 ## Where next
