@@ -41,7 +41,7 @@ test('the About sheet links to the manual and lists the current system', async (
   await expect(page.locator('#about-sheet')).toBeVisible();
 
   const manual = page.locator('#about-tab-manual');
-  await expect(manual).toHaveAttribute('href', '/docs/');
+  await expect(manual).toHaveAttribute('href', '/docs/#operation/01-the-interface');
   await expect(manual).toHaveAttribute('target', '_blank');
 
   await page.locator('#about-tab-systems').click();

@@ -1,4 +1,4 @@
-# Room By Room — product documentation
+# Room By Room
 
 RBR turns the radiators already in a house into a system that heats each room to its own schedule. It uses off-the-shelf hardware and the home network that is already there.
 
@@ -92,9 +92,9 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 | Document | Purpose | Status |
 |---|---|---|
 | [01-the-interface.md](operation/01-the-interface.md) | The phone app, the simplified home, colour and modes, Advance, Boost and Special actions | **Draft** |
-| 02-modes-schedules-profiles.md | Timed, boost, advance, on, off; profiles and the calendar | To write |
-| 03-managing-many-systems.md | Estate administration for a housing provider | To write |
-| 04-troubleshooting.md | What to try when something looks wrong | To write |
+| [02-modes-schedules-profiles.md](operation/02-modes-schedules-profiles.md) | The plan behind Timed: periods, profiles and the calendar | **Draft** |
+| [03-managing-many-systems.md](operation/03-managing-many-systems.md) | The local Systems list: add, select, rename, remove; several phones and revocation | **Draft** |
+| [04-troubleshooting.md](operation/04-troubleshooting.md) | What to try when something looks wrong, and when to call the installer | **Draft** |
 
 **Technical — how it works underneath**
 
@@ -147,4 +147,4 @@ This tree links into `doc/` and `AI/` for detail. Those two remain the source of
 
 ## Status
 
-The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md); the operation layer its first, [The interface](operation/01-the-interface.md); and the technical layer its first two, [Architecture](technical/01-architecture.md) and [Events and the journal](technical/07-events-and-the-journal.md). The rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet. The testing layer has its first page, [UI testing strategy](testing/01-ui-test-strategy.md); it is deliberately an outline and will grow into the full UI test strategy.
+The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md); the operation layer is complete: [The interface](operation/01-the-interface.md), [Schedules and profiles](operation/02-modes-schedules-profiles.md), [Managing many systems](operation/03-managing-many-systems.md) and [Troubleshooting](operation/04-troubleshooting.md); and the technical layer has its first two, [Architecture](technical/01-architecture.md) and [Events and the journal](technical/07-events-and-the-journal.md). The rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet. The testing layer has its first page, [UI testing strategy](testing/01-ui-test-strategy.md); it is deliberately an outline and will grow into the full UI test strategy.

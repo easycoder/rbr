@@ -1,5 +1,5 @@
 {
-    "#doc": "About sheet — tabbed marketing + systems surface. Auto-opens on first visit when there are no credentials; tap the house mark in the top bar to re-open. 'About' is the marketing pitch with a 'Set up my system' CTA; 'Manual' is an external link to /docs/; 'Systems' lists the installations this device can manage and offers add, select and remove.",
+    "#doc": "About sheet — tabbed marketing + systems surface. Auto-opens on first visit when there are no credentials; tap the house mark in the top bar to re-open. 'About' is the marketing pitch with a 'Set up my system' CTA; 'Manual' is an external link to the reader's page about this very app (/docs/#operation/01-the-interface), because someone who taps it from here is asking what the screen in front of them does; 'Systems' lists the installations this device can manage and offers add, select and remove.",
     "#element": "div",
     "@id": "about-sheet",
     "#": ["$Tabs", "$Bodies"],
@@ -32,7 +32,7 @@
         "$TabManual": {
             "#element": "a",
             "@id": "about-tab-manual",
-            "@href": "/docs/",
+            "@href": "/docs/#operation/01-the-interface",
             "@target": "_blank",
             "@rel": "noopener noreferrer",
             "flex": "1",

@@ -357,3 +357,162 @@ Your reading was right in effect, though the cause was slightly different: the f
 **Checked in Chromium** at phone width with orange and with slate: the gradient reads as the chosen colour, cards separate from it, and the text holds. `tests/ui/appearance.spec.js` now computes the afternoon stops for the fixed case (it had the midday values), and the full UI suite is 24/24, including the specs you added meanwhile.
 
 **DIFF.md merged, not overwritten.** It had been rewritten for the screenshots / operation page / pill-spacing work in the same working tree, and that deploy is still pending, so I kept it and added this change plus a correction: a release is now needed because `controller.allspeak` also carries the heating-type fix from earlier. Both `git diff --check` and `node tests/docs-reader-check.js` (63/63) re-run clean.
+
+## 19:31
+
+The About...Manual link should open "The interface", since this is probably most relevant to the user arriving from here.
+
+**Assistant**
+
+Changed: the About sheet's Manual tab now opens `/docs/#operation/01-the-interface` instead of `/docs/`. Agreed on the reasoning — someone tapping Manual from inside the app is asking what the screen in front of them does, not how to fit a system.
+
+The reader routes on the fragment and builds its page list from `docs/README.md`, where `operation/01-the-interface.md` is listed as **Draft**, so the address resolves to a real page rather than a "not written yet" notice. `tests/docs-reader-check.js` already opens that exact fragment directly and asserts the title, so the destination is covered; what I changed is the link and its two documentation comments (`about-sheet.json` and the `OpenAboutSheet` block, which now say why it points there).
+
+`tests/ui/systems.spec.js` was asserting the old `/docs/` address, so it now asserts the new one and its header says what the control is for. Full UI suite 24/24.
+
+`DIFF.md` merged again rather than overwritten: the pending deploy now also carries this, so `./deploy.sh --release` publishes the lot — site, `/docs/`, the PWA and the controller pack — and one reload of the phone is still all it takes.
+
+## 19:38
+
+1. The word "documentation" in the title of the documentation page looks awkward and can be removed.
+2. In technical/01-architecture, at "How many brokers?", the URL rbrheating.duckdns.org should be removed as deployment on any scale will probably require several different brokers. Just say "in the cloud". If it's used anywhere else, the same applies.
+
+**Assistant**
+
+Both done.
+
+**1. "Documentation" removed from the reader's chrome.** There were three places it appeared: the top bar's fixed label beside the product name (`$PageTitle` in `docs-reader/docs.json`), the browser tab (`<title>Documentation — Room By Room Heating</title>`), and the contents page's own H1 ("Room By Room — product documentation"). The top-bar label is gone entirely — the bar now carries the brand and the buttons, checked in a screenshot at 1000px — the tab reads "Room By Room Heating", and the heading is "Room By Room". `tests/docs-reader-check.js` asserted all three, so its checks now expect the new strings.
+
+**2. The broker is named by role, not host.** In `technical/01-architecture.md` the cloud row now says "RBR's server, in the cloud"; the same address also appeared in `installation/06-what-the-setup-script-does.md`, so that bullet now reads "a bridge to the RBR cloud broker, in the cloud on port 8883". Nothing under `docs/` or `docs-reader/` mentions the hostname any more.
+
+I left it where it has to be machine-accurate: `rbr-setup.sh`, `rbr-preflight.py`, `zigbee-pair.py`, `credentials.example.json`, and the engineering notes in `doc/` and `AI/` (which describe today's deployment for whoever maintains it). Say the word if you want it out of those too.
+
+One thing I did not change, since it is not the URL: the paragraph after that table still says the cloud broker "is **shared**: it is one address that every system is pointed at". With several brokers at scale that becomes "one of RBR's brokers", if you want it generalised now.
+
+`node tests/docs-reader-check.js` 63/63; `git diff --check` clean. Merged into `DIFF.md` — this rides the same pending `./deploy.sh --release`.
+
+## 19:44
+
+Actually, I don't think it's linguistically incorrect, in that every system is pointed at one address. It's just that in future it may not always be the same one. Not worth changing.
+
+**Assistant**
+
+Agreed — "one address that every system is pointed at" is true of any deployment; which address that is can change without the sentence becoming wrong. Left as it is, nothing changed, and the docs now read: the cloud broker is shared, and the hostname is not part of the documentation at all. The only outstanding action remains the pending `./deploy.sh --release`.
+
+## 19:51
+
+A question: Do we need Opertation: 02-modes-schedules-profiles.md? Does it overlap 01-the-interface.md? If there's more to add, let's do it now.
+
+**Assistant**
+
+Yes, keep it — but not as originally scoped. 01 now covers the modes themselves, so a second page that re-explained Timed, On, Boost, Off and Advance would mostly repeat it. I rewrote 02 as **the plan behind Timed**:
+
+- the schedule editor, one room in one profile;
+- the period card — On at, Off at, Target, Enabled, Delete — and the quarter-hour time list;
+- adding, removing and enabling periods, the one-hour default for a new period, overnight periods and the 24-hour period;
+- saving to one profile, and why other profiles are untouched;
+- profile selection, rename, delete and duplicate, including the rule that names are the join and renames move the calendar;
+- the calendar: OFF means one profile for every day; ON maps Monday–Sunday, with the active profile coming from the day.
+
+The page links back to [The interface](01-the-interface.md) for the modes, Advance, Boost and Special actions, so the overlap is a cross-reference rather than duplicated prose. It uses the same three-room sample installation. The map now links `02-modes-schedules-profiles.md` and marks it **Draft**, and `TODO-docs.md` records two operation pages written and two left.
+
+I also captured two new screenshots from the fixed 16:53 sample: the Living Area's Weekday schedule with morning and evening periods, and the profile sheet with the calendar active — Monday–Friday Weekday, Saturday–Sunday Weekend. The docs reader test now checks the schedules page and its images as well as the interface page.
+
+Verification: `node tests/docs-reader-check.js` 66/66; `git diff --check` clean. The missing-page navigation test now walks from the written schedules page to the still-unwritten `operation/03` and `operation/04`. The link audit leaves only pages the map marks **To write**. Run `./deploy.sh` to publish the page and images.
+
+## 20:06
+
+The Special Actions - Morning start time brings up a time selector dial on Android (I don't have access to IOS to compare). Can this also be made to appear in the Schedule for event times? It allows times to be set to the minute, but I can't see that being a problem.
+
+**Assistant**
+
+Done — the schedule's two times are now native time fields (`input type=time`), the same control the Special actions sheet uses for its Morning start time, so Android (and iOS) open their own dial and any minute can be set.
+
+**What changed.** `schedule-period.json`'s two `<select>`s became `<input type="time">` with ids `-start-time` / `-off-time` (they were `-start-select` / `-off-select`), styled as before. In `schedule-editor.allspeak` the symbols are now `input PeriodStartTime` / `PeriodOffTime`; `BuildTimeOptions`, the 96-option list and the "off-grid time appended to the list" fallback are gone, since a field holds any `HH:MM` the model carries. `PaintPeriodValues` writes the stored string straight in, and both change handlers read the field instead of `the selected item of`; a cleared field repaints from the model rather than leaving a blank.
+
+**Behaviour is unchanged** except the precision: a loaded period keeps its duration when its start moves (across midnight too), a new period stops an hour after its start until its stop is picked, and **+ Add period** still starts at the end of a running period or at the nearest quarter hour — a tidy default now that the field itself takes any minute.
+
+**Tests.** `tests/pwa-schedule-editor-check.js` now asserts both controls are `type=time` and adds a minute-precision case (07:17 → 09:17); 18/18. `tests/ui/schedule.spec.js` fills the same field in Chromium and checks the saved request. Full UI suite 24/24, `pwa-compile-check` 12/12, `asdoc-check` clean. `AGENTS.md` and `docs/operation/02-modes-schedules-profiles.md` no longer describe quarter-hour lists.
+
+**One thing for you:** `docs/operation/images/10-schedule-editor.png` (added with the operation page today) shows the old dropdowns, so it wants recapturing — the caption and text still hold. It is in `DIFF.md` with the rest of the pending deploy.
+
+## 20:12
+
+docs/operation/images/10-schedule-editor.png  needs to be recaptured as the time editor has changed.
+
+**Assistant**
+
+Recaptured. `10-schedule-editor.png` now shows the native time fields with their clock-picker buttons, in the same two-period Living Area schedule — 06:00–08:00 at 20.0° and 17:00–22:00 at 21.0° — with the room behind it in its between-periods state.
+
+The 02 page already describes the native picker (any minute, no quarter-hour list), so the caption and prose needed no change. The other screenshots were left untouched; this was a single-image refresh at the fixed 16:53 sample time.
+
+Verification: `node tests/docs-reader-check.js` 66/66, including the schedules page and its images; `git diff --check` clean. No PWA or controller code changed. Run `./deploy.sh` to publish the refreshed image.
+
+## 20:18
+
+I'd like complete the Operation section, so let's do 03-managing-many-systems.md next.
+
+**Assistant**
+
+Written. `docs/operation/03-managing-many-systems.md` covers the local Systems list for an installer or estate manager:
+
+- the list as an address book — Oak House, Willow Cottage and Flat 2 in the sample — with one current system and no primary/secondary hierarchy;
+- the distinction between the controller's own System name and the local label this phone uses;
+- adding a system: a local name, the MAC and the six-digit system password, with the account already provisioned on the web host;
+- selecting a system and why that reloads the app;
+- renaming the local label without touching the controller or the server;
+- removing a system locally, and the fact that removal is not server-side revocation;
+- several phones, the one-token-per-system model, and rotating the token as the only revocation path;
+- the limits — no combined dashboard, no account roles, no audit trail — and a working checklist.
+
+It has one screenshot, `12-systems-list.png`, showing the three-system list with the current row and the Select/Rename/Remove actions. `docs/README.md` now links the page and marks it **Draft**; `TODO-docs.md` records three operation pages written and one left.
+
+Verification: `node tests/docs-reader-check.js` 69/69, including the new page and its screenshot; `git diff --check` clean. The missing-page navigation test now starts at the written 03 page and walks to the still-unwritten `operation/04`. Run `./deploy.sh` to publish the page and image.
+
+## 20:28
+
+That looks fine. Let's finish today with Troubleshooting.
+
+**Assistant**
+
+The operation layer is complete. `docs/operation/04-troubleshooting.md` covers:
+
+- reading the app's signals: connection status, the offline tag, the warning row and Room details;
+- the first checks, including **Reconnecting…**, demo mode, the wrong system, offline devices, stale sensors, low batteries, missing radiators, rooms that will not heat or stop, and the whole house being cold;
+- rooms that will not heat, worked from mode and target through sensor state to the boiler;
+- rooms that will not stop, with valve safety and the boundary between an app setting and a hardware fault;
+- sensor and battery warnings, including the 45-minute/one-hour reading age and the first 30 minutes of a scheduled period;
+- schedules and profiles when the plan seems ignored — mode, profile, calendar, clock, period, one-off changes and the On cap;
+- stale data, boiler/frost behaviour and several systems;
+- when to call the installer, with the safety boundary around gas, water and electrical work;
+- a short installer section with `rbr-doctor.py`, `allspeak diagnose.allspeak`, `zigbee-mesh.py`, the bridge health endpoint and the controller journal.
+
+Two new screenshots: `13-room-offline.png` shows a relay-not-responding room; `14-room-warning.png` shows a stale sensor with a low battery. `docs/README.md` links the page and marks it **Draft**; operation is now complete in `TODO-docs.md`.
+
+Verification: `node tests/docs-reader-check.js` 72/72, including the new page and its images; `git diff --check` clean. The missing-page navigation test now uses `technical/01` → `technical/02`, since all four operation pages are written. The link audit leaves only the pages the map marks **To write**. Run `./deploy.sh` to publish the page and images.
+
+## 20:44
+
+One more thin tonight. I asked DSeek Chat about how to ensure that if I were to become unavailable, someone else would be able to provide support. The suggestion was:
+
+1. Write a "succession document" that any programmer can follow
+Don't just put it in the repository—write a standalone CONTINUITY.md or GOVERNANCE.md that clearly states: if you're unable to continue participating, who should do what, and in what order. Reference existing practices: some projects specify in the document the criteria for "confirming the original maintainer is unavailable" (e.g., 30 days of inactivity and no response to emails), as well as the steps for the successor to obtain repository and publishing permissions. This way, a heating engineer can see that even if you're gone, there's a clear "emergency plan," rather than a pile of code that no one can touch.
+
+2. Make good use of GitHub's "deceased user policy" and organizational transfer mechanisms
+GitHub has explicit procedures for handling account ownership transfer in the event of a maintainer's death or permanent incapacity. You can document in the repository's README or governance document: "In the event of my permanent incapacity, the designated successor may apply to GitHub Support for transfer of repository ownership in accordance with GitHub's Deceased User Policy." This way, the project won't be forever locked in your personal account.
+
+Can we start by writing one of the suggested documents. Ask me whatever you need. I may be able to supply a contact name if that's needed.
+
+**Assistant**
+
+Wrote `CONTINUITY.md` as the standalone succession plan, plus the MIT licence you chose and a README pointer.
+
+**The plan.** It names the maintainer, the successor *role* (an installer/company or trusted developer, with the named person and contact kept in a private signed addendum), the 30-day trigger after two contact attempts on separate channels, who may invoke it, and the order of action: GitHub, domain/hosting, broker, data, users, licence, then update the plan. It includes an access inventory for the repository, site, controller update channel, `rbr-users.json`, host settings, broker, mail, deployment key and backups; the GitHub pre-designated-successor, organization and Deceased User Policy routes; credential rotation and emergency-access requirements; what a successor must not do; communication; annual review; and the open items.
+
+**The open items are deliberate:** name the successor in the addendum, place and test the emergency-access material, and pre-designate the successor on GitHub (and consider an organization owner). The plan records the role and process until those are done.
+
+**Licence.** Added `LICENSE` under MIT with `Copyright (c) 2026 Graham`; change the holder if you want your full legal name or a company. The README now has a **Continuity and licence** section linking both, and states the GitHub transfer route.
+
+**Assumption to check:** I used the public project contact `info@rbrheating.com` and GitHub `@easycoder` rather than your personal email. No secrets or private contact details are in the repository.
+
+Verification: prose only, so no suite was run; `git diff --check` is clean and the local links in `README.md` and `CONTINUITY.md` resolve. Commit and push the two documents and README; no site deploy is needed for them. The pending `--release` is separate.

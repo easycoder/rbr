@@ -1,17 +1,18 @@
-// pwa-schedule-editor-check.js — drives the Schedule sheet's time dropdowns in
-// the real runtime and checks how a stop follows its start.
+// pwa-schedule-editor-check.js — drives the Schedule sheet's time fields in the
+// real runtime and checks how a stop follows its start.
 //
 //   node tests/pwa-schedule-editor-check.js
 //
-// Why this exists. The schedule editor used to step both times with +/- buttons.
-// A dropdown is a different interaction, and the rule the user asked for —
-// Google Calendar's: a new period stops an hour after its start, and an
-// existing period keeps its duration when the start moves — lives in one
-// change handler. A compile check cannot see either the rendered options or
-// what a selection does to the other field; this drives the real module, in
-// the real runtime, with jsdom and no broker, controller or browser.
+// Why this exists. The schedule editor used to step both times with +/- buttons,
+// then offered quarter-hour dropdowns; both are gone in favour of the phone's
+// own time dial (an input type=time, the control Special actions already used).
+// The rule the user asked for — Google Calendar's: a new period stops an hour
+// after its start, and an existing period keeps its duration when the start
+// moves — lives in one change handler. A compile check cannot see what a picked
+// time does to the other field; this drives the real module, in the real
+// runtime, with jsdom and no broker, controller or browser.
 //
-// The assertions read the selects back from the DOM, then read the module's
+// The assertions read the fields back from the DOM, then read the module's
 // Save reply. That reply is what the shell ships to the controller, so the
 // last check is the one that matters: the editing-only `offAuto` flag must not
 // escape into the stored periods.
@@ -149,8 +150,9 @@ function serve(runtimeBody) {
   });
 }
 
-// Set a real <select> and fire the event the browser would fire. The handler
-// runs on its own thread, so each caller waits for it before the next step.
+// Set a real field and fire the event the browser would fire — the same `change`
+// an input type=time emits when its dial is confirmed. The handler runs on its
+// own thread, so each caller waits for it before the next step.
 async function choose(dom, id, value) {
   const el = dom.window.document.getElementById(id);
   if (!el) throw new Error('no element #' + id + ' — the sheet did not render');
@@ -228,86 +230,90 @@ async function main() {
 
   try {
     for (let i = 0; i < SETTLE_MS / 150; i++) {
-      if (d.getElementById('schedule-period-0-start-select')) break;
+      if (d.getElementById('schedule-period-0-start-time')) break;
       await sleep(150);
     }
-    if (!d.getElementById('schedule-period-0-start-select')) {
+    if (!d.getElementById('schedule-period-0-start-time')) {
       throw new Error('the module never rendered a period card. console:\n' + lines.join('\n'));
     }
     await sleep(400);
 
     console.log('\n== the time controls ==');
-    const start0 = d.getElementById('schedule-period-0-start-select');
-    check('both times are dropdowns, not steppers',
-      start0.tagName === 'SELECT' && d.getElementById('schedule-period-0-off-select').tagName === 'SELECT');
-    check('the dropdown offers quarter hours through the day',
-      start0.options.length === 96 && start0.options[1].value === '00:15' && start0.options[95].value === '23:45',
-      { count: start0.options.length, first: start0.options[0].value, last: start0.options[95].value });
-    check('each dropdown shows its stored time',
-      start0.value === '06:00' && valueOf(d, 'schedule-period-0-off-select') === '08:00'
-      && valueOf(d, 'schedule-period-1-start-select') === '18:00' && valueOf(d, 'schedule-period-1-off-select') === '23:00',
-      [start0.value, valueOf(d, 'schedule-period-0-off-select'), valueOf(d, 'schedule-period-1-start-select'), valueOf(d, 'schedule-period-1-off-select')]);
+    const start0 = d.getElementById('schedule-period-0-start-time');
+    check('both times are time fields, so the phone offers its own dial',
+      start0.tagName === 'INPUT' && start0.type === 'time'
+      && d.getElementById('schedule-period-0-off-time').type === 'time',
+      [start0.tagName, start0.type]);
+    check('each field shows its stored time',
+      start0.value === '06:00' && valueOf(d, 'schedule-period-0-off-time') === '08:00'
+      && valueOf(d, 'schedule-period-1-start-time') === '18:00' && valueOf(d, 'schedule-period-1-off-time') === '23:00',
+      [start0.value, valueOf(d, 'schedule-period-0-off-time'), valueOf(d, 'schedule-period-1-start-time'), valueOf(d, 'schedule-period-1-off-time')]);
 
     console.log('\n== moving a start ==');
-    await choose(dom, 'schedule-period-0-start-select', '06:30');
+    await choose(dom, 'schedule-period-0-start-time', '06:30');
     check('an existing two-hour period keeps its duration (06:30–08:30)',
-      valueOf(d, 'schedule-period-0-off-select') === '08:30', valueOf(d, 'schedule-period-0-off-select'));
+      valueOf(d, 'schedule-period-0-off-time') === '08:30', valueOf(d, 'schedule-period-0-off-time'));
 
-    await choose(dom, 'schedule-period-1-start-select', '19:00');
+    await choose(dom, 'schedule-period-0-start-time', '07:17');
+    check('a time off the quarter hour is accepted and travels (07:17–09:17)',
+      valueOf(d, 'schedule-period-0-off-time') === '09:17', valueOf(d, 'schedule-period-0-off-time'));
+    await choose(dom, 'schedule-period-0-start-time', '06:30');
+
+    await choose(dom, 'schedule-period-1-start-time', '19:00');
     check('a five-hour period keeps its duration across midnight (19:00–00:00)',
-      valueOf(d, 'schedule-period-1-off-select') === '00:00', valueOf(d, 'schedule-period-1-off-select'));
+      valueOf(d, 'schedule-period-1-off-time') === '00:00', valueOf(d, 'schedule-period-1-off-time'));
 
-    await choose(dom, 'schedule-period-1-off-select', '23:30');
-    await choose(dom, 'schedule-period-1-start-select', '20:00');
+    await choose(dom, 'schedule-period-1-off-time', '23:30');
+    await choose(dom, 'schedule-period-1-start-time', '20:00');
     check('a stop picked by hand becomes the duration that travels (20:00–00:30)',
-      valueOf(d, 'schedule-period-1-off-select') === '00:30', valueOf(d, 'schedule-period-1-off-select'));
+      valueOf(d, 'schedule-period-1-off-time') === '00:30', valueOf(d, 'schedule-period-1-off-time'));
 
-    await choose(dom, 'schedule-period-1-start-select', '00:30');
+    await choose(dom, 'schedule-period-1-start-time', '00:30');
     check('a start moved back over midnight takes the short way (00:30–05:00)',
-      valueOf(d, 'schedule-period-1-off-select') === '05:00', valueOf(d, 'schedule-period-1-off-select'));
-    await choose(dom, 'schedule-period-1-start-select', '20:00');
+      valueOf(d, 'schedule-period-1-off-time') === '05:00', valueOf(d, 'schedule-period-1-off-time'));
+    await choose(dom, 'schedule-period-1-start-time', '20:00');
     check('moving it back again restores the same duration',
-      valueOf(d, 'schedule-period-1-off-select') === '00:30', valueOf(d, 'schedule-period-1-off-select'));
+      valueOf(d, 'schedule-period-1-off-time') === '00:30', valueOf(d, 'schedule-period-1-off-time'));
 
     console.log('\n== adding a period ==');
     d.getElementById('schedule-add-btn').click();
     for (let i = 0; i < 20; i++) {
-      if (d.getElementById('schedule-period-2-start-select')) break;
+      if (d.getElementById('schedule-period-2-start-time')) break;
       await sleep(150);
     }
     check('with no period running, a new period starts at the quarter hour closest to now (15:07 -> 15:00)',
-      valueOf(d, 'schedule-period-2-start-select') === '15:00'
-      && valueOf(d, 'schedule-period-2-off-select') === '16:00',
-      [valueOf(d, 'schedule-period-2-start-select'), valueOf(d, 'schedule-period-2-off-select')]);
+      valueOf(d, 'schedule-period-2-start-time') === '15:00'
+      && valueOf(d, 'schedule-period-2-off-time') === '16:00',
+      [valueOf(d, 'schedule-period-2-start-time'), valueOf(d, 'schedule-period-2-off-time')]);
 
     // 07:00 falls inside the first period as the test has edited it
     // (06:30–08:30), so Add should begin where that period ends.
     dom.window.__now = new dom.window.Date(2026, 9, 24, 7, 0, 0).getTime();
     d.getElementById('schedule-add-btn').click();
     for (let i = 0; i < 20; i++) {
-      if (d.getElementById('schedule-period-3-start-select')) break;
+      if (d.getElementById('schedule-period-3-start-time')) break;
       await sleep(150);
     }
     check('with a period running, a new period starts where it ends (07:00 -> 08:30)',
-      valueOf(d, 'schedule-period-3-start-select') === '08:30'
-      && valueOf(d, 'schedule-period-3-off-select') === '09:30',
-      [valueOf(d, 'schedule-period-3-start-select'), valueOf(d, 'schedule-period-3-off-select')]);
+      valueOf(d, 'schedule-period-3-start-time') === '08:30'
+      && valueOf(d, 'schedule-period-3-off-time') === '09:30',
+      [valueOf(d, 'schedule-period-3-start-time'), valueOf(d, 'schedule-period-3-off-time')]);
 
     d.getElementById('schedule-period-3-delete').click();
     for (let i = 0; i < 20; i++) {
-      if (!d.getElementById('schedule-period-3-start-select')) break;
+      if (!d.getElementById('schedule-period-3-start-time')) break;
       await sleep(150);
     }
-    check('the extra period is deleted again', !d.getElementById('schedule-period-3-start-select'));
+    check('the extra period is deleted again', !d.getElementById('schedule-period-3-start-time'));
 
-    await choose(dom, 'schedule-period-2-start-select', '09:00');
+    await choose(dom, 'schedule-period-2-start-time', '09:00');
     check('until its stop is picked, the stop tracks the start by an hour',
-      valueOf(d, 'schedule-period-2-off-select') === '10:00', valueOf(d, 'schedule-period-2-off-select'));
+      valueOf(d, 'schedule-period-2-off-time') === '10:00', valueOf(d, 'schedule-period-2-off-time'));
 
-    await choose(dom, 'schedule-period-2-off-select', '11:30');
-    await choose(dom, 'schedule-period-2-start-select', '08:00');
+    await choose(dom, 'schedule-period-2-off-time', '11:30');
+    await choose(dom, 'schedule-period-2-start-time', '08:00');
     check('once picked, the chosen duration travels with the start (08:00–10:30)',
-      valueOf(d, 'schedule-period-2-off-select') === '10:30', valueOf(d, 'schedule-period-2-off-select'));
+      valueOf(d, 'schedule-period-2-off-time') === '10:30', valueOf(d, 'schedule-period-2-off-time'));
 
     console.log('\n== saving ==');
     d.getElementById('schedule-save-btn').click();

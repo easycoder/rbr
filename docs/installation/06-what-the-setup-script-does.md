@@ -67,7 +67,7 @@ It also checks Node.js, which Zigbee2MQTT needs at version 22 or newer — 22 be
 Writes a Mosquitto configuration to `/etc/mosquitto/conf.d/rbr-local.conf` and restarts the broker. That file does two things:
 
 - Opens plain MQTT on port 1883 for the controller, the Zigbee software and the bridge to talk to each other locally.
-- Opens a **bridge to the RBR cloud broker** at `rbrheating.duckdns.org:8883`, authenticated with the credentials you supplied, mirroring every topic in both directions. This bridge is what lets the phone app see this controller at all.
+- Opens a **bridge to the RBR cloud broker**, in the cloud on port 8883, authenticated with the credentials you supplied, mirroring every topic in both directions. This bridge is what lets the phone app see this controller at all.
 
 The local listener is configured to accept connections without a password, because it is the machine's own private channel between its own components. The cloud bridge is TLS-encrypted, using the system certificate store.
 

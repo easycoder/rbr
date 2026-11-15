@@ -155,15 +155,15 @@ async function main() {
     check('no documentation page is fetched from a CDN',
       !p.fetches.some(url => /raw\.githubusercontent\.com|cdn\.jsdelivr\.net/.test(url)),
       p.fetches.join(' '));
-    check('the browser title names the product and the page',
-      p.d.title === 'Documentation — Room By Room Heating', p.d.title);
-    check('the top bar carries the product name and the page title',
-      /Room By Room Heating/.test(p.text('#top-bar')) && /Documentation/.test(p.text('#top-bar')),
+    check('the browser title names the product',
+      p.d.title === 'Room By Room Heating', p.d.title);
+    check('the top bar carries the product name',
+      /Room By Room Heating/.test(p.text('#top-bar')),
       p.text('#top-bar'));
     check('the reading order starts at concept/00', slugs[0] === 'concept/00-the-experience-is-the-product', slugs[0]);
     check('the reading order ends at the glossary', slugs[slugs.length - 1] === 'appendix/glossary', slugs[slugs.length - 1]);
     check('every slug in the list is unique', new Set(slugs).size === slugs.length);
-    check('the contents page renders the README', p.title() === 'Room By Room — product documentation', p.title());
+    check('the contents page renders the README', p.title() === 'Room By Room', p.title());
     check('tables are rendered', /<table/.test(p.html('#content')));
     check('the status band is lifted out of the body',
       p.text('#meta-bar').includes('Audience: all') && !p.html('#content').includes('Audience: all'));
@@ -202,8 +202,8 @@ async function main() {
     await settled(p, () => p.text('#route-out') === 'concept/01-why-room-by-room');
     check('previous goes back', p.title() === 'Why room by room', p.title());
     p.click(p.d.querySelector('#contents-button'));
-    await settled(p, () => p.text('#route-out') === '' && p.title() === 'Room By Room — product documentation');
-    check('contents returns to the README', p.title() === 'Room By Room — product documentation', p.title());
+    await settled(p, () => p.text('#route-out') === '' && p.title() === 'Room By Room');
+    check('contents returns to the README', p.title() === 'Room By Room', p.title());
     check('the address is cleared on the contents page', p.w.location.hash === '', p.w.location.hash);
 
     console.log('\n== a link in the status band ==');
@@ -244,29 +244,27 @@ async function main() {
 
   console.log('\n== a missing page keeps its place in the list ==');
   {
-    const p = await open(base, '#operation/01-the-interface');
-    await settled(p, () => p.text('#route-out') === 'operation/01-the-interface');
+    const p = await open(base, '#technical/01-architecture');
+    await settled(p, () => p.text('#route-out') === 'technical/01-architecture');
     p.click(p.d.querySelector('#next-button'));
-    await settled(p, () => p.text('#route-out') === 'operation/02-modes-schedules-profiles');
+    await settled(p, () => p.text('#route-out') === 'technical/02-map-format');
     check('next opens the following listed page even though it is unwritten',
       /has not been written yet/.test(p.text('#notice-text')), JSON.stringify(p.text('#notice-text')));
-    check('the address keeps the missing page', p.w.location.hash === '#operation/02-modes-schedules-profiles',
+    check('the address keeps the missing page', p.w.location.hash === '#technical/02-map-format',
       p.w.location.hash);
     p.click(p.d.querySelector('#prev-button'));
-    await settled(p, () => p.text('#route-out') === 'operation/01-the-interface');
-    check('previous returns to the page before the missing one', p.title() === 'The interface', p.title());
-    check('the address follows back', p.w.location.hash === '#operation/01-the-interface', p.w.location.hash);
+    await settled(p, () => p.text('#route-out') === 'technical/01-architecture');
+    check('previous returns to the page before the missing one', p.title() === 'Architecture', p.title());
+    check('the address follows back', p.w.location.hash === '#technical/01-architecture', p.w.location.hash);
 
-    // A chain of missing pages must still walk correctly in both directions.
+    // The missing page still keeps its own neighbours in both directions.
     p.click(p.d.querySelector('#next-button'));
-    await settled(p, () => p.text('#route-out') === 'operation/02-modes-schedules-profiles');
-    p.click(p.d.querySelector('#next-button'));
-    await settled(p, () => p.text('#route-out') === 'operation/03-managing-many-systems');
-    check('next walks from one missing page to the next', p.w.location.hash === '#operation/03-managing-many-systems',
+    await settled(p, () => p.text('#route-out') === 'technical/02-map-format');
+    check('next returns to the missing page', p.w.location.hash === '#technical/02-map-format',
       p.w.location.hash);
     p.click(p.d.querySelector('#prev-button'));
-    await settled(p, () => p.text('#route-out') === 'operation/02-modes-schedules-profiles');
-    check('previous walks back through the missing page', p.w.location.hash === '#operation/02-modes-schedules-profiles',
+    await settled(p, () => p.text('#route-out') === 'technical/01-architecture');
+    check('previous walks back from the missing page', p.w.location.hash === '#technical/01-architecture',
       p.w.location.hash);
     check('the page logged no errors or warnings', p.errors.length === 0, p.errors.join(' | '));
     p.w.close();
@@ -337,6 +335,37 @@ async function main() {
     check('the screenshots carry alt text', images.every(img => !!img.getAttribute('alt')));
     check('the page logged no errors or warnings', p.errors.length === 0, p.errors.join(' | '));
     p.w.close();
+
+    const schedules = await open(base, '#operation/02-modes-schedules-profiles');
+    await settled(schedules, () => schedules.d.querySelectorAll('#content img').length >= 2, 25000);
+    const scheduleImages = [...schedules.d.querySelectorAll('#content img')];
+    check('the schedules page renders the editor and calendar screenshots', scheduleImages.length >= 2,
+      scheduleImages.length);
+    check('the schedules page is titled for schedules and profiles',
+      schedules.title() === 'Schedules and profiles', schedules.title());
+    check('the schedules page logged no errors or warnings',
+      schedules.errors.length === 0, schedules.errors.join(' | '));
+    schedules.w.close();
+
+    const managing = await open(base, '#operation/03-managing-many-systems');
+    await settled(managing, () => managing.d.querySelectorAll('#content img').length >= 1, 25000);
+    check('the systems page renders its list screenshot',
+      managing.d.querySelectorAll('#content img').length >= 1);
+    check('the systems page is titled for managing many systems',
+      managing.title() === 'Managing many systems', managing.title());
+    check('the systems page logged no errors or warnings',
+      managing.errors.length === 0, managing.errors.join(' | '));
+    managing.w.close();
+
+    const troubleshooting = await open(base, '#operation/04-troubleshooting');
+    await settled(troubleshooting, () => troubleshooting.d.querySelectorAll('#content img').length >= 2, 25000);
+    check('the troubleshooting page renders its warning screenshots',
+      troubleshooting.d.querySelectorAll('#content img').length >= 2);
+    check('the troubleshooting page is titled for troubleshooting',
+      troubleshooting.title() === 'Troubleshooting', troubleshooting.title());
+    check('the troubleshooting page logged no errors or warnings',
+      troubleshooting.errors.length === 0, troubleshooting.errors.join(' | '));
+    troubleshooting.w.close();
   }
 
   console.log('\n== summary ==');

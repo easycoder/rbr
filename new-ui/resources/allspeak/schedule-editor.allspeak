@@ -20,8 +20,8 @@
 	button ScheduleSaveBtn
 	button ScheduleCancelBtn
 	div PeriodCardEl
-	select PeriodStartSelect
-	select PeriodOffSelect
+	input PeriodStartTime
+	input PeriodOffTime
 	div PeriodTempValue
 	button PeriodTempMinusBtn
 	button PeriodTempPlusBtn
@@ -94,10 +94,6 @@
 	variable NewIdx
 	variable LoopE
 
-	variable TimeOptionsHtml
-	variable TimeOptionMinutes
-	variable TimeOptionIndex
-	variable TimeOptionValue
 	variable SelectedTime
 	variable OldStartMinutes
 	variable NewStartMinutes
@@ -147,12 +143,11 @@
 	on click ScheduleSaveBtn gosub to OnSaveClick
 	on click ScheduleCancelBtn gosub to OnCancelClick
 
-	gosub to BuildTimeOptions
 	on message go to HandleOpen
 	release parent
 	log `ScheduleEditor module ready`
 	stop
-!! @hash 899d99d0
+!! @hash c334a4ac
 !!!
 !! Open-message handler. Parks until the user clicks Save or Cancel, then ships the reply and terminates.
 !!
@@ -378,36 +373,17 @@ ClonePeriodsForEditing:
 	return
 !! @hash fe51bda8
 !!!
-!! Build the shared quarter-hour time list once, as the inner HTML both dropdowns are filled from.
-!!
-!! 00:00 through 23:45, one option per quarter hour, with the visible text and the value the same "HH:MM" string. Every card offers the same choices, so this is built once at start-up rather than per card; PaintPeriodValues only fills a select and selects its current value. The list is also where the old steppers' granularity went: 15 minutes, the step they used.
-BuildTimeOptions:
-	put `` into TimeOptionsHtml
-	put 0 into TimeOptionIndex
-	while TimeOptionIndex is less than 96
-	begin
-		put TimeOptionIndex into TimeOptionMinutes
-		multiply TimeOptionMinutes by 15
-		put TimeOptionMinutes into ScheduleM
-		gosub to MinutesToHHMM
-		put TempStr into TimeOptionValue
-		put TimeOptionsHtml cat `<option value="` cat TimeOptionValue cat `">` cat TimeOptionValue cat `</option>` into TimeOptionsHtml
-		increment TimeOptionIndex
-	end
-	return
-!! @hash 0c166525
-!!!
 !! Tear down and rebuild the period cards from EditingPeriods.
 !!
-!! Each card carries its own indexed time dropdowns (start and stop), temperature stepper and delete button. Change and click handlers recover the firing card via `the index of`. The OFF row is always shown (events-mode without OFF is no longer supported; the schedule model has been periods-only since 2026-05-08).
+!! Each card carries its own indexed time fields (start and stop), temperature stepper and delete button. Change and click handlers recover the firing card via `the index of`. The OFF row is always shown (events-mode without OFF is no longer supported; the schedule model has been periods-only since 2026-05-08).
 !!
-!! The shared time list is built once (BuildTimeOptions); here each select is sized, attached and filled with that list, so the DOM never carries 96 options per card in the layout file.
+!! The time fields are native `input type=time`, so the phone opens its own dial and any minute can be set; each is attached by its card's id and painted from that period by PaintPeriodValues, and the layout carries no option list at all.
 RenderSchedulePeriods:
 	clear SchedulePeriodList
 	if EditingPeriodsCount is 0 return
 	set the elements of PeriodCardEl to EditingPeriodsCount
-	set the elements of PeriodStartSelect to EditingPeriodsCount
-	set the elements of PeriodOffSelect to EditingPeriodsCount
+	set the elements of PeriodStartTime to EditingPeriodsCount
+	set the elements of PeriodOffTime to EditingPeriodsCount
 	set the elements of PeriodTempValue to EditingPeriodsCount
 	set the elements of PeriodTempMinusBtn to EditingPeriodsCount
 	set the elements of PeriodTempPlusBtn to EditingPeriodsCount
@@ -427,10 +403,10 @@ RenderSchedulePeriods:
 
 		index PeriodCardEl to PeriodIdx
 		attach PeriodCardEl to `schedule-period-` cat PeriodIdxStr
-		index PeriodStartSelect to PeriodIdx
-		attach PeriodStartSelect to `schedule-period-` cat PeriodIdxStr cat `-start-select`
-		index PeriodOffSelect to PeriodIdx
-		attach PeriodOffSelect to `schedule-period-` cat PeriodIdxStr cat `-off-select`
+		index PeriodStartTime to PeriodIdx
+		attach PeriodStartTime to `schedule-period-` cat PeriodIdxStr cat `-start-time`
+		index PeriodOffTime to PeriodIdx
+		attach PeriodOffTime to `schedule-period-` cat PeriodIdxStr cat `-off-time`
 		index PeriodTempValue to PeriodIdx
 		attach PeriodTempValue to `schedule-period-` cat PeriodIdxStr cat `-temp-value`
 		index PeriodTempMinusBtn to PeriodIdx
@@ -452,14 +428,14 @@ RenderSchedulePeriods:
 		gosub to PaintPeriodValues
 		gosub to PaintPeriodEnabled
 
-		on change PeriodStartSelect
+		on change PeriodStartTime
 		begin
-			put the index of PeriodStartSelect into PeriodIdx
+			put the index of PeriodStartTime into PeriodIdx
 			gosub to OnPeriodStartChanged
 		end
-		on change PeriodOffSelect
+		on change PeriodOffTime
 		begin
-			put the index of PeriodOffSelect into PeriodIdx
+			put the index of PeriodOffTime into PeriodIdx
 			gosub to OnPeriodOffChanged
 		end
 		on click PeriodTempMinusBtn
@@ -489,40 +465,25 @@ RenderSchedulePeriods:
 		increment PeriodIdx
 	end
 	return
-!! @hash c17fb323
+!! @hash b9513eac
 !!!
-!! Paint the two time dropdowns and the target text for PeriodIdx into the existing card.
+!! Paint the two time fields and the target text for PeriodIdx into the existing card.
 !!
-!! The option list is shared, so a select is filled with TimeOptionsHtml and then its value selected. A time that is not on the quarter-hour grid — an old schedule imported with odd minutes — is appended to that card's list rather than shown as the nearest slot, so an unrelated Save cannot quietly move it. Temperature gets a "°" suffix.
+!! A time field takes its value as text in the same "HH:MM" form the schedule stores, so the period's own string is written straight in — including a time off the quarter hour, which an old imported schedule can carry and which a field can show where a dropdown could not. Temperature gets a "°" suffix.
 PaintPeriodValues:
-	index PeriodStartSelect to PeriodIdx
-	index PeriodOffSelect to PeriodIdx
+	index PeriodStartTime to PeriodIdx
+	index PeriodOffTime to PeriodIdx
 	put element PeriodIdx of EditingPeriods into PeriodRow
 
-	set the content of PeriodStartSelect to TimeOptionsHtml
-	set the content of PeriodOffSelect to TimeOptionsHtml
-
 	put property `start` of PeriodRow into SelectedTime
-	set default of PeriodStartSelect to SelectedTime
-	put the selected item of PeriodStartSelect into TimeOptionValue
-	if TimeOptionValue is not SelectedTime
-	begin
-		set the content of PeriodStartSelect to TimeOptionsHtml cat `<option value="` cat SelectedTime cat `">` cat SelectedTime cat `</option>`
-		set default of PeriodStartSelect to SelectedTime
-	end
+	set the content of PeriodStartTime to SelectedTime
 
 	put property `off` of PeriodRow into SelectedTime
-	set default of PeriodOffSelect to SelectedTime
-	put the selected item of PeriodOffSelect into TimeOptionValue
-	if TimeOptionValue is not SelectedTime
-	begin
-		set the content of PeriodOffSelect to TimeOptionsHtml cat `<option value="` cat SelectedTime cat `">` cat SelectedTime cat `</option>`
-		set default of PeriodOffSelect to SelectedTime
-	end
+	set the content of PeriodOffTime to SelectedTime
 
 	gosub to PaintPeriodTemp
 	return
-!! @hash 86a1fdb9
+!! @hash f8db16e9
 !!!
 !! Paint the target temperature for PeriodIdx, with one decimal place and a degree sign.
 !!
@@ -569,8 +530,12 @@ PaintPeriodEnabled:
 !!
 !! A period added in this session has no stop of its own yet (`offAuto`), so it keeps the one-hour shape Google Calendar gives a new event: the stop is always exactly an hour after the start. Once a stop exists — loaded from the map, or picked by hand — the stop moves by the same amount as the start instead, preserving the duration the user chose. Both ends wrap around midnight, and the sort waits for Save so rows do not jump under the finger.
 OnPeriodStartChanged:
-	put the selected item of PeriodStartSelect into SelectedTime
-	if SelectedTime is empty return
+	put PeriodStartTime into SelectedTime
+	if SelectedTime is empty
+	begin
+		gosub to PaintPeriodValues
+		return
+	end
 	put element PeriodIdx of EditingPeriods into PeriodRow
 	put property `start` of PeriodRow into TempStr
 	gosub to ParseTimeMinutes
@@ -605,21 +570,25 @@ OnPeriodStartChanged:
 	set ScheduleDirty
 	gosub to PaintPeriodValues
 	return
-!! @hash 93cdcc79
+!! @hash 829917a5
 !!!
 !! Record a stop picked by hand and end the one-hour tracking for this period.
 !!
 !! From here the stop's distance from the start is what moves with the start (OnPeriodStartChanged), so a deliberate two- or five-hour block survives a later change to its start.
 OnPeriodOffChanged:
-	put the selected item of PeriodOffSelect into SelectedTime
-	if SelectedTime is empty return
+	put PeriodOffTime into SelectedTime
+	if SelectedTime is empty
+	begin
+		gosub to PaintPeriodValues
+		return
+	end
 	put element PeriodIdx of EditingPeriods into PeriodRow
 	set property `off` of PeriodRow to SelectedTime
 	set property `offAuto` of PeriodRow to false
 	set element PeriodIdx of EditingPeriods to PeriodRow
 	set ScheduleDirty
 	return
-!! @hash 66a2fe4c
+!! @hash 8b99298b
 !!!
 !! Step the target temperature for PeriodIdx by PeriodTempTenths, clamped to [5.0°, 30.0°].
 !!
@@ -641,7 +610,7 @@ StepPeriodTemp:
 !!!
 !! Add a period starting at the most useful time right now, stopping an hour later.
 !!
-!! If one of the room's periods is running now, the new period starts where that one ends — the case the user is usually in when they tap Add is extending or replacing what is already heating. Otherwise the start is the quarter-hour slot closest to the current time, the nearest choice the dropdown offers, rounded forward past the half-way point so it is never more than seven minutes behind. Disabled periods do not count as running. The stop is marked `offAuto`, so changing the start keeps it an hour later until the user picks a stop of their own (OnPeriodStartChanged / OnPeriodOffChanged). Sort happens on Save.
+!! If one of the room's periods is running now, the new period starts where that one ends — the case the user is usually in when they tap Add is extending or replacing what is already heating. Otherwise the start is the quarter hour nearest the current time, rounded forward past the half-way point so it is never more than seven minutes behind — a tidy default now that the field itself accepts any minute. Disabled periods do not count as running. The stop is marked `offAuto`, so changing the start keeps it an hour later until the user picks a stop of their own (OnPeriodStartChanged / OnPeriodOffChanged). Sort happens on Save.
 AddSchedulePeriod:
 	put the hour of now into NowMinutes
 	multiply NowMinutes by 60
@@ -789,7 +758,7 @@ SortPeriods:
 	return
 !! @hash ac1e3cd9
 !!!
-!! Convert ScheduleM (0–1439 minutes-since-midnight) into TempStr "HH:MM" with zero-pad on both fields. Used by BuildTimeOptions and OnPeriodStartChanged after the modulo-1440 wrap.
+!! Convert ScheduleM (0–1439 minutes-since-midnight) into TempStr "HH:MM" with zero-pad on both fields. Used by AddSchedulePeriod and OnPeriodStartChanged after the modulo-1440 wrap.
 MinutesToHHMM:
 	put ScheduleM into ScheduleH
 	divide ScheduleH by 60

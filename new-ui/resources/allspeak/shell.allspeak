@@ -4168,7 +4168,7 @@ ResetCredentialsAndReload:
 !!!
 !! Open the About sheet, where the Manual link and the Systems list live.
 !!
-!! Auto-opened in demo mode (no credentials yet) so first-time visitors see what RBR is; otherwise reachable by tapping the house mark in the top bar at any time. The "Set up my system" CTA is only revealed in demo mode — existing users have the Systems tab instead. The Manual control is an ordinary link to `/docs/`, not a tab body, so it leaves the app for the documentation page. The Systems tab is local to this device and lists every system it can manage.
+!! Auto-opened in demo mode (no credentials yet) so first-time visitors see what RBR is; otherwise reachable by tapping the house mark in the top bar at any time. The "Set up my system" CTA is only revealed in demo mode — existing users have the Systems tab instead. The Manual control is an ordinary link to `/docs/#operation/01-the-interface`, not a tab body, so it leaves the app for the manual's page about this very screen — a person who taps Manual from the app is asking what the app does, not what RBR is. The Systems tab is local to this device and lists every system it can manage.
 OpenAboutSheet:
 	gosub to HideAllSheets
 	set style `display` of AboutSheetEl to `block`

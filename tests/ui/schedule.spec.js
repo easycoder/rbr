@@ -1,10 +1,10 @@
 // schedule.spec.js — the schedule editor through the real shell.
 //
-// Covers the interaction the jsdom check cannot see: two native <select>
-// dropdowns, a real change event, and the payload the page puts on the wire.
-// A loaded period keeps its duration when its start moves; Save must carry the
-// shifted stop into the controller's `periods[]` and must not leak the
-// editing-only `offAuto` flag.
+// Covers the interaction the jsdom check cannot see: two native time fields
+// (input type=time, so a phone opens its own dial), the real change event they
+// fire, and the payload the page puts on the wire. A loaded period keeps its
+// duration when its start moves; Save must carry the shifted stop into the
+// controller's `periods[]` and must not leak the editing-only `offAuto` flag.
 
 const { test, expect } = require('@playwright/test');
 const { openApp, pushMap, waitForHome, openSchedule, lastRequest } = require('./support/harness');
@@ -21,14 +21,19 @@ test('moving a period start carries its stop into the saved request', async ({ p
   await openSchedule(page, 0);
   await expect(page.locator('#sheet-title')).toHaveText('Schedule for Kitchen');
 
-  const start = page.locator('#schedule-period-0-start-select');
-  const stop = page.locator('#schedule-period-0-off-select');
+  const start = page.locator('#schedule-period-0-start-time');
+  const stop = page.locator('#schedule-period-0-off-time');
   await expect(start).toHaveValue('06:00');
   await expect(stop).toHaveValue('08:00');
 
+  // Both fields are the phone's own time control; the type is what makes it a
+  // dial rather than a text box.
+  await expect(start).toHaveAttribute('type', 'time');
+
   // The fixture's first period is 06:00–08:00. Moving the start must keep the
   // two-hour duration until the user picks a stop of their own.
-  await start.selectOption('06:30');
+  await start.fill('06:30');
+  await start.blur();
   await expect(stop).toHaveValue('08:30');
 
   await page.locator('#schedule-save-btn').click();

@@ -39,7 +39,7 @@ One installation uses **two brokers**.
 | Broker | Where it runs | Ports | Who connects to it |
 |---|---|---|---|
 | **Local** | The controller computer, as Mosquitto | 1883, plain MQTT, open on the local network without authentication by design | Zigbee2MQTT, the Zigbee bridge and the controller |
-| **Cloud** | RBR's server, at `rbrheating.duckdns.org` | 8883 for MQTT over TLS, used by each installation's cloud bridge; 443 for the app's WebSocket | Every installation's cloud bridge, and every phone running the app |
+| **Cloud** | RBR's server, in the cloud | 8883 for MQTT over TLS, used by each installation's cloud bridge; 443 for the app's WebSocket | Every installation's cloud bridge, and every phone running the app |
 
 The local broker is **per installation**. The cloud broker is **shared**: it is one address that every system is pointed at, and the systems are kept apart by their topics rather than by having a broker each. The app's credentials are not public: `credentials.php` hands them out only to a device that presents the system's address and the token issued when it was paired.
 

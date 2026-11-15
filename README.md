@@ -41,6 +41,10 @@ npm run test:ui
 
 `AGENTS.md` is the working guide — how the code is laid out, the conventions the documentation blocks follow, and the traps this language and this runtime have already cost time on. `DIFF.md` records why the system looks the way it does, change by change. Most of `doc/` and all of `docs/` are written for people rather than for agents; `docs/README.md` is the index.
 
+## Continuity and licence
+
+Room By Room is released under the [MIT licence](LICENSE). [CONTINUITY.md](CONTINUITY.md) is the succession plan: the maintainer, the successor role, the 30-day trigger, the access inventory for the repository, domain, hosting and broker, and what a successor has to do in order. In the event of permanent incapacity or death, the designated successor may apply to GitHub Support for transfer of repository ownership in accordance with [GitHub's Deceased User Policy](https://docs.github.com/en/site-policy/other-site-policies/github-deceased-user-policy).
+
 ## Credits
 
 The system is built on [AllSpeak](https://allspeak.ai) — a scripting language with Python and JavaScript runtimes — and otherwise on ordinary parts: a mini-PC, Zigbee thermometers and radiator valves, and a phone. Third-party dependencies are kept to a minimum and there are no build tools: every file here is read as it stands.

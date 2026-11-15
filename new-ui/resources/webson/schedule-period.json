@@ -1,5 +1,5 @@
 {
-    "#doc": "Schedule period card — one entry in the room's periods[] array. /I/ replaced with the period index. Vertical stack: ON time dropdown, OFF time dropdown, target stepper; footer row with the Enabled checkbox and the delete button. Both times are native <select> lists, built once in schedule-editor.allspeak and attached per card, so a time is picked rather than stepped. When the period is switched off the three editable rows are dimmed and made inert (schedule-editor.allspeak sets opacity + pointer-events), leaving the checkbox and delete usable.",
+    "#doc": "Schedule period card — one entry in the room's periods[] array. /I/ replaced with the period index. Vertical stack: ON time field, OFF time field, target stepper; footer row with the Enabled checkbox and the delete button. Both times are native <input type=time> fields, so a phone opens its own dial and a time can be set to the minute — the control Special actions already uses; schedule-editor.allspeak attaches them per card and paints each from its period. When the period is switched off the three editable rows are dimmed and made inert (schedule-editor.allspeak sets opacity + pointer-events), leaving the checkbox and delete usable.",
     "#element": "div",
     "@id": "schedule-period-/I/",
     "padding": "14px 14px 12px 14px",
@@ -18,7 +18,7 @@
         "display": "flex",
         "align-items": "center",
         "gap": "10px",
-        "#": ["$TimeLabel", "$TimeSpacer", "$TimeSelect"],
+        "#": ["$TimeLabel", "$TimeSpacer", "$TimeInput"],
 
         "$TimeLabel": {
             "#element": "div",
@@ -30,9 +30,11 @@
             "#content": "On at"
         },
         "$TimeSpacer": { "#element": "div", "flex": "1" },
-        "$TimeSelect": {
-            "#element": "select",
-            "@id": "schedule-period-/I/-start-select",
+        "$TimeInput": {
+            "#doc": "A native time field, so the phone offers its own dial: the same control the Special actions sheet already uses for its start time, and it sets a time to the minute rather than to the quarter hour a dropdown would offer.",
+            "#element": "input",
+            "@id": "schedule-period-/I/-start-time",
+            "@type": "time",
             "min-width": "112px",
             "padding": "7px 10px",
             "border-radius": "8px",
@@ -43,7 +45,8 @@
             "font-size": "15px",
             "font-weight": "600",
             "font-variant-numeric": "tabular-nums",
-            "color": "var(--color-text-primary)"
+            "color": "var(--color-text-primary)",
+            "box-sizing": "border-box"
         }
     },
 
@@ -53,7 +56,7 @@
         "display": "flex",
         "align-items": "center",
         "gap": "10px",
-        "#": ["$OffLabel", "$OffSpacer", "$OffSelect"],
+        "#": ["$OffLabel", "$OffSpacer", "$OffInput"],
 
         "$OffLabel": {
             "#element": "div",
@@ -65,9 +68,10 @@
             "#content": "Off at"
         },
         "$OffSpacer": { "#element": "div", "flex": "1" },
-        "$OffSelect": {
-            "#element": "select",
-            "@id": "schedule-period-/I/-off-select",
+        "$OffInput": {
+            "#element": "input",
+            "@id": "schedule-period-/I/-off-time",
+            "@type": "time",
             "min-width": "112px",
             "padding": "7px 10px",
             "border-radius": "8px",
@@ -78,7 +82,8 @@
             "font-size": "15px",
             "font-weight": "600",
             "font-variant-numeric": "tabular-nums",
-            "color": "var(--color-text-primary)"
+            "color": "var(--color-text-primary)",
+            "box-sizing": "border-box"
         }
     },
 
