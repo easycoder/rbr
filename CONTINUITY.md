@@ -12,7 +12,7 @@ The maintainer is Graham, reachable at `info@rbrheating.com` and on GitHub as `@
 
 The **successor** is the person or company named in the signed addendum to this plan. The role is expected to be an installer or company that already has an operational relationship with the system, or a developer trusted by the maintainer; it needs both the willingness to maintain the project and the ability to hold the accounts listed below. The named individual, their relationship to the project and their contact details are kept in the addendum rather than in this public file, so that a contact does not have to be published to make the plan real.
 
-Until that addendum is completed, this document records the role and the process, not a named person. Completing the addendum is an open item, not a reason to leave the rest of the plan unwritten.
+Until that addendum is completed, this document records the role and the process, not a named person. Completing the addendum is an open item, not a reason to leave the rest of the plan unwritten. The project is actively looking for a co-maintainer who can take that role; the README's **Looking for a co-maintainer** section describes what is involved and how to get in touch.
 
 ## When the plan is invoked
 

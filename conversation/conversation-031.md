@@ -516,3 +516,21 @@ Wrote `CONTINUITY.md` as the standalone succession plan, plus the MIT licence yo
 **Assumption to check:** I used the public project contact `info@rbrheating.com` and GitHub `@easycoder` rather than your personal email. No secrets or private contact details are in the repository.
 
 Verification: prose only, so no suite was run; `git diff --check` is clean and the local links in `README.md` and `CONTINUITY.md` resolve. Commit and push the two documents and README; no site deploy is needed for them. The pending `--release` is separate.
+
+## 21:05
+
+It's been suggested that my README.md should explicitly state that I am looking for a co-maintainer able to take over if need be. "This project has been maintained by an AI agent (DeepSeek). A successor only needs to be able to direct the agent to understand the code and drive maintenance, without needing to write code from scratch." Can you put together a suitable addition to the file?
+
+**Assistant**
+
+Added a **Looking for a co-maintainer** section to `README.md`, immediately before **Continuity and licence**. It says:
+
+- Room By Room is currently maintained by Graham, with much of the code and documentation produced by an AI agent (DeepSeek) working under his direction.
+- That makes the project dependent on one person, so it needs someone who can take over if he is no longer able to continue.
+- A successor does **not** need to write the code from scratch. The practical requirement is to direct the agent, understand and review what it produces, run the project's checks, and hold or receive the accounts described in `CONTINUITY.md`.
+- Familiarity with Python, Git and the command line helps; the agent is a tool, not a substitute for judgement, and a co-maintainer must review changes and be accountable for releases.
+- Interested people should write to `info@rbrheating.com` with **Co-maintainer** in the subject.
+
+I used "much of the code and documentation produced by an AI agent under his direction" rather than "maintained by an AI agent" so the human accountability stays explicit. `CONTINUITY.md` now points at the same call.
+
+Verification: prose only; `git diff --check` clean and local links resolve. Commit/push the README and continuity change; no site deploy needed.

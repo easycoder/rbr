@@ -41,6 +41,14 @@ npm run test:ui
 
 `AGENTS.md` is the working guide — how the code is laid out, the conventions the documentation blocks follow, and the traps this language and this runtime have already cost time on. `DIFF.md` records why the system looks the way it does, change by change. Most of `doc/` and all of `docs/` are written for people rather than for agents; `docs/README.md` is the index.
 
+## Looking for a co-maintainer
+
+Room By Room is currently maintained by Graham, with much of the code and documentation produced by an AI agent (DeepSeek) working under his direction. That arrangement has kept the project moving, but it is also a single point of failure, and the project needs someone who can take over if Graham is no longer able to continue.
+
+A successor does **not** need to write the code from scratch. The practical requirement is the ability to direct the agent, understand and review what it produces, run the project's checks, and hold or receive the accounts described in [CONTINUITY.md](CONTINUITY.md). Familiarity with Python, Git and the command line helps; the code, `AGENTS.md` and the documentation are written to bring a new maintainer up to speed. The agent is a tool, not a substitute for judgement: a co-maintainer has to be willing to review changes and be accountable for releases.
+
+If you are interested — as a developer, an installer with some technical ability, or someone who can hold the operational accounts — write to `info@rbrheating.com` with **Co-maintainer** in the subject. The succession plan sets out what the role involves and the trigger for a successor to act.
+
 ## Continuity and licence
 
 Room By Room is released under the [MIT licence](LICENSE). [CONTINUITY.md](CONTINUITY.md) is the succession plan: the maintainer, the successor role, the 30-day trigger, the access inventory for the repository, domain, hosting and broker, and what a successor has to do in order. In the event of permanent incapacity or death, the designated successor may apply to GitHub Support for transfer of repository ownership in accordance with [GitHub's Deceased User Policy](https://docs.github.com/en/site-policy/other-site-policies/github-deceased-user-policy).
