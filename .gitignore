@@ -44,6 +44,12 @@ credentials
 zigbee-config.json
 .mqtt_password
 .mqtt_token
+# Handover state on the controller: the site it now updates from, and the
+# record of when that changed. `rbr-handover.json` is the website's request
+# history and lives above the site root, not in the repository.
+.site_url
+.handover
+rbr-handover.json
 
 # Backup archives and their settings/status — runtime data, never committed.
 backup/

@@ -23,6 +23,7 @@ jobs:
           rsync -avz --no-perms \
             -e "ssh -i ~/.ssh/id_ed25519" \
             index.html favicon.ico auth.php credentials.php .htaccess \
+            handover.php handover-lib.php handover \
             rbrheating@rbrheating.com:/home/rbrheating/rbrheating.com/
 
       - name: Deploy resources

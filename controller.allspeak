@@ -254,6 +254,16 @@
     variable TodayKey
     variable OverrideKind
     variable OverrideOn
+    variable OverrideKeepoff
+    variable OverrideStartMinutes
+    variable OverrideWasMinutes
+    variable OverrideOffMinutes
+    variable OverrideDelta
+    variable MorningEndTime
+    variable TimeMinutes
+    variable TimeText
+    variable TimeH
+    variable TimeM
     variable OverrideDate
     variable OverrideName
     variable OverrideWas
@@ -360,7 +370,7 @@
     variable TrvWasRunning
     variable TrvSeen
     variable TrvAge
-!! @hash 4d06a624
+!! @hash 7700947e
 !! @verified 85d32787
 !!!
 !! Basic initialisation.
@@ -3041,6 +3051,7 @@ LoadRoomPeriods:
 GetRoomOverride:
     put empty into OverrideKind
     put empty into OverrideOn
+    clear OverrideKeepoff
     if Map has no entry `overrides` return
     put entry `overrides` of Map into Overrides
     put entry `name` of Room into OverrideName
@@ -3050,8 +3061,9 @@ GetRoomOverride:
     if entry `date` of OverrideEntry is not TodayKey return
     put entry `kind` of OverrideEntry into OverrideKind
     if OverrideKind is `start` put entry `on` of OverrideEntry into OverrideOn
+    if OverrideEntry has entry `keepoff` set OverrideKeepoff
     return
-!! @hash 8e2a8fd4
+!! @hash 90bf31ff
 !!!
 !! Build PeriodList as the set of periods that apply to this room *today*, honouring any one-off override armed for it.
 !!
@@ -3065,14 +3077,19 @@ GetEffectivePeriods:
     if MorningIdx is less than 0 return
     if OverrideKind is `start`
     begin
-        put item MorningIdx of PeriodList into Period
-        put entry `off` of Period into Time
-        gosub to ConvertTimeToInt
-        put Time into OffTime
+        gosub to OverrideMorningOffMinutes
         put OverrideOn into Time
-        gosub to ConvertTimeToInt
-        put Time into OnTime
-        if OnTime is less than OffTime
+        gosub to TimeToMinutes
+        if OverrideKeepoff
+        begin
+            put item MorningIdx of PeriodList into Period
+            set entry `on` of Period to OverrideOn
+            put OverrideOffMinutes into TimeMinutes
+            gosub to MinutesToTime
+            set entry `off` of Period to TimeText
+            return
+        end
+        if TimeMinutes is less than OverrideOffMinutes
         begin
             put item MorningIdx of PeriodList into Period
             set entry `on` of Period to OverrideOn
@@ -3082,7 +3099,7 @@ GetEffectivePeriods:
     delete item MorningIdx of PeriodList
     put the count of PeriodList into EventCount
     return
-!! @hash 601273e8
+!! @hash 3f6b045b
 !!!
 !! Identify the day's morning period — the entry with the earliest `on` time — as the target of a one-off start-time override.
 !!
@@ -3142,8 +3159,16 @@ SetRoomOverride:
     ! value from a previous request would otherwise satisfy the "time
     ! required" check below.
     put empty into OverrideOn
+    clear OverrideKeepoff
     if Message has entry `kind` put entry `kind` of Message into OverrideKind
     else if Message has entry `Kind` put entry `Kind` of Message into OverrideKind
+    ! The off time follows the start only when the request asks for it; an older
+    ! UI sends nothing and keeps the schedule's own off time.
+    if Message has entry `keepoff`
+    begin
+        put entry `keepoff` of Message into Value
+        if Value is `yes` or Value is true set OverrideKeepoff
+    end
     if OverrideKind is not `skip`
     begin
         if Message has entry `time` put entry `time` of Message into OverrideOn
@@ -3179,6 +3204,7 @@ SetRoomOverride:
     set entry `was` of OverrideEntry to OverrideWas
     set entry `at` of OverrideEntry to now
     if OverrideKind is `start` set entry `on` of OverrideEntry to OverrideOn
+    if OverrideKind is `start` and OverrideKeepoff set entry `keepoff` of OverrideEntry to `yes`
     if Map has no entry `overrides`
     begin
         reset Overrides
@@ -3189,7 +3215,7 @@ SetRoomOverride:
     log `Room override armed: ` cat OverrideName cat ` ` cat OverrideKind cat ` for ` cat OverrideDate
     set MapHasChanged
     return
-!! @hash fb6263f7
+!! @hash 005238c6
 !!!
 !! Cancel any override held for the room named in the current UI request.
 ClearRoomOverride:
@@ -3258,13 +3284,72 @@ OverrideMorningEnded:
     gosub to LoadRoomPeriods
     gosub to IdentifyMorningPeriod
     if MorningIdx is less than 0 return
-    put item MorningIdx of PeriodList into Period
-    put entry `off` of Period into Time
+    ! No UI request is in flight here, so the override's own fields are read from
+    ! the entry being judged rather than from the request that armed it.
+    put entry `overrides` of Map into Overrides
+    put entry OverrideName of Overrides into OverrideEntry
+    put empty into OverrideOn
+    clear OverrideKeepoff
+    put empty into OverrideKind
+    if OverrideEntry has entry `kind` put entry `kind` of OverrideEntry into OverrideKind
+    if OverrideEntry has entry `on` put entry `on` of OverrideEntry into OverrideOn
+    if OverrideEntry has entry `keepoff` set OverrideKeepoff
+    gosub to OverrideMorningOffMinutes
+    put OverrideOffMinutes into TimeMinutes
+    gosub to MinutesToTime
+    put TimeText into Time
     gosub to ConvertTimeToInt
     if OverrideNow is not less than Time set MorningEnded
     return
-!! @hash d937237f
+!! @hash 690fcade
 !!!
+!! Work out the off time the morning period actually ends at under the armed override, in minutes since midnight.
+!!
+!! Reads PeriodList and MorningIdx (the caller has loaded and identified them) and the override globals OverrideKind, OverrideOn and OverrideKeepoff. Without an override — or with one that leaves the schedule's own stop alone — this is the period's `off`. With `keepoff` the stop moves by the same amount as the start, so the period keeps its duration; a period pushed past midnight is clamped to 23:59 rather than wrapped, because a morning warm-up is same-day and a wrap would read as an overnight period.
+OverrideMorningOffMinutes:
+    put item MorningIdx of PeriodList into Period
+    put entry `off` of Period into Time
+    gosub to TimeToMinutes
+    put TimeMinutes into OverrideOffMinutes
+    if OverrideKind is not `start` return
+    if not OverrideKeepoff return
+    put entry `on` of Period into Time
+    gosub to TimeToMinutes
+    put TimeMinutes into OverrideWasMinutes
+    put OverrideOn into Time
+    gosub to TimeToMinutes
+    subtract OverrideWasMinutes from TimeMinutes giving OverrideDelta
+    add OverrideDelta to OverrideOffMinutes
+    put OverrideOffMinutes modulo 1440 into OverrideOffMinutes
+    if OverrideOffMinutes is less than 0 add 1440 to OverrideOffMinutes
+    if OverrideOffMinutes is less than TimeMinutes put 1439 into OverrideOffMinutes
+    return
+
+!! Convert an HH:MM time string into minutes since midnight, in TimeMinutes.
+!!
+!! The minute-level counterpart of ConvertTimeToInt, for arithmetic that must not cross a daylight-saving boundary: a start and a stop on the same clock day are added and wrapped as numbers here, and only the answer is turned back into a wall-clock time.
+TimeToMinutes:
+    put the index of `:` in Time into PI
+    put the value of left PI of Time into TimeMinutes
+    multiply TimeMinutes by 60
+    increment PI
+    put the value of from PI of Time into TimeM
+    add TimeM to TimeMinutes
+    return
+
+!! Format minutes since midnight as a zero-padded HH:MM in TimeText.
+MinutesToTime:
+    put TimeMinutes modulo 1440 into TimeM
+    if TimeM is less than 0 add 1440 to TimeM
+    divide TimeM by 60 giving TimeH
+    put TimeM modulo 60 into TimeM
+    if TimeH is less than 10 put `0` cat TimeH into TimeH
+    if TimeM is less than 10 put `0` cat TimeM into TimeM
+    put TimeH cat `:` cat TimeM into TimeText
+    return
+!! @hash 354cbc9c
+!!!
+
 !! Convert an HH:MM time string into an integer milliseconds-since-epoch value for today (Time variable in/out).
 !!
 !! Used throughout period scheduling to compare schedule times against `now`. Clobbers I and T as scratch — callers iterating over a list must use a different counter (PI is the project's convention).

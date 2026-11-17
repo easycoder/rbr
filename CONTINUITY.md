@@ -1,6 +1,6 @@
 # Continuity plan
 
-> **Status:** draft · **Last reviewed:** 2026-11-15 · **Maintainer:** Graham, `info@rbrheating.com`, GitHub `@easycoder` · **Applies to:** `github.com/easycoder/rbr`, `rbrheating.com`, `rbrheating.duckdns.org` and the systems they serve
+> **Status:** draft · **Last reviewed:** 2026-11-16 · **Maintainer:** Graham, `info@rbrheating.com`, GitHub `@easycoder` · **Applies to:** `github.com/easycoder/rbr`, `rbrheating.com`, `rbrheating.duckdns.org` and the systems they serve
 
 This is the succession plan for Room By Room. It exists so that a heating engineer, an installer, a developer or a member of the maintainer's family can see what to do if the maintainer becomes unavailable, rather than leaving a working system behind a set of accounts nobody else can reach.
 
@@ -28,6 +28,12 @@ The attempts and the waiting period are deliberately defined:
 A short illness, a holiday or a busy month is not the trigger. The waiting period is there to protect a temporarily absent maintainer from being locked out of their own project. If the successor is uncertain, they should wait, make a third attempt, and record why they acted.
 
 Before acting, the successor should also, where possible, confirm the position with the maintainer's family or legal representative. If there is no named successor and no legal representative, this plan cannot by itself appoint one; the repository remains public under the MIT licence and may be forked, but the domain, hosting and broker accounts cannot be transferred without their own processes.
+
+## The technical handover channel
+
+A controller cannot wait for a person to retype an address. The project therefore has a prepared technical route, described in full in [doc/HANDOVER.md](doc/HANDOVER.md): an installer holding a sealed passphrase can submit a new site address at `/handover/`, the maintainer is emailed and sees a flashing alert in the app, and for 14 days nothing changes. If the request is not cancelled and the new site passes a readiness check when the period ends, each controller is told on its next hourly update check to switch its update address and, if the new site names a different broker, its MQTT bridge.
+
+The channel is a mechanism, not an authority. Using it does not satisfy the 30-day trigger or replace the evidence, the named successor and the legal confirmation this plan describes; it exists so that the part of continuity that can be tested is tested, and so that an installer is not left with an unsupported system while the slower account transfers happen. The passphrase lives in the host settings and in sealed envelopes; preparing the new site, broker and customer register is a separate project.
 
 ## Who may invoke it and under what authority
 
@@ -151,6 +157,7 @@ The plan is written; the following are deliberately left as actions because they
 - Pre-designate the successor in GitHub account settings, and decide whether to create a GitHub organization and add the successor as an owner while the maintainer is active. These are cleaner routes than the deceased-user transfer.
 - Record the domain, hosting, DuckDNS, broker and mail account recovery arrangements, without putting secrets in this file.
 - Review the plan with the maintainer's legal adviser if the project's ownership or the domain is held through a company.
+- Generate the handover passphrase, place it in the host settings, seal a copy for the successor, and test the channel against a staging new site before it is needed.
 
 ## Licence
 

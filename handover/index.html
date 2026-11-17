@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Handover channel for Room By Room Heating.">
+  <meta name="theme-color" content="#12345a">
+  <title>Handover | Room By Room Heating</title>
+  <link rel="icon" href="../favicon.ico" type="image/x-icon">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../styles.css?v=20261116-1">
+  <link rel="stylesheet" href="handover.css?v=20261116-1">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="../" aria-label="Room By Room Heating home">
+      <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 64 64"><path d="M7 29 32 7l25 22v28H7Z"/><path class="heat" d="M23 27c-5 7 5 8 0 17M32 27c-5 7 5 8 0 17M41 27c-5 7 5 8 0 17"/></svg></span>
+      <span class="brand-copy"><strong>Room By Room <em>Heating</em></strong><small>Handover channel</small></span>
+    </a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a href="../">Home</a>
+      <a href="../docs/">Documentation</a>
+      <a class="nav-cta" href="../heat/">Open the web app <span aria-hidden="true">›</span></a>
+    </nav>
+  </header>
+
+  <main class="handover-main">
+    <section class="handover-card" aria-labelledby="handover-title">
+      <p class="eyebrow">Continuity</p>
+      <h1 id="handover-title">Change the site Room By Room uses</h1>
+      <p class="handover-lede">This page exists so that a heating installer or their technical advisor can move the service to a new website if the maintainer is no longer able to run it. You need the sealed passphrase supplied with the system, and the address of a new site that is already prepared.</p>
+
+      <div class="handover-warning" role="note">
+        <strong>Nothing changes immediately.</strong> A request waits 14 days before any controller is told about it. The maintainer is notified at once and can cancel it during that period. If the new site is not ready when the waiting period ends, the handover fails and nothing switches.
+      </div>
+
+      <div id="handover-status" class="handover-status" role="status" aria-live="polite" hidden></div>
+
+      <div id="cancel-panel" hidden>
+        <h2>Cancel a handover request</h2>
+        <p>This link cancels the request named below. It can only be used while the 14-day waiting period is still running.</p>
+        <p class="cancel-id">Request <code id="cancel-id"></code></p>
+        <button type="button" id="cancel-button" class="handover-button danger">Cancel this handover request</button>
+      </div>
+
+      <form id="handover-form" novalidate>
+        <div class="field">
+          <label for="passphrase">Passphrase</label>
+          <input id="passphrase" name="passphrase" type="password" autocomplete="off" spellcheck="false" required>
+          <p class="hint">The passphrase from the sealed envelope. It is not the system password and it is not stored on this site.</p>
+        </div>
+
+        <div class="field">
+          <label for="url">Address of the new website</label>
+          <input id="url" name="url" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+                 placeholder="https://heating.example.com" required>
+          <p class="hint">The site's home address, starting with <code>https://</code>. Do not add <code>/heat</code> or any other path unless the new site really lives under one.</p>
+        </div>
+
+        <button type="submit" id="submit-button" class="handover-button">Submit the handover request</button>
+      </form>
+
+      <noscript>
+        <p class="handover-status error">This page needs JavaScript to submit the request. Enable it and reload, or contact the maintainer directly.</p>
+      </noscript>
+
+      <details class="handover-more">
+        <summary>What the new site has to provide</summary>
+        <p>Before this form accepts the address, the site is checked for the files the controllers themselves rely on: a readable <code>/heat/version</code> release stamp and a <code>/credentials.php</code> endpoint that refuses an unauthenticated request. It also needs a valid HTTPS certificate. The same two checks are made again when the waiting period ends.</p>
+        <p>After a successful handover each controller will be told, on its next update check, to use the new site and the MQTT broker named by that site's credentials. A controller that cannot reach the new site keeps running its existing heating plan; only updates and the app's connection to it are affected.</p>
+      </details>
+
+      <details class="handover-more">
+        <summary>If you submitted this by mistake</summary>
+        <p>Use the cancellation link in the notification email, or ask the maintainer to cancel it. Submitting another request is not possible until the current one is cancelled or has failed.</p>
+      </details>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="footer-brand" href="../">Room By Room <em>Heating</em></a>
+    <p>Handover channel</p>
+    <small>This page is deliberately not indexed by search engines.</small>
+  </footer>
+
+  <script>
+    (function () {
+      var form = document.getElementById('handover-form');
+      var passphrase = document.getElementById('passphrase');
+      var url = document.getElementById('url');
+      var submit = document.getElementById('submit-button');
+      var status = document.getElementById('handover-status');
+      var cancelPanel = document.getElementById('cancel-panel');
+      var cancelButton = document.getElementById('cancel-button');
+      var cancelId = document.getElementById('cancel-id');
+      var cancelValue = '';
+
+      function show(kind, text) {
+        status.hidden = false;
+        status.className = 'handover-status ' + kind;
+        status.textContent = text;
+      }
+
+      function hideStatus() {
+        status.hidden = true;
+        status.textContent = '';
+        status.className = 'handover-status';
+      }
+
+      function when(seconds) {
+        var date = new Date(seconds * 1000);
+        try {
+          return date.toLocaleString('en-GB', {
+            day: 'numeric', month: 'long', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          });
+        } catch (e) {
+          return date.toUTCString();
+        }
+      }
+
+      function post(action, body) {
+        return fetch('../handover.php?action=' + encodeURIComponent(action), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        }).then(function (response) {
+          return response.json().catch(function () {
+            return { ok: false, error: 'The site returned an unreadable response.' };
+          }).then(function (data) {
+            if (!response.ok && data.ok !== false) data.ok = false;
+            return data;
+          });
+        });
+      }
+
+      form.addEventListener('submit', function (event) {
+        event.preventDefault();
+        hideStatus();
+        if (passphrase.value.trim() === '') {
+          show('error', 'Enter the passphrase from the sealed envelope.');
+          passphrase.focus();
+          return;
+        }
+        if (url.value.trim() === '') {
+          show('error', 'Enter the address of the new website.');
+          url.focus();
+          return;
+        }
+
+        submit.disabled = true;
+        submit.textContent = 'Checking the new site…';
+        post('request', { passphrase: passphrase.value, url: url.value.trim() })
+          .then(function (data) {
+            if (!data.ok) {
+              show('error', data.error || 'The request was not accepted.');
+              return;
+            }
+            form.hidden = true;
+            show('success', 'The request has been recorded. Controllers will continue to use the current site until ' + when(data.effective_at) + '. The maintainer has been notified and can cancel it during that period.');
+          })
+          .catch(function () {
+            show('error', 'The request could not reach the site. Check the connection and try again.');
+          })
+          .then(function () {
+            submit.disabled = false;
+            submit.textContent = 'Submit the handover request';
+          });
+      });
+
+      var params = new URLSearchParams(window.location.search);
+      cancelValue = params.get('cancel') || '';
+      if (cancelValue !== '') {
+        var dot = cancelValue.indexOf('.');
+        var id = dot > 0 ? cancelValue.slice(0, dot) : cancelValue;
+        cancelId.textContent = id;
+        form.hidden = true;
+        cancelPanel.hidden = false;
+        show('error', 'A cancellation link has been opened. Nothing has been cancelled yet — use the button below.');
+        cancelButton.addEventListener('click', function () {
+          hideStatus();
+          cancelButton.disabled = true;
+          cancelButton.textContent = 'Cancelling…';
+          var sig = dot > 0 ? cancelValue.slice(dot + 1) : '';
+          post('cancel', { id: id, sig: sig })
+            .then(function (data) {
+              if (!data.ok) {
+                show('error', data.error || 'The request could not be cancelled.');
+                return;
+              }
+              cancelPanel.hidden = true;
+              show('success', 'The handover request has been cancelled. Nothing will switch.');
+            })
+            .catch(function () {
+              show('error', 'The cancellation could not reach the site. Check the connection and try again.');
+            })
+            .then(function () {
+              cancelButton.disabled = false;
+              cancelButton.textContent = 'Cancel this handover request';
+            });
+        });
+      }
+    })();
+  </script>
+</body>
+</html>

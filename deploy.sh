@@ -5,7 +5,9 @@
 #   /                   <- the site's own page: the marketing home page
 #                          (index.html, with styles.css, script.js and
 #                          assets/ beside it), plus the PHP endpoints the app
-#                          needs: credentials.php and auth.php, with .htaccess.
+#                          needs: credentials.php, auth.php, handover.php and
+#                          handover-lib.php, with .htaccess. The handover page
+#                          lives at /handover/ and posts to handover.php.
 #                          The legacy UI that used to live here, and its
 #                          /resources/ tree and /new-ui/ copy, are gone —
 #                          removed 2026-10-17 with the rest of the retirement.
@@ -100,6 +102,9 @@ rsync -rvz --no-perms -e "$SSH_OPTS" \
     "$LOCAL/favicon.ico" \
     "$LOCAL/auth.php" \
     "$LOCAL/credentials.php" \
+    "$LOCAL/handover-lib.php" \
+    "$LOCAL/handover.php" \
+    "$LOCAL/handover" \
     "$LOCAL/.htaccess" \
     "$REMOTE/"
 

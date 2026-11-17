@@ -94,4 +94,5 @@ tests/ui/demand-flame.spec.js the flame beside the heartbeat dot, and when it is
 tests/ui/system.spec.js     the system-wide maximum on duration
 tests/ui/appearance.spec.js the view default, the view switch and the page colour (swatch, hex, time toggle)
 tests/ui/hero.spec.js       the marketing page's three hero photos: 40/40/20, fetched, and labelled to match
+tests/ui/special-override.spec.js the morning override's off-time checkbox: ticked by default, remembered, and sent as `keepoff`
 ```

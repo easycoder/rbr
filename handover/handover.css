@@ -1,0 +1,191 @@
+/* The handover page's own layout. It borrows the site's colours and header
+   from ../styles.css and adds only the form card, so it does not carry a
+   second copy of the marketing page's rules. */
+
+.handover-main {
+  padding: clamp(28px, 5vw, 64px) 20px;
+  background:
+    radial-gradient(circle at 8% 0%, #edf4fc 0, transparent 42%),
+    radial-gradient(circle at 96% 12%, #fff1e6 0, transparent 34%),
+    var(--cream);
+  min-height: calc(100vh - 94px);
+}
+
+.handover-card {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: clamp(26px, 4vw, 48px);
+  background: #fff;
+  border: 1px solid #e5ebf2;
+  border-radius: 24px;
+  box-shadow: 0 22px 55px #173b6014;
+}
+
+.handover-card h1 {
+  margin: 0 0 18px;
+  color: var(--navy);
+  font-size: clamp(30px, 4vw, 43px);
+  line-height: 1.08;
+  letter-spacing: -1px;
+}
+
+.handover-card h2 {
+  margin: 0 0 10px;
+  color: var(--navy);
+  font-size: 20px;
+}
+
+.handover-lede {
+  margin: 0 0 22px;
+  font-size: 16px;
+  color: #536274;
+}
+
+.handover-warning {
+  margin: 0 0 26px;
+  padding: 16px 18px;
+  border-left: 5px solid var(--orange);
+  border-radius: 8px;
+  background: #fff6ec;
+  color: #5b4632;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.handover-warning strong { color: var(--navy); }
+
+.handover-status {
+  margin: 0 0 22px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.handover-status.success {
+  background: #e7f5ed;
+  border: 1px solid #b8e0ca;
+  color: #1d5c3c;
+}
+
+.handover-status.error {
+  background: #fdecea;
+  border: 1px solid #f2c2bd;
+  color: #8e1b12;
+}
+
+.field { margin-bottom: 22px; }
+
+.field label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--navy);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.field input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid #cfdbe8;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+}
+
+.field input:focus {
+  outline: 3px solid #f4771640;
+  border-color: var(--orange);
+}
+
+.hint {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.hint code,
+.handover-more code,
+.cancel-id code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: var(--navy);
+  font-size: 0.94em;
+}
+
+.handover-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 24px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--orange);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 5px 14px #f4771626;
+  transition: background .2s, transform .2s;
+}
+
+.handover-button:hover:not(:disabled) {
+  background: #df650b;
+  transform: translateY(-1px);
+}
+
+.handover-button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+  transform: none;
+}
+
+.handover-button.danger { background: #b3261e; box-shadow: none; }
+.handover-button.danger:hover:not(:disabled) { background: #8e1b12; }
+
+.handover-more {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid #e5ebf2;
+}
+
+.handover-more summary {
+  color: var(--navy);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.handover-more p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+#cancel-panel {
+  margin: 0 0 26px;
+  padding: 18px;
+  border: 1px solid #f2c2bd;
+  border-radius: 12px;
+  background: #fffafa;
+}
+
+.cancel-id {
+  font-size: 13px;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+@media (max-width: 640px) {
+  .handover-main { padding: 18px 12px 28px; min-height: 0; }
+  .handover-card { padding: 22px 18px; border-radius: 18px; }
+  .handover-card h1 { font-size: 30px; letter-spacing: -0.6px; }
+  .handover-button { width: 100%; }
+}

@@ -2,11 +2,11 @@
 
 A working note, not product documentation. **Where each document stands is in [docs/README.md](docs/README.md)**: its document map carries a status for every page, its role paths give the reading order, and its Status section names what is written. This file holds what that map cannot — the order of work, the two items waiting on the world rather than on us, and the conventions the work has settled on.
 
-> **Audience:** maintainer · **Status:** working note · **Last verified:** 2026-10-25
+> **Audience:** maintainer · **Status:** working note · **Last verified:** 2026-11-16
 
 ## State
 
-The sprint's whole output landed in **one commit on 25 September** (`2fe0416`): thirteen documents — `docs/README.md`, the [glossary](docs/appendix/glossary.md), concept 00–05 and preparation 01–05. Every one reads `Status: draft`, `Last verified:` 20–21 September, and the README's "Nothing here has been reviewed yet" is still true: nothing in the tree has been reviewed by anyone.
+The sprint's whole output landed in **one commit on 25 September** (`2fe0416`): thirteen documents — `docs/README.md`, the [glossary](docs/appendix/glossary.md), concept 00–06 and preparation 01–05. Every one reads `Status: draft`, `Last verified:` 20–21 September, and the README's "Nothing here has been reviewed yet" is still true: nothing in the tree has been reviewed by anyone.
 
 A one-line change to `docs/README.md` on 27 September was the tree's last touch. **One commit has happened since** — `f59906e` on 15 October — and it carried two unrelated things: the Advance fix (controller, new-ui, unit tests, version bump) and 188 lines of new audience-facing documentation about the setup script, which was written at the repository root as `RBR-SETUP.md` and linked from nothing. It now lives in the tree, at [docs/installation/06-what-the-setup-script-does.md](docs/installation/06-what-the-setup-script-does.md), and the map lists it.
 

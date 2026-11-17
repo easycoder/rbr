@@ -81,6 +81,8 @@ RBR_FILES = (
     ".mac_override",
     ".mqtt_password",
     ".mqtt_token",
+    ".site_url",
+    ".handover",
     "volatile-root",
     "heatlog-root",
     "journal-root",

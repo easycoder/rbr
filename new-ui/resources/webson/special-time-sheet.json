@@ -1,8 +1,8 @@
 {
-    "#doc": "Time popup for the 'change the morning start time' special action. A single native time input, pre-filled by shell.allspeak with the last time requested for this room (or the room's current morning start on first use). Rendered once into sheet-content alongside the other simple sheets.",
+    "#doc": "Time popup for the 'change the morning start time' special action. A native time input, pre-filled by shell.allspeak with the last time requested for this room (or the room's current morning start on first use), and a checkbox that says whether the off time moves with it — ticked by default, because one morning shifted by half an hour usually keeps its length. Rendered once into sheet-content alongside the other simple sheets.",
     "#element": "div",
     "@id": "special-time-sheet",
-    "#": ["$Tagline", "$TimeBlock", "$Hint", "$Buttons"],
+    "#": ["$Tagline", "$TimeBlock", "$TrackRow", "$Hint", "$Buttons"],
 
     "$Tagline": {
         "#element": "div",
@@ -10,7 +10,7 @@
         "font-size": "13px",
         "font-weight": "400",
         "color": "var(--color-text-secondary)",
-        "#content": "Heating will come on at this time instead of the scheduled start. The off time is unchanged."
+        "#content": "Heating will come on at this time instead of the scheduled start, for one day."
     },
 
     "$TimeBlock": {
@@ -43,6 +43,55 @@
             "font-weight": "600",
             "color": "var(--color-text-primary)",
             "box-sizing": "border-box"
+        }
+    },
+
+    "$TrackRow": {
+        "#element": "div",
+        "margin-top": "14px",
+        "padding": "12px 14px",
+        "border": "1px solid var(--color-border-hairline)",
+        "border-radius": "12px",
+        "display": "flex",
+        "align-items": "center",
+        "gap": "12px",
+        "#": ["$TrackText", "$TrackSpacer", "$TrackBox"],
+
+        "$TrackText": {
+            "#element": "div",
+            "display": "flex",
+            "flex-direction": "column",
+            "min-width": "0",
+
+            "$TrackLabel": {
+                "#element": "div",
+                "font-size": "14px",
+                "font-weight": "500",
+                "color": "var(--color-text-primary)",
+                "#content": "Move the off time too"
+            },
+            "$TrackSub": {
+                "#element": "div",
+                "font-size": "12px",
+                "font-weight": "400",
+                "color": "var(--color-text-muted)",
+                "margin-top": "2px",
+                "#content": "Keeps the same interval. Unticked, the off time stays as the schedule set it."
+            }
+        },
+
+        "$TrackSpacer": { "#element": "div", "flex": "1" },
+
+        "$TrackBox": {
+            "#element": "input",
+            "@id": "special-time-track",
+            "@type": "checkbox",
+            "width": "22px",
+            "height": "22px",
+            "margin": "0",
+            "flex-shrink": "0",
+            "cursor": "pointer",
+            "accent-color": "var(--color-accent)"
         }
     },
 

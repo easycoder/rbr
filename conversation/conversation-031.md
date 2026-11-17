@@ -534,3 +534,19 @@ Added a **Looking for a co-maintainer** section to `README.md`, immediately befo
 I used "much of the code and documentation produced by an AI agent under his direction" rather than "maintained by an AI agent" so the human accountability stays explicit. `CONTINUITY.md` now points at the same call.
 
 Verification: prose only; `git diff --check` clean and local links resolve. Commit/push the README and continuity change; no site deploy needed.
+
+## 10:48
+
+In Special Actions I want to modify "Change the morning start time". At present is keeps the off time unchanged. I want to change this to the default being to make the off time track the on time to keep the same interval. A checkbox will be ticked when the end time tracks the start time, unticked when it remains as set by the schedule.
+
+**Assistant**
+
+Done. The time popup now carries a checkbox, **"Move the off time too"**, ticked by default, and the controller honours it.
+
+**PWA.** `special-time-sheet.json` gained the row (checkbox plus a sub-line: "Keeps the same interval. Unticked, the off time stays as the schedule set it"), the tagline no longer claims the off time is unchanged, and the hint is now just the "used once" fact plus the unticked caveat. `shell.allspeak` pre-fills the time as before, ticks the box unless this phone unticked it for this room (remembered beside the time as `rbr-override-track-<room>`), and sends `keepoff: yes|no` in the `Room Override` request.
+
+**Controller.** `SetRoomOverride` stores `keepoff` on the entry when asked (an older UI sends nothing and keeps the old behaviour). `GetEffectivePeriods` shifts the morning's `off` by the same delta as the `on` when the flag is set, clamping at 23:59 rather than wrapping past midnight, and in that mode a start after the scheduled off is simply a later warm-up instead of a skip. `OverrideMorningEnded` — the expiry that clears the badge — now judges the *moved* end, so the last part of the warm-up is not pruned away early.
+
+**Tests.** `tests/unit/unit-10-overrides.allspeak` mirrors the controller and gained cases 16–20: the moved off, a late tracked start not skipping, the midnight clamp, the request flag (and its absence), and expiry at the moved end; 31 tests / 55 checks pass there. New `tests/ui/special-override.spec.js` proves the ticked default sends `keepoff: yes`, that unticking sends `no`, and that the choice comes back on the next open. Full UI suite 26/26, unit runner 190 Python tests plus the AllSpeak suite, `pwa-compile-check` 12/12, docs-reader 72/72.
+
+**Docs.** `docs/operation/01-the-interface.md` describes the checkbox. `DIFF.md` had been rewritten for the handover work, so I kept it and appended this release's share — the release note now says the same `./deploy.sh --release` carries both, and that the morning override needs the controller side.

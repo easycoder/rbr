@@ -10,26 +10,45 @@ can restart the controller and bridge services itself.
 
 How it works
 ------------
-1. Check the mosquitto cloud bridge's password against the one the cloud
-   currently expects, and correct it if it has drifted — see "The cloud bridge"
-   below. This is independent of any release, and while it is wrong the web
-   interface cannot reach the controller at all.
-2. Download rbr-controller.tar.gz from rbrheating.com/heat/ (a local file path
-   or file:// URL is also accepted, mainly for testing).
-3. Read the VERSION stamp embedded in the tarball and compare it with the
+1. Ask the current site whether a handover has become active. A request has a
+   waiting period (14 days by default); until it ends nothing changes. Once it
+   is active, verify the new site's /heat/version, record the new address in
+   .site_url, and bring the bridge on to the broker that site names — see "The
+   handover channel" below.
+2. Check the mosquitto cloud bridge's password and address against what the
+   cloud currently expects, and correct them if they have drifted — see "The
+   cloud bridge" below. This is independent of any release, and while it is
+   wrong the web interface cannot reach the controller at all.
+3. Download rbr-controller.tar.gz from <site>/heat/ (a local file path or
+   file:// URL is also accepted, mainly for testing).
+4. Read the VERSION stamp embedded in the tarball and compare it with the
    local .version file. If the remote version is not newer, do nothing.
-4. Extract to a staging directory under the RBR dir, verify the tarball
+5. Extract to a staging directory under the RBR dir, verify the tarball
    contains the complete runtime file set, then atomically swap each file
    into place (os.replace — same filesystem, no torn writes).
-5. Write the new version to .version.
-6. Restart the services affected by the change:
+6. Write the new version to .version.
+7. Restart the services affected by the change:
      controller.allspeak / deviceControl.allspeak / simulator.allspeak  ->  controller.service
      zigbee-bridge.py                                 ->  rbr-zigbee-bridge.service
    If a service isn't installed or isn't running (e.g. the controller is
    run manually with `allspeak controller.allspeak` in a terminal), the updater
    logs a clear notice instead of killing anything.
-7. If rbr-updater.py itself changed, re-exec once so the new code
+8. If rbr-updater.py itself changed, re-exec once so the new code
    finishes the job.
+
+The handover channel
+--------------------
+A handover request is made on the website by someone holding the sealed
+passphrase. It is recorded, the owner is emailed, and for the waiting period
+nothing else happens. Every hourly run asks the current site's handover.php for
+its state with this system's MAC (and its token, when it has one):
+  pending  report the countdown; change nothing
+  failed   report why; change nothing
+  active   verify the new site, write .site_url, and adopt that site's broker
+The switch is deliberately lazy: it happens on the first run after activation,
+so a site that is down at that moment leaves the box on the old address and the
+next run tries again. `.site_url` is what every later run reads; it is not in
+the tarball and a handover never removes it.
 
 The cloud bridge
 ----------------
@@ -63,13 +82,16 @@ heatlog.py) reach controllers with that same release; TARBALL_FILES below
 is the minimum required set that a valid upload must contain.
 
 Usage:
-    python3 rbr-updater.py [--url URL_OR_PATH] [--dir RBR_DIR] [--force] [--check]
+    python3 rbr-updater.py [--url URL_OR_PATH] [--site SITE] [--dir RBR_DIR]
+                           [--force] [--check] [--no-handover]
 
-    --url    tarball location; default https://rbrheating.com/heat/rbr-controller.tar.gz
+    --url    tarball location; default <site>/heat/rbr-controller.tar.gz
+    --site   site to ask; default .site_url, then https://rbrheating.com
     --dir    RBR directory; default = directory containing this script
     --force  apply even if the remote version is not newer
     --check  full self-check: update infrastructure (files, units, timer)
              plus remote-vs-local versions; changes nothing, works offline
+    --no-handover  do not ask the site about a handover this run
 """
 
 import argparse
@@ -83,6 +105,7 @@ import sys
 import tarfile
 import tempfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -118,7 +141,12 @@ TARBALL_FILES = [
 
 VERSION_FILE = ".version"
 SELF = "rbr-updater.py"
-DEFAULT_URL = "https://rbrheating.com/heat/rbr-controller.tar.gz"
+# The site the box uses unless a handover has moved it. `.site_url` is written
+# once a handover becomes active, and every later run reads it before asking
+# anything of the network.
+DEFAULT_SITE = "https://rbrheating.com"
+SITE_URL_FILE = ".site_url"
+HANDOVER_FILE = ".handover"
 DOWNLOAD_TIMEOUT = 60
 
 # Services restarted when the corresponding files change. (name, [files])
@@ -152,8 +180,13 @@ SERVICE_RULES = [
 # whitespace, nothing that could start a new line and become a directive.
 _SAFE_TOKEN = re.compile(r"[A-Za-z0-9._~+/=:@-]{1,256}")
 
+# An address the handover may write into `.site_url`, and a broker host that
+# may be written into mosquitto's `address` line. Both are deliberately strict:
+# these values arrive over the network and one of them becomes configuration.
+_SITE_RE = re.compile(r"https?://[A-Za-z0-9.-]+(?::\d+)?(?:/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*)?")
+_BROKER_RE = re.compile(r"[A-Za-z0-9.-]+")
+
 BRIDGE_CONF = "/etc/mosquitto/conf.d/rbr-local.conf"
-CREDENTIALS_URL = "https://rbrheating.com/credentials.php"
 TOKEN_FILE = ".mqtt_token"
 
 
@@ -171,8 +204,14 @@ def _conf_set(text, key, value):
     return pattern.sub(key + " " + value, text, count=1), True
 
 
-def current_broker_credentials(rbr_dir):
-    """(username, password, source) the cloud currently expects, or (None, None, None)."""
+def read_system_identity(rbr_dir):
+    """(mac, token) from the files the controller already keeps.
+
+    The MAC is `.mac_override`, or the NIC's address written there by setup;
+    the token is optional. Both are read the same way everywhere so the
+    handover question and the credentials question cannot disagree about who
+    this box is.
+    """
     mac = token = ""
     for name, target in ((".mac_override", "mac"), (TOKEN_FILE, "token")):
         try:
@@ -184,27 +223,100 @@ def current_broker_credentials(rbr_dir):
             mac = value
         else:
             token = value
+    return mac, token
 
-    if mac and token:
-        url = "%s?mac=%s&token=%s" % (CREDENTIALS_URL,
-                                      urllib.parse.quote(mac), urllib.parse.quote(token))
-        try:
-            with urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT) as resp:
-                data = json.load(resp)
-            if data.get("username") and data.get("password"):
-                return data["username"], data["password"], "credentials.php"
-        except Exception as e:
-            log(f"Bridge credentials: could not fetch from credentials.php "
-                f"(falling back to the local copy): {e}")
+
+def site_base_url(rbr_dir):
+    """The site this box updates from: `.site_url`, or the built-in default.
+
+    A handover writes `.site_url` only after the new site has passed its
+    readiness check, so a broken value here means someone edited the file by
+    hand. The default is used then, and the warning says why.
+    """
+    path = os.path.join(rbr_dir, SITE_URL_FILE)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            value = fh.read().strip()
+    except OSError:
+        return DEFAULT_SITE
+    value = value.rstrip("/")
+    if _SITE_RE.fullmatch(value):
+        return value
+    log(f"Warning: {SITE_URL_FILE} does not name a usable address; using {DEFAULT_SITE}")
+    return DEFAULT_SITE
+
+
+def write_site_url(rbr_dir, base):
+    """Record the site to use from the next run on. Atomic, owner preserved."""
+    path = os.path.join(rbr_dir, SITE_URL_FILE)
+    temp = path + ".tmp"
+    with open(temp, "w", encoding="utf-8") as fh:
+        fh.write(base.rstrip("/") + "\n")
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.chmod(temp, 0o644)
+    try:
+        os.chown(temp, os.stat(rbr_dir).st_uid, os.stat(rbr_dir).st_gid)
+    except OSError:
+        pass
+    os.replace(temp, path)
+
+
+def fetch_json(url, timeout=DOWNLOAD_TIMEOUT):
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        return json.load(resp)
+
+
+def fetch_cloud_credentials(base, mac, token):
+    """The broker account the given site currently expects, or None."""
+    if not (mac and token):
+        return None
+    url = "%s/credentials.php?mac=%s&token=%s" % (
+        base.rstrip("/"), urllib.parse.quote(mac), urllib.parse.quote(token))
+    try:
+        data = fetch_json(url)
+    except Exception as e:
+        log(f"Cloud credentials: could not fetch from {base}/credentials.php: {e}")
+        return None
+    if isinstance(data, dict) and data.get("username") and data.get("password"):
+        return data
+    log(f"Cloud credentials: {base}/credentials.php did not return a usable account")
+    return None
+
+
+def current_broker_credentials(rbr_dir, base=None):
+    """The account and broker the cloud expects, or None.
+
+    Returns a dict with username, password, broker, mqtt_port and source.
+    The cloud's answer is tried first when a token exists; the local
+    `credentials` file is the fallback. The local file's `broker` is this
+    machine's own Mosquitto, so it is never used as the cloud address.
+    """
+    mac, token = read_system_identity(rbr_dir)
+    data = fetch_cloud_credentials(base or site_base_url(rbr_dir), mac, token)
+    if data:
+        return {
+            "username": data["username"],
+            "password": data["password"],
+            "broker": data.get("broker") or "",
+            "mqtt_port": data.get("mqtt_port"),
+            "source": "credentials.php",
+        }
 
     try:
         with open(os.path.join(rbr_dir, "credentials"), encoding="utf-8") as fh:
-            data = json.load(fh)
-        if data.get("username") and data.get("password"):
-            return data["username"], data["password"], "local credentials"
+            local = json.load(fh)
+        if isinstance(local, dict) and local.get("username") and local.get("password"):
+            return {
+                "username": local["username"],
+                "password": local["password"],
+                "broker": "",
+                "mqtt_port": None,
+                "source": "local credentials",
+            }
     except (OSError, ValueError):
         pass
-    return None, None, None
+    return None
 
 
 def bridge_state():
@@ -239,8 +351,157 @@ def _report_bridge_state():
     return state
 
 
-def ensure_bridge_credentials(rbr_dir, conf_path=BRIDGE_CONF, apply_changes=True):
-    """Bring the bridge password in step with the cloud. Returns True if stale."""
+def _handover_stamp(value):
+    try:
+        return time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(int(value)))
+    except (TypeError, ValueError, OverflowError):
+        return "an unknown time"
+
+
+def fetch_handover(rbr_dir, base):
+    """The live handover record from this site, or None.
+
+    The controller asks the site it currently updates from. A 404 is the
+    normal answer on a site that has no handover configured; anything else
+    that goes wrong is logged and treated as 'nothing to do this hour'.
+    """
+    mac, token = read_system_identity(rbr_dir)
+    if not mac:
+        log("Handover: no system MAC (.mac_override); cannot ask for status")
+        return None
+    params = {"action": "status", "mac": mac}
+    if token:
+        params["token"] = token
+    url = base.rstrip("/") + "/handover.php?" + urllib.parse.urlencode(params)
+    try:
+        data = fetch_json(url, 20)
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None  # no handover channel on this site
+        log(f"Handover: status request failed (HTTP {e.code})")
+        return None
+    except Exception as e:
+        log(f"Handover: status request failed: {e}")
+        return None
+    handover = data.get("handover") if isinstance(data, dict) else None
+    return handover if isinstance(handover, dict) else None
+
+
+def check_site_ready(base):
+    """(ready, reason) for the new site's release stamp.
+
+    /heat/version is what the updater itself reads on every run, and its
+    numeric stamp is the cheapest proof that the address is an RBR site
+    rather than a parked domain or a generic web page.
+    """
+    url = base.rstrip("/") + "/heat/version"
+    try:
+        with urllib.request.urlopen(url, timeout=20) as resp:
+            body = resp.read(200).decode("ascii", "replace").strip()
+    except Exception as e:
+        return False, f"could not fetch /heat/version ({e})"
+    if not re.fullmatch(r"\d{8,14}", body):
+        return False, "/heat/version did not return an RBR release stamp"
+    # The credentials endpoint is the other thing the switch needs. A bare
+    # request must be refused; a 200 would mean the site hands out broker
+    # accounts without a token, and a 404 means the endpoint is not there.
+    try:
+        with urllib.request.urlopen(base.rstrip("/") + "/credentials.php", timeout=20) as resp:
+            status = getattr(resp, "status", 200)
+    except urllib.error.HTTPError as e:
+        status = e.code
+    except Exception as e:
+        return False, f"could not fetch /credentials.php ({e})"
+    if status != 401:
+        return False, f"/credentials.php answered {status}, not 401"
+    return True, ""
+
+
+def apply_handover(rbr_dir, base, handover, bridge_conf=BRIDGE_CONF,
+                   apply_changes=True, restart=True):
+    """Act on the handover record. Returns the site to use for this run.
+
+    Pending: say how long is left and change nothing. Failed: say so and
+    change nothing. Active: verify the new site, record it in `.site_url`, and
+    bring the bridge on to the broker that site names. The record is only
+    written after the new site answers, so a site that has gone away leaves
+    the box on the old address and tries again next hour.
+    """
+    state = str(handover.get("state") or "")
+    if state == "pending":
+        log("Handover: request pending — %s day(s) left (effective %s); new site %s; "
+            "nothing changes yet" % (
+                handover.get("days_left", "?"),
+                _handover_stamp(handover.get("effective_at")),
+                handover.get("url", "")))
+        return base
+    if state == "failed":
+        log("Handover: the request failed — %s; nothing switched"
+            % (handover.get("error") or "the new site did not pass the readiness check"))
+        return base
+    if state != "active":
+        return base
+
+    new_base = str(handover.get("url") or "").rstrip("/")
+    if not _SITE_RE.fullmatch(new_base):
+        log(f"Handover: active, but the new site address is not usable: {new_base!r}")
+        return base
+    log(f"Handover: ACTIVE — switching to {new_base}")
+    if not apply_changes:
+        log("Handover: check only — the switch was not made")
+        return base
+
+    ready, reason = check_site_ready(new_base)
+    if not ready:
+        log(f"Handover: not switching yet — the new site is not ready: {reason} "
+            "(will try again on the next hourly run)")
+        return base
+
+    mac, token = read_system_identity(rbr_dir)
+    credentials = fetch_cloud_credentials(new_base, mac, token) if token else None
+    if token and credentials is None:
+        log("Handover: the new site is reachable but its credentials.php could not "
+            "be used; the update address switches and the broker account is left alone")
+
+    write_site_url(rbr_dir, new_base)
+    log(f"Handover: update address is now {new_base} (recorded in {SITE_URL_FILE})")
+
+    if credentials:
+        ensure_bridge_credentials(rbr_dir, bridge_conf, apply_changes=True,
+                                  base=new_base, credentials=credentials,
+                                  restart=restart)
+
+    record = {
+        "applied_at": int(time.time()),
+        "url": new_base,
+        "broker": (credentials or {}).get("broker", ""),
+        "mqtt_port": (credentials or {}).get("mqtt_port", ""),
+    }
+    try:
+        path = os.path.join(rbr_dir, HANDOVER_FILE)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(record, fh, indent=2)
+            fh.write("\n")
+        os.chmod(path, 0o644)
+        try:
+            os.chown(path, os.stat(rbr_dir).st_uid, os.stat(rbr_dir).st_gid)
+        except OSError:
+            pass
+    except OSError as e:
+        log(f"Handover: could not record {HANDOVER_FILE}: {e}")
+
+    return new_base
+
+
+def ensure_bridge_credentials(rbr_dir, conf_path=BRIDGE_CONF, apply_changes=True,
+                              base=None, credentials=None, restart=True):
+    """Bring the bridge in step with the cloud. Returns True if stale.
+
+    The address line is part of the same check: a handover may name a different
+    broker, and a bridge pointed at the old host would keep "working" locally
+    while the app lost the controller for ever. `mqtt_port` is the bridge port
+    (8883 by default), not the browser's websocket port.
+    """
     if not os.path.isfile(conf_path):
         log(f"Bridge credentials: no {conf_path} — not a bridged install, skipping")
         return False
@@ -251,11 +512,20 @@ def ensure_bridge_credentials(rbr_dir, conf_path=BRIDGE_CONF, apply_changes=True
         log(f"Bridge credentials: cannot read {conf_path}: {e}")
         return False
 
-    username, password, source = current_broker_credentials(rbr_dir)
-    want_user = username or _conf_get(text, "remote_username")
-    if not password:
+    if credentials is None:
+        credentials = current_broker_credentials(rbr_dir, base)
+    if not credentials:
         log("Bridge credentials: cannot establish the current password "
             "(no .mqtt_token and no usable credentials file)")
+        _report_bridge_state()
+        return False
+
+    username = credentials.get("username") or ""
+    password = credentials.get("password") or ""
+    source = credentials.get("source") or "the cloud"
+    want_user = username or _conf_get(text, "remote_username")
+    if not password:
+        log("Bridge credentials: the cloud returned no password; leaving the config alone")
         _report_bridge_state()
         return False
 
@@ -271,27 +541,58 @@ def ensure_bridge_credentials(rbr_dir, conf_path=BRIDGE_CONF, apply_changes=True
         _report_bridge_state()
         return False
 
+    want_address = None
+    broker = credentials.get("broker") or ""
+    if broker:
+        if not _BROKER_RE.fullmatch(broker):
+            log(f"Bridge credentials: refusing the broker host from {source}: {broker!r}")
+        else:
+            try:
+                mqtt_port = int(credentials.get("mqtt_port") or 8883)
+            except (TypeError, ValueError):
+                mqtt_port = 8883
+            if not 1 <= mqtt_port <= 65535:
+                mqtt_port = 8883
+            want_address = "%s:%d" % (broker, mqtt_port)
+
     have_user = _conf_get(text, "remote_username")
     have_pw = _conf_get(text, "remote_password")
+    have_address = _conf_get(text, "address")
 
-    if have_pw == password and have_user == want_user:
+    changed = []
+    if want_user and have_user != want_user:
+        changed.append("username")
+    if have_pw != password:
+        changed.append("password")
+    if want_address and have_address != want_address:
+        changed.append("address")
+
+    if not changed:
         log(f"Bridge credentials: up to date (from {source})")
         _report_bridge_state()
         return False
 
-    log(f"Bridge credentials: STALE — config has {len(have_pw or '')} characters, "
-        f"the cloud expects {len(password)} (from {source})")
+    log(f"Bridge credentials: STALE ({', '.join(changed)}; from {source})")
+    if want_address and have_address != want_address:
+        log(f"Bridge credentials: address {have_address or '(none)'} -> {want_address}")
     if not apply_changes:
         log("Bridge credentials: check only — nothing changed")
         _report_bridge_state()
         return True
 
-    new_text, matched = _conf_set(text, "remote_username", want_user)
-    if matched:
+    new_text = text
+    matched_any = False
+    if "username" in changed:
+        new_text, matched = _conf_set(new_text, "remote_username", want_user)
+        matched_any = matched_any or matched
+    if "password" in changed:
         new_text, matched = _conf_set(new_text, "remote_password", password)
-    if not matched:
-        log(f"Bridge credentials: no remote_username/remote_password lines in "
-            f"{conf_path} — nothing changed")
+        matched_any = matched_any or matched
+    if "address" in changed:
+        new_text, matched = _conf_set(new_text, "address", want_address)
+        matched_any = matched_any or matched
+    if not matched_any:
+        log(f"Bridge credentials: no matching lines in {conf_path} — nothing changed")
         return False
 
     backup = "%s.bak-%s" % (conf_path, time.strftime("%Y%m%d-%H%M%S"))
@@ -316,6 +617,9 @@ def ensure_bridge_credentials(rbr_dir, conf_path=BRIDGE_CONF, apply_changes=True
         os.chown(path, os.stat(rbr_dir).st_uid, os.stat(rbr_dir).st_gid)
     except OSError as e:
         log(f"Bridge credentials: could not update .mqtt_password: {e}")
+
+    if not restart:
+        return True
 
     # mosquitto rereads the file only on restart; the controller then needs its
     # own MQTT connection re-established rather than left on a dead socket.
@@ -576,7 +880,12 @@ def read_remote_version(tarball_path):
 
 def main():
     ap = argparse.ArgumentParser(description="RBR controller updater")
-    ap.add_argument("--url", default=DEFAULT_URL)
+    ap.add_argument("--url", default=None,
+                    help="tarball location; default <site>/heat/rbr-controller.tar.gz")
+    ap.add_argument("--site", default=None,
+                    help="site to ask for updates; default .site_url, then %s" % DEFAULT_SITE)
+    ap.add_argument("--no-handover", action="store_true",
+                    help="do not ask the site about a handover this run")
     ap.add_argument("--dir", default=os.path.dirname(os.path.abspath(__file__)))
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--check", action="store_true",
@@ -591,17 +900,35 @@ def main():
         return 2
     log(f"RBR dir: {rbr_dir}")
 
-    # --- the cloud bridge's password --------------------------------------
+    # --- handover ---------------------------------------------------------
+    # Checked before the release and before the bridge, because an active
+    # handover moves both. A local --url is an explicit override for testing
+    # and deliberately does not consult the network's handover state.
+    base = (args.site or site_base_url(rbr_dir)).rstrip("/")
+    if not args.url and not args.no_handover:
+        try:
+            handover = fetch_handover(rbr_dir, base)
+            if handover:
+                base = apply_handover(rbr_dir, base, handover, args.bridge_conf,
+                                      apply_changes=not args.check,
+                                      restart=not args.check)
+        except Exception as e:
+            log(f"Handover: unexpected error, continuing on {base}: {e}")
+
+    # --- the cloud bridge's password and address -------------------------
     # Before anything release-shaped: this drifts independently of any release,
     # and while it is stale the interface cannot reach this controller at all,
     # so it is the first thing worth knowing about. In --check mode it reports
     # and changes nothing, but a stale password counts as a problem.
     try:
-        credentials_stale = ensure_bridge_credentials(rbr_dir, args.bridge_conf,
-                                                      apply_changes=not args.check)
+        credentials_stale = ensure_bridge_credentials(
+            rbr_dir, args.bridge_conf, apply_changes=not args.check,
+            base=base, restart=not args.check)
     except Exception as e:
         log(f"Bridge credentials: unexpected error, continuing: {e}")
         credentials_stale = False
+
+    source = args.url or (base.rstrip("/") + "/heat/rbr-controller.tar.gz")
 
     # --- download to a temp file -----------------------------------------
     tmp = tempfile.NamedTemporaryFile(prefix="rbr-update-", suffix=".tar.gz", delete=False)
@@ -609,7 +936,7 @@ def main():
     try:
         download_ok = True
         try:
-            download_tarball(args.url, tmp.name)
+            download_tarball(source, tmp.name)
         except Exception as e:
             download_ok = False
             if args.check:

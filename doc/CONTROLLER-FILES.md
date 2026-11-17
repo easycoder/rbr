@@ -70,12 +70,12 @@ Everything marked **volatile** is regenerated within minutes and is deliberately
 | `.chat-version` | Chat is a server-side web app |
 | `.gitignore`, `.stignore` | Repo hygiene for the dev machine |
 | `.venv/` | Services use the system `python3`; not required |
-| `deploy.sh`, `index.html`, `styles.css`, `script.js`, `assets/`, `new-ui/`, `.htaccess`, `auth.php`, `credentials.php` | Cloud server (pushed by `deploy.sh`) |
+| `deploy.sh`, `index.html`, `styles.css`, `script.js`, `assets/`, `new-ui/`, `.htaccess`, `auth.php`, `credentials.php`, `handover.php`, `handover-lib.php`, `handover/` | Cloud server (pushed by `deploy.sh`) |
 | `tests/`, `doc/`, `docs/`, `desktop/`, `design/`, `AI/`, `conversation/`, `node_modules/` | Dev machine |
 
 ## Backups ##
 
-`rbr-backup.py` runs from `rbr-backup.service` + `rbr-backup.timer` on the first of every month at 03:00, with `Persistent=true` so a machine that was off catches up on its next boot. It writes one ZIP into `backup/`, prunes to the newest 12, and records the outcome in `backup-status.json`. The archive holds the controller's own state (`map.json`, its history, `credentials`, `zigbee-config.json`, `.mac_override`, `.mqtt_*`, the root markers, `backup-config.json` and `journal-export-config.json`) and all of Zigbee2MQTT's data directory — `configuration.yaml` with the network key, a consistent snapshot of `database.db`, `coordinator_backup.json` and external converters. Code is not included: a fresh install gets that from rbrheating.com.
+`rbr-backup.py` runs from `rbr-backup.service` + `rbr-backup.timer` on the first of every month at 03:00, with `Persistent=true` so a machine that was off catches up on its next boot. It writes one ZIP into `backup/`, prunes to the newest 12, and records the outcome in `backup-status.json`. The archive holds the controller's own state (`map.json`, its history, `credentials`, `zigbee-config.json`, `.mac_override`, `.mqtt_*`, `.site_url`, `.handover`, the root markers, `backup-config.json` and `journal-export-config.json`) and all of Zigbee2MQTT's data directory — `configuration.yaml` with the network key, a consistent snapshot of `database.db`, `coordinator_backup.json` and external converters. Code is not included: a fresh install gets that from rbrheating.com.
 
 The archive therefore contains the secrets that let a rebuilt controller rejoin the mesh. Archives are written mode 0600 and should be treated as sensitive.
 
@@ -92,5 +92,6 @@ It verifies the manifest and every checksum, refuses paths that would escape the
 ## How updates work today ##
 
 1. **Auto-updated (the controller runtime):** the standalone updater, `rbr-updater.py`, is driven by an hourly systemd timer. It fetches `https://rbrheating.com/heat/rbr-controller.tar.gz`, compares the `VERSION` stamp inside it with the local `.version`, and if the remote is newer swaps in the changed files and restarts the services they belong to. The controller also watches `.version` (about once a minute) and exits when it changes, so a supervised controller relaunches onto the new code.
+   Before the release check, the same run asks the current site about a handover. A pending request is logged; an active one records the new site in `.site_url` and reconciles the bridge before continuing that run against the new site. See [HANDOVER.md](HANDOVER.md).
 2. **Trigger:** on the dev machine, `./deploy.sh --release` rebuilds the tarball and the install pack with a bumped version stamp and publishes `/heat/` on the site. `./deploy.sh` without `--release` uploads the files without publishing them (for smoke-testing).
 3. **The old in-controller `CheckForUpdate` is gone.** It has been replaced by the standalone updater described in [UPDATE-MECHANISM.md](UPDATE-MECHANISM.md); the `.allspeak` sources are still published to `/heat/` beside the tarball, but nothing on a controller pulls them individually any more.

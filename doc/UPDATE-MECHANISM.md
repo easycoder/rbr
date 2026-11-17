@@ -14,11 +14,12 @@ Everything this document fetches — the update tarball, the install pack, the d
 
 The move from the site root to `/heat/` was a deliberate hard cutover. Controllers installed before it look for `https://rbrheating.com/rbr-controller.tar.gz` and will not find a newer release at that path any more; reinstalling with the new `get-controller.sh` picks up the new location. `rbr-updater.py`'s default URL and `get-controller.sh`'s base are both `/heat/` now, and `RBR_BASE`/`--url` override them for testing.
 
-Three things deliberately did **not** move into `/heat/`:
+Four things deliberately did **not** move into `/heat/`:
 
 - **`auth.php` and `credentials.php`** stay at the site root. They read `../rbr-users.json`, which is kept outside the web root on purpose; one level deeper — inside `/heat/` — that path would resolve to a file inside the served tree. Both the legacy UI and the PWA reach them from either location, because the PWA asks for `../credentials.php` (one level above the page, which is the site root from `/heat/` as it was from `/new-ui/`) and `/verify`, `/register` and `/recover` are absolute.
 - **The legacy UI** at the root (`index.html`, `resources/`) is left running and still deployed, unchanged, until it is deleted. The root is to become a product-information home page.
 - **The documentation reader** at `/docs` and the pinned AllSpeak runtime at `/dist/` are not part of the operational set and are left where they are.
+- **The handover channel** stays at the site root too: `handover.php` and `handover-lib.php` beside `auth.php`, and the page at `/handover/`. It reads the same host settings and customer register, and its state file sits beside `rbr-users.json` above the web root. It is not part of the controller runtime and is not shipped in the tarball; see [HANDOVER.md](HANDOVER.md).
 
 `deploy.sh` assembles `/heat/` in a temporary directory and syncs it as one tree, because the PWA and the controller files share the directory and the sync prunes deletions — syncing `new-ui/` straight into `/heat/` would delete the controller files already there. `version` is excluded from the tree sync and uploaded on its own afterwards, so a controller mid-check never sees a new stamp paired with stale source.
 
@@ -53,21 +54,22 @@ VERSION
 
 `VERSION` is a copy of the `version` stamp. On a `--release` run the stamp is bumped **before** the tarball is built, so the published tarball carries the new version. On a plain `./deploy.sh` (iteration) the tarball keeps the last release stamp — controllers that already have it skip it, exactly like the old `.allspeak` behaviour.
 
-Machine-specific data is deliberately **not** in the tarball and is never touched by the updater: `credentials`, `.mqtt_password`, `.mac_override`, `config.json`, `map.json`, `thermometers.json`, `zigbee-temperatures.json`, `.version`.
+Machine-specific data is deliberately **not** in the tarball and is never touched by the updater: `credentials`, `.mqtt_password`, `.mqtt_token`, `.mac_override`, `config.json`, `map.json`, `thermometers.json`, `zigbee-temperatures.json`, `.version`, `.site_url`, `.handover`.
 
 ### Update flow ###
 
 1. `rbr-updater.timer` fires (hourly, with a random 0–300 s delay so all controllers don't hit the server simultaneously).
-2. `rbr-updater.py` downloads the tarball to a temp file (HTTP with a 60 s timeout; a local path or `file://` URL is accepted for testing).
-3. It reads the embedded `VERSION` and compares it with the local `.version` (integers, `YYMMDDHHMM`). If not newer (unless `--force`), it stops.
-4. The tarball is extracted to a staging dir inside the RBR directory. Every file in the required set must be present or the update is **refused** — this catches truncated or wrong uploads before anything is touched.
-5. Each staged file is sha256-compared with the live file; only changed files are swapped via `os.replace` (atomic, same filesystem).
-6. The new version is written to `.version`.
-7. Affected services are restarted:
+2. `rbr-updater.py` asks the current site for a handover (`handover.php?action=status`, with this system's MAC and token). A pending request is reported; an active one switches `.site_url` and the bridge as described below, and the rest of the run then uses the new site.
+3. `rbr-updater.py` downloads the tarball to a temp file (HTTP with a 60 s timeout; a local path or `file://` URL is accepted for testing).
+4. It reads the embedded `VERSION` and compares it with the local `.version` (integers, `YYMMDDHHMM`). If not newer (unless `--force`), it stops.
+5. The tarball is extracted to a staging dir inside the RBR directory. Every file in the required set must be present or the update is **refused** — this catches truncated or wrong uploads before anything is touched.
+6. Each staged file is sha256-compared with the live file; only changed files are swapped via `os.replace` (atomic, same filesystem).
+7. The new version is written to `.version`.
+8. Affected services are restarted:
    - `controller.allspeak` / `deviceControl.allspeak` / `simulator.allspeak` changed → restart `controller.service`
    - `zigbee-bridge.py` changed → restart `rbr-zigbee-bridge.service` `rbr-setup.sh` Step 8 can install `controller.service` (optional) so the controller auto-restarts after updates; if no such service is running (e.g. the controller is run manually with `allspeak controller.allspeak` in a terminal), the updater logs a notice instead of killing anything.
-8. The controller also watches `.version` itself (in `MainLoop`, about once a minute): when it changes on disk, it logs `Update applied: vX -> vY` and exits. Under `controller.service` (Restart=always) systemd relaunches it; for a manual run the message tells the operator to restart — so even without the service, a manually-run controller picks up new code promptly.
-9. If `rbr-updater.py` itself changed it is replaced and the process re-execs once so the new code finishes the run.
+9. The controller also watches `.version` itself (in `MainLoop`, about once a minute): when it changes on disk, it logs `Update applied: vX -> vY` and exits. Under `controller.service` (Restart=always) systemd relaunches it; for a manual run the message tells the operator to restart — so even without the service, a manually-run controller picks up new code promptly.
+10. If `rbr-updater.py` itself changed it is replaced and the process re-execs once so the new code finishes the run.
 
 `.version` is recorded **after** the service restarts are attempted. A failed restart leaves the old version in place; the next hourly run re-extracts, finds the files identical, and re-attempts the restarts before recording the version — so a transient restart failure self-heals on the next run.
 
@@ -84,6 +86,24 @@ The bridge authenticates with `remote_password` in `/etc/mosquitto/conf.d/rbr-lo
 
 `.mqtt_token` is optional. With it the box can heal itself; without it the local `credentials` copy is used, which means the password still has to reach the box once by running the setup script.
 
+### Handover ###
+
+A handover is the deliberate, owner-approved version of the same idea: a prepared new site becomes the source of updates and, if it names a different broker, the bridge moves too. The website records the request and waits 14 days; [HANDOVER.md](HANDOVER.md) is the full description.
+
+Every updater run asks the site it currently uses:
+
+```
+GET <site>/handover.php?action=status&mac=<MAC>[&token=<token>]
+```
+
+- `pending` — the request's countdown is logged; nothing changes.
+- `failed` — the request's error is logged; nothing changes.
+- `active` — `<new-site>/heat/version` must return an RBR release stamp. If it does, the updater fetches `<new-site>/credentials.php` with the same MAC and token, writes the new address to `.site_url`, and reconciles the bridge from that response (`address`, `remote_username`, `remote_password`, with `mqtt_port`, default 8883). It then finishes the run against the new site. The switch is recorded in `.handover`.
+
+`.site_url` is written before the bridge is reconciled, so a bridge write that fails is retried by the next run against the new site. If the new site cannot be reached, `.site_url` is not written at all: the box stays on the old address and tries again in an hour. Both files are machine-specific and are included in backups.
+
+A system without `.mqtt_token` can still be told about an *active* handover (the URL is not a secret at that point) but cannot fetch the new site's broker account; the bridge then keeps its existing account. A system with no token also cannot see a pending request, so it has no countdown to log.
+
 ### Manual use ###
 
 ```sh
@@ -92,6 +112,8 @@ python3 rbr-updater.py --check                 # full self-check: infrastructure
                                               # bridge, controller) + versions;
                                               # changes nothing, works offline
 python3 rbr-updater.py --url ./rbr-controller.tar.gz   # test with a local file
+python3 rbr-updater.py --site https://staging.example.com  # ask another site
+python3 rbr-updater.py --no-handover           # ignore the handover channel
 python3 rbr-updater.py --force                 # re-apply current version
 ```
 

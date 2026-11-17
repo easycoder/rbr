@@ -47,5 +47,6 @@ The room names, and what each room is for — gathered before the unit is prepar
 ## Where next
 
 - [Costs and payback](05-costs-and-payback.md) — what it costs to own and to run.
+- [Continuity and support](06-continuity-and-support.md) — what happens if the supplier or maintainer steps away.
 - [A fitted house](03-a-fitted-house.md) — what the system looks like in a property.
 - [Glossary](../appendix/glossary.md) — supplier, installer, operator and the rest.

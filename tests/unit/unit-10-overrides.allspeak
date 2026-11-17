@@ -43,6 +43,15 @@
     variable TodayKey
     variable OverrideKind
     variable OverrideOn
+    variable OverrideKeepoff
+    variable OverrideOffMinutes
+    variable OverrideWasMinutes
+    variable OverrideDelta
+    variable MorningEndTime
+    variable TimeMinutes
+    variable TimeText
+    variable TimeH
+    variable TimeM
     variable OverrideDate
     variable OverrideName
     variable OverrideWas
@@ -85,6 +94,7 @@ LoadRoomPeriods:
 GetRoomOverride:
     put empty into OverrideKind
     put empty into OverrideOn
+    clear OverrideKeepoff
     if Map has no entry `overrides` return
     put entry `overrides` of Map into Overrides
     put entry `name` of Room into OverrideName
@@ -94,8 +104,9 @@ GetRoomOverride:
     if entry `date` of OverrideEntry is not TodayKey return
     put entry `kind` of OverrideEntry into OverrideKind
     if OverrideKind is `start` put entry `on` of OverrideEntry into OverrideOn
+    if OverrideEntry has entry `keepoff` set OverrideKeepoff
     return
-!! @hash f044737b
+!! @hash 17948428
 !!!
 !! Build the effective, override-aware period list for today. Mirrors controller.allspeak.
 
@@ -108,14 +119,19 @@ GetEffectivePeriods:
     if MorningIdx is less than 0 return
     if OverrideKind is `start`
     begin
-        put item MorningIdx of PeriodList into Period
-        put entry `off` of Period into Time
-        gosub to ConvertTimeToInt
-        put Time into OffTime
+        gosub to OverrideMorningOffMinutes
         put OverrideOn into Time
-        gosub to ConvertTimeToInt
-        put Time into OnTime
-        if OnTime is less than OffTime
+        gosub to TimeToMinutes
+        if OverrideKeepoff
+        begin
+            put item MorningIdx of PeriodList into Period
+            set entry `on` of Period to OverrideOn
+            put OverrideOffMinutes into TimeMinutes
+            gosub to MinutesToTime
+            set entry `off` of Period to TimeText
+            return
+        end
+        if TimeMinutes is less than OverrideOffMinutes
         begin
             put item MorningIdx of PeriodList into Period
             set entry `on` of Period to OverrideOn
@@ -125,7 +141,7 @@ GetEffectivePeriods:
     delete item MorningIdx of PeriodList
     put the count of PeriodList into EventCount
     return
-!! @hash dacbba8d
+!! @hash 708c2e66
 !!!
 !! Identify the day's morning period — earliest `on`, ignoring zero-length and wrap-around periods. Mirrors controller.allspeak.
 
@@ -154,6 +170,53 @@ IdentifyMorningPeriod:
     end
     return
 !! @hash 02a2f082
+!!!
+!! The off time the morning period really ends at under the armed override, in minutes. Mirrors controller.allspeak.
+
+OverrideMorningOffMinutes:
+    put item MorningIdx of PeriodList into Period
+    put entry `off` of Period into Time
+    gosub to TimeToMinutes
+    put TimeMinutes into OverrideOffMinutes
+    if OverrideKind is not `start` return
+    if not OverrideKeepoff return
+    put entry `on` of Period into Time
+    gosub to TimeToMinutes
+    put TimeMinutes into OverrideWasMinutes
+    put OverrideOn into Time
+    gosub to TimeToMinutes
+    subtract OverrideWasMinutes from TimeMinutes giving OverrideDelta
+    add OverrideDelta to OverrideOffMinutes
+    put OverrideOffMinutes modulo 1440 into OverrideOffMinutes
+    if OverrideOffMinutes is less than 0 add 1440 to OverrideOffMinutes
+    if OverrideOffMinutes is less than TimeMinutes put 1439 into OverrideOffMinutes
+    return
+!! @hash 806e942f
+!!!
+!! "HH:MM" to minutes since midnight, in TimeMinutes. Mirrors controller.allspeak.
+
+TimeToMinutes:
+    put the index of `:` in Time into PI
+    put the value of left PI of Time into TimeMinutes
+    multiply TimeMinutes by 60
+    increment PI
+    put the value of from PI of Time into TimeM
+    add TimeM to TimeMinutes
+    return
+!! @hash 74430086
+!!!
+!! Minutes since midnight to a zero-padded HH:MM in TimeText. Mirrors controller.allspeak.
+
+MinutesToTime:
+    put TimeMinutes modulo 1440 into TimeM
+    if TimeM is less than 0 add 1440 to TimeM
+    divide TimeM by 60 giving TimeH
+    put TimeM modulo 60 into TimeM
+    if TimeH is less than 10 put `0` cat TimeH into TimeH
+    if TimeM is less than 10 put `0` cat TimeM into TimeM
+    put TimeH cat `:` cat TimeM into TimeText
+    return
+!! @hash b22eb678
 !!!
 !! Convert "HH:MM" to milliseconds since midnight, then add `today`. Shared helper, mirrored.
 
@@ -217,10 +280,11 @@ ArmOverride:
     set entry `kind` of OverrideEntry to OverrideKind
     set entry `date` of OverrideEntry to OverrideDate
     if OverrideKind is `start` set entry `on` of OverrideEntry to OverrideOn
+    if OverrideKind is `start` and OverrideKeepoff set entry `keepoff` of OverrideEntry to `yes`
     set entry `Kitchen` of Overrides to OverrideEntry
     set entry `overrides` of Map to Overrides
     return
-!! @hash 8003bd03
+!! @hash e8d7a27d
 !!!
 !! Fetch entry `on` of the period at index 0 of PeriodList into Value, for an assertable read.
 
@@ -254,8 +318,14 @@ SetRoomOverride:
     put entry `name` of Room into OverrideName
     put `start` into OverrideKind
     put empty into OverrideOn
+    clear OverrideKeepoff
     if Message has entry `kind` put entry `kind` of Message into OverrideKind
     else if Message has entry `Kind` put entry `Kind` of Message into OverrideKind
+    if Message has entry `keepoff`
+    begin
+        put entry `keepoff` of Message into Value
+        if Value is `yes` or Value is true set OverrideKeepoff
+    end
     if OverrideKind is not `skip`
     begin
         if Message has entry `time` put entry `time` of Message into OverrideOn
@@ -277,6 +347,7 @@ SetRoomOverride:
     set entry `date` of OverrideEntry to OverrideDate
     set entry `was` of OverrideEntry to OverrideWas
     if OverrideKind is `start` set entry `on` of OverrideEntry to OverrideOn
+    if OverrideKind is `start` and OverrideKeepoff set entry `keepoff` of OverrideEntry to `yes`
     if Map has no entry `overrides`
     begin
         reset Overrides
@@ -285,7 +356,7 @@ SetRoomOverride:
     set entry OverrideName of Overrides to OverrideEntry
     set entry `overrides` of Map to Overrides
     return
-!! @hash ea8e9b9c
+!! @hash 1381e4f7
 !!!
 !! Withdraw the room's override. Mirrors controller.allspeak.
 
@@ -340,12 +411,22 @@ OverrideMorningEnded:
     gosub to LoadRoomPeriods
     gosub to IdentifyMorningPeriod
     if MorningIdx is less than 0 return
-    put item MorningIdx of PeriodList into Period
-    put entry `off` of Period into Time
+    put entry `overrides` of Map into Overrides
+    put entry OverrideName of Overrides into OverrideEntry
+    put empty into OverrideOn
+    clear OverrideKeepoff
+    put empty into OverrideKind
+    if OverrideEntry has entry `kind` put entry `kind` of OverrideEntry into OverrideKind
+    if OverrideEntry has entry `on` put entry `on` of OverrideEntry into OverrideOn
+    if OverrideEntry has entry `keepoff` set OverrideKeepoff
+    gosub to OverrideMorningOffMinutes
+    put OverrideOffMinutes into TimeMinutes
+    gosub to MinutesToTime
+    put TimeText into Time
     gosub to ConvertTimeToInt
     if OverrideNow is not less than Time set MorningEnded
     return
-!! @hash 1a4fe106
+!! @hash 909a7ebb
 !!!
 !! Find a room by name in the working room list. Mirrors controller.allspeak.
 
@@ -784,6 +865,136 @@ RunTests:
         gosub to GetEffectivePeriods
         check that EventCount is 0
     end test
+
+!! Case 16: with `keepoff` the morning stop travels with the start, so the period keeps its
+!! duration; the evening period is still untouched. The 06:30-08:00 warm-up moved to 07:15
+!! ends at 08:45.
+
+    gosub to BuildRoom
+    put datime today format `%Y-%m-%d` into TodayKey
+    set OverrideKeepoff
+    put `start` into OverrideKind
+    put TodayKey into OverrideDate
+    put `07:15` into OverrideOn
+    gosub to ArmOverride
+
+    test `a tracked start moves the morning off by the same amount`
+        gosub to GetEffectivePeriods
+        check that EventCount is 2
+        put item 0 of PeriodList into Period
+        put entry `on` of Period into Value
+        check that Value is `07:15`
+        put entry `off` of Period into Value
+        check that Value is `08:45`
+        put item 1 of PeriodList into Period
+        put entry `on` of Period into Value
+        check that Value is `17:30`
+    end test
+!! @hash 03fa1971
+!!!
+!! Case 17: a tracked start after the schedule's own off time is not a skip — the whole
+!! period simply moves later, 11:00-12:30.
+
+    gosub to BuildRoom
+    set OverrideKeepoff
+    put `start` into OverrideKind
+    put TodayKey into OverrideDate
+    put `11:00` into OverrideOn
+    gosub to ArmOverride
+
+    test `a tracked start after the off time keeps the period, shifted`
+        gosub to GetEffectivePeriods
+        check that EventCount is 2
+        put item 0 of PeriodList into Period
+        put entry `on` of Period into Value
+        check that Value is `11:00`
+        put entry `off` of Period into Value
+        check that Value is `12:30`
+    end test
+!! @hash b028a12c
+!!!
+!! Case 18: a tracked period pushed past midnight is clamped to 23:59 rather than wrapped
+!! into an overnight period. 06:30-08:00 started at 23:00 would otherwise end at 00:30.
+
+    gosub to BuildRoom
+    set OverrideKeepoff
+    put `start` into OverrideKind
+    put TodayKey into OverrideDate
+    put `23:00` into OverrideOn
+    gosub to ArmOverride
+
+    test `a tracked period is clamped at midnight`
+        gosub to GetEffectivePeriods
+        check that EventCount is 2
+        put item 0 of PeriodList into Period
+        put entry `on` of Period into Value
+        check that Value is `23:00`
+        put entry `off` of Period into Value
+        check that Value is `23:59`
+    end test
+!! @hash e0ca760b
+!!!
+!! Case 19: the request carries the choice. `keepoff` in a `Room Override` request stores
+!! the flag on the entry; a request without it stores nothing, which is the behaviour an
+!! older UI keeps.
+
+    gosub to BuildRoom
+    reset Message
+    set entry `time` of Message to `07:15`
+    set entry `keepoff` of Message to `yes`
+    gosub to SetRoomOverride
+    put entry `overrides` of Map into Overrides
+    put entry `Kitchen` of Overrides into OverrideEntry
+
+    test `the request records that the off time follows the start`
+        check that entry `keepoff` of OverrideEntry is `yes`
+    end test
+
+    gosub to BuildRoom
+    reset Message
+    set entry `time` of Message to `07:15`
+    gosub to SetRoomOverride
+    put entry `overrides` of Map into Overrides
+    put entry `Kitchen` of Overrides into OverrideEntry
+
+    test `a request without the flag leaves the off time alone`
+        check that OverrideEntry has no entry `keepoff`
+    end test
+!! @hash 1ec7c7c8
+!!!
+!! Case 20: pruning judges a tracked override by its moved end, not the schedule's own.
+!! Armed at 07:15 for a 06:30-08:00 period, it runs to 08:45: still live at 08:30, spent at
+!! 08:45. Judging by the schedule's 08:00 would drop it a cyant three quarters of an hour early
+!! and take the last of the warm-up with it.
+
+    gosub to BuildRoom
+    gosub to BuildWorkingRoom
+    set OverrideKeepoff
+    put `start` into OverrideKind
+    put TodayKey into OverrideDate
+    put `07:15` into OverrideOn
+    gosub to ArmOverride
+    put `08:30` into Time
+    gosub to ConvertTimeToInt
+    put Time into OverrideNow
+    gosub to PruneOverridesAt
+    put entry `overrides` of Map into Overrides
+
+    test `a tracked override survives past the schedule's own off`
+        check that Overrides has entry `Kitchen`
+    end test
+
+    put `08:45` into Time
+    gosub to ConvertTimeToInt
+    put Time into OverrideNow
+    gosub to PruneOverridesAt
+    put entry `overrides` of Map into Overrides
+
+    test `a tracked override is spent at its moved end`
+        check that Overrides has no entry `Kitchen`
+    end test
+!! @hash 974ee6f3
+!!!
 
     exit
 !! @hash 86ba6a54

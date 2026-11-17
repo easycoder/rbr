@@ -120,7 +120,7 @@ The three buttons at the bottom of the room page are for the things that are not
 
 ![The Special actions sheet for the Living Area.](/docs/operation/images/07-special-actions.png)
 
-- **Change the morning start time** opens a time picker prepopulated with the room's usual morning start. The chosen time is used for one morning; a time at or after the scheduled off time skips the warm-up instead.
+- **Change the morning start time** opens a time picker prepopulated with the room's usual morning start. The chosen time is used for one morning. **Move the off time too** is ticked by default, so the morning keeps its length and moves as a whole; untick it and the off time stays where the schedule set it, in which case a time at or after that off time skips the warm-up instead.
 - **Skip the morning warm-up** leaves the room unheated that morning. The schedule resumes the following day.
 - **Cancel the override** appears only while a one-off change is armed. It removes that change and leaves the schedule alone.
 

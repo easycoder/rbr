@@ -4,7 +4,7 @@ RBR turns the radiators already in a house into a system that heats each room to
 
 These pages describe RBR as a **product**, for the people who might specify it, fit it, run it or maintain it. For how the software works inside, see the engineering documents in `doc/` and `AI/` — this tree links to them rather than repeating them.
 
-> **Audience:** all · **Status:** draft · **Last verified:** 2026-11-15
+> **Audience:** all · **Status:** draft · **Last verified:** 2026-11-16
 
 ## Where to start
 
@@ -18,7 +18,8 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 4. [A fitted house](concept/03-a-fitted-house.md) — what it looks like in a property.
 5. [Deployment and roles](concept/04-deployment-and-roles.md) — who fits, who owns, who supports.
 6. [Costs and payback](concept/05-costs-and-payback.md).
-7. [Prerequisites](preparation/01-prerequisites.md) — what a house has to have before a system can be specified.
+7. [Continuity and support](concept/06-continuity-and-support.md) — what happens if the maintainer or supplier steps away, and what is not yet in place.
+8. [Prerequisites](preparation/01-prerequisites.md) — what a house has to have before a system can be specified.
 
 **Going to fit one** — installer, commissioning technician:
 
@@ -33,6 +34,8 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 9. [Verification](installation/04-verification.md)
 10. [Unattended operation](installation/05-unattended-operation.md)
 11. [What the setup script does](installation/06-what-the-setup-script-does.md) — the detail behind step 6: what `rbr-setup.sh` installs, what it asks you, and what it will not touch.
+
+Before quoting, read [Continuity and support](concept/06-continuity-and-support.md) — it separates what the software can do from the support arrangement that may not yet be in place.
 
 **Going to run one** — resident, property manager, housing provider:
 
@@ -65,6 +68,7 @@ Find your role and follow that path. The [glossary](appendix/glossary.md) runs a
 | [03-a-fitted-house.md](concept/03-a-fitted-house.md) | What it looks like in a property | **Draft** |
 | [04-deployment-and-roles.md](concept/04-deployment-and-roles.md) | Who fits it, who owns it, who supports it | **Draft** |
 | [05-costs-and-payback.md](concept/05-costs-and-payback.md) | What it costs, and why the saving cannot yet be sized | **Draft** |
+| [06-continuity-and-support.md](concept/06-continuity-and-support.md) | What happens if the maintainer or supplier steps away, and what is not yet in place | **Draft** |
 
 **Preparation — before anything is fitted**
 
@@ -147,4 +151,4 @@ This tree links into `doc/` and `AI/` for detail. Those two remain the source of
 
 ## Status
 
-The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md); the operation layer is complete: [The interface](operation/01-the-interface.md), [Schedules and profiles](operation/02-modes-schedules-profiles.md), [Managing many systems](operation/03-managing-many-systems.md) and [Troubleshooting](operation/04-troubleshooting.md); and the technical layer has its first two, [Architecture](technical/01-architecture.md) and [Events and the journal](technical/07-events-and-the-journal.md). The rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet. The testing layer has its first page, [UI testing strategy](testing/01-ui-test-strategy.md); it is deliberately an outline and will grow into the full UI test strategy.
+The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Continuity and support](concept/06-continuity-and-support.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md); the operation layer is complete: [The interface](operation/01-the-interface.md), [Schedules and profiles](operation/02-modes-schedules-profiles.md), [Managing many systems](operation/03-managing-many-systems.md) and [Troubleshooting](operation/04-troubleshooting.md); and the technical layer has its first two, [Architecture](technical/01-architecture.md) and [Events and the journal](technical/07-events-and-the-journal.md). The rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet. The testing layer has its first page, [UI testing strategy](testing/01-ui-test-strategy.md); it is deliberately an outline and will grow into the full UI test strategy.

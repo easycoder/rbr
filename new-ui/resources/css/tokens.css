@@ -201,6 +201,24 @@ html, body {
 }
 
 /*
+ * The owner-only handover banner. It is meant to be impossible to miss: two
+ * hard colour steps rather than a fade, so it reads as a warning on a phone
+ * seen at a glance. Users who ask their device to reduce motion get the same
+ * banner without the flash.
+ */
+@keyframes rbr-handover-flash {
+    0%, 49%   { background-color: #B3261E; }
+    50%, 100% { background-color: #E5483D; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #top-bar-handover {
+        animation: none !important;
+        background-color: #B3261E !important;
+    }
+}
+
+/*
  * Small touch-ups that Webson can't easily express inline:
  *   - drop the top border on the first row inside a card (so a stack of
  *     rows reads as one divider-separated list, not one with a leading line);

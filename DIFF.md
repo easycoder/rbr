@@ -1,33 +1,58 @@
-# What to do
+# Handover channel — what changed and what to do
 
-- Run `./deploy.sh --release`: one deploy publishes the screenshots, the operation page and reader navigation fix, the reader's title change below, the PWA with the evenly spaced room pills, the fixed-background change below, and the controller pack. Reload `/docs/` and the phone once online.
-- The release is needed now because `controller.allspeak` has changed as well: the System sheet's heating type is stored again (below).
-- `tests/unit/system_type_test.py` is new, and `run-unit-tests.sh` runs it.
-- Commit and push `CONTINUITY.md`, `LICENSE` and `README.md`: these are repository documents, not site files, so no deploy is needed for them. The pending `--release` below is separate.
+**Action:** run `./deploy.sh` to publish the new page, endpoints and the new product documentation page, then add the `handover` field to the host settings above the site root. No service restart is needed. Reopen the PWA once to pick up the owner banner. Ship `./deploy.sh --release` when controllers should receive the updater that can act on a handover — the same release also carries the schedule time fields and the morning override below, and both need the controller side.
 
-# What changed
+## What you have to do
 
-- **Screenshots recaptured.** `01-home-simplified.png` and the rest of the manual's captures now show the current room-pill spacing: equal space above the first pill, between the pills and below the last. `10-schedule-editor.png` has also been recaptured after the time-editor change, so it now shows the **native time fields and clock picker** rather than the old dropdowns; the two periods and the caption are unchanged.
-- **Fixed sample time.** The captures are made at 16:53 so the sample states stay stable — Living Area heating, Bedroom 1 between its morning and evening periods, Bedroom 2 Off. Without the fixed clock the same map shows Bedroom 1 in its evening period later in the day and the caption no longer matches. The other room, sheet and profile screenshots were regenerated from the same run; the page text is unchanged.
-- **New schedules-and-profiles page.** `docs/operation/02-modes-schedules-profiles.md` is the plan behind **Timed**, not a second pass over the modes: it covers the schedule editor, periods, profiles and the calendar, and links back to The interface for the mode controls and one-off actions. Two new screenshots — `10-schedule-editor.png` and `11-profiles-calendar.png` — sit beside the existing manual captures.
-- **New managing-many-systems page.** `docs/operation/03-managing-many-systems.md` covers the local Systems list: adding a provisioned system, selecting and switching, renaming the local label, removing it locally, several phones, and why local removal is not server-side revocation. `12-systems-list.png` shows a sample estate of Oak House, Willow Cottage and Flat 2.
-- **New troubleshooting page.** `docs/operation/04-troubleshooting.md` closes the operation layer: the app's signals, the first checks, rooms that will not heat or stop, sensor and battery warnings, schedules and profiles, boiler and frost behaviour, several systems, when to call the installer, and the installer's own diagnostic commands. `13-room-offline.png` and `14-room-warning.png` show an offline relay and a stale-sensor/battery warning.
-- **Operation map and navigation.** `docs/README.md` links all four operation pages and marks them **Draft**; the operation layer is now complete, and `TODO-docs.md` records it as such. The reader records a page's slug, folder and position before fetching, so a missing page keeps its own Previous/Next neighbours and address. The manual's screenshots render through the reader's image upgrade.
-- **Room pill spacing (PWA).** The space above the first pill and below the last is now the same as the space between them: about 64px each at 390×844, against 8px at the ends and 76px between before. The pills take the height that leaves — about 255px each, down from 313px. The column uses `space-evenly` with no fixed gap, and `BuildSimpleHome` sets the pill height to `100% / (5n+1) * 4`, so every space is a quarter of a pill for any number of rooms.
-- **A fixed background uses the afternoon stops (PWA).** With "Time-based changes" off, the gradient was built from the midday stops — 7%, 14% and 24% of the chosen colour towards white — the palest of the six buckets, so the page read as near-white rather than as the shade chosen. It now uses the afternoon set, 14% / 36% / 64%, which carries the most colour of any daytime bucket. The afternoon bucket and the fixed path share `PaintAfternoonStops`, so an edit to one cannot leave the other behind.
-- **Manual opens the interface page (PWA).** The About sheet's Manual tab pointed at `/docs/`, the contents page, so a person who tapped it was given the reading map for the whole product. It now opens `/docs/#operation/01-the-interface` — the manual's page about this very screen — because someone who taps Manual from the app is asking what the app does. The reader builds its page list from `docs/README.md`, so the address names a listed page and works whether the app is opened before or after the manual has been read.
-- **"Documentation" is gone from the reader's titles.** The top bar carried a fixed "Documentation" beside the product name, and the tab and contents heading read "… — product documentation"; the word said nothing the reader did not already know. The top bar now carries the product name and the page buttons only, the tab is "Room By Room Heating", and the contents page's heading is "Room By Room".
-- **The cloud broker is named by role, not by host.** The architecture table and the setup-script page gave `rbrheating.duckdns.org`, which pins the documentation to today's single deployment; both now say "in the cloud". The address stays where it has to be machine-accurate: `rbr-setup.sh`, `rbr-preflight.py`, `zigbee-pair.py`, `credentials.example.json`, and the engineering notes in `doc/` and `AI/` that describe this deployment.
-- **The schedule's times are set on the phone's own dial (PWA).** The period cards used two quarter-hour dropdowns; they are now native time fields (`input type=time`), the same control Special actions already used for its start time. A time can be set to the minute, and the layout carries no option list at all: `BuildTimeOptions` and its 96-option list are gone, and `PaintPeriodValues` writes the stored `HH:MM` straight into the field. The rules are unchanged — a loaded period keeps its duration when its start moves, a new period stops an hour after its start until its stop is picked, and Add still starts where a running period ends or at the nearest quarter hour. Ids moved from `-start-select`/`-off-select` to `-start-time`/`-off-time`.
-- **The System sheet's heating type is stored again (controller).** `ProcessUIRequest` kept the name and the On cap and silently dropped `systemType`, so choosing Heat Pump looked saved and the next map reopened the sheet on Boiler. The branch now lives in `ApplySystemName` (with `NormaliseSystemType` accepting either label and refusing anything else), and a fresh map starts with `systemType` `Boiler`.
-- **Continuity plan and MIT licence.** New `CONTINUITY.md` is the standalone succession plan: maintainer, successor role, the 30-day trigger after two contact attempts, the order of transfer, the access inventory for the repository, domain, hosting, broker and mail, the GitHub pre-designated-successor/organization/deceased-user routes, and the open addendum and emergency-access actions. New `LICENSE` releases the project under MIT, and the README now points at both.
-- **Co-maintainer call.** The README has a **Looking for a co-maintainer** section: the project is maintained by Graham with much of the code and documentation produced by an AI agent (DeepSeek) under his direction, and a successor needs to be able to direct and review the agent and hold the accounts — not write the code from scratch. `CONTINUITY.md` points at the same call.
+1. **Host settings** — in `../rbrheating.com.txt` (beside `rbr-users.json`), add:
 
-# Tests
+       "handover": {
+           "passphrase": "the secret for the sealed envelopes",
+           "owner_mac": "00:e0:27:5b:31:40",
+           "notify": "the mailbox you actually read",
+           "days": 14
+       }
 
-- `node tests/docs-reader-check.js` — 72/72, including the missing-page chain and all four operation pages' screenshots. The chain now starts at the written architecture page and walks to the unwritten `technical/02-map-format`, so it still exercises the toolbar on a page that does not exist. Its title checks now expect "Room By Room Heating" in the tab and "Room By Room" as the contents heading, and no longer look for "Documentation" in the top bar. The relative-link audit leaves only targets the map marks **To write** (installation 01–05, technical 02–06 and 08).
-- The pill-spacing change records `simple-view`, `room-colours`, `simple-badges`, `demand-flame` and `demo-mode` passing (7/7).
-- `tests/ui/appearance.spec.js` now computes the afternoon stops for the fixed gradient, and `tests/ui/systems.spec.js` asserts the Manual link's new address; full UI suite 24/24. The reader's own check already opens `#operation/01-the-interface` directly, so the destination is covered by `tests/docs-reader-check.js`.
-- `node tests/pwa-schedule-editor-check.js` — 18/18, including a time off the quarter hour (07:17 → 09:17) and the unchanged Add/default rules. `tests/ui/schedule.spec.js` drives the same two fields in Chromium and checks the saved request.
-- `tests/unit/system_type_test.py` (12 cases) plus the whole unit runner: 178 Python tests, the AllSpeak tests and the whole-controller compile pass.
-- `git diff --check` — clean.
+   `handover` may also be the passphrase alone. An empty passphrase disables the channel. Generate one with `python3 -c 'import secrets; print(secrets.token_urlsafe(24))'`. Keep the host settings outside the document root; the passphrase sits beside the MQTT and SMTP secrets.
+
+2. **Deploy** — `./deploy.sh` now uploads `handover/`, `handover.php` and `handover-lib.php`. The deploy workflow does the same.
+
+3. **Prepare the new site** — it must be an RBR site with a valid HTTPS certificate, a numeric `/heat/version`, a `/credentials.php` that answers 401 without a token, the customer register and a broker (the same or a new one). The readiness check is in `doc/HANDOVER.md`.
+
+4. **Test** — submit a request against a staging new site with the real passphrase; check the notification email, the PWA banner and the email cancellation link. `python3 rbr-updater.py --check` on a controller reports a pending/active handover without changing anything.
+
+5. **Release** — a controller only acts once it runs an updater carrying this code. The release travels through the old update path, so `./deploy.sh --release` (or an equivalent publish) has to reach the fleet before the channel is relied on.
+
+## What changed
+
+- **Website**: new `handover/` page and `handover.php` endpoints (request / status / cancel), with `handover-lib.php` holding the config, state file, passphrase check, rate limit, SSRF guard, readiness check and notification email. `credentials.php` now serves `mqtt_port` and includes an owner-only `handover` alert.
+- **PWA**: a flashing owner-only banner in `top-bar.json`, painted by `shell.allspeak` with a Cancel button. It appears only when `credentials.php` returns the alert for `owner_mac`.
+- **Controller**: `rbr-updater.py` asks the current site for handover state on every run, writes `.site_url` on an active handover, and reconciles the mosquitto bridge `address`, `username` and `password` from the new site's credentials. `.site_url` and `.handover` are machine-specific and are included in backups/restores.
+- **Docs/config**: `doc/HANDOVER.md` is the design and operations guide; `CONTINUITY.md`, `README.md`, `doc/UPDATE-MECHANISM.md` and `doc/CONTROLLER-FILES.md` point at it. `credentials.example.json` documents the field shape. The new checks are wired into `AGENTS.md`, `package.json` and `tests/unit/run-unit-tests.sh`.
+- **Product documentation**: new `docs/concept/06-continuity-and-support.md`, in the trade reading path, the map and the roles page. It explains the mechanism to installers as reassurance, and states plainly that the support arrangement around it may not yet be available: as of 16 November 2026 there is no named successor, prepared replacement site or distributed passphrase. Update that page when the arrangement exists.
+
+## Verification
+
+- `tests/unit/run-unit-tests.sh` — controller compiles, 76 AllSpeak tests, 190 Python tests, including the new `handover_test` (12/12).
+- `node tests/pwa-compile-check.js` — 12/12.
+- `node tests/pwa-handover-alert-check.js` — 14/14 (pending banner, Cancel, non-owner hidden, end-of-period no Cancel).
+- `php-parser` syntax check on the three PHP files; `bash -n deploy.sh`; all JSON validates.
+- Playwright drove the real page form and cancellation link against a mocked endpoint — 9/9.
+- `node tests/docs-reader-check.js` — 72/72, including the new page and its map entry.
+
+`npm run check` runs every PWA suite and stops at `pwa-boot-guard-check.js` with a missing `#app` in its "normal boot" case. That failure is identical on a clean `HEAD` worktree, so it predates this change.
+
+## Caveats
+
+- PHP `mail()` must be available on the host for the notification, and the host must allow outbound HTTPS for the readiness check. Without either, the page says the new site is not ready; without `mail()` the request is still recorded and the PWA alert still shows.
+- The PWA learns about a request on its next credentials fetch, which is each time it is opened. A page already open picks it up on reload.
+- The 14 days is a technical cancellation window, not the 30-day continuity trigger. It does not transfer the domain, hosting, broker or repository; see `CONTINUITY.md`.
+
+## Also in this release: schedule time fields, and the morning override's off time
+
+- **Schedule times are time fields (PWA).** The period cards used two quarter-hour dropdowns; they are now native `input type=time`, the control Special actions already used, so a phone opens its own dial and a time can be set to the minute. `BuildTimeOptions` and its 96-option list are gone; ids moved from `-start-select`/`-off-select` to `-start-time`/`-off-time`. The rules are unchanged: a loaded period keeps its duration when its start moves, a new period stops an hour after its start until its stop is picked, and **+ Add period** still starts where a running period ends or at the nearest quarter hour.
+- **"Move the off time too" (PWA + controller).** Special actions → *Change the morning start time* now opens with a checkbox, ticked by default: the controller moves that morning's off time by the same amount as the start, so the warm-up keeps its interval (`keepoff: yes` in the `Room Override` request). Unticked, the off time stays as the schedule set it — the old behaviour — and a start at or after it still skips the warm-up. A period pushed past midnight is clamped to 23:59 rather than wrapped. The choice is remembered per room in this browser, beside the time.
+- **Expiry follows the moved end.** The controller used to retire today's override when the *scheduled* morning ended; with a moved off time that would drop it early, so `OverrideMorningEnded` now judges the effective end.
+- **Recapture `docs/operation/images/10-schedule-editor.png`.** It shows the old dropdowns and wants replacing with the time fields; the caption and the surrounding text still hold.
+
+Tests for these: `node tests/pwa-schedule-editor-check.js` 18/18, `tests/ui/schedule.spec.js` (Chromium, saved `periods[]`), `tests/ui/special-override.spec.js` (default ticked, unticked remembered, `keepoff` on the wire), `tests/unit/unit-10-overrides.allspeak` (new cases 16–20: moved off, late start not a skip, midnight clamp, request flag, expiry at the moved end), full UI suite 26/26, unit runner 190 Python tests plus the AllSpeak suite.

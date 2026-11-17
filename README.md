@@ -51,7 +51,7 @@ If you are interested — as a developer, an installer with some technical abili
 
 ## Continuity and licence
 
-Room By Room is released under the [MIT licence](LICENSE). [CONTINUITY.md](CONTINUITY.md) is the succession plan: the maintainer, the successor role, the 30-day trigger, the access inventory for the repository, domain, hosting and broker, and what a successor has to do in order. In the event of permanent incapacity or death, the designated successor may apply to GitHub Support for transfer of repository ownership in accordance with [GitHub's Deceased User Policy](https://docs.github.com/en/site-policy/other-site-policies/github-deceased-user-policy).
+Room By Room is released under the [MIT licence](LICENSE). [CONTINUITY.md](CONTINUITY.md) is the succession plan: the maintainer, the successor role, the 30-day trigger, the access inventory for the repository, domain, hosting and broker, and what a successor has to do in order. Its technical counterpart is [doc/HANDOVER.md](doc/HANDOVER.md): the `/handover/` page that lets an installer holding a sealed passphrase point every controller at a prepared new site, with a 14-day window in which the maintainer can cancel. In the event of permanent incapacity or death, the designated successor may apply to GitHub Support for transfer of repository ownership in accordance with [GitHub's Deceased User Policy](https://docs.github.com/en/site-policy/other-site-policies/github-deceased-user-policy).
 
 ## Credits
 

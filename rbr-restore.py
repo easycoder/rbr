@@ -53,6 +53,8 @@ PRIVATE_FILES = {
     ".mqtt_password": 0o600,
     ".mqtt_token": 0o600,
     ".mac_override": 0o644,
+    ".site_url": 0o644,
+    ".handover": 0o644,
 }
 
 

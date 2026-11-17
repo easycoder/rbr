@@ -33,6 +33,9 @@
 	div TopBarOutsideBlock
 	div TopBarOutside
 	div TopBarOutsideFrost
+	div TopBarHandover
+	div TopBarHandoverText
+	button TopBarHandoverCancel
 	button HouseMark
 	div AboutSheetEl
 	button AboutTabAbout
@@ -139,6 +142,7 @@
 	button SpecialSheetCloseBtn
 	div SpecialTimeSheetEl
 	input SpecialTimeInput
+	input SpecialTimeTrackBox
 	div SpecialTimeHint
 	button SpecialTimeSaveBtn
 	button SpecialTimeCancelBtn
@@ -421,6 +425,12 @@ variable HexScan
 	variable FirstMapAttempts
 	variable FirstMapWait
 	variable HeartbeatCount
+!	Owner-only handover alert supplied by credentials.php. HandoverAlert is
+!	the server's object (state, days_left) or empty; the banner element is in
+!	top-bar.json and stays hidden for every system that is not the owner.
+	variable HandoverAlert
+	variable HandoverState
+	variable HandoverDaysLeft
 
 !	Map ingestion / transformation state.
 	variable Map
@@ -528,6 +538,7 @@ variable HexScan
 	variable SpecialRoomName
 	variable SpecialMorningOn
 	variable SpecialTime
+	variable SpecialTrackOn
 	variable SpecialKind
 	variable OverrideKind
 	variable OverrideTime
@@ -606,7 +617,7 @@ variable HexScan
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash 35b93d6a
+!! @hash ce5d535c
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -694,6 +705,16 @@ variable HexScan
 	attach TopBarOutside to `top-bar-outside`
 	attach TopBarOutsideFrost to `top-bar-outside-frost`
 	on click TopBarProfileBtn gosub to OpenProfileSheet
+
+!	Owner-only handover banner. The element is part of the top bar and starts
+!	hidden; credentials.php includes a `handover` object only when this system
+!	is the configured owner and a request is live, and ApplyCredentials paints
+!	it. The Cancel button is wired here, before the credentials fetch, because
+!	registering a handler means executing its line.
+	attach TopBarHandover to `top-bar-handover`
+	attach TopBarHandoverText to `top-bar-handover-text`
+	attach TopBarHandoverCancel to `top-bar-handover-cancel`
+	on click TopBarHandoverCancel gosub to CancelHandoverRequest
 
 !	Tab resume — when the OS un-throttles a backgrounded tab, the MQTT
 !	WebSocket may have been silently torn down by the OS or network.
@@ -816,6 +837,13 @@ ApplyCredentials:
 		put property `username` of Credentials into Username
 		put property `password` of Credentials into Password
 		if Credentials has entry `email` put property `email` of Credentials into AccountEmail
+!		A handover alert is owner-only and supplied by credentials.php; other
+!		systems never receive the entry at all.
+		if Credentials has entry `handover`
+		begin
+			put property `handover` of Credentials into HandoverAlert
+			gosub to PaintHandoverAlert
+		end
 		if Broker is `localhost`
 		begin
 			if the hostname is not `localhost` put the hostname into Broker
@@ -887,7 +915,7 @@ NoCredentialsFile:
 !	left to retry.
 	fork to FirstMapWatchdog
 	stop
-!! @hash c6e99f6e
+!! @hash 9a8c21bf
 !!!
 !! First-render path: fired by `on mqtt connect`. Sets the Prompt to `first` so the controller sends a full map (rather than the empty-payload heartbeat used for refreshes), then forks a watchdog and parks.
 !!
@@ -998,6 +1026,73 @@ PaintDemandFlame:
 	else set style `visibility` of HeartbeatFlame to `hidden`
 	return
 !! @hash de0307b0
+!!!
+
+!! Paint the owner-only handover banner from the alert credentials.php returned.
+!!
+!! The server decides who sees this: it includes `handover` only for the system configured as the owner, so every other device leaves the banner hidden. For the owner it carries the one fact worth flashing at them — how long is left to cancel. `days_left` arrives as text from JSON, so it is converted before the comparison; text compares lexically, and "9" is not less than "10".
+!!
+!! An active handover has no Cancel button, because the waiting period has ended. A failed or cancelled request is not sent by the server at all, so the final branch only clears a banner left over from an earlier load.
+PaintHandoverAlert:
+	if HandoverAlert is empty
+	begin
+		set style `display` of TopBarHandover to `none`
+		return
+	end
+	put property `state` of HandoverAlert into HandoverState
+	if HandoverState is `pending`
+	begin
+		put property `days_left` of HandoverAlert into HandoverDaysLeft
+		add 0 to HandoverDaysLeft
+		if HandoverDaysLeft is 0
+		begin
+			set the content of TopBarHandoverText to `Handover request pending — the waiting period has ended; controllers switch on their next update check.`
+			set style `display` of TopBarHandoverCancel to `none`
+		end
+		else if HandoverDaysLeft is 1
+			set the content of TopBarHandoverText to `Handover request pending — the new owner takes over tomorrow.`
+		else
+			set the content of TopBarHandoverText to `Handover request pending — the new owner takes over in ` cat HandoverDaysLeft cat ` days.`
+		if HandoverDaysLeft is greater than 0 set style `display` of TopBarHandoverCancel to `inline-block`
+		set style `display` of TopBarHandover to `flex`
+	end
+	else if HandoverState is `active`
+	begin
+		set the content of TopBarHandoverText to `Handover is in effect — this system is moving to the new site.`
+		set style `display` of TopBarHandoverCancel to `none`
+		set style `display` of TopBarHandover to `flex`
+	end
+	else
+	begin
+		set style `display` of TopBarHandover to `none`
+	end
+	return
+!! @hash 30c96bb2
+!!!
+
+!! Cancel a pending handover from the owner's banner.
+!!
+!! The endpoint authorises this by the owner's MAC and its system token, not by the banner being visible: editing the page locally cannot cancel anything. Without a token the cancellation link in the notification email is the route, and the alert says so rather than failing silently. On success the flashing stops and the banner says what happened; the server sends its own confirmation email.
+CancelHandoverRequest:
+	if MAC is empty return
+	if Token is empty
+	begin
+		alert `This device cannot cancel the handover without its system token. Use the cancellation link in the notification email.`
+		return
+	end
+	rest post `{"mac":"` cat MAC cat `","token":"` cat Token cat `"}` to `/handover.php?action=cancel` giving Response
+		or go to HandoverCancelFailed
+	if Response is empty go to HandoverCancelFailed
+	if property `ok` of Response is not true go to HandoverCancelFailed
+	set the content of TopBarHandoverText to `Handover request cancelled.`
+	set style `display` of TopBarHandoverCancel to `none`
+	set style `animation` of TopBarHandover to `none`
+	put empty into HandoverAlert
+	return
+HandoverCancelFailed:
+	alert `The handover request could not be cancelled. Use the cancellation link in the notification email.`
+	return
+!! @hash 87e55822
 !!!
 !! Fired by `on mqtt message`. Routes incoming controller payloads into the right render path: BuildHomeScreen for the first one, RefreshHomeScreen thereafter.
 !!
@@ -1534,10 +1629,12 @@ BuildHomeScreen:
 	attach SpecialTimeSheetEl to `special-time-sheet`
 	set style `display` of SpecialTimeSheetEl to `none`
 	attach SpecialTimeInput to `special-time-input`
+	attach SpecialTimeTrackBox to `special-time-track`
 	attach SpecialTimeHint to `special-time-hint`
 	attach SpecialTimeSaveBtn to `special-time-save-btn`
 	attach SpecialTimeCancelBtn to `special-time-cancel-btn`
 	on change SpecialTimeInput set SheetDirty
+	on change SpecialTimeTrackBox set SheetDirty
 	on click SpecialTimeSaveBtn gosub to SaveSpecialTime
 	on click SpecialTimeCancelBtn gosub to RequestCloseSpecialTime
 
@@ -1562,7 +1659,7 @@ BuildHomeScreen:
 
 	clear BuildingHome
 	return
-!! @hash 4c632580
+!! @hash b317e40e
 !!!
 !! Choose and build the home screen for the current view mode.
 !!
@@ -3442,11 +3539,9 @@ SpecialChooseStart:
 	return
 !! @hash c5fd4431
 !!!
-!! Pre-fill the time input with the last time the user requested for THIS room, falling back
-!! to the room's current scheduled morning start.
+!! Pre-fill the time input with the last time the user requested for THIS room, falling back to the room's current scheduled morning start, and set the off-time checkbox from the same memory.
 !!
-!! Stored browser-local, per room: it is a convenience for a household's own phone, not
-!! system state, so it deliberately does not travel in the map.
+!! Stored browser-local, per room: both are a convenience for a household's own phone, not system state, so they deliberately do not travel in the map. The checkbox defaults to ticked, because shifting a warm-up by half an hour usually means keeping its length; a phone that unticked it for this room gets that back.
 PrefillSpecialTime:
 	put property `name` of Room into SpecialRoomName
 	put property `morningOn` of Room into SpecialMorningOn
@@ -3454,11 +3549,18 @@ PrefillSpecialTime:
 	if SpecialTime is empty put SpecialMorningOn into SpecialTime
 	if SpecialTime is empty put `07:00` into SpecialTime
 	set the content of SpecialTimeInput to SpecialTime
-	set the content of SpecialTimeHint to `Used once, then the schedule resumes. A time at or after the scheduled off time skips the warm-up instead.`
+!	Ticked unless this phone last said otherwise for this room: moving the
+!	start while keeping the interval is the common case.
+	get SpecialTrackOn from storage as `rbr-override-track-` cat SpecialRoomName
+	if SpecialTrackOn is `off` clear SpecialTrackOn
+	else set SpecialTrackOn
+	if SpecialTrackOn set attribute `checked` of SpecialTimeTrackBox to `checked`
+	else remove attribute `checked` of SpecialTimeTrackBox
+	set the content of SpecialTimeHint to `Used once, then the schedule resumes. Unticked, a time at or after the scheduled off skips the warm-up instead.`
 	return
-!! @hash 0f39ece2
+!! @hash 6dce5273
 !!!
-!! Commit the time popup: remember the choice for next time, then arm a `start` override.
+!! Commit the time popup: remember the time and the off-time choice for next time, then arm a `start` override carrying `keepoff` when the box was ticked.
 SaveSpecialTime:
 	put the content of SpecialTimeInput into SpecialTime
 	if SpecialTime is empty
@@ -3470,10 +3572,13 @@ SaveSpecialTime:
 	! Normalise HH:MM:SS (some browsers hand back seconds) to HH:MM.
 	put left 5 of SpecialTime into SpecialTime
 	put SpecialTime into storage as `rbr-override-time-` cat SpecialRoomName
+	put SpecialTimeTrackBox into SpecialTrackOn
+	if SpecialTrackOn put `on` into storage as `rbr-override-track-` cat SpecialRoomName
+	else put `off` into storage as `rbr-override-track-` cat SpecialRoomName
 	put `start` into SpecialKind
 	gosub to ArmSpecialOverride
 	return
-!! @hash 5900a872
+!! @hash bc2b1aa2
 !!!
 !! Leave the special-time popup for the Special sheet, confirming first if the entered time was changed. Unlike the other Cancel buttons this does not close the chrome — it returns to the special-actions sheet.
 RequestCloseSpecialTime:
@@ -3525,7 +3630,12 @@ ArmSpecialOverride:
 	set property `Room` of Result to RoomNameForServer
 	set property `op` of Result to `set`
 	set property `kind` of Result to SpecialKind
-	if SpecialKind is `start` set property `time` of Result to SpecialTime
+	if SpecialKind is `start`
+	begin
+		set property `time` of Result to SpecialTime
+		if SpecialTrackOn set property `keepoff` of Result to `yes`
+		else set property `keepoff` of Result to `no`
+	end
 	set GestureScreen to `home`
 	set GestureControl to `override`
 	set GestureGesture to `tap`
@@ -3533,7 +3643,7 @@ ArmSpecialOverride:
 	set GesturePending
 	gosub to PostUiRequest
 	return
-!! @hash a4fad4e0
+!! @hash ee145358
 !!!
 !! Withdraw the room's override — from the expansion's Cancel button or the sheet's row.
 ClearSpecialOverride:

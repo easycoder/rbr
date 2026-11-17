@@ -11,6 +11,13 @@ header('Content-Type: application/json');
 // credentials, long after the account behind them has changed.
 header('Cache-Control: no-store');
 
+// The handover channel is optional: it lives in the host settings above the
+// web root, and a site without it serves credentials exactly as before. The
+// library is guarded so a partial deploy cannot take credential serving down
+// with it.
+$handoverLib = __DIR__ . '/handover-lib.php';
+if (is_file($handoverLib)) require_once $handoverLib;
+
 $mac = strtolower(trim($_GET['mac'] ?? ''));
 $token = trim($_GET['token'] ?? '');
 
@@ -55,6 +62,10 @@ $creds = $system['credentials'];
 $out = [
     'broker' => $creds['broker'] ?? ($hostSettings['broker'] ?? ''),
     'port' => $creds['port'] ?? ($hostSettings['port'] ?? 8883),
+    // The bridge port, separate from the browser's websocket port above. A
+    // handover may move the broker; the updater rewrites mosquitto's `address`
+    // line from this value, so it must be the port mosquitto connects to.
+    'mqtt_port' => $creds['mqtt_port'] ?? ($hostSettings['mqtt_port'] ?? 8883),
     'username' => $creds['username'],
     'password' => $creds['password'] ?? '',
     // The address this system registered with, so the controller's backup can
@@ -65,5 +76,13 @@ $out = [
 foreach (['_doc_', 'mail_server', 'mail_login', 'mail_password', 'mail_from'] as $k) {
     if (isset($hostSettings[$k])) $out[$k] = $hostSettings[$k];
 }
+
+// Owner-only: a pending handover makes the PWA flash a banner with a Cancel
+// button. Other systems get nothing, and a site with no handover configured
+// produces null here.
+$handover = function_exists('rbr_handover_alert_for')
+    ? rbr_handover_alert_for($mac, rbr_handover_config())
+    : null;
+if ($handover !== null) $out['handover'] = $handover;
 
 echo json_encode($out);
