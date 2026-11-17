@@ -2104,7 +2104,11 @@ ProcessTrvState:
                     put entry `last_seen` of TrvState into TrvSeen
                     if TrvSeen is not empty
                     begin
-                        multiply TrvSeen by 1000
+                        ! The bridge writes `last_seen` as a float epoch
+                        ! (`time.time()`), and a decimal is a string here, so
+                        ! `multiply` would call int() on it and stop the
+                        ! controller. `scale` converts it exactly.
+                        put TrvSeen scale 1000 into TrvSeen
                         put now into TrvAge
                         take TrvSeen from TrvAge
                         if TrvAge is greater than 2700000 put empty into TrvRunningState
@@ -2288,7 +2292,7 @@ ProcessTrv:
         set entry `trvextat` of Room to now
     end
     return
-!! @hash 0af3062e
+!! @hash 7bcfe582
 !!!
 !! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
 !!

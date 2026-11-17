@@ -1,58 +1,31 @@
-# Handover channel — what changed and what to do
+# 2026-11-17 — controller crash loop, blank-screen wedge, doctor probe
 
-**Action:** run `./deploy.sh` to publish the new page, endpoints and the new product documentation page, then add the `handover` field to the host settings above the site root. No service restart is needed. Reopen the PWA once to pick up the owner banner. Ship `./deploy.sh --release` when controllers should receive the updater that can act on a handover — the same release also carries the schedule time fields and the morning override below, and both need the controller side.
+**Action:** `./deploy.sh` publishes the changed files (`controller.allspeak`, `rbr-watchdog.sh`, `rbr-doctor.py`). Without `--release` the version stamp does not change, so a running controller will not notice — restart it yourself to try the fix (`sudo systemctl restart controller`). `./deploy.sh --release` when customers should take it; their updater applies the tarball on its next hourly run and the controller restarts to load the new code. No database or map change, and nothing to clear.
 
-## What you have to do
+## The crash loop (`controller.allspeak`)
 
-1. **Host settings** — in `../rbrheating.com.txt` (beside `rbr-users.json`), add:
+`ProcessTrvState` converted the TRV's `last_seen` with `multiply TrvSeen by 1000`, which turns text into a number with `int()`. The bridge writes `last_seen` as a float epoch (`1794857533.0439382`), and a decimal is a string in AllSpeak, so the conversion raised and stopped the process — 73–74 seconds into every session, about 45 times an hour. On 16 Nov the journal has 1,014 session starts; every hour of the 15th and 16th has 45–46. It has been going since the block was added on 26 Oct.
 
-       "handover": {
-           "passphrase": "the secret for the sealed envelopes",
-           "owner_mac": "00:e0:27:5b:31:40",
-           "notify": "the mailbox you actually read",
-           "days": 14
-       }
+The conversion is now `put TrvSeen scale 1000 into TrvSeen`, the decimal-safe operator `ConvertTempToInt` already uses. The routine always uses the once-a-minute `zigbee-trv.json` load, so the first failure came a minute after each start — that is why sessions lasted 74 seconds rather than dying immediately.
 
-   `handover` may also be the passphrase alone. An empty passphrase disables the channel. Generate one with `python3 -c 'import secrets; print(secrets.token_urlsafe(24))'`. Keep the host settings outside the document root; the passphrase sits beside the MQTT and SMTP secrets.
+`tests/unit/trv_state_test.py` extracts `ProcessTrvState` from the controller and runs it against a fractional `last_seen`, an old integer one, a stale one (46 minutes), a missing one and a non-heat/idle value. With the old `multiply` line it reproduces the live error verbatim.
 
-2. **Deploy** — `./deploy.sh` now uploads `handover/`, `handover.php` and `handover-lib.php`. The deploy workflow does the same.
+## The blank screen (`rbr-watchdog.sh`)
 
-3. **Prepare the new site** — it must be an RBR site with a valid HTTPS certificate, a numeric `/heat/version`, a `/credentials.php` that answers 401 without a token, the customer register and a broker (the same or a new one). The readiness check is in `doc/HANDOVER.md`.
+The controller was the one service with no health probe (`probe_controller() { return 0; }`), so a process that was alive and subscribed but had never run its start-up was restarted by nobody: 107 minutes on 16 Nov, over 70 on the 17th. The probe now reads the unit's recent log for `Subscribed to topic` with no `Load the system map` after it, and restarts when that has stood for more than two minutes. The grace keeps a normal start (seconds) and the 5-second restart gap out of it.
 
-4. **Test** — submit a request against a staging new site with the real passphrase; check the notification email, the PWA banner and the email cancellation link. `python3 rbr-updater.py --check` on a controller reports a pending/active handover without changing anything.
+`tests/unit/watchdog_probe_test.py` runs the real script with fake `systemctl`/`journalctl`/`logger`, and checks that a healthy start, a session still starting and an empty journal do not restart, while a subscribed-but-never-started session does.
 
-5. **Release** — a controller only acts once it runs an updater carrying this code. The release travels through the old update path, so `./deploy.sh --release` (or an equivalent publish) has to reach the fleet before the channel is relied on.
+## The doctor's round trip (`rbr-doctor.py`)
 
-## What changed
+The probe published bare JSON, which the AllSpeak MQTT runtime drops ("WARNING: ignoring unframed payload"), so `ROUND TRIP [FAIL]` fired on a healthy controller too. It now sends `!last!1 ` plus the body, and reassembles a chunked reply (a full map is split at 1024 bytes) before reporting. `tests/unit/doctor_test.py` pins both.
 
-- **Website**: new `handover/` page and `handover.php` endpoints (request / status / cancel), with `handover-lib.php` holding the config, state file, passphrase check, rate limit, SSRF guard, readiness check and notification email. `credentials.php` now serves `mqtt_port` and includes an owner-only `handover` alert.
-- **PWA**: a flashing owner-only banner in `top-bar.json`, painted by `shell.allspeak` with a Cancel button. It appears only when `credentials.php` returns the alert for `owner_mac`.
-- **Controller**: `rbr-updater.py` asks the current site for handover state on every run, writes `.site_url` on an active handover, and reconciles the mosquitto bridge `address`, `username` and `password` from the new site's credentials. `.site_url` and `.handover` are machine-specific and are included in backups/restores.
-- **Docs/config**: `doc/HANDOVER.md` is the design and operations guide; `CONTINUITY.md`, `README.md`, `doc/UPDATE-MECHANISM.md` and `doc/CONTROLLER-FILES.md` point at it. `credentials.example.json` documents the field shape. The new checks are wired into `AGENTS.md`, `package.json` and `tests/unit/run-unit-tests.sh`.
-- **Product documentation**: new `docs/concept/06-continuity-and-support.md`, in the trade reading path, the map and the roles page. It explains the mechanism to installers as reassurance, and states plainly that the support arrangement around it may not yet be available: as of 16 November 2026 there is no named successor, prepared replacement site or distributed passphrase. Update that page when the arrangement exists.
+## Not fixed here
 
-## Verification
+The wedge itself is a runtime defect: a connect event that arrives before `on mqtt connect` is registered is never delivered, and `is_first_connect` never comes back. That change belongs in AllSpeak; the row is in `REQUESTS.md`. The watchdog is the safety net until the runtime on the boxes is updated.
 
-- `tests/unit/run-unit-tests.sh` — controller compiles, 76 AllSpeak tests, 190 Python tests, including the new `handover_test` (12/12).
-- `node tests/pwa-compile-check.js` — 12/12.
-- `node tests/pwa-handover-alert-check.js` — 14/14 (pending banner, Cancel, non-owner hidden, end-of-period no Cancel).
-- `php-parser` syntax check on the three PHP files; `bash -n deploy.sh`; all JSON validates.
-- Playwright drove the real page form and cancellation link against a mocked endpoint — 9/9.
-- `node tests/docs-reader-check.js` — 72/72, including the new page and its map entry.
+`ProcessTrvState`'s doc block still lacks its `@hash`/`@verified`/`!!!` tail and its prose is read as part of the previous block (`asdoc-check` reports `doc-after-code`). Left as found; the code comment here is short enough not to depend on it.
 
-`npm run check` runs every PWA suite and stops at `pwa-boot-guard-check.js` with a missing `#app` in its "normal boot" case. That failure is identical on a clean `HEAD` worktree, so it predates this change.
+## What the box should look like afterwards
 
-## Caveats
-
-- PHP `mail()` must be available on the host for the notification, and the host must allow outbound HTTPS for the readiness check. Without either, the page says the new site is not ready; without `mail()` the request is still recorded and the PWA alert still shows.
-- The PWA learns about a request on its next credentials fetch, which is each time it is opened. A page already open picks it up on reload.
-- The 14 days is a technical cancellation window, not the 30-day continuity trigger. It does not transfer the domain, hosting, broker or repository; see `CONTINUITY.md`.
-
-## Also in this release: schedule time fields, and the morning override's off time
-
-- **Schedule times are time fields (PWA).** The period cards used two quarter-hour dropdowns; they are now native `input type=time`, the control Special actions already used, so a phone opens its own dial and a time can be set to the minute. `BuildTimeOptions` and its 96-option list are gone; ids moved from `-start-select`/`-off-select` to `-start-time`/`-off-time`. The rules are unchanged: a loaded period keeps its duration when its start moves, a new period stops an hour after its start until its stop is picked, and **+ Add period** still starts where a running period ends or at the nearest quarter hour.
-- **"Move the off time too" (PWA + controller).** Special actions → *Change the morning start time* now opens with a checkbox, ticked by default: the controller moves that morning's off time by the same amount as the start, so the warm-up keeps its interval (`keepoff: yes` in the `Room Override` request). Unticked, the off time stays as the schedule set it — the old behaviour — and a start at or after it still skips the warm-up. A period pushed past midnight is clamped to 23:59 rather than wrapped. The choice is remembered per room in this browser, beside the time.
-- **Expiry follows the moved end.** The controller used to retire today's override when the *scheduled* morning ended; with a moved off time that would drop it early, so `OverrideMorningEnded` now judges the effective end.
-- **Recapture `docs/operation/images/10-schedule-editor.png`.** It shows the old dropdowns and wants replacing with the time fields; the caption and the surrounding text still hold.
-
-Tests for these: `node tests/pwa-schedule-editor-check.js` 18/18, `tests/ui/schedule.spec.js` (Chromium, saved `periods[]`), `tests/ui/special-override.spec.js` (default ticked, unticked remembered, `keepoff` on the wire), `tests/unit/unit-10-overrides.allspeak` (new cases 16–20: moved off, late start not a skip, midnight clamp, request flag, expiry at the moved end), full UI suite 26/26, unit runner 190 Python tests plus the AllSpeak suite.
+`journalctl -u controller | grep -c 'Load the system map'` should stop growing faster than the restarts, and `Arithmetic error in multiply: … '17….'` should stop appearing. The controller will then run until the next version update instead of dying every 79 seconds, so `systemctl status controller` should show a rising uptime rather than a five-minute one. The UI's toggle stays connected for the same reason.

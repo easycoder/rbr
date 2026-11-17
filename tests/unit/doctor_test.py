@@ -165,8 +165,12 @@ class FakeClient:
         if self.on_publish:
             self.on_publish(self, None, 1, 0, None)
         if self.reply is not None and self.on_message:
-            message = types.SimpleNamespace(payload=self.reply, topic=topic)
-            self.on_message(self, None, message)
+            # A reply is one payload, or a list of them (the runtime splits a
+            # map over 1024-byte chunks, each framed separately).
+            replies = self.reply if isinstance(self.reply, (list, tuple)) else [self.reply]
+            for reply in replies:
+                message = types.SimpleNamespace(payload=reply, topic=topic)
+                self.on_message(self, None, message)
 
     def loop_stop(self):
         pass
@@ -234,9 +238,29 @@ class MqttProbeTest(unittest.TestCase):
         self.probe(factory)
         self.assertEqual(client.subscribed, ["%s/doctor-%d" % (MAC, os.getpid())])
         self.assertEqual(client.published[0][0], MAC)
-        payload = json.loads(client.published[0][1].decode())
-        self.assertEqual(payload["action"], "first")
-        self.assertEqual(payload["sender"]["name"], client.subscribed[0])
+        payload = client.published[0][1]
+        self.assertTrue(payload.startswith(b"!last!1 "),
+                        "the request is unframed, and the runtime drops those "
+                        "before the script sees them (2026-11-17 report)")
+        body = json.loads(payload[len(b"!last!1 "):].decode())
+        self.assertEqual(body["action"], "first")
+        self.assertEqual(body["sender"]["name"], client.subscribed[0])
+
+    def test_a_chunked_reply_is_reassembled(self):
+        # The runtime splits a full map over 1024-byte chunks and delivers each
+        # as its own message; the probe must join them before reporting.
+        frames = [b'!part!0 3 {"profiles": [{"name": "Weekday"}, ',
+                  b'!part!1 3 {"name": "Weekend"}], ',
+                  b'!last!3 "rooms": []}']
+        result, _reason = self.probe(lambda *a, **k: FakeClient(reply=frames))
+        self.assertEqual(result["reply"],
+                         b'{"profiles": [{"name": "Weekday"}, {"name": "Weekend"}], "rooms": []}')
+
+    def test_a_partial_chunked_reply_is_not_reported_as_a_reply(self):
+        # Waiting for the missing chunk is right; inventing a truncated map is not.
+        frames = [b'!part!0 2 {"profiles": [', b'!part!1 2 ]}']
+        result, _reason = self.probe(lambda *a, **k: FakeClient(reply=frames))
+        self.assertIsNone(result["reply"])
 
     def test_a_refused_connection_is_not_reported_as_a_reply(self):
         result, reason = self.probe(lambda *a, **k: FakeClient(connect_code=5))

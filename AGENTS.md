@@ -31,16 +31,18 @@ The AllSpeak repository's own `AGENTS.md` is the primary home for language and r
 # Run the controller (checks for existing instance)
 allspeak controller.allspeak
 
-# The controller self-times 6 cycles of 10 seconds each, then exits.
-# It is normally re-launched every 60 seconds, either by cron or a
-# process supervisor — check which mechanism is in use on the target.
+# It runs until it exits: an applied version update in `.version`, a missing
+# credential, an unreadable MAC, or a script error. controller.service runs it
+# with Restart=always and RestartSec=5, so a crash loop still looks `active` in
+# systemd — count the session starts in the journal instead. A healthy session
+# logs `Load the system map` immediately after `Subscribed to topic`.
 ```
 
 These checks run without a browser, a broker or the controller box, and all are cheap enough to run after any edit:
 
 ```bash
 tests/unit/controller-compile-check.sh # the whole controller must compile (a duplicate symbol once stopped every controller)
-tests/unit/run-unit-tests.sh          # the compile check + AllSpeak unit tests + Python tests (heatlog, eventlog, journal, journal export, round-trip, overrides, SetRelay, heatwatch)
+tests/unit/run-unit-tests.sh          # the compile check + AllSpeak unit tests + Python tests (heatlog, eventlog, journal, journal export, round-trip, overrides, SetRelay, heatwatch, TRV running state, watchdog probe)
 node tests/pwa-compile-check.js       # compiles all five new-ui modules in the browser runtime
 node tests/pwa-device-editor-check.js # drives the Devices sheet: a rename keeps its room's own wiring
 node tests/pwa-schedule-editor-check.js # drives the schedule's time fields: how a stop follows its start

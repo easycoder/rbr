@@ -61,9 +61,29 @@ probe_rbr_zigbee_bridge() {
     curl -sf -m 3 http://127.0.0.1:8889/health >/dev/null 2>&1
 }
 
-# controller — AllSpeak daemon; no safe HTTP probe, is-active is sufficient
+# controller — the AllSpeak daemon has no HTTP probe, but its own log carries
+# the two markers that matter: `Subscribed to topic` (the MQTT client is up)
+# and `Load the system map` (the script's start-up ran). A session that logs the
+# first and not the second, more than two minutes later, will never continue:
+# the runtime dropped its connect event because the `on mqtt connect` handler
+# was registered a moment after the client connected, and nothing revives it.
+# The process stays alive and subscribed, systemd has nothing to restart, and
+# every UI shows "Reconnecting..." for ever. Measured 2026-11-17: the 16 Nov
+# wedge lasted 107 minutes, the 17 Nov one over 70, and neither this script nor
+# `is-active` could see either. The two-minute grace keeps a healthy start (a
+# few seconds) and the 5-second restart gap out of the probe.
 probe_controller() {
-    return 0
+    local now
+    now="$(date +%s)" || return 0
+    journalctl -u controller --since=-1h -o short-unix --no-pager 2>/dev/null |
+        awk -v now="$now" '
+            /Started controller.service/ { subAt = 0 }
+            /Subscribed to topic/       { subAt = int($1) }
+            /Load the system map/       { loaded = subAt }
+            END {
+                if (subAt > 0 && loaded != subAt && now - subAt > 120) exit 1
+                exit 0
+            }'
 }
 
 failures=0

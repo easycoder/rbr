@@ -1092,6 +1092,37 @@ def check_broker(install_dir):
     return creds
 
 
+def mqtt_frame(payload):
+    """Split an AllSpeak MQTT payload into (kind, index, total, body).
+
+    The runtime sends "!part!<i> <n> <data>" for every chunk but the last and
+    "!last!<n> <data>" for the last one, so a single-chunk message is
+    "!last!1 <data>". Returns None for anything that is not framed (the runtime
+    prints "ignoring unframed payload" and drops those, so a reply is framed).
+    """
+    try:
+        if payload.startswith(b"!part!"):
+            rest = payload[len(b"!part!"):]
+            first = rest.find(b" ")
+            if first < 1:
+                return None
+            second = rest.find(b" ", first + 1)
+            if second < 0:
+                return None
+            index = int(rest[:first])
+            total = int(rest[first + 1:second])
+            return "part", index, total, rest[second + 1:]
+        if payload.startswith(b"!last!"):
+            rest = payload[len(b"!last!"):]
+            space = rest.find(b" ")
+            if space < 1:
+                return None
+            return "last", None, int(rest[:space]), rest[space + 1:]
+    except (ValueError, IndexError):
+        return None
+    return None
+
+
 def mqtt_probe(creds, mac, timeout):
     """Register a throwaway sender and ask the controller for a full map.
 
@@ -1115,11 +1146,20 @@ def mqtt_probe(creds, mac, timeout):
         return None, "paho-mqtt is not installed (python3-paho-mqtt)"
 
     sender = "%s/doctor-%d" % (mac, os.getpid())
-    payload = json.dumps({"sender": {"name": sender, "qos": 1},
-                          "action": "first"}).encode("utf-8")
+    body = json.dumps({"sender": {"name": sender, "qos": 1},
+                       "action": "first"}).encode("utf-8")
+    # Every AllSpeak MQTT message is framed, and the runtime drops anything
+    # that is not: an unframed publish never reaches the script's
+    # `on mqtt message` handler, it only earns "WARNING: ignoring unframed
+    # payload" on the controller's console. A bare JSON publish therefore
+    # reported "no reply" on a perfectly healthy controller (2026-11-16 and
+    # 2026-11-17 reports), which is the one conclusion this probe exists to
+    # make. One chunk, so "!last!1 " and then the body.
+    payload = b"!last!1 " + body
     state = {"connected": False, "connected_at": None, "published": False,
              "published_at": None, "reply": None, "reply_at": None,
-             "granted": None, "code": None, "error": ""}
+             "granted": None, "code": None, "error": "",
+             "chunks": {}, "total": None}
 
     try:
         try:
@@ -1155,7 +1195,25 @@ def mqtt_probe(creds, mac, timeout):
         state["published_at"] = time.time()
 
     def on_message(_client, _userdata, message):
-        state["reply"] = message.payload
+        payload = message.payload
+        frame = mqtt_frame(payload)
+        if frame is None:
+            # Not ours to reassemble (some other publisher). Take it as is.
+            state["reply"] = payload
+            state["reply_at"] = time.time()
+            return
+        kind, index, total, body = frame
+        if kind == "part":
+            state["chunks"][index] = body
+        else:
+            state["chunks"][total - 1] = body
+            state["total"] = total
+        if state["total"] is None:
+            return
+        total = state["total"]
+        if any(i not in state["chunks"] for i in range(total)):
+            return
+        state["reply"] = b"".join(state["chunks"][i] for i in range(total))
         state["reply_at"] = time.time()
 
     client.on_connect = on_connect

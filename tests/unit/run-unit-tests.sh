@@ -54,11 +54,13 @@ CTL_STATUS=$?
 # aliasing traps that bit the shared room list on the live system (DIFF.md) —
 # the bridge's TRV external-sensor command, the no-temperature-rise heating
 # watchdog (heatwatch.py), and the period-start grace that lets a scheduled
-# room heat on its last reading for its first 30 minutes, and the backup/restore
-# pair (archive contents, retention, checksums and a round trip onto a fresh dir).
+# room heat on its last reading for its first 30 minutes, the TRV running-state
+# gate (a decimal `last_seen` used to kill the controller every minute), the
+# watchdog's controller health probe, and the backup/restore pair (archive
+# contents, retention, checksums and a round trip onto a fresh dir).
 echo ""
-echo "Running Python tests (heatlog_test, eventlog_test, journal_test, journal_export_test, commit_roundtrip_test, identity_override_test, trv_external_test, setrelay_test, period_grace_test, on_limit_test, system_type_test, heat_watch_test, backup_test, bundle_copy_test, doctor_test, handover_test)..."
-PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test eventlog_test journal_test journal_export_test commit_roundtrip_test identity_override_test trv_external_test setrelay_test period_grace_test on_limit_test system_type_test heat_watch_test bundle_copy_test doctor_test handover_test 2>&1)"
+echo "Running Python tests (heatlog_test, eventlog_test, journal_test, journal_export_test, commit_roundtrip_test, identity_override_test, trv_external_test, trv_state_test, setrelay_test, period_grace_test, on_limit_test, system_type_test, heat_watch_test, watchdog_probe_test, backup_test, bundle_copy_test, doctor_test, handover_test)..."
+PY_OUT="$(cd "$SCRIPT_DIR" && python3 -m unittest heatlog_test eventlog_test journal_test journal_export_test commit_roundtrip_test identity_override_test trv_external_test trv_state_test setrelay_test period_grace_test on_limit_test system_type_test heat_watch_test watchdog_probe_test bundle_copy_test doctor_test handover_test 2>&1)"
 PY_STATUS=$?
 echo "$PY_OUT"
 
