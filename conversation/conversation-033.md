@@ -116,3 +116,70 @@ That does not stop it growing again. The durable cap is a journald drop-in:
 Two RBR-specific points. `rbr-setup.sh` STEP 5d already writes that drop-in, but with `Storage=volatile` and `RuntimeMaxUse=64M` (journal in `/run`, gone at reboot), so a box that has been through the installer should not be growing a disk journal at all — this one clearly is, which means it predates that step or the file was removed (the docs tell people to remove it to keep logs). And on this box the journal is only ~87M of 4.3G used, so capping it stops the creep but will not recover the 661M free; the space is elsewhere.
 
 If a volatile journal is the wrong trade while an incident is open, use `SystemMaxUse` on disk (the default `Storage=auto` keeps it persistent) rather than copying the installer's file; `RuntimeMaxUse` is ignored unless storage is volatile.
+
+## 21:31
+
+You are helping the owner of a software project write a listing for Relay.
+
+Relay is a free, open-source registry for projects that need a next maintainer. An adopter, often working with an AI agent, reads the listing to decide whether to take the project on. Accuracy matters more than persuasion: a listing that overstates what is there wastes everyones time, and the owner has to confirm every claim before a person reviews it.
+
+How to work
+- Ask the owner about anything you do not know. Never invent figures, dates, licences, URLs, obligations or history.
+- Write in plain English, in the owners voice. No marketing, no superlatives.
+- The brief is Markdown with these ten sections, in this order:
+  1. What it is - one paragraph a non-user would understand.
+  2. Who uses it - customers, installers, internal users, nobody yet.
+  3. Why it exists - the problem, the history, what would be lost.
+  4. How it works - architecture in plain language, naming the files that matter.
+  5. How to run, test and deploy it - commands, environments, gotchas.
+  6. The estate - repository, domain, hosting, broker, mail, data, trademarks, contracts.
+  7. The economics - revenue, costs, pricing, who pays, what is owed.
+  8. The obligations - support expectations, regulations, customer data, promises.
+  9. The state of play - open issues, known bugs, planned work, technical debt.
+  10. The first 30 days - what a new maintainer should do, in order.
+- Answer with ONE JSON object and nothing else: no commentary, no code fences.
+
+Fields (JSON key, type, required, limit, what goes in it) — title, pitch, synopsis, brief, status, arrangement, category, revenue_state, revenue_model, monthly_cost, currency, cost_description, effort_hours_per_month, effort_description, user_scope, licence, readiness, jurisdiction, language, timezone, repo_url, site_url, docs_url, demo_url, contact_mode, public_contact, keywords, skills, assets, obligations, synopsis_ai_drafted, brief_ai_drafted.
+
+[field rules and allowed values omitted here in the log; they are in the prompt as given]
+
+**Assistant**
+
+{"title": "Room By Room (RBR)", "pitch": "Heats a house room by room — a Linux controller in the home, Zigbee thermometers and radiator valves, and a phone web app — for households and heating installers who want per-room control without a subscription.", "synopsis": "[as returned: 1607 characters, five paragraphs]", "brief": "[as returned: 18668 characters, the ten required sections]", "status": "seeking-co-maintainer", "arrangement": "co-maintenance", "category": "home-automation-iot", "revenue_state": "costs-only", "revenue_model": "", "monthly_cost": 8, "currency": "GBP", "cost_description": "Estimated at under 10 GBP a month in total: shared hosting and the domain for rbrheating.com, the host running the cloud MQTT broker, and the mail account for info@rbrheating.com. DuckDNS is free. The controller computers, Zigbee devices and broadband in each house are that installation's own cost, not the project's.", "effort_hours_per_month": 10, "effort_description": "Releases and deploys, support mail, keeping the two live installations working, reviewing changes, and keeping the documentation and the test suite in step. Much of the code is written by an AI agent under the maintainer's direction, so a fair share of the time goes on reviewing what it produces rather than typing.", "user_scope": "individuals", "licence": "MIT", "readiness": 2, "jurisdiction": "GB", "language": "en", "timezone": "Europe/London", "repo_url": "https://github.com/easycoder/rbr", "site_url": "https://rbrheating.com/", "docs_url": "https://rbrheating.com/docs/", "demo_url": null, "contact_mode": "public", "public_contact": "info@rbrheating.com", "keywords": ["heating", "central heating", "home automation", "zigbee", "mqtt", "thermostat", "radiator valve", "allspeak", "pwa", "self-hosted"], "skills": ["python", "php", "linux", "systemd", "zigbee", "mqtt", "javascript", "allspeak", "git", "documentation writing"], "assets": ["repo", "domain", "hosting", "broker", "mail", "data", "documentation"], "obligations": ["Keep rbrheating.com serving /heat/: it is the app and the controller update channel, and every controller checks it hourly.", "Keep the cloud broker reachable at rbrheating.duckdns.org, or the app stops working on every phone.", "Treat rbr-users.json, controller backups and event journals as personal data: keep them local and unpublished.", "Rotate credentials and per-system tokens after a transfer, and tell the households before doing it, because a rotation unpairs every phone.", "Keep the code under the MIT licence and the open-source terms the continuity plan records.", "Answer support and recovery mail at info@rbrheating.com, or replace it with an address that is answered.", "Keep a named successor in the continuity addendum, with emergency access somewhere reachable.", "Imply no support contract, response time or warranty, because none exists.", "Exercise the handover channel against a prepared replacement site before relying on it.", "Do not claim a household's data or pairing is unchanged if a rotation was needed."], "synopsis_ai_drafted": true, "brief_ai_drafted": true}
+
+## 21:33
+
+Please save this as a JSON file.
+
+**Assistant**
+
+Saved as `relay-listing.json` in the repository root (23,697 bytes, 32 fields). It is the same JSON returned a moment ago, with the ten-section brief intact; I re-checked it after writing — it parses, every field is inside its length limit, the enums and asset keys are valid, and the brief's section headings are in the required order.
+
+Nothing to deploy or restart: it is a static data file that nothing in the app or the controller reads. I left `DIFF.md` alone deliberately — it still carries today's controller-fix note (`./deploy.sh` publishes `controller.allspeak`, `rbr-watchdog.sh`, `rbr-doctor.py`), which is an outstanding action, and overwriting it with "nothing to do" would hide that.
+
+Before it goes to Relay, the two claims that came from you rather than from the repository are worth a second look: `readiness: 2` (Agent-ready — the checks, `AGENTS.md` and the handover mechanism support it; nothing has been dry-run against a real replacement site, so it is not 3), and the £8 in `monthly_cost` as the figure inside your "under £10" band.
+
+## 14:31
+
+Add the relay brief to the present documentation stack, so it can be linked to from Relay instead of being presented in full.
+
+**Assistant**
+
+The brief is now part of the documentation tree and the listing points at it instead of carrying it.
+
+What changed:
+
+- `docs/succession.md` (new) — "Taking on Room By Room": the brief published under its ten headings, in the docs tree's conventions (metadata band, one paragraph per line, British English). It opens by saying what it is — the brief written for Relay, published so the listing can point here.
+- `docs/README.md` — a **Taking it on** role path and a **Succession** table row. That is what puts a page on the site: the reader at `/docs` builds its page list from the README's own list items and table rows. I also moved the "Four audiences" note to five, and named the page in the Status paragraph.
+- `relay-listing.json` — `brief` is now a condensed ten-section version (6.2 KB, was 18.7 KB) ending with `https://rbrheating.com/docs/#succession`. Every other field is untouched, including `readiness: 2` and `monthly_cost: 8`.
+- `DIFF.md` — rewritten for this change, as the project rule asks.
+
+Checked:
+
+- `node tests/docs-reader-check.js`: 72 passed, 0 failed. The list is 33 documents, `succession` sits second from the end, and the glossary is still last — the reader's order assertions would fail if the new page had landed after it.
+- Opened `#succession` in the real reader under jsdom: H1, status band and all ten headings render, the estate table arrives as 11 rows, no console errors, no "not written yet" notice.
+- The listing JSON re-validated: parses, every field within limit, enums and asset keys valid, ten brief sections in order.
+
+To publish: `./deploy.sh` — it copies `docs/` and `docs-reader/` to `/docs/`, with no version bump, so controllers are unaffected. The page is then live at `https://rbrheating.com/docs/#succession`; the URL in the listing is already that. That same run also publishes the earlier controller fix if it is still outstanding.
+
+Housekeeping: you chose to keep this log in `conversation-033.md` rather than start a file for 18 November.

@@ -56,6 +56,10 @@ Before quoting, read [Continuity and support](concept/06-continuity-and-support.
 8. [Roadmap: current measurement](technical/08-roadmap-current-measurement.md)
 9. [UI testing strategy](testing/01-ui-test-strategy.md) — how the interface is tested without a controller.
 
+**Taking it on** — successor or co-maintainer:
+
+1. [Taking on Room By Room](succession.md) — the whole brief: what exists, who uses it, the estate, the costs, the obligations, the state of play and the first month.
+
 ## The document map
 
 **Concept — why it exists, and what it is**
@@ -119,6 +123,12 @@ Before quoting, read [Continuity and support](concept/06-continuity-and-support.
 |---|---|---|
 | [01-ui-test-strategy.md](testing/01-ui-test-strategy.md) | The two test layers, where they run, and what they deliberately do not cover | **Draft** |
 
+**Succession — taking the project on**
+
+| Document | Purpose | Status |
+|---|---|---|
+| [succession.md](succession.md) | The brief for a successor or co-maintainer: what exists, what it costs, what it owes, and what to do first | **Draft** |
+
 **Appendix**
 
 | Document | Purpose | Status |
@@ -130,7 +140,7 @@ Before quoting, read [Continuity and support](concept/06-continuity-and-support.
 
 - **Metadata line.** Every document opens with `> **Audience:** … · **Status:** … · **Last verified:** …`. Status is `draft`, `review` or `stable`.
 - **One paragraph, one line.** A prose paragraph is a single unbroken line, however long — never hard-wrapped at a fixed width, and each list item is a single line too. These files are copied into a Doclet structure for viewing, which turns each source line into an HTML paragraph, so a hard-wrapped paragraph would arrive as a column of one-line paragraphs. Headings, tables, blockquotes and code fences keep their own line structure.
-- **Four audiences.** Concept (industry), preparation and installation (installer), operation (operator), technical (developer). Keep a document inside one layer and cross-link, rather than blending.
+- **Five audiences.** Concept (industry), preparation and installation (installer), operation (operator), technical (developer), and succession (a successor or co-maintainer). Keep a document inside one layer and cross-link, rather than blending.
 - **Testing is cross-cutting.** The [UI testing strategy](testing/01-ui-test-strategy.md) is for the same developer audience, but it sits outside the four-layer sequence because it describes assurance rather than architecture.
 - **Screenshots.** Keep them beside the page that uses them, under a directory such as `operation/images/`, and reference them with the absolute `/docs/...` path. The reader turns the Markdown image syntax into an `<img>` because the runtime's Markdown renderer has no image syntax of its own.
 - **Plain words in the concept layer.** The concept documents avoid implementation names — no AllSpeak, no MQTT, no Zigbee2MQTT, no Webson — and define a term once in the [glossary](appendix/glossary.md) rather than assuming it. The preparation and installation documents are for the people doing the work, so they name the tools and commands they ask the reader to use; the rule there is that each tool is explained in a clause when it first appears, so no document depends on the reader already knowing it.
@@ -151,4 +161,4 @@ This tree links into `doc/` and `AI/` for detail. Those two remain the source of
 
 ## Status
 
-The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Continuity and support](concept/06-continuity-and-support.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md); the operation layer is complete: [The interface](operation/01-the-interface.md), [Schedules and profiles](operation/02-modes-schedules-profiles.md), [Managing many systems](operation/03-managing-many-systems.md) and [Troubleshooting](operation/04-troubleshooting.md); and the technical layer has its first two, [Architecture](technical/01-architecture.md) and [Events and the journal](technical/07-events-and-the-journal.md). The rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet. The testing layer has its first page, [UI testing strategy](testing/01-ui-test-strategy.md); it is deliberately an outline and will grow into the full UI test strategy.
+The concept and preparation layers are complete: [The experience is the product](concept/00-the-experience-is-the-product.md), [Why room by room](concept/01-why-room-by-room.md), [What RBR is](concept/02-what-rbr-is.md), [A fitted house](concept/03-a-fitted-house.md), [Deployment and roles](concept/04-deployment-and-roles.md), [Costs and payback](concept/05-costs-and-payback.md), [Continuity and support](concept/06-continuity-and-support.md), [Prerequisites](preparation/01-prerequisites.md), [Bill of materials](preparation/02-bill-of-materials.md), [Naming and network conventions](preparation/03-naming-and-network.md), [Preparing the controller computer](preparation/04-controller-computer.md), [Preparing a unit](preparation/05-preparing-a-unit.md) and the [glossary](appendix/glossary.md). The installation layer has its first written page, [What the setup script does](installation/06-what-the-setup-script-does.md); the operation layer is complete: [The interface](operation/01-the-interface.md), [Schedules and profiles](operation/02-modes-schedules-profiles.md), [Managing many systems](operation/03-managing-many-systems.md) and [Troubleshooting](operation/04-troubleshooting.md); and the technical layer has its first two, [Architecture](technical/01-architecture.md) and [Events and the journal](technical/07-events-and-the-journal.md). The rest of installation, operation and technical have agreed titles and a stated source to harvest from. Nothing here has been reviewed yet. The testing layer has its first page, [UI testing strategy](testing/01-ui-test-strategy.md); it is deliberately an outline and will grow into the full UI test strategy. The succession layer has one page, [Taking on Room By Room](succession.md) — the brief written for Relay, the registry of projects looking for a next maintainer, published here so the listing can point at it.
