@@ -94,5 +94,6 @@ tests/ui/demand-flame.spec.js the flame beside the heartbeat dot, and when it is
 tests/ui/system.spec.js     the system-wide maximum on duration
 tests/ui/appearance.spec.js the view default, the view switch and the page colour (swatch, hex, time toggle)
 tests/ui/hero.spec.js       the marketing page's three hero photos: 40/40/20, fetched, and labelled to match
-tests/ui/special-override.spec.js the morning override's off-time checkbox: ticked by default, remembered, and sent as `keepoff`
+tests/ui/special-override.spec.js the morning override's off-time checkbox: ticked by default, remembered, and sent as `keepoff`; the room reads as heating inside the moved morning
+tests/ui/room-count.spec.js  a map with more rooms rebuilds the home, and a room card survives a map push (or falls back to the list)
 ```

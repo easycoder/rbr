@@ -192,6 +192,8 @@
 	variable IndexStr
 	variable SimpleMode
 	variable SimpleRoomIndex
+	variable SimpleRoomBuilt
+	variable BuildingSimpleRoom
 	variable SummaryBuilt
 	variable ViewSetting
 
@@ -617,7 +619,7 @@ variable HexScan
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash ce5d535c
+!! @hash 3e255f6b
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -1136,6 +1138,19 @@ OnMapReceived:
 		put empty into ReceivedMessage
 		return
 	end
+!	The single-room page is a fresh render of room-N elements, and the row
+!	handles are reallocated before it is wired. A map applied in that window
+!	refreshes a page that is not there yet — the failure the 2026-11-19 report
+!	showed as "No such element: 'room-3-name'", then PaintExpansion against
+!	handles nobody had attached. Hold it, as for a sheet, and flush once the
+!	page is up.
+	if BuildingSimpleRoom
+	begin
+		log `OnMapReceived: map held while the room card is built`
+		put ReceivedMessage into PendingMap
+		put empty into ReceivedMessage
+		return
+	end
 !	A map can also arrive while this script is parked on a sheet module's
 !	reply. The runtime keeps ONE reply slot per program: applying the map now
 !	means ApplyMapToRooms sends to MapToRoomsModule, which takes that slot for
@@ -1171,7 +1186,7 @@ OnMapReceived:
 		gosub to RefreshHomeScreen
 	end
 	return
-!! @hash 372f8c76
+!! @hash 9881db91
 !!!
 !! Re-enter the map path once a sheet module has replied and released the reply slot.
 !!
@@ -1676,6 +1691,7 @@ BuildActiveHome:
 BuildFullHome:
 	clear MainHolder
 	clear SummaryBuilt
+	clear SimpleRoomBuilt
 !	Restore the layout the full home expects (the simple view may have set a
 !	narrower padding and gap on the same container, and hidden the footer).
 	set style `height` of LayoutFrame to `auto`
@@ -1742,7 +1758,7 @@ BuildFullHome:
 		increment RoomIndex
 	end
 	return
-!! @hash 861b2140
+!! @hash 034c0199
 !!!
 !! Allocate every indexed per-row handle array for the current RoomCount.
 !!
@@ -1782,6 +1798,7 @@ PrepareRoomRowHandles:
 BuildSimpleHome:
 	clear MainHolder
 	clear SummaryBuilt
+	clear SimpleRoomBuilt
 !	The reduced home is a stack of pills under the banner, which now carries
 !	the profile and outside reading. An even border all round lets the
 !	gradient show around them.
@@ -1846,7 +1863,7 @@ BuildSimpleHome:
 
 	if SystemName is not empty set the content of SystemId to SystemName
 	return
-!! @hash 021e0aa1
+!! @hash cc1df1a2
 !!!
 !! Apply the shared chip choice to a simple-home pill's icon.
 !!
@@ -1951,8 +1968,10 @@ RefreshSimpleHome:
 !!!
 !! Open one room's single-room page from the simple home.
 !!
-!! The page is rendered from simple-room.json, whose element IDs are the same as the compact row's. That is what lets RenderRoom, PaintExpansion, WireRoomInteractions and every action routine work here untouched. The Home button at the bottom of the card returns to the room list.
+!! The page is rendered from simple-room.json, whose element IDs are the same as the compact row's. That is what lets RenderRoom, PaintExpansion, WireRoomInteractions and every action routine work here untouched. The Home button at the bottom of the card returns to the room list. A map is held while this build is in progress (BuildingSimpleRoom) and flushed afterwards, because the row handles are reallocated here and a refresh landing mid-build paints a page that does not exist yet.
 OpenSimpleRoom:
+	set BuildingSimpleRoom
+	clear SimpleRoomBuilt
 	put ClickIndex into SimpleRoomIndex
 	put ClickIndex into RoomIndex
 	put `` cat RoomIndex into IndexStr
@@ -1981,14 +2000,26 @@ OpenSimpleRoom:
 	end
 	attach SimpleHomeBtn to `simple-room-home`
 	on click SimpleHomeBtn gosub to CloseSimpleRoom
+	set SimpleRoomBuilt
+	clear BuildingSimpleRoom
+	gosub to FlushPendingMap
 	return
-!! @hash 47143f36
+!! @hash 14f18b26
 !!!
 !! Refresh the open single-room page after a map push.
 !!
 !! Re-renders the card's content and repaints the control block so a controller-side change (a boost expiring, a mode changed on the legacy UI) reaches the larger card immediately. If the selected room has gone from the map, it falls back to the room list rather than painting a stale index.
 RefreshSimpleRoom:
 	if SimpleRoomIndex is less than 0 return
+!	A room card that was never finished (its template failed, or the build was
+!	abandoned) has no room-N elements and no attached handles. Painting it would
+!	raise one error per map push and never recover; fall back to the list.
+	if not SimpleRoomBuilt
+	begin
+		put -1 into SimpleRoomIndex
+		gosub to BuildSimpleHome
+		return
+	end
 	if SimpleRoomIndex is not less than RoomCount
 	begin
 		put -1 into SimpleRoomIndex
@@ -2000,18 +2031,20 @@ RefreshSimpleRoom:
 	put `` cat RoomIndex into IndexStr
 	put element RoomIndex of RoomsList into Room
 	gosub to RenderRoom
-	gosub to PaintExpansion
+	put property `sensor` of Room into Sensor
+	if Sensor is `no` gosub to PaintExpansion
 	return
-!! @hash 312fd65d
+!! @hash 081e5f21
 !!!
 !! Return from a single-room page to the simple room list.
 !!
 !! Rebuilds the list from RoomsList rather than unhiding a cached copy, so the temperatures shown are the ones the last map left behind and no stale DOM is resurrected.
 CloseSimpleRoom:
+	clear SimpleRoomBuilt
 	put -1 into SimpleRoomIndex
 	gosub to BuildSimpleHome
 	return
-!! @hash 75697d52
+!! @hash 9a6737ef
 !!!
 !! Switch the home between the detailed and simplified shapes, keeping the Appearance sheet open.
 !!
@@ -2041,7 +2074,7 @@ SwitchHomeShape:
 !!
 !! In simple mode it refreshes either the reduced room list or the open single-room page, and has no summary card to repaint. An open Info sheet is still repainted in both modes.
 !!
-!! Assumes RoomCount is unchanged from the initial build — adding or removing rooms takes a Save through the Devices sheet plus a fresh map, and the controller-side handler currently sends a full new map (which OnMapReceived treats as a refresh, not a first-build). If RoomCount changes silently the indexed per-row variables will be the wrong size.
+!! Assumes nothing about the size of the built rows: a map that brings a different RoomCount rebuilds the whole home, because the compact rows and their handles are a build-time structure.
 !!
 !! If a room's expansion panel is open, repaint its inner controls so a controller-side change (e.g. the legacy UI changed mode for that room) propagates immediately rather than waiting for the user to close-and-reopen the expansion. Same logic for an open Info sheet.
 RefreshHomeScreen:
@@ -2054,6 +2087,18 @@ RefreshHomeScreen:
 			put element InfoSheetRoomIdx of RoomsList into Room
 			gosub to PaintInfoSheet
 		end
+		return
+	end
+!	A map can bring a different number of rooms — the Devices sheet saves one
+!	and the controller answers with a whole new map. The compact rows are a
+!	build-time structure, so a loop to the new count would paint past the end:
+!	attach waits for room-N-name that was never rendered and the push reports an
+!	error instead of updating. Rebuild the shape; the docs used to call this
+!	impossible, and the 2026-11-19 page that grew from 3 rooms to 8 disproved it.
+	if the elements of RestRow is not RoomCount
+	begin
+		log `RefreshHomeScreen: room count changed; rebuilding`
+		gosub to BuildActiveHome
 		return
 	end
 	put 0 into RoomIndex
@@ -2077,7 +2122,7 @@ RefreshHomeScreen:
 		gosub to PaintInfoSheet
 	end
 	return
-!! @hash 7128c536
+!! @hash b608177d
 !!!
 !! Parse TempStr ("HH:MM" or "H:MM") into minutes-since-midnight; output via TempTenths (the variable name is historic — it carries minutes here, not tenths). Empty / malformed input yields 0.
 ParseTimeMinutes:
@@ -3558,7 +3603,7 @@ PrefillSpecialTime:
 	else remove attribute `checked` of SpecialTimeTrackBox
 	set the content of SpecialTimeHint to `Used once, then the schedule resumes. Unticked, a time at or after the scheduled off skips the warm-up instead.`
 	return
-!! @hash 6dce5273
+!! @hash f259ad41
 !!!
 !! Commit the time popup: remember the time and the off-time choice for next time, then arm a `start` override carrying `keepoff` when the box was ticked.
 SaveSpecialTime:
@@ -5249,7 +5294,8 @@ ResolveChipStyle:
 !!!
 !! Terminal failure handler. Reached via `or go to LoadFailed` from every `rest get` template fetch in the bootstrap region — a missing or malformed Webson template means the UI can't render, so we alert and stop rather than limping on with broken state.
 LoadFailed:
+	clear BuildingSimpleRoom
 	alert `Failed to load UI template`
 	stop
-!! @hash 34c0ed2e
+!! @hash b436195a
 !!!

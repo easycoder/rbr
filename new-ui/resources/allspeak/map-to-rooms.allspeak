@@ -119,6 +119,26 @@
 !	One-off override + morning-start projection.
 	variable MapOverrides
 	variable MapOverride
+	variable RoomOverrideEntry
+	variable OverrideDate
+	variable OverrideKind
+	variable OverrideTodayKey
+	variable OverrideMorningIdx
+	variable OverrideMorningMin
+	variable OverrideMorningPeriod
+	variable OverrideWasMinutes
+	variable OverrideOnMinutes
+	variable OverrideOffMinutes
+	variable OverrideDelta
+	variable OverrideKeepoff
+	variable ShiftedPeriod
+	variable MinuteValue
+	variable MinuteHours
+	variable MinuteMins
+	variable MinuteText
+	variable DateKeyY
+	variable DateKeyM
+	variable DateKeyD
 	variable PeriodOnMin
 	variable MorningOnMinutes
 	variable MorningPeriodCount
@@ -133,7 +153,7 @@
 	on message go to Translate
 	release parent
 	stop
-!! @hash d431dc31
+!! @hash ec25a079
 !!!
 !! Message handler. Unpacks the Map from the message, runs the translation, packs the output dict, ships it back. Boolean flags (CalendarOn, OutsideRoomFound) travel as "on"/"off" / "yes"/"no" strings because boolean state doesn't round-trip cleanly through JSON.
 Translate:
@@ -526,6 +546,13 @@ BuildRoomEntry:
 
 	put property `periods` of LegacyRoom into LegacyPeriods
 	gosub to BuildActivePeriods
+!	The morning start the Special action pre-fills is the room's scheduled one,
+!	so remember it before an armed override can move it. Then let today's
+!	override reshape the periods the projection below walks, exactly as the
+!	controller's GetEffectivePeriods does for the room it is actually heating.
+	gosub to RememberMorningStart
+	gosub to LoadRoomOverrideEntry
+	gosub to ApplyRoomOverrideToPeriods
 	clear PeriodFound
 	if ActivePeriods is not empty
 	begin
@@ -709,30 +736,32 @@ BuildRoomEntry:
 		end
 	end
 
-!	One-off override plus the scheduled morning start. The override lives at the top
-!	level of the controller map, keyed by room name, so it applies whichever profile
-!	the calendar picks for the day; it is surfaced raw (kind / time / date) and the
-!	shell formats it, keeping one place responsible for the wording. The morning
-!	start is the earliest `on` among the room's periods — the same period the
-!	controller treats as the one-day override's target — and is used only to
-!	pre-fill the time popup on a first use.
+!	One-off override surfaced raw (kind / time / date) for the shell to word; it
+!	is looked up once per room above, and the same entry reshaped the periods.
 	set property `overrideKind` of NewRoom to empty
 	set property `overrideTime` of NewRoom to empty
 	set property `overrideDate` of NewRoom to empty
-	set property `morningOn` of NewRoom to empty
-
-	put property `overrides` of Map into MapOverrides
-	if MapOverrides is not empty
+	if RoomOverrideEntry is not empty
 	begin
-		put property LegacyName of MapOverrides into MapOverride
-		if MapOverride is not empty
-		begin
-			set property `overrideKind` of NewRoom to property `kind` of MapOverride
-			if property `kind` of MapOverride is `start` set property `overrideTime` of NewRoom to property `on` of MapOverride
-			set property `overrideDate` of NewRoom to property `date` of MapOverride
-		end
+		set property `overrideKind` of NewRoom to property `kind` of RoomOverrideEntry
+		if property `kind` of RoomOverrideEntry is `start` set property `overrideTime` of NewRoom to property `on` of RoomOverrideEntry
+		set property `overrideDate` of NewRoom to property `date` of RoomOverrideEntry
 	end
 
+	set property `calling` of NewRoom to `no`
+	if property `unwired` of NewRoom is `no`
+	begin
+		if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
+	end
+	return
+!! @hash 7890f505
+!!!
+
+!! Remember the room's scheduled morning start before an override can move it.
+!!
+!! "Morning" is the earliest period whose `on` is before its `off`; zero-length and wrap-around periods are excluded because neither is the warm-up the Special action can shift. The value is the one the time popup is pre-filled with, so it has to stay the room's own schedule rather than follow an override already armed for today.
+RememberMorningStart:
+	set property `morningOn` of NewRoom to empty
 	put 1500 into MorningOnMinutes
 	put 0 into MorningPeriodCount
 	if ActivePeriods is not empty put the json count of ActivePeriods into MorningPeriodCount
@@ -745,8 +774,6 @@ BuildRoomEntry:
 		put TempTenths into PeriodOnMin
 		put property `off` of LegacyPeriod into TempStr
 		gosub to ParseTimeMinutes
-		! Skip zero-length and wrap-around periods (on at or after off): neither
-		! is the morning warm-up the Special action can shift.
 		if PeriodOnMin is less than TempTenths
 		begin
 			if PeriodOnMin is less than MorningOnMinutes
@@ -757,14 +784,146 @@ BuildRoomEntry:
 		end
 		increment LoopK
 	end
-
-	set property `calling` of NewRoom to `no`
-	if property `unwired` of NewRoom is `no`
-	begin
-		if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
-	end
 	return
-!! @hash 1d2dcd7b
+!! @hash 60714efc
+!!!
+
+!! Look up the one-off override armed for this room, whatever its date.
+!!
+!! Overrides live at the top level of the map keyed by room name, which is what lets them apply whichever profile the calendar picks for the day and survive a wholesale profile save. The entry is surfaced raw for both the badge and the projection; an entry for tomorrow is still shown, and ApplyRoomOverrideToPeriods decides whether it changes today.
+LoadRoomOverrideEntry:
+	put empty into RoomOverrideEntry
+	put property `overrides` of Map into MapOverrides
+	if MapOverrides is empty return
+	put property LegacyName of MapOverrides into MapOverride
+	if MapOverride is empty return
+	put MapOverride into RoomOverrideEntry
+	return
+!! @hash 626c2d16
+!!!
+
+!! Reshape the room's periods for today's one-off override, as the controller does.
+!!
+!! The controller resolves the day's morning period and either moves its `on` (and its `off` too when `keepoff` is set, clamped to 23:59 rather than wrapped) or drops the period for that morning when the override is a `skip`, or when a start without `keepoff` lands at or after the scheduled stop. The projection downstream must walk the same shape, or a room the controller is heating early reads as black "Off until ..." with no chip, which is the contradiction this routine exists to remove. The shift is written into a fresh record rather than the period lifted from ActivePeriods, so the map's stored schedule is never rewritten; the controller prunes the override itself once its moved end has passed.
+ApplyRoomOverrideToPeriods:
+	if RoomOverrideEntry is empty return
+	if ActivePeriods is empty return
+	put property `date` of RoomOverrideEntry into OverrideDate
+	if OverrideDate is empty return
+	gosub to MapTodayDateKey
+	if OverrideDate is not OverrideTodayKey return
+	put property `kind` of RoomOverrideEntry into OverrideKind
+	set OverrideMorningIdx to -1
+	put 999999999999999 into OverrideMorningMin
+	put 0 into LoopK
+	while LoopK is less than ActivePeriodsCount
+	begin
+		put element LoopK of ActivePeriods into OverrideMorningPeriod
+		put property `on` of OverrideMorningPeriod into TempStr
+		gosub to ParseTimeMinutes
+		put TempTenths into OnMinutes
+		put property `off` of OverrideMorningPeriod into TempStr
+		gosub to ParseTimeMinutes
+		if OnMinutes is less than TempTenths
+			if OnMinutes is less than OverrideMorningMin
+			begin
+				put OnMinutes into OverrideMorningMin
+				put LoopK into OverrideMorningIdx
+			end
+		increment LoopK
+	end
+	if OverrideMorningIdx is less than 0 return
+	if OverrideKind is `skip`
+	begin
+		gosub to RemoveMorningPeriod
+		return
+	end
+	if OverrideKind is not `start` return
+	put element OverrideMorningIdx of ActivePeriods into OverrideMorningPeriod
+	put property `on` of OverrideMorningPeriod into TempStr
+	gosub to ParseTimeMinutes
+	put TempTenths into OverrideWasMinutes
+	put property `on` of RoomOverrideEntry into TempStr
+	gosub to ParseTimeMinutes
+	put TempTenths into OverrideOnMinutes
+	put property `off` of OverrideMorningPeriod into TempStr
+	gosub to ParseTimeMinutes
+	put TempTenths into OverrideOffMinutes
+	clear OverrideKeepoff
+	if RoomOverrideEntry has entry `keepoff` set OverrideKeepoff
+	if not OverrideKeepoff
+	begin
+		if OverrideOnMinutes is not less than OverrideOffMinutes
+		begin
+			gosub to RemoveMorningPeriod
+			return
+		end
+	end
+	subtract OverrideWasMinutes from OverrideOnMinutes giving OverrideDelta
+	put `{}` into ShiftedPeriod
+	set property `on` of ShiftedPeriod to property `on` of RoomOverrideEntry
+	set property `off` of ShiftedPeriod to property `off` of OverrideMorningPeriod
+	set property `temp` of ShiftedPeriod to property `temp` of OverrideMorningPeriod
+	if OverrideMorningPeriod has entry `enabled` set property `enabled` of ShiftedPeriod to property `enabled` of OverrideMorningPeriod
+	if OverrideKeepoff
+	begin
+		add OverrideDelta to OverrideOffMinutes
+		put OverrideOffMinutes modulo 1440 into OverrideOffMinutes
+		if OverrideOffMinutes is less than 0 add 1440 to OverrideOffMinutes
+		if OverrideOffMinutes is less than OverrideOnMinutes put 1439 into OverrideOffMinutes
+		put OverrideOffMinutes into MinuteValue
+		gosub to FormatMinutesAsTime
+		set property `off` of ShiftedPeriod to MinuteText
+	end
+	set element OverrideMorningIdx of ActivePeriods to ShiftedPeriod
+	return
+!! @hash ddc22f5b
+!!!
+
+!! Drop the morning period that an override skips or pushes past its own stop.
+!!
+!! The count follows the deleted slot so the projection's loops stop where the list now ends.
+RemoveMorningPeriod:
+	json delete element OverrideMorningIdx of ActivePeriods
+	decrement ActivePeriodsCount
+	put the json count of ActivePeriods into ActivePeriodsCount
+	return
+!! @hash 8fc11d75
+!!!
+
+!! Format minutes since midnight as zero-padded HH:MM, wrapping rather than running past 24:00.
+!!
+!! Reads MinuteValue, leaves MinuteText. The wrap matters because a keepoff shift can push the stop past midnight, and the caller has already clamped that case to 23:59; this only keeps a negative or over-day value readable.
+FormatMinutesAsTime:
+	put MinuteValue modulo 1440 into MinuteValue
+	if MinuteValue is less than 0 add 1440 to MinuteValue
+	put MinuteValue into MinuteHours
+	divide MinuteHours by 60
+	put MinuteValue modulo 60 into MinuteMins
+	if MinuteHours is less than 10 put `0` cat MinuteHours into MinuteText
+	else put `` cat MinuteHours into MinuteText
+	put MinuteText cat `:` into MinuteText
+	if MinuteMins is less than 10 put MinuteText cat `0` cat MinuteMins into MinuteText
+	else put MinuteText cat MinuteMins into MinuteText
+	return
+!! @hash 06584f4d
+!!!
+
+!! Build today's YYYY-MM-DD key in the same shape the controller stores on an override.
+!!
+!! The UI runtime has no `datime`, so the key comes from the browser's date keywords, zero-padded to match the controller's `%Y-%m-%d`. Comparing against it is what keeps tomorrow's armed override from reshaping today's schedule.
+MapTodayDateKey:
+	put the year into DateKeyY
+	put the month into DateKeyM
+	increment DateKeyM
+	put the day number into DateKeyD
+	put `` cat DateKeyY cat `-` into OverrideTodayKey
+	if DateKeyM is less than 10 put OverrideTodayKey cat `0` into OverrideTodayKey
+	put OverrideTodayKey cat DateKeyM cat `-` into OverrideTodayKey
+	if DateKeyD is less than 10 put OverrideTodayKey cat `0` into OverrideTodayKey
+	put OverrideTodayKey cat DateKeyD into OverrideTodayKey
+	return
+!! @hash 0acc5e8d
 !!!
 !! Convert TempStr (legacy hundredths integer, e.g. 1980) to "X.Y" string (19.8). In-place via TempStr — caller passes the integer in, gets the string back out.
 FormatHundredths:

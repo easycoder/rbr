@@ -124,7 +124,7 @@ The three buttons at the bottom of the room page are for the things that are not
 - **Skip the morning warm-up** leaves the room unheated that morning. The schedule resumes the following day.
 - **Cancel the override** appears only while a one-off change is armed. It removes that change and leaves the schedule alone.
 
-The sheet says which day the change applies to, **Today** or **Tomorrow**, and repeats the override in the start-time subtitle while one is armed.
+The sheet says which day the change applies to, **Today** or **Tomorrow**, and repeats the override in the start-time subtitle while one is armed. While a change is armed for today the room's card follows the moved morning too: it reads as heating inside it and shows the moved stop, because the page applies the same one-day shift the controller does.
 
 ### Edit schedule — change the plan itself
 
