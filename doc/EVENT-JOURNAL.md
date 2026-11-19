@@ -64,7 +64,7 @@ Every line is one JSON object:
 | `ui.first` | A UI asks for its first map | `client` |
 | `ui.request` | A `uirequest` arrives, before it is applied | `client`, `action`, `payload` (the whole message), `source` (the PWA's provenance), `room` |
 | `sensor.reading` | A changed reading, including a repeated value with a new source `ts` | `room`, `sensor`, `temp`, `sourceTsMs`, `source`, `humidity`, `battery` |
-| `room.state` | A room's control/status plane changes | `room`, `profile`, `profileIndex`, `mode`, `target`, `period`, `advance`, `advanceuntil`, `until`, `prevmode`, `boostperiod`, `relay`, `status`, `statusMessage`, `relayMessage`, `relaysFailed`, `relaysTotal`, `relayfails`, `trvrunning`, `trvsetpoint`, `trvfails` |
+| `room.state` | A room's control/status plane changes | `room`, `profile`, `profileIndex`, `mode`, `target`, `period`, `advance`, `advanceuntil`, `until`, `prevmode`, `boostperiod`, `relay`, `status`, `statusMessage`, `relayMessage`, `relaysFailed`, `relaysTotal`, `relayfails`, `trvrunning`, `trvsetpoint`, `trvfails`, `trvfallback`, `trvfallbacktemp` |
 | `plan.snapshot` | A plan-changing request was applied | `reason` (`ui:<Action>`), `profile`, `profileIndex`, `map` (stored as `mapHash` + `mapBytes`) |
 | `request.relay` | The demand relay's own state changes | `name`, `state` |
 

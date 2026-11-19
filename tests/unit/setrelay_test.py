@@ -45,6 +45,8 @@ variable TempDecision
 variable PeriodGrace
 variable GraceTemp
 variable StaleGrace
+variable TrvFallback
+variable TrvFallbackTemp
 variable Target
 variable PriorStatus
 variable BoostTemp
@@ -286,6 +288,62 @@ clear HeatingRequested
 gosub to SetRelay
 log `PROBE grace-above-on=` cat RelayState
 
+! 16. Valve fallback: a stale room whose valve supplies a trusted estimate
+!     heats on it, and the status veto is lifted for that decision.
+gosub to ResetRoomForProbe
+reset R
+set entry `relays` of Room to R
+set entry `trv` of Room to `T1`
+set entry `status` of Room to `warn`
+put `timed` into Mode
+put empty into TempNow
+put 2000 into Target
+put `off` into RelayState
+set TrvFallback
+put 1850 into TrvFallbackTemp
+clear HeatingRequested
+gosub to SetRelay
+log `PROBE fallback-on=` cat RelayState
+if HeatingRequested put `yes` into S else put `no` into S
+log `PROBE fallback-request=` cat S
+if StaleGrace put `yes` into S else put `no` into S
+log `PROBE fallback-grace=` cat S
+
+! 17. The estimate is a reading like any other: at target means no heat.
+gosub to ResetRoomForProbe
+reset R
+set entry `relays` of Room to R
+set entry `trv` of Room to `T1`
+set entry `status` of Room to `warn`
+put `timed` into Mode
+put empty into TempNow
+put 2000 into Target
+put `on` into RelayState
+set TrvFallback
+put 2050 into TrvFallbackTemp
+clear HeatingRequested
+gosub to SetRelay
+log `PROBE fallback-above-on=` cat RelayState
+if HeatingRequested put `yes` into S else put `no` into S
+log `PROBE fallback-above-request=` cat S
+
+! 18. The fallback outlives a fail status: an hour's silence is exactly when
+!     the valve's own sensor matters most.
+gosub to ResetRoomForProbe
+reset R
+set entry `relays` of Room to R
+set entry `trv` of Room to `T1`
+set entry `status` of Room to `fail`
+put `timed` into Mode
+put empty into TempNow
+put 2000 into Target
+put `off` into RelayState
+set TrvFallback
+put 1850 into TrvFallbackTemp
+clear HeatingRequested
+gosub to SetRelay
+log `PROBE fallback-fail-on=` cat RelayState
+
 stop
 
 ResetRoomForProbe:
@@ -301,6 +359,8 @@ ResetRoomForProbe:
     clear PeriodGrace
     put empty into GraceTemp
     clear StaleGrace
+    clear TrvFallback
+    put empty into TrvFallbackTemp
     return
 """
 
@@ -425,6 +485,18 @@ class SetRelayDecision(unittest.TestCase):
 
     def test_the_grace_without_a_last_reading_does_not_heat(self):
         self.assertEqual(self.v["grace-noreading-on"], "off")
+
+    def test_a_trusted_valve_sensor_heats_a_stale_room(self):
+        self.assertEqual(self.v["fallback-on"], "on")
+        self.assertEqual(self.v["fallback-request"], "yes")
+        self.assertEqual(self.v["fallback-grace"], "yes")
+
+    def test_the_fallback_estimate_is_compared_with_the_target(self):
+        self.assertEqual(self.v["fallback-above-on"], "off")
+        self.assertEqual(self.v["fallback-above-request"], "no")
+
+    def test_the_fallback_outlives_a_fail_status(self):
+        self.assertEqual(self.v["fallback-fail-on"], "on")
 
     def test_an_expired_grace_restores_the_staleness_rule(self):
         self.assertEqual(self.v["grace-expired-on"], "off")

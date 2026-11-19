@@ -370,7 +370,31 @@
     variable TrvWasRunning
     variable TrvSeen
     variable TrvAge
-!! @hash 7700947e
+    variable TrvSensorWas
+    variable TrvLocalText
+    variable TrvLocalTemp
+    variable TrvBiasDelta
+    variable TrvBiasAbs
+    variable TrvBiasMove
+    variable TrvBiasStep
+    variable TrvBiasN
+    variable TrvBiasMean
+    variable TrvBiasMin
+    variable TrvBiasMax
+    variable TrvBiasSpread
+    variable TrvBiasValve
+    variable TrvBiasLast
+    variable TrvBiasOver
+    variable TrvBiasNow
+    variable TrvBiasWas
+    variable TrvBiasShift
+    variable TrvBiasWhole
+    variable TrvBiasDeg
+    variable TrvBiasFrac
+    variable TrvFallback
+    variable TrvFallbackTemp
+    variable TrvFallbackWasTemp
+!! @hash 595c0a94
 !! @verified 85d32787
 !!!
 !! Basic initialisation.
@@ -1185,6 +1209,13 @@ MaterialiseRooms:
             if MRRoom has entry `trvext` set entry `trvext` of MRState to entry `trvext` of MRRoom
             if MRRoom has entry `trvextat` set entry `trvextat` of MRState to entry `trvextat` of MRRoom
             if MRRoom has entry `trvrunning` set entry `trvrunning` of MRState to entry `trvrunning` of MRRoom
+            if MRRoom has entry `trvsensor` set entry `trvsensor` of MRState to entry `trvsensor` of MRRoom
+            if MRRoom has entry `trvbias` set entry `trvbias` of MRState to entry `trvbias` of MRRoom
+            if MRRoom has entry `trvbiasn` set entry `trvbiasn` of MRState to entry `trvbiasn` of MRRoom
+            if MRRoom has entry `trvbiasmin` set entry `trvbiasmin` of MRState to entry `trvbiasmin` of MRRoom
+            if MRRoom has entry `trvbiasmax` set entry `trvbiasmax` of MRState to entry `trvbiasmax` of MRRoom
+            if MRRoom has entry `trvbiasat` set entry `trvbiasat` of MRState to entry `trvbiasat` of MRRoom
+            if MRRoom has entry `trvbiasvalve` set entry `trvbiasvalve` of MRState to entry `trvbiasvalve` of MRRoom
             if MRRoom has entry `linked` set entry `linked` of MRState to entry `linked` of MRRoom
             if MRRoom has entry `relayfails` set entry `relayfails` of MRState to entry `relayfails` of MRRoom
             if MRRoom has entry `protect` set entry `protect` of MRState to entry `protect` of MRRoom
@@ -1243,6 +1274,15 @@ CommitRooms:
         if CRRoom has entry `trvext` set entry `trvext` of CRTarget to entry `trvext` of CRRoom
         if CRRoom has entry `trvextat` set entry `trvextat` of CRTarget to entry `trvextat` of CRRoom
         if CRRoom has entry `trvrunning` set entry `trvrunning` of CRTarget to entry `trvrunning` of CRRoom
+        if CRRoom has entry `trvsensor` set entry `trvsensor` of CRTarget to entry `trvsensor` of CRRoom
+        if CRRoom has entry `trvbias` set entry `trvbias` of CRTarget to entry `trvbias` of CRRoom
+        if CRRoom has entry `trvbiasn` set entry `trvbiasn` of CRTarget to entry `trvbiasn` of CRRoom
+        if CRRoom has entry `trvbiasmin` set entry `trvbiasmin` of CRTarget to entry `trvbiasmin` of CRRoom
+        if CRRoom has entry `trvbiasmax` set entry `trvbiasmax` of CRTarget to entry `trvbiasmax` of CRRoom
+        if CRRoom has entry `trvbiasat` set entry `trvbiasat` of CRTarget to entry `trvbiasat` of CRRoom
+        if CRRoom has entry `trvbiasvalve` set entry `trvbiasvalve` of CRTarget to entry `trvbiasvalve` of CRRoom
+        if CRRoom has entry `trvfallback` set entry `trvfallback` of CRTarget to entry `trvfallback` of CRRoom
+        if CRRoom has entry `trvfallbacktemp` set entry `trvfallbacktemp` of CRTarget to entry `trvfallbacktemp` of CRRoom
         if CRRoom has entry `linked` set entry `linked` of CRTarget to entry `linked` of CRRoom
         if CRRoom has entry `relayfails` set entry `relayfails` of CRTarget to entry `relayfails` of CRRoom
         if CRRoom has entry `protect` set entry `protect` of CRTarget to entry `protect` of CRRoom
@@ -1313,7 +1353,7 @@ CommitRooms:
         set entry `profiles` of Map to Profiles
     end
     return
-!! @hash 3835b8e7
+!! @hash 4d9f5e69
 !!!
 !! Merge an identity list sent by the UI into Map.rooms.
 !!
@@ -1732,7 +1772,7 @@ OnReturnMode:
 !!
 !! Sensor staleness: if the configured thermometer hasn't reported within 45 minutes the current reading is treated as missing, the relay is forced off (which in most cases will soon trigger a temperature change to be posted), and the last known temperature is preserved on the Room so the UI can show it greyed out rather than blank. Boost mode bypasses this gate (the `until` timestamp is the safety bound). A flip in freshness also marks the map changed, so connected UIs learn that the status moved without waiting for the temperature itself to differ.
 !!
-!! The one exception is a scheduled period's first 30 minutes, when the last known reading may decide the heat (see PeriodHeatGrace). The gate still empties TempNow and the UI still shows the reading as stale; only the heating decision uses the preserved value, and only until the window closes.
+!! Two exceptions follow from that rule. A self-contained valve's own sensor, corrected by the offset learned while both sensors reported, keeps the room on its plan when the room thermometer is stale (ProcessTrvBias); and a scheduled period's first 30 minutes may start on the last known reading (PeriodHeatGrace). In both cases the gate still empties TempNow and the UI still shows the room reading as stale; only the heating decision uses the substitute.
 !!
 !! Falls through to ProcessReply, which folds the device's reply back into the Room.
 ProcessRoom:
@@ -1920,9 +1960,14 @@ ProcessRoom:
         set RelayState to `off`
     end
 BoostDone:
+    ! A stale room whose actuator is a self-contained valve may decide on the
+    ! valve's own sensor (see ProcessTrvBias). This runs before SetRelay,
+    ! which turns TrvFallback/TrvFallbackTemp into TempDecision.
+    gosub to ProcessTrvBias
     ! A scheduled period's first 30 minutes may decide on the last known
     ! reading even when the 45-minute gate has emptied TempNow. SetRelay (and
-    ! ProcessTrv) turn PeriodGrace/GraceTemp into TempDecision.
+    ! ProcessTrv) turn PeriodGrace/GraceTemp into TempDecision when the valve
+    ! fallback above has not already supplied one.
     gosub to PeriodHeatGrace
     if TempNow is empty set RelayState to `off`
 
@@ -1953,7 +1998,7 @@ BoostDone:
     ! Send the RoomSpec packet to the device controller using EasyCoder messaging (not MQTT)
     put TempNow into TempWas
     send RoomSpec to DeviceModule and assign reply to Replies
-!! @hash e691e34f
+!! @hash 56eb17e9
 !! @verified 9c87d092
 !!!
 !! Fold the device controller's reply back into the Room state and re-decide the relay.
@@ -2021,7 +2066,15 @@ ProcessReply:
 !! and `auto` is the valve's own schedule; neither is a dial change. A dial
 !! change from a room RBR had switched off turns the room on rather than being
 !! immediately overridden by an off command.
+!!
+!! While the radiator-sensor fallback is running — and on the cycle it ends — the difference is the controller's own setpoint shift, not a hand on the dial, so no adoption is made. Without that guard, entering or leaving the fallback would rewrite the room's schedule with the shifted value.
 SyncTrvLocalSetpoint:
+    ! While the radiator-sensor fallback shifts the setpoint, a difference
+    ! between the plan and the valve is ours, not a hand on the dial; adopting
+    ! it would write the shifted value into the schedule. The exit cycle is
+    ! covered too, while the valve still reports the shifted value.
+    if TrvFallback return
+    if TrvBiasWas is `yes` return
     put entry `trv` of Room into TrvName
     if ZigbeeTrvs has no entry TrvName return
     put entry TrvName of ZigbeeTrvs into TrvState
@@ -2081,6 +2134,20 @@ SyncTrvLocalSetpoint:
     log `TRV ` cat TrvName cat ` dial setpoint adopted: ` cat TrvReportedText
     gosub to ForceUpdate
     return
+!! Report how long ago the valve last reported, in milliseconds.
+!!
+!! `zigbee-trv.json` carries `last_seen`, written by the bridge as `time.time()` — a float epoch. A decimal is a string here, so `scale` converts it exactly; `multiply` would call int() on the decimal and stop the controller (2026-11-17, about 45 times an hour). A missing or empty timestamp leaves `TrvAge` empty: there is nothing to age the entry against, and the caller decides whether that is good enough.
+TrvReportAge:
+    put empty into TrvAge
+    if TrvState has no entry `last_seen` return
+    put entry `last_seen` of TrvState into TrvSeen
+    if TrvSeen is empty return
+    put TrvSeen scale 1000 into TrvSeen
+    put now into TrvAge
+    take TrvSeen from TrvAge
+    return
+!! @hash 64107f9d
+!!!
 !! Record the valve's own running state for the page.
 !!
 !! `zigbee-trv.json` carries `running_state` — the valve's own verdict, `heat` when the valve is open and `idle` when it is closed — and `last_seen`. The page uses it for the room's tag, so a demand the valve is not following reads "valve idle" instead of "heating". A state older than the 45-minute sensor gate is not a state: the entry is cleared and the page falls back to the demand.
@@ -2099,20 +2166,10 @@ ProcessTrvState:
             end
             if TrvRunningState is not empty
             begin
-                if TrvState has entry `last_seen`
+                gosub to TrvReportAge
+                if TrvAge is not empty
                 begin
-                    put entry `last_seen` of TrvState into TrvSeen
-                    if TrvSeen is not empty
-                    begin
-                        ! The bridge writes `last_seen` as a float epoch
-                        ! (`time.time()`), and a decimal is a string here, so
-                        ! `multiply` would call int() on it and stop the
-                        ! controller. `scale` converts it exactly.
-                        put TrvSeen scale 1000 into TrvSeen
-                        put now into TrvAge
-                        take TrvSeen from TrvAge
-                        if TrvAge is greater than 2700000 put empty into TrvRunningState
-                    end
+                    if TrvAge is greater than 2700000 put empty into TrvRunningState
                 end
             end
         end
@@ -2123,6 +2180,295 @@ ProcessTrvState:
     set entry `trvrunning` of Room to TrvRunningState
     set MapHasChanged
     return
+!! Learn the offset between the valve's own sensor and the room thermometer.
+!!
+!! A valve fitted to a radiator does not read the room: its sensor is in the head, near hot pipework, so while the radiator is working it reads high — measured on this project's own installs at 1.2 °C and, in one heat-soaked case, 5–7 °C. When both sensors report, the difference (room − local) is the correction that turns the valve's reading into the room's. It is kept as a slow mean, not a single sample, because it moves with the radiator; the min/max envelope around it is how the fallback judge sees whether the two sensors track each other consistently or merely happen to agree once.
+!!
+!! Samples are taken only while the room reading is fresh, the valve's report is inside the same 45-minute gate, and the two differ by no more than 5 °C — a bigger gap is a heat-soaked sensor, not a calibration. A replaced valve is a different sensor, so the estimate resets when the room's `trv` name changes.
+LearnTrvBias:
+    if Simulate return
+    if Room has no entry `trv` return
+    if Room has no entry `sensor` return
+    put entry `trv` of Room into TrvName
+    if entry `sensor` of Room is TrvName return
+    if TempNow is empty return
+    if ZigbeeTrvs has no entry TrvName return
+    put entry TrvName of ZigbeeTrvs into TrvState
+    put empty into TrvLocalText
+    if TrvState has entry `local_temperature` put entry `local_temperature` of TrvState into TrvLocalText
+    if TrvLocalText is empty return
+    ! JSON null arrives as this text, and `scale` would stop the controller on it.
+    if TrvLocalText is `None` return
+    gosub to TrvReportAge
+    if TrvAge is empty return
+    if TrvAge is greater than 2700000 return
+    put TrvLocalText scale 100 into TrvLocalTemp
+    put TempNow into TrvBiasDelta
+    if TrvBiasDelta is not numeric
+    begin
+        put TrvBiasDelta into Temp
+        gosub to ConvertTempToInt
+        put Temp into TrvBiasDelta
+    end
+    take TrvLocalTemp from TrvBiasDelta
+    put TrvBiasDelta into TrvBiasAbs
+    if TrvBiasAbs is less than 0
+    begin
+        put 0 into TrvBiasAbs
+        take TrvBiasDelta from TrvBiasAbs
+    end
+    if TrvBiasAbs is greater than 500 return
+
+    put empty into TrvBiasValve
+    if Room has entry `trvbiasvalve` put entry `trvbiasvalve` of Room into TrvBiasValve
+    if TrvBiasValve is not TrvName
+    begin
+        set entry `trvbiasvalve` of Room to TrvName
+        set entry `trvbiasn` of Room to 0
+        delete entry `trvbias` of Room
+        delete entry `trvbiasmin` of Room
+        delete entry `trvbiasmax` of Room
+    end
+    put 0 into TrvBiasN
+    if Room has entry `trvbiasn` put entry `trvbiasn` of Room into TrvBiasN
+    if TrvBiasN is not numeric put the value of TrvBiasN into TrvBiasN
+    if TrvBiasN is 0
+    begin
+        set entry `trvbias` of Room to TrvBiasDelta
+        set entry `trvbiasmin` of Room to TrvBiasDelta
+        set entry `trvbiasmax` of Room to TrvBiasDelta
+    end
+    else
+    begin
+        put TrvBiasN into TrvBiasStep
+        increment TrvBiasStep
+        if TrvBiasStep is greater than 8 put 8 into TrvBiasStep
+        put entry `trvbias` of Room into TrvBiasMean
+        if TrvBiasMean is not numeric
+        begin
+            put TrvBiasMean into Temp
+            gosub to ConvertTempToInt
+            put Temp into TrvBiasMean
+        end
+        if TrvBiasDelta is greater than TrvBiasMean
+        begin
+            put TrvBiasDelta into TrvBiasMove
+            take TrvBiasMean from TrvBiasMove
+            divide TrvBiasMove by TrvBiasStep
+            add TrvBiasMove to TrvBiasMean
+        end
+        else if TrvBiasDelta is less than TrvBiasMean
+        begin
+            put TrvBiasMean into TrvBiasMove
+            take TrvBiasDelta from TrvBiasMove
+            divide TrvBiasMove by TrvBiasStep
+            take TrvBiasMove from TrvBiasMean
+        end
+        set entry `trvbias` of Room to TrvBiasMean
+        ! The envelope decays toward each new sample so one bad report does not
+        ! disqualify the fallback for ever; the step is integer, so the divisor
+        ! is small enough to move a tenth of a degree.
+        put entry `trvbiasmin` of Room into TrvBiasMin
+        put entry `trvbiasmax` of Room into TrvBiasMax
+        if TrvBiasMin is not numeric
+        begin
+            put TrvBiasMin into Temp
+            gosub to ConvertTempToInt
+            put Temp into TrvBiasMin
+        end
+        if TrvBiasMax is not numeric
+        begin
+            put TrvBiasMax into Temp
+            gosub to ConvertTempToInt
+            put Temp into TrvBiasMax
+        end
+        if TrvBiasDelta is less than TrvBiasMin
+            set entry `trvbiasmin` of Room to TrvBiasDelta
+        else
+        begin
+            put TrvBiasDelta into TrvBiasMove
+            take TrvBiasMin from TrvBiasMove
+            divide TrvBiasMove by 32
+            add TrvBiasMove to TrvBiasMin
+            set entry `trvbiasmin` of Room to TrvBiasMin
+        end
+        if TrvBiasDelta is greater than TrvBiasMax
+            set entry `trvbiasmax` of Room to TrvBiasDelta
+        else
+        begin
+            put TrvBiasMax into TrvBiasMove
+            take TrvBiasDelta from TrvBiasMove
+            divide TrvBiasMove by 32
+            take TrvBiasMove from TrvBiasMax
+            set entry `trvbiasmax` of Room to TrvBiasMax
+        end
+    end
+    if TrvBiasN is less than 8 increment TrvBiasN
+    set entry `trvbiasn` of Room to TrvBiasN
+    set entry `trvbiasat` of Room to now
+    return
+!! @hash 9d1ea0ee
+!!!
+!! Decide whether a stale room should heat from the valve's own sensor.
+!!
+!! The 45-minute gate holds a room off when its thermometer goes quiet, because this system refuses to heat without feedback. A self-contained valve is itself a thermostat with a sensor, so when the room reading is missing and the valve is reporting, the controller can delegate the thermostat to the valve and keep the room on its plan. The valve's sensor is not the room sensor — fitted to the radiator it reads high while the radiator works — so the setpoint sent is shifted by the offset learned while both reported (LearnTrvBias), which makes the valve control its own reading to what the room's should be.
+!!
+!! The fallback is narrow, and the plan itself is the bound. It needs a separate room thermometer that is stale, a valve reporting a fresh local reading, and a recent, consistent offset; it runs only for a Timed room inside a period, or an On or Boost room, both of which already carry their own deadline; and it follows the plan's target, so it stops when the plan stops wanting heat rather than at a clock of its own. A refusal leaves the room on the ordinary held-off rule; when it runs, the card's warning row says so.
+!!
+!! The learned fields are the estimate; `trvfallback` and `trvfallbacktemp` are the page's view of this cycle and are stripped from the disk copy.
+ProcessTrvBias:
+    clear TrvFallback
+    put empty into TrvFallbackTemp
+    put empty into TrvBiasWas
+    if Room has entry `trvfallback` put entry `trvfallback` of Room into TrvBiasWas
+    put empty into TrvFallbackWasTemp
+    if Room has entry `trvfallbacktemp` put entry `trvfallbacktemp` of Room into TrvFallbackWasTemp
+    if Simulate go to BiasStore
+    if Mode is `off` go to BiasStore
+    if Room has no entry `trv` go to BiasStore
+    if Room has no entry `sensor` go to BiasStore
+    put entry `trv` of Room into TrvName
+    if entry `sensor` of Room is TrvName go to BiasStore
+    if TempNow is not empty go to BiasStore
+    if Mode is `timed` and PeriodActive is less than 0 go to BiasStore
+    if Room has entry `trvfails`
+    begin
+        put entry `trvfails` of Room into TrvFails
+        if TrvFails is greater than 5 go to BiasStore
+    end
+    if ZigbeeTrvs has no entry TrvName go to BiasStore
+    put entry TrvName of ZigbeeTrvs into TrvState
+    put empty into TrvLocalText
+    if TrvState has entry `local_temperature` put entry `local_temperature` of TrvState into TrvLocalText
+    if TrvLocalText is empty go to BiasStore
+    if TrvLocalText is `None` go to BiasStore
+    gosub to TrvReportAge
+    if TrvAge is empty go to BiasStore
+    if TrvAge is greater than 2700000 go to BiasStore
+    put TrvLocalText scale 100 into TrvLocalTemp
+
+    put 0 into TrvBiasN
+    if Room has entry `trvbiasn` put entry `trvbiasn` of Room into TrvBiasN
+    if TrvBiasN is not numeric put the value of TrvBiasN into TrvBiasN
+    if TrvBiasN is less than 4 go to BiasStore
+    put empty into TrvBiasValve
+    if Room has entry `trvbiasvalve` put entry `trvbiasvalve` of Room into TrvBiasValve
+    if TrvBiasValve is not TrvName go to BiasStore
+    put empty into TrvBiasMean
+    if Room has entry `trvbias` put entry `trvbias` of Room into TrvBiasMean
+    if TrvBiasMean is empty go to BiasStore
+    if TrvBiasMean is not numeric
+    begin
+        put TrvBiasMean into Temp
+        gosub to ConvertTempToInt
+        put Temp into TrvBiasMean
+    end
+    put TrvBiasMean into TrvBiasAbs
+    if TrvBiasAbs is less than 0
+    begin
+        put 0 into TrvBiasAbs
+        take TrvBiasMean from TrvBiasAbs
+    end
+    if TrvBiasAbs is greater than 500 go to BiasStore
+    put empty into TrvBiasMin
+    if Room has entry `trvbiasmin` put entry `trvbiasmin` of Room into TrvBiasMin
+    put empty into TrvBiasMax
+    if Room has entry `trvbiasmax` put entry `trvbiasmax` of Room into TrvBiasMax
+    if TrvBiasMin is not empty
+    begin
+        if TrvBiasMin is not numeric
+        begin
+            put TrvBiasMin into Temp
+            gosub to ConvertTempToInt
+            put Temp into TrvBiasMin
+        end
+        if TrvBiasMax is not empty
+        begin
+            if TrvBiasMax is not numeric
+            begin
+                put TrvBiasMax into Temp
+                gosub to ConvertTempToInt
+                put Temp into TrvBiasMax
+            end
+            put TrvBiasMax into TrvBiasSpread
+            take TrvBiasMin from TrvBiasSpread
+            if TrvBiasSpread is greater than 250 go to BiasStore
+        end
+    end
+    ! The first cycle of an outage is the one moment the live reading can be
+    ! held against what the room last was; after that the room is under the
+    ! valve's control and the two are expected to part company.
+    if TrvBiasWas is not `yes`
+    begin
+        if Room has entry `temperature`
+        begin
+            put entry `temperature` of Room into TrvBiasLast
+            if TrvBiasLast is not empty
+            begin
+                if TrvBiasLast is not numeric
+                begin
+                    put TrvBiasLast into Temp
+                    gosub to ConvertTempToInt
+                    put Temp into TrvBiasLast
+                end
+                put TrvLocalTemp into TrvBiasOver
+                take TrvBiasLast from TrvBiasOver
+                if TrvBiasOver is greater than 500 go to BiasStore
+            end
+        end
+    end
+    put TrvLocalTemp into TrvFallbackTemp
+    add TrvBiasMean to TrvFallbackTemp
+    if TrvFallbackTemp is less than 0 go to BiasStore
+    if TrvFallbackTemp is greater than 4000 go to BiasStore
+    set TrvFallback
+BiasStore:
+    put `no` into TrvBiasNow
+    if TrvFallback put `yes` into TrvBiasNow
+    if TrvBiasNow is not TrvBiasWas
+    begin
+        set MapHasChanged
+        if TrvBiasNow is `yes`
+        begin
+            put TrvFallbackTemp into TrvBiasWhole
+            divide TrvBiasWhole by 100
+            put TrvBiasMean into TrvBiasDeg
+            divide TrvBiasDeg by 100
+            log RoomName cat `: radiator-sensor fallback, room est ` cat TrvBiasWhole cat `C, offset ` cat TrvBiasDeg cat `C`
+        end
+        else log RoomName cat `: radiator-sensor fallback ended`
+    end
+    if TrvFallback and TrvFallbackTemp is not TrvFallbackWasTemp set MapHasChanged
+    set entry `trvfallback` of Room to TrvBiasNow
+    if TrvFallback set entry `trvfallbacktemp` of Room to TrvFallbackTemp
+    else delete entry `trvfallbacktemp` of Room
+    return
+!! @hash bf871010
+!!!
+!! Shift the valve's setpoint by the learned sensor offset while the fallback runs.
+!!
+!! The valve controls its own reading, so the setpoint it needs is the room's target minus the offset its sensor carries (room − local): a valve reading 1.2 °C high gets 21.2 to hold a 20 °C room. The result stays inside the valve's 4–35 °C range and is written back as a one-decimal string, the shape the bridge parses and the format the plan uses.
+ApplyTrvBiasToSetpoint:
+    if TrvSetpoint is empty return
+    if Room has no entry `trvbias` return
+    put entry `trvbias` of Room into TrvBiasShift
+    if TrvBiasShift is empty return
+    put TrvSetpoint into Temp
+    gosub to ConvertTempToInt
+    take TrvBiasShift from Temp
+    if Temp is less than 400 put 400 into Temp
+    if Temp is greater than 3500 put 3500 into Temp
+    put Temp into TrvBiasWhole
+    divide TrvBiasWhole by 100
+    put TrvBiasWhole into TrvBiasDeg
+    multiply TrvBiasWhole by 100
+    put Temp into TrvBiasFrac
+    take TrvBiasWhole from TrvBiasFrac
+    divide TrvBiasFrac by 10
+    put TrvBiasDeg cat `.` cat TrvBiasFrac into TrvSetpoint
+    return
+!! @hash 245f412d
+!!!
 !! Drive a room whose actuator is a self-contained TRV.
 !!
 !! The valve is sent its target as `occupied_heating_setpoint` and `heat` while
@@ -2144,8 +2490,11 @@ ProcessTrvState:
 !! reading (see PeriodHeatGrace). In that case no `external` reading is sent —
 !! it is stale — so the valve keeps its own sensor and modulates locally while
 !! the controller's 30-minute bound still governs whether it is heating at all.
+!!
+!! The wider exception is the radiator-sensor fallback: when the room thermometer is stale but the valve is reporting, the valve keeps its own sensor and its setpoint is shifted by the learned offset, so its thermostat holds the room at the plan's target (ApplyTrvBiasToSetpoint). A sensor change is itself a command, so entering or leaving the fallback does not wait for the 10-minute keepalive.
 ProcessTrv:
     gosub to ProcessTrvState
+    gosub to LearnTrvBias
     gosub to SyncTrvLocalSetpoint
     put empty into TrvSetpoint
     put -1 into TrvPeriodIdx
@@ -2162,6 +2511,7 @@ ProcessTrv:
     if TrvSetpoint is empty and Room has entry `target`
         put entry `target` of Room into TrvSetpoint
     if TrvSetpoint is empty put 20 into TrvSetpoint
+    if TrvFallback gosub to ApplyTrvBiasToSetpoint
 
     if Mode is `off` put `off` into TrvMode
     else if PriorStatus is `warn` and not StaleGrace put `off` into TrvMode
@@ -2213,6 +2563,13 @@ ProcessTrv:
         if TrvDelta is greater than 25 set TrvNeedsCommand
     end
     if TrvModeWas is not TrvMode set TrvNeedsCommand
+    ! A sensor change is a command even when setpoint and mode are unchanged:
+    ! entering or leaving the fallback must move the valve between the room
+    ! thermometer and its own, or it keeps controlling on the wrong one until
+    ! the keepalive.
+    put empty into TrvSensorWas
+    if Room has entry `trvsensor` put entry `trvsensor` of Room into TrvSensorWas
+    if TrvSensorWas is not TrvSensorMode set TrvNeedsCommand
     if TrvCommandAt is 0 set TrvNeedsCommand
     else
     begin
@@ -2284,6 +2641,7 @@ ProcessTrv:
         set entry `trvcommandat` of Room to now
         set entry `trvsetpoint` of Room to TrvSetpoint
         set entry `trvmode` of Room to TrvMode
+        set entry `trvsensor` of Room to TrvSensorMode
         if TrvReplyValue has entry `setpoint` set entry `trvsetpoint` of Room to entry `setpoint` of TrvReplyValue
     end
     if TrvExternal is not empty
@@ -2292,7 +2650,7 @@ ProcessTrv:
         set entry `trvextat` of Room to now
     end
     return
-!! @hash 7bcfe582
+!! @hash 04eca1c1
 !!!
 !! Drive the optional boiler request relay that turns the central heat source on whenever any room is demanding heat.
 !!
@@ -2331,7 +2689,7 @@ ProcessRequestRelay:
 !!
 !! Safety overrides come first: a prior `warn`/`fail` status (from staleness or repeated relay failures) forces relay off regardless of mode, so a dead sensor cannot leave heat permanently on. Boost mode is the one exception — it's a user-initiated, time-bounded override (the `until` timestamp is the safety bound) and runs even when no temperature data is available at all.
 !!
-!! The other exception is the period-start grace: in a scheduled period's first 30 minutes a stale reading with a last known value decides the heat on that value (see PeriodHeatGrace and StaleGrace below). The room's status still reports the sensor stale to the UI; this routine only declines to let that status veto a bounded, deliberate start.
+!! Two deliberate exceptions stop a stale reading vetoing a bounded start. A self-contained valve's own sensor, corrected by the offset learned while both sensors reported, is live evidence and wins: the room heats on that estimate while the fallback runs (ProcessTrvBias). Failing that, a scheduled period's first 30 minutes may decide on the last known reading (PeriodHeatGrace). In both cases the room's status still reports the sensor stale to the UI; only the heating decision uses the substitute.
 !!
 !! Unlinked relays (`linked: no`) are driven directly by mode rather than by target/temperature. For a linked room in `on` or `timed` mode, the relay turns on if the current temperature is below the target. SetRelay also signals the boiler request via HeatingRequested.
 !!
@@ -2349,7 +2707,14 @@ SetRelay:
     ! reply in, so this is recomputed there too.
     put TempNow into TempDecision
     clear StaleGrace
-    if TempDecision is empty and PeriodGrace and GraceTemp is not empty
+    if TempDecision is empty and TrvFallback and TrvFallbackTemp is not empty
+    begin
+        ! The valve's own sensor, corrected by the learned offset, is better
+        ! evidence than the last room reading: it is live.
+        put TrvFallbackTemp into TempDecision
+        set StaleGrace
+    end
+    else if TempDecision is empty and PeriodGrace and GraceTemp is not empty
     begin
         put GraceTemp into TempDecision
         set StaleGrace
@@ -2415,7 +2780,7 @@ SetRelay:
     if TempNow is not empty set entry `temperature` of Room to TempNow
     set entry `relay` of Room to RelayState
     set entry `period` of Room to PeriodActive
-!! @hash f93d7b23
+!! @hash 558e2a9f
 !! @verified f93d7b23
 !!!
 !! Compute the room's health status (`good` / `warn` / `fail` / `partial`) and a human-readable status message for the UI.
@@ -2425,6 +2790,8 @@ SetRelay:
 !! Relay health comes from the per-relay failure counts in `relayfails` (a list parallel to the room's `relays`). ALL relays failing > 5 cycles is `warn`, > 20 is `fail` — SetRelay forces the relays off for those, as before. Only SOME relays failing is `partial`: the room can still heat from the working relay(s), so it is flagged for the UI without the force-off, and the message names the relay that is not answering.
 !!
 !! Sensor staleness > 45 min -> warn, > 60 min -> fail. The 45-minute warn threshold matches the staleness gate in ProcessRoom that empties TempNow, so a stale sensor and a `warn` status both force the relay off at the same point. SensorAge is surfaced on Room so the UI can show "N min ago".
+!!
+!! A room in the radiator-sensor fallback keeps its stale-sensor status — the room reading really is stale — and its message names the substitute sensor, so the page and the journal say what is controlling the room.
 !!
 !! Falls through to UpdateRooms.
 RoomStatus:
@@ -2582,10 +2949,15 @@ RoomStatus:
             put Value cat `Sensor: not registered` into Value
         end
     end
+    if TrvFallback
+    begin
+        if Value is not empty put Value cat `. ` into Value
+        put Value cat `Radiator sensor in use` into Value
+    end
     set entry `statusMessage` of Room to Value
     set entry `relayMessage` of Room to RelayMsg
     gosub to JournalRoomState
-!! @hash 16b32e6a
+!! @hash f6249e51
 !! @verified e101ab9c
 !!!
 !! Cascading writers for the system map: callers gosub to whichever level they need, then control falls through up to UpdateMap and returns.
@@ -2653,6 +3025,8 @@ PrepareMapForDisk:
             if DiskRoom has entry `timestamp` delete entry `timestamp` of DiskRoom
             if DiskRoom has entry `sensorAge` delete entry `sensorAge` of DiskRoom
             if DiskRoom has entry `trvrunning` delete entry `trvrunning` of DiskRoom
+            if DiskRoom has entry `trvfallback` delete entry `trvfallback` of DiskRoom
+            if DiskRoom has entry `trvfallbacktemp` delete entry `trvfallbacktemp` of DiskRoom
             if DiskRoom has entry `relay` delete entry `relay` of DiskRoom
             set entry DRName of DiskRooms to DiskRoom
             increment DRIdx
@@ -2679,6 +3053,8 @@ PrepareMapForDisk:
         if DiskIdRoom has entry `timestamp` delete entry `timestamp` of DiskIdRoom
         if DiskIdRoom has entry `sensorAge` delete entry `sensorAge` of DiskIdRoom
         if DiskIdRoom has entry `trvrunning` delete entry `trvrunning` of DiskIdRoom
+        if DiskIdRoom has entry `trvfallback` delete entry `trvfallback` of DiskIdRoom
+        if DiskIdRoom has entry `trvfallbacktemp` delete entry `trvfallbacktemp` of DiskIdRoom
         if DiskIdRoom has entry `relay` delete entry `relay` of DiskIdRoom
         set item DIIdx of DiskIdentity to DiskIdRoom
         increment DIIdx
@@ -2686,7 +3062,7 @@ PrepareMapForDisk:
     set entry `rooms` of MapDisk to DiskIdentity
     put prettify MapDisk into MapDiskText
     return
-!! @hash 1d3fe588
+!! @hash 3cedc51b
 !! @verified 6a2faafc
 !!!
 !! Trigger an immediate UI update by setting both ImmediateUpdate (which short-circuits MainLoop's 5-second wait) and MapHasChanged (which makes SendMapToUI actually push). 
@@ -4295,6 +4671,8 @@ JournalRoomState:
     if Room has entry `trvrunning` set entry `trvrunning` of JournalData to entry `trvrunning` of Room
     if Room has entry `trvsetpoint` set entry `trvsetpoint` of JournalData to entry `trvsetpoint` of Room
     if Room has entry `trvfails` set entry `trvfails` of JournalData to entry `trvfails` of Room
+    if Room has entry `trvfallback` set entry `trvfallback` of JournalData to entry `trvfallback` of Room
+    if Room has entry `trvfallbacktemp` set entry `trvfallbacktemp` of JournalData to entry `trvfallbacktemp` of Room
     put prettify JournalData into JournalRoomText
     put hash JournalRoomText into JournalRoomHash
     if JournalRooms has entry RoomName
@@ -4305,7 +4683,7 @@ JournalRoomState:
     set JournalType to `room.state`
     gosub to JournalWrite
     return
-!! @hash b2874d81
+!! @hash ad4fc17f
 !!!
 !! Record the demand relay's own on/off decision when it changes.
 JournalRequestRelay:

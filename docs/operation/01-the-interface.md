@@ -1,6 +1,6 @@
 # The interface
 
-> **Audience:** resident, property manager, housing provider · **Status:** draft · **Last verified:** 2026-11-15 · **See also:** [Glossary](../appendix/glossary.md) · [Preparing a unit](../preparation/05-preparing-a-unit.md) · [Modes, schedules and profiles](02-modes-schedules-profiles.md)
+> **Audience:** resident, property manager, housing provider · **Status:** draft · **Last verified:** 2026-11-19 · **See also:** [Glossary](../appendix/glossary.md) · [Preparing a unit](../preparation/05-preparing-a-unit.md) · [Modes, schedules and profiles](02-modes-schedules-profiles.md)
 
 Room By Room is controlled from a web app on a phone or tablet. There is nothing to buy from an app store: the page at <https://rbrheating.com/heat/> is added to the home screen and opened like any other app. The same page can be used on more than one phone, and each phone is paired to the system once.
 
@@ -34,7 +34,7 @@ The colour and the icon answer two different questions: the colour says what the
 | Faint grey name, neutral grey pill, power icon | The room is **Off**: deliberately out of the heating plan. It still reports its temperature, but it will not be heated by the schedule. |
 | Orange **+** icon | The room is **On**, or is being **Boosted** — a temporary heat that raises the room above its schedule. |
 | Orange **A** icon | **Advance** is active on a Timed room: the next scheduled change has been brought forward. |
-| Amber warning icon or amber warning row | Something needs attention: a thermometer has stopped reporting, a relay is not answering, or a relay has failed. The room page's **Room details** gives the reading behind it. |
+| Amber warning icon or amber warning row | Something needs attention: a thermometer has stopped reporting, a relay is not answering, a relay has failed, or the room is being heated from the radiator's own sensor because its thermometer has gone quiet (the row says **Radiator sensor in use**). The room page's **Room details** gives the reading behind it. |
 | Battery outline above the temperature | The room's thermometer battery is low. The icon is stronger when the battery is nearly empty. |
 | Flame beside the dot in the top bar | The boiler is being asked for heat, because at least one room is calling or frost protection is active. |
 

@@ -53,6 +53,9 @@ FIXTURE = {
          "temperature": 2100, "status": "good", "relay": "off"},
         {"name": "Living Room", "relays": [], "sensor": "LR-HT", "trv": "LR-Rad",
          "trvext": 1980, "trvextat": 1234567890, "trvrunning": "idle", "linked": "yes",
+         "trvsensor": "remote", "trvbias": -120, "trvbiasn": 8,
+         "trvbiasmin": -150, "trvbiasmax": -90, "trvbiasat": 1234567890,
+         "trvbiasvalve": "LR-Rad", "trvfallback": "no",
          "temperature": 1980, "status": "good", "relay": "off"},
     ],
     "profiles": [
@@ -142,6 +145,30 @@ put item 2 of MRIdentity into MRRoom
 if MRRoom has entry `trvrunning` put entry `trvrunning` of MRRoom into S else put `missing` into S
 log `PROBE identity-trvrunning=` cat S
 
+! The learned offset and the page's fallback view travel by different rules:
+! the offset is identity (it must survive), the fallback fields are display
+! state the page reads and the disk copy drops.
+put entry `trvbias` of Room into S
+log `PROBE working-trvbias=` cat S
+set entry `trvbias` of Room to -140
+set entry `trvfallback` of Room to `yes`
+set entry `trvfallbacktemp` of Room to 1870
+gosub to UpdateRooms
+put entry `rooms` of Map into MRIdentity
+put item 2 of MRIdentity into MRRoom
+if MRRoom has entry `trvbias` put entry `trvbias` of MRRoom into S else put `missing` into S
+log `PROBE identity-trvbias=` cat S
+if MRRoom has entry `trvfallbacktemp` put entry `trvfallbacktemp` of MRRoom into S else put `missing` into S
+log `PROBE identity-trvfallbacktemp=` cat S
+! Materialise rebuilds the working record from identity and the plan; the
+! fallback view is derived each cycle, so it is not carried.
+gosub to MaterialiseRooms
+put item 2 of Rooms into Room
+put entry `trvbias` of Room into S
+log `PROBE working-trvbias-after=` cat S
+if Room has entry `trvfallbacktemp` put entry `trvfallbacktemp` of Room into S else put `missing` into S
+log `PROBE rematerialised-trvfallbacktemp=` cat S
+
 put item SelectedProfile of Profiles into Profile
 put entry `rooms` of Profile into MRStates
 put entry `Living Room` of MRStates into MRState
@@ -149,6 +176,10 @@ if MRState has entry `trvext` put `yes` into S else put `no` into S
 log `PROBE state-has-trvext=` cat S
 if MRState has entry `trvrunning` put `yes` into S else put `no` into S
 log `PROBE state-has-trvrunning=` cat S
+if MRState has entry `trvbias` put `yes` into S else put `no` into S
+log `PROBE state-has-trvbias=` cat S
+if MRState has entry `trvfallbacktemp` put `yes` into S else put `no` into S
+log `PROBE state-has-trvfallbacktemp=` cat S
 
 put 0 into RoomIndex
 put item RoomIndex of Rooms into Room
@@ -309,6 +340,24 @@ class CommitRoundTrip(unittest.TestCase):
         self.assertAlmostEqual(float(self.v["working-trvextat-after"]), 1234567999.0)
         self.assertEqual(self.v["state-has-trvext"], "no",
                          "TRV throttle state leaked into the profile schedule")
+
+    def test_the_learned_trv_offset_survives_the_round_trip(self):
+        # The offset is learned from the installation, not the plan: losing it
+        # at a materialise would relearn from zero and disable the fallback.
+        self.assertEqual(self.v["working-trvbias"], "-120")
+        self.assertEqual(self.v["working-trvbias-after"], "-140")
+        self.assertEqual(self.v["identity-trvbias"], "-140",
+                         "the learned offset never reached the identity record")
+
+    def test_the_fallback_view_reaches_the_page_but_not_the_plan(self):
+        self.assertEqual(self.v["identity-trvfallbacktemp"], "1870",
+                         "the page's fallback estimate never reached the identity record")
+        self.assertEqual(self.v["rematerialised-trvfallbacktemp"], "missing",
+                         "derived fallback state was carried instead of recomputed")
+        self.assertEqual(self.v["state-has-trvbias"], "no",
+                         "the learned offset leaked into the profile schedule")
+        self.assertEqual(self.v["state-has-trvfallbacktemp"], "no",
+                         "the fallback display state leaked into the profile schedule")
 
     def test_trv_running_state_survives_the_round_trip(self):
         # The valve's own report travels on the identity record, like the

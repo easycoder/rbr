@@ -1,6 +1,6 @@
 # Troubleshooting
 
-> **Audience:** resident, property manager, housing provider · **Status:** draft · **Last verified:** 2026-11-15 · **See also:** [The interface](01-the-interface.md) · [Schedules and profiles](02-modes-schedules-profiles.md) · [Managing many systems](03-managing-many-systems.md) · [Glossary](../appendix/glossary.md)
+> **Audience:** resident, property manager, housing provider · **Status:** draft · **Last verified:** 2026-11-19 · **See also:** [The interface](01-the-interface.md) · [Schedules and profiles](02-modes-schedules-profiles.md) · [Managing many systems](03-managing-many-systems.md) · [Glossary](../appendix/glossary.md)
 
 Most problems with the app are not problems with the heating. The controller in the house carries on with its last plan when the phone cannot reach it, and a room that looks wrong on the screen can still be warm in the room. Troubleshooting therefore starts by separating three things: the phone's connection, the information the controller is reporting, and the heating hardware itself.
 
@@ -16,7 +16,7 @@ An **offline** tag is a device fault the controller has already detected. The su
 
 ![A room with a warning row: the sensor has not reported recently and the thermometer battery is low. The warning row shortens on a narrow phone; Room details gives the full picture.](/docs/operation/images/14-room-warning.png)
 
-A **warning row** is softer than offline. **No recent change** means the last reading is old but the room is still being managed from it; **Battery low** means the thermometer needs attention. The row can hold more than one message, and on a narrow phone the end may be shortened with an ellipsis.
+A **warning row** is softer than offline. **No recent change** means the last reading is old but the room is still being managed from it; **Radiator sensor in use** means the room's thermometer has gone quiet and the room is being heated from the radiator valve's own sensor, corrected by the difference RBR learned while both were reporting; **Battery low** means the thermometer needs attention. The row can hold more than one message, and on a narrow phone the end may be shortened with an ellipsis.
 
 **Room details** on the room page is the reading behind the card: whether the radiator is on, the current temperature, humidity, battery and the age of the last report. Use it before deciding whether the problem is the sensor, the radiator or the plan.
 
@@ -29,6 +29,7 @@ A **warning row** is softer than offline. **No recent change** means the last re
 | The wrong system's rooms and name | The **Systems** list | Select the right system; the app reloads on it. The local label and the controller's own name can differ. |
 | A room is **Offline** | The named device — relay, valve or thermometer | Note which one it names and call the installer if it does not clear. Do not open wiring or a boiler to investigate. |
 | **No recent change** | The thermometer's battery and its distance from the controller | Replace the battery if it is low. If it persists, the sensor or its radio link needs the installer; the room is held off rather than heated blind. |
+| **Radiator sensor in use** | The same thermometer fault | The room is still being heated, from the valve's own sensor and the corrected estimate shown in **Room details**. Treat it as the same fault as **No recent change**: replace the thermometer battery if it is low, and call the installer if it persists. |
 | **Battery low** or a battery outline | The thermometer battery | Replace it. A reading at or below five per cent is the **Battery empty** artwork. |
 | **No radiator assigned** | The room's wiring in **Rooms and Devices** | The room has no relay or valve the system can use. This is an installation or configuration fault; ask the installer. |
 | A room stays cold in **Timed** | The subline and the current period | If it says **Off until** a time, the room is in a schedule gap and is behaving correctly. If it is inside a period, read the next section. |
@@ -43,7 +44,7 @@ Work from the room outwards. The app can tell you which part is stopping it.
 1. **Is the room in the right mode?** **On** and **Boost** heat to their target; **Timed** follows the schedule; **Off** does not heat. A room in **Timed** with a subline saying **Off until 18:00** is in a gap and is not faulty.
 2. **Is the target above the current temperature?** On and Boost show the target. In Timed the target comes from the period; **Edit schedule** shows it. A room already at or above target is not expected to call for heat.
 3. **Is the room offline?** An offline tag names the failed device. If it says **Relay not responding** or **Valve not responding**, the room will not heat until that device answers. If it says **Thermometer not reporting**, the controller has no reading to act on.
-4. **Is the sensor stale?** **No recent change** means the controller is using the last reading. It holds the room off once the reading is too old; a scheduled period that starts in that state begins from the last known value for its first half hour, then stops if no fresh reading arrives. That is deliberate: a room cools gently rather than being heated without feedback.
+4. **Is the sensor stale?** **No recent change** means the controller is using the last reading. It holds the room off once the reading is too old, unless the room's radiator valve is reporting and can take over — then the card says **Radiator sensor in use** and the room keeps its plan on the corrected valve reading. A scheduled period that starts in that state begins from the last known value for its first half hour, then stops if no fresh reading arrives. That is deliberate: a room cools gently rather than being heated without feedback.
 5. **Is the boiler being asked for heat?** The flame beside the dot in the top bar shows that the system is calling. If a room is calling but the boiler is not firing, the demand relay, its wiring or the boiler is the problem; call the installer.
 6. **Is frost protection running?** The snowflake beside the outside reading means the system is protecting against frost. Some heating with every room apparently off can be expected in that state.
 
@@ -57,7 +58,7 @@ Do not force a valve or remove a radiator head to investigate. Note the room and
 
 ## Sensor and battery warnings
 
-A room's temperature is only as good as its last report. Many battery thermometers report on a roughly hourly heartbeat, or sooner when the temperature moves. A reading more than about three quarters of an hour old is treated as out of date, and one more than an hour old as failed; the room is held off until a fresh reading arrives.
+A room's temperature is only as good as its last report. Many battery thermometers report on a roughly hourly heartbeat, or sooner when the temperature moves. A reading more than about three quarters of an hour old is treated as out of date, and one more than an hour old as failed; the room is held off until a fresh reading arrives, unless a self-contained radiator valve is supplying the feedback instead.
 
 The exception is the start of a scheduled period: the first 30 minutes use the last known reading, because losing a morning warm-up to a reporting gap is worse than heating briefly on an old value. If the thermometer has still not reported when those 30 minutes are up, the heat goes off.
 

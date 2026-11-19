@@ -1,6 +1,6 @@
 # Glossary
 
-> **Audience:** all · **Status:** draft · **Last verified:** 2026-10-25
+> **Audience:** all · **Status:** draft · **Last verified:** 2026-11-19
 
 Terms are defined once, here. Where a term belongs to a deeper layer, the entry says so rather than expanding it — follow the link for detail. Heating terms are given only where RBR means something more specific than the trade does.
 
@@ -67,5 +67,6 @@ Terms are defined once, here. Where a term belongs to a deeper layer, the entry 
 
 | Term | Meaning |
 |---|---|
-| **Stale reading** | When a thermometer has not reported for about 45 minutes, its reading counts as missing. The room's relay is deliberately held off until a fresh reading arrives — a room cools gently rather than heating without feedback — and the app shows the last known value with a soft warning until it clears. The one exception is the first 30 minutes of a scheduled period, which start the heat on the last known value so the period is not lost to a reporting gap; if no report follows within those 30 minutes, the heat goes off. |
+| **Stale reading** | When a thermometer has not reported for about 45 minutes, its reading counts as missing. The room's relay is normally held off until a fresh reading arrives — a room cools gently rather than heating without feedback — and the app shows the last known value with a soft warning until it clears. Two exceptions exist: the first 30 minutes of a scheduled period start the heat on the last known value, and a room with a self-contained radiator valve runs on the valve's own sensor with its reading corrected by the difference learned while both sensors reported. |
+| **Radiator sensor in use** | A room card's warning row: the room's thermometer has gone quiet, so the controller is running the room from the radiator valve's own sensor. The valve's reading is corrected by the difference learned while both sensors reported, so the room stays on its plan; **Room details** shows the corrected estimate, which is not a measurement. It clears when the thermometer reports again, and the room holds off as usual if the valve's reading cannot be trusted. |
 | **Undelivered commands** | A count of commands a device has not acknowledged. A small non-zero figure is a diagnostic, not necessarily a fault; a *relay that stops acknowledging* usually needs a power-cycle. |

@@ -1,6 +1,6 @@
 # What RBR is
 
-> **Audience:** industry — specifiers, heating contractors, developers, housing providers · **Status:** draft · **Last verified:** 2026-09-20 · **See also:** [The experience is the product](00-the-experience-is-the-product.md) · [Why room by room](01-why-room-by-room.md) · [A fitted house](03-a-fitted-house.md) · [Glossary](../appendix/glossary.md)
+> **Audience:** industry — specifiers, heating contractors, developers, housing providers · **Status:** draft · **Last verified:** 2026-11-19 · **See also:** [The experience is the product](00-the-experience-is-the-product.md) · [Why room by room](01-why-room-by-room.md) · [A fitted house](03-a-fitted-house.md) · [Glossary](../appendix/glossary.md)
 
 ## In one sentence
 
@@ -33,7 +33,7 @@ Four choices, each made at the experience layer rather than the hardware layer.
 
 A control system the trade will trust has to fail safely, so it is worth saying what happens when a thermometer goes quiet — a flat device, or a message that does not arrive.
 
-After about three quarters of an hour without a reading, the temperature for that room is treated as out of date. RBR stops calling for heat there and holds the radiator off until a fresh reading arrives, and the app shows the last known temperature, marked as stale. The room cools gently; it does not run the heating without feedback. When the reading returns, so does the room, with no intervention.
+After about three quarters of an hour without a reading, the temperature for that room is treated as out of date and the app shows the last known temperature, marked as stale. RBR normally stops calling for heat there and holds the radiator off until a fresh reading arrives, and the room cools gently rather than running the heating blind. The exception is a room whose radiator has a self-contained valve: while both sensors reported, RBR learned how far the valve's own reading sits from the room's, and with the room thermometer quiet it hands the thermostat to the valve, correcting its reading by that difference. The card says **Radiator sensor in use**, and the app shows the corrected estimate rather than pretending it is a measurement. When the reading returns, the room goes back to its own thermometer with no intervention.
 
 ## What is underneath
 

@@ -28,7 +28,7 @@ import unittest
 REPO = pathlib.Path(__file__).resolve().parent.parent.parent
 CONTROLLER = REPO / "controller.allspeak"
 
-ROUTINE = "ProcessTrvState"
+ROUTINES = ("TrvReportAge", "ProcessTrvState")
 
 DECLARATIONS = """\
 dictionary Room
@@ -141,7 +141,7 @@ def build_probe():
         "",
         DRIVER.strip(),
         "",
-        extract_routine(source, ROUTINE),
+        "\n\n".join(extract_routine(source, r) for r in ROUTINES),
         "",
         "script end",
         "",

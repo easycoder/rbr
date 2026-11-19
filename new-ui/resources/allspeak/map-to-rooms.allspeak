@@ -333,6 +333,8 @@ MergeSharedRooms:
 !!
 !! Warn-state message: surface the controller's diagnostic for online rooms. A sensor-staleness message ("Sensor: no report for N min") is softened to "No recent change"; other warn messages (e.g. relay failures shy of the offline threshold) pass through verbatim. The same softening applies to a `fail` status when the cause is sensor-side.
 !!
+!! Radiator-sensor fallback: when the room thermometer is stale and the controller is running the room on the valve's own sensor, `trvfallback` is `yes` and the card says "Radiator sensor in use" ahead of the staleness message — the substitute sensor is the more important fact. `fallbackTemp` is the controller's corrected estimate of the room, formatted for the Info sheet, and `valveSensor` says whether the room has always read its own valve (no fallback exists there).
+!!
 !! Battery: flag low (≤20%) — 0/empty means "no reading" and isn't flagged. The raw value is also stored for the Info sheet.
 !!
 !! Boost remaining: when mode is `boost`, compute remaining time from the `until` ms timestamp the controller stores when the boost was applied. Round up to the next minute, format as "N min(s)". The minute-by-minute countdown between map pushes is handled separately by the parent's BoostTick.
@@ -362,6 +364,38 @@ BuildRoomEntry:
 	end
 	if LegacyRoom has entry `trvmode` set property `trvmode` of NewRoom to property `trvmode` of LegacyRoom
 	if LegacyRoom has entry `trvfails` set property `trvfails` of NewRoom to property `trvfails` of LegacyRoom
+
+!	The controller's radiator-sensor fallback: the room thermometer is stale
+!	and the valve's own sensor, corrected by the learned offset, is driving
+!	the plan. `fallbackTemp` is the estimate it is using, for the info sheet.
+	set property `valveSensor` of NewRoom to `no`
+	if LegacyRoom has entry `trv`
+	begin
+		if LegacyRoom has entry `sensor`
+		begin
+			if property `sensor` of LegacyRoom is property `trv` of LegacyRoom
+				set property `valveSensor` of NewRoom to `yes`
+		end
+	end
+	set property `fallback` of NewRoom to `no`
+	set property `fallbackTemp` of NewRoom to empty
+	if LegacyRoom has entry `trvfallback`
+	begin
+		if property `trvfallback` of LegacyRoom is `yes`
+		begin
+			set property `fallback` of NewRoom to `yes`
+			if LegacyRoom has entry `trvfallbacktemp`
+			begin
+				put property `trvfallbacktemp` of LegacyRoom into LegacyTemp
+				if LegacyTemp is not empty
+				begin
+					put LegacyTemp into TempStr
+					gosub to FormatHundredths
+					set property `fallbackTemp` of NewRoom to TempStr
+				end
+			end
+		end
+	end
 
 	put property `mode` of LegacyRoom into LegacyMode
 	put `Off` into Mode
@@ -458,7 +492,11 @@ BuildRoomEntry:
 	set property `warnMessage` of NewRoom to empty
 	if property `offline` of NewRoom is `no`
 	begin
-		if property `partial` of NewRoom is `yes`
+!		The fallback is the most important fact on the card while it runs: the
+!		room is being controlled by a sensor that is not the room's own.
+		if property `fallback` of NewRoom is `yes`
+			set property `warnMessage` of NewRoom to `Radiator sensor in use`
+		else if property `partial` of NewRoom is `yes`
 		begin
 !			Name the relay that is not answering, in the controller's words.
 			put property `relayMessage` of LegacyRoom into LegacyRelayMsg
@@ -754,7 +792,7 @@ BuildRoomEntry:
 		if property `relay` of LegacyRoom is `on` set property `calling` of NewRoom to `yes`
 	end
 	return
-!! @hash 7890f505
+!! @hash 0be00f85
 !!!
 
 !! Remember the room's scheduled morning start before an override can move it.

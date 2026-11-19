@@ -21,8 +21,13 @@ map.json
 │   ├── linked          — "yes" | "no": relay driven by target/temperature, or directly by mode
 │   ├── relayfails[]    — per-relay failure counts, parallel to relays
 │   ├── protect, ptemp  — frost protection, and its trigger temperature
+│   ├── trvsetpoint, trvmode, trvcommandat, trvsensor, trvfails, trvext, trvextat, trvrunning
+│   │                   — the valve's commanded and reported state
+│   ├── trvbias, trvbiasn, trvbiasmin, trvbiasmax, trvbiasat, trvbiasvalve
+│   │                   — the learned offset between the room sensor and the valve's own
 │   └── temperature, humidity, battery, sensorAge, timestamp, status, statusMessage,
-│       relayMessage, relaysFailed, relaysTotal, relay   — the readings and what is derived from them
+│       relayMessage, relaysFailed, relaysTotal, relay, trvfallback, trvfallbacktemp
+│                       — the readings and what is derived from them
 ├── profiles[]          — named plans (e.g. "Monday-Friday", "Weekend")
 │   └── rooms{}         — per-room schedule state, keyed by room name
 │       ├── mode        — timed | boost | advance | on | off
@@ -59,6 +64,8 @@ An `Update Profiles` request carries both halves — `rooms[]` (identity) and `p
 A room with a `trv` has no relays. The controller commands the valve's `system_mode` (`heat`/`off`) and `occupied_heating_setpoint` instead of switching a relay; a setpoint changed on the valve's own dial is written back into the current period's `temp` so the schedule and the interface show it.
 
 A TRV room's `sensor` is also the temperature the valve is told to use. When `sensor` names a separate thermometer (`"sensor": "LR-HT"`, `"trv": "LR-Rad"`), the controller selects the valve's remote temperature input and feeds it that thermometer's reading, so the valve modulates on the room sensor rather than on the temperature at the radiator. When `sensor` is the valve's own friendly name, the valve keeps its internal sensor. A separate thermometer is refreshed when its reading changes, at most once every five minutes, and always accompanies a setpoint or mode command.
+
+When that separate thermometer goes quiet, the room does not have to go cold: the controller can hand the thermostat to the valve. While both sensors report, it learns `trvbias` — the mean difference (room − valve) in hundredths of a degree, bounded to ±5 °C, with `trvbiasmin`/`trvbiasmax` recording the spread and `trvbiasn` the sample count; a replaced valve is detected by `trvbiasvalve` and resets the estimate. While the fallback runs, the room's `trvfallback` is `yes`, the valve is left on its internal sensor, and the setpoint it is sent is the plan's target minus `trvbias`, so its own thermostat holds the room at the target. `trvfallbacktemp` is the corrected estimate the page shows in Room details. It needs at least four samples, an offset no larger than 5 °C, a spread no wider than 2.5 °C, a live valve report and a reading that is plausible against the room's last known value; it follows the plan (a Timed room only inside a period; On and Boost already carry their own deadlines) and ends when the room thermometer reports again. Deleting the `trvbias*` fields forces a fresh estimate.
 
 `Update Rooms` replaces the identity list on its own, for a client that edits wiring without touching schedules.
 

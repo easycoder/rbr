@@ -123,18 +123,32 @@ function serve(runtimeBody) {
   });
 }
 
-// Five rooms, chosen to cover each branch of the tag:
+// Seven rooms, chosen to cover each branch of the tag and the fallback:
 //   0 valve state unknown, calling      -> "heating" (fall back to demand)
 //   1 valve idle, calling               -> "valve idle"
 //   2 valve heat, calling               -> "heating"
 //   3 relay only, calling               -> "heating" (unchanged)
 //   4 no relay and no TRV               -> no tag, "No radiator assigned"
+//   5 fallback, valve heat              -> "heating" and "Radiator sensor in use"
+//   6 fallback, valve idle              -> "valve idle" and the same warning
 const ROOMS = [
   { name: 'Valve unknown', relays: [], sensor: 'S0', trv: 'T0', linked: 'yes' },
   { name: 'Valve idle', relays: [], sensor: 'S1', trv: 'T1', trvrunning: 'idle', linked: 'yes' },
   { name: 'Valve heat', relays: [], sensor: 'S2', trv: 'T2', trvrunning: 'heat', linked: 'yes' },
   { name: 'Relay heat', relays: ['R3'], sensor: 'S3', linked: 'yes' },
   { name: 'Unwired', relays: [], sensor: 'S4', linked: 'yes' },
+  {
+    name: 'Fallback heat', relays: [], sensor: 'S5', trv: 'T5', trvrunning: 'heat',
+    linked: 'yes', trvfallback: 'yes', trvfallbacktemp: 1860,
+    status: 'warn', statusMessage: 'Sensor: no report for 52 min. Radiator sensor in use',
+    temperature: 1810,
+  },
+  {
+    name: 'Fallback idle', relays: [], sensor: 'S6', trv: 'T6', trvrunning: 'idle',
+    linked: 'yes', trvfallback: 'yes', trvfallbacktemp: 1860,
+    status: 'warn', statusMessage: 'Sensor: no report for 52 min. Radiator sensor in use',
+    temperature: 1810,
+  },
 ];
 
 function fixture() {
@@ -251,6 +265,31 @@ async function main() {
       warn(4) && warn(4).textContent);
     check('a wired room is not marked', warn(3) && warn(3).textContent !== 'No radiator assigned',
       warn(3) && warn(3).textContent);
+
+    console.log('\n== a room running on the radiator sensor says so ==');
+    check('the card names the substitute sensor',
+      warn(5) && warn(5).textContent === 'Radiator sensor in use',
+      warn(5) && warn(5).textContent);
+    check('a heating valve still reads "heating"',
+      label(5) && label(5).textContent === 'heating',
+      label(5) && label(5).textContent);
+    check('a closed valve still reads "valve idle"',
+      label(6) && label(6).textContent === 'valve idle',
+      label(6) && label(6).textContent);
+    check('the fallback room is not shown as offline',
+      warn(5) && warn(5).textContent !== 'Thermometer not reporting',
+      warn(5) && warn(5).textContent);
+
+    const infoBtn = d.getElementById('room-5-info-btn');
+    if (infoBtn) infoBtn.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+    await waitUntil(() => {
+      const basis = d.getElementById('info-basis');
+      return basis && /18\.6/.test(basis.textContent);
+    }, 10000, 'the info sheet heating-sensor row').catch(() => {});
+    const basis = d.getElementById('info-basis');
+    check('the info sheet names the radiator and its estimate',
+      basis && /Radiator/.test(basis.textContent) && /18\.6/.test(basis.textContent),
+      basis && basis.textContent);
   } finally {
     try { dom.window.close(); } catch (e) { /* already closed */ }
     server.close();

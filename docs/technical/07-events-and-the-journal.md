@@ -1,6 +1,6 @@
 # Events and the journal
 
-> **Audience:** anyone using RBR Studio, and anyone who wants to understand what the controller records · **Status:** draft · **Last verified:** 2026-11-08 · **See also:** [Architecture](01-architecture.md) · [Glossary](../appendix/glossary.md)
+> **Audience:** anyone using RBR Studio, and anyone who wants to understand what the controller records · **Status:** draft · **Last verified:** 2026-11-19 · **See also:** [Architecture](01-architecture.md) · [Glossary](../appendix/glossary.md)
 
 ## What this guide is for
 
@@ -152,7 +152,7 @@ The reading is an **input**. What the controller decided to do about it is recor
 
 ### What happens when a reading is missing
 
-A reading older than about forty-five minutes is treated as missing. The room keeps its last known temperature so the app can show it, marked as stale, but the controller stops treating it as current and holds the relay off rather than heating without feedback. After about an hour the room's status becomes `fail`.
+A reading older than about forty-five minutes is treated as missing. The room keeps its last known temperature so the app can show it, marked as stale, but the controller stops treating it as current and holds the relay off rather than heating without feedback, unless a self-contained radiator valve is supplying the feedback instead (the radiator-sensor fallback; `trvfallback` in the room record). After about an hour the room's status becomes `fail` either way.
 
 There is one deliberate exception. In the first thirty minutes of a scheduled period, the controller may use the last known reading to start the heat, because a period that begins between two hourly reports would otherwise be lost. The reading is still reported as stale and the status still changes; only the heating decision uses the older value, and only until the thirty minutes are up.
 

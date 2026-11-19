@@ -6,7 +6,7 @@ A thermometer that reports only when the temperature moves goes quiet in steady 
 
 ## Why RBR cares
 
-`controller.allspeak` warns at 45 minutes without a reading (2,700,000 ms) and fails at 60 (3,600,000 ms). While a reading is missing the room's relay is held off — a room cools gently rather than heating without feedback — and the interface shows the last known value with a soft warning. A report every ten or fifteen minutes keeps every room inside that gate even when the weather does nothing.
+`controller.allspeak` warns at 45 minutes without a reading (2,700,000 ms) and fails at 60 (3,600,000 ms). While a reading is missing the room's relay is held off — a room cools gently rather than heating without feedback — and the interface shows the last known value with a soft warning. The exception is a room with a self-contained radiator valve, which keeps its plan on the valve's own sensor, corrected by the learned offset (the card says **Radiator sensor in use**); a report every ten or fifteen minutes keeps every room inside that gate even when the weather does nothing, and keeps the learned offset current.
 
 The trade-off is battery. A shorter maximum means more radio time, so set the longest interval that still sits inside the gate: ten minutes leaves a wide margin, and fifteen is still comfortable. `reportable_change` matters as much as the interval — it is what turns a temperature move into an early report, and leaving it coarse means the room reacts slowly to a door being opened.
 

@@ -65,7 +65,7 @@ A relay is on iff `mode` is one of `c`/`p`/`b` **and** `targetTenths` is greater
 
 If you ever need to tell "room was off" from "room was satisfied at target", the `mode` letter does exactly that (`o` vs `c`/`p` with target == actual).
 
-This is the rule the heating watchdog uses: `heatwatch.py` treats a room with a relay or TRV, a fresh reading and a target at least 0.5 °C above the room as calling for heat, and if the log shows no rise of 0.2 °C over 60 minutes it restarts the four core services (three-hour cooldown, three restarts a day at most).
+This is the rule the heating watchdog uses: `heatwatch.py` treats a room with a relay or TRV, a fresh reading and a target at least 0.5 °C above the room as calling for heat, and if the log shows no rise of 0.2 °C over 60 minutes it restarts the four core services (three-hour cooldown, three restarts a day at most). A room on the radiator-sensor fallback is outside that test: its room reading is stale, so it writes no rows, and the watchdog neither counts it as calling nor restarts on its account.
 
 ## Configuration and storage
 

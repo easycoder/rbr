@@ -109,6 +109,7 @@
 	div InfoHumidityValue
 	div InfoBatteryValue
 	div InfoAgeValue
+	div InfoBasisValue
 	div SpecialSheetEl
 	button SpecialActionStart
 	div SpecialActionStartSub
@@ -419,6 +420,8 @@
 	variable InfoBatteryVal
 	variable InfoHumidityVal
 	variable InfoRelayVal
+	variable InfoBasisMode
+	variable InfoBasisTemp
 
 !	Special-actions (one-off override) state. The override lives in the
 !	controller map keyed by room name; map-to-rooms copies it onto each
@@ -501,7 +504,7 @@
 !	requestRelay / requestRelayChanged).
 	module DeviceEditorModule
 	variable DeviceResult
-!! @hash 22c09289
+!! @hash 7d7648f8
 !!!
 !! Synchronous bootstrap. Runs from attach-AppRoot down to the final `stop`, building the top bar and registering the MQTT connection. Subsequent control flow is handler-driven (on resume, on click, on mqtt message, on mqtt connect).
 !!
@@ -1420,6 +1423,7 @@ BuildHomeScreen:
 	attach InfoHumidityValue to `info-humidity`
 	attach InfoBatteryValue to `info-battery`
 	attach InfoAgeValue to `info-age`
+	attach InfoBasisValue to `info-basis`
 
 !	About sheet — sibling sheet inside sheet-content. Auto-opens on first
 !	visit when there are no credentials; tap the house mark in the topbar
@@ -1492,7 +1496,7 @@ BuildHomeScreen:
 
 	clear BuildingHome
 	return
-!! @hash 5900a185
+!! @hash f08f2080
 !!!
 !! Choose and build the home screen for the current view mode.
 !!
@@ -2918,7 +2922,7 @@ OpenScheduleEditor:
 	return
 !! @hash 97811628
 !!!
-!! Open the read-only room-info sheet for the room at ClickIndex. Shows the current readings (relay, temperature, humidity, battery, last-report age) and stays open across map refreshes — RefreshHomeScreen detects InfoSheetOpen and calls PaintInfoSheet to update the values in place.
+!! Open the read-only room-info sheet for the room at ClickIndex. Shows the current readings (relay, temperature, heating sensor, humidity, battery, last-report age) and stays open across map refreshes — RefreshHomeScreen detects InfoSheetOpen and calls PaintInfoSheet to update the values in place.
 OpenInfoSheet:
 	if not SheetsReady return
 	put ClickIndex into InfoSheetRoomIdx
@@ -2940,6 +2944,8 @@ CloseInfoSheet:
 !! @hash f9d3ecc3
 !!!
 !! Format the readings for the open info sheet. Each value falls back to `—` when the data isn't available (sensor never reported, no humidity channel, battery not yet known, etc).
+!!
+!! The heating-sensor row names what is controlling the room: the room thermometer normally, the radiator itself when the room has no separate sensor, and "Radiator — est. N °C" while the controller is running the radiator-sensor fallback, where the number is the controller's corrected estimate and not a measurement.
 !!
 !! Age is formatted from `sensorAge` (milliseconds since last report) as "<1 min ago", "1 min ago", or "N min ago". Caller must have set Room to the room being displayed.
 PaintInfoSheet:
@@ -2971,8 +2977,21 @@ PaintInfoSheet:
 		else if InfoAgeMin is 1 set the content of InfoAgeValue to `1 min ago`
 		else set the content of InfoAgeValue to `` cat InfoAgeMin cat ` min ago`
 	end
+
+!	Which sensor is controlling the room. The fallback is named rather than
+!	hidden: an estimate is not a reading, and the room is not on its own
+!	thermometer.
+	put property `fallback` of Room into InfoBasisMode
+	if InfoBasisMode is `yes`
+	begin
+		put property `fallbackTemp` of Room into InfoBasisTemp
+		if InfoBasisTemp is empty set the content of InfoBasisValue to `Radiator (estimate)`
+		else set the content of InfoBasisValue to `Radiator — est. ` cat InfoBasisTemp cat `°C`
+	end
+	else if property `valveSensor` of Room is `yes` set the content of InfoBasisValue to `Radiator`
+	else set the content of InfoBasisValue to `Room thermometer`
 	return
-!! @hash dcb3ec9a
+!! @hash 08deb9f2
 !!!
 !! Zero-padded YYYY-MM-DD for today, matching the controller's own date key so the UI can
 !! tell whether an armed override is for this morning or tomorrow's. Built from the browser
