@@ -1,0 +1,596 @@
+!! Appearance module: the page background and the sheet that chooses it.
+!!
+!! Loaded by shell.allspeak at boot, before the layout is rendered, because the gradient has to be on the first frame; it forks its own BackgroundTick. The shell keeps the sheet chrome — it renders the sheet's layout, shows and hides it with HideAllSheets, sets its title and owns the Done button — and the module attaches the sheet's controls when the shell says `attach`.
+!!
+!! Why this is a module: the colour maths (MixHex, HexToRgb, RgbToHex) and the six hour buckets are a self-contained transformation that knows nothing about MQTT, the map or the room list. They were the largest run of code in the shell that a reader had to step over to find the event routing, and they are the part with the fewest reasons to change alongside it.
+!!
+!! The shell never reads the colour: everything it has to say is one of two fire-and-forget messages, never a blocking send. That is deliberate — a send that waits for a reply parks the shell and takes the one reply slot this runtime gives a program, which is how a map push gets stranded (see FlushPendingMap in shell.allspeak).
+!!
+!! Messages, as a dict with `action`:
+!!
+!!   `attach` — the sheet layout is in the DOM. Attach the controls, render the swatches, wire the sheet's own handlers and paint it once from the stored choices.
+!!
+!!   `open` — the shell has shown the sheet; repaint its contents (nothing should have changed since attach, but the paint is cheap and leaves no stale ring or checkbox behind).
+!!
+!!   `view` — the live view changed. `view` carries `simple` or `detailed`; only the two pills are repainted, because the shell rebuilds the home behind the sheet itself.
+!!
+!! The view pills and the Done button stay wired in the shell: switching the view rebuilds the home, and Done closes the shell's chrome.
+
+	script Appearance
+
+	div AppRoot
+	div AppearanceSwatchGrid
+	button AppearanceSwatch
+	button AppearanceViewDetailed
+	button AppearanceViewSimplified
+	input AppearanceHexField
+	div AppearanceNoteEl
+	input AppearanceTimeBox
+
+	variable AppearanceMessage
+	variable ActionWord
+	variable ViewWord
+
+!	The palette is the one list of colours the gradient also reads, so the
+!	swatches a person taps and the stops they produce cannot drift apart.
+	variable BgPalette
+	variable BgBaseHex
+	variable BgTimeChanges
+	variable BgSavedHex
+	variable BgSavedTime
+	variable BgTopHex
+	variable BgMidHex
+	variable BgBotHex
+	variable BgWhite
+	variable BgNightTop
+	variable BgNightMid
+	variable BgNightBot
+	variable BgValue
+	variable Glow
+	variable Hour
+	variable LastHour
+
+	variable SwatchIdx
+	variable SwatchHex
+	variable SwatchHtml
+
+	variable HexDigits
+	variable HexIn
+	variable HexWork
+	variable HexOk
+	variable HexLen
+	variable HexChar
+	variable HexNibble
+	variable HexHi
+	variable HexScan
+	variable HexLo
+	variable HexR
+	variable HexG
+	variable HexB
+	variable HexOut
+
+	variable RgbValue
+	variable RgbHex
+	variable RgbHexR
+	variable RgbHexG
+	variable RgbHexB
+	variable RgbHexHi
+	variable RgbHexLo
+
+	variable MixA
+	variable MixB
+	variable MixPctA
+	variable MixPctB
+	variable MixRa
+	variable MixGa
+	variable MixBa
+	variable MixRb
+	variable MixGb
+	variable MixBb
+	variable MixR
+	variable MixG
+	variable MixBCh
+	variable MixT
+	variable MixOut
+
+	variable TimeBoxValue
+	variable HexFieldText
+!! @hash ff5b2028
+!!!
+
+!! Boot: paint the first frame, then park for the shell's messages.
+!!
+!! The palette and the hex digits have to exist before the first gradient is mixed, so they are set up here rather than with the sheet. `LoadAppearance` reads this device's stored colour and time setting, and `ApplyBackground` paints the result onto #app — which is still called that at this point, because the shell renders the layout into it a moment later. Starting the hour tick here means the gradient follows the clock for as long as the page lives, whether or not the sheet is ever opened.
+!!
+!! `release parent` hands control back to the shell's `run` only after that paint, so the first frame the page shows already has its background.
+StartAppearance:
+	attach AppRoot to `app`
+	put `[]` into BgPalette
+	set element 0 of BgPalette to `#E86A33`
+	set element 1 of BgPalette to `#B98A3E`
+	set element 2 of BgPalette to `#808000`
+	set element 3 of BgPalette to `#6E8B5A`
+	set element 4 of BgPalette to `#4F7F7B`
+	set element 5 of BgPalette to `#5C7A99`
+	set element 6 of BgPalette to `#7A6E9E`
+	set element 7 of BgPalette to `#9C6B72`
+	set element 8 of BgPalette to `#8A7A6A`
+	set element 9 of BgPalette to `#C2A36B`
+	put `0123456789ABCDEF` into HexDigits
+	put `detailed` into ViewWord
+	gosub to LoadAppearance
+	gosub to ApplyBackground
+	fork to BackgroundTick
+	on message go to HandleMessage
+	release parent
+	stop
+!! @hash adcdfc9c
+!!!
+!! Message handler: unpack the action and view, then dispatch to one routine.
+!!
+!! Every message is fire-and-forget, so this never replies and never waits; the handler ends with `stop` to return to the wait loop.
+HandleMessage:
+	put the message into AppearanceMessage
+	put property `action` of AppearanceMessage into ActionWord
+	put property `view` of AppearanceMessage into ViewWord
+	if ActionWord is `attach` gosub to AttachAppearanceSheet
+	if ActionWord is `open` gosub to PaintAppearanceSheet
+	if ActionWord is `view` gosub to PaintAppearanceView
+	stop
+!! @hash 1ecbd57b
+!!!
+!! Read this device's stored background colour and time setting before the first paint.
+!!
+!! Both live in browser storage beside the view choice, because they say how this phone should look rather than how the system should heat. A stored colour is accepted only if it parses, so a hand-edited or half-written value falls back to the app's own orange instead of leaving a broken gradient.
+LoadAppearance:
+	put `#E86A33` into BgBaseHex
+	get BgSavedHex from storage as `rbr-bg-colour`
+	if BgSavedHex is not empty
+	begin
+		put BgSavedHex into HexIn
+		gosub to HexToRgb
+		if HexOk
+		begin
+			gosub to RgbToHex
+			put HexOut into BgBaseHex
+		end
+	end
+	put `on` into BgTimeChanges
+	get BgSavedTime from storage as `rbr-bg-time`
+	if BgSavedTime is `off` put `off` into BgTimeChanges
+	return
+!! @hash 80b688cc
+!!!
+!! Mix the gradient stops for the chosen colour and paint them on AppRoot.
+!!
+!! Six hour buckets: 0–6 (night/early-morning), 6–10 (dawn), 10–15 (midday), 15–19 (afternoon), 19–22 (sunset), 22+ (night). Each bucket is the one background colour mixed a fixed distance towards white — or, at night, towards the night navy — so every colour in the Appearance palette keeps the same shape of day. With time-based changes off, the **afternoon** stops are used at every hour: they carry the most of the chosen colour of any daytime bucket, so a frozen background still looks like that colour rather than the near-white the midday stops become.
+!!
+!! `background-attachment: fixed` keeps the gradient anchored to the viewport when the room list scrolls, which costs nothing on modern mobile.
+!!
+!! Appendix
+!!
+!! §1 The stops are computed from `BgBaseHex` rather than listed here. A literal list per bucket would have had to be repeated for each of the ten palette colours, which is how a palette and its gradient drift apart; this way a colour is one entry in `BgPalette` and the buckets follow it. The percentages are the distances the old fixed palette sat at from its own warm orange, so the default colour still reads like the gradient it replaced.
+ApplyBackground:
+	put the hour into Hour
+	gosub to PaintBackgroundStops ! §1
+	put `radial-gradient(ellipse at 50% -20%, rgba(255,255,255,0.5) 0%, transparent 70%)` into Glow
+	put Glow cat `, linear-gradient(180deg, ` cat BgTopHex cat ` 0%, ` cat BgMidHex cat ` 45%, ` cat BgBotHex cat ` 100%)` into BgValue
+	set style `background` of AppRoot to BgValue
+	set style `background-attachment` of AppRoot to `fixed`
+	return
+!! @hash 3cb9bd84
+!!!
+!! Work out the three gradient stops for the current `Hour` from `BgBaseHex` and `BgTimeChanges`.
+!!
+!! `MixPctA` is how much of `BgBaseHex` survives the mix, so a smaller number is paler. Sunset's bottom stop is mixed towards black instead of white, because a sunset that ended on the colour itself would be a flat bright block rather than dusk.
+PaintBackgroundStops:
+	put BgBaseHex into MixA
+	put `#FFFFFF` into BgWhite
+	put `#1E2238` into BgNightTop
+	put `#2D2A3E` into BgNightMid
+	put `#433048` into BgNightBot
+	if BgTimeChanges is `off`
+	begin
+		gosub to PaintAfternoonStops
+		return
+	end
+	if Hour is less than 6
+	begin
+		put BgNightTop into MixB
+		put 15 into MixPctA
+		gosub to MixHex
+		put MixOut into BgTopHex
+		put BgNightMid into MixB
+		put 12 into MixPctA
+		gosub to MixHex
+		put MixOut into BgMidHex
+		put BgNightBot into MixB
+		put 9 into MixPctA
+		gosub to MixHex
+		put MixOut into BgBotHex
+	end
+	else if Hour is less than 10
+	begin
+		put BgWhite into MixB
+		put 12 into MixPctA
+		gosub to MixHex
+		put MixOut into BgTopHex
+		put 26 into MixPctA
+		gosub to MixHex
+		put MixOut into BgMidHex
+		put 44 into MixPctA
+		gosub to MixHex
+		put MixOut into BgBotHex
+	end
+	else if Hour is less than 15
+		gosub to PaintMiddayStops
+	else if Hour is less than 19 gosub to PaintAfternoonStops
+	else if Hour is less than 22
+	begin
+		put BgWhite into MixB
+		put 32 into MixPctA
+		gosub to MixHex
+		put MixOut into BgTopHex
+		put 70 into MixPctA
+		gosub to MixHex
+		put MixOut into BgMidHex
+		put `#000000` into MixB
+		put 60 into MixPctA
+		gosub to MixHex
+		put MixOut into BgBotHex
+	end
+	else
+	begin
+		put BgNightTop into MixB
+		put 15 into MixPctA
+		gosub to MixHex
+		put MixOut into BgTopHex
+		put BgNightMid into MixB
+		put 12 into MixPctA
+		gosub to MixHex
+		put MixOut into BgMidHex
+		put BgNightBot into MixB
+		put 9 into MixPctA
+		gosub to MixHex
+		put MixOut into BgBotHex
+	end
+	return
+!! @hash cc85ffd7
+!!!
+!! The midday and afternoon stops; the afternoon set is also the fixed background.
+PaintMiddayStops:
+	put BgWhite into MixB
+	put 7 into MixPctA
+	gosub to MixHex
+	put MixOut into BgTopHex
+	put 14 into MixPctA
+	gosub to MixHex
+	put MixOut into BgMidHex
+	put 24 into MixPctA
+	gosub to MixHex
+	put MixOut into BgBotHex
+	return
+
+PaintAfternoonStops:
+	put BgWhite into MixB
+	put 14 into MixPctA
+	gosub to MixHex
+	put MixOut into BgTopHex
+	put 36 into MixPctA
+	gosub to MixHex
+	put MixOut into BgMidHex
+	put 64 into MixPctA
+	gosub to MixHex
+	put MixOut into BgBotHex
+	return
+!! @hash 3856f23e
+!!!
+!! Mix two hex colours: `MixPctA` per cent of `MixA`, the rest `MixB`, into `MixOut`.
+!!
+!! Both inputs are rounded to whole RGB channels through HexToRgb and rebuilt by RgbToHex, so the output is always a plain `#RRGGBB`.
+MixHex:
+	put MixA into HexIn
+	gosub to HexToRgb
+	put HexR into MixRa
+	put HexG into MixGa
+	put HexB into MixBa
+	put MixB into HexIn
+	gosub to HexToRgb
+	put HexR into MixRb
+	put HexG into MixGb
+	put HexB into MixBb
+	subtract MixPctA from 100 giving MixPctB
+	multiply MixRa by MixPctA giving MixR
+	multiply MixRb by MixPctB giving MixT
+	add MixT to MixR
+	divide MixR by 100
+	multiply MixGa by MixPctA giving MixG
+	multiply MixGb by MixPctB giving MixT
+	add MixT to MixG
+	divide MixG by 100
+	multiply MixBa by MixPctA giving MixBCh
+	multiply MixBb by MixPctB giving MixT
+	add MixT to MixBCh
+	divide MixBCh by 100
+	put MixR into HexR
+	put MixG into HexG
+	put MixBCh into HexB
+	gosub to RgbToHex
+	put HexOut into MixOut
+	return
+!! @hash e5946078
+!!!
+!! Parse `HexIn` into `HexR`, `HexG` and `HexB`; `HexOk` says whether it was a colour at all.
+!!
+!! Accepts `#RRGGBB`, `RRGGBB`, `#RGB` and `RGB`, in either case, and ignores surrounding spaces. Anything else — a word, five digits, a character that is not 0–9/A–F — leaves `HexOk` clear, and the caller keeps the colour it already had.
+!!
+!! Appendix
+!!
+!! §1 `character N of` counts from zero in this runtime, which is not what the reference prose implies. Measured against the pinned build on 2026-11-15: `character 0 of `0123456789ABCDEF`` is `0` and `character 15 of` it is `F`. Decoding is therefore pairs 0–1, 2–3, 4–5.
+HexToRgb:
+	clear HexOk
+	put uppercase HexIn into HexWork
+	replace ` ` with `` in HexWork
+	if left 1 of HexWork is `#` put from 1 of HexWork into HexWork
+	put the length of HexWork into HexLen
+	if HexLen is 3
+	begin
+		put character 0 of HexWork into HexChar
+		gosub to HexNibbleOf
+		if HexNibble is less than 0 return
+		put HexNibble into HexR
+		multiply HexR by 17
+		put character 1 of HexWork into HexChar
+		gosub to HexNibbleOf
+		if HexNibble is less than 0 return
+		put HexNibble into HexG
+		multiply HexG by 17
+		put character 2 of HexWork into HexChar
+		gosub to HexNibbleOf
+		if HexNibble is less than 0 return
+		put HexNibble into HexB
+		multiply HexB by 17
+		set HexOk
+		return
+	end
+	if HexLen is not 6 return
+	put character 0 of HexWork into HexChar ! §1
+	gosub to HexNibbleOf
+	put HexNibble into HexHi
+	put character 1 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexLo
+	if HexHi is less than 0 return
+	if HexLo is less than 0 return
+	multiply HexHi by 16
+	add HexLo to HexHi
+	put HexHi into HexR
+	put character 2 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexHi
+	put character 3 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexLo
+	if HexHi is less than 0 return
+	if HexLo is less than 0 return
+	multiply HexHi by 16
+	add HexLo to HexHi
+	put HexHi into HexG
+	put character 4 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexHi
+	put character 5 of HexWork into HexChar
+	gosub to HexNibbleOf
+	put HexNibble into HexLo
+	if HexHi is less than 0 return
+	if HexLo is less than 0 return
+	multiply HexHi by 16
+	add HexLo to HexHi
+	put HexHi into HexB
+	set HexOk
+	return
+!! @hash 42dc588b
+!!!
+!! Value of the single hex digit in `HexChar`, into `HexNibble`; `-1` when it is not one.
+!!
+!! A scan of `HexDigits` rather than arithmetic, because `the value of` reads decimal text only and would take `A3` for `0`.
+HexNibbleOf:
+	put -1 into HexNibble
+	put 0 into HexScan
+	while HexScan is less than 16
+	begin
+		if character HexScan of HexDigits is HexChar put HexScan into HexNibble
+		increment HexScan
+	end
+	return
+!! @hash 7ce90da1
+!!!
+!! Build `#RRGGBB` in `HexOut` from `HexR`, `HexG` and `HexB`.
+RgbToHex:
+	put HexR into RgbValue
+	gosub to RgbByteHex
+	put RgbHex into RgbHexR
+	put HexG into RgbValue
+	gosub to RgbByteHex
+	put RgbHex into RgbHexG
+	put HexB into RgbValue
+	gosub to RgbByteHex
+	put RgbHex into RgbHexB
+	put `#` cat RgbHexR cat RgbHexG cat RgbHexB into HexOut
+	return
+!! @hash 947baae9
+!!!
+!! Two uppercase hex digits for the byte in `RgbValue`, into `RgbHex`.
+RgbByteHex:
+	divide RgbValue by 16 giving RgbHexHi
+	put RgbValue modulo 16 into RgbHexLo
+	put character RgbHexHi of HexDigits into RgbHexHi
+	put character RgbHexLo of HexDigits into RgbHexLo
+	put RgbHexHi cat RgbHexLo into RgbHex
+	return
+!! @hash 240696e9
+!!!
+!! Keep the gradient on today's hour.
+!!
+!! Forked at boot. Polls `the hour` once a minute and re-applies ApplyBackground if the hour bucket changed. A minute is fine — bucket boundaries don't need sub-minute precision and a one-minute lag at the transition is invisible to the user.
+BackgroundTick:
+	put the hour into LastHour
+	while true
+	begin
+		wait 60 seconds
+		put the hour into Hour
+		if Hour is not LastHour
+		begin
+			put Hour into LastHour
+			gosub to ApplyBackground
+		end
+	end
+!! @hash 5369729b
+!!!
+!! Take ownership of the Appearance sheet's controls, once the shell has rendered its layout.
+!!
+!! The three handlers registered here are the sheet's own: a swatch tap, a typed colour, and the time checkbox. The view pills and Done stay in the shell, because switching the view rebuilds the home and Done closes the shell's chrome.
+AttachAppearanceSheet:
+	attach AppearanceSwatchGrid to `appearance-sheet-swatches`
+	attach AppearanceHexField to `appearance-sheet-hex`
+	attach AppearanceNoteEl to `appearance-sheet-note`
+	attach AppearanceTimeBox to `appearance-sheet-time`
+	attach AppearanceViewDetailed to `appearance-sheet-view-detailed`
+	attach AppearanceViewSimplified to `appearance-sheet-view-simplified`
+	gosub to BuildAppearanceSwatches
+	on click AppearanceSwatch gosub to ChooseAppearanceSwatch
+	on change AppearanceHexField gosub to ApplyAppearanceHex
+	on change AppearanceTimeBox gosub to ToggleAppearanceTime
+	gosub to PaintAppearanceSheet
+	return
+!! @hash 197c6320
+!!!
+!! Paint the sheet from the stored choices: pill, ring, hex field, checkbox and note.
+PaintAppearanceSheet:
+	gosub to PaintAppearanceView
+	gosub to PaintAppearanceSwatchRing
+	set the content of AppearanceHexField to BgBaseHex
+	if BgTimeChanges is `on` set attribute `checked` of AppearanceTimeBox to `checked`
+	else remove attribute `checked` of AppearanceTimeBox
+	set the content of AppearanceNoteEl to `Pick a swatch, or type any hex value such as #808000.`
+	return
+!! @hash 1912f699
+!!!
+!! Light the view pill's current half and mute the other.
+!!
+!! The shell decides which view is live and tells this module over the `view` message; nothing here switches the view itself.
+PaintAppearanceView:
+	set style `background` of AppearanceViewDetailed to `transparent`
+	set style `color` of AppearanceViewDetailed to `var(--color-text-muted)`
+	set style `font-weight` of AppearanceViewDetailed to `500`
+	set style `box-shadow` of AppearanceViewDetailed to `none`
+	set style `background` of AppearanceViewSimplified to `transparent`
+	set style `color` of AppearanceViewSimplified to `var(--color-text-muted)`
+	set style `font-weight` of AppearanceViewSimplified to `500`
+	set style `box-shadow` of AppearanceViewSimplified to `none`
+	if ViewWord is `simple`
+	begin
+		set style `background` of AppearanceViewSimplified to `var(--color-surface-card)`
+		set style `color` of AppearanceViewSimplified to `var(--color-text-primary)`
+		set style `font-weight` of AppearanceViewSimplified to `600`
+		set style `box-shadow` of AppearanceViewSimplified to `0 1px 3px rgba(0,0,0,0.08)`
+	end
+	else
+	begin
+		set style `background` of AppearanceViewDetailed to `var(--color-surface-card)`
+		set style `color` of AppearanceViewDetailed to `var(--color-text-primary)`
+		set style `font-weight` of AppearanceViewDetailed to `600`
+		set style `box-shadow` of AppearanceViewDetailed to `0 1px 3px rgba(0,0,0,0.08)`
+	end
+	return
+!! @hash c4c9103d
+!!!
+!! Render the ten swatches from `BgPalette` and attach each one to its own index.
+!!
+!! The buttons carry no text, so the hex itself is their accessible name. They are rendered here rather than written into the Webson layout because the palette is the one list of colours the gradient code also reads: two copies would drift, and the copy a person taps is the one they would trust.
+BuildAppearanceSwatches:
+	put empty into SwatchHtml
+	put 0 into SwatchIdx
+	while SwatchIdx is less than 10
+	begin
+		put element SwatchIdx of BgPalette into SwatchHex
+		put SwatchHtml cat `<button type="button" id="appearance-sheet-swatch-` cat SwatchIdx cat `" aria-label="` cat SwatchHex cat `" title="` cat SwatchHex cat `" style="height:44px;padding:0;border:0;border-radius:12px;background:` cat SwatchHex cat `;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08)"></button>` into SwatchHtml
+		increment SwatchIdx
+	end
+	set the content of AppearanceSwatchGrid to SwatchHtml
+	set the elements of AppearanceSwatch to 10
+	put 0 into SwatchIdx
+	while SwatchIdx is less than 10
+	begin
+		index AppearanceSwatch to SwatchIdx
+		attach AppearanceSwatch to `appearance-sheet-swatch-` cat SwatchIdx
+		increment SwatchIdx
+	end
+	return
+!! @hash 9a9b41fe
+!!!
+!! Ring the swatch holding the chosen colour and leave the rest unringed.
+PaintAppearanceSwatchRing:
+	put 0 into SwatchIdx
+	while SwatchIdx is less than 10
+	begin
+		index AppearanceSwatch to SwatchIdx
+		put element SwatchIdx of BgPalette into SwatchHex
+		if SwatchHex is BgBaseHex set style `box-shadow` of AppearanceSwatch to `inset 0 0 0 1px rgba(0,0,0,0.08), 0 0 0 3px #12345A`
+		else set style `box-shadow` of AppearanceSwatch to `inset 0 0 0 1px rgba(0,0,0,0.08)`
+		increment SwatchIdx
+	end
+	return
+!! @hash ec01f6ca
+!!!
+!! Take the tapped swatch's colour, remember it on this device and repaint.
+ChooseAppearanceSwatch:
+	put the index of AppearanceSwatch into SwatchIdx
+	put element SwatchIdx of BgPalette into BgBaseHex
+	put BgBaseHex into storage as `rbr-bg-colour`
+	gosub to PaintAppearanceSwatchRing
+	set the content of AppearanceHexField to BgBaseHex
+	set the content of AppearanceNoteEl to `Pick a swatch, or type any hex value such as #808000.`
+	gosub to ApplyBackground
+	return
+!! @hash c2c7129b
+!!!
+!! Take the hex typed into the field, or say why it cannot be used.
+!!
+!! The field is checked on change rather than on every keystroke: a half-typed `#8080` is not an error yet, and repainting the page for each character would flash. A rejected value leaves the current colour alone, so the note is the only thing that changes.
+ApplyAppearanceHex:
+	put AppearanceHexField into HexFieldText
+	put HexFieldText into HexIn
+	gosub to HexToRgb
+	if not HexOk
+	begin
+		set the content of AppearanceNoteEl to `That is not a hex colour. Use six digits, such as #808000.`
+		return
+	end
+	gosub to RgbToHex
+	put HexOut into BgBaseHex
+	set the content of AppearanceHexField to BgBaseHex
+	put BgBaseHex into storage as `rbr-bg-colour`
+	gosub to PaintAppearanceSwatchRing
+	set the content of AppearanceNoteEl to `Pick a swatch, or type any hex value such as #808000.`
+	gosub to ApplyBackground
+	return
+!! @hash 455fb3ca
+!!!
+!! Follow the time-based-changes checkbox: remember it and repaint the background either way.
+ToggleAppearanceTime:
+	put AppearanceTimeBox into TimeBoxValue
+	if TimeBoxValue
+	begin
+		put `on` into BgTimeChanges
+		put `on` into storage as `rbr-bg-time`
+	end
+	else
+	begin
+		put `off` into BgTimeChanges
+		put `off` into storage as `rbr-bg-time`
+	end
+	gosub to ApplyBackground
+	return
+!! @hash 35e1d319
+!!!

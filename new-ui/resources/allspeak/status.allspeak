@@ -1,0 +1,345 @@
+!! Status module: the summary card and the top bar's live readouts.
+!!
+!! Owns everything that answers "what is the system doing right now": the aggregate "N rooms calling for heat" title, the frost-protection rule, the summary card, the second row of the top bar (date, profile, outside reading, frost badge), the demand flame, and the system name under the heartbeat. The shell hands it a snapshot of the map and it paints.
+!!
+!! Loaded by shell.allspeak at boot, after the top bar exists. Its clock tick runs here too: the card and the banner both show the time, and neither changes when a map does, so the tick is part of this module rather than the shell.
+!!
+!! Why it is a module: all of it is one transformation — rooms and a few map fields in, DOM out — and none of it mutates anything the shell owns. The shell used to recompute the aggregates in five places and then remember to repaint the card after each; now there is one `paint` message and no state to keep in step.
+!!
+!! The frost rule is the one thing worth carrying across the boundary: the controller may set `frostActive` itself, and when it does not, the module derives it from the trigger, the outside temperature and whether any room is calling. Both the card's badge and the banner's snowflake read the same computed flag, which is why they cannot disagree.
+!!
+!! Messages, as a dict with `action`:
+!!
+!!   `mount` — the full home has just rendered the summary card (the shell renders the layout). Attach its elements, then paint from this snapshot.
+!!
+!!   `paint` — a snapshot changed: a map push, a view switch, a room command. Paint everything that is on screen.
+!!
+!!   `unmount` — the card has gone (the simple home replaced the column). Stop painting card elements until the next mount.
+!!
+!! Every message is fire-and-forget. A send that waited would park the shell and take this program's single reply slot, which is how a map push gets dropped.
+
+	script Status
+
+	div SummaryTitle
+	div SummaryOutside
+	div SummaryOutsideFrost
+	div SummaryToday
+	div SummaryProfileName
+	div SummaryChip
+	div SummaryChipIcon
+	div SummaryDot
+	div TopBarDate
+	div TopBarProfileName
+	div TopBarOutsideBlock
+	div TopBarOutside
+	div TopBarOutsideFrost
+	div HeartbeatFlame
+	div SystemId
+
+	variable StatusMessage
+	variable StatusAction
+	variable SummaryMounted
+
+	variable RoomsIn
+	variable RoomCountIn
+	variable OutsideTempIn
+	variable OutsideSensorIn
+	variable FrostTriggerIn
+	variable FrostActiveIn
+	variable RequestRelayIn
+	variable SystemNameIn
+	variable ActiveProfileNameIn
+
+	variable HeatingCount
+	variable HeatingNames
+	variable OutsideText
+	variable TitleText
+	variable FrostActive
+	variable DemandOn
+	variable SummaryTitleHeat
+	variable LoopI
+	variable CurRoom
+	variable RName
+	variable Tcalling
+	variable OutsideTempTenths
+	variable FrostTriggerTenths
+
+	variable DayNames
+	variable MonthNames
+	variable DayName
+	variable MonthName
+	variable DateD
+	variable DateDN
+	variable DateM
+	variable DateH
+	variable DateN
+	variable DateClock
+	variable ClockText
+!! @hash 5169fc25
+!!!
+
+!! Boot: claim the top bar's readouts, start the clock, then park for snapshots.
+!!
+!! The top bar is rendered by the shell before this module loads, so its elements exist to attach. `SystemId` is claimed here too: the shell sets its first text ("…" or "Reconnecting…") while the connection is still being made, and this module replaces it with the system's name once a map arrives.
+!!
+!! The clock tick starts here rather than in the shell because it repaints two cells that both belong to this module.
+BootStatus:
+	attach TopBarDate to `top-bar-date`
+	attach TopBarProfileName to `top-bar-profile-name`
+	attach TopBarOutsideBlock to `top-bar-outside-block`
+	attach TopBarOutside to `top-bar-outside`
+	attach TopBarOutsideFrost to `top-bar-outside-frost`
+	attach HeartbeatFlame to `top-bar-demand-flame`
+	attach SystemId to `top-bar-system-id`
+
+	put `[]` into DayNames
+	set element 0 of DayNames to `Sun`
+	set element 1 of DayNames to `Mon`
+	set element 2 of DayNames to `Tue`
+	set element 3 of DayNames to `Wed`
+	set element 4 of DayNames to `Thu`
+	set element 5 of DayNames to `Fri`
+	set element 6 of DayNames to `Sat`
+	put `[]` into MonthNames
+	set element 0 of MonthNames to `Jan`
+	set element 1 of MonthNames to `Feb`
+	set element 2 of MonthNames to `Mar`
+	set element 3 of MonthNames to `Apr`
+	set element 4 of MonthNames to `May`
+	set element 5 of MonthNames to `Jun`
+	set element 6 of MonthNames to `Jul`
+	set element 7 of MonthNames to `Aug`
+	set element 8 of MonthNames to `Sep`
+	set element 9 of MonthNames to `Oct`
+	set element 10 of MonthNames to `Nov`
+	set element 11 of MonthNames to `Dec`
+
+	fork to ClockTick
+	on message go to HandleStatus
+	release parent
+	stop
+!! @hash 8d24fd89
+!!!
+!! Message handler: unpack the snapshot, then mount, paint or unmount.
+HandleStatus:
+	put the message into StatusMessage
+	put property `action` of StatusMessage into StatusAction
+	if StatusAction is not `unmount`
+	begin
+		put property `rooms` of StatusMessage into RoomsIn
+		put property `roomCount` of StatusMessage into RoomCountIn
+		put property `outsideTemp` of StatusMessage into OutsideTempIn
+		put property `outsideSensor` of StatusMessage into OutsideSensorIn
+		put property `frostTrigger` of StatusMessage into FrostTriggerIn
+		put property `frostActive` of StatusMessage into FrostActiveIn
+		put property `requestRelay` of StatusMessage into RequestRelayIn
+		put property `systemName` of StatusMessage into SystemNameIn
+		put property `activeProfileName` of StatusMessage into ActiveProfileNameIn
+	end
+	if StatusAction is `mount`
+	begin
+		gosub to AttachSummaryCard
+		gosub to PaintStatus
+	end
+	if StatusAction is `paint` gosub to PaintStatus
+	if StatusAction is `unmount` clear SummaryMounted
+	stop
+!! @hash 603cb77c
+!!!
+!! Attach the summary card's own elements after the shell has rendered its layout into the main column.
+!!
+!! Called on every `mount`, because a view switch clears the main column and the next full home renders a fresh card — the handles from the previous one point at elements that are gone.
+AttachSummaryCard:
+	attach SummaryTitle to `summary-title`
+	attach SummaryOutside to `summary-outside`
+	attach SummaryOutsideFrost to `summary-outside-frost`
+	attach SummaryToday to `summary-today`
+	attach SummaryProfileName to `summary-profile-name`
+	attach SummaryChip to `summary-chip`
+	attach SummaryChipIcon to `summary-chip-icon`
+	attach SummaryDot to `summary-chip-dot`
+	set SummaryMounted
+	return
+!! @hash bef2b784
+!!!
+!! Recompute the aggregates and repaint everything this module owns.
+!!
+!! The card is painted only while it is mounted; the banner and the flame live in the top bar and are always there, so they are painted in both views. In the full view the shell hides the banner's row with CSS, and in the simple view it hides the card by not building it — either way the paint is harmless where it is not seen.
+PaintStatus:
+	gosub to ComputeSummaryStats
+	if SummaryMounted gosub to PaintSummary
+	gosub to PaintBannerInfo
+	return
+!! @hash 4c0a2e09
+!!!
+!! Walk the rooms in the snapshot and recompute the card's aggregates.
+!!
+!! Sets HeatingCount, HeatingNames, OutsideText, TitleText and FrostActive. `FrostActiveIn` is the controller's own `frostActive` flag, when it sets one — it knows things the UI does not, such as demand-relay state. Otherwise frost protection is derived: active when a trigger is set, the outside temperature is at or below it, and no rooms are calling.
+!!
+!! Title picks one of four messages: "Frost protection active" (overrides everything), "Nothing calling for heat" (idle), "<Room> is calling for heat" (single), or "<N> rooms calling for heat" with comma-joined names (multi).
+ComputeSummaryStats:
+	put 0 into HeatingCount
+	put empty into HeatingNames
+	put 0 into LoopI
+	while LoopI is less than RoomCountIn
+	begin
+		put element LoopI of RoomsIn into CurRoom
+		put property `name` of CurRoom into RName
+		put property `calling` of CurRoom into Tcalling
+		if Tcalling is `yes`
+		begin
+			increment HeatingCount
+			if HeatingNames is empty put RName into HeatingNames
+			else put HeatingNames cat `, ` cat RName into HeatingNames
+		end
+		increment LoopI
+	end
+
+	put `—` into OutsideText
+	if OutsideTempIn is not empty put OutsideTempIn cat `°C` into OutsideText
+
+	clear FrostActive
+	if FrostActiveIn is `yes` set FrostActive
+	else
+	begin
+		if FrostTriggerIn is not empty
+		begin
+			if OutsideTempIn is not empty
+			begin
+				if HeatingCount is 0
+				begin
+					put OutsideTempIn scale 10 into OutsideTempTenths
+					put FrostTriggerIn scale 10 into FrostTriggerTenths
+					if OutsideTempTenths is not greater than FrostTriggerTenths set FrostActive
+				end
+			end
+		end
+	end
+
+	if FrostActive
+	begin
+		put `Frost protection active` into TitleText
+	end
+	else if HeatingCount is 0
+	begin
+		put `Nothing calling for heat` into TitleText
+	end
+	else if HeatingCount is 1
+	begin
+		put HeatingNames cat ` is calling for heat` into TitleText
+	end
+	else
+	begin
+		put HeatingCount cat ` rooms calling for heat` into TitleText
+	end
+	gosub to PaintDemandFlame
+	return
+!! @hash 7c10c4e0
+!!!
+!! Push the aggregates into the summary card and keep the card's own live fields current.
+!!
+!! The title takes the same accent colour as a room name while any room is calling; frost protection is its own state, not a heat call-out. The date, profile name and system name depend on live data, so they are refreshed here rather than at startup. The frost badge in the outside row toggles inline-block against none, and the chip swaps heat for neutral on HeatingCount.
+PaintSummary:
+	set the content of SummaryTitle to TitleText
+	set the content of SummaryOutside to OutsideText
+	clear SummaryTitleHeat
+	if HeatingCount is greater than 0 set SummaryTitleHeat
+	if FrostActive clear SummaryTitleHeat
+	if SummaryTitleHeat set style `color` of SummaryTitle to `var(--color-accent)`
+	else set style `color` of SummaryTitle to `var(--color-text-primary)`
+
+	gosub to FormatTodayString
+	set the content of SummaryToday to ClockText
+
+	if ActiveProfileNameIn is not empty set the content of SummaryProfileName to ActiveProfileNameIn
+!	The first map ends the "Reconnecting…" state shown by the first-map
+!	watchdog. A system with no name gets the blank loading mark back rather
+!	than leaving the recovery text there for ever.
+	if SystemNameIn is not empty set the content of SystemId to SystemNameIn
+	if SystemNameIn is empty set the content of SystemId to `…`
+
+	if FrostActive set style `display` of SummaryOutsideFrost to `inline-block`
+	else set style `display` of SummaryOutsideFrost to `none`
+
+	if HeatingCount is 0
+	begin
+		set style `background` of SummaryChip to `var(--color-chip-neutral-bg)`
+		set style `background-color` of SummaryChipIcon to `var(--color-text-muted)`
+		set style `display` of SummaryDot to `none`
+	end
+	else
+	begin
+		set style `background` of SummaryChip to `var(--color-chip-heat-bg)`
+		set style `background-color` of SummaryChipIcon to `var(--color-chip-heat-fg)`
+		set style `display` of SummaryDot to `block`
+	end
+	return
+!! @hash 5446f3f6
+!!!
+!! Paint the banner's second row: date and time, active profile name, outside reading, frost badge.
+!!
+!! The profile name is always shown. The outside half appears only when an outside thermometer is configured; without one the Profile button is the profile editor's entry point alone. A configured sensor with no reading yet shows an em dash rather than a misleading zero. The frost snowflake follows FrostActive — the controller's flag if present, otherwise outside at or below the trigger with no room calling.
+PaintBannerInfo:
+	gosub to FormatTodayString
+	set the content of TopBarDate to ClockText
+	if ActiveProfileNameIn is not empty set the content of TopBarProfileName to ActiveProfileNameIn
+	else set the content of TopBarProfileName to `—`
+	if OutsideSensorIn is not empty
+	begin
+		set style `display` of TopBarOutsideBlock to `flex`
+		if OutsideTempIn is empty set the content of TopBarOutside to `—`
+		else set the content of TopBarOutside to OutsideTempIn
+	end
+	else set style `display` of TopBarOutsideBlock to `none`
+	if FrostActive set style `display` of TopBarOutsideFrost to `block`
+	else set style `display` of TopBarOutsideFrost to `none`
+	return
+!! @hash 12e650ee
+!!!
+!! Show the flame beside the heartbeat dot while the demand relay is on.
+!!
+!! The map names the demand relay but does not say whether it is firing, so the module derives that from the two things the controller fires it for: any room calling for heat, and frost protection, which fires it with no room calling. A system with no request relay has nothing to report, so the flame stays away however many rooms heat on their own valves.
+PaintDemandFlame:
+	clear DemandOn
+	if RequestRelayIn is not empty
+	begin
+		if HeatingCount is greater than 0 set DemandOn
+		if FrostActive set DemandOn
+	end
+	if DemandOn set style `visibility` of HeartbeatFlame to `visible`
+	else set style `visibility` of HeartbeatFlame to `hidden`
+	return
+!! @hash bbf43f81
+!!!
+!! Build today's date and the current time as "Tue 20 Oct 09:19" into ClockText.
+!!
+!! Uses the day and month lookup tables and the browser's own date keywords — this runtime has no `datime` — so ClockTick can refresh it between map pushes. Both time fields are zero-padded.
+FormatTodayString:
+	put the day into DateD
+	put the day number into DateDN
+	put the month into DateM
+	put element DateD of DayNames into DayName
+	put element DateM of MonthNames into MonthName
+	put the hour into DateH
+	put the minute into DateN
+	if DateH is less than 10 put `0` cat DateH into DateClock
+	else put `` cat DateH into DateClock
+	if DateN is less than 10 put DateClock cat `:0` cat DateN into DateClock
+	else put DateClock cat `:` cat DateN into DateClock
+	put DayName cat ` ` cat DateDN cat ` ` cat MonthName cat ` ` cat DateClock into ClockText
+	return
+!! @hash 431fcbc3
+!!!
+!! Keep the displayed time current between map pushes.
+!!
+!! Forked at boot. The controller only pushes a full map when state changes, so without this the displayed time would freeze until the next temperature or relay change. Only the date cells are repainted, which keeps the tick cheap.
+ClockTick:
+	while true
+	begin
+		wait 30 seconds
+		gosub to FormatTodayString
+		set the content of TopBarDate to ClockText
+		if SummaryMounted set the content of SummaryToday to ClockText
+	end
+!! @hash 5e6d57bb
+!!!

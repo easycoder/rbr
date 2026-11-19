@@ -1,17 +1,21 @@
-# 2026-11-19 — the card agrees with the controller about a moved morning, and the home survives a room-count change
+# 2026-11-19 — Appearance, Status and Systems move out of shell.allspeak
 
-**Action:** `./deploy.sh` publishes the PWA and the edited interface page. There is no controller change and no version bump, so nothing restarts. On the phone, reload the app once (or let the service worker's network-first fetch pick it up) — the two runtime-error dialogs from this morning cannot recur after that.
+**Action:** `./deploy.sh`, then reload the app once on the phone. There is no controller change and no version bump, so nothing restarts.
 
 ## What changed
 
-`new-ui/resources/allspeak/map-to-rooms.allspeak` — the page's projection of a room's schedule now applies today's armed one-off override before it decides what the room is doing, exactly as the controller's `GetEffectivePeriods` does: the morning `on` moves to the requested time, `keepoff` moves the `off` by the same amount (clamped to 23:59), a `skip` or a late start without `keepoff` drops that period for the morning, and an override dated tomorrow changes nothing today. This is why Bedroom 1 showed black text and "Off until 07:30" while its flame was lit at 06:30 and the pill only went blue at 07:30. The scheduled morning start used to pre-fill the Special time popup is remembered before the shift, so an armed override is not offered back as the next time.
+`new-ui/resources/allspeak/shell.allspeak` — 5,300 lines to 4,207. Three features now live in their own modules, each reached by message:
 
-`new-ui/resources/allspeak/shell.allspeak` — a map that brings a different number of rooms now rebuilds the home instead of refreshing past its built rows (the `room-3-name` / `No such element` dialog). The single-room card holds an incoming map while it is being built and flushes it afterwards, and a card whose template never arrived falls back to the room list rather than raising an error on every push (`ModeTimedBtn is not attached to a DOM element`). The room-page refresh also skips the control block for a sensor row, as the open path already did.
+- `appearance.allspeak` (596 lines) — the page's time-of-day background, the palette and the hex maths, and the Appearance sheet's swatch / hex / time controls. Loaded at boot so the gradient is on the first frame; it forks its own hour tick.
+- `status.allspeak` (345 lines) — the summary card and the top bar's live readouts: date, profile, outside reading, frost badge, demand flame, system name, and the aggregate "N rooms calling for heat" title. The shell sends a snapshot (`mount` / `paint` / `unmount`) and keeps no copy of the aggregates or the frost flag, so the card and the banner cannot disagree.
+- `systems.allspeak` (438 lines) — the device's systems list, its storage and migration, the `mac` / `token` boot reply, and the whole About sheet including the pairing flow.
 
-`tests/ui/room-count.spec.js` — new: room-list growth, a card across a map push, and the failed-template fallback. `tests/ui/special-override.spec.js` — the moved morning is asserted as orange with the moved stop, and the time popup still offers the scheduled start. `tests/ui/README.md`, `AGENTS.md` and `docs/operation/01-the-interface.md` describe the behaviour.
+The shell keeps what is chrome: it renders each sheet's layout, shows and hides it with `HideAllSheets`, sets its title, and owns the controls that rebuild the home or close the chrome (the Appearance view pills and Done). Every new call is a fire-and-forget `send`, so nothing parks the shell and no map push is stranded behind a reply — except the systems `boot` request, which waits because the credential fetch cannot start without its answer.
+
+`tests/pwa-compile-check.js`, `AGENTS.md` — the module set is eight, not six.
 
 ## Checked
 
-`node tests/pwa-compile-check.js` — 12/12. `tests/unit/controller-compile-check.sh` — the controller compiles. The full Playwright suite passes (29/30 on the first run; the one failure was a minute-boundary in the new test's own expected time, now pinned to one instant — the spec then passes 3/3). `python3 asdoc-check.py` reports 0 errors.
+`node tests/pwa-compile-check.js` 16/16, all eight modules. `npm run test:ui` 30/30. All twelve `tests/pwa-*-check.js` pass. The published `asdoc-check` reports 0 errors and 113 warnings.
 
-`node tests/pwa-boot-guard-check.js` fails at "a normal boot" on unmodified `HEAD` too (it reads `#app` after the current runtime has replaced it), so it is not from this change.
+Every `gosub` / `fork` / `go to` target in every module was checked separately: the compiler does not resolve them, and a lost `ToTenths` reached runtime during this change before the check existed. The simple-view spec caught it, since it exercises a room command.

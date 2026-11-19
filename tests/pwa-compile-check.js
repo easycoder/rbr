@@ -2,7 +2,7 @@
 //
 //   node tests/pwa-compile-check.js
 //
-// The new UI is five AllSpeak scripts fetched and compiled in the browser at
+// The new UI is eight AllSpeak scripts fetched and compiled in the browser at
 // runtime. There is no compiler on the machine that can check them: the
 // `allspeak` CLI is a different implementation of the language (a Python port
 // with declared types — `dictionary`, `list` — and, at the time of writing, no
@@ -89,7 +89,7 @@ function checkPage(module, runtime) {
 }
 
 // Serve the repository, plus the two virtual routes: the check page for a
-// module, and the runtime once fetched, so five modules cost one download.
+// module, and the runtime once fetched, so eight modules cost one download.
 function serve(runtimeBody) {
   return new Promise(resolve => {
     const server = http.createServer((req, res) => {
@@ -204,10 +204,11 @@ async function main() {
   }
   server.close();
 
-  // The five that make up the UI are the reason this exists; a directory that
+  // The eight that make up the UI are the reason this exists; a directory that
   // has lost one is a failure in the same right.
   console.log('\n== the set ==');
-  for (const name of ['shell.allspeak', 'map-to-rooms.allspeak', 'device-editor.allspeak',
+  for (const name of ['shell.allspeak', 'appearance.allspeak', 'status.allspeak',
+    'systems.allspeak', 'map-to-rooms.allspeak', 'device-editor.allspeak',
     'profile-sheet.allspeak', 'schedule-editor.allspeak']) {
     check(`${name} is present and compiles`, results.some(r => r.module === name && r.ok));
   }

@@ -1,0 +1,438 @@
+!! Systems module: the installations this device knows, and the About sheet that manages them.
+!!
+!! Owns the local systems list and its storage, the pair of identifiers the shell boots with (`mac`, `token`), and every control in the About sheet: the two tabs, the Systems list with its Select / Rename / Remove buttons, and the pairing flow that exchanges a MAC and system password for a token at `/verify`.
+!!
+!! Loaded by shell.allspeak at boot, before the credential fetch, because the shell cannot ask credentials.php for anything until it knows which system it is. The module answers a `boot` message with the current system's `mac` and `token` and keeps the list itself from then on; the shell never reads it again.
+!!
+!! Why it is a module: the list is this device's own business — browser storage, a local label per entry, a reload to switch — and none of it has anything to do with the map, the MQTT connection or the room list. Keeping the store and the sheet together is what lets the shell stop carrying a second copy of the same identifiers: `MAC` and `Token` in the shell are the boot reply, not a store.
+!!
+!! The About sheet's layout is rendered by the shell, which owns the sheet chrome; the module attaches the controls and paints them. Sheet visibility, the title and HideAllSheets are the shell's, as for every other sheet.
+!!
+!! Messages, as a dict with `action`:
+!!
+!!   `boot` — reply with `{mac, token}` for the current system. This is the one request that waits for an answer, and it is safe because nothing else is in flight at that point in the boot.
+!!
+!!   `attach` — the About sheet layout is in the DOM: attach its controls, wire the tabs and the pairing buttons, paint the About tab.
+!!
+!!   `open` — the shell has shown the sheet. `demo` is `yes` when there are no credentials, which is what reveals the "Set up my system" call to action; paint the About tab.
+
+	script Systems
+
+	div AboutTabAbout
+	button AboutTabSystems
+	div AboutBodyAbout
+	div AboutBodySystems
+	button AboutCtaSetup
+	div SystemsList
+	div SystemsEmpty
+	button SystemsAddBtn
+	div SystemsRowName
+	div SystemsRowMac
+	button SystemsRowSelect
+	button SystemsRowRename
+	button SystemsRowDelete
+
+	variable SystemsMessage
+	variable SystemsAction
+	variable SystemsReply
+
+!	The array from storage, and the current entry's values copied out of it
+!	at boot for the credential fetch and the MQTT connection.
+	variable SystemsJson
+	variable SystemsData
+	variable SystemsCount
+	variable SystemsIdx
+	variable SystemsFindMac
+	variable SystemsFound
+	variable SystemsEntry
+	variable SystemsCurrentMac
+	variable SystemsRowTemplate
+	variable SystemsRowText
+	variable SystemsRowIdxStr
+	variable SystemsName
+	variable SystemsMac
+	variable SystemsToken
+	variable SystemsAddName
+	variable SystemsAddMac
+	variable SystemsAddPassword
+	variable MAC
+	variable Token
+	variable Response
+	variable ConfirmFlag
+!! @hash 5b1da6cb
+!!!
+
+!! Boot: load the local list and the paired-system row template, then park for the shell.
+!!
+!! The list is read here rather than on first use because the shell asks for `mac` and `token` immediately after loading this module — credentials.php and the MQTT connection both need them before anything else happens.
+BootSystems:
+	rest get SystemsRowTemplate from `resources/webson/systems-row.json?v=` cat now
+		or go to SystemsNoTemplate
+	gosub to LoadSystems
+	on message go to HandleSystems
+	release parent
+	stop
+
+SystemsNoTemplate:
+!	Without the row template the sheet cannot list anything. The store is still
+!	loaded, because the shell's boot depends on it; the list simply stays empty.
+	put empty into SystemsRowTemplate
+	gosub to LoadSystems
+	on message go to HandleSystems
+	release parent
+	stop
+!! @hash 89bd3c35
+!!!
+!! Message handler: answer the boot request, or take ownership of the sheet.
+HandleSystems:
+	put the message into SystemsMessage
+	put property `action` of SystemsMessage into SystemsAction
+	if SystemsAction is `boot`
+	begin
+		put `{}` into SystemsReply
+		set property `mac` of SystemsReply to MAC
+		set property `token` of SystemsReply to Token
+		send SystemsReply to sender
+	end
+	if SystemsAction is `attach` gosub to AttachAboutSheet
+	if SystemsAction is `open` gosub to OpenAboutSheet
+	stop
+!! @hash 384e717f
+!!!
+!! Attach the About sheet's controls and wire the ones that are not per row.
+!!
+!! The Manual tab is an ordinary link to the documentation and needs no handler. The per-row Select / Rename / Remove handlers are registered by RenderSystemsList, because the rows are rebuilt every time the list changes.
+AttachAboutSheet:
+	attach AboutTabAbout to `about-tab-about`
+	attach AboutTabSystems to `about-tab-systems`
+	attach AboutBodyAbout to `about-body-about`
+	attach AboutBodySystems to `about-body-systems`
+	attach AboutCtaSetup to `about-cta-setup`
+	attach SystemsList to `about-systems-list`
+	attach SystemsEmpty to `about-systems-empty`
+	attach SystemsAddBtn to `about-systems-add`
+	on click AboutTabAbout gosub to ShowAboutTabAbout
+	on click AboutTabSystems gosub to ShowAboutTabSystems
+	on click SystemsAddBtn gosub to AddSystem
+	on click AboutCtaSetup gosub to AddSystem
+	gosub to ShowAboutTabAbout
+	return
+!! @hash cb4222ae
+!!!
+!! Paint the sheet for the state that opened it: the call to action only in demo mode, then the first tab.
+OpenAboutSheet:
+	if property `demo` of SystemsMessage is `yes` set style `display` of AboutCtaSetup to `block`
+	else set style `display` of AboutCtaSetup to `none`
+	gosub to ShowAboutTabAbout
+	return
+!! @hash 82cc90cf
+!!!
+!! Read the device's systems list, creating it from the older single-system keys if this is an upgraded install.
+!!
+!! The list is local to this browser: a name for a system, its MAC and its token. A device that predates the list has one MAC and token in `dev-mac` / `dev-token`; they become the first entry, named "My system".
+LoadSystems:
+	put empty into SystemsJson
+	get SystemsJson from storage as `rbr-systems`
+	if SystemsJson is `null` put empty into SystemsJson
+	if SystemsJson is `undefined` put empty into SystemsJson
+	put empty into SystemsData
+	if SystemsJson is not empty put json of SystemsJson into SystemsData
+	if SystemsData is empty
+	begin
+		get MAC from storage as `dev-mac`
+		get Token from storage as `dev-token`
+		if MAC is `null` put empty into MAC
+		if MAC is `undefined` put empty into MAC
+		if Token is `null` put empty into Token
+		if Token is `undefined` put empty into Token
+		if MAC is empty
+		begin
+			put empty into SystemsCurrentMac
+			return
+		end
+		set SystemsData to array
+		set SystemsEntry to object
+		set property `name` of SystemsEntry to `My system`
+		set property `mac` of SystemsEntry to MAC
+		set property `token` of SystemsEntry to Token
+		json add SystemsEntry to SystemsData
+		put MAC into SystemsCurrentMac
+		gosub to SaveSystems
+		return
+	end
+	get SystemsCurrentMac from storage as `rbr-current-mac`
+	if SystemsCurrentMac is `null` put empty into SystemsCurrentMac
+	if SystemsCurrentMac is `undefined` put empty into SystemsCurrentMac
+	put SystemsCurrentMac into SystemsFindMac
+	gosub to FindSystem
+	if SystemsFound is less than 0
+	begin
+		put element 0 of SystemsData into SystemsEntry
+		put property `mac` of SystemsEntry into SystemsCurrentMac
+		put SystemsCurrentMac into SystemsFindMac
+		gosub to FindSystem
+	end
+	put empty into MAC
+	put empty into Token
+	if SystemsFound is greater than -1
+	begin
+		put element SystemsFound of SystemsData into SystemsEntry
+		put property `mac` of SystemsEntry into MAC
+		put property `token` of SystemsEntry into Token
+	end
+	return
+!! @hash a897a936
+!!!
+!! Write the systems list and the current MAC back to browser storage.
+SaveSystems:
+	put the json of SystemsData into SystemsJson
+	put SystemsJson into storage as `rbr-systems`
+	put SystemsCurrentMac into storage as `rbr-current-mac`
+	return
+!! @hash 63363f95
+!!!
+!! Look up `SystemsFindMac` in `SystemsData`, leaving its position in `SystemsFound` or -1.
+FindSystem:
+	put -1 into SystemsFound
+	if SystemsData is empty return
+	put 0 into SystemsIdx
+	while SystemsIdx is less than the json count of SystemsData
+	begin
+		put element SystemsIdx of SystemsData into SystemsEntry
+		if property `mac` of SystemsEntry is SystemsFindMac
+		begin
+			put SystemsIdx into SystemsFound
+			return
+		end
+		increment SystemsIdx
+	end
+	return
+!! @hash 3f0802dd
+!!!
+!! About-sheet tab swappers. Active tab pill gets the surface-card background + drop shadow + bold; inactive gets transparent. Body visibility follows.
+ShowAboutTabAbout:
+	set style `display` of AboutBodyAbout to `block`
+	set style `display` of AboutBodySystems to `none`
+	set style `background` of AboutTabAbout to `var(--color-surface-card)`
+	set style `box-shadow` of AboutTabAbout to `0 1px 3px rgba(0,0,0,0.08)`
+	set style `color` of AboutTabAbout to `var(--color-text-primary)`
+	set style `font-weight` of AboutTabAbout to `600`
+	set style `background` of AboutTabSystems to `transparent`
+	set style `box-shadow` of AboutTabSystems to `none`
+	set style `color` of AboutTabSystems to `var(--color-text-muted)`
+	set style `font-weight` of AboutTabSystems to `500`
+	return
+
+ShowAboutTabSystems:
+	set style `display` of AboutBodyAbout to `none`
+	set style `display` of AboutBodySystems to `block`
+	set style `background` of AboutTabAbout to `transparent`
+	set style `box-shadow` of AboutTabAbout to `none`
+	set style `color` of AboutTabAbout to `var(--color-text-muted)`
+	set style `font-weight` of AboutTabAbout to `500`
+	set style `background` of AboutTabSystems to `var(--color-surface-card)`
+	set style `box-shadow` of AboutTabSystems to `0 1px 3px rgba(0,0,0,0.08)`
+	set style `color` of AboutTabSystems to `var(--color-text-primary)`
+	set style `font-weight` of AboutTabSystems to `600`
+	gosub to RenderSystemsList
+	return
+!! @hash d3ff10ab
+!!!
+!! Render the managed systems into the About sheet's list, one row each.
+!!
+!! The list is local to this device. Select makes a row current and reloads; the current row's button reads Current and is disabled. Remove forgets the row here and does not touch the installation or the server entry. The name is escaped before it is put into the row because `set the content of` writes markup.
+RenderSystemsList:
+	clear SystemsList
+	put the json count of SystemsData into SystemsCount
+	if SystemsCount is less than 1
+	begin
+		set style `display` of SystemsEmpty to `block`
+		return
+	end
+	set style `display` of SystemsEmpty to `none`
+	set the elements of SystemsRowName to SystemsCount
+	set the elements of SystemsRowMac to SystemsCount
+	set the elements of SystemsRowSelect to SystemsCount
+	set the elements of SystemsRowRename to SystemsCount
+	set the elements of SystemsRowDelete to SystemsCount
+	put 0 into SystemsIdx
+	while SystemsIdx is less than SystemsCount
+	begin
+		put element SystemsIdx of SystemsData into SystemsEntry
+		put SystemsRowTemplate into SystemsRowText
+		put `` cat SystemsIdx into SystemsRowIdxStr
+		replace `/I/` with SystemsRowIdxStr in SystemsRowText
+		render SystemsRowText in SystemsList
+
+		index SystemsRowName to SystemsIdx
+		attach SystemsRowName to `system-row-` cat SystemsRowIdxStr cat `-name`
+		put property `name` of SystemsEntry into SystemsName
+		replace `&` with `&amp;` in SystemsName
+		replace `<` with `&lt;` in SystemsName
+		replace `>` with `&gt;` in SystemsName
+		set the content of SystemsRowName to SystemsName
+
+		index SystemsRowMac to SystemsIdx
+		attach SystemsRowMac to `system-row-` cat SystemsRowIdxStr cat `-mac`
+		set the content of SystemsRowMac to property `mac` of SystemsEntry
+
+		index SystemsRowSelect to SystemsIdx
+		attach SystemsRowSelect to `system-row-` cat SystemsRowIdxStr cat `-select`
+		if property `mac` of SystemsEntry is MAC
+		begin
+			set the content of SystemsRowSelect to `Current`
+			disable SystemsRowSelect
+			set style `color` of SystemsRowName to `var(--color-accent)`
+		end
+		else
+		begin
+			set the content of SystemsRowSelect to `Select`
+			enable SystemsRowSelect
+		end
+
+		index SystemsRowRename to SystemsIdx
+		attach SystemsRowRename to `system-row-` cat SystemsRowIdxStr cat `-rename`
+
+		index SystemsRowDelete to SystemsIdx
+		attach SystemsRowDelete to `system-row-` cat SystemsRowIdxStr cat `-delete`
+
+		on click SystemsRowSelect
+		begin
+			put the index of SystemsRowSelect into SystemsIdx
+			gosub to SelectSystem
+		end
+		on click SystemsRowRename
+		begin
+			put the index of SystemsRowRename into SystemsIdx
+			gosub to RenameSystem
+		end
+		on click SystemsRowDelete
+		begin
+			put the index of SystemsRowDelete into SystemsIdx
+			gosub to DeleteSystem
+		end
+		increment SystemsIdx
+	end
+	return
+!! @hash 6012456f
+!!!
+!! Make the clicked system current and reload on it.
+!!
+!! The MQTT client, map and sheet state are all built for one system at boot; switching in place would mean tearing them down. A reload is the same path pairing already uses, and it is what makes the current system's name appear everywhere.
+SelectSystem:
+	put element SystemsIdx of SystemsData into SystemsEntry
+	put property `mac` of SystemsEntry into SystemsMac
+	if SystemsMac is MAC return
+	put SystemsMac into SystemsCurrentMac
+	gosub to SaveSystems
+	location the location
+	return
+!! @hash 934b0d46
+!!!
+!! Change the local label of a system without touching its identity or the server.
+!!
+!! The name is only the label this device's list shows; the MAC, token and the controller's own system name are untouched. The list is repainted in place, so the sheet stays open.
+RenameSystem:
+	put element SystemsIdx of SystemsData into SystemsEntry
+	put property `name` of SystemsEntry into SystemsName
+	put prompt `Rename ` cat SystemsName cat ` for this device's list:` into SystemsName
+	if SystemsName is `null` return
+	if SystemsName is `undefined` return
+	put trim SystemsName into SystemsName
+	if SystemsName is empty return
+	set property `name` of SystemsEntry to SystemsName
+	set element SystemsIdx of SystemsData to SystemsEntry
+	gosub to SaveSystems
+	gosub to RenderSystemsList
+	return
+!! @hash 646f03eb
+!!!
+!! Forget a system on this device, never on the server.
+!!
+!! Removing the current system picks the first remaining one and reloads; removing the last one clears the identity and reloads into demo mode. Removing another system only repaints the list, so the sheet stays where it was.
+DeleteSystem:
+	put element SystemsIdx of SystemsData into SystemsEntry
+	put property `name` of SystemsEntry into SystemsName
+	put property `mac` of SystemsEntry into SystemsMac
+	clear ConfirmFlag
+	if confirm `Remove ` cat SystemsName cat ` from this device? The installation itself is not changed.` set ConfirmFlag
+	if not ConfirmFlag return
+	json delete element SystemsIdx of SystemsData
+	if SystemsMac is not MAC
+	begin
+		gosub to SaveSystems
+		gosub to RenderSystemsList
+		return
+	end
+	if SystemsData is empty
+	begin
+		put empty into SystemsCurrentMac
+		gosub to SaveSystems
+		put empty into storage as `dev-mac`
+		put empty into storage as `dev-token`
+		location the location
+		return
+	end
+	put element 0 of SystemsData into SystemsEntry
+	put property `mac` of SystemsEntry into SystemsMac
+	put SystemsMac into SystemsCurrentMac
+	gosub to SaveSystems
+	location the location
+	return
+!! @hash 4620d865
+!!!
+!! Add one system to this device's list, or update its token if it is already there.
+!!
+!! The name is the label this list shows and need not be the controller's own system name. The MAC and system password are the pair the existing pairing flow used; `/verify` exchanges them for that system's token. The account must already be provisioned on the web host — this does not create a `rbr-users.json` entry — and a successful add selects the new system and reloads.
+AddSystem:
+	put prompt `Name this system for your list` into SystemsAddName
+	if SystemsAddName is `null` return
+	if SystemsAddName is `undefined` return
+	put trim SystemsAddName into SystemsAddName
+	if SystemsAddName is empty return
+	put prompt `Enter your controller's MAC address` cat newline cat `(printed on the device, format aa:bb:cc:dd:ee:ff):` into SystemsAddMac
+	if SystemsAddMac is `null` return
+	if SystemsAddMac is `undefined` return
+	put trim SystemsAddMac into SystemsAddMac
+	put lowercase SystemsAddMac into SystemsAddMac
+	if SystemsAddMac is empty return
+	put prompt `Enter the system password` cat newline cat `(the one shown when the system was provisioned):` into SystemsAddPassword
+	if SystemsAddPassword is empty return
+	if SystemsAddPassword is `null` return
+	if SystemsAddPassword is `undefined` return
+
+	rest post `{"mac":"` cat SystemsAddMac cat `","password":"` cat SystemsAddPassword cat `"}` to `/verify` giving Response
+		or go to AddSystemFailed
+	if Response is empty go to AddSystemFailed
+	if property `ok` of Response is not true go to AddSystemFailed
+	put property `token` of Response into SystemsToken
+	if SystemsToken is empty go to AddSystemFailed
+
+	put SystemsAddMac into SystemsMac
+	put SystemsMac into SystemsFindMac
+	gosub to FindSystem
+	if SystemsFound is greater than -1
+	begin
+		put element SystemsFound of SystemsData into SystemsEntry
+		set property `name` of SystemsEntry to SystemsAddName
+		set property `token` of SystemsEntry to SystemsToken
+		set element SystemsFound of SystemsData to SystemsEntry
+	end
+	else
+	begin
+		set SystemsEntry to object
+		set property `name` of SystemsEntry to SystemsAddName
+		set property `mac` of SystemsEntry to SystemsMac
+		set property `token` of SystemsEntry to SystemsToken
+		json add SystemsEntry to SystemsData
+	end
+	put SystemsMac into SystemsCurrentMac
+	gosub to SaveSystems
+	location the location
+	return
+
+AddSystemFailed:
+	alert `That MAC and password were not accepted. Check the system password that was shown when the system was provisioned, and the MAC printed on the device.`
+	return
+!! @hash 194ddc15
+!!!

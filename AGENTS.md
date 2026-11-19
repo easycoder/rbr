@@ -43,7 +43,7 @@ These checks run without a browser, a broker or the controller box, and all are 
 ```bash
 tests/unit/controller-compile-check.sh # the whole controller must compile (a duplicate symbol once stopped every controller)
 tests/unit/run-unit-tests.sh          # the compile check + AllSpeak unit tests + Python tests (heatlog, eventlog, journal, journal export, round-trip, overrides, SetRelay, heatwatch, TRV running state, watchdog probe)
-node tests/pwa-compile-check.js       # compiles all five new-ui modules in the browser runtime
+node tests/pwa-compile-check.js       # compiles all eight new-ui modules in the browser runtime
 node tests/pwa-device-editor-check.js # drives the Devices sheet: a rename keeps its room's own wiring
 node tests/pwa-schedule-editor-check.js # drives the schedule's time fields: how a stop follows its start
 node tests/pwa-schedule-save-check.js # a map push while a sheet editor is open must not swallow its reply
